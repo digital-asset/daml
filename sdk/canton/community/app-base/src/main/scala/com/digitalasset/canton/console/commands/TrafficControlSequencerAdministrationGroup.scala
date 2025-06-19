@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleEnvironment,
-  FeatureFlag,
   FeatureFlagFilter,
   Help,
   Helpful,
@@ -58,7 +57,10 @@ class TrafficControlSequencerAdministrationGroup(
   ): SequencerTrafficStatus =
     consoleEnvironment.run(
       runner.adminCommand(
-        SequencerAdminCommands.GetTrafficControlState(members, TimestampSelector.LatestApproximate)
+        SequencerAdminCommands.GetTrafficControlState(
+          members,
+          TimestampSelector.LatestApproximate,
+        )
       )
     )
 
@@ -82,6 +84,7 @@ class TrafficControlSequencerAdministrationGroup(
   @Help.Description(
     """Use this command to get the traffic state of specified members at a given timestamp."""
   )
+  // TODO(#25930): Make this command return what its name suggests, i.e., the traffic state exactly at the given timestamp.
   def traffic_state_of_members_at_timestamp(
       members: Seq[Member],
       timestamp: CantonTimestamp,
@@ -106,17 +109,16 @@ class TrafficControlSequencerAdministrationGroup(
   def traffic_state_of_all_members(
       latestApproximate: Boolean = false
   ): SequencerTrafficStatus =
-    check(FeatureFlag.Preview)(
-      consoleEnvironment.run(
-        runner.adminCommand(
-          SequencerAdminCommands.GetTrafficControlState(
-            Seq.empty,
-            if (latestApproximate) TimestampSelector.LatestApproximate
-            else TimestampSelector.LatestSafe,
-          )
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SequencerAdminCommands.GetTrafficControlState(
+          Seq.empty,
+          if (latestApproximate) TimestampSelector.LatestApproximate
+          else TimestampSelector.LatestSafe,
         )
       )
     )
+
   @Help.Summary("Set the traffic purchased entry of a member")
   @Help.Description(
     """Use this command to set the new traffic purchased entry of a member.
@@ -134,11 +136,10 @@ class TrafficControlSequencerAdministrationGroup(
       serial: PositiveInt,
       newBalance: NonNegativeLong,
   ): Unit =
-    check(FeatureFlag.Preview)(
-      consoleEnvironment.run(
-        runner.adminCommand(
-          SequencerAdminCommands.SetTrafficPurchased(member, serial, newBalance)
-        )
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SequencerAdminCommands.SetTrafficPurchased(member, serial, newBalance)
       )
     )
+
 }

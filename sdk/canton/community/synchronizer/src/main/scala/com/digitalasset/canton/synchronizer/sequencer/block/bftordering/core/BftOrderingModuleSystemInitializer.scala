@@ -17,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   AvailabilityModule,
   AvailabilityModuleConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   EpochStoreReader,
@@ -30,9 +29,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   MempoolModule,
   MempoolModuleConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.{
+  BlacklistLeaderSelectionPolicyState,
+  LeaderSelectionInitializer,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.{
+  EpochChecker,
+  OutputModule,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
@@ -56,10 +62,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
-  OrderingTopology,
-  OrderingTopologyInfo,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.{
   AvailabilityModuleDependencies,
@@ -98,6 +101,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     timeouts: ProcessingTimeout,
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
+    epochChecker: EpochChecker = EpochChecker.DefaultEpochChecker, // Only set by simulation tests
 )(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
     with NamedLogging {
@@ -107,7 +111,17 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       networkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
   ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
     implicit val c: BftBlockOrdererConfig = config
-    val (initialEpoch, bootstrapTopologyInfo) = fetchBootstrapTopologyInfo(moduleSystem)
+    val leaderSelectionPolicyFactory = LeaderSelectionInitializer.create[E](
+      node,
+      config,
+      synchronizerProtocolVersion,
+      stores.outputStore,
+      timeouts,
+      msg => implicit context => failBootstrap(msg),
+      loggerFactory,
+    )
+    val (initialEpoch, bootstrapTopologyInfo, blacklistLeaderSelectionState) =
+      fetchBootstrapTopologyInfo(moduleSystem, leaderSelectionPolicyFactory)
 
     val thisNodeFirstKnownAt =
       sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
@@ -131,11 +145,16 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
         bootstrapTopologyInfo.thisNode,
         initialHeightToProvide =
           firstBlockNumberInOnboardingEpoch.getOrElse(sequencerSubscriptionInitialBlockNumber),
+        initialEpochWeHaveLeaderSelectionStateFor = initialEpoch,
         previousBftTimeForOnboarding,
         onboardingEpochCouldAlterOrderingTopology,
         bootstrapTopologyInfo.currentCryptoProvider,
         bootstrapTopologyInfo.currentTopology,
         initialLowerBound,
+        leaderSelectionPolicyFactory.leaderSelectionPolicy(
+          blacklistLeaderSelectionState,
+          bootstrapTopologyInfo.currentTopology,
+        ),
       )
     new OrderingModuleSystemInitializer[E](
       ModuleFactories(
@@ -258,6 +277,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             loggerFactory,
             timeouts,
             requestInspector,
+            epochChecker,
           ),
         pruning = () =>
           new PruningModule(
@@ -271,8 +291,9 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
   }
 
   private def fetchBootstrapTopologyInfo(
-      moduleSystem: ModuleSystem[E]
-  ): (EpochNumber, OrderingTopologyInfo[E]) = {
+      moduleSystem: ModuleSystem[E],
+      leaderSelectionPolicyFactory: LeaderSelectionInitializer[E],
+  ): (EpochNumber, OrderingTopologyInfo[E], BlacklistLeaderSelectionPolicyState) = {
     import TraceContext.Implicits.Empty.*
 
     val BootstrapTopologyInfo(
@@ -286,12 +307,26 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     val (initialTopology, initialCryptoProvider) =
       getOrderingTopologyAt(moduleSystem, initialTopologyQueryTimestamp, "initial")
 
-    val initialLeaders = getLeadersFrom(initialTopology, initialEpochNumber)
+    val leaderSelectionPolicyState = leaderSelectionPolicyFactory.stateForInitial(
+      moduleSystem,
+      sequencerSnapshotAdditionalInfo,
+      initialEpochNumber,
+    )
+    val initialLeaders =
+      leaderSelectionPolicyFactory.leaderFromState(
+        leaderSelectionPolicyState,
+        initialTopology,
+      )
 
     val (previousTopology, previousCryptoProvider) =
       getOrderingTopologyAt(moduleSystem, previousTopologyQueryTimestamp, "previous")
 
-    val previousLeaders = getLeadersFrom(previousTopology, EpochNumber(initialEpochNumber - 1))
+    // the previousLeaders is not really used unless we are doing onboarding, in that case we should use previousTopology
+    // to compute the "currentLeaders"
+    val previousLeaders = leaderSelectionPolicyFactory.leaderFromState(
+      leaderSelectionPolicyState,
+      previousTopology,
+    )
 
     val maybeOnboardingTopologyAndCryptoProvider = maybeOnboardingTopologyQueryTimestamp
       .map(onboardingTopologyQueryTimestamp =>
@@ -320,6 +355,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
         previousCryptoProvider, // for canonical commit set verification
         previousLeaders,
       ),
+      leaderSelectionPolicyState,
     )
   }
 
@@ -385,12 +421,6 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       orderingTopologyProvider.getOrderingTopologyAt(topologyQueryTimestamp),
       s"fetch $topologyDesignation ordering topology for bootstrap",
     ).getOrElse(failBootstrap(s"Failed to fetch $topologyDesignation ordering topology"))
-
-  private def getLeadersFrom(
-      orderingTopology: OrderingTopology,
-      epochNumber: EpochNumber,
-  ) =
-    DefaultLeaderSelectionPolicy.getLeaders(orderingTopology, epochNumber)
 
   private def fetchLatestEpoch(moduleSystem: ModuleSystem[E], includeInProgress: Boolean)(implicit
       traceContext: TraceContext

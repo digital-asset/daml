@@ -119,7 +119,7 @@ class SequencerInfoLoader(
       retry
         .Pause(
           logger,
-          performUnlessClosing = closeContext.context,
+          hasSynchronizeWithClosing = closeContext.context,
           maxRetries = retries,
           delay = timeouts.sequencerInfo.asFiniteApproximation.div(retries.toLong),
           operationName =

@@ -36,7 +36,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionCo
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.util.FutureInstances.*
@@ -74,7 +74,7 @@ abstract class RehydrationIntegrationTest
   private var observedAcs: Map[String, CreatedEvent] = _
 
   private var alice: PartyId = _
-  private var synchronizerId: SynchronizerId = _
+  private var synchronizerId: PhysicalSynchronizerId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition(
@@ -203,7 +203,7 @@ abstract class RehydrationIntegrationTest
     better.files.File.usingTemporaryDirectory("mediator") { dir =>
       val tempDirMediator = dir.pathAsString
       clue("move mediator1 to mediator2") {
-        repair.identity.download(mediator1, synchronizerId, tempDirMediator)
+        repair.identity.download(mediator1, synchronizerId, testedProtocolVersion, tempDirMediator)
         mediator1.stop()
 
         // Stop sequencer1 and copy it over to the fresh sequencer2, initializing it from beginning.
@@ -211,7 +211,12 @@ abstract class RehydrationIntegrationTest
         better.files.File.usingTemporaryDirectory("sequencer") { dir =>
           val tempDirSequencer = dir.pathAsString
           clue("move sequencer1 to sequencer2") {
-            repair.identity.download(sequencer1, synchronizerId, tempDirSequencer)
+            repair.identity.download(
+              sequencer1,
+              synchronizerId,
+              testedProtocolVersion,
+              tempDirSequencer,
+            )
             participant1
               .stop() // Avoids connection errors due to the sequencer being stopped, will be restarted later for the migration
             sequencer1.stop()
@@ -246,7 +251,12 @@ abstract class RehydrationIntegrationTest
       clue("move participant1 to participant2") {
         val tempDirParticipant = dir.pathAsString
         // architecture-handbook-entry-begin: RepairMacroCloneIdentityDownload
-        repair.identity.download(participant1, synchronizerId, tempDirParticipant)
+        repair.identity.download(
+          participant1,
+          synchronizerId,
+          testedProtocolVersion,
+          tempDirParticipant,
+        )
         repair.dars.download(participant1, tempDirParticipant)
         participant1.stop()
         // architecture-handbook-entry-end: RepairMacroCloneIdentityDownload

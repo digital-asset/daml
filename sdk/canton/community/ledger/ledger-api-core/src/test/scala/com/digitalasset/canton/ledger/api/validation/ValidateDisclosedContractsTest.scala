@@ -331,7 +331,8 @@ object ValidateDisclosedContractsTest {
 
     val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
       create = createNode,
-      createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+      createTime =
+        CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
       cantonData = lf.driverMetadataBytes,
     )
 

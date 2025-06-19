@@ -336,9 +336,12 @@ final class TransactionPointwiseReader(
         )
     }
 
-    events.map(
+    events.map(entries =>
       // Conversion to API response type
-      toTransaction
+      toTransaction(
+        entries = entries,
+        transactionShape = txShape,
+      )
     )
   }
 

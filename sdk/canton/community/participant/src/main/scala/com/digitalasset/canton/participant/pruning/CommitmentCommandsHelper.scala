@@ -15,8 +15,12 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   ActivenessChangeDetail,
   ReassignmentType,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
-import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  ReassignmentId,
+  SerializableContract,
+  UnassignId,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -25,6 +29,8 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
+  HasVersionedMessageCompanion,
+  HasVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
@@ -109,7 +115,7 @@ object CommitmentContractMetadata
     val (cidsInBoth, cidsOnlyFirst) = firstMap.keys.partition(cid => secondMap.contains(cid))
     val (_, cidsOnlySecond) = secondMap.keys.partition(cid => firstMap.contains(cid))
 
-    val (sameContracts, diffReassignmentCounters) =
+    val (_sameContracts, diffReassignmentCounters) =
       cidsInBoth.partition(cid => firstMap(cid) == secondMap(cid))
 
     CompareCmtContracts(cidsOnlyFirst.toSeq, cidsOnlySecond.toSeq, diffReassignmentCounters.toSeq)
@@ -128,11 +134,7 @@ final case class CommitmentInspectContract(
     activeOnExpectedSynchronizer: Boolean,
     contract: Option[SerializableContract],
     state: Seq[ContractStateOnSynchronizer],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      CommitmentInspectContract.type
-    ]
-) extends HasProtocolVersionedWrapper[CommitmentInspectContract]
+) extends HasVersionedWrapper[CommitmentInspectContract]
     with PrettyPrinting {
   @transient override protected lazy val companionObj: CommitmentInspectContract.type =
     CommitmentInspectContract
@@ -153,14 +155,16 @@ final case class CommitmentInspectContract(
   )
 }
 
-object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectContract] {
+object CommitmentInspectContract extends HasVersionedMessageCompanion[CommitmentInspectContract] {
 
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.CommitmentContract)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.CommitmentContract)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   private def fromProtoV30(
       cmtContract: v30.CommitmentContract
@@ -172,10 +176,7 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
       contract <- cmtContract.serializedContract.traverse(SerializableContract.fromAdminProtoV30)
       states <- cmtContract.states.traverse(ContractStateOnSynchronizer.fromProtoV30)
       activeOnExpectedSynchronizer = cmtContract.activeOnExpectedSynchronizer
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommitmentInspectContract(cid, activeOnExpectedSynchronizer, contract, states)(
-      reprProtocolVersion
-    )
+    } yield CommitmentInspectContract(cid, activeOnExpectedSynchronizer, contract, states)
 
   override def name: String = "commitment inspect contract"
 
@@ -186,7 +187,6 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
       downloadPayloads: Boolean,
       syncStateInspection: SyncStateInspection,
       indexedStringStore: IndexedStringStore,
-      pv: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
@@ -231,12 +231,12 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
                         s"There should be at most one reassignment id for unassigned contract id $cid, but we have ${reassignmentIds(cid).size}"
                       )
                     }
-                    ContractUnassigned.create(
+                    ContractUnassigned(
                       targetSynchronizerId,
                       // the reassignment counter the contract had on the source synchronizer *before* the reassignment op
                       reassignment.reassignmentCounter - 1,
                       reassignmentIds(cid).headOption,
-                    )(pv): ContractState
+                    ): ContractState
                   }
                 case ReassignmentType.Assignment =>
                   for {
@@ -256,19 +256,19 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
                         s"There should be at most one reassignment id for unassigned contract id $cid, but we have ${reassignmentIds(cid).size}"
                       )
                     }
-                    ContractAssigned.create(
+                    ContractAssigned(
                       reassignment.reassignmentCounter,
                       reassignmentIds(cid).headOption,
-                    )(pv): ContractState
+                    ): ContractState
                   }
               }
             case _change: ActivenessChangeDetail.HasReassignmentCounter =>
               FutureUnlessShutdown.outcomeF(
-                Future.successful(ContractCreated.create()(pv): ContractState)
+                Future.successful(ContractCreated(): ContractState)
               )
             case _ =>
               FutureUnlessShutdown.outcomeF(
-                Future.successful(ContractArchived.create()(pv): ContractState)
+                Future.successful(ContractArchived(): ContractState)
               )
           }
         }.sequence
@@ -351,9 +351,9 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
                 activeCidsOnExpectedSynchronizer.contains(cid),
                 payload,
                 states.flatten
-                  .map(cs => ContractStateOnSynchronizer.create(synchronizerId, cs)(pv))
+                  .map(cs => ContractStateOnSynchronizer(synchronizerId, cs))
                   .toSeq,
-              )(protocolVersionRepresentativeFor(pv))
+              )
             }
         }
 
@@ -366,13 +366,12 @@ object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectCo
         .map(cid =>
           CommitmentInspectContract(
             cid,
-            false,
+            activeOnExpectedSynchronizer = false,
             None,
             Seq {
-              ContractStateOnSynchronizer
-                .create(expectedSynchronizerId, ContractUnknown.create()(pv))(pv)
+              ContractStateOnSynchronizer(expectedSynchronizerId, ContractUnknown())
             },
-          )(protocolVersionRepresentativeFor(pv))
+          )
         )
     } yield (states ++ unknownContracts).toSeq
   }
@@ -436,29 +435,10 @@ final case class DeactivatedContract(
   )
 }
 
-final case class DifferentReassignmentCounters(
-    participant1: ParticipantId,
-    active1: ContractActive,
-    participant2: ParticipantId,
-    active2: ContractActive,
-) extends MismatchReason
-    with PrettyPrinting {
-  override def pretty: Pretty[DifferentReassignmentCounters] = prettyOfClass(
-    param("participant1", _.participant1),
-    param("active1", _.active1),
-    param("participant2", _.participant2),
-    param("active2", _.active2),
-  )
-}
-
 final case class ContractStateOnSynchronizer(
     synchronizerId: SynchronizerId,
     contractState: ContractState,
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractStateOnSynchronizer.type
-    ]
-) extends HasProtocolVersionedWrapper[ContractStateOnSynchronizer]
+) extends HasVersionedWrapper[ContractStateOnSynchronizer]
     with PrettyPrinting {
   override def pretty: Pretty[ContractStateOnSynchronizer] = prettyOfClass(
     param("synchronizer id", _.synchronizerId),
@@ -487,17 +467,17 @@ final case class ContractStateOnSynchronizer(
 }
 
 object ContractStateOnSynchronizer
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       ContractStateOnSynchronizer
     ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
-      v30.ContractState.SynchronizerState
-    )(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.SynchronizerState)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       state: v30.ContractState.SynchronizerState
@@ -512,20 +492,9 @@ object ContractStateOnSynchronizer
         case State.Unknown(value) => ContractUnknown.fromProtoV30(value)
         case _ => Left(ProtoDeserializationError.FieldNotSet("state"))
       }
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractStateOnSynchronizer(synchronizerId, contractState)(
-      reprProtocolVersion
-    )
+    } yield ContractStateOnSynchronizer(synchronizerId, contractState)
 
   override def name: String = "contract state on synchronizer"
-
-  def create(
-      synchronizerId: SynchronizerId,
-      contractState: ContractState,
-  )(protocolVersion: ProtocolVersion): ContractStateOnSynchronizer =
-    ContractStateOnSynchronizer(synchronizerId, contractState)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }
 
 sealed trait ContractState extends Product with Serializable with PrettyPrinting
@@ -534,12 +503,9 @@ sealed trait ContractActive extends ContractState
 
 sealed trait ContractInactive extends ContractState
 
-final case class ContractCreated()(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractCreated.type
-    ]
-) extends ContractActive
-    with HasProtocolVersionedWrapper[ContractCreated] {
+final case class ContractCreated()
+    extends ContractActive
+    with HasVersionedWrapper[ContractCreated] {
   override protected def pretty: Pretty[ContractCreated] = prettyOfClass()
 
   @transient override protected lazy val companionObj: ContractCreated.type =
@@ -549,43 +515,32 @@ final case class ContractCreated()(
 }
 
 object ContractCreated
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       ContractCreated
     ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Created)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.Created)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       @unused created: v30.ContractState.Created
-  ): ParsingResult[ContractCreated] =
-    for {
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractCreated()(
-      reprProtocolVersion
-    )
+  ): ParsingResult[ContractCreated] = Right(ContractCreated())
 
   override def name: String = "contract created"
-
-  def create()(protocolVersion: ProtocolVersion): ContractCreated =
-    ContractCreated()(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }
 
 final case class ContractAssigned(
     reassignmentCounterTarget: ReassignmentCounter,
     // None if the assignation was changed usign the repair service, or if the transfer store has been pruned
     reassignmentId: Option[ReassignmentId],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractAssigned.type
-    ]
 ) extends ContractActive
-    with HasProtocolVersionedWrapper[ContractAssigned] {
+    with HasVersionedWrapper[ContractAssigned] {
   override protected def pretty: Pretty[ContractAssigned] = prettyOfClass(
     param("reassignment counter on target", _.reassignmentCounterTarget),
     paramIfDefined("reasignment id", _.reassignmentId),
@@ -601,7 +556,7 @@ final case class ContractAssigned(
         Some(
           v30.ContractState.ReassignmentId(
             rid.sourceSynchronizer.unwrap.toProtoPrimitive,
-            Some(rid.unassignmentTs.toProtoTimestamp),
+            rid.unassignId.toProtoPrimitive,
           )
         )
       case None => None: Option[v30.ContractState.ReassignmentId]
@@ -610,15 +565,17 @@ final case class ContractAssigned(
 }
 
 object ContractAssigned
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       ContractAssigned
     ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Assigned)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.Assigned)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       assigned: v30.ContractState.Assigned
@@ -627,37 +584,17 @@ object ContractAssigned
     val reassignmentIdE = assigned.reassignmentId match {
       case Some(reassignmentId) =>
         for {
-          ts <- ProtoConverter.parseRequired(
-            CantonTimestamp.fromProtoTimestamp,
-            "unassignTimestamp",
-            reassignmentId.unassignTimestamp,
-          )
+          unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
           sourceSynchronizerId <- SynchronizerId
             .fromProtoPrimitive(reassignmentId.sourceSynchronizerId, "sourceSynchronizerId")
-        } yield Some(ReassignmentId(Source(sourceSynchronizerId), ts))
+        } yield Some(ReassignmentId(Source(sourceSynchronizerId), unassignId))
       case None => Right(None: Option[ReassignmentId])
     }
 
-    for {
-      reassignmentId <- reassignmentIdE
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractAssigned(
-      reassignmentCounterTarget,
-      reassignmentId,
-    )(
-      reprProtocolVersion
-    )
+    reassignmentIdE.map(ContractAssigned(reassignmentCounterTarget, _))
   }
 
   override def name: String = "contract assigned"
-
-  def create(
-      reassignmentCounterTarget: ReassignmentCounter,
-      reassignmentId: Option[ReassignmentId],
-  )(protocolVersion: ProtocolVersion): ContractAssigned =
-    ContractAssigned(reassignmentCounterTarget, reassignmentId)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }
 
 final case class ContractUnassigned(
@@ -667,12 +604,8 @@ final case class ContractUnassigned(
     reassignmentCounterSrc: ReassignmentCounter,
     // None if the assignation was changed usign the repair service, or if the transfer store has been pruned
     reassignmentId: Option[ReassignmentId],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractUnassigned.type
-    ]
 ) extends ContractInactive
-    with HasProtocolVersionedWrapper[ContractUnassigned] {
+    with HasVersionedWrapper[ContractUnassigned] {
   override protected def pretty: Pretty[ContractUnassigned] = prettyOfClass(
     param("target synchronizer id", _.targetSynchronizerId),
     param("reassignment counter on source", _.reassignmentCounterSrc),
@@ -690,7 +623,7 @@ final case class ContractUnassigned(
         Some(
           v30.ContractState.ReassignmentId(
             rid.sourceSynchronizer.unwrap.toProtoPrimitive,
-            Some(rid.unassignmentTs.toProtoTimestamp),
+            rid.unassignId.toProtoPrimitive,
           )
         )
       case None => None: Option[v30.ContractState.ReassignmentId]
@@ -698,16 +631,15 @@ final case class ContractUnassigned(
   )
 }
 
-object ContractUnassigned
-    extends VersioningCompanion[
-      ContractUnassigned
-    ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Unassigned)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+object ContractUnassigned extends HasVersionedMessageCompanion[ContractUnassigned] {
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.Unassigned)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       unassigned: v30.ContractState.Unassigned
@@ -721,46 +653,26 @@ object ContractUnassigned
       reassignmentIdE = unassigned.reassignmentId match {
         case Some(reassignmentId) =>
           for {
-            ts <- ProtoConverter.parseRequired(
-              CantonTimestamp.fromProtoTimestamp,
-              "unassign_ts",
-              reassignmentId.unassignTimestamp,
-            )
+            unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
             sourceSynchronizerId <- SynchronizerId
               .fromProtoPrimitive(reassignmentId.sourceSynchronizerId, "sourceSynchronizerId")
-          } yield Some(ReassignmentId(Source(sourceSynchronizerId), ts))
+          } yield Some(ReassignmentId(Source(sourceSynchronizerId), unassignId))
         case None => Right(None: Option[ReassignmentId])
       }
 
       reassignmentId <- reassignmentIdE
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ContractUnassigned(
       targetSynchronizerId,
       reassignmentCounterSrc,
       reassignmentId,
-    )(
-      reprProtocolVersion
     )
 
   override def name: String = "contract assigned"
-
-  def create(
-      targetSynchronizerId: SynchronizerId,
-      reassignmentCounterSrc: ReassignmentCounter,
-      reassignmentId: Option[ReassignmentId],
-  )(protocolVersion: ProtocolVersion): ContractUnassigned =
-    ContractUnassigned(targetSynchronizerId, reassignmentCounterSrc, reassignmentId)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }
 
-final case class ContractArchived(
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractArchived.type
-    ]
-) extends ContractInactive
-    with HasProtocolVersionedWrapper[ContractArchived] {
+final case class ContractArchived()
+    extends ContractInactive
+    with HasVersionedWrapper[ContractArchived] {
   override protected def pretty: Pretty[ContractArchived] = prettyOfClass()
 
   @transient override protected lazy val companionObj: ContractArchived.type =
@@ -770,40 +682,28 @@ final case class ContractArchived(
 }
 
 object ContractArchived
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       ContractArchived
     ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Archived)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.Archived)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       @unused archived: v30.ContractState.Archived
-  ): ParsingResult[ContractArchived] =
-    for {
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractArchived()(
-      reprProtocolVersion
-    )
+  ): ParsingResult[ContractArchived] = Right(ContractArchived())
 
   override def name: String = "contract archived"
-
-  def create()(protocolVersion: ProtocolVersion): ContractArchived =
-    ContractArchived()(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }
 
 final case class ContractUnknown(
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      ContractUnknown.type
-    ]
 ) extends ContractInactive
-    with HasProtocolVersionedWrapper[ContractUnknown] {
+    with HasVersionedWrapper[ContractUnknown] {
   override def pretty: Pretty[ContractUnknown] = prettyOfClass(
   )
 
@@ -815,30 +715,21 @@ final case class ContractUnknown(
 }
 
 object ContractUnknown
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       ContractUnknown
     ] {
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Unknown)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.ContractState.Unknown)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   def fromProtoV30(
       @unused unknown: v30.ContractState.Unknown
-  ): ParsingResult[ContractUnknown] =
-    for {
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ContractUnknown()(
-      reprProtocolVersion
-    )
+  ): ParsingResult[ContractUnknown] = Right(ContractUnknown())
 
   override def name: String = "contract unknown"
-
-  def create(
-  )(protocolVersion: ProtocolVersion): ContractUnknown =
-    ContractUnknown()(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
 }

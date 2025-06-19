@@ -19,6 +19,7 @@ import com.digitalasset.canton.protocol.hash.{
   TransactionMetadataHashBuilder,
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContract}
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
@@ -58,7 +59,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId, // TODO(#25483) Should that be physical?
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
     ) = new TransactionMetadataForHashing(
       actAs = SortedSet.from(actAs),
@@ -67,7 +68,7 @@ object InteractiveSubmission {
       mediatorGroup = mediatorGroup,
       synchronizerId = synchronizerId,
       timeBoundaries = timeBoundaries,
-      submissionTime = submissionTime,
+      preparationTime = preparationTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
 
@@ -81,7 +82,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, SerializableContract],
     ): TransactionMetadataForHashing = {
 
@@ -89,7 +90,7 @@ object InteractiveSubmission {
         .map { case (contractId, serializedNode) =>
           contractId -> FatContractInstance.fromCreateNode(
             serializedNode.toLf,
-            serializedNode.ledgerCreateTime.toLf,
+            serializedNode.ledgerCreateTime,
             saltFromSerializedContract(serializedNode),
           )
         }
@@ -101,7 +102,7 @@ object InteractiveSubmission {
         mediatorGroup,
         synchronizerId,
         timeBoundaries,
-        submissionTime,
+        preparationTime,
         SortedMap.from(asFatContracts),
       )
     }
@@ -115,7 +116,7 @@ object InteractiveSubmission {
       // TODO(#25483) Should this be physical?
       synchronizerId: SynchronizerId,
       timeBoundaries: LedgerTimeBoundaries,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
@@ -142,7 +143,7 @@ object InteractiveSubmission {
       metadata.mediatorGroup,
       metadata.synchronizerId.toProtoPrimitive,
       metadata.timeBoundaries,
-      metadata.submissionTime,
+      metadata.preparationTime,
       metadata.disclosedContracts,
     )
 
@@ -195,7 +196,8 @@ object InteractiveSubmission {
   def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      cryptoPureApi: CryptoPureApi,
+      topologySnapshot: TopologySnapshot,
       actAs: Set[LfPartyId],
       logger: TracedLogger,
   )(implicit
@@ -231,7 +233,8 @@ object InteractiveSubmission {
       verifySignatures(
         hash,
         signaturesFromActAsParties,
-        cryptoSnapshot,
+        cryptoPureApi,
+        topologySnapshot,
         logger,
       )
     }
@@ -243,7 +246,8 @@ object InteractiveSubmission {
   private def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      cryptoPureApi: CryptoPureApi,
+      topologySnapshot: TopologySnapshot,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,
@@ -253,7 +257,7 @@ object InteractiveSubmission {
       .parTraverse_ { case (party, signatures) =>
         for {
           authInfo <- EitherT(
-            cryptoSnapshot.ipsSnapshot
+            topologySnapshot
               .partyAuthorization(party)
               .map(
                 _.toRight(s"Could not find party signing keys for $party.")
@@ -262,11 +266,12 @@ object InteractiveSubmission {
 
           (invalidSignatures, validSignatures) = signatures.map { signature =>
             authInfo.signingKeys
-              .find(_.fingerprint == signature.signedBy)
-              .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
+              .find(_.fingerprint == signature.authorizingLongTermKey)
+              .toRight(
+                s"Signing key ${signature.authorizingLongTermKey} is not a valid key for $party"
+              )
               .flatMap(key =>
-                // TODO(#23551) Add new usage for interactive submission
-                cryptoSnapshot.pureCrypto
+                cryptoPureApi
                   .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)
                   .map(_ => key.fingerprint)
                   .leftMap(_.toString)

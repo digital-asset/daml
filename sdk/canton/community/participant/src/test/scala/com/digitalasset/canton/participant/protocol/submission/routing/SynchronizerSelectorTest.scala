@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
@@ -40,7 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentSynchronizers
 import TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
-import TransactionRoutingError.UnableToQueryTopologySnapshot
+import TransactionRoutingError.{UnableToGetStaticParameters, UnableToQueryTopologySnapshot}
 
 class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   implicit class RichEitherT[A](val e: EitherT[Future, TransactionRoutingError, A]) {
@@ -633,6 +634,11 @@ private[routing] object SynchronizerSelectorTest {
             traceContext: TraceContext,
         ): FutureUnlessShutdown[Map[LfContractId, (PhysicalSynchronizerId, ContractStateStatus)]] =
           FutureUnlessShutdown.pure(synchronizerOfContracts(coids))
+
+        override def getSyncCryptoPureApi(
+            synchronizerId: PhysicalSynchronizerId
+        ): Either[UnableToGetStaticParameters.Failed, Option[SynchronizerCryptoPureApi]] =
+          Right(None)
 
         override val topologySnapshots = Map.empty
 

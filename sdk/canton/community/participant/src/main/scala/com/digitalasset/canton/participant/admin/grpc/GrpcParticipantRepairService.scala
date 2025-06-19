@@ -7,11 +7,10 @@ import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
+import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -27,7 +26,12 @@ import com.digitalasset.canton.participant.admin.repair.{
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -338,7 +342,7 @@ final class GrpcParticipantRepairService(
       activeContractsWithRemapping <-
         ContractIdsImportProcessor(
           loggerFactory,
-          sync.protocolVersionGetter,
+          sync.syncPersistentStateManager,
           sync.pureCryptoApi,
           contractIdImportMode,
         )(repairContracts)
@@ -540,8 +544,8 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(request.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap(_.message)
       )
       _ <- sync.repairService.ignoreEvents(
@@ -564,8 +568,8 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(request.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap(_.message)
       )
       _ <- sync.repairService.unignoreEvents(
@@ -590,10 +594,9 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       unassignId <- EitherT.fromEither[FutureUnlessShutdown](
-        Try(request.unassignId.toLong).toEither.left
-          .map(_ => TimestampConversionError(s"cannot convert ${request.unassignId} into Long"))
-          .flatMap(fromProtoPrimitive)
-          .leftMap(_.message)
+        protocol.UnassignId
+          .fromProtoPrimitive(request.unassignId)
+          .leftMap(err => ValueConversionError("unassign_id", err.message).message)
       )
       sourceSynchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
         SynchronizerId

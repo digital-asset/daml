@@ -18,7 +18,6 @@ import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameV
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -47,7 +46,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.*
 import org.scalatest.EitherValues
@@ -112,7 +111,7 @@ object ExampleTransactionFactory {
       viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = LedgerCreateTime(ledgerTime),
+      ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
       metadata = metadata,
       suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(instance),
       cantonContractIdVersion = contractIdVersion,
@@ -357,7 +356,7 @@ object ExampleTransactionFactory {
       contractId,
       asSerializableRaw(contractInstance),
       metadata,
-      LedgerCreateTime(ledgerTime),
+      CreationTime.CreatedAt(ledgerTime.toLf),
       salt,
     )
 
@@ -445,7 +444,7 @@ class ExampleTransactionFactory(
     val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
-    val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
+    val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
     val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
 )(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
@@ -546,14 +545,14 @@ class ExampleTransactionFactory(
   val lfTransactionSeed: LfHash = LfHash.deriveTransactionSeed(
     ExampleTransactionFactory.submissionSeed,
     ExampleTransactionFactory.submittingParticipant.toLf,
-    submissionTime.toLf,
+    preparationTime.toLf,
   )
 
   def deriveNodeSeed(path: Int*): LfHash =
     path.foldLeft(lfTransactionSeed)((seed, i) => LfHash.deriveNodeSeed(seed, i))
 
   def discriminator(nodeSeed: LfHash, stakeholders: Set[LfPartyId]): LfHash =
-    LfHash.deriveContractDiscriminator(nodeSeed, submissionTime.toLf, stakeholders)
+    LfHash.deriveContractDiscriminator(nodeSeed, preparationTime.toLf, stakeholders)
 
   val unicumGenerator = new UnicumGenerator(cryptoOps)
 
@@ -573,7 +572,7 @@ class ExampleTransactionFactory(
         viewPosition,
         viewParticipantDataSalt,
         createIndex,
-        LedgerCreateTime(ledgerTime),
+        CreationTime.CreatedAt(ledgerTime.toLf),
         metadata,
         asSerializableRaw(suffixedContractInstance),
         cantonContractIdVersion,
@@ -777,7 +776,7 @@ class ExampleTransactionFactory(
   }
 
   def mkMetadata(seeds: Map[LfNodeId, LfHash] = Map.empty): TransactionMetadata =
-    TransactionMetadata(ledgerTime, submissionTime, seeds)
+    TransactionMetadata(ledgerTime, preparationTime, seeds)
 
   def versionedTransactionWithSeeds(
       rootIndices: Seq[Int],
@@ -815,7 +814,7 @@ class ExampleTransactionFactory(
   val participantMetadata: ParticipantMetadata =
     ParticipantMetadata(cryptoOps)(
       ledgerTime,
-      submissionTime,
+      preparationTime,
       Some(workflowId),
       Salt.tryDeriveSalt(transactionSeed, 2, cryptoOps),
       protocolVersion,

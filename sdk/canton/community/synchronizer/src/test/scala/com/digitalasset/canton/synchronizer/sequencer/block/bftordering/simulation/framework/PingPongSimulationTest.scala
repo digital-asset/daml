@@ -87,7 +87,7 @@ final case class Ping[E <: Env[E]](
         context.delayedEvent(5.seconds, "tick")
         otherNode.asyncP2PSend(_ => "ping")
       case "tick" =>
-        val helperRef = context.newModuleRef[String](ModuleName("ping-helper"))
+        val helperRef = context.newModuleRef[String](ModuleName("ping-helper"))()
         val helper = PingHelper[E](context.self, recorder, loggerFactory, timeouts)
         context.setModule(helperRef, helper)
         helper.ready(helperRef)
@@ -169,13 +169,14 @@ object TestSystem {
         pongerEndpoint,
       )((_, _) => ())
       val module = Ping[E](pongerRef, recorder, loggerFactory, timeouts)
-      val ref = system.newModuleRef[String](ModuleName("ping"))
+      val ref = system.newModuleRef[String](ModuleName("ping"))()
       system.setModule[String](ref, module)
-      val p2PAdminModuleRef = system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))
+      val p2PAdminModuleRef =
+        system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
       val consensusAdminModuleRef =
-        system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))
+        system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
-        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))
+        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
       SystemInitializationResult(
         ref,
         ref,
@@ -197,13 +198,14 @@ object TestSystem {
         pingerEndpoint,
       )((_, _) => ())
       val module = Pong[E](pingerRef, recorder, loggerFactory, timeouts)
-      val ref = system.newModuleRef[String](ModuleName("pong"))
+      val ref = system.newModuleRef[String](ModuleName("pong"))()
       system.setModule[String](ref, module)
-      val p2PAdminModuleRef = system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))
+      val p2PAdminModuleRef =
+        system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
       val consensusAdminModuleRef =
-        system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))
+        system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
-        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))
+        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
       SystemInitializationResult(
         ref,
         ref,

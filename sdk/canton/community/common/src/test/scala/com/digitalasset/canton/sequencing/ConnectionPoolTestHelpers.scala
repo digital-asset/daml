@@ -3,13 +3,18 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{Fingerprint, SynchronizerCrypto}
+import com.digitalasset.canton.crypto.{Crypto, Fingerprint, SynchronizerCrypto}
+import com.digitalasset.canton.lifecycle.LifeCycle
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencer.api.v30 as SequencerService
@@ -22,6 +27,7 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConn
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{
   Member,
   Namespace,
@@ -30,8 +36,8 @@ import com.digitalasset.canton.topology.{
   SequencerId,
   SynchronizerId,
 }
-import com.digitalasset.canton.tracing.TracingConfig
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
+import com.digitalasset.canton.util.{PekkoUtil, ResourceUtil}
 import com.digitalasset.canton.version.{
   ProtocolVersion,
   ProtocolVersionCompatibility,
@@ -40,6 +46,8 @@ import com.digitalasset.canton.version.{
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.stub.StreamObserver
 import io.grpc.{CallOptions, Channel, Status}
+import org.apache.pekko.actor.ActorSystem
+import org.apache.pekko.stream.Materializer
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
@@ -47,74 +55,9 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
 import scala.util.Random
 
-trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
-  protected lazy val failureUnavailable: Either[Exception, Nothing] =
-    Left(Status.UNAVAILABLE.asRuntimeException())
-
-  protected lazy val correctApiResponse: Either[Exception, GetApiInfoResponse] =
-    Right(v30.GetApiInfoResponse(CantonGrpcUtil.ApiName.SequencerPublicApi))
-  protected lazy val incorrectApiResponse: Either[Exception, GetApiInfoResponse] =
-    Right(v30.GetApiInfoResponse("this is not a valid API info"))
-
-  protected lazy val successfulHandshake: Either[Exception, SequencerConnect.HandshakeResponse] =
-    Right(
-      SequencerConnect.HandshakeResponse(
-        testedProtocolVersion.toProtoPrimitive,
-        SequencerConnect.HandshakeResponse.Value
-          .Success(SequencerConnect.HandshakeResponse.Success()),
-      )
-    )
-  protected lazy val failedHandshake: Either[Exception, SequencerConnect.HandshakeResponse] = Right(
-    SequencerConnect.HandshakeResponse(
-      testedProtocolVersion.toProtoPrimitive,
-      SequencerConnect.HandshakeResponse.Value
-        .Failure(SequencerConnect.HandshakeResponse.Failure("bad handshake")),
-    )
-  )
-
-  protected lazy val correctSynchronizerIdResponse1
-      : Either[Exception, SequencerConnect.GetSynchronizerIdResponse] = Right(
-    SequencerConnect.GetSynchronizerIdResponse(
-      testSynchronizerId(1).toProtoPrimitive,
-      testSequencerId(1).uid.toProtoPrimitive,
-    )
-  )
-  protected lazy val correctSynchronizerIdResponse2
-      : Either[Exception, SequencerConnect.GetSynchronizerIdResponse] = Right(
-    SequencerConnect.GetSynchronizerIdResponse(
-      testSynchronizerId(2).toProtoPrimitive,
-      testSequencerId(2).uid.toProtoPrimitive,
-    )
-  )
-
-  protected lazy val correctStaticParametersResponse
-      : Either[Exception, SequencerConnect.GetSynchronizerParametersResponse] = Right(
-    SequencerConnect.GetSynchronizerParametersResponse(
-      SequencerConnect.GetSynchronizerParametersResponse.Parameters.ParametersV1(
-        defaultStaticSynchronizerParameters.toProtoV30
-      )
-    )
-  )
-
-  protected lazy val positiveAcknowledgeResponse
-      : Either[Exception, SequencerService.AcknowledgeSignedResponse] = Right(
-    SequencerService.AcknowledgeSignedResponse()
-  )
-
-  protected lazy val correctConnectionAttributes: ConnectionAttributes = ConnectionAttributes(
-    testSynchronizerId(1),
-    testSequencerId(1),
-    defaultStaticSynchronizerParameters,
-  )
-
-  private lazy val clientProtocolVersions: NonEmpty[List[ProtocolVersion]] =
-    ProtocolVersionCompatibility.supportedProtocols(
-      includeAlphaVersions = true,
-      includeBetaVersions = true,
-      release = ReleaseVersion.current,
-    )
-
-  private lazy val minimumProtocolVersion: Option[ProtocolVersion] = Some(testedProtocolVersion)
+trait ConnectionPoolTestHelpers {
+  this: BaseTest & HasExecutionContext =>
+  import ConnectionPoolTestHelpers.*
 
   private lazy val seedForRandomness: Long = {
     val seed = Random.nextLong()
@@ -124,6 +67,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
 
   protected lazy val authConfig: AuthenticationTokenManagerConfig =
     AuthenticationTokenManagerConfig()
+
   protected lazy val testCrypto: SynchronizerCrypto =
     SynchronizerCrypto(
       SymbolicCrypto
@@ -131,16 +75,19 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       defaultStaticSynchronizerParameters,
     )
 
+  private implicit val actorSystem: ActorSystem =
+    PekkoUtil.createActorSystem(loggerFactory.threadName)
+
+  private implicit val executionSequencerFactory: ExecutionSequencerFactory =
+    PekkoUtil.createExecutionSequencerFactory(loggerFactory.threadName, noTracingLogger)
+
+  override def afterAll(): Unit =
+    LifeCycle.close(
+      executionSequencerFactory,
+      LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts),
+    )(logger)
+
   protected lazy val testMember: Member = ParticipantId("test")
-
-  protected def testSynchronizerId(index: Int): PhysicalSynchronizerId =
-    SynchronizerId.tryFromString(s"test-synchronizer-$index::namespace").toPhysical
-
-  protected def testSequencerId(index: Int): SequencerId =
-    SequencerId.tryCreate(
-      s"test-sequencer-$index",
-      Namespace(Fingerprint.tryFromString("namespace")),
-    )
 
   protected def mkConnectionAttributes(
       synchronizerIndex: Int,
@@ -169,7 +116,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
   protected def withConnection[V](
       testResponses: TestResponses
   )(f: (InternalSequencerConnectionX, TestHealthListener) => V): V = {
-    val stubFactory = new TestSequencerConnectionXStubFactory(testResponses)
+    val stubFactory = new TestSequencerConnectionXStubFactory(testResponses, loggerFactory)
     val config = mkDummyConnectionConfig(0)
 
     val connection = new GrpcInternalSequencerConnectionX(
@@ -208,32 +155,27 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       trustThreshold: PositiveInt,
       attributesForConnection: Int => ConnectionAttributes,
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
-  )(f: (SequencerConnectionXPoolImpl, CreatedConnections, TestHealthListener) => V): V = {
+      testTimeouts: ProcessingTimeout = timeouts,
+  )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener) => V): V = {
     val config = mkPoolConfig(nbConnections, trustThreshold, expectedSynchronizerIdO)
 
-    val connectionFactory =
-      new TestInternalSequencerConnectionXFactory(
-        attributesForConnection
-      )
-    val pool =
-      SequencerConnectionXPoolFactory
-        .create(
-          config,
-          connectionFactory,
-          wallClock,
-          authConfig,
-          testMember,
-          testCrypto,
-          seedForRandomnessO = Some(seedForRandomness),
-          timeouts,
-          loggerFactory,
-        )
-        .valueOrFail("create connection pool")
+    val poolFactory = new TestSequencerConnectionXPoolFactory(
+      attributesForConnection,
+      authConfig,
+      testMember,
+      wallClock,
+      testCrypto.crypto,
+      Some(seedForRandomness),
+      futureSupervisor,
+      testTimeouts,
+      loggerFactory,
+    )
+    val pool = poolFactory.create(config).valueOrFail("create connection pool")
 
     val listener = new TestHealthListener(pool.health)
     pool.health.registerOnHealthChange(listener)
 
-    ResourceUtil.withResource(pool)(f(_, connectionFactory.createdConnections, listener))
+    ResourceUtil.withResource(pool)(f(_, poolFactory.createdConnections, listener))
   }
 
   protected def mkSubscriptionPoolConfig(
@@ -282,13 +224,159 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       }
     }
 
+}
+
+private object ConnectionPoolTestHelpers {
+  import BaseTest.*
+
+  lazy val failureUnavailable: Either[Exception, Nothing] =
+    Left(Status.UNAVAILABLE.asRuntimeException())
+
+  lazy val correctApiResponse: Either[Exception, GetApiInfoResponse] =
+    Right(v30.GetApiInfoResponse(CantonGrpcUtil.ApiName.SequencerPublicApi))
+  lazy val incorrectApiResponse: Either[Exception, GetApiInfoResponse] =
+    Right(v30.GetApiInfoResponse("this is not a valid API info"))
+
+  lazy val successfulHandshake: Either[Exception, SequencerConnect.HandshakeResponse] =
+    Right(
+      SequencerConnect.HandshakeResponse(
+        testedProtocolVersion.toProtoPrimitive,
+        SequencerConnect.HandshakeResponse.Value
+          .Success(SequencerConnect.HandshakeResponse.Success()),
+      )
+    )
+  lazy val failedHandshake: Either[Exception, SequencerConnect.HandshakeResponse] = Right(
+    SequencerConnect.HandshakeResponse(
+      testedProtocolVersion.toProtoPrimitive,
+      SequencerConnect.HandshakeResponse.Value
+        .Failure(SequencerConnect.HandshakeResponse.Failure("bad handshake")),
+    )
+  )
+
+  lazy val correctSynchronizerIdResponse1
+      : Either[Exception, SequencerConnect.GetSynchronizerIdResponse] = Right(
+    SequencerConnect.GetSynchronizerIdResponse(
+      testSynchronizerId(1).toProtoPrimitive,
+      testSequencerId(1).uid.toProtoPrimitive,
+    )
+  )
+  lazy val correctSynchronizerIdResponse2
+      : Either[Exception, SequencerConnect.GetSynchronizerIdResponse] = Right(
+    SequencerConnect.GetSynchronizerIdResponse(
+      testSynchronizerId(2).toProtoPrimitive,
+      testSequencerId(2).uid.toProtoPrimitive,
+    )
+  )
+
+  lazy val correctStaticParametersResponse
+      : Either[Exception, SequencerConnect.GetSynchronizerParametersResponse] = Right(
+    SequencerConnect.GetSynchronizerParametersResponse(
+      SequencerConnect.GetSynchronizerParametersResponse.Parameters.ParametersV1(
+        defaultStaticSynchronizerParameters.toProtoV30
+      )
+    )
+  )
+
+  lazy val positiveAcknowledgeResponse
+      : Either[Exception, SequencerService.AcknowledgeSignedResponse] = Right(
+    SequencerService.AcknowledgeSignedResponse()
+  )
+
+  lazy val correctConnectionAttributes: ConnectionAttributes = ConnectionAttributes(
+    testSynchronizerId(1),
+    testSequencerId(1),
+    defaultStaticSynchronizerParameters,
+  )
+
+  private lazy val clientProtocolVersions: NonEmpty[List[ProtocolVersion]] =
+    ProtocolVersionCompatibility.supportedProtocols(
+      includeAlphaVersions = true,
+      includeBetaVersions = true,
+      release = ReleaseVersion.current,
+    )
+
+  private lazy val minimumProtocolVersion: Option[ProtocolVersion] = Some(testedProtocolVersion)
+
+  def testSynchronizerId(index: Int): PhysicalSynchronizerId =
+    SynchronizerId.tryFromString(s"test-synchronizer-$index::namespace").toPhysical
+
+  def testSequencerId(index: Int): SequencerId =
+    SequencerId.tryCreate(
+      s"test-sequencer-$index",
+      Namespace(Fingerprint.tryFromString("namespace")),
+    )
+
+  private class TestSequencerConnectionXPoolFactory(
+      attributesForConnection: Int => ConnectionAttributes,
+      authConfig: AuthenticationTokenManagerConfig,
+      member: Member,
+      clock: Clock,
+      crypto: Crypto,
+      seedForRandomnessO: Option[Long],
+      futureSupervisor: FutureSupervisor,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  ) extends SequencerConnectionXPoolFactory {
+
+    import SequencerConnectionXPool.{SequencerConnectionXPoolConfig, SequencerConnectionXPoolError}
+
+    private val connectionFactory = new TestInternalSequencerConnectionXFactory(
+      attributesForConnection,
+      futureSupervisor,
+      timeouts,
+      loggerFactory,
+    )
+
+    val createdConnections: CreatedConnections = connectionFactory.createdConnections
+
+    override def create(
+        initialConfig: SequencerConnectionXPoolConfig
+    )(implicit
+        ec: ExecutionContextExecutor,
+        esf: ExecutionSequencerFactory,
+        materializer: Materializer,
+    ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] =
+      for {
+        _ <- initialConfig.validate
+      } yield {
+        new SequencerConnectionXPoolImpl(
+          initialConfig,
+          connectionFactory,
+          clock,
+          authConfig,
+          member,
+          crypto,
+          seedForRandomnessO,
+          futureSupervisor,
+          timeouts,
+          loggerFactory,
+        )
+      }
+
+    override def createFromOldConfig(
+        sequencerConnections: SequencerConnections,
+        expectedPSIdO: Option[PhysicalSynchronizerId],
+        tracingConfig: TracingConfig,
+    )(implicit
+        ec: ExecutionContextExecutor,
+        esf: ExecutionSequencerFactory,
+        materializer: Materializer,
+        traceContext: TraceContext,
+    ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] = ???
+  }
+
   protected class TestInternalSequencerConnectionXFactory(
-      attributesForConnection: Int => ConnectionAttributes
+      attributesForConnection: Int => ConnectionAttributes,
+      futureSupervisor: FutureSupervisor,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
   ) extends InternalSequencerConnectionXFactory {
     val createdConnections = new CreatedConnections
 
     override def create(config: ConnectionXConfig)(implicit
-        ec: ExecutionContextExecutor
+        ec: ExecutionContextExecutor,
+        esf: ExecutionSequencerFactory,
+        materializer: Materializer,
     ): InternalSequencerConnectionX = {
       val s"test-$indexStr" = config.name: @unchecked
       val index = indexStr.toInt
@@ -296,7 +384,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       val attributes = attributesForConnection(index)
       val correctSynchronizerIdResponse = Right(
         SequencerConnect.GetSynchronizerIdResponse(
-          attributes.synchronizerId.toProtoPrimitive,
+          attributes.physicalSynchronizerId.toProtoPrimitive,
           attributes.sequencerId.uid.toProtoPrimitive,
         )
       )
@@ -309,7 +397,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
         acknowledgeResponses = Iterator.continually(positiveAcknowledgeResponse),
       )
 
-      val stubFactory = new TestSequencerConnectionXStubFactory(responses)
+      val stubFactory = new TestSequencerConnectionXStubFactory(responses, loggerFactory)
 
       val connection = new GrpcInternalSequencerConnectionX(
         config,
@@ -319,7 +407,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
         futureSupervisor,
         timeouts,
         loggerFactory.append("connection", config.name),
-      )(ec)
+      )
 
       createdConnections.add(index, connection)
 
@@ -472,7 +560,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     }
   }
 
-  protected object TestResponses {
+  object TestResponses {
     def apply(
         apiResponses: Seq[Either[Exception, v30.GetApiInfoResponse]] = Seq.empty,
         handshakeResponses: Seq[Either[Exception, SequencerConnect.HandshakeResponse]] = Seq.empty,
@@ -494,8 +582,10 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     )
   }
 
-  protected class TestSequencerConnectionXStubFactory(testResponses: TestResponses)
-      extends SequencerConnectionXStubFactory {
+  protected class TestSequencerConnectionXStubFactory(
+      testResponses: TestResponses,
+      loggerFactory: NamedLoggerFactory,
+  ) extends SequencerConnectionXStubFactory {
     override def createStub(connection: ConnectionX)(implicit
         ec: ExecutionContextExecutor
     ): SequencerConnectionXStub = connection match {
@@ -510,13 +600,17 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     }
 
     override def createUserStub(connection: ConnectionX, clientAuth: GrpcSequencerClientAuth)(
-        implicit ec: ExecutionContextExecutor
+        implicit
+        ec: ExecutionContextExecutor,
+        esf: ExecutionSequencerFactory,
+        materializer: Materializer,
     ): UserSequencerConnectionXStub =
       connection match {
         case grpcConnection: GrpcConnectionX =>
           new GrpcUserSequencerConnectionXStub(
             grpcConnection,
             channel => clientAuth(testResponses.sequencerSvcFactory(channel)),
+            loggerFactory,
           )
 
         case _ => throw new IllegalStateException(s"Connection type not supported: $connection")

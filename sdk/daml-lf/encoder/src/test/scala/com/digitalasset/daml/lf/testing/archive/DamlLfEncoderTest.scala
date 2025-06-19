@@ -63,6 +63,8 @@ class DamlLfEncoderTest
       val modules_2_dev = modules_2_1 ++ Set[DottedName](
         "BigNumericMod",
         "InterfaceExtMod",
+        "TemplateWithKeyMod",
+        "DA.Types", // stable package
       )
 
       val versions = Table(

@@ -9,311 +9,375 @@
 Structure
 #########
 
-.. note::
-   * Switch to DAG structure
+This section looks at the structure of a ledger and the associated ledger changes.
+The definitions presented here are all the ingredients required to *record* the interaction between parties in a Daml ledger.
+That is, they address the first question: "what do changes and ledgers look like?".
+The basic building blocks of changes are *actions*, which get grouped into *transactions*, *commits*, and the *Ledger*.
 
-   * Define our eUTXO model (introduce contract ID vs. contract)
-     
-   * Unassign vs. Assign (necessary for reassignment counter?)
+.. _ledger-structure_running_example:
 
-   * Remove NoSuchKey stuff (doesn't make sense with non-unique contract keys)
-
-   
-
-
-This section looks at the structure of a Daml ledger and the associated ledger
-changes. The basic building blocks of changes are *actions*, which get grouped
-into *transactions*.
-
-.. _actions-and-transactions:
-
-Actions and Transactions
+Running workflow example
 ************************
 
-One of the main features of the Daml ledger model is a *hierarchical action
-structure*.
+Most of the examples in this section look at the following Daml Script scenarios
+based on the templates from the :ref:`running example <da-ledgers-running-example>`.
+Two banks first each issue one asset to either Alice or Bob and then Alice proposes a DvP to Bob.
+Bob accepts the proposal and settles the DvP.
 
-This structure is illustrated below on a toy example of a multi-party
-interaction. Alice (`A`) gets some digital cash, in the form of an I-Owe-You
-(IOU for short)
-from a bank, and she needs her house painted. She gets an offer from
-a painter (`P`) with reference number `P123` to paint her house in
-exchange for this IOU. Lastly, `A`
-accepts the offer, transferring the money and signing
-a contract with `P`, whereby he is promising to paint her house.
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-SCRIPT-BEGIN
+   :end-before: SNIPPET-SCRIPT-END
 
-This acceptance can be viewed as `A` *exercising* her right to accept
-the offer. Her acceptance has two consequences. First, `A` transfers
-her IOU, that is, *exercises* her right to transfer the IOU, after
-which a new IOU for `P` is *created*.  Second, a new contract is
-*created* that requires `P` to paint `A`'s house.
+Acceptance and settlement can happen either in a single step via the ``AcceptAndSettle`` choice.
 
-Thus, the acceptance in this example is reduced to two types of actions: (1)
-creating contracts, and (2) exercising rights on them. These are also the
-two main kinds of actions in the Daml ledger model. The visual notation below
-records the relations between the actions during the above acceptance.
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-ACCEPT_AND_SETTLE-BEGIN
+   :end-before: SNIPPET-ACCEPT_AND_SETTLE-END
 
-.. image:: ./images/action-structure-expanded-paint-offer.svg
-   :align: center
-   :width: 70%
-   :alt: A flowchart showing the actions involved in Alice's house-painting deal. The topmost action is Exercise A (PaintOffer A P Bank P123) "accept". Exercising this action leads to two further actions: Exercise A (Iou Bank A) "transfer" and Create (PaintAgree P A P123). One further action follows from Exercise A (Iou Bank A) "transfer": Create (Iou Bank P)
+Or in two separate steps with ``Accept`` followed by ``Settle``:
 
-Formally, an **action** is one of the following:
-
-#. a **Create** action on a contract, which records the creation of the contract
-#. an **Exercise** action on a contract, which records that one or more parties
-   have exercised a right they have on the contract, and which also contains:
-
-   #. An associated set of parties called **actors**. These are the
-      parties who perform the action.
-
-   #. An exercise **kind**, which is either **consuming** or
-      **non-consuming**. Once consumed, a contract cannot be used again
-      (for example, Alice should not be able to accept the painter's
-      offer twice). Contracts exercised in a non-consuming fashion
-      can be reused.
-
-   #. A list of **consequences**, which are themselves actions. Note that
-      the consequences, as well as the kind and the actors, are
-      considered a part of the exercise action itself. This nesting of
-      actions within other actions through consequences of exercises
-      gives rise to the hierarchical structure.
-      The exercise action is the **parent action** of its consequences.
-
-#. a **Fetch** action on a contract, which demonstrates that the contract exists and is active at the time of
-   fetching.
-   The action also contains **actors**, the parties who fetch the contract.
-   A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
-
-#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is **not** assigned to any unconsumed contract on the ledger.
-
-An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
-Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
-
-The following EBNF-like grammar summarizes the structure of actions
-and transactions. Here, "s | t" represents the choice between `s` and
-`t`, "s t" represents `s` followed by `t`, and "s*" represents the
-repetition of `s` zero or more times. The terminal 'contract' denotes
-the underlying type of contracts, and the terminal 'party' the
-underlying type of parties.
-
-.. _action-EBNF:
-
-::
-
-   Action       ::= 'Create' contract
-                  | 'Exercise' party* contract Kind Transaction
-                  | 'Fetch' party* contract
-                  | 'NoSuchKey' key
-   Transaction  ::= Action*
-   Kind         ::= 'Consuming' | 'NonConsuming'
-
-The visual notation presented earlier captures actions precisely with
-conventions that:
-
-#. **Exercise** denotes consuming, **ExerciseN** non-consuming exercises, and **Fetch** a fetch.
-#. double arrows connect exercises to their consequences, if any.
-#. the consequences are ordered left-to-right.
-#. to aid intuitions, exercise actions are annotated with suggestive names
-   like "accept" or "transfer". Intuitively, these correspond to names of
-   Daml choices, but they have no semantic meaning.
-
-An alternative shorthand notation, shown below uses the abbreviations **Exe** and **ExeN** for exercises, and omits the
-**Create** labels on create actions.
-
-.. https://www.lucidchart.com/documents/edit/84166777-17e9-4254-a2f5-f52fff4881f0/0
-.. image:: ./images/action-structure-paint-offer.svg
-   :align: center
-   :width: 60%
-   :alt: The same chart as previous, with alternate notation.
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-ACCEPT_THEN_SETTLE-BEGIN
+   :end-before: SNIPPET-ACCEPT_THEN_SETTLE-END
 
 
-To show an example of a non-consuming exercise, consider a different
-offer example with an easily replenishable subject. For example, if
-`P` was a car manufacturer, and `A` a car dealer, `P` could make an
-offer that could be accepted multiple times.
+.. _actions:
 
-.. https://www.lucidchart.com/documents/edit/101c12dc-e4ec-482c-9cf3-e062250713bb/0
-.. image:: ./images/non-consuming-exercises.svg
-   :align: center
-   :width: 60%
-   :alt: A flowchart showing the actions involved in the car deal. The topmost action is ExeN A (CarOffer A P Bank) "accept". Exercising this action leads to two further actions: Exe A (Iou Bank A) "transfer" and DeliverCarAgree P A. One further action follows from Exe A (Iou Bank A) "transfer": Iou Bank P
-
-To see an example of a fetch, we can extend this example to the case where `P` produces exclusive cars and allows only
-certified dealers to sell them.
-Thus, when accepting the offer, `A` has to additionally show a valid quality certificate issued by some standards body `S`.
-
-.. https://www.lucidchart.com/documents/edit/b20328c7-ce4a-4072-85b6-393666f31304/0
-.. image:: ./images/fetches.svg
-   :align: center
-   :width: 90%
-   :alt: The same chart as above but with a third action descending from ExeN A (CarOffer A P Bank) "accept": Fetch A (Certificate S A)
-
-In the paint offer example, the underlying type of contracts consists
-of three sorts of contracts:
-
-PaintOffer houseOwner painter obligor refNo
-  Intuitively an offer (with a reference number) by
-  which the painter proposes to the house owner to paint her house, in
-  exchange for a single IOU token issued by the specified obligor.
-
-PaintAgree painter houseOwner refNo
-  Intuitively a contract whereby
-  the painter agrees to paint the owner's house
-
-Iou obligor owner
-  An IOU token from an obligor to an owner
-  (for simplicity, the token is of unit amount).
-
-In practice, multiple IOU contracts can exist between the same `obligor` and
-`owner`, in which case each contract should have a unique identifier. However,
-in this section, each contract only appears once, allowing us to drop the notion 
-of identifiers for simplicity reasons.
-
-A **transaction** is a list of actions. Thus, the consequences of
-an exercise form a transaction. In the example, the consequences of
-Alice's exercise form the following transaction, where actions are again
-ordered left-to-right.
-
-.. https://www.lucidchart.com/documents/edit/b9f66843-3ad8-409c-9965-ba1a9d5bb126
-.. image:: ./images/consequences-are-transactions.svg
-   :align: center
-   :width: 50%
-   :alt: A flowchart of the transaction. On the left action Exe A (Iou Bank A) leads to Iou Bank P. On the right there is only PaintAgree P A P123.
-
-For an action `act`,
-its **proper subactions** are all actions in the consequences of
-`act`, together with all of their proper subactions. Additionally,
-`act` is a (non-proper) **subaction** of itself.
-
-The subaction relation is visualized below. Both the green
-and yellow boxes are proper subactions of Alice's exercise on the paint
-offer. Additionally, the creation of `Iou Bank P` (yellow box) is also a
-proper subaction of the exercise on the `Iou Bank A`.
-
-.. https://www.lucidchart.com/documents/edit/412cd784-855f-4032-a011-6849300792ed
-.. image:: ./images/subactions-paint-offer.svg
-   :align: center
-   :width: 60%
-   :alt: The paint agreement chart with Exe A (Iou Bank A), Iou Bank P, and PaintAgree P A P123 boxed in in green, with Iou Bank P additionally boxed in in yellow.
-
-Similarly, a **subtransaction** of a transaction is either the transaction
-itself, or a **proper subtransaction**: a transaction obtained by removing at
-least one action, or replacing it by a subtransaction of its consequences. For
-example, given the transaction consisting of just one action, the paint offer
-acceptance, the image below shows all its proper non-empty subtransactions on the right
-(yellow boxes).
-
-.. https://www.lucidchart.com/documents/edit/a4735a72-2d27-485c-a3ed-0c053dab0e11
-.. image:: ./images/subtransactions-paint-offer.svg
-   :align: center
-   :width: 100%
-   :alt: The paint agreement chart with the following subtransactions listed in boxes alongside it: Box 1 - On the left action Exe A (Iou Bank A) leads to Iou Bank P. On the right there is only PaintAgree P A P123. Box 2 - Iou Bank P on the left, PaintAgree P A P123 on the right. Box 3 - Action Exe A (Iou Bank A) leads to Iou Bank P. Box 4 - Iou Bank P. Box 5 - PaintAgree P A P123.
-
-To illustrate :doc:`contract keys </daml/reference/contract-keys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
-So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
-To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` and `&` mark the parts that belong to a key.
-(The difference between `@` and `&` is explained in the :ref:`integrity section <da-signatories-maintainers>`.)
-The ledger integrity constraints in the next section ensure that there is always at most one active `PaintOffer` for a given key.
-So if the painter retracts its `PaintOffer` and later Alice tries to accept it, she can then record the absence with a `NoSuchKey (P, P123)` key assertion.
-
-
-Ledgers
+Actions
 *******
 
-The transaction structure records the contents of the
-changes, but not *who requested them*. This information is added by the notion
-of a **commit**: a transaction paired with the parties that
-requested it, called the **requesters** of the commit.
-A commit may have one or more requesters.
-Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
-called a **top-level action** of the commit. A **ledger** is a sequence of
-commits. A top-level action of any ledger commit is also a top-level action of
-the ledger.
+.. _actions-hierarchical-structure:
 
-The following EBNF grammar summarizes the structure of commits and ledgers:
+Hierarchical structure
+======================
 
-::
+One of the main features of the Ledger Model is a *hierarchical action structure*.
+This structure is illustrated using Bob settling the DvP by exercising the ``Settle`` choice in the above scenario.
+Alice and Bob have allocated their assets (contracts #1 and #2) on the ledger to a ``SimpleDvp`` contract (#4).
+These contracts appears as inputs (dashed boxes on the left) in the diagram below.
 
-   Commit   ::= party+ Transaction
-   Ledger   ::= Commit*
+.. https://lucid.app/lucidchart/f3f49c7c-d257-4136-9dcb-39750f45c24d/edit
+.. image:: ./images/dvp-settle-action.svg
+   :alt: The settlement action on the ``SimpleDvp`` contract between Alice and Bob, with the two legs of the swap as consequences.
+         
+Exercising the ``Settle`` choice yields an Exercise action,
+which is the tree of nodes shown in blue.
+The input contracts on the left are not part of the action.
+The root node describes the parameters of the choice and references the ``SimpleDvp`` input contract #4.
+It has two subtrees, which perform the asset transfers automatically as part of the ``Settle`` choice.
 
-A Daml ledger thus represents the full history of all actions taken by
-parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
-*order* on the commits in the ledger. Visually, a ledger can be represented
-as a sequence growing from left to right as time progresses. Below,
-dashed vertical lines mark the boundaries of commits, and each commit is
-annotated with its requester(s). Arrows link the create and
-exercise actions on the same contracts. These additional arrows highlight
-that the ledger forms a **transaction graph**. For example, the
-aforementioned house painting scenario is visually represented as
-follows.
-
-.. https://www.lucidchart.com/documents/edit/85c311c5-8402-494d-bdcc-bb5ffff4e1bd
-.. image:: ./images/paint-offer-ledger.svg
-   :align: center
-   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. Finally, the entire set of actions from the paint agreement chart is requested by A.
-
-
-The definitions presented here are all the ingredients required to
-*record* the interaction between parties in a Daml ledger. That is, they
-address the first question: "what do changes and ledgers look
-like?". To answer the next question, "who can request which changes",
-a precise definition is needed of which ledgers are permissible,
-and which are not. For example, the above
-paint offer ledger is intuitively permissible, while all of the
-following ledgers are not.
-
-.. figure:: ./images/double-spend.svg
-   :align: center
-   :alt: Described in the caption.
-
-   Alice spending her IOU twice ("double spend"), once transferring it
-   to `B` and once to `P`.
-
-.. figure:: ./images/non-conformant-action.svg
-   :align: center
-   :name: alice-changes-offer
-   :alt: Described in the caption.
-
-   Alice changing the offer's outcome by removing the transfer of the `Iou`.
-
-.. figure:: ./images/invalid-obligation.svg
-   :align: center
-   :name: obligation-imposed-on-painter
-   :alt: Described in the caption.
-
-   An obligation imposed on the painter without his consent.
-
-.. figure:: ./images/stealing-ious.svg
-   :align: center
-   :name: painter-stealing-ious
-   :alt: Described in the caption.
-
-   Painter stealing Alice's IOU. Note that the ledger would be
-   intuitively permissible if it was Alice performing the last commit.
-
-.. figure:: ./images/failed-key-assertion.svg
-   :align: center
-   :name: alice-claiming-retracted-offer
-   :alt: Described in the caption.
-
-   Painter falsely claiming that there is no offer.
-
-.. figure:: ./images/double-key-creation.svg
-   :align: center
-   :name: painter-creating-two-offers-with-same-key
-   :alt: Described in the caption.
-
-   Painter trying to create two different paint offers with the same reference number.
-
+#. The left subtree represents Alice exercising the ``Transfer`` choice on her ``SimpleAsset`` contract #1.
+   It consists of two nodes:
+   The root node describes the parameters of the choice and the input contract #1.
+   The child node, which is a one-node subtree of its own, encodes the creation of Bob's new ``SimpleAsset`` contract #5.
    
-The next section discusses the criteria that rule out the above examples as
-invalid ledgers.
+#. The right subtree is analogous:
+   The root node of the subtree describes Bob exercising the ``Transfer`` choice on his ``SimpleAsset`` contract #2,
+   and its child encodes the creation of Alice's new ``SimpleAsset`` contract #6.
+
+Notably, the Exercise action is the whole tree even though the root node already describes all the relevant parameters.
+The Ledger Model focuses on actions rather than nodes because the root node cannot exist on its own, without its children,
+as the choice body in the Daml model must always execute when the choice is exercised.
+The :ref:`integrity section <da-model-integrity>` goes into the details of this.
+
+Nevertheless actions are not indivisible, but hierarchical:
+The left and right subtrees are actions in their own right,
+namely the Exercise actions for Alice and Bob exercising their ``Transfer`` choice on their ``SimpleAsset`` input contracts #1 and #2, respectively.
+And each of the two subtrees contains another subtree,
+namely the creation of Bob's and Alice's new ``SimpleAsset`` contracts #5 and #6.
+Each of these subtrees is an action in its own right.
+This hierarchical structure induces a :ref:`subaction relationship explained below <da-ledger-subaction>`
+and forms the basis for the :ref:`privacy model <da-model-privacy>`.
 
 
-.. [#ledger-vs-journal]
+.. _def-action:
 
-   Calling such a complete record "ledger" is standard in the
-   distributed ledger technology community. In accounting terminology,
-   this record is closer to a *journal* than to a ledger.
+Definition
+==========
+
+Overall, the settlement in the above example contains two types of actions:
+
+#. Creating contracts
+
+#. Exercising choices on contracts.
+
+These are also the two main kinds of actions in the Ledger Model.
+
+A **node** is one of the following:
+
+#. A **Create** node records the creation of the contract.
+   It contains the following pieces of information:
+
+   * The **contract ID** is a unique identifier of the contract.
+     It is equivalent to the transaction output (TxO) in ledgers based on :ref:`unspent transaction outputs (UTxO) <da-ledger-input-output>`.
+
+   * The **template ID** identifies the Daml code associated with the contract,
+     and its arguments define the **contract instance**, which is the immutable data associated with the contract ID.
+
+   * The **signatories** are the non-empty set of parties that must authorize the creation and archival of the contract.
+
+   * The **contract observers**, or just observers for short, are the set of parties that will be informed about the contract creation and archival, in addition to the signatories.
+
+   In Daml, the signatories and contract observers are determined by the ``signatory`` and ``observer`` clauses defined by the template.
+   
+   Create nodes are depicted as shown below.
+   Diagrams often omit fields with empty values and observers that are also signatories.
+
+   .. https://lucid.app/lucidchart/31888b88-d836-457d-a4a8-05e3e161e07f/edit
+   .. image:: ./images/create-node.svg
+      :align: center
+      :width: 30%
+      :alt: The structure of a **Create** node.
+
+#. An **Exercise** node records the parameters of a choice that one or more parties have exercised on a contract.
+   It contains the following pieces of information:
+
+   * An exercise **kind**, which is either **consuming** or
+     **non-consuming**. Once consumed, a contract cannot be used again;
+     for example, Alice must not be able to transfer her asset twice, as this would be double spending.
+     In contrast, contracts exercised in a non-consuming fashion can be reused, for example for expressing a delegation from one party to another.
+      
+   * The **contract ID** on which the choice is exercised.
+     This contract is called the **input contract**.
+
+   * The **interface ID** if this choice was exercised through a Daml interface.
+
+   * The **template ID** that defines the smart contract code for the choice with the given **choice name**;
+     and the **choice arguments** that are passed to the smart contract code.
+     
+   * An associated set of parties called **actors**.
+     These are the parties who perform the action.
+     They are specified in the ``controller`` clause in the Daml template.
+
+   * An associated set of **choice observers**.
+     These parties will be informed about the choice being exercised.
+
+   * The **exercise result** as the Daml value returned by evaluating the choice body.
+
+   Exercise nodes are depicted as shown below, where the consequences are indicated by arrows ordered left-to-right.
+   Diagrams omit the kind if it is consuming, empty field values, and choice observers that are also actors.
+
+   .. https://lucid.app/lucidchart/ce3c7eb2-081e-4ac4-af92-5efc11d21c17/edit
+   .. image:: ./images/exercise-node.svg
+      :align: center
+      :width: 30%
+      :alt: The structure of an **Exercise** node.
+
+#. A **Fetch** node on a contract, which demonstrates that the contract exists and is active at the time of fetching.
+   A Fetch behaves like a non-consuming Exercise with no consequences, and can be repeated.
+   The fetch node contains the following pieces of information, analogous to Exercise nodes:
+   **contract ID**, **interface ID**, **template ID**, and the **actors**, namely the parties who fetch the contract.
+
+   Fetch nodes are depicted as shown below.
+
+   .. https://lucid.app/lucidchart/27844d5e-0cdb-4f22-8f67-e97f3839e613/edit
+   .. image:: ./images/fetch-node.svg
+      :align: center
+      :width: 30%
+      :alt: The structure of a **Fetch** node.
+
+
+An **action** consists of a **root node** and a list of **consequences**, which are themselves actions.
+This gives rise to the tree structure of an action: The root node of an action has as children the root nodes of its consequences.
+
+An action inherits its kind from its root node:
+
+#. A **Create action** has a Create node as the root.
+   The consequences are empty.
+
+#. An **Exercise action** has an Exercise node as the root
+   and the consequences are the subactions.
+   The Exercise action is the **parent action** of its consequences.
+
+#. A **Fetch action** as a Fetch node as the root.
+   The consequences are empty.
+   
+The terminology on nodes extends to actions via the root node.
+For example, the signatories of a Create action are the signatories of the Create node,
+and an Exercise action is (non)consuming if and only if its root node is.
+Moreover, an Exercise or a Fetch action on a contract is said to **use** the contract.
+Finally, a consuming Exercise is said to **consume** (or **archive**) its contract.
+
+Examples
+========
+
+An example of a Fetch action appears in the ``Accept`` choice on a DvP proposal contract from the template ``ProposeSimpleDvP``.
+The choice body fetches the ``SimpleAsset`` that Bob allocates to the DvP,
+which checks that the asset contract is active and brings the contract instance into the computation,
+so that the choice implementation can assert that this asset meets the expectation expressed in the proposal contract.
+The next diagram shows this Exercise action with the Fetch action as its first consequence.
+
+.. https://lucid.app/lucidchart/556f7b43-565f-4b94-b670-719135a77bec/edit
+.. image:: ./images/dvp-propose-accept-action.svg
+   :align: center
+   :width: 100%
+   :alt: The accept action on Alice's ``ProposeSimpleDvP`` exercised by Bob.
+
+A non-consuming Exercise shows up in the combined ``AcceptAndSettle`` choice on the ``ProposeSimpleDvP`` contract:
+This choice is non-consuming so that the ``Accept`` choice exercised in the choice body can consume the proposal contract.
+As the next diagram shows, non-consuming Exercises yield multiple references to the same input contract #3.
+The diagram also shows that fetches have the same effect: input contract #2 is used twice.
+
+.. https://lucid.app/lucidchart/fdcc5894-e013-499e-ba85-de16300381a8/edit
+.. image:: ./images/dvp-propose-accept-and-settle-action.svg
+   :align: center
+   :width: 100%
+   :alt: The accept-and-settle action on Alice's ``ProposeSimpleDvP`` exercised by Bob.
+
+.. _da-ledger-subaction:
+         
+Subactions
+==========
+
+This example again highlights the hierarchical structure of actions:
+The ``AcceptAndSettle`` action contains the corresponding actions for ``Accept`` and ``Settle`` as its consequences.
+
+More generally, for an action `act`, its **proper subactions** are all actions in the consequences of
+`act`, together with all of their proper subactions.
+Additionally, `act` is a (non-proper) **subaction** of itself.
+
+The subaction relation is visualized below for Bob's ``Settle`` Exercise.
+Each borderless box contains an action (via its tree of nodes) and the nesting of these boxes encodes the subaction relation.
+In detail, both the blue and purple boxes are proper subactions of Bob's ``Settle`` action shown in grey.
+The green box is a proper subaction of the blue and the grey boxes, and the yellow box is a proper subaction of the purple and the grey boxes.
+
+.. https://lucid.app/lucidchart/dbe05602-46b8-4b23-8957-a8e15af912e6/edit
+.. image:: ./images/dvp-settle-subactions.svg
+   :align: center
+   :width: 60%
+   :alt: The subactions of Bob exercising the ``Settle` choice on the DvP contract.
+
+
+.. _transactions:
+         
+Transactions
+************
+
+A **transaction** is a list of actions that are executed atomically.
+Those actions are called the **root actions** of the transaction.
+That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a **root action**.
+For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to accept both simulataneously.
+To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
+Visually, transactions are delimited by the dashed lines on both sides, to distinguish them from actions.
+Like for actions, the input contracts on the left are not part of the transaction.
+
+.. https://lucid.app/lucidchart/acb71942-2a11-417c-ae0a-003c8ea2da69/edit
+.. image:: ./images/dvp-accept-two.svg
+   :align: center
+   :width: 100%
+   :alt: A transaction with two top-level actions where Bob accepts two DvP proposal, one from Alice and one from Charlie.
+
+For another example, consequences of an Exercise action form a transaction.
+In the example of the ``Settle`` action on Alice's and Bob's ``SimpleDvP``,
+the consequences of the ``Settle`` action form the following transaction,
+where actions are ordered left-to-right as before.
+The transaction consists of two root actions (blue and purple), namely the two ``Transfer`` actions of the two legs of the DvP.
+
+.. https://lucid.app/lucidchart/b8f2c6d1-654b-4658-adc5-77eb59e27d05/edit
+.. image:: ./images/dvp-settle-consequences-are-transactions.svg
+   :align: center
+   :width: 50%
+   :alt: The consequences of the ``Settle`` action are a transaction of two actions, namely the two ``Transfer`` legs of the DvP.
+
+         
+The hierarchical structure of actions extends to transactions and yields the notion of subtransactions.
+A **proper subtransaction** of a transaction is obtained by (repeatedly) replacing an action by its consequences;
+and a **subtransaction** of a transaction is either the transaction itself or a proper subtransaction thereof.
+
+For example, given the transaction shown above consisting only of the two consequences of the ``Settle`` action,
+the next diagram shows all seven proper non-empty subtransactions, each with their dashed delimiters.
+
+.. https://lucid.app/lucidchart/c5ff472e-3161-42a0-ac2d-275774a2b9b8/edit
+.. image:: ./images/dvp-settle-consequences-subtransactions.svg
+   :align: center
+   :width: 100%
+   :alt: All proper subtransactions of the consequences of the ``Settle`` action.
+
+.. _da-ledger-input-output:
+      
+Inputs and outputs
+******************
+
+The Ledger Model falls into the category of `(extended) UTxO-style ledgers <https://en.wikipedia.org/wiki/Unspent_transaction_output>`_
+where the set of unspent transaction outputs (UTxOs) constitutes the current state of a ledger.
+Here, the **transaction outputs** are the contract IDs of the contracts created in a transaction.
+When a contract is consumed, its contract ID is spent and thus removed from the UTxO set.
+The data associated with each UTxO is immutable;
+modifications happen by consuming a contract ID and recreating a new contract with a different contract ID.
+
+This Ledger Model extends the UTxO model in two aspects:
+
+* A transaction may use a contract without consuming it, for example by exercising a non-consuming choice or fetching it.
+  In such a case, the contract ID remains in the set of UTxOs even though it appears as an input to a transaction.
+
+* Transactions are structured hierarchically and contract IDs created in the transaction may be consumed within the same transaction.
+  For example, inside the ``AcceptAndSettle`` action, the created ``SimpleDvP`` in the first consequence is consumed by the second consequence.
+  Such contracts are called **transient**.
+
+These aspects are discussed in more detail in the remaining sections of the Ledger Model.
+
+
+Ledger
+******
+
+The transaction structure records the contents of the changes, but not *who requested them*.
+This information is added by the notion of a **commit**:
+It consists of a single transaction and the one or more parties that requested it.
+Those parties called the **requesters** of the commit.
+In Daml Script, the requesters correspond to the ``actAs`` parties given to the ``submit`` commands.
+
+Definition **Ledger**:
+  A **Ledger** is a directed acyclic graph (DAG) of commits,
+  where an edge `(c`:sub:`1`\ `, c`:sub:`2`\ `)` connects a commit `c`:sub:`1` to another commit `c`:sub:`2`
+  if and only if the transaction of `c`:sub:`1` uses a contract ID created by or used in the transaction in `c`:sub:`2`.
+
+Definition **top-level action**:
+  For a commit, the root actions of its transaction are called the **top-level actions**.
+  A top-level action of any ledger commit is also a top-level action of the ledger.
+
+A Canton Ledger thus represents the full history of all actions taken by parties.
+The graph structure of the Ledger induces an *order* on the commits in the ledger.
+Visually, a ledger can be represented as a sequence growing from left to right as time progresses.
+Below, dashed vertical lines in purple mark the boundaries of commits,
+and each commit is annotated with its requester(s).
+Blue arrows link each Exercise and Fetch action to the Create action of the input contract.
+These arrows highlight that the ledger forms a **transaction graph**.
+
+For example, the following Daml Script encodes the whole workflow of the running DvP example.
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-SCRIPT-BEGIN
+   :end-before: SNIPPET-SCRIPT-END
+
+This workflow gives rise to the ledger shown below with four commits:
+
+* In the first commit, Bank 1 requests the creation of the ``SimpleAsset`` of ``1 EUR`` issued to Alice (contract #1).
+  
+* In the second commit, Bank 2 requests the creation of the ``SimpleAsset`` of ``1 USD`` issued to Bob (contract #2).
+
+* In the thrid commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
+
+* In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
+
+.. https://lucid.app/lucidchart/3ef6e9da-b534-4640-bc19-8fa5c7fb3a71/edit
+.. image:: ./images/dvp-ledger.svg
+   :align: center
+   :alt: The sequence of commits for the whole DvP workflow. First, banks 1 and 2 issue the assets, then Alice proposes the DvP, and finally Bob accepts and settles it.
+
+.. note::
+   The Ledger does not impose an order between independent commits.
+   In this example, there are no edges among the first three commits,
+   so they could be presented in any order.
+
+   As the Ledger is a DAG, one can always extend the order into a linear sequence via a topological sort.
+   For the next sections, we pretend that the Ledger is totally ordered (unless otherwise specified).
+   We discuss the more general partial orders in the :ref:`causality section <local-ledger>`.
+
+.. todo::
+   Link to causality section
+
+

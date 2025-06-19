@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.mediator.store
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
+import com.digitalasset.canton.config.CantonRequireTypes.{String1, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -14,7 +14,7 @@ import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -28,7 +28,7 @@ class DbMediatorSynchronizerConfigurationStore(
     extends MediatorSynchronizerConfigurationStore
     with DbStore {
 
-  private type SerializedRow = (String255, ByteString, ByteString)
+  private type SerializedRow = (String300, ByteString, ByteString)
   import DbStorage.Implicits.*
   import storage.api.*
 
@@ -36,14 +36,14 @@ class DbMediatorSynchronizerConfigurationStore(
   // see create table sql for more details
   protected val singleRowLockValue: String1 = String1.fromChar('X')
 
-  override def fetchConfiguration(implicit
+  override def fetchConfiguration()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]] =
     for {
       rowO <-
         storage
           .query(
-            sql"""select synchronizer_id, static_synchronizer_parameters, sequencer_connection
+            sql"""select physical_synchronizer_id, static_synchronizer_parameters, sequencer_connection
             from mediator_synchronizer_configuration #${storage
                 .limit(1)}""".as[SerializedRow].headOption,
             "fetch-configuration",
@@ -70,14 +70,14 @@ class DbMediatorSynchronizerConfigurationStore(
         storage.profile match {
           case _: DbStorage.Profile.H2 =>
             sqlu"""merge into mediator_synchronizer_configuration
-                   (lock, synchronizer_id, static_synchronizer_parameters, sequencer_connection)
+                   (lock, physical_synchronizer_id, static_synchronizer_parameters, sequencer_connection)
                    values
                    ($singleRowLockValue, $synchronizerId, $synchronizerParameters, $sequencerConnection)"""
           case _: DbStorage.Profile.Postgres =>
-            sqlu"""insert into mediator_synchronizer_configuration (synchronizer_id, static_synchronizer_parameters, sequencer_connection)
+            sqlu"""insert into mediator_synchronizer_configuration (physical_synchronizer_id, static_synchronizer_parameters, sequencer_connection)
               values ($synchronizerId, $synchronizerParameters, $sequencerConnection)
               on conflict (lock) do update set
-                synchronizer_id = excluded.synchronizer_id,
+                physical_synchronizer_id = excluded.physical_synchronizer_id,
                 static_synchronizer_parameters = excluded.static_synchronizer_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
         },
@@ -85,14 +85,36 @@ class DbMediatorSynchronizerConfigurationStore(
       )
   }
 
+  override def setTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage
+      .update_(
+        sqlu"""update mediator_synchronizer_configuration
+              set is_topology_initialized = true
+              where lock = $singleRowLockValue""",
+        "set-topology-initialized",
+      )
+
+  override def isTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    for {
+      rowO <-
+        storage
+          .query(
+            sql"""select is_topology_initialized
+            from mediator_synchronizer_configuration #${storage
+                .limit(1)}""".as[Boolean].headOption,
+            "is-topology-initialized",
+          )
+    } yield rowO.getOrElse(false)
+
   private def serialize(config: MediatorSynchronizerConfiguration): SerializedRow = {
-    val MediatorSynchronizerConfiguration(
-      synchronizerId,
-      synchronizerParameters,
-      sequencerConnections,
-    ) = config
+    val MediatorSynchronizerConfiguration(_, synchronizerParameters, sequencerConnections) = config
+
     (
-      synchronizerId.toLengthLimitedString,
+      config.synchronizerId.toLengthLimitedString,
       synchronizerParameters.toByteString,
       sequencerConnections.toByteString(synchronizerParameters.protocolVersion),
     )
@@ -102,13 +124,16 @@ class DbMediatorSynchronizerConfigurationStore(
       row: SerializedRow
   ): ParsingResult[MediatorSynchronizerConfiguration] =
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
+      psid <- PhysicalSynchronizerId.fromProtoPrimitive(
+        row._1.unwrap,
+        "physical_synchronizer_id",
+      )
       synchronizerParameters <- StaticSynchronizerParameters.fromTrustedByteString(
         row._2
       )
       sequencerConnections <- SequencerConnections.fromTrustedByteString(row._3)
     } yield MediatorSynchronizerConfiguration(
-      synchronizerId,
+      psid,
       synchronizerParameters,
       sequencerConnections,
     )

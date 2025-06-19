@@ -49,7 +49,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
   ): Unit =
     try {
-      performUnlessClosing("receive")(receiveInternal(message))
+      synchronizeWithClosingSync("receive")(receiveInternal(message))
         .onShutdown {
           logger.info(s"Received $message but won't process because we're shutting down")
         }
@@ -80,6 +80,15 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   //  made available by FlagCloseable, they must not hold resources and don't need to be closed.
   override protected def onClosed(): Unit = ()
 
+  final def pipeToSelfOpt[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
+      fun: Try[X] => Option[MessageT]
+  )(implicit
+      context: E#ActorContextT[MessageT],
+      traceContext: TraceContext,
+      merticsContext: MetricsContext,
+  ): Unit =
+    context.pipeToSelf(futureUnlessShutdown)(fun)
+
   final def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => MessageT
   )(implicit
@@ -87,7 +96,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
       merticsContext: MetricsContext,
   ): Unit =
-    context.pipeToSelf(futureUnlessShutdown)(fun.andThen(Some(_)))
+    pipeToSelfOpt(futureUnlessShutdown)(fun.andThen(Some(_)))
 
   final def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X], timer: Timer)(
       fun: Try[X] => MessageT
@@ -96,7 +105,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): Unit =
-    context.pipeToSelf(context.timeFuture(timer, futureUnlessShutdown))(fun.andThen(Some(_)))
+    pipeToSelf(context.timeFuture(timer, futureUnlessShutdown))(fun)
 
   final protected def abort(
       msg: String
@@ -157,6 +166,8 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   */
 trait ModuleRef[-AcceptedMessageT] {
 
+  // TODO(#23345): review tracing when messaging
+
   /** The module reference's asynchronous send operation.
     */
   def asyncSend(
@@ -207,7 +218,10 @@ trait CancellableEvent {
   */
 trait FutureContext[E <: Env[E]] {
 
-  def timeFuture[X](timer: Timer, futureUnlessShutdown: => E#FutureUnlessShutdownT[X])(implicit
+  def timeFuture[X](
+      timer: Timer,
+      futureUnlessShutdown: => E#FutureUnlessShutdownT[X],
+  )(implicit
       mc: MetricsContext
   ): E#FutureUnlessShutdownT[X]
 
@@ -217,22 +231,27 @@ trait FutureContext[E <: Env[E]] {
     * be careful not to mutate state of the modules in the [[Env#FutureUnlessShutdownT]], as this
     * would violate the assumptions we use when writing [[Module]]s.
     */
-  def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
-      fun: PureFun[X, Y]
-  ): E#FutureUnlessShutdownT[Y]
+  def mapFuture[X, Y](
+      future: E#FutureUnlessShutdownT[X]
+  )(fun: PureFun[X, Y], orderingStage: Option[String] = None): E#FutureUnlessShutdownT[Y]
 
   def zipFuture[X, Y](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[(X, Y)]
 
-  def zipFuture[X, Y, Z](
+  def zipFuture3[X, Y, Z](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
       future3: E#FutureUnlessShutdownT[Z],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[(X, Y, Z)]
 
-  def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+  def sequenceFuture[A, F[_]](
+      futures: F[E#FutureUnlessShutdownT[A]],
+      orderingStage: Option[String] = None,
+  )(implicit
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]]
 
@@ -242,6 +261,7 @@ trait FutureContext[E <: Env[E]] {
   def flatMapFuture[R1, R2](
       future1: E#FutureUnlessShutdownT[R1],
       future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[R2]
 }
 
@@ -251,8 +271,8 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   // Client API, used by system construction logic
 
-  def newModuleRef[NewModuleMessageT](
-      moduleName: ModuleName
+  def newModuleRef[NewModuleMessageT](moduleName: ModuleName)(
+      moduleNameForMetrics: String = moduleName.name
   ): E#ModuleRefT[NewModuleMessageT]
 
   /** Spawns a new module. The `module` handler object must not be spawned more than once, lest it
@@ -266,6 +286,8 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
   // Handler API, used by module implementations
 
   def self: E#ModuleRefT[MessageT]
+
+  // TODO(#23345): review tracing when messaging
 
   def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       metricsContext: MetricsContext
@@ -291,31 +313,43 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
   ): E#FutureUnlessShutdownT[X] =
     futureContext.timeFuture(timer, futureUnlessShutdown)
 
-  final override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] = futureContext.pureFuture(x)
+  final override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] =
+    futureContext.pureFuture(x)
 
-  final override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
-      fun: PureFun[X, Y]
-  ): E#FutureUnlessShutdownT[Y] = futureContext.mapFuture(future)(fun)
+  final override def mapFuture[X, Y](
+      future: E#FutureUnlessShutdownT[X]
+  )(fun: PureFun[X, Y], orderingStage: Option[String] = None): E#FutureUnlessShutdownT[Y] =
+    futureContext.mapFuture(future)(fun, orderingStage)
 
   final override def zipFuture[X, Y](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
-  ): E#FutureUnlessShutdownT[(X, Y)] = futureContext.zipFuture(future1, future2)
+      orderingStage: Option[String] = None,
+  ): E#FutureUnlessShutdownT[(X, Y)] =
+    futureContext.zipFuture(future1, future2, orderingStage)
 
-  final override def zipFuture[X, Y, Z](
+  final override def zipFuture3[X, Y, Z](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
       future3: E#FutureUnlessShutdownT[Z],
-  ): E#FutureUnlessShutdownT[(X, Y, Z)] = futureContext.zipFuture(future1, future2, future3)
+      orderingStage: Option[String] = None,
+  ): E#FutureUnlessShutdownT[(X, Y, Z)] =
+    futureContext.zipFuture3(future1, future2, future3, orderingStage)
 
-  final override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+  final override def sequenceFuture[A, F[_]](
+      futures: F[E#FutureUnlessShutdownT[A]],
+      orderingStage: Option[String] = None,
+  )(implicit
       ev: Traverse[F]
-  ): E#FutureUnlessShutdownT[F[A]] = futureContext.sequenceFuture(futures)
+  ): E#FutureUnlessShutdownT[F[A]] =
+    futureContext.sequenceFuture(futures, orderingStage)
 
   final override def flatMapFuture[R1, R2](
       future1: E#FutureUnlessShutdownT[R1],
       future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
-  ): E#FutureUnlessShutdownT[R2] = futureContext.flatMapFuture(future1, future2)
+      orderingStage: Option[String] = None,
+  ): E#FutureUnlessShutdownT[R2] =
+    futureContext.flatMapFuture(future1, future2, orderingStage)
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
@@ -383,7 +417,7 @@ trait ModuleSystem[E <: Env[E]] {
 
   def newModuleRef[AcceptedMessageT](
       moduleName: ModuleName
-  ): E#ModuleRefT[AcceptedMessageT]
+  )(moduleNameForMetrics: String = moduleName.name): E#ModuleRefT[AcceptedMessageT]
 
   def setModule[AcceptedMessageT](
       moduleRef: E#ModuleRefT[AcceptedMessageT],

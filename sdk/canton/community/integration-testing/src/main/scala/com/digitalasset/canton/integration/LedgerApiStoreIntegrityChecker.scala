@@ -75,7 +75,7 @@ class LedgerApiStoreIntegrityChecker(
               Try(
                 justWaitForIt(
                   ledgerApiStore
-                    .onlyForTestingVerifyIntegrity(
+                    .verifyIntegrity(
                       failForEmptyDB =
                         false // sometimes configured participants are not even started once
                     )

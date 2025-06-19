@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencer.api.v30.AcknowledgeSignedResponse
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
@@ -28,21 +29,23 @@ import scala.concurrent.duration.Duration
   * NOTE: We currently make only a minimal effort to keep transport independence, and there are
   * obvious leaks. This will be extended when we need it.
   */
-trait UserSequencerConnectionXStub {
+trait UserSequencerConnectionXStub extends NamedLogging {
   import SequencerConnectionXStub.*
 
   def sendAsync(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError.ConnectionError, Unit]
 
   def acknowledgeSigned(
       signedRequest: SignedContent[AcknowledgeRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, AcknowledgeSignedResponse]
@@ -51,6 +54,7 @@ trait UserSequencerConnectionXStub {
       request: GetTrafficStateForMemberRequest,
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[

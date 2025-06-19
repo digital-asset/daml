@@ -121,4 +121,23 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
       }
     }
   }
+
+  override def deleteRecordsPastTimestamp(
+      timestampExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    blocking {
+      synchronized {
+        trafficConsumedMap.foreach { case (member, _) =>
+          trafficConsumedMap
+            .updateWith(member) {
+              case Some(currentBalances) =>
+                NonEmpty.from(currentBalances.filter(_.sequencingTimestamp <= timestampExclusive))
+              case None => None
+            }
+            .discard
+        }
+      }
+    }
+    FutureUnlessShutdown.unit
+  }
 }

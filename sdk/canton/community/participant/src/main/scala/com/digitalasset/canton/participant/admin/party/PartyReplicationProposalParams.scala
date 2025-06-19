@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{
   ParticipantId,
   PartyId,
@@ -26,6 +27,7 @@ final case class PartyReplicationProposalParams private (
     targetParticipantId: ParticipantId,
     sequencerIds: NonEmpty[List[SequencerId]],
     serial: PositiveInt,
+    participantPermission: ParticipantPermission,
 )
 
 object PartyReplicationProposalParams {
@@ -68,6 +70,7 @@ object PartyReplicationProposalParams {
         s"Non-integer serial ${c.topologySerial}",
       )
       serial <- PositiveInt.create(serialInt).leftMap(_.message)
+      participantPermission = PartyParticipantPermission.fromDaml(c.participantPermission)
     } yield PartyReplicationProposalParams(
       requestId,
       partyId,
@@ -75,5 +78,6 @@ object PartyReplicationProposalParams {
       targetParticipantId,
       sequencerIdsNE,
       serial,
+      participantPermission,
     )
 }

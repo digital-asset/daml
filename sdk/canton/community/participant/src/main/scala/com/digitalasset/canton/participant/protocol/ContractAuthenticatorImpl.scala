@@ -5,10 +5,8 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 
 trait ContractAuthenticator {
@@ -64,7 +62,12 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       driverMetadata <- DriverContractMetadata
         .fromLfBytes(contract.cantonData.toByteArray)
         .leftMap(_.toString)
-      createTime <- CantonTimestamp.fromInstant(contract.createdAt.toInstant)
+      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+      createTime <- (contract.createdAt: CreationTime) match {
+        case absolute: CreationTime.CreatedAt => Right(absolute)
+        case CreationTime.Now =>
+          Left(s"Cannot determine creation time for contract ${contract.contractId}.")
+      }
       contractInstance <- SerializableRawContractInstance
         .create(
           Versioned(
@@ -80,7 +83,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       _ <- authenticate(
         contract.contractId,
         driverMetadata.salt,
-        LedgerCreateTime(createTime),
+        createTime,
         metadata,
         contractInstance,
       )
@@ -111,7 +114,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
   def authenticate(
       contractId: LfContractId,
       contractSalt: Salt,
-      ledgerTime: LedgerCreateTime,
+      ledgerTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
   ): Either[String, Unit] = {

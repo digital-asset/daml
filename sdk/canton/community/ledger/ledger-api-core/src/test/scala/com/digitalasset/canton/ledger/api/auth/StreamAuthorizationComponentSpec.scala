@@ -19,6 +19,7 @@ import com.digitalasset.canton.auth.{
   ClaimSet,
 }
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.ServerConfig
 import com.digitalasset.canton.ledger.api.UserRight.CanReadAs
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
@@ -306,6 +307,7 @@ class StreamAuthorizationComponentSpec
       address = None,
       desiredPort = grpcServerPort,
       maxInboundMessageSize = ApiServiceOwner.DefaultMaxInboundMessageSize,
+      maxInboundMetadataSize = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
       sslContext = None,
       interceptors = List(authorizationClaimSetFixtureInterceptor),
       metrics = LedgerApiServerMetrics.ForTesting,

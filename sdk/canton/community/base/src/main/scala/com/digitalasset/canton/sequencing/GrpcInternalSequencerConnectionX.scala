@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -12,7 +13,12 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{AtomicHealthElement, CompositeHealthElement, HealthListener}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, LifeCycle}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  HasRunOnClosing,
+  LifeCycle,
+  RunOnClosing,
+}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -37,6 +43,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContextExecutor, blocking}
@@ -52,7 +59,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContextExecutor)
+)(implicit ec: ExecutionContextExecutor, esf: ExecutionSequencerFactory, materializer: Materializer)
     extends InternalSequencerConnectionX
     with PrettyPrinting
     with GrpcClientTransportHelpers {
@@ -62,6 +69,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   private val stub: SequencerConnectionXStub = stubFactory.createStub(connection)
   private val attributesCell = new SingleUseCell[ConnectionAttributes]
   private val localState = new AtomicReference[LocalState](LocalState.Initial)
+  // Reference to the user connection -- for cleaning purposes
+  private val userConnectionRef = new AtomicReference[Option[GrpcSequencerConnectionX]](None)
 
   // The sequencer connection health state is determined by the underlying connection state and the local state
   override val health: GrpcSequencerConnectionXHealth = new GrpcSequencerConnectionXHealth(
@@ -102,18 +111,14 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         logger.debug(s"Poked with state $state")
 
         state match {
-          case SequencerConnectionXState.Started =>
+          case SequencerConnectionXState.Started if !isClosing =>
             FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-              performUnlessClosingUSF(
-                s"validate connection ${GrpcInternalSequencerConnectionX.this.name}"
-              )(
-                validationLimiter.maybeValidate().thereafter {
-                  case Failure(t) =>
-                    // If a validation throws, we consider this a fatal failure of the connection
-                    fatal(reason = s"Validation failed with an exception: $t")
-                  case _ =>
-                }
-              ),
+              validationLimiter.maybeValidate().thereafter {
+                case Failure(t) =>
+                  // If a validation throws, we consider this a fatal failure of the connection
+                  fatal(reason = s"Validation failed with an exception: $t")
+                case _ =>
+              },
               s"validate connection ${GrpcInternalSequencerConnectionX.this.name}",
             )
 
@@ -184,6 +189,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         case LocalState.Initial | LocalState.Stopping =>
           logger.debug(s"Ignoring stop of connection as it is in state $oldState")
         case LocalState.Starting | LocalState.Validated =>
+          // Clean authenticator
+          userConnectionRef.getAndSet(None).foreach(_.close())
           connection.stop()
       }
     }
@@ -198,6 +205,8 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         case LocalState.Fatal | LocalState.Initial | LocalState.Stopping =>
           logger.debug(s"Ignoring stop of connection as it is in state $oldState")
         case LocalState.Starting | LocalState.Validated =>
+          // Clean authenticator
+          userConnectionRef.getAndSet(None).foreach(_.close())
           connection.stop()
       }
     }
@@ -251,7 +260,10 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
     val resultET = for {
       apiName <- stub
-        .getApiName(retryPolicy = retryPolicy(retryOnUnavailable = true))
+        .getApiName(
+          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          logPolicy = CantonGrpcUtil.SilentLogPolicy,
+        )
         .leftMap(SequencerConnectionXInternalError.StubError.apply)
       _ <- EitherT.cond[FutureUnlessShutdown](
         apiName == CantonGrpcUtil.ApiName.SequencerPublicApi,
@@ -264,6 +276,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           clientProtocolVersions,
           minimumProtocolVersion,
           retryPolicy = retryPolicy(retryOnUnavailable = true),
+          logPolicy = CantonGrpcUtil.SilentLogPolicy,
         )
         .leftMap(SequencerConnectionXInternalError.StubError.apply)
       handshakePV <- EitherT
@@ -277,12 +290,18 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
       // TODO(#23902): Might be good to have the crypto handshake part of connection validation as well
 
       info <- stub
-        .getSynchronizerAndSequencerIds(retryPolicy = retryPolicy(retryOnUnavailable = true))
+        .getSynchronizerAndSequencerIds(
+          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          logPolicy = CantonGrpcUtil.SilentLogPolicy,
+        )
         .leftMap[SequencerConnectionXInternalError](
           SequencerConnectionXInternalError.StubError.apply
         )
       params <- stub
-        .getStaticSynchronizerParameters(retryPolicy = retryPolicy(retryOnUnavailable = true))
+        .getStaticSynchronizerParameters(
+          retryPolicy = retryPolicy(retryOnUnavailable = true),
+          logPolicy = CantonGrpcUtil.SilentLogPolicy,
+        )
         .leftMap[SequencerConnectionXInternalError](
           SequencerConnectionXInternalError.StubError.apply
         )
@@ -306,7 +325,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
       )
       .map { channel =>
         val clientAuth = new GrpcSequencerClientAuth(
-          synchronizerId = checked(tryAttributes).synchronizerId,
+          synchronizerId = checked(tryAttributes).physicalSynchronizerId,
           member = member,
           crypto = crypto,
           channelPerEndpoint = NonEmpty(Map, config.endpoint -> channel.channel),
@@ -318,16 +337,39 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         )
 
         val authenticatedStub = stubFactory.createUserStub(connection, clientAuth)
-        new GrpcSequencerConnectionX(
+        val userConnection = new GrpcSequencerConnectionX(
           this,
           name = s"sequencer-${connection.name}",
           authenticatedStub,
+          clientAuth,
           timeouts,
           loggerFactory,
         )
+
+        // Set new user connection and clean the previous one if any
+        userConnectionRef.getAndSet(Some(userConnection)).foreach(_.close())
+
+        userConnection
       }
 
-  override def onClosed(): Unit = LifeCycle.close(validationLimiter, connection)(logger)
+  locally {
+    import TraceContext.Implicits.Empty.*
+
+    // Make sure the underlying connection (and therefore the gRPC channel) is closed as quickly as possible.
+    // This will shutdown the connection validator and prevent it from blocking the shutdown of this connection.
+    // The authentication uses the same channel and will therefore be shutdown as well.
+    runOnOrAfterClose_(new RunOnClosing() {
+      override val name: String = s"${GrpcInternalSequencerConnectionX.this.name}-shutdown"
+      override val done = false
+      override def run()(implicit traceContext: TraceContext): Unit =
+        LifeCycle.close(connection)(logger)
+    })
+  }
+
+  override def onClosed(): Unit = {
+    val toClose = userConnectionRef.get.toList :+ validationLimiter
+    LifeCycle.close(toClose*)(logger)
+  }
 
   override protected def pretty: Pretty[GrpcInternalSequencerConnectionX] =
     prettyOfClass(
@@ -409,13 +451,15 @@ class GrpcInternalSequencerConnectionXFactory(
     loggerFactory: NamedLoggerFactory,
 ) extends InternalSequencerConnectionXFactory {
   override def create(config: ConnectionXConfig)(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): InternalSequencerConnectionX =
     new GrpcInternalSequencerConnectionX(
       config,
       clientProtocolVersions,
       minimumProtocolVersion,
-      stubFactory = SequencerConnectionXStubFactoryImpl,
+      stubFactory = new SequencerConnectionXStubFactoryImpl(loggerFactory),
       futureSupervisor,
       timeouts,
       loggerFactory.append("connection", config.name),

@@ -17,7 +17,6 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   PackageDependencyResolverUS,
@@ -25,6 +24,7 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -128,7 +128,7 @@ class StoreBasedSynchronizerTopologyClient(
     with TopologyAwaiter
     with NamedLogging {
 
-  val synchronizerId = physicalSynchronizerId.logical
+  val synchronizerId: SynchronizerId = physicalSynchronizerId.logical
 
   private val effectiveTimeAwaiter =
     new TimeAwaiter(

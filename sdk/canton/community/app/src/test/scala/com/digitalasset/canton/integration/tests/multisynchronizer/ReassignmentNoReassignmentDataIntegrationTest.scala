@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalSequencerReference
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.GetCash
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
@@ -21,6 +20,7 @@ import com.digitalasset.canton.integration.util.{
   AcsInspection,
   HasCommandRunnersHelpers,
   HasReassignmentCommandsHelpers,
+  NodeDbStorageAccessUtil,
   PartyToParticipantDeclarative,
 }
 import com.digitalasset.canton.integration.{
@@ -68,7 +68,8 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
     with AcsInspection
     with HasReassignmentCommandsHelpers
     with HasCommandRunnersHelpers
-    with HasProgrammableSequencer {
+    with HasProgrammableSequencer
+    with NodeDbStorageAccessUtil {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_S1M1
@@ -207,8 +208,7 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
       .value
       .reassignmentStore
 
-    val reassignmendId =
-      ReassignmentId(Source(daId), CantonTimestamp.assertFromLong(unassignId.toLong))
+    val reassignmendId = ReassignmentId.tryCreate(Source(daId), unassignId)
 
     reassignmentStore
       .findReassignmentEntry(reassignmendId)
@@ -270,17 +270,21 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
       loggerFactory.assertLogsUnorderedOptional(
         {
 
-          // success: threshold is one (p3 confirmation is sufficient for Alice)
-          {
+          clue("success: threshold is one (p3 confirmation is sufficient for Alice)") {
             changeAliceHosting(confirmationThresholdAcme = PositiveInt.one)
             val result = runScenario(createGetCash(1.0), deleteReassignmentEntry = true)
             result.futureValue.status.value.code shouldBe 0
           }
 
-          // failure: threshold is two and p1 does not confirm (entry deleted)
-          {
+          clue("failure: threshold is two and p1 does not confirm (entry deleted)") {
+            val mediator2EventsCountBefore = countSequencedEventsReceivedBy(mediator2)
             changeAliceHosting(confirmationThresholdAcme = PositiveInt.two)
             val result = runScenario(createGetCash(2.0), deleteReassignmentEntry = true)
+            eventually() {
+              // Note: without checking this condition, the sim clock advancement is racy
+              // with the confirmation response submissions by the participants
+              countSequencedEventsReceivedBy(mediator2) shouldBe mediator2EventsCountBefore + 2
+            }
             environment.simClock.value.advance(participantReactionTimeout.plusMillis(1))
             mediator2.testing.fetch_synchronizer_time()
 
@@ -292,15 +296,13 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
             )
           }
 
-          // success: entry is not deleted
-          {
+          clue("success: entry is not deleted") {
             changeAliceHosting(confirmationThresholdAcme = PositiveInt.one)
             val result = runScenario(createGetCash(3.0), deleteReassignmentEntry = false)
             result.futureValue.status.value.code shouldBe 0
           }
 
-          // success: entry is not deleted
-          {
+          clue("success: entry is not deleted") {
             changeAliceHosting(confirmationThresholdAcme = PositiveInt.two)
             val result = runScenario(createGetCash(4.0), deleteReassignmentEntry = false)
             result.futureValue.status.value.code shouldBe 0

@@ -111,6 +111,7 @@ trait ServerConfig extends Product with Serializable {
 
 object ServerConfig {
   val defaultMaxInboundMessageSize: NonNegativeInt = NonNegativeInt.tryCreate(10 * 1024 * 1024)
+  val defaultMaxInboundMetadataSize: NonNegativeInt = NonNegativeInt.tryCreate(8 * 1024)
 }
 
 /** A variant of [[ServerConfig]] that by default listens to connections only on the loopback

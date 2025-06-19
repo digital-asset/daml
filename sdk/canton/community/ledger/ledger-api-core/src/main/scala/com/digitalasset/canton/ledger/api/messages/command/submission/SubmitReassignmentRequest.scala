@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.messages.command.submission
 
+import com.digitalasset.canton.protocol.UnassignId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value
 
 final case class SubmitReassignmentRequest(
@@ -25,5 +26,5 @@ final case class UnassignCommand(
 final case class AssignCommand(
     sourceSynchronizerId: Source[SynchronizerId],
     targetSynchronizerId: Target[SynchronizerId],
-    unassignId: Time.Timestamp,
+    unassignId: UnassignId,
 )

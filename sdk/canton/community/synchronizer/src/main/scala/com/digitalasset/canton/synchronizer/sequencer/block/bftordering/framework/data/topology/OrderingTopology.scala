@@ -19,6 +19,7 @@ import OrderingTopology.{
   NodeTopologyInfo,
   isStrongQuorumReached,
   isWeakQuorumReached,
+  numToleratedFaults,
   strongQuorumSize,
   weakQuorumSize,
 }
@@ -46,6 +47,8 @@ final case class OrderingTopology(
   lazy val weakQuorum: Int = weakQuorumSize(nodes.size)
 
   lazy val strongQuorum: Int = strongQuorumSize(nodes.size)
+
+  def numFaultsTolerated: Int = numToleratedFaults(nodes.size)
 
   def contains(id: BftNodeId): Boolean = nodes.contains(id)
 
@@ -81,7 +84,7 @@ object OrderingTopology {
           node,
           NodeTopologyInfo(
             activationTime = TopologyActivationTime(CantonTimestamp.MinValue),
-            keyIds = Set(FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy)),
+            keyIds = Set(FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey)),
           ),
         )
       }.toMap,

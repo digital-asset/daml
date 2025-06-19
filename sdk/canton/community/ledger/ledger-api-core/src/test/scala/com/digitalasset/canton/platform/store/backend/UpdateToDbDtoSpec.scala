@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
@@ -32,6 +33,7 @@ import com.digitalasset.canton.platform.store.dao.events.{
   LfValueSerialization,
 }
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
+import com.digitalasset.canton.protocol.UnassignId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -68,6 +70,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     def apply(): NodeIdTransactionBuilder & TestNodeBuilder = new NodeIdTransactionBuilder
       with TestNodeBuilder
   }
+
+  def unassignedId(i: Int): UnassignId = UnassignId(TestHash.digest(i))
 
   "UpdateToDbDto" should {
 
@@ -1407,7 +1411,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           sourceSynchronizer = Source(SynchronizerId.tryFromString("x::synchronizer1")),
           targetSynchronizer = targetSynchronizerId,
           submitter = Option(someParty),
-          unassignId = CantonTimestamp.assertFromLong(1000000000),
+          unassignId = unassignedId(1000000000),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -1449,7 +1453,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         driver_metadata = someContractDriverMetadata.toByteArray,
         source_synchronizer_id = "x::synchronizer1",
         target_synchronizer_id = "x::synchronizer2",
-        unassign_id = "1000000000",
+        unassign_id = unassignedId(1000000000).toHexString,
         reassignment_counter = 1500L,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.toMicros,
@@ -1513,7 +1517,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
-          unassignId = CantonTimestamp.assertFromLong(1000000000),
+          unassignId = unassignedId(1000000000),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -1548,7 +1552,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id = 0,
         source_synchronizer_id = "x::synchronizer1",
         target_synchronizer_id = "x::synchronizer2",
-        unassign_id = "1000000000",
+        unassign_id = unassignedId(1000000000).toHexString,
         reassignment_counter = 1500L,
         assignment_exclusivity = Some(123456L),
         trace_context = serializedEmptyTraceContext,
@@ -1814,7 +1818,7 @@ object UpdateToDbDtoSpec {
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),
-    submissionTime = Time.Timestamp.assertFromLong(3),
+    preparationTime = Time.Timestamp.assertFromLong(3),
     submissionSeed = someHash,
     timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,

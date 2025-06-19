@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -25,7 +25,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentCompleted
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
 sealed trait RollbackUnassignmentIntegrationTest
@@ -129,8 +129,8 @@ sealed trait RollbackUnassignmentIntegrationTest
       case other => fail(s"Expected 2 unassigned events, but got: $other")
     }
 
-    assigned1.target shouldBe daId.toProtoPrimitive
-    assigned1.source shouldBe acmeId.toProtoPrimitive
+    assigned1.target shouldBe daId.logical.toProtoPrimitive
+    assigned1.source shouldBe acmeId.logical.toProtoPrimitive
     assigned1.target shouldBe assigned2.source
     unassigned1.target shouldBe unassigned2.source
     unassigned1.source shouldBe unassigned2.target
@@ -146,8 +146,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     )
     unassigned.events.loneElement.reassignmentCounter shouldBe 3
 
-    val reassignmentId =
-      ReassignmentId(Source(acmeId), CantonTimestamp.assertFromLong(unassignmentId.toLong))
+    val reassignmentId = ReassignmentId.tryCreate(Source(acmeId), unassignmentId)
 
     val lookup = participant1.underlying.value.sync.syncPersistentStateManager
       .get(daId)
@@ -165,11 +164,11 @@ sealed trait RollbackUnassignmentIntegrationTest
   "cannot rollback an unknown reassignment" in { implicit env =>
     import env.*
 
-    val now = CantonTimestamp.now()
+    val unassignId = UnassignId(TestHash.digest(42)).toHexString
     participant2.synchronizers.disconnect_all()
 
     loggerFactory.assertThrowsAndLogs[CommandFailure](
-      participant2.repair.rollback_unassignment(now.toProtoPrimitive.toString, acmeId, daId),
+      participant2.repair.rollback_unassignment(unassignId, acmeId, daId),
       _.commandFailureMessage should include("unknown reassignment id"),
     )
   }

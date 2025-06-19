@@ -13,7 +13,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AtMostOnePhysicalActive,
-  ConfigAlreadyExists,
+  Error,
   MissingConfigForSynchronizer,
   NoActiveSynchronizer,
   UnknownAlias,
@@ -49,6 +49,9 @@ final case class StoredSynchronizerConnectionConfig(
   *
   * Upon initial registration, the physical synchronizer id is unknown. Because of that, many
   * methods take an *optional* physical synchronizer id.
+  *
+  * Invariant of the store:
+  *   - For a given synchronizer alias, all the configurations have the same logical synchronizer ID
   */
 trait SynchronizerConnectionConfigStore extends AutoCloseable {
   protected def logger: TracedLogger
@@ -67,7 +70,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       configuredPSId: ConfiguredPhysicalSynchronizerId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ConfigAlreadyExists, Unit]
+  ): EitherT[FutureUnlessShutdown, Error, Unit]
 
   /** Replaces the config for the given alias and physical synchronizer id. Will return an
     * [[SynchronizerConnectionConfigStore.MissingConfigForSynchronizer]] error if there is no config
@@ -82,10 +85,10 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
   def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
-      physicalSynchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerConnectionConfigStore.Error, Unit]
+  ): EitherT[FutureUnlessShutdown, Error, Unit]
 
   /** Retrieves the config for a given alias and id. Will return an
     * [[SynchronizerConnectionConfigStore.MissingConfigForSynchronizer]] error if there is no config
@@ -100,12 +103,13 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
     * [[SynchronizerConnectionConfigStore.UnknownPSId]] error if there is no config for id.
     */
   def get(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Either[UnknownPSId, StoredSynchronizerConnectionConfig]
 
   /** Retrieves the active connection for `alias`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the alias is unknown or if no connection is
-    * active.
+    * active. If several active configs are found, return the one with the highest
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
     *
     * @param singleExpected
     *   If true, fails if more than one active connection exist.
@@ -129,7 +133,8 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
   /** Retrieves the active connection for `id`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the id is unknown or if no connection is
-    * active.
+    * active. If several active configs are found, return the one with the highest
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
     *
     * @param singleExpected
     *   If true, fails if more than one active connection exist.
@@ -259,6 +264,15 @@ object SynchronizerConnectionConfigStore {
     override def message: String =
       s"Connection for synchronizer with alias `$alias` and id `$id` already exists."
   }
+  final case class InconsistentLogicalSynchronizerIds(
+      alias: SynchronizerAlias,
+      newPSId: PhysicalSynchronizerId,
+      existingPSId: PhysicalSynchronizerId,
+  ) extends Error {
+    val message =
+      s"Synchronizer with id $newPSId and alias $alias cannot be registered because existing id `$existingPSId` is for a different logical synchronizer"
+  }
+
   final case class MissingConfigForSynchronizer(
       alias: SynchronizerAlias,
       id: ConfiguredPhysicalSynchronizerId,
@@ -271,6 +285,13 @@ object SynchronizerConnectionConfigStore {
   ) extends Error {
     override def message: String =
       s"No active synchronizer connection found for `$alias`."
+  }
+  final case class SynchronizerIdAlreadyAdded(
+      synchronizerId: PhysicalSynchronizerId,
+      existingAlias: SynchronizerAlias,
+  ) extends Error {
+    val message =
+      s"Synchronizer with id $synchronizerId is already registered with alias $existingAlias"
   }
   final case class UnknownAlias(
       alias: SynchronizerAlias

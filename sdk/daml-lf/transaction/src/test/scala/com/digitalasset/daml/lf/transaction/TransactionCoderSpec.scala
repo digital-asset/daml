@@ -339,7 +339,7 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = FatContractInstance.fromCreateNode(
           normalizedCreate,
-          time,
+          CreationTime.CreatedAt(time),
           data.Bytes.fromByteString(salt),
         )
         val Right(encoded) = TransactionCoder.encodeFatContractInstance(instance)
@@ -371,7 +371,7 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = FatContractInstance.fromCreateNode(
           normalizedCreate,
-          time,
+          CreationTime.CreatedAt(time),
           data.Bytes.fromByteString(salt),
         )
         val bytes = hackProto(instance, addUnknownField(_, i, extraBytes))
@@ -396,7 +396,7 @@ class TransactionCoderSpec
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
           val instance = FatContractInstance.fromCreateNode(
             normalizedCreate,
-            time,
+            CreationTime.CreatedAt(time),
             data.Bytes.fromByteString(salt),
           )
           val Right(protoKey) = TransactionCoder.encodeKeyWithMaintainers(create.version, key)
@@ -422,7 +422,7 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = FatContractInstance.fromCreateNode(
           normalizedCreate,
-          time,
+          CreationTime.CreatedAt(time),
           data.Bytes.fromByteString(salt),
         )
         val bytes =
@@ -463,7 +463,7 @@ class TransactionCoderSpec
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
           val instance = FatContractInstance.fromCreateNode(
             normalizedCreate,
-            time,
+            CreationTime.CreatedAt(time),
             data.Bytes.fromByteString(salt),
           )
           val nonMaintainerSignatories = (instance.nonMaintainerSignatories + party)
@@ -510,7 +510,7 @@ class TransactionCoderSpec
           val normalizedCreate = adjustStakeholders(normalizeCreate(create))
           val instance = FatContractInstance.fromCreateNode(
             normalizedCreate,
-            time,
+            CreationTime.CreatedAt(time),
             data.Bytes.fromByteString(salt),
           )
           val maintainers = TreeSet.from(key.maintainers + party)
@@ -558,7 +558,7 @@ class TransactionCoderSpec
         val normalizedCreate = adjustStakeholders(normalizeCreate(create))
         val instance = FatContractInstance.fromCreateNode(
           normalizedCreate,
-          time,
+          CreationTime.CreatedAt(time),
           data.Bytes.fromByteString(salt),
         )
         val party_ = makePartyFresh(party, create)

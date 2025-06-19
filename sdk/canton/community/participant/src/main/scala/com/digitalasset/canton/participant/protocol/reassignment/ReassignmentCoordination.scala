@@ -26,12 +26,15 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   UnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
-import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
+import com.digitalasset.canton.participant.sync.{
+  StaticSynchronizerParametersGetter,
+  SyncPersistentStateManager,
+}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
@@ -44,11 +47,9 @@ class ReassignmentCoordination(
       ReassignmentStore,
     ],
     recentTimeProofFor: RecentTimeProofProvider,
-    reassignmentSubmissionFor: SynchronizerId => Option[ReassignmentSubmissionHandle],
+    reassignmentSubmissionFor: PhysicalSynchronizerId => Option[ReassignmentSubmissionHandle],
     pendingUnassignments: Source[SynchronizerId] => Option[ReassignmentSynchronizer],
-    val staticSynchronizerParameterFor: Traced[SynchronizerId] => Option[
-      StaticSynchronizerParameters
-    ],
+    staticSynchronizerParametersGetter: StaticSynchronizerParametersGetter,
     syncCryptoApi: SyncCryptoApiParticipantProvider,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -74,7 +75,7 @@ class ReassignmentCoordination(
 
   // TODO(#25483) This should be physical
   private[reassignment] def awaitSynchronizerTime(
-      synchronizerId: ReassignmentTag[SynchronizerId],
+      synchronizerId: ReassignmentTag[PhysicalSynchronizerId],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -86,7 +87,7 @@ class ReassignmentCoordination(
       case None =>
         EitherT.leftT(
           UnknownSynchronizer(
-            synchronizerId.unwrap,
+            synchronizerId.unwrap.logical,
             s"Unable to find synchronizer when awaiting synchronizer time $timestamp.",
           )
         )
@@ -99,7 +100,7 @@ class ReassignmentCoordination(
     */
   // TODO(#25483) This makes no sense: if the static parameters are provided, the synchronizer ID has to be physical
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
-      synchronizerId: T[SynchronizerId],
+      synchronizerId: T[PhysicalSynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,
   )(implicit
@@ -114,7 +115,7 @@ class ReassignmentCoordination(
     } yield {
       handle.timeTracker.requestTick(timestamp, immediately = true)
       cryptoApi.awaitTimestamp(timestamp)
-    }).toRight(UnknownSynchronizer(synchronizerId.unwrap, "When waiting for timestamp"))
+    }).toRight(UnknownSynchronizer(synchronizerId.unwrap.logical, "When waiting for timestamp"))
 
   /** Similar to [[awaitTimestamp]] but lifted into an [[EitherT]]
     *
@@ -122,7 +123,7 @@ class ReassignmentCoordination(
     *   A callback that will be invoked if no wait was actually needed
     */
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
-      synchronizerId: T[SynchronizerId],
+      synchronizerId: T[PhysicalSynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,
       onImmediate: => FutureUnlessShutdown[Unit],
@@ -140,7 +141,7 @@ class ReassignmentCoordination(
     * the submission of an assignment after the exclusivity timeout.
     */
   private[reassignment] def assign(
-      targetSynchronizerId: Target[SynchronizerId],
+      targetSynchronizerId: Target[PhysicalSynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
@@ -151,7 +152,7 @@ class ReassignmentCoordination(
     for {
       inSubmission <- EitherT.fromEither[Future](
         reassignmentSubmissionFor(targetSynchronizerId.unwrap).toRight(
-          UnknownSynchronizer(targetSynchronizerId.unwrap, "When submitting assignment")
+          UnknownSynchronizer(targetSynchronizerId.unwrap.logical, "When submitting assignment")
         )
       )
       submissionResult <- inSubmission
@@ -165,27 +166,12 @@ class ReassignmentCoordination(
     } yield submissionResult
   }
 
-  // TODO(#25483) This one should be removed and the physical one used
-  private[reassignment] def getStaticSynchronizerParameterLogical[T[_]: SingletonTraverse](
-      synchronizerId: T[SynchronizerId]
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, T[StaticSynchronizerParameters]] =
-    synchronizerId.traverseSingleton { (_, synchronizerId) =>
-      EitherT.fromOption[FutureUnlessShutdown](
-        staticSynchronizerParameterFor(Traced(synchronizerId)),
-        UnknownSynchronizer(synchronizerId, "getting static synchronizer parameters"),
-      )
-    }
-
   private[reassignment] def getStaticSynchronizerParameter[T[_]: SingletonTraverse](
       synchronizerId: T[PhysicalSynchronizerId]
-  )(implicit
-      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, T[StaticSynchronizerParameters]] =
     synchronizerId.traverseSingleton { (_, synchronizerId) =>
       EitherT.fromOption[FutureUnlessShutdown](
-        staticSynchronizerParameterFor(Traced(synchronizerId.logical)),
+        staticSynchronizerParametersGetter.staticSynchronizerParameters(synchronizerId),
         UnknownSynchronizer(synchronizerId.logical, "getting static synchronizer parameters"),
       )
     }
@@ -195,11 +181,10 @@ class ReassignmentCoordination(
     * `synchronizer` has not progressed far enough such that it can compute the snapshot. Use
     * [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
-  // TODO(#25483) This makes no sense: if the static parameters are provided, the synchronizer ID has to be physical
   private[reassignment] def cryptoSnapshot[
       T[X] <: ReassignmentTag[X]: SameReassignmentType: SingletonTraverse
   ](
-      synchronizerId: T[SynchronizerId],
+      synchronizerId: T[PhysicalSynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,
   )(implicit
@@ -215,7 +200,7 @@ class ReassignmentCoordination(
             .forSynchronizer(synchronizerId, staticSynchronizerParameters.unwrap)
             .toRight(
               UnknownSynchronizer(
-                synchronizerId,
+                synchronizerId.logical,
                 "When getting crypto snapshot",
               ): ReassignmentProcessorError
             )
@@ -236,13 +221,13 @@ class ReassignmentCoordination(
   ]] =
     for {
       _ <- awaitTimestamp(
-        targetSynchronizerId.map(_.logical),
+        targetSynchronizerId,
         staticSynchronizerParameters,
         timestamp,
         FutureUnlessShutdown.unit,
       )
       snapshot <- cryptoSnapshot(
-        targetSynchronizerId.map(_.logical),
+        targetSynchronizerId,
         staticSynchronizerParameters,
         timestamp,
       )
@@ -297,7 +282,6 @@ class ReassignmentCoordination(
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
         reassignmentStoreFor(target)
       )
-      sourceStaticParams <- getStaticSynchronizerParameterLogical(reassignmentId.sourceSynchronizer)
 
       _ <- reassignmentStore
         .addAssignmentDataIfAbsent(
@@ -317,23 +301,17 @@ object ReassignmentCoordination {
   def apply(
       reassignmentTimeProofFreshnessProportion: NonNegativeInt,
       syncPersistentStateManager: SyncPersistentStateManager,
-      submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
+      submissionHandles: PhysicalSynchronizerId => Option[ReassignmentSubmissionHandle],
       pendingUnassignments: Source[SynchronizerId] => Option[ReassignmentSynchronizer],
       syncCryptoApi: SyncCryptoApiParticipantProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
-    def synchronizerDataFor(
+    def reassignmentStoreFor(
         synchronizerId: Target[SynchronizerId]
     ): Either[UnknownSynchronizer, ReassignmentStore] =
       syncPersistentStateManager
-        .get(synchronizerId.unwrap)
-        .map(_.reassignmentStore)
-        .toRight(UnknownSynchronizer(synchronizerId.unwrap, "looking for persistent state"))
-
-    val staticSynchronizerParametersGetter
-        : Traced[SynchronizerId] => Option[StaticSynchronizerParameters] =
-      (tracedSynchronizerId: Traced[SynchronizerId]) =>
-        syncPersistentStateManager.staticSynchronizerParameters(tracedSynchronizerId.value)
+        .reassignmentStore(synchronizerId.unwrap)
+        .toRight(UnknownSynchronizer(synchronizerId.unwrap, "looking for reassignment store"))
 
     val recentTimeProofProvider = new RecentTimeProofProvider(
       submissionHandles,
@@ -343,11 +321,11 @@ object ReassignmentCoordination {
     )
 
     new ReassignmentCoordination(
-      reassignmentStoreFor = synchronizerDataFor,
+      reassignmentStoreFor = reassignmentStoreFor,
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = submissionHandles,
       pendingUnassignments = pendingUnassignments,
-      staticSynchronizerParameterFor = staticSynchronizerParametersGetter,
+      staticSynchronizerParametersGetter = syncPersistentStateManager,
       syncCryptoApi = syncCryptoApi,
       loggerFactory = loggerFactory,
     )

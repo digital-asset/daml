@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -23,6 +24,7 @@ import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
+import scala.util.chaining.scalaUtilChainingOps
 
 /** The source participant processor exposes a party's active contracts on a specified synchronizer
   * and timestamp to a target participant as part of Online Party Replication.
@@ -49,23 +51,32 @@ import scala.concurrent.ExecutionContext
   * @param activeAfter
   *   The timestamp immediately after which the ACS snapshot is based, i.e. the time immediately
   *   after which the contract to be sent are active.
+  * @param otherPartiesHostedByTargetParticipant
+  *   The set of parties already hosted by the target participant (TP) other than the party being
+  *   replicated. Used to skip over shared contracts already hosted on TP.
   * @param acsInspection
   *   Interface to inspect the ACS.
   * @param onProgress
   *   Callback to update progress wrt the number of active contracts sent.
   * @param onComplete
   *   Callback notification that the source participant has sent the entire ACS.
+  * @param onError
+  *   Callback notification that the source participant has errored.
   * @param protocolVersion
   *   The protocol version to use for now for the party replication protocol. Technically the online
   *   party replication protocol is a different protocol from the canton protocol.
   */
-class PartyReplicationSourceParticipantProcessor private (
+final class PartyReplicationSourceParticipantProcessor private (
     synchronizerId: SynchronizerId,
     partyId: PartyId,
     activeAfter: CantonTimestamp,
+    // TODO(#23097): Revisit mechanism to consider "other parties" once we support support multiple concurrent OnPRs
+    //  as the set of other parties would change dynamically.
+    otherPartiesHostedByTargetParticipant: Set[LfPartyId],
     acsInspection: AcsInspection, // TODO(#24326): Stream the ACS via the Ledger Api instead.
     onProgress: NonNegativeInt => Unit,
     onComplete: NonNegativeInt => Unit,
+    onError: String => Unit,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -95,7 +106,7 @@ class PartyReplicationSourceParticipantProcessor private (
   override def handlePayload(payload: ByteString)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    for {
+    (for {
       instruction <- EitherT.fromEither[FutureUnlessShutdown](
         PartyReplicationInstruction
           .fromByteString(protocolVersion, payload)
@@ -132,7 +143,10 @@ class PartyReplicationSourceParticipantProcessor private (
           onComplete(numContractsSent)
         )
       )
-    } yield ()
+    } yield ()).leftMap(_.tap { error =>
+      logger.warn(s"Error while processing payload: $error")
+      onError(error)
+    })
 
   /** Reads contract chunks from the ACS in a brute-force fashion via AcsInspection until
     * TODO(#24326) reads the ACS via the Ledger API.
@@ -146,7 +160,7 @@ class PartyReplicationSourceParticipantProcessor private (
     (NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)
   ]] = {
     val contracts = List.newBuilder[ActiveContractOld]
-    performUnlessClosingEitherUSF(
+    synchronizeWithClosing(
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
       acsInspection
@@ -155,9 +169,19 @@ class PartyReplicationSourceParticipantProcessor private (
           Set(partyId.toLf),
           Some(TimeOfChange(activeAfter.immediateSuccessor)),
         ) { case (contract, reassignmentCounter) =>
-          contracts += ActiveContractOld.create(synchronizerId, contract, reassignmentCounter)(
-            protocolVersion
-          )
+          val stakeholdersHostedByTargetParticipant =
+            contract.metadata.stakeholders.intersect(otherPartiesHostedByTargetParticipant)
+          if (stakeholdersHostedByTargetParticipant.isEmpty) {
+            contracts += ActiveContractOld.create(synchronizerId, contract, reassignmentCounter)(
+              protocolVersion
+            )
+          } else {
+            // Skip contracts already hosted by the target participant.
+            logger.debug(
+              s"Skipping contract ${contract.contractId} as it is already hosted by ${stakeholdersHostedByTargetParticipant
+                  .mkString(", ")} on the target participant between chunks $newChunkToConsumerFrom and $newChunkToConsumeTo}"
+            )
+          }
           Right(())
         }(traceContext, executionContext)
         .bimap(
@@ -220,9 +244,11 @@ object PartyReplicationSourceParticipantProcessor {
       synchronizerId: SynchronizerId,
       partyId: PartyId,
       activeAt: CantonTimestamp,
+      partiesHostedByTargetParticipant: Set[LfPartyId],
       acsInspection: AcsInspection,
       onProgress: NonNegativeInt => Unit,
       onComplete: NonNegativeInt => Unit,
+      onError: String => Unit,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -231,9 +257,11 @@ object PartyReplicationSourceParticipantProcessor {
       synchronizerId,
       partyId,
       activeAt,
+      partiesHostedByTargetParticipant,
       acsInspection,
       onProgress,
       onComplete,
+      onError,
       protocolVersion,
       timeouts,
       loggerFactory

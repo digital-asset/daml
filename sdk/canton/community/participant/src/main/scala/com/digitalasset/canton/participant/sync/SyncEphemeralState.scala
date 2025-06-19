@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
@@ -74,7 +74,9 @@ class SyncEphemeralState(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from synchronizer")
 
-  val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
+  val synchronizerId: PhysicalSynchronizerId =
+    persistentState.physicalSynchronizerIdx.synchronizerId
+
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
     TrieMap.empty[RootHash, PendingReassignmentSubmission]

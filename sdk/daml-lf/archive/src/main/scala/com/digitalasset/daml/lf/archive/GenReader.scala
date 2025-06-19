@@ -32,6 +32,10 @@ final class GenReader[X] private[archive] (
   def fromBytes(bytes: data.Bytes): Either[Error, X] =
     fromByteString(bytes.toByteString)
 
+  @throws[Error]
+  def assertFromBytes(bytes: data.Bytes) =
+    assertRight(fromBytes(bytes))
+
   def fromFile(file: java.nio.file.Path): Either[Error, X] =
     Using.resource(java.nio.file.Files.newInputStream(file))(fromInputStream)
 

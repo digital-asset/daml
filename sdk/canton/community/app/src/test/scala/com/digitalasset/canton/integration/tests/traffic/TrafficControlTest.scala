@@ -390,7 +390,7 @@ trait TrafficControlTest
 
     eventually() {
       participant1.health.status.trySuccess.connectedSynchronizers
-        .get(daId.toPhysical) should contain(SubmissionReady(true))
+        .get(daId) should contain(SubmissionReady(true))
       participant1.health.ping(participant1.id)
     }
 
@@ -443,8 +443,8 @@ trait TrafficControlTest
 
       onboardNewSequencer(
         daId,
-        newSequencer = sequencer2,
-        existingSequencer = sequencer1,
+        newSequencerReference = sequencer2,
+        existingSequencerReference = sequencer1,
         synchronizerOwners = initializedSynchronizers(daName).synchronizerOwners,
       )
 

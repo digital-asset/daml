@@ -15,4 +15,4 @@ val synchronizerId = bootstrap.synchronizer(
 participant1.synchronizers.connect_local(sequencer1, alias = "da")
 
 better.files.File("participant_id").write(participant1.uid.toProtoPrimitive)
-better.files.File("synchronizer_id").write(synchronizerId.toProtoPrimitive)
+better.files.File("synchronizer_id").write(synchronizerId.logical.toProtoPrimitive)

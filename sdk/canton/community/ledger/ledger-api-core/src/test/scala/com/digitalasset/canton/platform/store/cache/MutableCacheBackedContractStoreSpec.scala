@@ -22,7 +22,7 @@ import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.{Node, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, Node, Versioned}
 import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
@@ -414,7 +414,7 @@ object MutableCacheBackedContractStoreSpec {
         keyOpt = key,
         version = thinContract.version,
       ),
-      createTime = createLedgerEffectiveTime,
+      createTime = CreationTime.CreatedAt(createLedgerEffectiveTime),
       cantonData = driverMetadata,
     )
 

@@ -17,7 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.SubmissionOutcome
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
-import com.digitalasset.canton.topology.DefaultTestIdentities.{sequencerId, synchronizerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.{physicalSynchronizerId, sequencerId}
 import com.digitalasset.canton.topology.TestingIdentityFactory
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -42,7 +42,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
         val syncCryptoApiFake =
           TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
             sequencerId,
-            synchronizerId,
+            physicalSynchronizerId,
             tickSequencingTimestamp,
           )
         val rateLimitManagerMock = mock[SequencerRateLimitManager]

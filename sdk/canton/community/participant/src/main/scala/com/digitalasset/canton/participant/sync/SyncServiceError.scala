@@ -169,17 +169,17 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   @Explanation(
-    "This error results on an attempt to register a new synchronizer under an alias already in use."
+    "This error results on an attempt to register a new synchronizer."
   )
-  object SyncServiceAlreadyAdded
+  object SynchronizerRegistration
       extends ErrorCode(
-        "SYNC_SERVICE_ALREADY_ADDED",
+        "SYNCHRONIZER_REGISTRATION",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
-    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
+    final case class Error(synchronizerAlias: SynchronizerAlias, error: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = "The synchronizer with the given alias has already been added."
+          cause = s"The synchronizer with alias $synchronizerAlias cannot be registered: $error"
         )
         with SyncServiceError
   }
@@ -421,6 +421,17 @@ object SyncServiceError extends SyncServiceErrorGroup {
     ) extends CantonError.Impl(
           cause =
             "Failed to await for participant becoming active due to missing synchronizer objects"
+        )
+        with SyncServiceError
+
+    final case class PhysicalSynchronizerIdNotConfigured(
+        synchronizerAlias: SynchronizerAlias,
+        where: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The physical synchronizer id for the synchronizer configuration for $synchronizerAlias was unexpectedly not configured."
         )
         with SyncServiceError
 

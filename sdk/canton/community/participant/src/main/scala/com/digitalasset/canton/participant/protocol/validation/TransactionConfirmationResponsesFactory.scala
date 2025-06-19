@@ -183,7 +183,9 @@ class TransactionConfirmationResponsesFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    // TODO(i13513): Check whether a `Malformed` code is appropriate
+                    // Conceptually, a normal LocalReject for the admin party should suffice for rejecting replays.
+                    // However, we nevertheless use a `Malformed` rejection here so that the rejection preference sorting
+                    // ensures that this rejection or something at least as strong will make it to the mediator.
                     LocalRejectError.MalformedRejects.MalformedRequest.Reject(
                       err.format(viewPosition)
                     ),
@@ -213,13 +215,13 @@ class TransactionConfirmationResponsesFactory(
                     LocalRejectError.TimeRejects.LedgerTime.Reject(
                       s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
                     )
-                  case TimeValidator.SubmissionTimeRecordTimeDeltaTooLargeError(
-                        submissionTime,
+                  case TimeValidator.PreparationTimeRecordTimeDeltaTooLargeError(
+                        preparationTime,
                         recordTime,
                         maxDelta,
                       ) =>
-                    LocalRejectError.TimeRejects.SubmissionTime.Reject(
-                      s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                    LocalRejectError.TimeRejects.PreparationTime.Reject(
+                      s"preparationTime=$preparationTime, recordTime=$recordTime, maxDelta=$maxDelta"
                     )
                 }
                 .map(logged(requestId, _))

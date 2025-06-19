@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
-  FakeSynchronizerId,
+  fakeSynchronizerId,
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
@@ -26,7 +26,6 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
@@ -37,8 +36,16 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, LfPartyId, LfValue, LfVersioned, ReassignmentCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  LfPartyId,
+  LfTimestamp,
+  LfValue,
+  LfVersioned,
+  ReassignmentCounter,
+}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -128,7 +135,7 @@ final class AcsInspectionTest
         )
           yield {
             contracts.left.value shouldBe AcsInspectionError.InconsistentSnapshot(
-              FakeSynchronizerId,
+              fakeSynchronizerId,
               contract('2'),
             )
           }
@@ -140,7 +147,7 @@ final class AcsInspectionTest
 
 object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with BaseTest {
 
-  private val FakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
+  private val fakeSynchronizerId = SynchronizerId.tryFromString(s"acme::${"0" * 68}")
 
   private val MaxSynchronizerIndex: SynchronizerIndex =
     SynchronizerIndex.of(CantonTimestamp.MaxValue)
@@ -168,7 +175,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
-      LedgerCreateTime(CantonTimestamp.Epoch),
+      CreationTime.CreatedAt(LfTimestamp.Epoch),
       TestSalt.generateSalt(3),
     )
   }
@@ -206,11 +213,11 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
     val rjs = mock[RequestJournalStore]
 
     val state = mock[SyncPersistentState]
-    val acsInspection = new AcsInspection(FakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
+    val acsInspection = new AcsInspection(fakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
 
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.indexedSynchronizer).thenAnswer(IndexedSynchronizer.tryCreate(FakeSynchronizerId, 1))
+    when(state.synchronizerIdx).thenAnswer(IndexedSynchronizer.tryCreate(fakeSynchronizerId, 1))
     when(state.acsInspection).thenAnswer(acsInspection)
 
     state
@@ -220,7 +227,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
     val mockStore = mock[LedgerApiStore]
     when(
       mockStore
-        .cleanSynchronizerIndex(same(FakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
+        .cleanSynchronizerIndex(same(fakeSynchronizerId))(any[TraceContext], any[ExecutionContext])
     )
       .thenAnswer(FutureUnlessShutdown.pure(Some(MaxSynchronizerIndex)))
     mockStore
@@ -236,7 +243,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       val builder = Vector.newBuilder[SerializableContract]
       state.acsInspection
         .forEachVisibleActiveContract(
-          FakeSynchronizerId,
+          fakeSynchronizerId,
           parties,
           timeOfSnapshotO = None,
         ) { case (contract, _) =>

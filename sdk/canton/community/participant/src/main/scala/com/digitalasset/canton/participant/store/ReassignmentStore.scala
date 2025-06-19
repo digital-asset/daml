@@ -119,10 +119,9 @@ object ReassignmentStore {
       syncPersistentStateLookup: SyncPersistentStateLookup
   ): Target[SynchronizerId] => Either[String, ReassignmentStore] =
     (synchronizerId: Target[SynchronizerId]) =>
-      syncPersistentStateLookup.getAll
-        .get(synchronizerId.unwrap)
+      syncPersistentStateLookup
+        .reassignmentStore(synchronizerId.unwrap)
         .toRight(s"Unknown synchronizer `${synchronizerId.unwrap}`")
-        .map(_.reassignmentStore)
 
   def reassignmentOffsetPersistenceFor(
       syncPersistentStateLookup: SyncPersistentStateLookup
@@ -269,11 +268,11 @@ object ReassignmentStore {
       contracts: NonEmpty[Seq[SerializableContract]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
+      unassignmentTs: CantonTimestamp,
       assignmentTs: Option[CantonTimestamp],
   ) {
     def unassignmentDataO: Option[UnassignmentData] =
-      unassignmentRequest.map(UnassignmentData(reassignmentId, _))
-    def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
+      unassignmentRequest.map(UnassignmentData(reassignmentId, _, unassignmentTs))
     def sourceSynchronizer: Source[SynchronizerId] = reassignmentId.sourceSynchronizer
     def unassignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.unassignment)
     def assignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.assignment)
@@ -285,6 +284,7 @@ object ReassignmentStore {
     def apply(
         reassignmentData: UnassignmentData,
         reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
+        unassignmentTs: CantonTimestamp,
         tsCompletion: Option[CantonTimestamp],
     ): ReassignmentEntry =
       ReassignmentEntry(
@@ -292,12 +292,14 @@ object ReassignmentStore {
         reassignmentData.contracts.contracts.map(_.contract),
         Some(reassignmentData.unassignmentRequest),
         reassignmentGlobalOffset,
+        unassignmentTs,
         tsCompletion,
       )
 
     def apply(
         assignmentData: AssignmentData,
         reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
+        unassignmentTs: CantonTimestamp,
         tsCompletion: Option[CantonTimestamp],
     ): ReassignmentEntry =
       ReassignmentEntry(
@@ -305,6 +307,7 @@ object ReassignmentStore {
         assignmentData.contracts.contracts.map(_.contract),
         None,
         reassignmentGlobalOffset,
+        unassignmentTs,
         tsCompletion,
       )
   }

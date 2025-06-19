@@ -3,14 +3,13 @@
 
 package com.digitalasset.canton.console
 
-import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.commands.ParticipantCommands
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
-import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 
 class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
     override val consoleEnvironment: ConsoleEnvironment
@@ -185,7 +184,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
     ): Unit = {
       val config =
         ParticipantCommands.synchronizers.reference_to_config(
-          NonEmpty.mk(Seq, SequencerAlias.Default -> sequencer).toMap,
+          Seq(sequencer),
           alias,
           manualConnect,
         )

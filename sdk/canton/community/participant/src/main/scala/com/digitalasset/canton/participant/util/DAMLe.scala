@@ -6,11 +6,11 @@ package com.digitalasset.canton.participant.util
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.PackageService
-import com.digitalasset.canton.participant.protocol.EngineController
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
 import com.digitalasset.canton.participant.util.DAMLe.{
@@ -22,18 +22,18 @@ import com.digitalasset.canton.participant.util.DAMLe.{
 }
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{Enricher => LfEnricher, *}
+import com.digitalasset.daml.lf.engine.{Enricher as _, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Versioned}
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, CreationTime, Versioned}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -55,7 +55,8 @@ object DAMLe {
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
-        10000, // 10000 is the default value in the engine configuration
+        10000, // 10000 is the default value in the engine configuration,
+      paranoidMode: Boolean,
   ): Engine =
     new Engine(
       EngineConfig(
@@ -70,6 +71,7 @@ object DAMLe {
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        paranoid = paranoidMode,
       )
     )
 
@@ -118,7 +120,7 @@ object DAMLe {
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
-        submissionTime: CantonTimestamp,
+        preparationTime: CantonTimestamp,
         rootSeed: Option[LfHash],
         packageResolution: Map[Ref.PackageName, Ref.PackageId],
         expectFailure: Boolean,
@@ -159,38 +161,29 @@ class DAMLe(
   private lazy val engineForEnrichment = new Engine(
     engine.config.copy(requireSuffixedGlobalContractId = false)
   )
-  private lazy val valueEnricher = new LfEnricher(engineForEnrichment)
+  private lazy val interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
+    engineForEnrichment,
+    packageId =>
+      implicit traceContext => {
+        resolvePackage(packageId)(traceContext)
+          .thereafter {
+            case Failure(ex) =>
+              logger.error(s"Package resolution failed for [$packageId]", ex)
+            case _ => ()
+          }
+      },
+  )
 
   /** Enrich transaction values by re-hydrating record labels and identifiers
     */
   val enrichTransaction: TransactionEnricher = { transaction => implicit traceContext =>
-    EitherT {
-      handleResult(
-        ContractLookupAndVerification.noContracts(loggerFactory),
-        valueEnricher.enrichVersionedTransaction(transaction),
-        // This should not happen as value enrichment should only request lookups
-        () =>
-          EngineController.EngineAbortStatus(
-            Some("Unexpected engine interruption while enriching transaction")
-          ),
-      )
-    }
+    EitherT.liftF(interactiveSubmissionEnricher.enrichVersionedTransaction(transaction))
   }
 
   /** Enrich create node values by re-hydrating record labels and identifiers
     */
   val enrichCreateNode: CreateNodeEnricher = { createNode => implicit traceContext =>
-    EitherT {
-      handleResult(
-        ContractLookupAndVerification.noContracts(loggerFactory),
-        valueEnricher.enrichCreate(createNode),
-        // This should not happen as value enrichment should only request lookups
-        () =>
-          EngineController.EngineAbortStatus(
-            Some("Unexpected engine interruption while enriching create node")
-          ),
-      )
-    }
+    EitherT.liftF(interactiveSubmissionEnricher.enrichCreateNode(createNode))
   }
 
   override def reinterpret(
@@ -198,7 +191,7 @@ class DAMLe(
       submitters: Set[LfPartyId],
       command: LfCommand,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       rootSeed: Option[LfHash],
       packageResolution: Map[PackageName, PackageId],
       expectFailure: Boolean,
@@ -257,7 +250,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = rootSeed,
-        submissionTime = submissionTime.toLf,
+        preparationTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
         engineLogger =
@@ -284,7 +277,7 @@ class DAMLe(
   def replayCreate(
       submitters: Set[LfPartyId],
       command: LfCreateCommand,
-      ledgerEffectiveTime: LedgerCreateTime,
+      ledgerEffectiveTime: CreationTime.CreatedAt,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
@@ -294,8 +287,8 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
-        submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
-        ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
+        preparationTime = Time.Timestamp.Epoch, // Only used to compute contract ids
+        ledgerEffectiveTime = ledgerEffectiveTime.time,
         packageResolution = Map.empty,
       )
       for {

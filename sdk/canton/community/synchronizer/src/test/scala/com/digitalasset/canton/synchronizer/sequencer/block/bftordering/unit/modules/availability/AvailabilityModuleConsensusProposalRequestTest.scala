@@ -633,7 +633,11 @@ class AvailabilityModuleConsensusProposalRequestTest
                   // Change the key of node5 and node6 so that the PoA is only left with 2 valid acks < f+1 = 3
                   nodeId -> (if (nodeId == "node5" || nodeId == "node6")
                                nodeInfo.copy(keyIds =
-                                 Set(BftKeyId(anotherNoSignature.signedBy.toProtoPrimitive))
+                                 Set(
+                                   BftKeyId(
+                                     anotherNoSignature.authorizingLongTermKey.toProtoPrimitive
+                                   )
+                                 )
                                )
                              else nodeInfo)
                 }
@@ -717,7 +721,11 @@ class AvailabilityModuleConsensusProposalRequestTest
                   //  and it will be re-signed by node0
                   nodeId -> (if (nodeId == "node0" || nodeId == "node6")
                                nodeInfo.copy(keyIds =
-                                 Set(BftKeyId(anotherNoSignature.signedBy.toProtoPrimitive))
+                                 Set(
+                                   BftKeyId(
+                                     anotherNoSignature.authorizingLongTermKey.toProtoPrimitive
+                                   )
+                                 )
                                )
                              else nodeInfo)
                 }

@@ -5,6 +5,8 @@ syntax = "proto3";
 
 package com.digitalasset.canton.sequencer.admin.v30;
 
+import "scalapb/scalapb.proto";
+
 message BftSequencerSnapshotAdditionalInfo {
   // State transfer metadata for onboarding
   map<string, SequencerActiveAt> sequencers_active_at = 1;
@@ -25,5 +27,30 @@ message BftSequencerSnapshotAdditionalInfo {
     // A topology query timestamp for an epoch previous to the state transfer start epoch
     // Used for canonical commit set verification
     optional int64 previous_epoch_topology_query_timestamp = 7;
+    // Leader Selection Policy State at the start of epoch_number
+    optional bytes /*BlacklistLeaderSelectionPolicyState */ leader_selection_policy_state = 8;
+  }
+}
+
+message BlacklistLeaderSelectionPolicyState {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  int64 epoch_number = 1;
+  int64 start_block_number = 2;
+  map<string, BlacklistStatus> blacklist = 3;
+
+  message BlacklistStatus {
+    oneof status {
+      OnTrial on_trial = 1;
+      Blacklisted blacklisted = 2;
+    }
+
+    message OnTrial {
+      int64 failed_attempts_before_trial = 1;
+    }
+
+    message Blacklisted {
+      int64 failed_attempts_before = 1;
+      int64 epochs_left_until_new_trial = 2;
+    }
   }
 }

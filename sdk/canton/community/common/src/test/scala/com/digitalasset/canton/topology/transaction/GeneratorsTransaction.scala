@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
+import com.digitalasset.canton.sequencing.GeneratorsSequencing
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
   CanSignAllMappings,
@@ -28,6 +29,7 @@ import com.digitalasset.canton.topology.{
   Namespace,
   ParticipantId,
   PartyId,
+  PhysicalSynchronizerId,
   SequencerId,
   SynchronizerId,
 }
@@ -47,16 +49,14 @@ final class GeneratorsTransaction(
   import GeneratorsCrypto.*
   import GeneratorsLf.*
   import generatorsProtocol.*
+  import GeneratorsSequencing.*
   import GeneratorsTopology.*
+  import Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
 
   implicit val topologyChangeOpArb: Arbitrary[TopologyChangeOp] = Arbitrary(
-    Gen.oneOf(
-      Arbitrary.arbitrary[TopologyChangeOp.Replace],
-      Arbitrary.arbitrary[TopologyChangeOp.Remove],
-    )
+    Gen.oneOf(TopologyChangeOp.Replace, TopologyChangeOp.Remove)
   )
-
   implicit val topologyTransactionNamespacesArb: Arbitrary[NonEmpty[Set[Namespace]]] =
     Generators.nonEmptySet[Namespace]
   implicit val topologyTransactionMediatorIdsArb: Arbitrary[NonEmpty[Seq[MediatorId]]] =
@@ -94,6 +94,23 @@ final class GeneratorsTransaction(
       onboarding <- Arbitrary.arbBool.arbitrary
     } yield HostingParticipant(pid, permission, onboarding)
   )
+
+  implicit val synchronizerUpgradeAnnouncementArb: Arbitrary[SynchronizerUpgradeAnnouncement] =
+    Arbitrary(for {
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+
+      // The goal is to generate a serial bigger then what is in psid1
+      // We need to take care of the case where it is already MaxValue
+      (psid1, psid2) <-
+        if (psid.serial.value == Int.MaxValue)
+          Gen.const((psid.copy(serial = NonNegativeInt.zero), psid))
+        else
+          Gen.choose(psid.serial.value + 1, Int.MaxValue).map { biggerSerial =>
+            (psid, psid.copy(serial = NonNegativeInt.tryCreate(biggerSerial)))
+          }
+
+      upgradeTime <- Arbitrary.arbitrary[CantonTimestamp]
+    } yield SynchronizerUpgradeAnnouncement.tryCreate(psid1, psid2, upgradeTime))
 
   implicit val topologyMappingArb: Arbitrary[TopologyMapping] = genArbitrary
 

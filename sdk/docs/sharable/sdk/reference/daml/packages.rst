@@ -1,6 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _reference-daml-packages:
 
 Reference: Daml Packages
 ########################
@@ -22,86 +23,10 @@ You can specify a different path for the Daml archive by using the ``-o`` flag:
 
  The rest of this page will focus on how to import a Daml package in other Daml projects.
 
-.. _inspecting_dars:
-
 Inspecting DARs
 ***************
 
-To inspect a DAR and get information about the packages inside it, you
-can use the ``daml damlc inspect-dar`` command. This is often useful
-to find the package id of the project you just built.
-
-You can run ``daml damlc inspect-dar /path/to/your.dar`` to get a
-human-readable listing of the files inside it and a list of packages
-and their package ids. Here is a (shortened) example output:
-
-.. code-block:: sh
-
-  $ daml damlc inspect-dar .daml/dist/create-daml-app-0.1.0.dar
-  DAR archive contains the following files:
-
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d.dalf
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-prim-75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15.dalf
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a.dalf
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-DA-Internal-Template-d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.dalf
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/data/create-daml-app-0.1.0.conf
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.daml
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.hi
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.hie
-  META-INF/MANIFEST.MF
-
-  DAR archive contains the following packages:
-
-  create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d "29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d"
-  daml-stdlib-DA-Internal-Template-d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662 "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662"
-  daml-prim-75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15 "75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15"
-  daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a "a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a"
-
-In addition to the human-readable output, you can also get the output
-as JSON. This is easier to consume programmatically and it is more
-robust to changes across SDK versions:
-
-.. code-block:: sh
-
-  $ daml damlc inspect-dar --json .daml/dist/create-daml-app-0.1.0.dar
-  {
-      "packages": {
-          "29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d": {
-              "path": "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d.dalf",
-              "name": "create-daml-app",
-              "version": "0.1.0"
-          },
-          "d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662": {
-              "path": "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-DA-Internal-Template-d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.dalf",
-              "name": null,
-              "version": null
-          },
-          "75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15": {
-              "path": "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-prim-75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15.dalf",
-              "name": "daml-prim",
-              "version": "0.0.0"
-          },
-          "a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a": {
-              "path": "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a.dalf",
-              "name": "daml-stdlib",
-              "version": "0.0.0"
-          }
-      },
-      "main_package_id": "29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d",
-      "files": [
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d.dalf",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-prim-75b070729b1fbd37a618493652121b0d6f5983b787e35179e52d048db70e9f15.dalf",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-0.0.0-a535cbc3657b8df953a50aaef5a4cd224574549c83ca4377e8219aadea14f21a.dalf",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/daml-stdlib-DA-Internal-Template-d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd39071831f5923662.dalf",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/data/create-daml-app-0.1.0.conf",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.daml",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.hi",
-          "create-daml-app-0.1.0-29b501bcf541a40e9f75750246874e0a35de72e00616372da435e4b69966db5d/User.hie",
-          "META-INF/MANIFEST.MF"
-      ]
-  }
-
-Note that ``name`` and ``version`` will be ``null`` for packages in Daml-LF < 1.8.
+Refer to the :ref:`section on decoding DARs and DALF files <inspecting_dars>`.
 
 Import Daml Packages
 ********************
@@ -180,7 +105,6 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on item #4.
 
-Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
 
 Transitive dependency management
 ================================

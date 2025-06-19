@@ -791,17 +791,32 @@ class StoreBasedTopologySnapshot(
       }
     }
 
-  override def isSynchronizerMigrationOngoing()(implicit
+  override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
     findTransactions(
-      types = Seq(TopologyMapping.Code.SynchronizerMigrationAnnouncement),
+      types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
       filterUid = None,
       filterNamespace = None,
-    ).map(_.collectOfMapping[SynchronizerMigrationAnnouncement].result.toList match {
+    ).map(_.collectOfMapping[SynchronizerUpgradeAnnouncement].result.toList match {
       case atMostOne @ (_ :: Nil | Nil) =>
         atMostOne.map(_.mapping.successorSynchronizerId).headOption
       case _moreThanOne =>
-        ErrorUtil.invalidState("Found more than one SynchronizerMigrationAnnouncement mapping")
+        ErrorUtil.invalidState("Found more than one SynchronizerUpgradeAnnouncement mapping")
     })
+
+  override def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]] =
+    findTransactions(
+      types = Seq(TopologyMapping.Code.SequencerConnectionSuccessor),
+      filterUid = None,
+      filterNamespace = None,
+    ).map(txs =>
+      txs
+        .collectOfMapping[SequencerConnectionSuccessor]
+        .toTopologyState
+        .map(m => m.sequencerId -> m)
+        .toMap
+    )
 }

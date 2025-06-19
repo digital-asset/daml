@@ -24,14 +24,14 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class TopologyComponentFactory(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protocolVersion: ProtocolVersion,
     crypto: SynchronizerCrypto,
     clock: Clock,
@@ -45,12 +45,10 @@ class TopologyComponentFactory(
     topologyStore: TopologyStore[SynchronizerStore],
     loggerFactory: NamedLoggerFactory,
 ) {
-  // TODO(#25483) synchronizerId of this class should be physical
-  val psid = PhysicalSynchronizerId(synchronizerId, protocolVersion)
-
   def createTopologyProcessorFactory(
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
+      sequencerConnectionSuccessorListener: SequencerConnectionSuccessorListener,
       topologyClient: SynchronizerTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
       sequencedEventStore: SequencedEventStore,
@@ -64,20 +62,19 @@ class TopologyComponentFactory(
     ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
       val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
-        psid,
-        protocolVersion,
+        synchronizerId,
         recordOrderPublisher,
         topologyStore,
         recordOrderPublisher.initTimestamp,
         participantId,
-        unsafeOnlinePartyReplication.exists(_.pauseSynchronizerIndexingDuringPartyReplication),
+        pauseSynchronizerIndexingDuringPartyReplication = unsafeOnlinePartyReplication.nonEmpty,
         loggerFactory,
       )
       val terminateTopologyProcessingFUS =
         for {
           topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
             ledgerApiStore.topologyEventOffsetPublishedOnRecordTime(
-              synchronizerId,
+              synchronizerId.logical,
               recordOrderPublisher.initTimestamp,
             )
           )
@@ -104,6 +101,7 @@ class TopologyComponentFactory(
         // subscribe party notifier to topology processor
         processor.subscribe(partyNotifier.attachToTopologyProcessor())
         processor.subscribe(missingKeysAlerter.attachToTopologyProcessor())
+        processor.subscribe(sequencerConnectionSuccessorListener)
         processor.subscribe(topologyClient)
         processor
       }
@@ -126,7 +124,7 @@ class TopologyComponentFactory(
   )(implicit executionContext: ExecutionContext): SynchronizerTopologyClientWithInit =
     new StoreBasedSynchronizerTopologyClient(
       clock,
-      psid,
+      synchronizerId,
       topologyStore,
       packageDependencyResolver,
       timeouts,
@@ -142,7 +140,7 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
-      psid,
+      synchronizerId,
       topologyStore,
       packageDependencyResolver,
       caching,

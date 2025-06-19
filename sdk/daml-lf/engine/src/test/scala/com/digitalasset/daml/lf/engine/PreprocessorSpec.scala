@@ -29,6 +29,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
   _,
 }
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstanceImpl,
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -609,7 +610,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       withNormalization: Boolean = true,
       withFieldsReversed: Boolean = false,
       key: Option[Value] = None,
-  ): FatContractInstanceImpl = {
+  ): FatContractInstanceImpl[CreationTime.CreatedAt] = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
       (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value
@@ -628,7 +629,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       stakeholders = signatories,
       contractKeyWithMaintainers =
         key.map(k => GlobalKeyWithMaintainers.assertBuild(templateId, k, signatories, pkgName)),
-      createdAt = data.Time.Timestamp.Epoch,
+      createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
       cantonData = Bytes.Empty,
     )
   }

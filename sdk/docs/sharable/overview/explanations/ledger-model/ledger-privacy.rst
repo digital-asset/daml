@@ -6,148 +6,245 @@
 Privacy
 #######
 
-.. note::
-
-   It makes sense to have privacy before integrity, because this introduces projection.
-   But this text was written with the opposite order in mind.
-   Need to revisit this.
-
-   * Replace divulgence for submission by explicit disclosure.
-     Divulged contracts are not exposed over LAPI.
+.. wip::
 
    * Discuss ledger model projection with Canton projection in terms of information leakage (projection of the transaction view Merkle tree vs. as defined in here)
 
 
 
-The previous sections have addressed two out of three questions posed in the
-introduction: "what the ledger looks like", and "who may request which changes".
-This section addresses the last one, "who sees which changes and data". That is,
-it explains the privacy model for Daml ledgers.
+The :ref:`ledger structure section <ledger-structure>` answered the question "What the Ledger looks like?" by introducing a hierarchical format to record the changes.
+This section addresses the question "Who sees which changes and data?".
+That is, it explains the privacy model for Canton Ledgers.
 
-The privacy model of Daml Ledgers is based on a **need-to-know
-basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
-parts of ledger changes that affect contracts in which the party has a stake,
+The privacy model of Canton Ledgers is based on a **need-to-know basis**,
+and provides privacy **on the level of subtransactions**.
+Namely, a party learns only those parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
-And maintainers see all changes to the contract keys they maintain.
+The hierarchical structure is key here because it yields a natural notion of sub-transaction privacy.
+To make the sub-transaction privacy notion precise, we introduce the concepts of *informee* and *witness*.
 
-To make this more precise, a stakeholder concept is needed.
+Informee
+********
 
-Contract Observers and Stakeholders
-***********************************
+A party can take different roles in Daml templates and choices;
+the party can be declared as ``signatory``, choice ``controller``, or contract or choice ``observer``.
+For a contract, a party is a **stakeholder** if it is a signatory or contract observer of the contract.
 
-Intuitively, as signatories are bound by a contract, they have a stake in it.
-Actors might not be bound by the contract, but they still have a stake in their actions, as these are the actor's rights.
-Generalizing this, **observers** are parties who might not be bound by the contract, but still have the right to see the contract.
-For example, Alice should be an observer of the `PaintOffer`, such that she is made aware that the offer exists.
+* Every contract and choice ``observer`` should observe changes to the contract (creation or archival) and exercises of a choice, respectively, as the name suggests.
+  
+* A ``signatory`` is bound by a contract and thus has a stake in it;
+  they should learn when the contract is created or used.
 
-Signatories are already determined by the contract model discussed so far.
-The full **contract model** additionally specifies the **contract observers** on each contract.
-A **stakeholder** of a contract (according to a given contract model) is then either a signatory or a contract observer on the contract.
-Note that in Daml, as detailed :ref:`later <da-model-daml>`, controllers specified using simple syntax are automatically made contract observers whenever possible.
+* An actor of an Exercise, which is the ``controller`` of the choice, has a stake in the action and should therefore see the exercise;
+  they may not have a stake in the contract though.
+  
+These observations motivate the following definition of an **informee**, namely the set of parties that should be informed about an action.
+The informees for a node are the union of the sets marked with X in the following table,
 
-In the graphical representation of the paint offer acceptance below, contract observers who are not signatories are indicated by an underline.
-
-.. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
-.. image:: ./images/stakeholders-paint-offer.svg
-   :align: center
-   :width: 60%
-   :alt: The paint offer acceptance flowchart. In the first subtransaction and in EXE A (IOU Bank A), A is underlined; in IOU $Bank P, P is underlined.
-
-Choice Observers
-****************
-
-In addition to contract observers, the contract model can also specify **choice observers** on individual **Exercise** actions.
-Choice observers get to see a specific exercise on a contract, and to view its consequences.
-Choice observers are not considered stakeholders of the contract, they only affect the set of informees
-on an action, for the purposes of projection (see below).
-
-.. _da-model-projections:
-
-Projections
-***********
-
-Stakeholders should see changes to contracts they hold a stake in, but that does not
-mean that they have to see the entirety of any transaction that their contract is
-involved in. This is made precise through *projections* of a transaction,
-which define the view that each party gets on a transaction.
-Intuitively, given a transaction within a commit, a party will see
-only the subtransaction consisting of all actions on contracts where the party
-is a stakeholder. Thus, privacy is obtained on the subtransaction level.
-
-An example is given below. The transaction that consists
-only of Alice's acceptance of the `PaintOffer` is projected for each of the
-three parties in the example: the painter, Alice, and the bank.
-
-.. https://www.lucidchart.com/documents/edit/8f532ae8-df30-4476-9627-23d076ec453d
-.. image:: ./images/projecting-transactions-paint-offer.svg
-   :align: center
-   :width: 60%
-   :alt: The original paint offer flowchart followed by two projections, one for P and A and one for the bank. The privacy implications of what is visible in each projection are detailed in the next three paragraphs.
-
-Since both the painter and Alice are stakeholders of the `PaintOffer`
-contract, the exercise on this contract is kept in the projection of both
-parties. Recall that consequences of an exercise action are a part of
-the action. Thus, both parties also see the exercise on the `Iou Bank A`
-contract, and the creations of the `Iou Bank P` and `PaintAgree` contracts.
-
-The bank is *not* a stakeholder on the `PaintOffer` contract (even
-though it is mentioned in the contract). Thus, the projection for the
-bank is obtained by projecting the consequences of the exercise on the
-`PaintOffer`. The bank is a stakeholder in the contract `Iou Bank A`,
-so the exercise on this contract is kept in the bank's projection. Lastly,
-as the bank is not a stakeholder of the `PaintAgree` contract, the
-corresponding **Create** action is dropped from the bank's projection.
-
-Note the privacy implications of the bank's projection. While the bank
-learns that a transfer has occurred from `A` to `P`, the bank does
-*not* learn anything about *why* the transfer occurred. In
-practice, this means that the bank does not learn what `A` is paying
-for, providing privacy to `A` and `P` with respect to the bank.
 
 .. _def-informee:
 
-As a design choice, Daml Ledgers show to contract observers only the
-:ref:`state changing <def-contract-state>` actions on the contract.
-More precisely, **Fetch** and non-consuming **Exercise** actions are not shown to contract observers - except when they are
-also actors or choice observers of these actions.
-This motivates the following definition: a party `p` is an **informee** of an action `A` if one of the following holds:
+.. list-table:: Definiton: The **informees** of a node are the union of the sets marked with X.
+   :widths: 20 20 20 20 20
+   :header-rows: 1
 
-  * `A` is a **Create** on a contract `c` and `p` is a stakeholder of `c`.
+   * - Action
+     - Signatories
+     - Contract observers
+     - Actors
+     - Choice observers
+   * - **Create**
+     - X
+     - X
+     -
+     -
+   * - consuming **Exercise**
+     - X
+     - X
+     - X
+     - X
+   * - non-consuming **Exercise**
+     - X
+     - 
+     - X
+     - X
+   * - **Fetch**
+     - X
+     - 
+     - X
+     - 
 
-  * `A` is a consuming **Exercise** on a contract `c`, and `p` is a stakeholder of `c` or an actor on `A`.
-    Note that a Daml choice controller :ref:`can be an exercise actor without being a contract stakeholder <da-model-daml>`.
+For example, the informees of a **Create** node are the stakeholders of the created contract, that is, the signatories and observers.
+For consuming **Exercise** node, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
 
-  * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+As a design decision, a contract observer is not informed about non-consuming **Exercise** and **Fetch** actions,
+unless they are explicitly among the actors or choice observers.
+This is because such actions do not change the state of the contract itself.
 
-  * `A` is an **Exercise** action and `p` is a choice observer on `A`.
+.. note::
+   Templates can declare ``preconsuming`` and ``postconsuming`` choices.
+   Daml compiles such choices to a non-consuming choice whose first or last consequence exercises the ``Archive`` choice on the template.
+   Accordingly, contract observers are only informees of the ``Archive`` subaction, but not of the main ``Exercise`` action itself.
 
-  * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+To illustrate the concept of informees, we use the :ref:`running example of Alice and Bob swapping their assets <ledger-structure_running_example>`.
+The nodes in the ``AcceptAndSettle`` action have the informees shown in the blue hexagons of the next figure.
+For example, Alice is an informee of the root node ① because she is a signatory of the input contract #3, and Bob is an informee because he is the actor of the choice.
+Similarly, Bank 2 and Bob are informees of the Fetch node ③ because Bank 2 is a signatory of the input contract #2 and Bob is the actor.
+Had Bob not been the actor, he would not be an informee because contract observers are not automatically informees of non-consuming Exercises and Fetches.
 
-  * `A` is a **NoSuchKey** `k` assertion and `p` is a maintainer of `k`.
+.. https://lucid.app/lucidchart/3176adad-0474-4755-bfb5-e323e1a65fab/edit
+.. image:: ./images/dvp-acceptandsettle-informees.svg
+   :align: center
+   :width: 100%
+   :alt: The informees of the nodes in the ``AcceptAndSettle`` action.
+
+The informees for an action are the informees of its root node.
+Importantly, nodes cannot exist without their children on the Ledger,
+as mentioned in the :ref:`ledger structure section <actions-hierarchical-structure>`;
+only actions can as they are whole trees.
+Accordingly, the informees of an action are entitled to see all nodes in the action,
+even if they are not informees of some of the individual nodes themselves.
+This discrepancy is formalized under this notion of witnesses in the next section.
+
+
+Witness
+*******
+
+A single node can be part of multiple actions.
+For example, the diagram below extends the :ref:`subaction diagram <da-ledger-subaction>` with the informees shown in the top right corner of the borderless box for each subaction.
+Here, the Create node ③ is part of three subactions, namely those rooted at nodes ①, ②, and ③.
+Accordingly, this Create node is shown to the informees of all these actions, even if they are not informees of the node itself.
+Those parties are called witnesses.
+Formally, for a given transaction `tx`, the **witnesses** of a node in `tx` are the union of the informees of all subactions of `tx` that contain the node.
+In particular, every informee of the node is also a witness.
+
+The diagram shows the witnesses of a subaction in purple on its root action.
+For node ③, the witnesses are Alice, Bob, and Bank 1, because Bob is an informee of ① and ③; Bank 1 is an informee of ② and ③; and Alice is an informee of ① and ②.
+
+.. https://lucid.app/lucidchart/e5ee4a5f-3dda-4eec-a773-0ab3dde2c4ff/edit
+.. image:: ./images/dvp-settle-witness.svg
+   :align: center
+   :width: 60%
+   :alt: The informees of the subactions of the ``Settle`` choice and the witnesses of the nodes.
+
+
+.. _da-model-projections:
+
+Projection
+**********
+
+Informees should see the changes they are entitled to see,
+but this does not mean that they are entitled to see the entirety of any transaction that includes such a change.
+This is made precise through *projections* of a transaction,
+which define the view that a group of parties gets on a transaction.
+Intuitively, given a transaction within a commit, a group of parties sees only the subtransaction consisting of all actions on contracts
+whose informees include at least one of the parties.
+Equivalently, the group of parties sees only those nodes whose witnesses include at least one of the parties.
+Thus, privacy is obtained on the subtransaction level.
+
+This section first defines projections for transactions and then for ledgers.
+
+Transaction projection
+======================
+
+The next diagram gives an example for a transaction with the ``AcceptAndSettle`` Exercise action as the only root action, whose informees are shown in the diagrams above.
+
+.. https://lucid.app/lucidchart/9b3762db-66b4-4e72-94cb-bcefd4c1a5ea/edit
+.. image:: ./images/dvp-acceptandsettle-projection.svg
+   :align: center
+   :width: 100%
+
+Since both Alice and Bob are informees of the root action,
+namely Bob exercising the ``AcceptAndSettle`` choice on Alice's ``ProposeSimpleDvP`` contract,
+the projection to either Alice or Bob or both consists of the whole Exercise action.
+As an action consists of the whole subtree underneath its root node,
+Alice and Bob each see all the nodes they are witnesses of.
+For example, Alice's projection includes the Fetch subaction, Bob's ``Transfer`` exercise of on #2, and the creation of Bob's ``SimpleAsset`` contract #5.
+Similarly, Bob's projection includes Alice's ``Transfer`` Exercise on #1 and the creation of Alice's ``SimpleAsset`` contract #6.
+
+In contrast, the banks are *not* informees of the root action.
+In fact, Bank 1 appears as an informee only in the ``Transfer`` Exercise action on #1 and its subaction, the creation of Bob's new asset #5.
+Accordingly, the projection to Bank 1 consists of just this Exercise action.
+Bank 2 appears as an informee of two unrelated actions in the tree: the Fetch action and the ``Transfer`` Exercise action on #2.
+The projection to Bank 2 therefore consists of a transaction with these two actions as root actions.
+This shows that projection can turn a single root action into a list of subactions.
+
+.. note::
+   Note the privacy implications of the banks' projections.
+   While each bank learns that a ``Transfer`` has occurred from Alice to Bob or vice versa,
+   each bank does *not* learn anything about *why* the transfer occurred.
+   In particular, Bank 2 does not learn what happens between the Fetch and the Exercise on contract #2.
+   In practice, this means that Bank 1 and Bank 2 do not learn what Alice and Bob is exchanging their asset for,
+   providing privacy to Alice and Bob with respect to the banks.
+
+The projection to both Bank 1 and Bank 2 at the bottom shows that a projection to several parties may contain strictly more information than the projections to each of the parties together.
+Said differently, it is impossible to reconstruct the projection to Bank 1 and Bank 2 solely from the projection for Bank 1 and the projection for Bank 2.
+Here, this is because the order of the three root actions cannot be uniquely determined from the individual projections.
+For this reason, projection is defined for a set of parties.
 
 .. _def-tx-projection:
 
-Then, we can formally define the **projection** of a
-transaction `tx = act`\ :sub:`1`\ `, …, act`\ :sub:`n` for a party `p` is the
-subtransaction obtained by doing the following for each action `act`\ :sub:`i`:
+Definition **projection**:
+  The **projection** of a transaction for a set `P` of parties is the
+  subtransaction obtained by doing the following for each root action `act` of the transaciton.
 
-#. If `p` is an informee of `act`\ :sub:`i`, keep `act`\ :sub:`i` as-is.
-#. Else, if `act`\ :sub:`i` has consequences, replace `act`\ :sub:`i` by the projection (for `p`) of its consequences,
-   which might be empty.
-#. Else, drop `act`\ :sub:`i`.
+  #. If `P` contains at least one of the informees of `act`, keep `act` as-is, including its consequences.
+  #. Else, if `act` has consequences, replace `act` by the projection (for `P`) of its consequences,
+     which might be empty.
+  #. Else, drop `act` including its consequences.
+
+This definition does not operate on nodes, but on actions, that is, subtrees of nodes.
+Accordingly, the projection of a transaction for a set of parties `P` contains a node if and only if `P` contains at least one of the witnesses of the node.
+
+As a projection is a transaction, it is possible to project a projection further.
+The projection operation has the following **absorbtion** property:
+Projection to decreasing subsets of parties is absorbing.
+That is, if a set of parties `P` is a subset of `Q`, then projecting a transaction first to `Q` and then to `P` is the same as projecting it directly to `P`.
+Intuitively, this property expresses the fact that a group of parties jointly learns at least as much about a transaction as any subgroup of these parties learns by themselves.
+The converse is false, as the above example with projection to Banks 1 and 2 has shown.
+
+Conversely, if `P` is not a subset of `Q`, then projecting a transaction first to `Q` and then to `P` will merely result in a subtransaction of the projection to `P`.
+For example, if we project the above projection for Bank 1 to Bob, the resulting transaction consists only of the Create action for contract #5.
+This is a proper subtransaction of Bob's projection.
+
+This difference reflects that Bank 1 learns less about the Exercise node than Bob.
+In particular, Bank 1 cannot infer from its projection that Bob is a witness of the Exercise node.
+This is a general pattern: the informees of an action may not learn about witnesses of nodes therein.
+This is crucial from a privacy perspective
+as it hides who is involved in the hidden parts of the transaction.
 
 .. _da-model-ledger-projection:
 
-Finally, the **projection of a ledger** `l` for a party `p` is a list
-of transactions obtained by first projecting the transaction of each
-commit in `l` for `p`, and then removing all empty transactions from
-the result. Note that the projection of a ledger is not a ledger, but
-a list of transactions. Projecting the ledger of our
-complete paint offer example yields the following projections for each
+Ledger projection
+=================
+
+Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of transactions obtained as follows:
+
+* Project the transaction of each commit in `l` for `P`.
+
+* Remove empty transactions from the result.
+
+* Add an edge between two (non-empty projected) transactions `tx`:sub:`1` and `tx`:sub:`2`
+  if `tx2` uses a contract created by or used in `tx`:sub:`1` whose stakeholders overlap with `P`.
+
+The edges of the DAG are a subset of the edges between the commits in the original ledger.
+The subtleties of this subset construction are discussed in the :ref:`causality section <local-ledger>`.
+Until then, we pretend that the ledger is totally ordered and projections retain the same ordering.
+
+Notably, the projection of a ledger is not a ledger, but a DAG of transactions.
+The requesters from the commit cannot be retained because they are typically witnesses of the actions in the projection,
+but not informees.
+Yet, the informees of the action must not know all the witnesses.
+For example, if Bank 1's projection did mention Bob as the requester of the last commit,
+then Bank 1 could infer that Bob is a witness of Alice exercising the ``Transfer`` choice on contract #1.
+
+Projecting the ledger of the complete DvP example yields the following projections for each
 party:
 
-.. https://www.lucidchart.com/documents/edit/c4df0455-13ab-415f-b457-f5654c2684be
-.. image:: ./images/projecting-ledgers-paint-offer.svg
+.. _da-dvp-ledger-projections:
+
+.. https://lucid.app/lucidchart/90b7f155-aadc-4bde-9c5c-b8198b824384/edit
+.. image:: ./images/dvp-ledger-projections.svg
    :align: center
    :width: 100%
    :name: da-ledgers-projections-example
@@ -155,146 +252,127 @@ party:
 
 Examine each party's projection in turn:
 
-#. The painter does not see any part of the first commit, as he is
-   not a stakeholder of the `Iou Bank A` contract. Thus, this
-   transaction is not present in the projection for the painter at
-   all. However, the painter is a stakeholder in the `PaintOffer`,
-   so he sees both the creation and the exercise of this contract
-   (again, recall that all consequences of an exercise action are a
-   part of the action itself).
+#. Alice sees all of the first, thrid, and forth commit
+   as she is an informee of all root actions.
+   In contrast, Alice does not see anything of the second commit,
+   as she is not a stakeholder of Bob's ``SimpleAsset`` of 1 USD.
+   This transaction is not present in Alice's projection at all.
+   Yet, the output of this transaction (contract #2) is used
+   in the last commit of Alice's projection.
+   Accordingly, contract #2 is shown as an input to the left, outside of the ledger.
+   This effect is discussed below under :ref:`retroactive divulgence <da-model-divulgence>`.
 
-#. Alice is a stakeholder in both the `Iou Bank A` and
-   `PaintOffer A B Bank` contracts. As all top-level actions in the ledger are
-   performed on one of these two contracts, Alice's projection
-   includes all the transactions from the ledger intact.
+#. Bob's projection is analogous to Alice's:
+   He sees everything of the second, third, and forth commit,
+   but nothing of the first commit and instead merely contract #1 as an input.
 
-#. The Bank is only a stakeholder of the IOU contracts.
-   Thus, the bank sees the first commit's
-   transaction as-is. The second commit's transaction is, however
-   dropped from the bank's projection. The projection of the last
-   commit's transaction is as described above.
+#. Banks 1 and 2 only see the commits in which they create their ``SimpleAsset`` and the ``Transfer`` Exercises on them.
+   Additionally, Bank 2 sees the Fetch of the ``SimpleAsset`` in the last commit, as already discussed above for transaction projections.
 
-Ledger projections do not always satisfy the definition of
-consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
-exercised without ever being created, and thus without being made
-active. Furthermore, projections can in general be
-non-conformant. However, the projection for a party `p` is always
+.. note::
+   A user of a Participant Node can request the Ledger projection for the user's parties via the
+   :externalref:`updates tree stream <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`.
 
-- internally consistent for all contracts,
-- consistent for all contracts on which `p` is a stakeholder, and
-- consistent for the keys that `p` is a maintainer of.
-
-In other words,
-`p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
-contract model is **subaction-closed**, which
-means that for every action `act` in the model, all subactions of
-`act` are also in the model, then the projection is guaranteed to be
-conformant. As we will see shortly, Daml-based contract models are
-conformant. Lastly, as projections carry no information about the
-requesters, we cannot talk about authorization on the level of
-projections.
-
-
-.. _da-model-privacy-authorization:
-
-Privacy Through Authorization
-*****************************
-
-Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
-that parties cannot learn about the existence of a contract without having a right to know about their existence.
-So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
-For example, suppose now that for a `PaintAgreement` contract, both signatories are key maintainers, not only the painter.
-That is, we consider `PaintAgreement @A @P &P123` instead of `PaintAgreement $A @P &P123`.
-Then, when the painter's competitor `Q` passes by `A`'s house and sees that the house desperately needs painting,
-`Q` would like to know whether there is any point in spending marketing efforts and making a paint offer to `A`.
-Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoSuchKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
-In particular, if the ledger does not accept the transaction for some `refNo`, then `Q` knows that `P` has some business with `A` and his chances of `A` accepting his offer are lower.
-Key authorization prevents this flow of information because the ledger always rejects `Q`\ 's action for violating the authorization rules.
-
-For these access controls, it suffices if one maintainer authorizes a **NoSuchKey** assertion.
-However, we demand that *all* maintainers must authorize it.
-This is to prevent spam in the projection of the maintainers.
-If only one maintainer sufficed to authorize a key assertion,
-then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester, arbitrary other parties.
-Unlike **Create** actions to contract observers, such assertions are of no value to the other parties.
-Since processing such assertions may be expensive, they can be considered spam.
-Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
 
 
 .. _da-model-divulgence:
 
-Divulgence: When Non-Stakeholders See Contracts
+Divulgence: When non-stakeholders see contracts
 ***********************************************
 
-The guiding principle for the privacy model of Daml ledgers is that
-contracts should only be shown to their stakeholders. However,
-ledger projections can cause contracts to become visible to other
-parties as well.
+The guiding principle for the privacy model of Canton ledgers is that contracts should only be shown to their stakeholders.
+However, ledger projections can cause contracts to become visible to other parties as well.
+Showing contracts to non-stakeholders through ledger projections is called **divulgence**.
+Divulgence is a deliberate choice in the design of Canton Ledgers and comes in two forms:
 
-In the example of
-`ledger projections of the paint offer <#da-ledgers-projections-example>`__,
-the exercise on the `PaintOffer`
-is visible to both the painter and Alice.  As a consequence, the
-exercise on the `Iou Bank A` is visible to the painter, and the
-creation of `Iou Bank P` is visible to Alice. As actions also contain
-the contracts they act on, `Iou Bank A` was thus shown to the painter
-and `Iou Bank P` was shown to Alice.
+* **Immediate divulgence** refers to witnesses seeing contract creations they are not an informee of.
+  In the example of :ref:`ledger projections of the DvP <da-dvp-ledger-projections>`,
+  Bob is a witness of the Create action for Alice's new ``SimpleAsset`` (contract #6), but not an informee.
+  Conceptually, at the instant where Bob exercises the ``Transfer`` choice,
+  he also gains a temporary stake in the outcome of the ``Transfer``,
+  namely to see that the asset now belongs to Alice.
+  
+  In general, there is no point in hiding the consequences of an action.
+  Bob could anyway compute the consequences of the actions it is an informee of, because Daml is deterministic.
 
-Showing contracts to non-stakeholders through ledger projections is
-called **divulgence**. Divulgence is a deliberate choice in the design
-of Daml ledgers. In the paint offer example, the only proper way to
-accept the offer is to transfer the money from Alice to the painter.
-Conceptually, at the instant where the offer is accepted, its
-stakeholders also gain a temporary stake in the actions on the two
-`Iou` contracts, even though they are never recorded as stakeholders
-in the contract model. Thus, they are allowed to see these actions through
-the projections.
+* **Retroactive divulgence** refers to an input contract being shown to the non-informee witnesses of a node using this contract.
+  For example, the Fetch on Bob's ``SimpleAsset`` (contract #2) is visible to Alice
+  and Alice's projection therefore references this contract as an input
+  even though the Create action for #2 is not part of Alice's projection.
 
-More precisely, every action `act` on `c` is shown to all informees of all ancestor actions
-of `act`.
-These informees are called the **witnesses** of `act`.
-If one of the witnesses `W` is not a stakeholder on `c`, then `act` and `c` are said to be **divulged** to `W`.
-Note that only **Exercise** actions can be ancestors of other actions.
+  Retroactive divulgence enables Alice to validate the transactions in her projection
+  (see :ref:`da-model-consistency` for ledger integrity).
+  That is, Alice can check that Bob does allocate a suitable ``SimpleAsset`` according to what she specified in her proposal.
 
-Divulgence can be used to enable delegation. For example, consider the
-scenario where Alice makes a counteroffer to the painter. Painter's
-acceptance entails transferring the IOU to him. To be able to construct the acceptance
-transaction, the painter first needs to learn about the details of
-the IOU that will be transferred to him. To give him these details, Alice
-can fetch the IOU in a context visible to
-the painter:
+  Retroactive divulgence does not make Alice a witness of the Create action for Bob's ``SimpleAsset`` (contract #2),
+  because an input contract is not the same as its Create action.
+  In the diagrams, this distinction is visualized via the dashed border for input contracts and them being placed to the left.
+  
+Via the Ledger API's :externalref:`update service <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`,
+a user can see the immediately divulged contracts in the trees of the parties' projection
+as these trees contain the Create nodes.
+In contrast, the Ledger API currently does not offer a means for a user to look up a contract ID of a retroactive divulgence.
+  
 
-.. https://www.lucidchart.com/documents/edit/85524f9d-c111-4806-ae28-373057591fb8/0
-.. image:: ./images/divulgence-for-disclosure-counteroffer.svg
-   :align: center
-   :width: 100%
-   :name: da-paint-counteroffer-example
-   :alt: A series of time sequences showing how delegation changes privacy, as described in the preceding paragraph.
 
-In the example, the context is provided by consuming a `ShowIou` contract on which the painter is a stakeholder.
-This now requires an additional contract type, compared to the original paint offer example.
-An alternative approach to enable this workflow, without increasing the number of contracts required, is to
-replace the original `Iou` contract by one on which the painter is a contract observer.
-This would require extending the contract model with a (consuming) exercise action on the `Iou` that creates a new
-`Iou`, with observers of Alice's choice.
-In addition to the different number of commits, the two approaches differ in one more aspect.
-Unlike stakeholders, parties who see contracts only through divulgence
-have no guarantees about the state of the contracts in question. For
-example, consider what happens if we extend our (original) paint offer example
-such that the painter immediately settles the IOU.
 
-.. https://www.lucidchart.com/documents/edit/5945bd51-45b5-4ba6-9e8d-5c1dcd612509/0
-.. image:: ./images/divulgence-stale-contracts.svg
-   :align: center
-   :width: 100%
-   :alt: A series of time sequences in which the state of the Iou contract is unknown to parties who view it through divulgence.
+.. _da-model-disclosure:
 
-While Alice sees the creation of the `Iou Bank P` contract, she does
-not see the settlement action. Thus, she does not know whether the
-contract is still active at any point after its creation. Similarly,
-in the previous example with the counteroffer, Alice could spend the
-IOU that she showed to the painter by the time the painter attempts to
-accept her counteroffer. In this case, the painter's transaction could
-not be added to the ledger, as it would result in a double spend and
-violate validity. But the painter has no way to predict whether
-his acceptance can be added to the ledger or not.
+Disclosure: When non-stakeholders use contracts
+***********************************************
+
+Divulgence from the previous section refers to parties learning about contracts they are not a stakeholder of.
+Disclosure is about such parties using contracts in their own transactions.
+
+Recall from the :ref:`running example <ledger-structure_running_example>`
+that Bob uses ``submitWithDisclosures`` for the exercising ``Settle`` choice.
+This is because Bob (and its Participant Node) in general does not know about the ``SimpleAsset`` contract #2
+that Alice has allocated to the proposal.
+Disclosure means that Alice tells Bob via an off-ledger communication channel about this contract.
+In the Daml script running example, the script itself is the communication channel.
+In real-world contexts, Alice would offer an API for Bob to retrieve the relevant data.
+
+It is a design decision that immediate divulgence does not entail disclosure for subsequent transactions.
+For example, after the DvP has been settled, Alice creates another DvP proposal for Bob to swap the two assets again:
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-REVERT-PROPOSAL-BEGIN
+   :end-before: SNIPPET-REVERT-PROPOSAL-END
+
+Then, Bob's command submission must include the disclosure of Alice's ``SimpleAsset`` even though Bob is a witness of the creation of Alice's ``SimpleAsset``.
+A plain ``submit`` without disclosure does not work.
+
+The motivation for not using immediate divulgence implicitly for disclosure is that it leads to brittle workflows.
+The problem is that the non-stakeholders only learn about the creation of the contract,
+but not about subsequent actions on the contract like archivals.
+Accordingly, there is no general rule as to how long the non-stakeholder should long to keep the contract around.
+Keeping it for too long will waste storage; and keeping it too short may break certain applications.
+Instead, this rule forces the application to explicitly design for disclosure even for divulged contracts
+and come up with a suitable application-specific rule.
+
+An alternative approach to disclosure is to replace the original ``SimpleAsset`` contract by one
+on which the Bob becomes a contract observer.
+This requires extending the contract model with a (consuming) exercise action on the ``SimpleAsset``
+that creates a new ``SimpleAsset``, with observers of Alice's choice.
+In addition to the increase in actions on the Ledger,
+the two approaches differ in in who learns about the parties that are informed about the contract:
+
+* If Alice discloses her ``SimpleAsset`` to Bob via an off-ledger channel,
+  only Alice and Bob need to know about this disclosure.
+  So when Alice discloses the same contract to Charlie,
+  Charlie does not need to know that Alice had already shown the contract to Bob,
+  and Bob does not need to know that Alice is disclosing it to Charlie.
+
+* In contrast, when Alice adds Bob as a contract observer and then subsequently adds Charlie as another observer,
+  Bob as a contract observer is notified about the archival and the creation.
+  Similarly, Charlie learns that Bob is an observer on the contract, too.
+  That is, all stakeholders learn about each other.
+  This created a privacy problem when Alice actually does not want that Bob and Charlie know of each other.
+
+Moveover, adding parties as observers scales poorly to large numbers,
+because every observer learns about every other observer:
+A Create event with `N` observers appears in the projection of at least those `N` parties.
+So the size of all projections together is already quadratic in `N` as an action of size at least `N` appears in `N` different projection.
+If the observers are added one by one, then `N` archives and creations are needed,
+which means the size of all projections together is cubic in `N`.

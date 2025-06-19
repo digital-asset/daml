@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.metrics.api.testing.MetricValues.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeLong,
   NonNegativeNumeric,
@@ -22,6 +22,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
@@ -35,7 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendPolicy,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.{SequencerAlias, config}
+import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -57,21 +58,25 @@ abstract class SubmissionRequestAmplificationIntegrationTest
   )
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2S2M2_Config.withNetworkBootstrap { implicit env =>
-      import env.*
-      new NetworkBootstrapper(
-        S2M2.copy(overrideMediatorToSequencers =
-          Some(
-            Map(
-              // A threshold of two ensures that the mediators connect to both sequencers.
-              // TODO(#19911) Make this properly configurable
-              mediator1 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
-              mediator2 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
+    EnvironmentDefinition.P2S2M2_Config
+      .withNetworkBootstrap { implicit env =>
+        import env.*
+        new NetworkBootstrapper(
+          S2M2.copy(overrideMediatorToSequencers =
+            Some(
+              Map(
+                // A threshold of two ensures that the mediators connect to both sequencers.
+                // TODO(#19911) Make this properly configurable
+                mediator1 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
+                mediator2 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
+              )
             )
           )
         )
+      }
+      .addConfigTransform(
+        ConfigTransforms.enableConnectionPoolIf(testedProtocolVersion >= ProtocolVersion.dev)
       )
-    }
 
   "reconfigure mediators to use amplification" in { implicit env =>
     import env.*
@@ -95,12 +100,8 @@ abstract class SubmissionRequestAmplificationIntegrationTest
 
     participants.local.foreach(
       _.synchronizers.connect_local_bft(
-        alias = daName,
-        synchronizer = NonEmpty(
-          Map,
-          SequencerAlias.tryCreate("seq1x") -> sequencer1,
-          SequencerAlias.tryCreate("seq2x") -> sequencer2,
-        ),
+        synchronizerAlias = daName,
+        sequencers = Seq(sequencer1, sequencer2),
         // A threshold of two ensures that the participants connect to both sequencers.
         // TODO(#19911) Make this properly configurable
         sequencerTrustThreshold = PositiveInt.two,

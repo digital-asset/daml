@@ -92,7 +92,7 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
     "work with sequencer_messages()" in { implicit env =>
       import env.*
 
-      val messages = participant1.testing.sequencer_messages(daName, limit = 3)
+      val messages = participant1.testing.sequencer_messages(daId, limit = 3)
       messages.size shouldBe 3
     }
 
@@ -129,34 +129,34 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
 
       withClue("In the first second of the universe, no messages should be on the sequencer") {
         participant1.testing
-          .sequencer_messages(daName, Some(bigBang), Some(veryEarly))
+          .sequencer_messages(daId, Some(bigBang), Some(veryEarly))
           .size shouldBe 0
       }
 
       withClue("Limit should work in conjunction with from:to filtering") {
         participant1.testing
-          .sequencer_messages(daName, Some(bigBang), Some(endOfTheUniverse), limit = 5)
+          .sequencer_messages(daId, Some(bigBang), Some(endOfTheUniverse), limit = 5)
           .size shouldBe 5
       }
 
-      val allMessages = participant1.testing.sequencer_messages(daName).toIndexedSeq
+      val allMessages = participant1.testing.sequencer_messages(daId).toIndexedSeq
       assert(allMessages.size >= 3, "test assumes that sequencer contains at least 3 messages")
       val timeSecondSequencerMsg = allMessages(1).timestamp.toInstant
       val timeLastSequencerMsg = allMessages.lastOption.value.timestamp.toInstant
 
       withClue("Should contain first two sequencer messages") {
         participant1.testing
-          .sequencer_messages(daName, Some(bigBang), Some(timeSecondSequencerMsg))
+          .sequencer_messages(daId, Some(bigBang), Some(timeSecondSequencerMsg))
           .size shouldBe 2
 
         participant1.testing
-          .sequencer_messages(daName, to = Some(timeSecondSequencerMsg))
+          .sequencer_messages(daId, to = Some(timeSecondSequencerMsg))
           .size shouldBe 2
       }
 
       withClue("Should contain all but first sequencer messages") {
         participant1.testing
-          .sequencer_messages(daName, Some(timeSecondSequencerMsg), Some(timeLastSequencerMsg))
+          .sequencer_messages(daId, Some(timeSecondSequencerMsg), Some(timeLastSequencerMsg))
           .size shouldBe allMessages.size - 1
 
         // note: no test with only 'from' here because new messages may have arrived by now

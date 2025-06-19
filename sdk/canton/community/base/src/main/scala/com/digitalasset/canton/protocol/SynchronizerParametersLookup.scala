@@ -21,10 +21,11 @@ import scala.concurrent.ExecutionContext
 class DynamicSynchronizerParametersLookup[P](
     projector: DynamicSynchronizerParameters => P,
     topologyClient: SynchronizerTopologyClient,
-    protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
+
+  val protocolVersion: ProtocolVersion = topologyClient.protocolVersion
 
   /** Return one value, valid at the specified timestamp
     *
@@ -64,7 +65,6 @@ class DynamicSynchronizerParametersLookup[P](
 
 object SynchronizerParametersLookup {
   def forSequencerSynchronizerParameters(
-      staticSynchronizerParameters: StaticSynchronizerParameters,
       overrideMaxRequestSize: Option[NonNegativeInt],
       topologyClient: SynchronizerTopologyClient,
       loggerFactory: NamedLoggerFactory,
@@ -78,12 +78,10 @@ object SynchronizerParametersLookup {
           overrideMaxRequestSize.map(MaxRequestSize.apply).getOrElse(params.maxRequestSize),
         ),
       topologyClient,
-      staticSynchronizerParameters.protocolVersion,
       loggerFactory,
     )
 
   def forAcsCommitmentSynchronizerParameters(
-      pv: ProtocolVersion,
       topologyClient: SynchronizerTopologyClient,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -96,7 +94,6 @@ object SynchronizerParametersLookup {
           params.acsCommitmentsCatchUp,
         ),
       topologyClient,
-      pv,
       loggerFactory,
     )
 

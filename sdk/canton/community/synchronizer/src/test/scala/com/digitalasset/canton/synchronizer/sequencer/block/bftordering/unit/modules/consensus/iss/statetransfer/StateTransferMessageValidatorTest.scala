@@ -11,11 +11,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
+  ViewNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopology,
+  OrderingTopologyInfo,
   SequencingParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
@@ -23,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockTransferRequest,
   BlockTransferResponse,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer.StateTransferTestHelpers.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
   ProgrammableUnitTestContext,
@@ -30,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
   failingCryptoProvider,
 }
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTest {
 
@@ -40,32 +47,21 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
     new StateTransferMessageValidator[ProgrammableUnitTestEnv](metrics, loggerFactory)
 
   "validate block transfer request" in {
-    Table[BlockTransferRequest, Membership, Either[String, Unit]](
-      ("request", "membership", "expected result"),
-      // negative: not part of the membership
-      (
-        BlockTransferRequest.create(EpochNumber.First, otherId),
-        aMembershipWithOnlySelf,
-        Left(
-          s"'$otherId' is requesting state transfer while not being active, active nodes are: List($myId)"
-        ),
-      ),
+    Table[BlockTransferRequest, Either[String, Unit]](
+      ("request", "expected result"),
       // negative: genesis start epoch
       (
         BlockTransferRequest.create(GenesisEpochNumber, otherId),
-        aMembershipWith2Nodes,
         Left("state transfer is supported only after genesis, but start epoch -1 received"),
       ),
       // positive
       (
         BlockTransferRequest.create(EpochNumber(1L), otherId),
-        aMembershipWith2Nodes,
         Right(()),
       ),
-    ).forEvery { (request, membership, expectedResult) =>
+    ).forEvery { (request, expectedResult) =>
       validator.validateBlockTransferRequest(
-        request,
-        membership,
+        request
       ) shouldBe expectedResult
     }
   }
@@ -77,15 +73,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         "latest locally completed epoch",
         "membership",
         "expected result",
-      ),
-      // negative: inactive node
-      (
-        BlockTransferResponse.create(None, otherId),
-        EpochNumber.First,
-        aMembershipWithOnlySelf,
-        Left(
-          "received a block transfer response from 'other' which has not been active, active nodes: List(self)"
-        ),
       ),
       // negative: unexpected epoch in pre-prepare
       (
@@ -159,6 +146,47 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
     }
   }
 
+  "skip old block transfer responses" in {
+    implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+      new ProgrammableUnitTestContext
+
+    val blockMetadata = BlockMetadata(EpochNumber(1), BlockNumber(1))
+    val prePrepare = PrePrepare.create(
+      blockMetadata,
+      ViewNumber.First,
+      OrderingBlock(Seq.empty),
+      CanonicalCommitSet.empty,
+      otherId,
+    )(testedProtocolVersion)
+    val commitCertificate = CommitCertificate(prePrepare.fakeSign, Seq.empty)
+    val orderingTopology = OrderingTopology.forTesting(Set(myId, otherId))
+    val leaders = Seq(myId, otherId)
+    val orderingTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
+      myId,
+      orderingTopology,
+      failingCryptoProvider,
+      leaders,
+      orderingTopology,
+      failingCryptoProvider,
+      leaders,
+    )
+
+    val response = BlockTransferResponse.create(Some(commitCertificate), otherId)
+    assertLogs(
+      validator.validateUnverifiedStateTransferNetworkMessage(
+        response.fakeSign,
+        EpochNumber(1),
+        orderingTopologyInfo,
+      ),
+      logLine => {
+        logLine.level shouldBe Level.INFO
+        logLine.message shouldBe "State transfer: old BlockTransferResponse: from epoch 1 we have completed epoch 1, dropping..."
+      },
+    )
+
+    context.extractSelfMessages() shouldBe empty
+  }
+
   "skip block transfer response signature verification" in {
     implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
       new ProgrammableUnitTestContext
@@ -176,7 +204,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
 }
 
 object StateTransferMessageValidatorTest {
-  private val aMembershipWithOnlySelf = Membership.forTesting(myId)
   private val aMembershipWithOnlyOtherNode =
     Membership(
       myId,

@@ -593,14 +593,14 @@ object TestSubmissionService {
       transactionMeta(
         transaction,
         metadata.nodeSeeds,
-        metadata.submissionTime,
+        metadata.preparationTime,
         metadata.usedPackages,
       )
 
     def transactionMeta(
         transaction: SubmittedTransaction,
         nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
-        submissionTime: Time.Timestamp = ledgerTime,
+        preparationTime: Time.Timestamp = ledgerTime,
         usedPackages: Set[LfPackageId] = Set.empty,
     ): TransactionMeta = {
       val byKeyNodes = transaction.nodes
@@ -610,7 +610,7 @@ object TestSubmissionService {
       TransactionMeta(
         ledgerTime,
         workflowIdO,
-        submissionTime,
+        preparationTime,
         submissionSeed,
         timeBoundaries = LedgerTimeBoundaries.unconstrained,
         Some(usedPackages),

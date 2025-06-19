@@ -21,7 +21,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.PackageName
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
+import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -140,7 +140,7 @@ private[dao] sealed class ContractsReader(
                   keyOpt = keyOpt,
                   version = createArg.version,
                 ),
-                createTime = raw.ledgerEffectiveTime,
+                createTime = CreationTime.CreatedAt(raw.ledgerEffectiveTime),
                 cantonData = Bytes.fromByteArray(raw.driverMetadata),
               )
             )

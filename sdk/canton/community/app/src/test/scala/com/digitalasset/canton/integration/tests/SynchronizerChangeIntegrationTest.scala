@@ -191,8 +191,8 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
   def P4(implicit env: FixtureParam): LocalParticipantReference = env.participant4
   def P5(implicit env: FixtureParam): LocalParticipantReference = env.participant5
 
-  def iouSynchronizerId(implicit env: FixtureParam): SynchronizerId = env.daId
-  def paintSynchronizerId(implicit env: FixtureParam): SynchronizerId = env.acmeId
+  def iouSynchronizerId(implicit env: FixtureParam): PhysicalSynchronizerId = env.daId
+  def paintSynchronizerId(implicit env: FixtureParam): PhysicalSynchronizerId = env.acmeId
 
   val PaintModule: String = "Paint"
   val IouModule: String = "Iou"
@@ -796,7 +796,7 @@ trait SynchronizerChangeRealClockIntegrationTest
                   createdEventO.exists(e => e.contractId == paintOfferId.toProtoPrimitive)
                 }
                 .map(_._1)
-              synchronizerIdOfContract shouldBe Some(paintSynchronizerId.toProtoPrimitive)
+              synchronizerIdOfContract shouldBe Some(paintSynchronizerId.logical.toProtoPrimitive)
 
             }
           }
@@ -819,7 +819,7 @@ trait SynchronizerChangeRealClockIntegrationTest
                 }
                 .map(_._1)
 
-              synchronizerId.value shouldBe iouSynchronizerId.toProtoPrimitive
+              synchronizerId.value shouldBe iouSynchronizerId.logical.toProtoPrimitive
             }
           }
         }

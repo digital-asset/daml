@@ -39,6 +39,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.google.common.annotations.VisibleForTesting
 
 import java.sql.Connection
 import javax.sql.DataSource
@@ -588,13 +589,16 @@ trait IntegrityStorageBackend {
     * This operation is allowed to take some time to finish. It is not expected that it is used
     * during regular index/indexer operation.
     */
-  def onlyForTestingVerifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
+  @VisibleForTesting
+  def verifyIntegrity(failForEmptyDB: Boolean = true)(connection: Connection): Unit
 
-  def onlyForTestingNumberOfAcceptedTransactionsFor(synchronizerId: SynchronizerId)(
+  @VisibleForTesting
+  def numberOfAcceptedTransactionsFor(synchronizerId: SynchronizerId)(
       connection: Connection
   ): Int
 
-  def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit
+  @VisibleForTesting
+  def moveLedgerEndBackToScratch()(connection: Connection): Unit
 }
 
 trait StringInterningStorageBackend {

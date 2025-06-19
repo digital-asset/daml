@@ -145,6 +145,8 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected def toc(timestamp: Long): TimeOfChange =
     TimeOfChange(ts(timestamp).forgetRefinement)
 
+  protected def unassignId(i: Int) = UnassignId(TestHash.digest(i))
+
   protected def mkChangeIdHash(index: Int) = ChangeIdHash(DefaultDamlValues.lfhash(index))
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
@@ -544,7 +546,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(1, 0) -> AssignmentCommit(
-          ReassignmentId(Source(synchronizerId), ts(4).forgetRefinement),
+          ReassignmentId(Source(synchronizerId), unassignId(4)),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           reassignmentCounter2,
         )
@@ -606,7 +608,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(2, 0) -> AssignmentCommit(
-          ReassignmentId(Source(synchronizerId), ts(8).forgetRefinement),
+          ReassignmentId(Source(synchronizerId), unassignId(8)),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           reassignmentCounter2,
         )
@@ -1289,7 +1291,7 @@ class AcsCommitmentProcessorTest
         // First ask for the remote commitments to be processed, and then compute locally
         _ <- delivered
           .parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
         _ <- processChanges(processor, store, changes)
 
@@ -1376,7 +1378,7 @@ class AcsCommitmentProcessorTest
         // First ask for the remote commitments to be processed, and then compute locally
         _ <- delivered
           .parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
         _ <- processor.flush()
@@ -1807,7 +1809,7 @@ class AcsCommitmentProcessorTest
         )
         // First ask for the remote commitments to be processed
         _ <- delivered.parTraverse_ { case (ts, batch) =>
-          processor.processBatchInternal(ts.forgetRefinement, batch)
+          processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
         }
         _ <- processChanges(processor, store, changes)
 
@@ -1938,7 +1940,7 @@ class AcsCommitmentProcessorTest
         ),
         assignments = Map[LfContractId, AssignmentCommit](
           cid3.leftSide -> CommitSet.AssignmentCommit(
-            ReassignmentId(Source(synchronizerId), CantonTimestamp.Epoch),
+            ReassignmentId(Source(synchronizerId), unassignId(0)),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             reassignmentCounter1,
           )
@@ -2179,7 +2181,7 @@ class AcsCommitmentProcessorTest
           // First ask for the remote commitments to be processed, and then compute locally
           // This triggers catch-up mode
           _ <- delivered.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
           _ <- processChanges(processor, store, changes)
 
@@ -2560,7 +2562,10 @@ class AcsCommitmentProcessorTest
           _ <- processChanges(processor, store, changes)
 
           _ <- delivered.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor
+              .processBatchInternal(ts.forgetRefinement, batch)
+              .flatMap(_.unwrap)
+
           }
           _ <- processor.flush()
           outstanding <- store.noOutstandingCommitments(timeProofs.lastOption.value)
@@ -2666,7 +2671,7 @@ class AcsCommitmentProcessorTest
           )
           // First ask for the remote commitments to be processed, and then compute locally
           _ <- delivered.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
           _ <- loggerFactory
@@ -3133,7 +3138,7 @@ class AcsCommitmentProcessorTest
           // This triggers catch-up mode
           _ <- delivered
             .parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
+              processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
             }
 
           _ <- processChanges(
@@ -3250,7 +3255,7 @@ class AcsCommitmentProcessorTest
           // First ask for the remote commitments to be processed, and then compute locally
           // This triggers catch-up mode
           _ <- delivered.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
           _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -3416,7 +3421,7 @@ class AcsCommitmentProcessorTest
           // which are up to timestamp 30
           // This causes the local participant to enter catch-up mode
           _ <- deliveredFast.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
           _ = loggerFactory.assertLogs(
@@ -3443,7 +3448,7 @@ class AcsCommitmentProcessorTest
           )
 
           _ <- deliveredNormal.parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
           _ <- processor.flush()
 
@@ -3598,7 +3603,7 @@ class AcsCommitmentProcessorTest
             // This causes the local participant to enter catch-up mode, and observe mismatch for timestamp 20,
             // and fine-grained compute and send commitment 10-15
             _ <- deliveredFast.parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
+              processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
             }
 
             _ = changes.foreach { case (recordTime, change) =>
@@ -3620,7 +3625,7 @@ class AcsCommitmentProcessorTest
             )
 
             _ <- deliveredNormal.parTraverse_ { case (ts, batch) =>
-              processor.processBatchInternal(ts.forgetRefinement, batch)
+              processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
             }
             _ <- processor.flush()
 
@@ -4104,7 +4109,7 @@ class AcsCommitmentProcessorTest
         // This triggers catch-up mode
         _ <- delivered
           .parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
       } yield {
@@ -4201,7 +4206,7 @@ class AcsCommitmentProcessorTest
         // This triggers catch-up mode
         _ <- delivered
           .parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
       } yield {
@@ -4293,7 +4298,7 @@ class AcsCommitmentProcessorTest
         // This triggers catch-up mode
         _ <- delivered
           .parTraverse_ { case (ts, batch) =>
-            processor.processBatchInternal(ts.forgetRefinement, batch)
+            processor.processBatchInternal(ts.forgetRefinement, batch).flatMap(_.unwrap)
           }
 
       } yield {

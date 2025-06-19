@@ -1,0 +1,11 @@
+sdk-version: __VERSION__
+name: multi-trade-tests
+source: daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib
+  - daml-script
+data-dependencies:
+  - ../multi-trade/.daml/dist/multi-trade-1.0.0.dar
+  - ../asset/.daml/dist/asset-1.0.0.dar

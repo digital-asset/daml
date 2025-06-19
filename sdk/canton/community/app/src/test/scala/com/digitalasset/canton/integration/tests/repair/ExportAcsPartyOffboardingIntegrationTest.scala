@@ -90,7 +90,7 @@ class ExportAcsPartyOffboardingIntegrationTest
               outputFile = file.canonicalPath,
             ),
             _.commandFailureMessage should (include(
-              s"Parties offboarding on synchronizer $daId"
+              s"Parties offboarding on synchronizer ${daId.logical}"
             ) and
               include(
                 s"Cannot take snapshot to offboard parties ${List(alice.toProtoPrimitive)}"

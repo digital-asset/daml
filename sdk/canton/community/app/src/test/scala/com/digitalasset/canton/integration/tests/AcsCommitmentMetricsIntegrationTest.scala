@@ -349,9 +349,9 @@ trait AcsCommitmentMetricsIntegrationTest
       "asking for both synchronizers should return one for synchronizer2 with both participants and one for synchronizer1 with participant3"
     )
     afterAdditionBothConfig.foreach {
-      case config if config.synchronizerIds.contains(acmeId) =>
+      case config if config.synchronizerIds.contains(acmeId.logical) =>
         config.distinguishedParticipants shouldBe Seq(participant3.id, participant4Id)
-      case config if config.synchronizerIds.contains(daId) =>
+      case config if config.synchronizerIds.contains(daId.logical) =>
         config.distinguishedParticipants shouldBe Seq(participant3.id)
       case _ => fail()
     }
@@ -382,9 +382,9 @@ trait AcsCommitmentMetricsIntegrationTest
       "asking for both synchronizers should return a set containing (participant3,participant4) & (participant3,participant5)"
     )
     afterSecondAdditionBothConfig.foreach {
-      case config if config.synchronizerIds.contains(acmeId) =>
+      case config if config.synchronizerIds.contains(acmeId.logical) =>
         config.distinguishedParticipants shouldBe Seq(participant3.id, participant4Id)
-      case config if config.synchronizerIds.contains(daId) =>
+      case config if config.synchronizerIds.contains(daId.logical) =>
         config.distinguishedParticipants shouldBe Seq(participant3.id, participant5Id)
       case _ => fail()
     }

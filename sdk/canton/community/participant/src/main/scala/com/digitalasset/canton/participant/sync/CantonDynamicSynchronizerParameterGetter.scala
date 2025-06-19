@@ -17,17 +17,14 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{
   KnownPhysicalSynchronizerId,
   PhysicalSynchronizerId,
-  SynchronizerId,
   UnknownPhysicalSynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class CantonDynamicSynchronizerParameterGetter(
     syncCrypto: SyncCryptoApiParticipantProvider,
-    protocolVersionFor: SynchronizerId => Option[ProtocolVersion],
     aliasManager: SynchronizerAliasManager,
     synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     override val loggerFactory: NamedLoggerFactory,
@@ -44,17 +41,13 @@ class CantonDynamicSynchronizerParameterGetter(
     ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] =
       for {
         topoClient <- EitherT.fromOption[FutureUnlessShutdown](
-          syncCrypto.ips.forSynchronizer(synchronizerId.logical),
+          syncCrypto.ips.forSynchronizer(synchronizerId),
           s"Cannot get topology client for synchronizer $synchronizerId",
         )
         snapshot = topoClient.currentSnapshotApproximation
-        protocolVersion <- EitherT.fromOption[FutureUnlessShutdown](
-          protocolVersionFor(synchronizerId.logical),
-          s"Cannot get protocol version for synchronizer $synchronizerId",
-        )
         params <- EitherT.right(
           snapshot.findDynamicSynchronizerParametersOrDefault(
-            protocolVersion,
+            synchronizerId.protocolVersion,
             warnOnUsingDefault,
           )
         )

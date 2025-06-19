@@ -8,6 +8,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.{
+  BlacklistLeaderSelectionPolicyState,
+  LeaderSelectionPolicy,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -40,6 +44,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
   def provide(
       snapshotTimestamp: CantonTimestamp,
       orderingTopology: OrderingTopology,
+      leaderSelectionPolicy: LeaderSelectionPolicy[E],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     // TODO(#23143) Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
@@ -60,7 +65,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       //  the comparison might fail if there are nodes that are not caught up.
       outputMetadataStore.getLatestBlockAtOrBefore(nodeTopologyInfo.activationTime.value)
     }
-    val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)
+    val activeAtBlocksF = actorContext.sequenceFuture(
+      activeAtBlockFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-active-at-blocks"),
+    )
 
     actorContext.pipeToSelf(activeAtBlocksF) {
       case Failure(exception) =>
@@ -70,7 +78,12 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       case Success(blocks) =>
         logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
-        provideWithEpochBasedInfo(epochNumbers, relevantNodesTopologyInfo, requester)
+        provideWithEpochBasedInfo(
+          epochNumbers,
+          relevantNodesTopologyInfo,
+          leaderSelectionPolicy,
+          requester,
+        )
         // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module.
         //  Based on Pekko documentation it's ok, as `pipeToSelf` can be called from other threads than the ordinary
         //  actor message processing thread.
@@ -81,6 +94,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
   private def provideWithEpochBasedInfo(
       epochNumbers: Seq[Option[EpochNumber]],
       nodesTopologyInfo: Seq[(BftNodeId, NodeTopologyInfo)],
+      leaderSelectionPolicy: LeaderSelectionPolicy[E],
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
     val epochInfoFutures = epochNumbers.map(maybeEpochNumber =>
@@ -88,7 +102,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         .map(epochNumber => epochStoreReader.loadEpochInfo(epochNumber))
         .getOrElse(actorContext.pureFuture(None: Option[EpochInfo]))
     )
-    val epochInfoF = actorContext.sequenceFuture(epochInfoFutures)
+    val epochInfoF = actorContext.sequenceFuture(
+      epochInfoFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-all-epoch-info"),
+    )
 
     val epochMetadataFutures = epochNumbers.map(maybeEpochNumber =>
       maybeEpochNumber
@@ -97,7 +114,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
           actorContext.pureFuture(None: Option[OutputMetadataStore.OutputEpochMetadata])
         )
     )
-    val epochMetadataF = actorContext.sequenceFuture(epochMetadataFutures)
+    val epochMetadataF = actorContext.sequenceFuture(
+      epochMetadataFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-all-epoch-metadata"),
+    )
 
     val firstBlockFutures = epochNumbers.map(maybeEpochNumber =>
       maybeEpochNumber
@@ -106,7 +126,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
           actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
         )
     )
-    val firstBlocksF = actorContext.sequenceFuture(firstBlockFutures)
+    val firstBlocksF = actorContext.sequenceFuture(
+      firstBlockFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-all-first-blocks"),
+    )
 
     val previousEpochNumbers =
       epochNumbers.map(maybeEpochNumber =>
@@ -121,14 +144,34 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
           )
       )
-    val lastBlocksInPreviousEpochsF = actorContext.sequenceFuture(lastBlockInPreviousEpochFutures)
+    val lastBlocksInPreviousEpochsF = actorContext.sequenceFuture(
+      lastBlockInPreviousEpochFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-all-last-blocks-in-previous-epochs"),
+    )
 
+    val leaderSelectionStateF =
+      actorContext.sequenceFuture[Option[BlacklistLeaderSelectionPolicyState], Seq](
+        epochNumbers.map { epochNumber =>
+          epochNumber
+            .map(
+              leaderSelectionPolicy.getHistoricState(_)
+            )
+            .getOrElse(
+              actorContext.pureFuture(None)
+            )
+        },
+        orderingStage =
+          Some("output-sequencer-snapshot-get-all-leader-selection-policy-historic-state"),
+      )
     val previousEpochInfoFutures = previousEpochNumbers.map(maybePreviousEpochNumber =>
       maybePreviousEpochNumber
         .map(epochNumber => epochStoreReader.loadEpochInfo(epochNumber))
         .getOrElse(actorContext.pureFuture(None: Option[EpochInfo]))
     )
-    val previousEpochInfoF = actorContext.sequenceFuture(previousEpochInfoFutures)
+    val previousEpochInfoF = actorContext.sequenceFuture(
+      previousEpochInfoFutures,
+      orderingStage = Some("output-sequencer-snapshot-get-all-previous-epoch-info"),
+    )
 
     // Zip as if there's no tomorrow
     val zippedFuture =
@@ -138,9 +181,16 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
           epochMetadataF,
           actorContext.zipFuture(
             firstBlocksF,
-            actorContext.zipFuture(lastBlocksInPreviousEpochsF, previousEpochInfoF),
+            actorContext.zipFuture(
+              lastBlocksInPreviousEpochsF,
+              actorContext.zipFuture(
+                previousEpochInfoF,
+                leaderSelectionStateF,
+              ),
+            ),
           ),
         ),
+        orderingStage = Some("output-sequencer-snapshot-provide-additional-info"),
       )
 
     actorContext.pipeToSelf(zippedFuture) {
@@ -153,7 +203,13 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
               epochInfoObjects,
               (
                 epochMetadataObjects,
-                (firstBlocksInEpochs, (lastBlocksInPreviousEpochs, previousEpochInfoObjects)),
+                (
+                  firstBlocksInEpochs,
+                  (
+                    lastBlocksInPreviousEpochs,
+                    (previousEpochInfoObjects, leaderSelectionPolicyState),
+                  ),
+                ),
               ),
             )
           ) =>
@@ -164,6 +220,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             .lazyZip(firstBlocksInEpochs)
             .lazyZip(lastBlocksInPreviousEpochs)
             .lazyZip(previousEpochInfoObjects)
+            .lazyZip(leaderSelectionPolicyState)
             .toList
             .map {
               case (
@@ -171,6 +228,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
                     ((node, nodeTopologyInfo), epochInfo, epochMetadata, firstBlockMetadata),
                     previousEpochLastBlockMetadata,
                     previousEpochInfo,
+                    leaderSelectionPolicyState,
                   ) =>
                 node -> NodeActiveAt(
                   nodeTopologyInfo.activationTime,
@@ -180,6 +238,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
                   epochMetadata.map(_.couldAlterOrderingTopology),
                   previousEpochLastBlockMetadata.map(_.blockBftTime),
                   previousEpochInfo.map(_.topologyActivationTime),
+                  leaderSelectionPolicyState,
                 )
             }
             .toMap

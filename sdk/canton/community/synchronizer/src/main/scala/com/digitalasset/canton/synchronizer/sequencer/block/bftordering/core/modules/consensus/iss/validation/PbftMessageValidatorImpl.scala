@@ -155,7 +155,7 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
                           s"(epoch ${epoch.info.number}), but has no associated topology info"
                       ),
                     )
-                val keyId = FingerprintKeyId.toBftKeyId(ack.signature.signedBy)
+                val keyId = FingerprintKeyId.toBftKeyId(ack.signature.authorizingLongTermKey)
                 s"The dissemination acknowledgement for batch ${poa.batchId} from '${ack.from}' is invalid " +
                   s"because the signing key '$keyId' is not valid for '${ack.from}' in the current topology " +
                   s"(epoch ${epoch.info.number}, nodes ${epoch.currentMembership.orderingTopology.nodes}); " +
@@ -328,16 +328,11 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
       .getOrElse(Right(()))
   }
 
-  private def emitNonComplianceMetrics(prePrepare: PrePrepare): Unit = {
-    val blockMetadata = prePrepare.blockMetadata
+  private def emitNonComplianceMetrics(prePrepare: PrePrepare): Unit =
     emitNonCompliance(metrics)(
       prePrepare.from,
-      Some(blockMetadata.epochNumber),
-      Some(prePrepare.viewNumber),
-      Some(blockMetadata.blockNumber),
       metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
     )
-  }
 }
 
 object PbftMessageValidatorImpl {

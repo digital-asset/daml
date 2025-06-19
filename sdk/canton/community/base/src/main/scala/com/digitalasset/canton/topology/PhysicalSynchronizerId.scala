@@ -42,7 +42,7 @@ object PhysicalSynchronizerId {
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): PhysicalSynchronizerId =
-    // TODO(#24733) Wire serial
+    // TODO(#24733) Wire serial: make default constructor of PhysicalSynchronizerId private
     PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.protocolVersion)
 
   implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =

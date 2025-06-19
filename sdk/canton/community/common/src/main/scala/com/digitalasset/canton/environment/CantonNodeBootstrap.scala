@@ -79,6 +79,7 @@ import com.digitalasset.canton.topology.admin.grpc.{
   GrpcTopologyAggregationService,
   GrpcTopologyManagerReadService,
   GrpcTopologyManagerWriteService,
+  PSIdLookup,
 }
 import com.digitalasset.canton.topology.admin.v30 as adminV30
 import com.digitalasset.canton.topology.client.{
@@ -394,6 +395,7 @@ abstract class CantonNodeBootstrapImpl[
   }
 
   protected def lookupTopologyClient(storeId: TopologyStoreId): Option[SynchronizerTopologyClient]
+  protected def lookupActivePSId: PSIdLookup
 
   private val startupStage =
     new BootstrapStage[T, SetupCrypto](
@@ -460,7 +462,7 @@ abstract class CantonNodeBootstrapImpl[
 
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
-      performUnlessClosingEitherUSF("create-crypto")(
+      synchronizeWithClosing("create-crypto")(
         Crypto
           .create(
             cryptoConfig,
@@ -932,6 +934,7 @@ abstract class CantonNodeBootstrapImpl[
               temporaryStoreRegistry.stores() ++ sequencedTopologyStores :+ authorizedStore,
               crypto,
               lookupTopologyClient,
+              lookupActivePSId,
               processingTimeout = parameters.processingTimeouts,
               bootstrapStageCallback.loggerFactory,
             ),
@@ -944,6 +947,7 @@ abstract class CantonNodeBootstrapImpl[
           .bindService(
             new GrpcTopologyManagerWriteService(
               temporaryStoreRegistry.managers() ++ sequencedTopologyManagers :+ topologyManager,
+              lookupActivePSId,
               temporaryStoreRegistry,
               bootstrapStageCallback.loggerFactory,
             ),

@@ -643,7 +643,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               view = Mod1:ReferenceableView { indirect = False };
               method uuid = "123e4567-e89b-12d3-a456-426614174000";
             };
-            key @Party (Mod:Person {name} this) (\ (p: Party) -> p);
+            key @Party (Mod:Person {name} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
           } ;
         }
       """
@@ -695,7 +695,13 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               ),
           ),
           observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
-          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
+          key = Some(
+            TemplateKey(
+              t"Party",
+              e"(Mod:Person {name} this)",
+              e"""\ (p: Party) -> Cons @Party [p] (Nil @Party)""",
+            )
+          ),
           implements = VectorMap(
             human ->
               TemplateImplements(

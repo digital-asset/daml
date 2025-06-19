@@ -11,10 +11,13 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
-import com.google.protobuf.ByteString
+import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
 import slick.jdbc.{GetResult, SetParameter}
 
+import java.io.{InputStream, OutputStream}
 import scala.collection.immutable
+import scala.util.Try
+import scala.util.control.NonFatal
 
 /** Trait for classes that can be serialized by using ProtoBuf. See "CONTRIBUTING.md" for our
   * guidelines on serialization.
@@ -64,12 +67,30 @@ trait HasVersionedWrapper[ValueClass] extends HasVersionedToByteString {
     */
   def toByteArray(version: ProtocolVersion): Array[Byte] = toByteString(version).toByteArray
 
+  /** Serializes this instance to a message together with a delimiter (the message length) to the
+    * given output stream.
+    *
+    * This method works in conjunction with parseDelimitedFromTrusted which deserializes the message
+    * again. It is useful for serializing multiple messages to a single output stream through
+    * multiple invocations.
+    *
+    * @param output
+    *   the sink to which this message is serialized to
+    * @return
+    *   an Either where left represents an error message, and right represents a successful message
+    *   serialization
+    */
+  def writeDelimitedTo(pv: ProtocolVersion, output: OutputStream): Either[String, Unit] =
+    Try(toProtoVersioned(pv).writeDelimitedTo(output)).toEither.leftMap(e =>
+      s"Cannot serialize ${companionObj.name} into the given output stream due to: ${e.getMessage}"
+    )
+
   /** Writes the byte string representation of the corresponding `UntypedVersionedMessage` wrapper
     * of this instance to a file.
     */
   def writeToFile(
       outputFile: String,
-      version: ProtocolVersion = ProtocolVersion.latest,
+      version: ProtocolVersion,
   ): Unit = {
     val bytes = toByteString(version)
     BinaryFileUtil.writeByteStringToFile(outputFile, bytes)
@@ -213,6 +234,48 @@ trait HasVersionedMessageCompanion[ValueClass]
     readFromTrustedFile(inputFile).valueOr(err =>
       throw new IllegalArgumentException(s"Reading $name from file $inputFile failed: $err")
     )
+
+  /** Deserializes a message using a delimiter (the message length) from the given input stream.
+    *
+    * '''Unsafe!''' No deserialization validation is performed.
+    *
+    * Do NOT use this method unless you can justify that the given bytes originate from a trusted
+    * source.
+    *
+    * This method works in conjunction with
+    * [[com.digitalasset.canton.version.HasVersionedWrapper.writeDelimitedTo]] which should have
+    * been used to serialize the message. It is useful for deserializing multiple messages from a
+    * single input stream through repeated invocations.
+    *
+    * @param input
+    *   the source from which a message is deserialized
+    * @return
+    *   an Option that is None when there are no messages left anymore, otherwise it wraps an Either
+    *   where left represents a deserialization error (exception) and right represents the
+    *   successfully deserialized message
+    */
+  def parseDelimitedFromTrusted(
+      input: InputStream
+  ): Option[ParsingResult[ValueClass]] = {
+    def fromTrustedProtoVersioned(
+        proto: VersionedMessage[ValueClass]
+    ): ParsingResult[ValueClass] =
+      proto.wrapper.data
+        .toRight(ProtoDeserializationError.FieldNotSet(s"$name: data"))
+        .flatMap(supportedProtoVersions.deserializerFor(ProtoVersion(proto.version)))
+
+    try {
+      v1.UntypedVersionedMessage
+        .parseDelimitedFrom(input)
+        .map(VersionedMessage[ValueClass])
+        .map(fromTrustedProtoVersioned)
+    } catch {
+      case protoBuffException: InvalidProtocolBufferException =>
+        Some(Left(ProtoDeserializationError.BufferException(protoBuffException)))
+      case NonFatal(e) =>
+        Some(Left(ProtoDeserializationError.OtherError(e.getMessage)))
+    }
+  }
 
   implicit def hasVersionedWrapperGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]

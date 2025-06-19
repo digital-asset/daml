@@ -100,12 +100,14 @@ abstract class GetConnectedSynchronizerIntegrationTest
 
       val responseP1 = getConnectedSynchronizers(party1, participant1)
       responseP1.connectedSynchronizers.map(_.synchronizerId) should contain theSameElementsAs Seq(
-        daId.toProtoPrimitive,
-        acmeId.toProtoPrimitive,
+        daId.logical.toProtoPrimitive,
+        acmeId.logical.toProtoPrimitive,
       )
 
       val responseP2 = getConnectedSynchronizers(party2, participant2)
-      responseP2.connectedSynchronizers.map(_.synchronizerId) shouldBe Seq(daId.toProtoPrimitive)
+      responseP2.connectedSynchronizers.map(_.synchronizerId) shouldBe Seq(
+        daId.logical.toProtoPrimitive
+      )
       responseP2.connectedSynchronizers.map(_.permission) shouldBe Seq(
         proto.state_service.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
       )

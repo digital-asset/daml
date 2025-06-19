@@ -70,6 +70,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{
   ConfirmationRequestSessionKeyStore,
+  IndexedPhysicalSynchronizer,
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
@@ -182,6 +183,7 @@ class AssignmentProcessingStepsTest
         participant,
         clock,
         SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+        IndexedPhysicalSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
@@ -221,7 +223,8 @@ class AssignmentProcessingStepsTest
     }).failOnShutdown
   }
 
-  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
+  private lazy val unassignId = UnassignId(TestHash.digest(0))
+  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, unassignId)
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
@@ -753,7 +756,7 @@ class AssignmentProcessingStepsTest
           contractInstance = ExampleTransactionFactory.contractInstance(),
           metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
         )
-      val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
+      val reassignmentId = ReassignmentId(sourceSynchronizer, unassignId)
       val rootHash = mock[RootHash]
       when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
       val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(

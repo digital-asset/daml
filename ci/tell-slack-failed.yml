@@ -24,6 +24,7 @@ steps:
            --data "{\"text\":\"$WARNING\n\"}" \
            $(Slack.ci-failures-daml)
     name: tell_slack_failed
+    displayName: 'Tell Slack about failed build'
     condition: and(failed(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
                       eq(variables['Build.SourceBranchName'], 'main-2.x'),

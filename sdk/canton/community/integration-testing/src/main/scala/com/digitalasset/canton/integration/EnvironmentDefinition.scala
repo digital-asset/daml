@@ -94,7 +94,7 @@ final case class EnvironmentDefinition(
   def updateTestingConfig(
       update: TestingConfigInternal => TestingConfigInternal
   ): EnvironmentDefinition =
-    copy(testingConfig = testingConfig.focus().modify(update))
+    copy(testingConfig = update(testingConfig))
 
   private def setStaticSynchronizerParameters(
       map: Map[String, StaticSynchronizerParameters]
@@ -506,7 +506,7 @@ object EnvironmentDefinition extends LazyLogging {
       numMediators = 2,
     )
 
-  private lazy val P1S2M2_Config: EnvironmentDefinition =
+  lazy val P1S2M2_Config: EnvironmentDefinition =
     buildBaseEnvironmentDefinition(
       numParticipants = 1,
       numSequencers = 2,

@@ -46,6 +46,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class GrpcTopologyManagerWriteService(
     managers: => Seq[TopologyManager[TopologyStoreId, BaseCrypto]],
+    physicalSynchronizerIdLookup: PSIdLookup,
     temporaryStoreRegistry: TemporaryStoreRegistry,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -296,10 +297,13 @@ class GrpcTopologyManagerWriteService(
           )
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
+      targetStoreInternal <- EitherT
+        .fromEither[FutureUnlessShutdown](targetStore.toInternal(physicalSynchronizerIdLookup))
+        .leftMap(TopologyManagerError.InvalidSynchronizer.Failure(_))
       manager <- EitherT
         .fromOption[FutureUnlessShutdown](
-          managers.find(_.store.storeId == targetStore.toInternal),
-          TopologyManagerError.TopologyStoreUnknown.Failure(targetStore.toInternal),
+          managers.find(_.store.storeId == targetStoreInternal),
+          TopologyManagerError.TopologyStoreUnknown.Failure(targetStoreInternal),
         )
         .leftWiden[RpcError]
     } yield manager
@@ -388,7 +392,7 @@ class GrpcTopologyManagerWriteService(
         )
         .leftMap(ProtoDeserializationFailure.Wrap(_))
       tempStoreId = grpcStore match {
-        case temp @ AdminTopologyStoreId.Temporary(_) => temp.toInternal
+        case AdminTopologyStoreId.Temporary(name) => TopologyStoreId.TemporaryStore(name)
         case AdminTopologyStoreId.Synchronizer(_) | AdminTopologyStoreId.Authorized =>
           ErrorUtil.invalidArgument("Cannot drop authorized store or synchronizer stores")
       }

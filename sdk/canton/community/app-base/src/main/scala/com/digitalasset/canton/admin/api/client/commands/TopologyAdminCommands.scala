@@ -466,19 +466,19 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class ListSynchronizerMigrationAnnouncement(
+    final case class ListSynchronizerUpgradeAnnouncement(
         query: BaseQuery,
         filterSynchronizerId: String,
     ) extends BaseCommand[
-          v30.ListSynchronizerMigrationAnnouncementRequest,
-          v30.ListSynchronizerMigrationAnnouncementResponse,
-          Seq[ListSynchronizerMigrationAnnouncementResult],
+          v30.ListSynchronizerUpgradeAnnouncementRequest,
+          v30.ListSynchronizerUpgradeAnnouncementResponse,
+          Seq[ListSynchronizerUpgradeAnnouncementResult],
         ] {
 
       override protected def createRequest()
-          : Either[String, v30.ListSynchronizerMigrationAnnouncementRequest] =
+          : Either[String, v30.ListSynchronizerUpgradeAnnouncementRequest] =
         Right(
-          new ListSynchronizerMigrationAnnouncementRequest(
+          new ListSynchronizerUpgradeAnnouncementRequest(
             baseQuery = Some(query.toProtoV1),
             filterSynchronizerId = filterSynchronizerId,
           )
@@ -486,15 +486,47 @@ object TopologyAdminCommands {
 
       override protected def submitRequest(
           service: TopologyManagerReadServiceStub,
-          request: v30.ListSynchronizerMigrationAnnouncementRequest,
-      ): Future[v30.ListSynchronizerMigrationAnnouncementResponse] =
-        service.listSynchronizerMigrationAnnouncement(request)
+          request: v30.ListSynchronizerUpgradeAnnouncementRequest,
+      ): Future[v30.ListSynchronizerUpgradeAnnouncementResponse] =
+        service.listSynchronizerUpgradeAnnouncement(request)
 
       override protected def handleResponse(
-          response: v30.ListSynchronizerMigrationAnnouncementResponse
-      ): Either[String, Seq[ListSynchronizerMigrationAnnouncementResult]] =
+          response: v30.ListSynchronizerUpgradeAnnouncementResponse
+      ): Either[String, Seq[ListSynchronizerUpgradeAnnouncementResult]] =
         response.results
-          .traverse(ListSynchronizerMigrationAnnouncementResult.fromProtoV30)
+          .traverse(ListSynchronizerUpgradeAnnouncementResult.fromProtoV30)
+          .leftMap(_.toString)
+    }
+
+    final case class ListSequencerConnectionSuccessor(
+        query: BaseQuery,
+        filterSequencerId: String,
+    ) extends BaseCommand[
+          v30.ListSequencerConnectionSuccessorRequest,
+          v30.ListSequencerConnectionSuccessorResponse,
+          Seq[ListSequencerConnectionSuccessorResult],
+        ] {
+
+      override protected def createRequest()
+          : Either[String, v30.ListSequencerConnectionSuccessorRequest] =
+        Right(
+          new ListSequencerConnectionSuccessorRequest(
+            baseQuery = Some(query.toProtoV1),
+            filterSequencerId = filterSequencerId,
+          )
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.ListSequencerConnectionSuccessorRequest,
+      ): Future[v30.ListSequencerConnectionSuccessorResponse] =
+        service.listSequencerConnectionSuccessor(request)
+
+      override protected def handleResponse(
+          response: v30.ListSequencerConnectionSuccessorResponse
+      ): Either[String, Seq[ListSequencerConnectionSuccessorResult]] =
+        response.results
+          .traverse(ListSequencerConnectionSuccessorResult.fromProtoV30)
           .leftMap(_.toString)
     }
 

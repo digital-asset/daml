@@ -4,8 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import cats.Order
-import cats.syntax.bifunctor.*
-import com.digitalasset.canton.crypto.Hash
+import cats.syntax.either.*
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -184,28 +184,56 @@ object RequestId {
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
-/** A reassignment is identified by the source synchronizer and the sequencer timestamp on the
-  * unassignment request.
-  */
+final case class UnassignId(hash: Hash) extends PrettyPrinting {
+  def toHexString: String = hash.toHexString
+  def toProtoPrimitive: String = toHexString
+
+  @VisibleForTesting
+  override protected def pretty: Pretty[UnassignId] = prettyOfClass(unnamedParam(_.hash))
+}
+
+object UnassignId {
+  def apply(
+      source: Source[SynchronizerId],
+      timestamp: CantonTimestamp,
+  ): UnassignId = {
+    val builder = Hash.build(HashPurpose.UnassignId, HashAlgorithm.Sha256)
+    builder.add(source.unwrap.toProtoPrimitive)
+    builder.add(timestamp.toProtoPrimitive)
+    UnassignId(builder.finish())
+  }
+
+  def fromHexString(hex: String): Either[DeserializationError, UnassignId] =
+    Hash.fromHexString(hex).map(UnassignId(_))
+
+  def tryFromHexString(hex: String): UnassignId =
+    fromHexString(hex).valueOr(err =>
+      throw new IllegalArgumentException(s"Invalid UnassignId: $err")
+    )
+
+  def fromProtoPrimitive(hex: String): ParsingResult[UnassignId] =
+    fromHexString(hex).leftMap(ProtoDeserializationError.CryptoDeserializationError(_))
+
+  implicit val getResultUnassignId: GetResult[UnassignId] =
+    GetResult(r => UnassignId.tryFromHexString(r.nextString()))
+
+  implicit val setResultUnassignId: SetParameter[UnassignId] = (v, pp) => pp >> v.toHexString
+}
+
+/** A reassignment is identified by the unassignHash */
 final case class ReassignmentId(
     // TODO(#25483) This should be physical
     sourceSynchronizer: Source[SynchronizerId],
-    unassignmentTs: CantonTimestamp,
+    unassignId: UnassignId,
 ) extends PrettyPrinting {
   def toProtoV30: v30.ReassignmentId =
     v30.ReassignmentId(
       sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
-      timestamp = unassignmentTs.toProtoPrimitive,
-    )
-
-  def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
-    com.digitalasset.canton.admin.participant.v30.ReassignmentId(
-      sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
-      timestamp = Some(unassignmentTs.toProtoTimestamp),
+      unassignId = unassignId.toProtoPrimitive,
     )
 
   override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
-    param("ts", _.unassignmentTs),
+    param("unassignId", _.unassignId),
     param("source", _.sourceSynchronizer),
   )
 }
@@ -213,13 +241,16 @@ final case class ReassignmentId(
 object ReassignmentId {
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
     reassignmentIdP match {
-      case v30.ReassignmentId(sourceSynchronizerP, requestTimestampP) =>
+      case v30.ReassignmentId(sourceSynchronizerP, unassignmentIdP) =>
         for {
           sourceSynchronizerId <- SynchronizerId.fromProtoPrimitive(
             sourceSynchronizerP,
             "ReassignmentId.source_synchronizer_id",
           )
-          requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
-        } yield ReassignmentId(Source(sourceSynchronizerId), requestTimestamp)
+          unassignId <- UnassignId.fromProtoPrimitive(unassignmentIdP)
+        } yield ReassignmentId(Source(sourceSynchronizerId), unassignId)
     }
+
+  def tryCreate(source: Source[SynchronizerId], hex: String): ReassignmentId =
+    ReassignmentId(source, UnassignId.tryFromHexString(hex))
 }

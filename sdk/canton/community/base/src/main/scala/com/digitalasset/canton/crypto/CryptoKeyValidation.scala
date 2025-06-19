@@ -80,6 +80,28 @@ object CryptoKeyValidation {
         .find(_.supportedSigningKeySpecs.contains(keySpec))
         .toRight(errFn(defaultAlgorithmSpec))
 
+  private[crypto] def ensureCryptoKeySpec[KeySpec, E](
+      keySpec: KeySpec,
+      supportedKeySpecs: Set[KeySpec],
+      errFnKey: (KeySpec, Set[KeySpec]) => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      supportedKeySpecs.contains(keySpec),
+      (),
+      errFnKey(keySpec, supportedKeySpecs),
+    )
+
+  private[crypto] def ensureCryptoAlgorithmSpec[AlgorithmSpec, E](
+      algorithmSpec: AlgorithmSpec,
+      supportedAlgorithmSpecs: Set[AlgorithmSpec],
+      errFnAlgorithm: (AlgorithmSpec, Set[AlgorithmSpec]) => E,
+  ): Either[E, Unit] =
+    Either.cond(
+      supportedAlgorithmSpecs.contains(algorithmSpec),
+      (),
+      errFnAlgorithm(algorithmSpec, supportedAlgorithmSpecs),
+    )
+
   /** Ensures that a given key specification is supported by the selected crypto algorithm. It also
     * checks if this crypto algorithm is part of the set of supported algorithms.
     */
@@ -88,56 +110,50 @@ object CryptoKeyValidation {
       algorithmSpec: AlgorithmSpec,
       supportedKeySpecs: Set[KeySpec],
       supportedAlgorithmSpecs: Set[AlgorithmSpec],
-      errFnAlgorithm: AlgorithmSpec => E,
-      errFnKey: KeySpec => E,
+      errFnKey: (KeySpec, Set[KeySpec]) => E,
+      errFnAlgorithm: (AlgorithmSpec, Set[AlgorithmSpec]) => E,
   ): Either[E, Unit] =
     for {
-      _ <- Either.cond(
-        supportedAlgorithmSpecs.contains(algorithmSpec),
-        (),
-        errFnAlgorithm(algorithmSpec),
-      )
-      _ <- Either.cond(
-        supportedKeySpecs.contains(keySpec),
-        (),
-        errFnKey(keySpec),
-      )
+      _ <- ensureCryptoKeySpec(keySpec, supportedKeySpecs, errFnKey)
+      _ <- ensureCryptoAlgorithmSpec(algorithmSpec, supportedAlgorithmSpecs, errFnAlgorithm)
     } yield ()
 
   private[crypto] def ensureFormat[E](
       actual: CryptoKeyFormat,
       acceptedFormats: Set[CryptoKeyFormat],
-      errFn: String => E,
+      errFn: (CryptoKeyFormat, Set[CryptoKeyFormat]) => E,
   ): Either[E, Unit] =
     Either.cond(
       acceptedFormats.contains(actual),
       (),
-      errFn(s"Expected key formats $acceptedFormats, but got $actual"),
+      errFn(actual, acceptedFormats),
     )
 
+  /** @param errFn
+    *   An error function that takes the key's fingerprint, its actual key usages, and the expected
+    *   usages, and is invoked when these do not match.
+    */
   private[crypto] def ensureUsage[E](
       usage: NonEmpty[Set[SigningKeyUsage]],
       keyUsage: NonEmpty[Set[SigningKeyUsage]],
       fingerprint: Fingerprint,
-      errFn: String => E,
+      errFn: (Fingerprint, Set[SigningKeyUsage], Set[SigningKeyUsage]) => E,
   ): Either[E, Unit] =
     Either.cond(
       compatibleUsageForSignAndVerify(keyUsage, usage),
       (),
-      errFn(
-        s"Signing key $fingerprint [$keyUsage] is not valid for usage $usage"
-      ),
+      errFn(fingerprint, keyUsage.forgetNE, usage.forgetNE),
     )
 
   private[crypto] def ensureSignatureFormat[E](
       actual: SignatureFormat,
       acceptedFormats: Set[SignatureFormat],
-      errFn: String => E,
+      errFn: (SignatureFormat, Set[SignatureFormat]) => E,
   ): Either[E, Unit] =
     Either.cond(
       acceptedFormats.contains(actual),
       (),
-      errFn(s"Expected signature formats $acceptedFormats, but got $actual"),
+      errFn(actual, acceptedFormats),
     )
 
 }

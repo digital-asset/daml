@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.{GlobalKey, Node}
+import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKey, Node}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -259,7 +259,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
     Active(
       FatContract.fromCreateNode(
         dummyCreate, // we do not care about the payload here
-        ledgerEffectiveTime,
+        CreationTime.CreatedAt(ledgerEffectiveTime),
         Bytes.Empty,
       )
     )

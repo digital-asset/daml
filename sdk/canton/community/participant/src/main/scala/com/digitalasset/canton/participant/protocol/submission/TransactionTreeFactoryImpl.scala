@@ -23,7 +23,6 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -41,7 +40,11 @@ import com.digitalasset.daml.lf.transaction.Transaction.{
   KeyInput,
   NegativeKeyLookup,
 }
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, ContractStateMachine}
+import com.digitalasset.daml.lf.transaction.{
+  ContractKeyUniquenessMode,
+  ContractStateMachine,
+  CreationTime,
+}
 import io.scalaland.chimney.dsl.*
 
 import java.util.UUID
@@ -107,7 +110,7 @@ class TransactionTreeFactoryImpl(
     // Create fields
     val participantMetadata = ParticipantMetadata(cryptoOps)(
       metadata.ledgerTime,
-      metadata.submissionTime,
+      metadata.preparationTime,
       workflowId,
       participantMetadataSalt,
       protocolVersion,
@@ -537,7 +540,7 @@ class TransactionTreeFactoryImpl(
       viewPosition,
       viewParticipantDataSalt,
       createIndex,
-      LedgerCreateTime(state.ledgerTime),
+      CreationTime.CreatedAt(state.ledgerTime.toLf),
       contractMetadata,
       serializedCantonContractInst,
       cantonContractIdVersion,
@@ -551,7 +554,7 @@ class TransactionTreeFactoryImpl(
       contractId = contractId,
       rawContractInstance = serializedCantonContractInst,
       metadata = contractMetadata,
-      ledgerCreateTime = LedgerCreateTime(state.ledgerTime),
+      ledgerCreateTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
       contractSalt = contractSalt.unwrap,
     )
     state.setCreatedContractInfo(contractId, createdInfo)

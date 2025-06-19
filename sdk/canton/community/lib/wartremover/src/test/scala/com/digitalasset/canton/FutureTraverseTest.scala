@@ -164,6 +164,12 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
         (1.some).traverse(_ => Future.successful(()))
         Foldable[Option].traverse_(Option.empty[Int])(_ => Future.successful(()))
         Traverse[Option].traverse(Option.empty[Int])(_ => Future.successful(()))
+        locally {
+          import cats.instances.option.*
+          (1.some).traverse(_ => Future.successful(()))
+          Foldable[Option].traverse_(Option.empty[Int])(_ => Future.successful(()))
+          Traverse[Option].traverse(Option.empty[Int])(_ => Future.successful(()))
+        }
         (1.some).traverseFilter(_ => Future.successful(Option.empty))
         TraverseFilter[Option].traverseFilter(Option.empty[Int])(_ =>
           Future.successful(Option.empty)
@@ -172,6 +178,7 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
         (Either.left[String, Int]("")).traverse(_ => Future.successful(()))
         Foldable[Either[String, *]].traverse_(Left(""))(_ => Future.successful(()))
         Traverse[Either[String, *]].traverse(Left(""))(_ => Future.successful(()))
+
       }
       result.errors shouldBe empty
     }

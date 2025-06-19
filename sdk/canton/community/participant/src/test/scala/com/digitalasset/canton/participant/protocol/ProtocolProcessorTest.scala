@@ -71,15 +71,15 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
   DefaultDamlValues,
@@ -279,6 +279,7 @@ class ProtocolProcessorTest
         participant,
         clock,
         crypto.crypto,
+        IndexedPhysicalSynchronizer.tryCreate(synchronizer, 1),
         IndexedSynchronizer.tryCreate(synchronizer, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
@@ -391,15 +392,6 @@ class ProtocolProcessorTest
         override protected def metricsContextForSubmissionParam(
             submissionParam: Int
         ): MetricsContext = MetricsContext.Empty
-
-        override protected def preSubmissionValidations(
-            params: Int,
-            cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
-            protocolVersion: ProtocolVersion,
-        )(implicit
-            traceContext: TraceContext
-        ): EitherT[FutureUnlessShutdown, TestProcessingSteps.TestProcessingError, Unit] =
-          EitherT.pure(())
       }
 
     (sut, persistentState, ephemeralState.get(), participantNodeEphemeralState)

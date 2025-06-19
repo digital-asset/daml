@@ -48,14 +48,13 @@ import com.digitalasset.canton.ledger.api.validation.{StricterValueValidator, Va
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config, protocol}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import org.scalatest.Assertion
 
 import java.util.UUID
@@ -203,7 +202,7 @@ class ActiveContractsIntegrationTest
       viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = LedgerCreateTime(ledgerCreateTime),
+      ledgerCreateTime = CreationTime.CreatedAt(ledgerCreateTime.toLf),
       metadata = contractMetadata,
       suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInst),
       cantonContractIdVersion,

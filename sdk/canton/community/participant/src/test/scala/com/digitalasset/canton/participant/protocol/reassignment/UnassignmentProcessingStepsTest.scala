@@ -64,6 +64,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{
   ConfirmationRequestSessionKeyStore,
+  IndexedPhysicalSynchronizer,
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
@@ -159,6 +160,7 @@ final class UnassignmentProcessingStepsTest
       submittingParticipant,
       clock,
       SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+      IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
       IndexedSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
       defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,
@@ -207,7 +209,7 @@ final class UnassignmentProcessingStepsTest
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]],
       packages: Map[ParticipantId, Seq[LfPackageId]],
-      synchronizers: Set[SynchronizerId] = Set(DefaultTestIdentities.synchronizerId),
+      synchronizers: Set[PhysicalSynchronizerId] = Set(DefaultTestIdentities.physicalSynchronizerId),
   ) =
     TestingTopology(synchronizers)
       .withReversedTopology(topology)
@@ -804,7 +806,7 @@ final class UnassignmentProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
+      val reassignmentId = ReassignmentId(sourceSynchronizer, UnassignId(TestHash.digest(0)))
       val rootHash = TestHash.dummyRootHash
       val reassignmentResult =
         ConfirmationResultMessage.create(
@@ -869,6 +871,7 @@ final class UnassignmentProcessingStepsTest
             submitterCheckResult = None,
             reassigningParticipantValidationResult = Nil,
           ),
+          unassignmentTs = CantonTimestamp.Epoch,
         )
 
         pendingUnassignment = PendingUnassignment(

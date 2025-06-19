@@ -65,6 +65,7 @@ genrule(
             --base-url=https://docs.daml.com/daml-script/api/ \\
             --output-hoogle=$(location :daml-script-hoogle.txt) \\
             --output-anchor=$(location :daml-script-anchors.json) \\
+            --omit-empty \\
             -Wno-deprecated-exceptions \\
             $(location :daml-script.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst

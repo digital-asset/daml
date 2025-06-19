@@ -78,6 +78,7 @@ import com.digitalasset.canton.pruning.{
   ConfigForSynchronizerThresholds,
   PruningStatus,
 }
+import com.digitalasset.canton.sequencing.HandlerResult
 import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -349,7 +350,7 @@ class AcsCommitmentProcessor private (
   private def getReconciliationIntervals(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SortedReconciliationIntervals] =
-    performUnlessClosingUSF(functionFullName)(
+    synchronizeWithClosing(functionFullName)(
       sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
     )
 
@@ -885,7 +886,7 @@ class AcsCommitmentProcessor private (
   def processBatch(
       timestamp: CantonTimestamp,
       batch: Traced[Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
-  ): FutureUnlessShutdown[Unit] =
+  ): HandlerResult =
     batch.withTraceContext(implicit traceContext => processBatchInternal(timestamp, _))
 
   /** Process incoming commitments.
@@ -912,7 +913,7 @@ class AcsCommitmentProcessor private (
   def processBatchInternal(
       timestamp: CantonTimestamp,
       batch: Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+  )(implicit traceContext: TraceContext): HandlerResult = {
 
     if (batch.lengthCompare(1) != 0) {
       Errors.InternalError
@@ -931,7 +932,6 @@ class AcsCommitmentProcessor private (
         getReconciliationIntervals(
           envelope.protocolMessage.message.period.toInclusive.forgetRefinement
         )
-          // TODO(#10790) Investigate whether we can validate and process the commitments asynchronously.
           .flatMap { reconciliationIntervals =>
             validateEnvelope(timestamp, envelope, reconciliationIntervals) match {
               case Right(()) =>
@@ -952,7 +952,7 @@ class AcsCommitmentProcessor private (
       )
     } yield ()
 
-    FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+    val result = FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
       future,
       failureMessage = s"Failed to process incoming commitment.",
       onFailure = _ => {
@@ -961,6 +961,8 @@ class AcsCommitmentProcessor private (
       },
       logPassiveInstanceAtInfo = true,
     )
+
+    HandlerResult.asynchronous(result)
   }
 
   private def updateParticipantLatency(
@@ -1587,7 +1589,7 @@ class AcsCommitmentProcessor private (
 
     def sendUnlessClosing() = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
-      performUnlessClosingUSF(functionFullName) {
+      synchronizeWithClosing(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
         val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
         FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
@@ -1840,7 +1842,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
     (
         CantonTimestamp,
         Traced[Seq[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]],
-    ) => FutureUnlessShutdown[Unit]
+    ) => HandlerResult
 
   val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()
   val hashedEmptyCommitment: AcsCommitment.HashedCommitmentType =
@@ -1976,9 +1978,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[CommitmentSnapshot] = prettyOfClass(
       param("record time", _.recordTime),
-      param("active", _.active),
-      param("delta (parties)", _.delta.keySet),
-      param("deleted", _.deleted),
+      param("active", _.active, _.active.sizeCompare(20) < 0),
+      param("delta (parties)", _.delta.keySet, _.delta.sizeCompare(20) < 0),
+      param("deleted", _.deleted, _.deleted.sizeCompare(20) < 0),
     )
   }
 

@@ -58,7 +58,7 @@ message LookupOffsetByTimeResponse {
 message OpenCommitmentRequest {
   // the commitment to be opened
   bytes commitment = 1;
-  string synchronizer_id = 2;
+  string physical_synchronizer_id = 2;
   // the participant for whom the receiving participant computed the commitment
   string computed_for_counter_participant_uid = 3;
   // interval end tick which the commitment corresponds to
@@ -147,7 +147,8 @@ message ContractState {
   message ReassignmentId {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
     string source_synchronizer_id = 1;
-    google.protobuf.Timestamp unassign_timestamp = 2;
+    // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
+    string unassign_id = 2;
   }
 }
 
@@ -162,7 +163,7 @@ message LookupReceivedAcsCommitmentsRequest {
   // retrieve commitments received from specific counter participants
   // if a specified counter participant is not a counter-participant in some synchronizer, we do not return it in the response
   // an empty set means we return commitments received from all counter participants on the synchronizers matching the synchronizer filter.
-  repeated string counter_participant_uids = 2;
+  repeated string counter_participant_ids = 2;
   // filter by commitment state: only return commitments with the states below
   // if no state is given, we return all commitments
   repeated ReceivedCommitmentState commitment_state = 3;
@@ -270,7 +271,7 @@ message LookupSentAcsCommitmentsRequest {
   // retrieve commitments sent to specific counter participants
   // if a specified counter participant is not a counter-participant in some synchronizer, we do not return it in the response
   // an empty set means we return commitments sent to all counter participants on the synchronizers matching the synchronizer filter.
-  repeated string counter_participant_uids = 2;
+  repeated string counter_participant_ids = 2;
   // filter by commitment state: only return commitments with the states below
   // if no state is given, we return all commitments
   repeated SentCommitmentState commitment_state = 3;
@@ -347,7 +348,7 @@ message CounterParticipantInfo {
 
 message GetIntervalsBehindForCounterParticipantsRequest {
   // if empty, all counter-participants are considered
-  repeated string counter_participant_uids = 1;
+  repeated string counter_participant_ids = 1;
   // if empty, all synchronizers are considered
   repeated string synchronizer_ids = 2;
   // if set, only counter-participants that are behind by at least this number of intervals are returned

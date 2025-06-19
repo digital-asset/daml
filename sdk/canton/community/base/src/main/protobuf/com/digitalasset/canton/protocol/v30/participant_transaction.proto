@@ -27,7 +27,7 @@ message ParticipantMetadata {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   int64 ledger_time = 2; // in microseconds of UTC time since Unix epoch
-  int64 submission_time = 3; // in microseconds of UTC time since Unix epoch
+  int64 preparation_time = 3; // in microseconds of UTC time since Unix epoch
   string workflow_id = 4; // optional
 }
 

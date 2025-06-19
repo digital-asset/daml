@@ -4,21 +4,16 @@
 package com.digitalasset.canton.console
 
 import better.files.*
+import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
-import com.digitalasset.canton.protocol.messages.HasSynchronizerId
-import com.digitalasset.canton.protocol.{
-  HasSerializableContract,
-  LfContractId,
-  SerializableContract,
-}
+import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
@@ -29,7 +24,9 @@ import com.digitalasset.canton.topology.store.{
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, TextFileUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 
+import java.time.Instant
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
@@ -71,6 +68,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
     def download(
         node: LocalInstanceReference,
         synchronizerId: SynchronizerId,
+        protocolVersion: ProtocolVersion,
         targetPath: String,
     ): Unit =
       TraceContext.withNewTraceContext { implicit traceContext =>
@@ -84,6 +82,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           s"Node is not initialized. Therefore, I can not download anything",
         )
         // store keys onto local drive
+        // TODO(#25974): proper KMS handling
         val keys = node.keys.secret.list()
         val keysCount = keys.size
         keys.zipWithIndex.foreach { case (keyEntry, idx) =>
@@ -125,7 +124,8 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
 
         val authorizedFile = File(targetDir, TOPOLOGY_AUTHORIZED)
         StoredTopologyTransactions(transactionsFromAuthorizedStore).writeToFile(
-          authorizedFile.pathAsString
+          authorizedFile.pathAsString,
+          protocolVersion,
         )
 
         if (node.id.member.code == SequencerId.Code) { // The sequencer needs to know more than just its own identity
@@ -133,7 +133,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           // Initial synchronizer state, needed for the sequencer to open the init service offering `assign_from_genesis_state`
           val synchronizerGenesisTransactions = node.topology.transactions
             .list(
-              store = TopologyStoreId.Synchronizer(synchronizerId),
+              store = synchronizerId,
               timeQuery = TimeQuery.Snapshot(
                 SignedTopologyTransaction.InitialTopologySequencingTime.immediateSuccessor // Convention used only by internal Canton tooling
               ),
@@ -149,7 +149,8 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
                 .mkString("\n")}"
           )
           StoredTopologyTransactions(synchronizerGenesisTransactions).writeToFile(
-            synchronizerFile.pathAsString
+            synchronizerFile.pathAsString,
+            protocolVersion,
           )
         }
       }
@@ -228,6 +229,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           s"Can not upload identity data to an already initialised node ${node.name}",
         )
 
+        // TODO(#25974): proper KMS handling
         val num = uploadKeys(node, sourceDir)
         logger.info(s"Uploaded ${num + 1} secret keys to node ${node.name}")
         initId(node, sourceDir)
@@ -342,45 +344,106 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       }
   }
 
-  /** party migration commands!
+  /** Party replication commands!
     *
-    * The following group contains a set of party migration commands. These commands can be used to
-    * migrate a party from one node to another. The commands come with some limitations / caveats /
-    * capabilities:
+    * The following group contains a set of party replication commands. These commands can be used
+    * to replicate a party from one node to another. The commands come with some limitations /
+    * caveats / capabilities:
     *
     *   - If the party is not managed by the source participant, then the appropriate topology state
     *     needs to be manually prepared before running any of the steps.
-    *   - In theory, we don't need to migrate the party off the origin node. This means we can
-    *     support parties on multiple participants. However, when the parties are re-enabled, we
-    *     need to ensure that they are re-enabled synchronously on all participants. This can
-    *     currently not be guaranteed / enforced. Therefore, this operation is quite brittle.
     */
   @Help.Summary(
-    "Commands useful to migrate parties from one participant to another",
+    "Commands useful to replicate parties from one participant to another",
     FeatureFlag.Repair,
   )
-  @Help.Group("Party Migration")
-  object party_migration extends Helpful {
+  @Help.Group("Party Replication")
+  object party_replication extends Helpful {
+
+    private def ensureSynchronizerHasBeenQuiet(
+        participant: ParticipantReference,
+        synchronizerId: SynchronizerId,
+    )(implicit env: ConsoleEnvironment): Unit = {
+      val activeSynchronizers: Seq[SynchronizerAlias] = participant.synchronizers
+        .list_registered() // this will only return active synchronizers
+        .flatMap {
+          case (synchronizerConnectionConfig, _, true) =>
+            Some(synchronizerConnectionConfig.synchronizerAlias)
+          case (_, _, false) => None
+        }
+
+      // Given synchronizer (ID) must be active on the given participant
+      val activeSynchronizer =
+        if (
+          activeSynchronizers
+            .map(alias => participant.synchronizers.id_of(alias).logical)
+            .contains(synchronizerId)
+        ) {
+          synchronizerId
+        } else {
+          env.raiseError(
+            s"Given synchronizer $synchronizerId is not active on given participant $participant"
+          )
+        }
+
+      val params = participant.topology.synchronizer_parameters
+        .list(store = activeSynchronizer)
+        .map { change =>
+          (
+            change.context.validFrom,
+            change.item.mediatorReactionTimeout,
+            change.item.confirmationResponseTimeout,
+            change.item.participantSynchronizerLimits.confirmationRequestsMaxRate,
+          )
+        }
+
+      val check = for {
+        param <- params.toList match {
+          case one :: Nil => Right(one)
+          case Nil => Left("There are no synchronizer parameters for the given synchronizer")
+          case other =>
+            Left(
+              s"Found more than one (${other.size}) synchronizer parameters set for the given synchronizer and time!"
+            )
+        }
+        (validFromInstant, mediatorReactionTimeout, participantResponseTimeout, maxRate) = param
+        _ <- Either.cond(
+          maxRate.unwrap == 0,
+          (),
+          s"confirmationRequestsMaxRate must be 0, but was ${maxRate.unwrap} for synchronizer $activeSynchronizer. We need a quiet synchronizer for party replication.",
+        )
+        validFrom <- CantonTimestamp.fromInstant(validFromInstant)
+        validAfter = validFrom
+          .plus(mediatorReactionTimeout.duration)
+          .plus(participantResponseTimeout.duration)
+        now = env.environment.clock.now
+        _ <- Either.cond(
+          validAfter.isBefore(now),
+          (),
+          s"Synchronizer parameters change is not yet valid at $now. You need to wait until $validAfter before you can replicate parties (participant and mediator timeouts).",
+        )
+      } yield {}
+      check.valueOr(env.raiseError)
+    }
 
     def step1_hold_and_store_acs(
         partyId: PartyId,
-        partiesOffboarding: Boolean,
+        synchronizerId: SynchronizerId,
         sourceParticipant: ParticipantReference,
         targetParticipantId: ParticipantId,
         targetFile: String,
+        topologyTransactionEffectiveTime: Instant,
         synchronize: Boolean = true,
     )(implicit env: ConsoleEnvironment): Unit = {
-      haltParty(sourceParticipant, partyId, synchronize)
-      sourceParticipant.repair.export_acs_old(
+      ensureSynchronizerHasBeenQuiet(sourceParticipant, synchronizerId)
+      sourceParticipant.parties.export_acs_at_timestamp(
         Set(partyId),
-        partiesOffboarding = partiesOffboarding,
+        synchronizerId,
+        topologyTransactionEffectiveTime,
         targetFile,
       )
-      val synchronizers =
-        acs
-          .import_acs_from_file_old(targetFile)
-          .map { case (synchronizerId, _) => synchronizerId }
-          .toSet
+
+      val synchronizers = Set(synchronizerId)
       ensureTargetPartyToParticipantIsPermissioned(
         partyId,
         sourceParticipant,
@@ -416,15 +479,12 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
 
     def step2_import_acs(
         partyId: PartyId,
+        synchronizerId: SynchronizerId,
         targetParticipant: ParticipantReference,
         sourceFile: String,
         workflowIdPrefix: String = "",
     )(implicit env: ConsoleEnvironment): Unit = {
-      val synchronizers =
-        acs
-          .import_acs_from_file_old(sourceFile)
-          .map { case (synchronizerId, _) => synchronizerId }
-          .toSet
+      val synchronizers = Set(synchronizerId)
       ensureTargetPartyToParticipantIsPermissioned(
         partyId,
         targetParticipant,
@@ -445,7 +505,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         targetParticipant.synchronizers.disconnect_all()
         noTracingLogger.info(s"Participant disconnected from all synchronizers")
         noTracingLogger.info(s"Importing ACS from $sourceFile")
-        targetParticipant.repair.import_acs_old(sourceFile, workflowIdPrefix).discard
+        targetParticipant.repair.import_acs(sourceFile, workflowIdPrefix).discard
         noTracingLogger.info("ACS import finished")
       } finally {
         noTracingLogger.info(
@@ -463,51 +523,6 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         }
       }
     }
-
-    def step4_clean_up_source(
-        partyId: PartyId,
-        sourceParticipant: ParticipantReference,
-        sourceFile: String,
-        batchSize: Int = 1000,
-    )(implicit env: ConsoleEnvironment): Unit = {
-      import env.*
-      consoleLogger.info(s"Purging contracts of $partyId")
-
-      readGrouped(sourceParticipant, sourceFile, batchSize).foreach(_.foreach {
-        case (alias, contractIds) =>
-          sourceParticipant.repair.purge(alias, contractIds)
-      })
-    }
-  }
-
-  // TODO(i15519) add a test to migrate a multi-hosted party
-  private def haltParty(
-      sourceParticipant: ParticipantReference,
-      partyId: PartyId,
-      synchronize: Boolean,
-  )(implicit env: ConsoleEnvironment): Unit = {
-    sourceParticipant.synchronizers.list_connected().foreach { synchronizer =>
-      // remove any topology transaction that points to source participant
-      sourceParticipant.topology.party_to_participant_mappings
-        .propose_delta(
-          partyId,
-          removes = List(sourceParticipant.id),
-          forceFlags = ForceFlags(DisablePartyWithActiveContracts),
-          store = synchronizer.synchronizerId.logical,
-        )
-        .discard
-    }
-    if (synchronize) {
-      // there's a gap between having received the transaction, but it hasn't been fully processed yet,
-      // so the node status will return that the node is idle, when that's not really the case.
-      // to avoid flakiness for now, we'll retry
-      ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
-        condition =
-          sourceParticipant.parties.list(partyId.filterString).flatMap(_.participants).isEmpty,
-        // above code will only work if we are managing the party ourselves. otherwise, we need some help
-        s"Cannot disable party $partyId completely. Ask your identity manager for help.",
-      )
-    }
   }
 
   private def ensureTargetPartyToParticipantIsPermissioned(
@@ -515,7 +530,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       participant: ParticipantReference,
       targetParticipantId: ParticipantId,
       synchronizerIds: Set[SynchronizerId],
-  ): Unit = {
+  )(implicit env: ConsoleEnvironment): Unit = {
     noTracingLogger.info(
       s"Participant '${participant.id}' is ensuring that the party '$partyId' is enabled on the target '$targetParticipantId'"
     )
@@ -527,7 +542,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           targetParticipantId,
         )
       if (!active) {
-        throw new Exception(
+        env.raiseError(
           s"Target participant $targetParticipantId is not active on synchronizer $synchronizerId"
         )
       }
@@ -557,41 +572,4 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       }
     }
   }
-
-  private def readGrouped(
-      targetParticipant: ParticipantReference,
-      sourceFile: String,
-      batchSize: Int,
-  ): Iterator[Map[SynchronizerAlias, Seq[LfContractId]]] = {
-    val idToAlias = targetParticipant.synchronizers
-      .list_registered()
-      .map { case (synchronizerConnectionConfig, _, _) =>
-        val synchronizerAlias = synchronizerConnectionConfig.synchronizerAlias
-        (
-          // TODO(#25483) Check this projection
-          targetParticipant.synchronizers.id_of(synchronizerAlias).logical,
-          synchronizerAlias,
-        )
-      }
-      .toMap
-
-    def mapSynchronizerToContracts(
-        items: Iterator[HasSynchronizerId & HasSerializableContract]
-    ): Iterator[Map[SynchronizerAlias, Seq[LfContractId]]] =
-      items
-        .grouped(batchSize)
-        .map(_.groupBy(_.synchronizerId))
-        .map(_.map { case (synchronizerId, items) =>
-          val alias = idToAlias.getOrElse(
-            synchronizerId,
-            throw new IllegalArgumentException(
-              s"Data contains contract(s) for unknown synchronizer $synchronizerId. Possibly that synchronizer is currently disconnected."
-            ),
-          )
-          (alias, items.map(_.contract.contractId))
-        })
-
-    mapSynchronizerToContracts(ActiveContractOld.fromFile(File(sourceFile)))
-  }
-
 }

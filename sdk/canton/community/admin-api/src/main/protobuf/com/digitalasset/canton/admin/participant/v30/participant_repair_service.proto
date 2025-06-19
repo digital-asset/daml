@@ -208,7 +208,7 @@ message PurgeDeactivatedSynchronizerRequest {
 message PurgeDeactivatedSynchronizerResponse {}
 
 message IgnoreEventsRequest {
-  string synchronizer_id = 1;
+  string physical_synchronizer_id = 1;
   // sequencer counter of the first event to ignore
   int64 from_inclusive = 2;
   // sequencer counter of the last event to ignore
@@ -220,7 +220,7 @@ message IgnoreEventsRequest {
 message IgnoreEventsResponse {}
 
 message UnignoreEventsRequest {
-  string synchronizer_id = 1;
+  string physical_synchronizer_id = 1;
   // sequencer counter of the first event to unignore
   int64 from_inclusive = 2;
   // sequencer counter of the last event to unignore

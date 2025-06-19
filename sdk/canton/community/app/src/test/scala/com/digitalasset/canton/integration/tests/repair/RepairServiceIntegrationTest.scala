@@ -25,7 +25,6 @@ import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
@@ -39,6 +38,7 @@ import com.digitalasset.canton.{
   config,
 }
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
 import monocle.macros.syntax.lens.*
@@ -247,7 +247,7 @@ sealed trait RepairServiceIntegrationTestStableLf
         import env.*
         def queryCids(): Seq[String] =
           participant1.ledger_api.state.acs.of_all().collect {
-            case entry if entry.synchronizerId.contains(daId) => entry.contractId
+            case entry if entry.synchronizerId.contains(daId.logical) => entry.contractId
           }
 
         withParticipantsInitialized { (alice, bob) =>
@@ -788,6 +788,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
 
             val authenticatedContractIdVersion = AuthenticatedContractIdVersionV11
 
+            val creationTime = CreationTime.CreatedAt(ledgerCreateTime.toLf)
             val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
               synchronizerId = daId,
               mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
@@ -795,7 +796,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               viewPosition = ViewPosition(List.empty),
               viewParticipantDataSalt = TestSalt.generateSalt(1),
               createIndex = 0,
-              ledgerCreateTime = LedgerCreateTime(ledgerCreateTime),
+              ledgerCreateTime = creationTime,
               metadata = contractMetadata,
               suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInst),
               authenticatedContractIdVersion,
@@ -810,8 +811,8 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               contractId,
               rawContract,
               contractMetadata,
-              LedgerCreateTime(ledgerCreateTime),
-              contractSalt = contractSalt.unwrap,
+              creationTime,
+              contractSalt.unwrap,
             )
 
             loggerFactory.assertThrowsAndLogs[CommandFailure](

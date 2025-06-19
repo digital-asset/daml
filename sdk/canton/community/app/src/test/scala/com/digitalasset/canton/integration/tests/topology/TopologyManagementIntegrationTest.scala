@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.cycle as C
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
@@ -1042,11 +1043,14 @@ trait TopologyManagementIntegrationTest
     "query migration announcements" in { implicit env =>
       import env.*
 
+      val upgradeTime = CantonTimestamp.now()
+
       val announcementMapping = synchronizerOwners1
         .map { owner =>
-          owner.topology.synchronizer_migration.announcement.propose(
-            daId.toPhysical,
+          owner.topology.synchronizer_upgrade.announcement.propose(
+            daId,
             PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+            upgradeTime,
           )
         }
         .headOption
@@ -1056,7 +1060,7 @@ trait TopologyManagementIntegrationTest
       eventually() {
         forAll(
           synchronizerOwners1.map(
-            _.topology.synchronizer_migration.announcement
+            _.topology.synchronizer_upgrade.announcement
               .list(daId)
               .loneElement
               .item
@@ -1064,9 +1068,10 @@ trait TopologyManagementIntegrationTest
         )(result => result shouldBe announcementMapping)
       }
       synchronizerOwners1.foreach(
-        _.topology.synchronizer_migration.announcement.revoke(
-          daId.toPhysical,
+        _.topology.synchronizer_upgrade.announcement.revoke(
+          daId,
           PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+          upgradeTime,
         )
       )
     }
@@ -1202,7 +1207,7 @@ trait TopologyManagementIntegrationTest
           .find(_.participant == participant.id)
           .value
           .synchronizers
-          .find(_.synchronizerId == daId)
+          .find(_.synchronizerId == daId.logical)
           .value
           .permission shouldBe permission
       }

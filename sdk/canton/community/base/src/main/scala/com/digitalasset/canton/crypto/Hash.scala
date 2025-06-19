@@ -87,8 +87,10 @@ object HashAlgorithm {
     }
 }
 
-final case class Hash private (private val hash: ByteString, private val algorithm: HashAlgorithm)
-    extends HasCryptographicEvidence
+final case class Hash private (
+    private val hash: ByteString,
+    private[crypto] val algorithm: HashAlgorithm,
+) extends HasCryptographicEvidence
     with Ordered[Hash]
     with PrettyPrinting {
 

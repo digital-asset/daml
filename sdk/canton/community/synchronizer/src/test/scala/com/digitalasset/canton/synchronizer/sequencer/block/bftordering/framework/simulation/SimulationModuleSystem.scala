@@ -106,25 +106,30 @@ object SimulationModuleSystem {
     override def pureFuture[X](x: X): SimulationFuture[X] =
       new SimulationFuture.Pure(s"pure($x)", () => Try(x))
 
-    override def mapFuture[X, Y](future: SimulationFuture[X])(
-        fun: PureFun[X, Y]
-    ): SimulationFuture[Y] =
+    override def mapFuture[X, Y](
+        future: SimulationFuture[X]
+    )(fun: PureFun[X, Y], orderingStage: Option[String] = None): SimulationFuture[Y] =
       SimulationFuture.Map(future, fun)
 
     override def zipFuture[X, Y](
         future1: SimulationFuture[X],
         future2: SimulationFuture[Y],
+        orderingStage: Option[String] = None,
     ): SimulationFuture[(X, Y)] =
       SimulationFuture.Zip(future1, future2)
 
-    override def zipFuture[X, Y, Z](
+    override def zipFuture3[X, Y, Z](
         future1: SimulationFuture[X],
         future2: SimulationFuture[Y],
         future3: SimulationFuture[Z],
+        orderingStage: Option[String] = None,
     ): SimulationFuture[(X, Y, Z)] =
       SimulationFuture.Zip3(future1, future2, future3)
 
-    override def sequenceFuture[A, F[_]](futures: F[SimulationFuture[A]])(implicit
+    override def sequenceFuture[A, F[_]](
+        futures: F[SimulationFuture[A]],
+        orderingStage: Option[String] = None,
+    )(implicit
         ev: Traverse[F]
     ): SimulationFuture[F[A]] =
       SimulationFuture.Sequence(futures)
@@ -132,6 +137,7 @@ object SimulationModuleSystem {
     override def flatMapFuture[R1, R2](
         future1: SimulationFuture[R1],
         future2: PureFun[R1, SimulationFuture[R2]],
+        orderingStage: Option[String] = None,
     ): SimulationFuture[R2] =
       SimulationFuture.FlatMap(future1, future2)
   }
@@ -202,7 +208,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[NewModuleMessageT](
@@ -229,7 +235,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       unsupportedForClientModules()
 
     override def setModule[NewModuleMessageT](
@@ -275,7 +281,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[NewModuleMessageT](
@@ -325,7 +331,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[MessageT](
         moduleName: ModuleName // Must be unique per ref, else it will crash on spawn
-    ): SimulationModuleRef[MessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[MessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[MessageT](

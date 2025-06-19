@@ -20,29 +20,67 @@ Ledger Model
    
 
 
-Daml Ledgers enable multi-party workflows by providing
-parties with a virtual *shared ledger*, which encodes the current
-state of their shared contracts, written in Daml. At a high level, the interactions are visualized as
-follows:
+Canton enables multi-party workflows by providing parties with a *virtual global ledger* (VGL),
+which encodes the current state of their shared contracts written in a smart contract language.
+At a high level, the interactions are visualized below:
+Three parties Alice, Bob, and Charlie connect independently to a virtual global ledger, depicted as a large cloud.
+They hold different views of that ledger in their local databases shown as blue icons.
+The global ledger is virtual in the sense that no single entity typically sees this global ledger in its entirety;
+it is an imaginary database that represents the union of all parties' databases.
 
-.. https://www.lucidchart.com/documents/edit/505709a9-e972-4272-b1fd-c01674c323b8
+.. https://lucid.app/lucidchart/e119dde8-4abe-4b09-9a95-5ca6ef3fb509/edit
 .. image:: ./images/da-ledger-model.svg
-   :alt: A diagram of the Daml Ledger model. Three parties (Party A, B, and C) interact independently with a single box labeled virtual shared ledger. Each party has two types of interactions: request change (an arrow from the party to the ledger) and access per-party view (an arrow from the ledger to the party).
+   :alt: A conceptual diagram of the Virtual Global Ledger.
 
-The Daml ledger model defines:
+The Ledger Model defines:
 
-  #. what the ledger looks like - the structure of Daml ledgers
-  #. who can request which changes - the integrity model for Daml ledgers
-  #. who sees which changes and data - the privacy model for Daml ledgers
+  #. What the ledger looks like - the :ref:`structure <ledger-structure>` of the Canton Ledger
+  #. Who sees which changes and data - the :ref:`privacy model <da-model-privacy>` for the Canton Ledger
+  #. What changes to the ledger are allowed and who can request them - the integrity model for the Canton Ledger
 
-The below sections review these concepts of the ledger model in turn.
-They also briefly describe the link between Daml and the model.
+The sections below review these concepts of the Ledger Model in turn and how they relate to Daml smart contracts.
+
+.. _da-ledgers-running-example:
+
+Running example
+***************
+
+The running example for the Ledger Model is a simple multi-party interaction of two parties atomically swapping their digital assets.
+A digital asset is modeled as a ``SimpleAsset`` with an issuer, an owner, and the asset description.
+The owner can transfer such an asset to a new owner with the ``Transfer`` choice.
+
+.. note::
+   These Daml templates are for illustration purposes only.
+   They are not meant for real-world usage as they are heavily simplified.
+
+.. literalinclude:: ./daml/SimpleAsset.daml
+   :language: daml
+   :start-after: SNIPPET-START
+   :end-before: SNIPPET-END
+
+An atomic swap, also known as delivery versus payment (DvP), combines two asset transfers between the parties in a single transaction.
+The ``SimpleDvP`` template below captures the agreement between two parties ``partyA`` and ``partyB`` to swap ownership of the two allocated assets.
+Either party to the DvP can execute the swap by exercising the ``Settle`` choice.
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-DVP-BEGIN
+   :end-before: SNIPPET-DVP-END
+
+To create a DvP contract instance, the parties go through the usual propose-accept workflow pattern shown next.
+Party ``proposer`` creates a proposal for the party ``counterparty`` with their allocated asset and the description of the asset they expect to swap with.
+The ``counterparty`` can accept the proposal with the ``Accept`` choice to create a ``SimpleDvP`` contract, or can accept and immediately settle the swap with the ``AcceptAndSettle`` choice.
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-PROPOSAL-BEGIN
+   :end-before: SNIPPET-PROPOSAL-END
 
 .. .. toctree::
    :maxdepth: 3
-
    ledger-structure
    ledger-integrity
    ledger-privacy
    ledger-daml
    ledger-exceptions
+   ledger-validity

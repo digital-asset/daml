@@ -33,7 +33,4 @@ trait LocalNodeParametersConfig {
   def caching: CachingConfigs
   def alphaVersionSupport: Boolean
   def watchdog: Option[WatchdogConfig]
-
-  // TODO(i22994): Clean up parameters and move this to the protocol config
-  def sessionSigningKeys: SessionSigningKeysConfig
 }

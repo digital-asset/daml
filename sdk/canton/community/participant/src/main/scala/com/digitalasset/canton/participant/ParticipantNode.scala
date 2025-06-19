@@ -13,7 +13,7 @@ import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{
@@ -53,6 +53,7 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
@@ -68,6 +69,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
 import com.digitalasset.canton.topology.client.{
   StoreBasedTopologySnapshot,
   SynchronizerTopologyClient,
@@ -128,14 +130,14 @@ class ParticipantNodeBootstrap(
     )
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]] =
-    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
-      case s: SyncPersistentState => s.topologyStore
-    }
+    cantonSyncService.get.toList
+      .flatMap(_.syncPersistentStateManager.getAll.values)
+      .map(_.topologyStore)
 
   override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] =
-    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
-      case s: SyncPersistentState => s.topologyManager
-    }
+    cantonSyncService.get.toList
+      .flatMap(_.syncPersistentStateManager.getAll.values)
+      .map(_.topologyManager)
 
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
@@ -145,6 +147,12 @@ class ParticipantNodeBootstrap(
         cantonSyncService.get.flatMap(_.lookupTopologyClient(synchronizerId))
       case _ => None
     }
+
+  override protected lazy val lookupActivePSId: PSIdLookup =
+    synchronizerId =>
+      cantonSyncService.get.flatMap(
+        _.activePSIdForLSId(synchronizerId)
+      )
 
   override protected def customNodeStages(
       storage: Storage,
@@ -184,20 +192,16 @@ class ParticipantNodeBootstrap(
       loggerFactory,
     )
 
-    val _ = packageDependencyResolver.putIfAbsent(resolver)
+    packageDependencyResolver.putIfAbsent(resolver).discard
 
     def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
-          synchronizerId -> state.acsInspection
-        })
+        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.acsInspection).toMap)
         .getOrElse(Map.empty)
 
     def reassignmentStore(): Map[SynchronizerId, ReassignmentStore] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
-          synchronizerId -> state.reassignmentStore
-        })
+        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.reassignmentStore).toMap)
         .getOrElse(Map.empty)
 
     def ledgerEnd(): FutureUnlessShutdown[Option[ParameterStorageBackend.LedgerEnd]] =
@@ -374,7 +378,7 @@ class ParticipantNodeBootstrap(
           participantId,
           ips,
           crypto,
-          parameters.sessionSigningKeys,
+          cryptoConfig,
           parameters.batchingConfig.parallelism,
           timeouts,
           futureSupervisor,
@@ -676,6 +680,19 @@ class ParticipantNodeBootstrap(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
 
+        /*
+        Returns the topology manager corresponding to an active configuration. Restricting to active is fine since
+        the topology manager is used for party allocation which would fail for inactive configurations.
+         */
+        activeTopologyManagerGetter = (id: PhysicalSynchronizerId) =>
+          synchronizerConnectionConfigStore
+            .get(id)
+            .toOption
+            .filter(_.status == Active)
+            .flatMap(_.configuredPSId.toOption)
+            .flatMap(syncPersistentStateManager.get)
+            .map(_.topologyManager)
+
         // Sync Service
         sync = cantonSyncServiceFactory.create(
           participantId,
@@ -686,7 +703,7 @@ class ParticipantNodeBootstrap(
           ephemeralState,
           syncPersistentStateManager,
           packageServiceContainer.asEval,
-          new PartyOps(syncPersistentStateManager.get(_).map(_.topologyManager), loggerFactory),
+          new PartyOps(activeTopologyManagerGetter, loggerFactory),
           topologyDispatcher,
           partyNotifier,
           syncCryptoSignerWithSessionKeys,
@@ -801,14 +818,7 @@ class ParticipantNodeBootstrap(
         adminServerRegistry
           .addServiceU(
             v30.PruningServiceGrpc.bindService(
-              new GrpcPruningService(
-                participantId,
-                sync,
-                pruningScheduler,
-                syncPersistentStateManager,
-                ips,
-                loggerFactory,
-              ),
+              new GrpcPruningService(participantId, sync, pruningScheduler, loggerFactory),
               executionContext,
             )
           )
@@ -920,20 +930,20 @@ class ParticipantNodeBootstrap(
     ConnectedSynchronizer.healthName,
     timeouts,
   )
-  lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SyncEphemeralState.healthName,
       timeouts,
     )
-  lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SequencerClient.healthName,
       timeouts,
     )
 
-  lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       AcsCommitmentProcessor.healthName,
@@ -991,7 +1001,8 @@ class ParticipantNode(
   }
 
   override def status: ParticipantStatus = {
-    val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
+    val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
+      config.httpLedgerApi.flatMap(_.server.port).flatMap(Port.create(_).toOption).map("json" -> _)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

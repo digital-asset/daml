@@ -47,6 +47,7 @@ object BftOrderingIdentifiers {
   type BlockNumber <: Long
   object BlockNumber {
     val First: BlockNumber = BlockNumber(0L)
+    val Max: BlockNumber = BlockNumber(Long.MaxValue)
     def apply(x: Long): BlockNumber = x.asInstanceOf[BlockNumber]
   }
 

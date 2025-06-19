@@ -94,7 +94,7 @@ class BlockSequencerTest
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        SynchronizerStore(synchronizerId.logical),
+        SynchronizerStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -182,6 +182,7 @@ class BlockSequencerTest
         protocolVersion = testedProtocolVersion,
         blockRateLimitManager = defaultRateLimiter,
         orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
+        minimumSequencingTime = CantonTimestamp.MinValue,
         processingTimeouts = BlockSequencerTest.this.timeouts,
         logEventDetails = true,
         prettyPrinter = new CantonPrettyPrinter(

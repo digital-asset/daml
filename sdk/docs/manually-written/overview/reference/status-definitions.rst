@@ -1,8 +1,13 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _status-definitions:
+
 Status Definitions
 ##################
+
+.. wip::
+    review and ensure that we want to keep giving these guarantees
 
 Throughout the documentation, we use labels to mark features of APIs not yet deemed stable. This page gives meaning to those labels.
 
@@ -21,7 +26,7 @@ Labs
 
 Alpha
 
-  Alpha components and features are early preview versions of features being actively developed to become a stable part of the ecosystem. At the Alpha stage, they are not yet feature complete, may have poor runtime characteristics, are still subject to frequent change, and may not be fully documented. Alpha features can be evaluated, and used in PoCs, but should not yet be relied upon for large projects or production use where breakages or changes to APIs would be costly. 
+  Alpha components and features are early preview versions of features being actively developed to become a stable part of the ecosystem. At the Alpha stage, they are not yet feature complete, may have poor runtime characteristics, are still subject to frequent change, and may not be fully documented. Alpha features can be evaluated, and used in PoCs, but should not yet be relied upon for large projects or production use where breakages or changes to APIs would be costly.
 
 Beta
 
@@ -30,7 +35,8 @@ Beta
 Deprecation
 ***********
 
-In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :doc:`overview`.
+In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below.
+.. todo: consider adding back: The date of deprecation is documented in :brokenref:`daml-ecosystem-overview`.
 
 Deprecated features can be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new Daml versions following the deprecation cycle.
 
@@ -51,8 +57,8 @@ The table below gives a concise overview of the labels used for Daml features an
      - Alpha
      - Labs
    * - **Functionality**
-     - 
-     - 
+     -
+     -
      -
      -
    * - Functional Completeness
@@ -61,8 +67,8 @@ The table below gives a concise overview of the labels used for Daml features an
      - MVP-level functionality covering at least a few core use-cases
      - Functionality covering one specific use-case it was made for
    * - **Non-functional Requirements**
-     - 
-     - 
+     -
+     -
      -
      -
    * - Performance
@@ -81,8 +87,8 @@ The table below gives a concise overview of the labels used for Daml features an
      - The feature may not be stable and lack error recovery.
      - The feature may not be stable and lack error recovery.
    * - **Releases and Support**
-     - 
-     - 
+     -
+     -
      -
      -
    * - Distribution and Releases
@@ -106,8 +112,8 @@ The table below gives a concise overview of the labels used for Daml features an
      - No, and changes may be poorly documented.
      - No, and changes may be poorly documented.
    * - **Documentation**
-     - 
-     - 
+     -
+     -
      -
      -
    * - Basic Use

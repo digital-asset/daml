@@ -73,7 +73,7 @@ class CleanSequencerCounterTracker(
             val eventBatchCounter = allocateEventBatchCounter()
             handler(tracedEvents).map { asyncF =>
               val asyncFSignalled = asyncF.andThenF { case () =>
-                store.performUnlessClosingUSF("signal-clean-event-batch")(
+                store.synchronizeWithClosing("signal-clean-event-batch")(
                   signalCleanEventBatch(eventBatchCounter, lastSc, lastTs)
                 )
               }

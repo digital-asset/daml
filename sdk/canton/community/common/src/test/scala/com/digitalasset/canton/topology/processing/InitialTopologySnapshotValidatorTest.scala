@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -26,7 +26,9 @@ abstract class InitialTopologySnapshotValidatorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a)
+      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(
+        Factory.physicalSynchronizerId1a
+      )
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
@@ -230,7 +232,7 @@ abstract class InitialTopologySnapshotValidatorTest
 
 class InitialTopologySnapshotValidatorTestInMemory extends InitialTopologySnapshotValidatorTest {
   protected def mkStore(
-      synchronizerId: SynchronizerId = SynchronizerId(Factory.uid1a)
+      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1
   ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
       TopologyStoreId.SynchronizerStore(synchronizerId),

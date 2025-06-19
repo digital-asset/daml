@@ -133,7 +133,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         testedProtocolVersion,
         RootHashMessage(
           RootHash(TestHash.digest(1)),
-          daId.toPhysical,
+          daId,
           testedProtocolVersion,
           TransactionViewType,
           CantonTimestamp.Epoch,
@@ -224,14 +224,12 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
       sequencer1.health.initialized() shouldBe true
       sequencer2.health.initialized() shouldBe false
 
-      // user-manual-entry-begin: DynamicallyOnboardSequencer
       onboardNewSequencer(
         synchronizerId = daId,
-        newSequencer = sequencer2,
-        existingSequencer = sequencer1,
+        newSequencerReference = sequencer2,
+        existingSequencerReference = sequencer1,
         synchronizerOwners = initializedSynchronizers(daName).synchronizerOwners,
       )
-      // user-manual-entry-end: DynamicallyOnboardSequencer
 
       sequencer2.health.initialized() shouldBe true
 

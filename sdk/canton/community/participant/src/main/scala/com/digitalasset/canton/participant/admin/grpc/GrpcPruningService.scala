@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
@@ -23,11 +24,10 @@ import com.digitalasset.canton.participant.scheduler.{
   ParticipantPruningSchedule,
   ParticipantPruningScheduler,
 }
-import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncPersistentStateManager}
+import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
@@ -39,8 +39,6 @@ class GrpcPruningService(
     participantId: ParticipantId,
     sync: CantonSyncService,
     pruningScheduler: ParticipantPruningScheduler,
-    syncPersistentStateManager: SyncPersistentStateManager,
-    ips: IdentityProvidingServiceClient,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
@@ -185,8 +183,8 @@ class GrpcPruningService(
         request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       )
       participants <- wrapErrUS(
-        request.counterParticipantUids.traverse(
-          ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
+        request.counterParticipantIds.traverse(
+          ParticipantId.fromProtoPrimitive(_, "counter_participant_id")
         )
       )
 
@@ -239,7 +237,9 @@ class GrpcPruningService(
 
       allParticipants <- EitherTUtil
         .fromFuture(
-          findAllKnownParticipants(synchronizers, participants),
+          sync.stateInspection
+            .findAllKnownParticipants(NonEmpty.from(synchronizers), NonEmpty.from(participants))
+            .map(_.view.mapValues(_.excl(participantId))),
           err => PruningServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[RpcError]
@@ -247,14 +247,14 @@ class GrpcPruningService(
       allParticipantsFiltered = allParticipants
         .map { case (synchronizerId, participants) =>
           val noWaitParticipants =
-            noWaitConfig.filter(_.synchronizerId == synchronizerId).collect(_.participantId)
+            noWaitConfig.filter(_.synchronizerId == synchronizerId.logical).collect(_.participantId)
           (synchronizerId, participants.filter(!noWaitParticipants.contains(_)))
         }
     } yield v30.GetNoWaitCommitmentsFromResponse(
       noWaitConfig.map(_.toProtoV30),
       allParticipantsFiltered
         .flatMap { case (synchronizerId, participants) =>
-          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId, _))
+          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId.logical, _))
         }
         .toSeq
         .map(_.toProtoV30),
@@ -275,8 +275,8 @@ class GrpcPruningService(
           request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
         )
         participants <- wrapErrUS(
-          request.counterParticipantUids
-            .traverse(ParticipantId.fromProtoPrimitive(_, "counter_participant_uid"))
+          request.counterParticipantIds
+            .traverse(ParticipantId.fromProtoPrimitive(_, "counter_participant_id"))
         )
         configs = synchronizers.zip(participants).map { case (synchronizerId, participant) =>
           ConfigForNoWaitCounterParticipants(synchronizerId, participant)
@@ -290,34 +290,6 @@ class GrpcPruningService(
 
       } yield v30.ResetNoWaitCommitmentsFromResponse()
     CantonGrpcUtil.mapErrNewEUS(result)
-  }
-
-  private def findAllKnownParticipants(
-      synchronizerFilter: Seq[SynchronizerId],
-      participantFilter: Seq[ParticipantId],
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[SynchronizerId, Set[ParticipantId]]] = {
-    val result = for {
-      (synchronizerId, _) <-
-        syncPersistentStateManager.getAll.filter { case (synchronizerId, _) =>
-          synchronizerFilter.contains(synchronizerId) || synchronizerFilter.isEmpty
-        }
-    } yield for {
-      _ <- FutureUnlessShutdown.unit
-      synchronizerTopoClient = ips.tryForSynchronizer(synchronizerId)
-      ipsSnapshot <- synchronizerTopoClient.awaitSnapshot(
-        synchronizerTopoClient.approximateTimestamp
-      )
-      allMembers <- ipsSnapshot.allMembers()
-      allParticipants = allMembers
-        .filter(_.code == ParticipantId.Code)
-        .map(member => ParticipantId.apply(member.uid))
-        .excl(participantId)
-        .filter(participantFilter.contains(_) || participantFilter.isEmpty)
-    } yield (synchronizerId, allParticipants)
-
-    FutureUnlessShutdown.sequence(result).map(_.toMap)
   }
 }
 

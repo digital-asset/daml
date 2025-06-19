@@ -14,7 +14,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
-  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -41,7 +40,6 @@ import IssConsensusModuleMetrics.emitNonCompliance
 class PbftViewChangeState(
     membership: Membership,
     leader: BftNodeId,
-    epoch: EpochNumber,
     view: ViewNumber,
     blockNumbers: NonEmpty[Seq[BlockNumber]],
     metrics: BftOrderingMetrics,
@@ -216,9 +214,6 @@ class PbftViewChangeState(
           case Left(error) =>
             emitNonCompliance(metrics)(
               vc.from,
-              Some(epoch),
-              Some(view),
-              Some(vc.message.blockMetadata.blockNumber),
               metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
             )
             logger.warn(
@@ -236,9 +231,6 @@ class PbftViewChangeState(
     if (nv.from != leader) { // Ensure the message is from the current primary (leader) of the new view
       emitNonCompliance(metrics)(
         nv.from,
-        Some(epoch),
-        Some(view),
-        Some(nv.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(s"New View message from ${nv.from}, but the leader of view $view is $leader")
@@ -256,9 +248,6 @@ class PbftViewChangeState(
         case Left(error) =>
           emitNonCompliance(metrics)(
             nv.from,
-            Some(epoch),
-            Some(view),
-            Some(nv.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
           )
           logger.warn(

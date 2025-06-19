@@ -34,7 +34,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
     TestingTopology(),
     loggerFactory,
     DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
-  ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId.logical)
+  ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
 
   private val requestSigner = RequestSigner(crypto, testedProtocolVersion, loggerFactory)
 
@@ -65,6 +65,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       DefaultProcessingTimeouts.testing,
       storage,
       sequencerStore,
+      minimumSequencingTime = CantonTimestamp.MinValue,
       clock,
       synchronizerId,
       sequencerId,

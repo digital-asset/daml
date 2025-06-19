@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
+import com.digitalasset.canton.data.CantonTimestamp
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -18,9 +19,10 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
   * @param maxConfirmationRequestsBurstFactor
   *   how forgiving the rate limit is in case of bursts (so rate limit starts after observing an
   *   initial burst of factor * max_rate commands)
+  * @param minimumSequencingTime
+  *   the sequencer will only send events with at least the minimumSequencingTime to subscribers
   */
 final case class SequencerNodeParameterConfig(
-    override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,
@@ -30,6 +32,7 @@ final case class SequencerNodeParameterConfig(
     override val caching: CachingConfigs = CachingConfigs(),
     override val watchdog: Option[WatchdogConfig] = None,
     unsafeEnableOnlinePartyReplication: Boolean = false,
+    minimumSequencingTime: CantonTimestamp = CantonTimestamp.MinValue,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation

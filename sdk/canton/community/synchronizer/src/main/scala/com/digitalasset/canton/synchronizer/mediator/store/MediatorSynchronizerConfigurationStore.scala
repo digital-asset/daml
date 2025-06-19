@@ -9,24 +9,26 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
 final case class MediatorSynchronizerConfiguration(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     synchronizerParameters: StaticSynchronizerParameters,
     sequencerConnections: SequencerConnections,
 )
 
 trait MediatorSynchronizerConfigurationStore extends AutoCloseable {
-  def fetchConfiguration(implicit
+  def fetchConfiguration()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]]
   def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
+  def setTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  def isTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 }
 
 object MediatorSynchronizerConfigurationStore {

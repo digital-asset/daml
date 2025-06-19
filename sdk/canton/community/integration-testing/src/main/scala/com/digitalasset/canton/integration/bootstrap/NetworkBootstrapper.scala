@@ -117,10 +117,9 @@ object NetworkTopologyDescription {
 /** A data container to hold useful information for initialized synchronizers
   */
 final case class InitializedSynchronizer(
-    synchronizerId: SynchronizerId,
+    physicalSynchronizerId: PhysicalSynchronizerId,
     staticSynchronizerParameters: protocol.StaticSynchronizerParameters,
     synchronizerOwners: Set[InstanceReference],
 ) {
-  def physicalSynchronizerId: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters)
+  def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
 }

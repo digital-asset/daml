@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -31,7 +32,7 @@ final case class TransactionSnapshot(
     participantId: Ref.ParticipantId,
     submitters: Set[Ref.Party],
     ledgerTime: Time.Timestamp,
-    submissionTime: Time.Timestamp,
+    preparationTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
     contracts: Map[ContractId, FatContractInstance],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
@@ -50,7 +51,7 @@ final case class TransactionSnapshot(
         transaction,
         ledgerTime,
         participantId,
-        submissionTime,
+        preparationTime,
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
@@ -63,7 +64,7 @@ final case class TransactionSnapshot(
         transaction,
         ledgerTime,
         participantId,
-        submissionTime,
+        preparationTime,
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
@@ -169,7 +170,11 @@ private[snapshot] object TransactionSnapshot {
       val relevantCreateNodes = activeCreates.view.filterKeys(tx.inputContracts).toList
       val contracts = relevantCreateNodes.view.map { case (cid, create) =>
         val ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime)
-        cid -> FatContractInstance.fromCreateNode(create, ledgerTime, Bytes.Empty)
+        cid -> FatContractInstance.fromCreateNode(
+          create,
+          CreationTime.CreatedAt(ledgerTime),
+          Bytes.Empty,
+        )
       }.toMap
       val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
         create.keyOpt.map(_ -> cid).toList
@@ -183,7 +188,7 @@ private[snapshot] object TransactionSnapshot {
           .map(Ref.Party.assertFromString)
           .toSet,
         ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime),
-        submissionTime = Time.Timestamp.assertFromLong(txEntry.getSubmissionTime),
+        preparationTime = Time.Timestamp.assertFromLong(txEntry.getPreparationTime),
         submissionSeed = crypto.Hash.assertFromBytes(
           Bytes.fromByteString(txEntry.getSubmissionSeed)
         ),

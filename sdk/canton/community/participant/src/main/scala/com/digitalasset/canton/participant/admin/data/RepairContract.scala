@@ -5,14 +5,13 @@ package com.digitalasset.canton.participant.admin.data
 
 import cats.implicits.*
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
-import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.{LfVersioned, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction
-import com.digitalasset.daml.lf.transaction.TransactionCoder
+import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 
 import java.io.ByteArrayInputStream
@@ -95,7 +94,11 @@ object RepairContract {
         maybeKeyWithMaintainersVersioned,
       )
 
-      ledgerCreateTime = LedgerCreateTime(CantonTimestamp(fattyContract.createdAt))
+      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+      ledgerCreateTime <- (fattyContract.createdAt: CreationTime) match {
+        case absolute: CreationTime.CreatedAt => Right(absolute)
+        case CreationTime.Now => Left("Unable to determine create time.")
+      }
 
       driverContractMetadata <-
         DriverContractMetadata

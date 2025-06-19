@@ -39,8 +39,10 @@ abstract class TopologyTransactionProcessorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a),
-      synchronizerId: SynchronizerId = Factory.synchronizerId1a,
+      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(
+        Factory.physicalSynchronizerId1a
+      ),
+      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a,
   ): (TopologyTransactionProcessor, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val proc = new TopologyTransactionProcessor(
@@ -296,7 +298,7 @@ abstract class TopologyTransactionProcessorTest
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8, ns9))
         val synchronizerId =
-          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace)).toPhysical
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -460,7 +462,7 @@ abstract class TopologyTransactionProcessorTest
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns7, ns8))
         val synchronizerId =
-          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace)).toPhysical
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -692,7 +694,7 @@ abstract class TopologyTransactionProcessorTest
         // in block3 we should see the new topology change delay being used to compute the effective time
         val block3 = mkEnvelope(ns3k3_k3)
 
-        val store = mkStore(synchronizerId.logical)
+        val store = mkStore(synchronizerId)
 
         store
           .update(
@@ -704,7 +706,7 @@ abstract class TopologyTransactionProcessorTest
           )
           .futureValueUS
 
-        val (proc, _) = mk(store, synchronizerId.logical)
+        val (proc, _) = mk(store, synchronizerId)
 
         val synchronizerTimeTrackerMock = mock[SynchronizerTimeTracker]
         when(synchronizerTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))
@@ -769,7 +771,7 @@ abstract class TopologyTransactionProcessorTest
 
 class TopologyTransactionProcessorTestInMemory extends TopologyTransactionProcessorTest {
   protected def mkStore(
-      synchronizerId: SynchronizerId = SynchronizerId(Factory.uid1a)
+      synchronizerId: PhysicalSynchronizerId = Factory.physicalSynchronizerId1a
   ): TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
       TopologyStoreId.SynchronizerStore(synchronizerId),

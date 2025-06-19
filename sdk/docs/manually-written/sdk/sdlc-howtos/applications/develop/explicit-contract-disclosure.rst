@@ -202,8 +202,7 @@ over the contracts.
   of the submitting party over the respective contract.
   However, the authorization restrictions of the Daml model still apply:
   the submitted command still needs to be well authorized. The actors
-  need to be properly authorized to execute the action,
-  as described in :ref:`Privacy Through Authorization <da-model-privacy-authorization>`.
+  need to be properly authorized to execute the action.
 
 .. _stakeholder-contract-share:
 
@@ -211,26 +210,27 @@ How do stakeholders disclose contracts to submitters?
 -----------------------------------------------------
 
 The disclosed contract's details can be fetched by the contract's stakeholder from the contract's
-associated :ref:`CreatedEvent <com.daml.ledger.api.v1.CreatedEvent>`,
-which can be read from the Ledger API via the active contracts and transactions queries
-(see :ref:`Reading from the ledger <reading-from-the-ledger>`).
+associated :subsiteref:`CreatedEvent <com.daml.ledger.api.v2.CreatedEvent>`,
+which can be read from the Ledger API via the state and update queries.
+
 
 The stakeholder can then share the disclosed contract details to the submitter off-ledger (outside of Daml)
-by conventional means, such as HTTPS, SFTP, or e-mail. A :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` can
+by conventional means, such as HTTPS, SFTP, or e-mail. A :subsiteref:`DisclosedContract <com.daml.ledger.api.v2.DisclosedContract>` can
 be constructed from the fields of the same name from the original contract's ``CreatedEvent``.
 
 .. note::
-  The ``created_event_blob`` field in ``CreatedEvent`` (used to construct the :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>`)
-  is populated **only** on demand for ``GetTransactions``, ``GetTransactionTrees``, and ``GetActiveContracts`` streams.
-  To learn more, see :ref:`configuring transaction filters <transaction-filter>`.
+  The ``created_event_blob`` field in ``CreatedEvent`` (used to construct the :subsiteref:`DisclosedContract <com.daml.ledger.api.v2.DisclosedContract>`)
+  is populated **only** on demand for ``GetUpdates``, ``GetUpdateTrees``, and ``GetActiveContracts`` streams.
+
+  To learn more, see :ref:`configuring event format <event-format>`.
 
 .. _submitter-disclosed-contract:
 
 Attaching a disclosed contract to a command submission
 ------------------------------------------------------
 
-A disclosed contract can be attached as part of the ``Command``'s :ref:`disclosed_contracts <com.daml.ledger.api.v1.Commands.disclosed_contracts>`
-and requires the following fields (see :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` for content details) to be populated from
+A disclosed contract can be attached as part of the ``Command``'s :subsiteref:`disclosed_contracts <com.daml.ledger.api.v2.Commands.disclosed_contracts>`
+and requires the following fields (see :subsiteref:`DisclosedContract <com.daml.ledger.api.v2.DisclosedContract>` for content details) to be populated from
 the original `CreatedEvent` (see above):
 
 - **template_id** - The contract's template id.

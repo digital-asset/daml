@@ -8,5 +8,6 @@ pkgs.mkShell {
     jq
     vale
     python3.pkgs.docutils
+    sphinx
   ];
 }

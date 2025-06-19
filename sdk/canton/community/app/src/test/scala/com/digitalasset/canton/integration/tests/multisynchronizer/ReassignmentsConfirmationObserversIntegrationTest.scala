@@ -7,7 +7,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, LocalSequencerReference}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -209,8 +208,8 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer2)
       val cid = iou.id.contractId
-      getSynchronizerOfContract(participant1, signatory, cid) shouldBe daId
-      getSynchronizerOfContract(participant2, observer2, cid) shouldBe daId
+      getSynchronizerOfContract(participant1, signatory, cid) shouldBe daId.logical
+      getSynchronizerOfContract(participant2, observer2, cid) shouldBe daId.logical
 
       programmableSequencers(daName).setPolicy_("confirmations count")(
         countConfirmationResponsesPolicy(daConfirmations)
@@ -224,8 +223,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
         participant1.ledger_api.commands
           .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
           .unassignId
-      val reassignmentId =
-        ReassignmentId(Source(daId), CantonTimestamp.fromProtoPrimitive(unassignId.toLong).value)
+      val reassignmentId = ReassignmentId.tryCreate(Source(daId), unassignId)
 
       // Check that reassignment store is populated on 3 participants
       eventually() {
@@ -242,9 +240,9 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       acmeConfirmations.toMap shouldBe Map(participant1.id -> 1)
 
       // reassignment should be completely done
-      getSynchronizerOfContract(participant1, signatory, cid) shouldBe acmeId
+      getSynchronizerOfContract(participant1, signatory, cid) shouldBe acmeId.logical
       eventually() { // p2 might need some more time
-        getSynchronizerOfContract(participant2, observer2, cid) shouldBe acmeId
+        getSynchronizerOfContract(participant2, observer2, cid) shouldBe acmeId.logical
       }
 
       lookupReassignment(participant1, reassignmentId).left.value shouldBe a[ReassignmentCompleted]

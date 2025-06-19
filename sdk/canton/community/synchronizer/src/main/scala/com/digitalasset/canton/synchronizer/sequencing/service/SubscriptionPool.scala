@@ -61,7 +61,7 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, RegistrationError, Subscription] =
-    performUnlessClosingEitherUSF(functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       logger.debug(s"Creating subscription for $member")
       EitherT.right[RegistrationError](createSubscription().map { subscription =>
         blocking {

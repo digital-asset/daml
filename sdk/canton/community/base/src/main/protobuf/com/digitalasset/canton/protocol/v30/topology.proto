@@ -58,6 +58,7 @@ message Enums {
     TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
     TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
     TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT = 19;
+    TOPOLOGY_MAPPING_CODE_SEQUENCER_CONNECTION_SUCCESSOR = 20;
   }
 }
 
@@ -88,6 +89,7 @@ message NamespaceDelegation {
     CanSignSpecificMappings can_sign_specific_mapings = 6;
   }
 
+  // [start-docs-entry: namespace delegation restrictions]
   // the key can sign all currently known mappings and all mappings that will be added in future releases
   message CanSignAllMappings {}
   // the key can sign all currently known mappings and all mappings that will be added in future releases, except for
@@ -97,6 +99,7 @@ message NamespaceDelegation {
   message CanSignSpecificMappings {
     repeated Enums.TopologyMappingCode mappings = 1;
   }
+  // [end-docs-entry: namespace delegation restrictions]
 }
 // [end NamespaceDelegation definition]
 
@@ -135,6 +138,7 @@ message OwnerToKeyMapping {
   reserved 3; // was synchronizer = 3;
 }
 
+// [doc-entry-start: PartyToKeyMapping]
 // mapping a party to a key
 // authorization: whoever controls the party uid
 // UNIQUE(party)
@@ -148,6 +152,7 @@ message PartyToKeyMapping {
 
   reserved 2; // was synchronizer_id = 2
 }
+// [doc-entry-end: PartyToKeyMapping]
 
 // the trust certificate issued by the participant confirming that the participant
 // wishes to be present on the given synchronizer
@@ -340,17 +345,45 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
-// indicates the beginning of a synchronizer migration and effectuates a topology freeze,
-// after which only synchronizer migration specific topology mappings are accepted.
+// indicates the beginning of a synchronizer upgrade and effectuates a topology freeze,
+// after which only synchronizer upgrade specific topology mappings are accepted.
 // removing this mapping unfreezes the topology state again.
 // authorization: whoever controls the physical synchronizer
 // UNIQUE(physical_synchronizer_id)
-message SynchronizerMigrationAnnouncement {
+message SynchronizerUpgradeAnnouncement {
   // the physical synchronizer id
   // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
   string physical_synchronizer_id = 1;
   // the physical synchronizer id of the successor synchronizer
   string successor_physical_synchronizer_id = 2;
+  // when the upgrade happens
+  google.protobuf.Timestamp upgrade_time = 3;
+}
+
+// a sequencer can announce its connections on the successor synchronizer
+// authorization: the owner of the sequencer's namespace
+// UNIQUE(sequencer_id)
+message SequencerConnectionSuccessor {
+  // the sequencer id
+  string sequencer_id = 1;
+  // to physical synchronizer id
+  // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
+  string physical_synchronizer_id = 2;
+  // the connection details with which members can connect to the sequencer on the successor synchronizer
+  SequencerConnection connection = 3;
+
+  message SequencerConnection {
+    oneof connection_type {
+      Grpc grpc = 1;
+    }
+
+    message Grpc {
+      // connection information to sequencer (http[s]://<host>:<port>")
+      // all endpoints must agree on using HTTPS or HTTP
+      repeated string endpoints = 1;
+      optional bytes custom_trust_certificates = 2;
+    }
+  }
 }
 
 // [docs-entry-start: topology mapping]
@@ -376,7 +409,8 @@ message TopologyMapping {
 
     PartyToKeyMapping party_to_key_mapping = 16;
 
-    SynchronizerMigrationAnnouncement synchronizer_migration_announcement = 17;
+    SynchronizerUpgradeAnnouncement synchronizer_upgrade_announcement = 17;
+    SequencerConnectionSuccessor sequencer_connection_successor = 18;
   }
   reserved 2; // was identifier_delegation
   reserved 10; // was authority_of

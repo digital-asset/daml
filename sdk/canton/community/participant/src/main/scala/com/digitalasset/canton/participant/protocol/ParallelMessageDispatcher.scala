@@ -131,7 +131,7 @@ class ParallelMessageDispatcher(
       // other envelopes are referring to)
       case TopologyTransaction(run) => runAsynchronously(run).map(noTopologyTick)
       case TrafficControlTransaction(run) => runSynchronously(run).map(tick)
-      case AcsCommitment(run) => runSynchronously(run).map(tick)
+      case AcsCommitment(run) => runAsynchronously(run).map(tick)
       case CausalityMessageKind(run) => runSynchronously(run).map(tick)
       case MalformedMessage(run) => runSynchronously(run).map(tick)
       case UnspecifiedMessageKind(run) => runSynchronously(run).map(tick)

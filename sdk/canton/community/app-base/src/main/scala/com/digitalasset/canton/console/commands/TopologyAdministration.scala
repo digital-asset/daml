@@ -8,6 +8,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
@@ -16,7 +17,6 @@ import com.digitalasset.canton.admin.api.client.data.{
   DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
   TopologyQueueStatus,
 }
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
@@ -61,10 +61,12 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.{config, networking}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.protobuf.ByteString
 import io.grpc.Context
 
+import java.net.URI
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future}
@@ -81,6 +83,8 @@ class TopologyAdministrationGroup(
     with Helpful
     with FeatureFlagFilter {
 
+  import TopologyAdministrationGroup.*
+
   protected val runner: AdminCommandRunner = instance
   import runner.*
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
@@ -88,7 +92,7 @@ class TopologyAdministrationGroup(
     consoleEnvironment.environment.executionContext
 
   /** run a topology change command */
-  private[console] def runAdminCommand[T](grpcCommand: => GrpcAdminCommand[_, _, T]): T =
+  private[console] def runAdminCommand[T](grpcCommand: => GrpcAdminCommand[?, ?, T]): T =
     consoleEnvironment.run(adminCommand(grpcCommand))
 
   @Help.Summary("Initialize the node with a unique identifier")
@@ -652,10 +656,12 @@ class TopologyAdministrationGroup(
 
     @Help.Summary(
       """Creates and returns proposals of topology transactions to bootstrap a synchronizer, specifically
-        |SynchronizerParametersState, SequencerSynchronizerState, and MediatorSynchronizerState.""".stripMargin
+        |SynchronizerParametersState, SequencerSynchronizerState, and MediatorSynchronizerState.
+        |
+        |protocolVersion: protocol version of the synchronizer""".stripMargin
     )
     def generate_genesis_topology(
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         synchronizerOwners: Seq[Member],
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
@@ -664,7 +670,9 @@ class TopologyAdministrationGroup(
       val isSynchronizerOwner = synchronizerOwners.contains(instance.id)
       require(isSynchronizerOwner, s"Only synchronizer owners should call $functionFullName.")
 
-      def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) =
+      def latest[M <: TopologyMapping: ClassTag](
+          hash: MappingHash
+      ): Option[SignedTopologyTransaction[TopologyChangeOp, M]] =
         instance.topology.transactions
           .find_latest_by_mapping_hash[M](
             hash,
@@ -673,16 +681,22 @@ class TopologyAdministrationGroup(
           )
           .map(_.transaction)
 
+      val isSynchronizerCollectivelyOwned = synchronizerOwners.sizeIs > 1
+
       // create and sign the initial synchronizer parameters
-      val synchronizerParameterState =
-        latest[SynchronizerParametersState](SynchronizerParametersState.uniqueKey(synchronizerId))
-          .getOrElse(
+      val maybeExistingSynchronizerParameterState =
+        latest[SynchronizerParametersState](
+          SynchronizerParametersState.uniqueKey(synchronizerId.logical)
+        )
+      val maybeProposedSynchronizerParameterState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingSynchronizerParameterState.isEmpty)(
             instance.topology.synchronizer_parameters.propose(
-              synchronizerId,
+              synchronizerId.logical,
               ConsoleDynamicSynchronizerParameters
                 .initialValues(
                   consoleEnvironment.environment.clock,
-                  ProtocolVersion.latest,
+                  synchronizerId.protocolVersion,
                 ),
               signedBy = None,
               store = Some(store),
@@ -690,13 +704,15 @@ class TopologyAdministrationGroup(
             )
           )
 
-      val mediatorState =
+      val maybeExistingMediatorState =
         latest[MediatorSynchronizerState](
-          MediatorSynchronizerState.uniqueKey(synchronizerId, NonNegativeInt.zero)
+          MediatorSynchronizerState.uniqueKey(synchronizerId.logical, NonNegativeInt.zero)
         )
-          .getOrElse(
+      val maybeProposedMediatorState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingMediatorState.isEmpty)(
             instance.topology.mediators.propose(
-              synchronizerId,
+              synchronizerId.logical,
               threshold = PositiveInt.one,
               group = NonNegativeInt.zero,
               active = mediators,
@@ -705,11 +721,15 @@ class TopologyAdministrationGroup(
             )
           )
 
-      val sequencerState =
-        latest[SequencerSynchronizerState](SequencerSynchronizerState.uniqueKey(synchronizerId))
-          .getOrElse(
+      val maybeExistingSequencerState =
+        latest[SequencerSynchronizerState](
+          SequencerSynchronizerState.uniqueKey(synchronizerId.logical)
+        )
+      val maybeProposedSequencerState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingSequencerState.isEmpty)(
             instance.topology.sequencers.propose(
-              synchronizerId,
+              synchronizerId.logical,
               threshold = PositiveInt.one,
               active = sequencers,
               signedBy = None,
@@ -717,16 +737,31 @@ class TopologyAdministrationGroup(
             )
           )
 
-      Seq(synchronizerParameterState, sequencerState, mediatorState)
+      val genesisTopology =
+        NonEmpty.from(
+          Seq(
+            maybeExistingSynchronizerParameterState,
+            maybeProposedSynchronizerParameterState,
+            maybeExistingMediatorState,
+            maybeProposedMediatorState,
+            maybeExistingSequencerState,
+            maybeProposedSequencerState,
+          ).flatten
+        )
+
+      genesisTopology.map(merge(_)).getOrElse(Seq.empty)
     }
 
     @Help.Summary(
       """Creates and returns proposals of topology transactions to bootstrap a synchronizer, specifically
         |SynchronizerParametersState, SequencerSynchronizerState, and MediatorSynchronizerState,
-        |and stores the result in a file which can be loaded using `node.topology.transactions.load_multiple_from_file`""".stripMargin
+        |and stores the result in a file which can be loaded using `node.topology.transactions.load_multiple_from_file`
+        |
+        |protocolVersion: protocol version of the synchronizer
+        |""".stripMargin
     )
     def download_genesis_topology(
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         synchronizerOwners: Seq[Member],
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
@@ -743,7 +778,9 @@ class TopologyAdministrationGroup(
           store,
         )
 
-      SignedTopologyTransactions(transactions, ProtocolVersion.latest).writeToFile(outputFile)
+      SignedTopologyTransactions(transactions, synchronizerId.protocolVersion).writeToFile(
+        outputFile
+      )
     }
   }
 
@@ -1424,10 +1461,10 @@ class TopologyAdministrationGroup(
 
     private def findCurrent(party: PartyId, store: TopologyStoreId) =
       store match {
-        case TopologyStoreId.Synchronizer(synchronizerId) =>
+        case synchronizerStore @ TopologyStoreId.Synchronizer(_) =>
           expectAtMostOneResult(
             list(
-              synchronizerId,
+              synchronizerId = synchronizerStore,
               filterParty = party.filterString,
               // fetch both REPLACE and REMOVE to correctly determine the next serial
               operation = None,
@@ -1455,6 +1492,10 @@ class TopologyAdministrationGroup(
             participant's permissions.
       removes: The unique identifiers of the participants that should no longer host the party.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
+      serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+              This transaction will be rejected if another fully authorized transaction with the same serial already
+              exists, or if there is a gap between this serial and the most recently used serial.
+              If None, the serial will be automatically selected by the node.
       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
       mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
                           sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
@@ -1474,6 +1515,7 @@ class TopologyAdministrationGroup(
         adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
         removes: Seq[ParticipantId] = Nil,
         signedBy: Option[Fingerprint] = None,
+        serial: Option[PositiveInt] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1484,7 +1526,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
       val currentO = findCurrent(party, store)
-      val (existingPermissions, newSerial, threshold) = currentO match {
+      val (existingPermissions, nextSerial, threshold) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
             // if the existing mapping was REMOVEd, we start from scratch
@@ -1505,6 +1547,7 @@ class TopologyAdministrationGroup(
             PositiveInt.one,
           )
       }
+      val newSerial = if (serial.nonEmpty) serial else nextSerial
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
         .computeNewPermissions(
@@ -1637,7 +1680,7 @@ class TopologyAdministrationGroup(
         |"""
     )
     def list(
-        synchronizerId: SynchronizerId,
+        synchronizerId: TopologyStoreId.Synchronizer,
         proposals: Boolean = false,
         timeQuery: TimeQuery = TimeQuery.HeadState,
         operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
@@ -1649,7 +1692,7 @@ class TopologyAdministrationGroup(
       adminCommand(
         TopologyAdminCommands.Read.ListPartyToParticipant(
           BaseQuery(
-            store = TopologyStoreId.Synchronizer(synchronizerId),
+            store = synchronizerId,
             proposals,
             timeQuery,
             operation,
@@ -1870,7 +1913,7 @@ class TopologyAdministrationGroup(
     // TODO(#14057) document console command
     def active(synchronizerId: SynchronizerId, participantId: ParticipantId): Boolean =
       list(
-        store = Some(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = Some(synchronizerId),
         filterUid = participantId.filterString,
         operation = Some(TopologyChangeOp.Replace),
       ).exists { x =>
@@ -1917,7 +1960,7 @@ class TopologyAdministrationGroup(
           synchronizerId,
         ),
         signedBy = Seq.empty,
-        store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = store.getOrElse(synchronizerId),
         serial = serial,
         mustFullyAuthorize = mustFullyAuthorize,
         change = change,
@@ -1979,7 +2022,7 @@ class TopologyAdministrationGroup(
         ),
         signedBy = Seq.empty,
         serial = serial,
-        store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = store.getOrElse(synchronizerId),
         mustFullyAuthorize = mustFullyAuthorize,
         change = change,
         waitToBecomeEffective = synchronize,
@@ -2015,7 +2058,7 @@ class TopologyAdministrationGroup(
         store: Option[TopologyStoreId] = None,
     ): SignedTopologyTransaction[TopologyChangeOp, ParticipantSynchronizerPermission] =
       list(
-        store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = store.getOrElse(synchronizerId),
         filterUid = participantId.filterString,
       ) match {
         case Seq() =>
@@ -2036,7 +2079,7 @@ class TopologyAdministrationGroup(
             mustFullyAuthorize = mustFullyAuthorize,
             change = TopologyChangeOp.Remove,
           )
-        case otherwise =>
+        case _ =>
           throw new IllegalStateException(
             s"Found more than one ParticipantSynchronizerPermission for participant $participantId on synchronizer $synchronizerId"
           ) with NoStackTrace
@@ -2074,7 +2117,7 @@ class TopologyAdministrationGroup(
     ): Option[ListParticipantSynchronizerPermissionResult] =
       expectAtMostOneResult(
         list(
-          store = TopologyStoreId.Synchronizer(synchronizerId),
+          store = synchronizerId,
           filterUid = participantId.filterString,
         )
       ).filter(p =>
@@ -2149,7 +2192,7 @@ class TopologyAdministrationGroup(
         TopologyAdminCommands.Write.Propose(
           PartyHostingLimits(synchronizerId, partyId),
           signedBy = signedBy,
-          store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+          store = store.getOrElse(synchronizerId),
           serial = serial,
           change = TopologyChangeOp.Replace,
           mustFullyAuthorize = mustFullyAuthorize,
@@ -2505,7 +2548,7 @@ class TopologyAdministrationGroup(
         change = TopologyChangeOp.Replace,
         mustFullyAuthorize = mustFullyAuthorize,
         forceChanges = ForceFlags.none,
-        store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = store.getOrElse(synchronizerId),
         waitToBecomeEffective = synchronize,
       )
 
@@ -2547,7 +2590,7 @@ class TopologyAdministrationGroup(
         change = TopologyChangeOp.Remove,
         mustFullyAuthorize = mustFullyAuthorize,
         forceChanges = ForceFlags.none,
-        store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+        store = store.getOrElse(synchronizerId),
         waitToBecomeEffective = synchronize,
       )
 
@@ -2627,7 +2670,7 @@ class TopologyAdministrationGroup(
             change = TopologyChangeOp.Replace,
             mustFullyAuthorize = mustFullyAuthorize,
             forceChanges = ForceFlags.none,
-            store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+            store = store.getOrElse(synchronizerId),
             waitToBecomeEffective = synchronize,
           )
         )
@@ -2669,7 +2712,7 @@ class TopologyAdministrationGroup(
       ConsoleDynamicSynchronizerParameters(
         expectExactlyOneResult(
           list(
-            store = TopologyStoreId.Synchronizer(synchronizerId),
+            store = synchronizerId,
             proposals = false,
             timeQuery = TimeQuery.HeadState,
             operation = Some(TopologyChangeOp.Replace),
@@ -2701,7 +2744,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
     )
     def propose(
         synchronizerId: SynchronizerId,
@@ -2728,7 +2771,7 @@ class TopologyAdministrationGroup(
           signedBy.toList,
           serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
-          store = store.getOrElse(TopologyStoreId.Synchronizer(synchronizerId)),
+          store = store.getOrElse(synchronizerId),
           forceChanges = force,
           waitToBecomeEffective = synchronize,
         )
@@ -2748,7 +2791,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
     )
     def propose_update(
         synchronizerId: SynchronizerId,
@@ -2760,7 +2803,7 @@ class TopologyAdministrationGroup(
         ),
         force: ForceFlags = ForceFlags.none,
     ): Unit = {
-      val synchronizerStore = TopologyStoreId.Synchronizer(synchronizerId)
+      val synchronizerStore = synchronizerId
       val previousParameters = expectExactlyOneResult(
         list(
           filterSynchronizer = synchronizerId.filterString,
@@ -2813,68 +2856,68 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "Update the submission time record time tolerance in the dynamic synchronizer parameters"
+      "Update the preparation time record time tolerance in the dynamic synchronizer parameters"
     )
     @Help.Description(
       """If it would be insecure to perform the change immediately,
         |the command will block and wait until it is secure to perform the change.
-        |The command will block for at most twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |The command will block for at most twice of ``newPreparationTimeRecordTimeTolerance``.
         |
-        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newPreparationTimeRecordTimeTolerance``.
         |
         |Do not modify synchronizer parameters concurrently while running this command,
         |because the command may override concurrent changes.
         |
-        |force: update ``newSubmissionTimeRecordTimeTolerance`` immediately without blocking.
+        |force: update ``newPreparationTimeRecordTimeTolerance`` immediately without blocking.
         |This is safe to do during synchronizer bootstrapping and in test environments, but should not be done in operational production systems."""
     )
-    def set_submission_time_record_time_tolerance(
+    def set_preparation_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
-        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
     ): Unit =
       TraceContext.withNewTraceContext { implicit tc =>
         if (!force) {
-          securely_set_submission_time_record_time_tolerance(
+          securely_set_preparation_time_record_time_tolerance(
             synchronizerId,
-            newSubmissionTimeRecordTimeTolerance,
+            newPreparationTimeRecordTimeTolerance,
           )
         } else {
           logger.info(
-            s"Immediately updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+            s"Immediately updating preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
           )
           propose_update(
             synchronizerId,
-            _.update(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
-            force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
+            _.update(preparationTimeRecordTimeTolerance = newPreparationTimeRecordTimeTolerance),
+            force = ForceFlags(ForceFlag.PreparationTimeRecordTimeToleranceIncrease),
           )
         }
       }
 
-    private def securely_set_submission_time_record_time_tolerance(
+    private def securely_set_preparation_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
-        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     )(implicit traceContext: TraceContext): Unit = {
 
       // See i9028 for a detailed design.
       // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
       // We wait until the antecedent of Lemma 2 Item 2 is falsified for all changes that violate the conclusion.
       // Note: This validation was originally designed for ledgerTimeRecordTimeTolerance. With the introduction of
-      // submissionTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
+      // preparationTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
 
       // Compute new parameters
       val oldSynchronizerParameters = get_dynamic_synchronizer_parameters(synchronizerId)
-      val oldSubmissionTimeRecordTimeTolerance =
-        oldSynchronizerParameters.submissionTimeRecordTimeTolerance
+      val oldPreparationTimeRecordTimeTolerance =
+        oldSynchronizerParameters.preparationTimeRecordTimeTolerance
 
-      val minMediatorDeduplicationTimeout = newSubmissionTimeRecordTimeTolerance * 2
+      val minMediatorDeduplicationTimeout = newPreparationTimeRecordTimeTolerance * 2
 
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err: RpcError = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
+        val err: RpcError = TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance
           .PermanentlyInsecure(
-            newSubmissionTimeRecordTimeTolerance.toInternal,
+            newPreparationTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )
         val msg = CantonError.stringFromContext(err)
@@ -2882,26 +2925,26 @@ class TopologyAdministrationGroup(
       }
 
       logger.info(
-        s"Securely updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+        s"Securely updating preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
       )
 
-      // Poll until it is safe to increase submissionTimeRecordTimeTolerance
+      // Poll until it is safe to increase preparationTimeRecordTimeTolerance
       def checkPreconditions(): Future[Unit] = {
         val startTs = consoleEnvironment.environment.clock.now
 
         // Doing a no-op update so that the resulting topology transaction gives us a meaningful lower bound on the sequencer clock
         logger.info(
-          s"Do a no-op update of submissionTimeRecordTimeTolerance to $oldSubmissionTimeRecordTimeTolerance..."
+          s"Do a no-op update of preparationTimeRecordTimeTolerance to $oldPreparationTimeRecordTimeTolerance..."
         )
         propose_update(
           synchronizerId,
-          _.copy(submissionTimeRecordTimeTolerance = oldSubmissionTimeRecordTimeTolerance),
+          _.copy(preparationTimeRecordTimeTolerance = oldPreparationTimeRecordTimeTolerance),
         )
 
         logger.debug("Check for incompatible past synchronizer parameters...")
 
         val allTransactions = list(
-          TopologyStoreId.Synchronizer(synchronizerId),
+          synchronizerId,
           // We can't specify a lower bound in range because that would be compared against validFrom.
           // (But we need to compare to validUntil).
           timeQuery = TimeQuery.Range(None, None),
@@ -2921,8 +2964,8 @@ class TopologyAdministrationGroup(
         val waitDuration = allTransactions
           .filterNot(tx =>
             ConsoleDynamicSynchronizerParameters(tx.item)
-              .compatibleWithNewSubmissionTimeRecordTimeTolerance(
-                newSubmissionTimeRecordTimeTolerance
+              .compatibleWithNewPreparationTimeRecordTimeTolerance(
+                newPreparationTimeRecordTimeTolerance
               )
           )
           .map { tx =>
@@ -2948,7 +2991,7 @@ class TopologyAdministrationGroup(
             ) // avoid scheduleAfter, because that causes a race condition in integration tests
             .onShutdown(
               throw new IllegalStateException(
-                "Update of submissionTimeRecordTimeTolerance interrupted due to shutdown."
+                "Update of preparationTimeRecordTimeTolerance interrupted due to shutdown."
               )
             )
           // Do not submit checkPreconditions() to the clock because it is blocking and would therefore block the clock.
@@ -2959,25 +3002,25 @@ class TopologyAdministrationGroup(
       }
 
       consoleEnvironment.commandTimeouts.unbounded.await(
-        "Wait until submissionTimeRecordTimeTolerance can be increased."
+        "Wait until preparationTimeRecordTimeTolerance can be increased."
       )(
         checkPreconditions()
       )
 
       // Now that past values of mediatorDeduplicationTimeout have been large enough,
-      // we can change submissionTimeRecordTimeTolerance.
+      // we can change preparationTimeRecordTimeTolerance.
       logger.info(
-        s"Now changing submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+        s"Now changing preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
       )
       propose_update(
         synchronizerId,
-        _.copy(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
-        force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
+        _.copy(preparationTimeRecordTimeTolerance = newPreparationTimeRecordTimeTolerance),
+        force = ForceFlags(ForceFlag.PreparationTimeRecordTimeToleranceIncrease),
       )
     }
   }
 
-  object synchronizer_migration extends Helpful {
+  object synchronizer_upgrade extends Helpful {
 
     @Help.Summary("Inspect synchronizer migration announcements")
     @Help.Group("Synchronizer Migration Announcement")
@@ -2989,9 +3032,9 @@ class TopologyAdministrationGroup(
           operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
           filterSynchronizer: String = "",
           filterSigningKey: String = "",
-      ): Seq[ListSynchronizerMigrationAnnouncementResult] = consoleEnvironment.run {
+      ): Seq[ListSynchronizerUpgradeAnnouncementResult] = consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommands.Read.ListSynchronizerMigrationAnnouncement(
+          TopologyAdminCommands.Read.ListSynchronizerUpgradeAnnouncement(
             BaseQuery(
               store,
               proposals,
@@ -3010,6 +3053,7 @@ class TopologyAdministrationGroup(
         """
          physicalSynchronizerId: the physical synchronizer id of the synchronizer on which the synchronizer migration will be announced
          successorPhysicalSynchronizerId: the id of the physical synchronizer that succeeds the current physical synchronizer
+         upgradeTime: the time of the migration from the current synchronizer to its successor
 
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                 propagated to connected synchronizers, if applicable.
@@ -3030,6 +3074,7 @@ class TopologyAdministrationGroup(
       def propose(
           physicalSynchronizerId: PhysicalSynchronizerId,
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
+          upgradeTime: CantonTimestamp,
           store: Option[TopologyStoreId] = None,
           mustFullyAuthorize: Boolean = false,
           signedBy: Option[Fingerprint] = None,
@@ -3037,30 +3082,38 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerMigrationAnnouncement] =
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
+
+        val mapping = SynchronizerUpgradeAnnouncement
+          .create(
+            physicalSynchronizerId,
+            successorPhysicalSynchronizerId,
+            upgradeTime,
+          )
+          .valueOr(consoleEnvironment.raiseError)
+
         consoleEnvironment.run {
           adminCommand(
             TopologyAdminCommands.Write.Propose(
-              mapping = SynchronizerMigrationAnnouncement(
-                physicalSynchronizerId,
-                successorPhysicalSynchronizerId,
-              ),
+              mapping = mapping,
               signedBy = signedBy.toList,
               serial = serial,
               change = TopologyChangeOp.Replace,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChanges = ForceFlags.none,
-              // TODO(#25467): use physical synchronizer id to uniquely identify the target store
-              store = store.getOrElse(TopologyStoreId.Synchronizer(physicalSynchronizerId.logical)),
+              store = store.getOrElse(physicalSynchronizerId),
               waitToBecomeEffective = synchronize,
             )
           )
         }
+      }
+
       @Help.Summary("Propose the revocation of a synchronizer migration announcement")
       @Help.Description(
         """
          physicalSynchronizerId: the physical synchronizer id of the synchronizer on which the synchronizer migration announcement will be revoked
          successorPhysicalSynchronizerId: the id of the physical synchronizer that was supposed to succeed the current physical synchronizer
+         upgradeTime: when will the upgrade happen
 
          store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                 propagated to connected synchronizers, if applicable.
@@ -3081,6 +3134,7 @@ class TopologyAdministrationGroup(
       def revoke(
           physicalSynchronizerId: PhysicalSynchronizerId,
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
+          upgradeTime: CantonTimestamp,
           store: Option[TopologyStoreId] = None,
           mustFullyAuthorize: Boolean = false,
           signedBy: Option[Fingerprint] = None,
@@ -3088,26 +3142,126 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerMigrationAnnouncement] =
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
+        val mapping = SynchronizerUpgradeAnnouncement
+          .create(
+            physicalSynchronizerId,
+            successorPhysicalSynchronizerId,
+            upgradeTime,
+          )
+          .valueOr(consoleEnvironment.raiseError)
+
         consoleEnvironment.run {
           adminCommand(
             TopologyAdminCommands.Write.Propose(
-              mapping = SynchronizerMigrationAnnouncement(
-                physicalSynchronizerId,
-                successorPhysicalSynchronizerId,
-              ),
+              mapping = mapping,
               signedBy = signedBy.toList,
               serial = serial,
               change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChanges = ForceFlags.none,
-              // TODO(#25467): use physical synchronizer id to uniquely identify the target store
-              store = store.getOrElse(TopologyStoreId.Synchronizer(physicalSynchronizerId.logical)),
+              store = store.getOrElse(physicalSynchronizerId),
               waitToBecomeEffective = synchronize,
             )
           )
         }
+      }
     }
+
+    object sequencer_successors extends Helpful {
+      @Help.Summary("Propose the connection details of a sequencer on the successor synchronizer")
+      @Help.Description(
+        """
+         sequencerId: the id of the sequencer that will be reachable by the provided endpoints
+         endpoints: a list of URIs of the endpoints with which the sequencer is reachable on the successor synchronizer
+         synchronizerId: the logical synchronizer id
+         customTrustCertificates: a trust certificate in case the sequencer's TLS certificate is not signed via certificates trusted
+                                  by the OS's default trusted certificates
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.
+         signedBy: the fingerprint of the key to be used to sign this proposal
+         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                 This transaction will be rejected if another fully authorized transaction with the same serial already
+                 exists, or if there is a gap between this serial and the most recently used serial.
+                 If None, the serial will be automatically selected by the node.
+         operation: whether to replace or remove the currently valid mapping
+         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+      )
+      def propose_successor(
+          sequencerId: SequencerId,
+          endpoints: NonEmpty[Seq[URI]],
+          synchronizerId: PhysicalSynchronizerId,
+          customTrustCertificates: Option[ByteString] = None,
+          store: Option[TopologyStoreId] = None,
+          mustFullyAuthorize: Boolean = false,
+          signedBy: Option[Fingerprint] = None,
+          serial: Option[PositiveInt] = None,
+          operation: TopologyChangeOp = TopologyChangeOp.Replace,
+          synchronize: Option[config.NonNegativeDuration] = Some(
+            consoleEnvironment.commandTimeouts.unbounded
+          ),
+      ): SignedTopologyTransaction[TopologyChangeOp, SequencerConnectionSuccessor] =
+        consoleEnvironment.run {
+
+          adminCommand(
+            TopologyAdminCommands.Write.Propose(
+              mapping = networking.Endpoint
+                .fromUris(endpoints)
+                .map { case (validatedEndpoints, useTls) =>
+                  SequencerConnectionSuccessor(
+                    sequencerId,
+                    synchronizerId,
+                    GrpcConnection(
+                      validatedEndpoints,
+                      useTls,
+                      customTrustCertificates,
+                    ),
+                  )
+                },
+              signedBy = signedBy.toList,
+              serial = serial,
+              change = operation,
+              mustFullyAuthorize = mustFullyAuthorize,
+              forceChanges = ForceFlags.none,
+              store = store.getOrElse(synchronizerId),
+              waitToBecomeEffective = synchronize,
+            )
+          )
+        }
+
+      def list(
+          store: Option[TopologyStoreId] = None,
+          proposals: Boolean = false,
+          timeQuery: TimeQuery = TimeQuery.HeadState,
+          operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
+          filterSequencerId: String = "",
+          filterSigningKey: String = "",
+      ): Seq[ListSequencerConnectionSuccessorResult] = consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Read.ListSequencerConnectionSuccessor(
+            BaseQuery(
+              store,
+              proposals,
+              timeQuery,
+              operation,
+              filterSigningKey,
+              None,
+            ),
+            filterSequencerId,
+          )
+        )
+      }
+
+    }
+
   }
 
   @Help.Summary("Inspect topology stores")
@@ -3164,4 +3318,32 @@ class TopologyAdministrationGroup(
   private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
     throw new IllegalStateException(s"Expected exactly one result, but found none")
   )
+}
+
+object TopologyAdministrationGroup {
+
+  private[console] def merge(
+      txs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      updateIsProposal: Option[Boolean] = None,
+  ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
+    // remember order of transactions in the initial topology state
+    // so we don't mess up certificate chains
+    val orderingMap =
+      txs.zipWithIndex.map { case (tx, idx) =>
+        (tx.mapping.uniqueKey, idx)
+      }.toMap
+
+    txs
+      .groupBy1(_.hash)
+      .values
+      .map { txs =>
+        // combine signatures of transactions with the same hash
+        val result = txs.reduceLeft { (a, b) =>
+          a.addSignaturesFromTransaction(b)
+        }
+        updateIsProposal.fold(result)(result.updateIsProposal)
+      }
+      .toSeq
+      .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
+  }
 }

@@ -7,7 +7,6 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
@@ -18,19 +17,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BftNodeId,
   BlockNumber,
   EpochNumber,
-  ViewNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
-  BlockMetadata,
-  EpochInfo,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -38,25 +28,55 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
   import BlockedProgressDetectorTest.*
 
   "BlockedProgressDetector" should {
-    "detect blocked epoch progress" in {
-      val epochStartBlockNumber = BlockNumber(1L)
-      // the first block in the epoch is completed
-      val completedBlocks = Seq(completedBlock(epochStartBlockNumber))
-      val mySegment = createSegmentState(
-        Segment(myId, NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_))),
-        completedBlocks,
-      )
-      val otherSegment = Segment(otherId, NonEmpty(Seq, 2L, 4L, 6L).map(BlockNumber(_)))
-      val mySegmentState = new LeaderSegmentState(mySegment, epoch, completedBlocks)
-      val detector = new BlockedProgressDetector(
-        epochStartBlockNumber,
-        Some(mySegmentState),
-        Map(myId -> mySegment.segment, otherId -> otherSegment),
-        // this results in all previous blocks being completed
-        isBlockComplete = _ => true,
-      )
+    "detect blocked epoch progress when all other blocks are completed with non-empty" in {
+      def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+        new BlockedProgressDetector(
+          Map(myId -> mySegment, otherId -> otherSegment),
+          // this results in all blocks being completed
+          isBlockComplete = _ => true,
+          isBlockEmpty = _ => false,
+        ).isProgressBlocked(nextRelativeBlockIndexToFill)
+      // we are blocking progress on all our slots because all other slots are filled with non-empty blocks
+      isProgressBlocked(0) shouldBe true
+      isProgressBlocked(1) shouldBe true
+      isProgressBlocked(2) shouldBe true
+    }
 
-      detector.isProgressBlocked shouldBe true
+    "detect blocked epoch progress when block at same relative block index is complete with non-empty" in {
+      def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+        new BlockedProgressDetector(
+          Map(myId -> mySegment, otherId -> otherSegment),
+          isBlockComplete = blockNumber => otherSegment.slotNumbers.take(2).contains(blockNumber),
+          isBlockEmpty = _ == otherSegment.slotNumbers(1),
+        ).isProgressBlocked(nextRelativeBlockIndexToFill)
+
+      isProgressBlocked(0) shouldBe true
+      isProgressBlocked(1) shouldBe false
+      isProgressBlocked(2) shouldBe false
+    }
+
+    "detect blocked epoch progress when block at higher relative block index is complete with non-empty" in {
+      def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+        new BlockedProgressDetector(
+          Map(myId -> mySegment, otherId -> otherSegment),
+          isBlockComplete = blockNumber => otherSegment.slotNumbers.take(2).contains(blockNumber),
+          isBlockEmpty = _ == otherSegment.slotNumbers(0),
+        ).isProgressBlocked(nextRelativeBlockIndexToFill)
+
+      isProgressBlocked(0) shouldBe true
+    }
+
+    "detect blocked epoch progress when another segment has completed, even with empty blocks" in {
+      def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+        new BlockedProgressDetector(
+          Map(myId -> mySegment, otherId -> otherSegment),
+          isBlockComplete = blockNumber => otherSegment.slotNumbers.contains(blockNumber),
+          isBlockEmpty = _ => true,
+        ).isProgressBlocked(nextRelativeBlockIndexToFill)
+
+      isProgressBlocked(0) shouldBe true
+      isProgressBlocked(1) shouldBe true
+      isProgressBlocked(2) shouldBe true
     }
 
     "detect silent network" in {
@@ -64,44 +84,14 @@ class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest 
       val mySegment = createSegmentState(Segment(myId, NonEmpty(Seq, epochStartBlockNumber)))
       val otherSegment = Segment(otherId, NonEmpty(Seq, BlockNumber(2L)))
       val detector = new BlockedProgressDetector(
-        epochStartBlockNumber,
-        Some(new LeaderSegmentState(mySegment, epoch, initialCompletedBlocks = Seq.empty)),
         Map(myId -> mySegment.segment, otherId -> otherSegment),
-        isBlockComplete = _ => true,
+        isBlockComplete = _ => false,
+        isBlockEmpty = _ => false,
       )
 
-      detector.isProgressBlocked shouldBe false
+      detector.isProgressBlocked(0) shouldBe false
       // ask again for the same state
-      detector.isProgressBlocked shouldBe true
-    }
-
-    "not detect blocked progress when the current ordering node is not a leader" in {
-      val detector = new BlockedProgressDetector(
-        mySegmentState = None,
-        leaderToSegmentState = Map.empty,
-        epochStartBlockNumber = BlockNumber(1L),
-        isBlockComplete = _ => true,
-      )
-
-      detector.isProgressBlocked shouldBe false
-    }
-
-    "not detect blocked progress when it's the first block in an epoch" in {
-      val epochStartBlockNumber = BlockNumber(1L)
-      val mySegment =
-        createSegmentState(
-          Segment(myId, NonEmpty(Seq, epochStartBlockNumber, 3L, 5L).map(BlockNumber(_)))
-        )
-      val otherSegment = Segment(otherId, NonEmpty(Seq, 2L, 4L, 6L).map(BlockNumber(_)))
-      val detector = new BlockedProgressDetector(
-        epochStartBlockNumber,
-        // no blocks are completed
-        Some(new LeaderSegmentState(mySegment, epoch, initialCompletedBlocks = Seq.empty)),
-        Map(myId -> mySegment.segment, otherId -> otherSegment),
-        isBlockComplete = _ => true,
-      )
-
-      detector.isProgressBlocked shouldBe false
+      detector.isProgressBlocked(0) shouldBe true
     }
   }
 
@@ -134,24 +124,6 @@ object BlockedProgressDetectorTest {
     currentMembership = membership,
     previousMembership = membership, // Not relevant for the test
   )
-
-  private def completedBlock(blockNumber: BlockNumber)(implicit
-      synchronizerProtocolVersion: ProtocolVersion
-  ) =
-    Block(
-      epochNumber,
-      blockNumber,
-      commitCertificate = CommitCertificate(
-        PrePrepare
-          .create(
-            BlockMetadata(epochNumber, blockNumber),
-            ViewNumber.First,
-            OrderingBlock(Seq.empty),
-            CanonicalCommitSet(Set.empty),
-            myId,
-          )
-          .fakeSign,
-        Seq.empty,
-      ),
-    )
+  private val mySegment = Segment(myId, NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_)))
+  private val otherSegment = Segment(otherId, NonEmpty(Seq, 2L, 4L, 6L).map(BlockNumber(_)))
 }

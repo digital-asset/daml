@@ -126,7 +126,7 @@ private[mediator] class Mediator(
   /** Starts the mediator. NOTE: Must only be called at most once on a mediator instance. */
   private[mediator] def start()(implicit
       initializationTraceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("start") {
+  ): FutureUnlessShutdown[Unit] = synchronizeWithClosing("start") {
     for {
 
       preheadO <- sequencerCounterTrackerStore.preheadSequencerCounter
@@ -149,7 +149,7 @@ private[mediator] class Mediator(
       newTracedPrehead: Traced[SequencerCounterCursorPrehead]
   ): Unit = newTracedPrehead.withTraceContext { implicit traceContext => newPrehead =>
     FutureUtil.doNotAwait(
-      performUnlessClosingUSF("prune mediator deduplication store")(
+      synchronizeWithClosing("prune mediator deduplication store")(
         state.deduplicationStore.prune(newPrehead.timestamp)
       ).onShutdown(logger.info("Not pruning the mediator deduplication store due to shutdown")),
       "pruning the mediator deduplication store failed",

@@ -3,6 +3,7 @@
 
 jobs:
 - job: check_for_release
+  displayName: "Check for Release"
   dependsOn:
     - git_sha
   variables:
@@ -72,4 +73,5 @@ jobs:
             setvar scala_2_13 false
         fi
       name: out
+      displayName: "Check for Release"
 

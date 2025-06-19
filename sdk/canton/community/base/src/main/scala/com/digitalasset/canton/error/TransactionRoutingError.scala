@@ -42,26 +42,6 @@ object TransactionRoutingError extends RoutingErrorGroup {
   object ConfigurationErrors extends ErrorGroup() {
 
     @Explanation(
-      """This error indicates that a transaction has been submitted that requires multi-synchronizer support.
-        Multi-synchronizers support is a preview feature that needs to be enabled explicitly by configuration."""
-    )
-    @Resolution("Set canton.features.enable-preview-commands = yes")
-    object MultiSynchronizerSupportNotEnabled
-        extends ErrorCode(
-          id = "MULTI_SYNCHRONIZER_SUPPORT_NOT_ENABLED",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
-        ) {
-      final case class Error(synchronizers: Set[SynchronizerId])
-          extends TransactionErrorImpl(
-            cause =
-              s"""This transaction requires multi-synchronizer support which is turned off on this participant.
-                | Used contracts reside on synchronizers $synchronizers. """.stripMargin
-          )
-          with TransactionRoutingError
-
-    }
-
-    @Explanation(
       """This error indicates that the transaction should be submitted to a synchronizer which is not connected or not configured."""
     )
     @Resolution(
@@ -463,6 +443,26 @@ object TransactionRoutingError extends RoutingErrorGroup {
   object UnableToQueryTopologySnapshot
       extends ErrorCode(
         id = "UNABLE_TO_GET_TOPOLOGY_SNAPSHOT",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failed(physicalSynchronizerId: PhysicalSynchronizerId)
+        extends TransactionErrorImpl(
+          cause = s"Participant is not connected to synchronizer `$physicalSynchronizerId`."
+        )
+        with TransactionRoutingErrorWithSynchronizer {
+      override def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+    }
+  }
+
+  @Explanation(
+    """This error indicates that static parameters information could not be queried."""
+  )
+  @Resolution(
+    """Check that the participant is connected to the synchronizer."""
+  )
+  object UnableToGetStaticParameters
+      extends ErrorCode(
+        id = "UNABLE_TO_GET_STATIC_PARAMETERS",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failed(physicalSynchronizerId: PhysicalSynchronizerId)

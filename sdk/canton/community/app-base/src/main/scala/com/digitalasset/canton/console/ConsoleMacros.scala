@@ -21,7 +21,6 @@ import com.daml.ledger.api.v2.value.{
 }
 import com.daml.ledger.javaapi.data.{DisclosedContract, Identifier}
 import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.admin.api.client.data
 import com.digitalasset.canton.admin.api.client.data.{
@@ -35,7 +34,10 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
-import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
+import com.digitalasset.canton.console.commands.{
+  PruningSchedulerAdministration,
+  TopologyAdministrationGroup,
+}
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -49,7 +51,6 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.{
   SequencerConnectionValidation,
   SequencerConnections,
@@ -63,13 +64,11 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
-  GenericSignedTopologyTransaction,
-  PositiveSignedTopologyTransaction,
-}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
@@ -312,7 +311,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           generate_contract_id(
             cryptoPureApi = pureCrypto,
             rawContract = contractInstanceWithUpdatedContractIdReferences,
-            createdAt = contract.ledgerCreateTime.ts,
+            createdAt = CantonTimestamp(contract.ledgerCreateTime.time),
             discriminator = discriminator,
             contractSalt = contract.contractSalt,
             metadata = contract.metadata,
@@ -353,7 +352,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val unicum = unicumGenerator
         .recomputeUnicum(
           contractSalt,
-          LedgerCreateTime(createdAt),
+          CreationTime.CreatedAt(createdAt.toLf),
           metadata,
           rawContract,
           cantonContractIdVersion,
@@ -690,7 +689,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     private def in_synchronizer(
         sequencers: NonEmpty[Seq[SequencerReference]],
         mediators: NonEmpty[Seq[MediatorReference]],
-    )(synchronizerId: SynchronizerId): Either[String, Option[SynchronizerId]] = {
+    )(synchronizerId: PhysicalSynchronizerId): Either[String, Option[PhysicalSynchronizerId]] = {
       def isNotInitializedOrSuccessWithSynchronizer(
           instance: InstanceReference
       ): Either[String, Boolean /* isInitializedWithSynchronizer */ ] =
@@ -699,17 +698,15 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             Left(s"${instance.id.member} is currently not active")
           case NodeStatus.Success(status: SequencerStatus) =>
             // sequencer is already fully initialized for this synchronizer
-            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId.logical == synchronizerId,
+              status.synchronizerId == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId.",
             )
           case NodeStatus.Success(status: MediatorStatus) =>
             // mediator is already fully initialized for this synchronizer
-            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId.logical == synchronizerId,
+              status.synchronizerId == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId",
             )
@@ -739,7 +736,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         owners: Seq[InstanceReference],
         sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
-    ): Either[String, Option[SynchronizerId]] =
+        staticSynchronizerParameters: data.StaticSynchronizerParameters,
+    ): Either[String, Option[PhysicalSynchronizerId]] =
       for {
         neOwners <- NonEmpty
           .from(owners.distinct)
@@ -754,7 +752,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           DecentralizedNamespaceDefinition.computeNamespace(
             owners.map(_.namespace).toSet
           )
-        expectedId = SynchronizerId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive))
+        expectedId = PhysicalSynchronizerId(
+          SynchronizerId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)),
+          staticSynchronizerParameters.toInternal,
+        )
         actualIdIfAllNodesAreInitialized <- in_synchronizer(neSequencers, neMediators)(expectedId)
       } yield actualIdIfAllNodesAreInitialized
 
@@ -766,11 +767,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, (Seq[SequencerReference], PositiveInt)],
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId = {
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId = {
       val synchronizerNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(synchronizerOwners.map(_.namespace).toSet)
-      val synchronizerId = SynchronizerId(
-        UniqueIdentifier.tryCreate(synchronizerName, synchronizerNamespace)
+      val synchronizerId = PhysicalSynchronizerId(
+        SynchronizerId(
+          UniqueIdentifier.tryCreate(synchronizerName, synchronizerNamespace)
+        ),
+        staticSynchronizerParameters.toInternal,
       )
 
       val tempStoreForBootstrap = synchronizerOwners
@@ -819,23 +823,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
         .distinct
 
-      // remember order of transactions in the initial topology state
-      // so we don't mess up certificate chains
-      val orderingMap = initialTopologyState.zipWithIndex.map { case (tx, idx) =>
-        (tx.mapping.uniqueKey, idx)
-      }.toMap
-
-      val merged = initialTopologyState
-        .groupBy1(_.hash)
-        .values
-        .map(
-          // combine signatures of transactions with the same hash
-          _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
-            a.addSignaturesFromTransaction(b)
-          }.updateIsProposal(isProposal = false)
-        )
-        .toSeq
-        .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
+      val merged =
+        TopologyAdministrationGroup.merge(initialTopologyState, updateIsProposal = Some(false))
 
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>
@@ -861,7 +850,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .filter(!_._1.health.initialized())
         .foreach { case (mediator, (mediatorSequencers, threshold)) =>
           mediator.setup.assign(
-            PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.toInternal),
+            synchronizerId,
             SequencerConnections.tryMany(
               mediatorSequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
@@ -890,7 +879,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
         """
     )
-    // TODO(#25483) This one should return the physical id
     def synchronizer(
         synchronizerName: String,
         sequencers: Seq[SequencerReference],
@@ -900,7 +888,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         staticSynchronizerParameters: data.StaticSynchronizerParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId =
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId =
       synchronizer(
         synchronizerName,
         sequencers,
@@ -927,7 +915,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         synchronizerThreshold: PositiveInt,
         staticSynchronizerParameters: data.StaticSynchronizerParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId = {
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId = {
       // skip over HA sequencers
       val uniqueSequencers =
         sequencers.groupBy(_.id).flatMap(_._2.headOption.toList).toList
@@ -940,6 +928,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         synchronizerOwnersOrDefault,
         uniqueSequencers,
         mediators,
+        staticSynchronizerParameters,
       ) match {
         case Right(Some(synchronizerId)) =>
           logger.info(
@@ -959,6 +948,105 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         case Left(error) =>
           consoleEnvironment.raiseError(s"The synchronizer cannot be bootstrapped: $error")
       }
+    }
+
+    @Help.Summary(
+      "Onboards a new Sequencer node."
+    )
+    @Help.Description(
+      "Onboards a new Sequencer node using an existing node from the network."
+    )
+    def onboard_new_sequencer(
+        synchronizerId: SynchronizerId,
+        newSequencer: SequencerReference,
+        existingSequencer: SequencerReference,
+        synchronizerOwners: Set[InstanceReference],
+        isBftSequencer: Boolean = false,
+    )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
+      import consoleEnvironment.*
+
+      def synchronizeTopologyAfterAddingSequencer(
+          newSequencerId: SequencerId,
+          existingSequencer: SequencerReference,
+      ): Unit =
+        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+          existingSequencer.topology.sequencers
+            .list(existingSequencer.synchronizer_id)
+            .headOption
+            .map(_.item.allSequencers.forgetNE)
+            .getOrElse(Seq.empty)
+            .contains(newSequencerId)
+        }
+
+      def synchronizeTopologyAfterAddingBftSequencer(
+          newSequencerId: SequencerId,
+          existingSequencer: SequencerReference,
+      ): Unit =
+        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+          existingSequencer.bft.get_ordering_topology().sequencerIds.contains(newSequencerId)
+        }
+
+      val synchronizerOwnersNE = NonEmpty
+        .from(synchronizerOwners)
+        .getOrElse(raiseError("synchronizerOwners must not be empty"))
+
+      // extract onboarding sequencer's identity transactions
+      val onboardingSequencerIdentity =
+        newSequencer.topology.transactions.identity_transactions()
+
+      // upload onboarding sequencer's identity transactions
+      existingSequencer.topology.transactions
+        .load(onboardingSequencerIdentity, synchronizerId, ForceFlag.AlienMember)
+
+      logger.info("Uploaded a new sequencer identity")
+
+      // fetch the latest SequencerSynchronizerState mapping
+      val seqState1 = existingSequencer.topology.sequencers
+        .list(store = synchronizerId)
+        .headOption
+        .getOrElse(raiseError("No sequencer state found"))
+        .item
+
+      // propose the SequencerSynchronizerState that adds the new sequencer
+      synchronizerOwnersNE
+        .foreach(
+          _.topology.sequencers
+            .propose(
+              synchronizerId,
+              threshold = seqState1.threshold,
+              active = seqState1.active :+ newSequencer.id,
+            )
+            .discard
+        )
+
+      logger.info("Proposed a sequencer synchronizer state with the new sequencer")
+
+      // wait for SequencerSynchronizerState to be observed by the sequencer
+      ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        val sequencerStates =
+          existingSequencer.topology.sequencers.list(store = synchronizerId)
+
+        val sequencerState =
+          sequencerStates.headOption.getOrElse(
+            raiseError("SequencerSynchronizerState should not empty")
+          )
+        sequencerState.item.active.contains(newSequencer.id)
+      }
+      logger.info("New sequencer synchronizer state has been observed")
+
+      if (isBftSequencer) {
+        synchronizeTopologyAfterAddingBftSequencer(newSequencer.id, existingSequencer)
+        logger.info("The new sequencer is part of the ordering topology")
+      } else {
+        synchronizeTopologyAfterAddingSequencer(newSequencer.id, existingSequencer)
+      }
+
+      // now we can establish the sequencer snapshot
+      val onboardingState =
+        existingSequencer.setup.onboarding_state_for_sequencer(newSequencer.id)
+
+      // finally, initialize "newSequencer"
+      newSequencer.setup.assign_from_onboarding_state(onboardingState).discard
     }
   }
 

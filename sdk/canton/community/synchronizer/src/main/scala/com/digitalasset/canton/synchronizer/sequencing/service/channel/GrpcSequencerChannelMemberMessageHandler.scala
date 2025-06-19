@@ -160,7 +160,7 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
   )(implicit traceContext: TraceContext): Unit = recipientMemberMessageHandler.fold {
     onMissingRecipientHandler()
   } { recipientRequestHandler =>
-    performUnlessClosing(s"forward $message to recipient")(
+    synchronizeWithClosingSync(s"forward $message to recipient")(
       callToForward(recipientRequestHandler)
     ).onShutdown(())
   }
@@ -168,7 +168,13 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
   // Methods to receive onNext/onCompleted/onError calls from the other member message handler to
   // this member message handler's response observer.
   private[channel] def receiveOnNext(response: v30.ConnectToSequencerChannelResponse): Unit =
-    responseObserver.onNext(response)
+    if (!responseObserver.isCancelled) {
+      responseObserver.onNext(response)
+    } else {
+      logger.info(s"Not forwarding a message because the response stream is already closed")(
+        TraceContext.empty
+      )
+    }
 
   private[channel] def receiveOnCompleted(): Unit = {
     logger.info("Completing response stream.")(TraceContext.empty)

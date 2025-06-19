@@ -5,76 +5,77 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.RegisteredSynchronizersStore
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore.{
   Error,
-  SynchronizerAliasAlreadyAdded,
+  InconsistentLogicalSynchronizerIds,
   SynchronizerIdAlreadyAdded,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.google.common.collect.{BiMap, HashBiMap}
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, blocking}
 
-class InMemoryRegisteredSynchronizersStore(override protected val loggerFactory: NamedLoggerFactory)
+class InMemoryRegisteredSynchronizersStore(
+    override protected val loggerFactory: NamedLoggerFactory
+)(implicit ec: ExecutionContext)
     extends RegisteredSynchronizersStore
     with NamedLogging {
 
-  private val synchronizerAliasToId: BiMap[SynchronizerAlias, SynchronizerId] =
-    HashBiMap.create[SynchronizerAlias, SynchronizerId]()
+  private val synchronizerAliasToIds
+      : TrieMap[SynchronizerAlias, NonEmpty[Set[PhysicalSynchronizerId]]] =
+    new TrieMap()
 
-  private val lock = new Object()
-
-  private implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
-
-  override def addMapping(alias: SynchronizerAlias, synchronizerId: SynchronizerId)(implicit
+  override def addMapping(alias: SynchronizerAlias, psid: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
-    val swapped = blocking(lock.synchronized {
-      for {
-        _ <- Option(synchronizerAliasToId.get(alias))
-          .fold(Either.right[Either[Error, Unit], Unit](())) { oldSynchronizerId =>
-            Left(
-              Either.cond(
-                oldSynchronizerId == synchronizerId,
-                (),
-                SynchronizerAliasAlreadyAdded(alias, oldSynchronizerId),
-              )
+
+    val result: Either[Error, Unit] = blocking {
+      this.synchronized {
+        val inconsistentIdO = synchronizerAliasToIds
+          .get(alias)
+          .flatMap(_.find(_.logical != psid.logical))
+
+        val existingAliasO = synchronizerAliasToIds.collectFirst {
+          case (existingAlias, psids) if psids.contains(psid) => existingAlias
+        }
+
+        for {
+          _ <- inconsistentIdO
+            .map(InconsistentLogicalSynchronizerIds(alias, psid, _))
+            .toLeft(())
+
+          _ <- existingAliasO.fold(().asRight[Error])(existingAlias =>
+            Either.cond(
+              existingAlias == alias,
+              (),
+              SynchronizerIdAlreadyAdded(psid, existingAlias),
             )
-          }
-        _ <- Option(synchronizerAliasToId.inverse.get(synchronizerId))
-          .fold(Either.right[Either[Error, Unit], Unit](())) { oldAlias =>
-            Left(
-              Either.cond(
-                oldAlias == alias,
-                (),
-                SynchronizerIdAlreadyAdded(synchronizerId, oldAlias),
-              )
-            )
-          }
-      } yield {
-        val _ = synchronizerAliasToId.put(alias, synchronizerId)
+          )
+        } yield {
+          synchronizerAliasToIds
+            .updateWith(alias) {
+              case Some(ids) => Some(ids ++ Seq(psid))
+              case None => Some(NonEmpty.mk(Set, psid))
+            }
+            .discard
+        }
       }
-    })
-    EitherT.fromEither[FutureUnlessShutdown](swapped.swap.getOrElse(Either.unit))
+    }
+
+    EitherT.fromEither[FutureUnlessShutdown](result)
   }
 
   override def aliasToSynchronizerIdMap(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]] = {
-    val map = blocking {
-      lock.synchronized {
-        import scala.jdk.CollectionConverters.*
-        Map(synchronizerAliasToId.asScala.toSeq*)
-      }
-    }
-    FutureUnlessShutdown.pure(map)
-  }
+  ): FutureUnlessShutdown[Map[SynchronizerAlias, NonEmpty[Set[PhysicalSynchronizerId]]]] =
+    FutureUnlessShutdown.pure(synchronizerAliasToIds.snapshot().toMap)
 
   override def close(): Unit = ()
 }

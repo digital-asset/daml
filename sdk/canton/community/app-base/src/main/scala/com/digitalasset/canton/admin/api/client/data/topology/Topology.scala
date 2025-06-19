@@ -308,19 +308,36 @@ object ListPurgeTopologyTransactionResult {
     } yield ListPurgeTopologyTransactionResult(context, item)
 }
 
-final case class ListSynchronizerMigrationAnnouncementResult(
+final case class ListSynchronizerUpgradeAnnouncementResult(
     context: BaseResult,
-    item: SynchronizerMigrationAnnouncement,
+    item: SynchronizerUpgradeAnnouncement,
 )
 
-object ListSynchronizerMigrationAnnouncementResult {
+object ListSynchronizerUpgradeAnnouncementResult {
   def fromProtoV30(
-      value: v30.ListSynchronizerMigrationAnnouncementResponse.Result
-  ): ParsingResult[ListSynchronizerMigrationAnnouncementResult] =
+      value: v30.ListSynchronizerUpgradeAnnouncementResponse.Result
+  ): ParsingResult[ListSynchronizerUpgradeAnnouncementResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- SynchronizerMigrationAnnouncement.fromProtoV30(itemProto)
-    } yield ListSynchronizerMigrationAnnouncementResult(context, item)
+      item <- SynchronizerUpgradeAnnouncement.fromProtoV30(itemProto)
+    } yield ListSynchronizerUpgradeAnnouncementResult(context, item)
+}
+
+final case class ListSequencerConnectionSuccessorResult(
+    context: BaseResult,
+    item: SequencerConnectionSuccessor,
+)
+
+object ListSequencerConnectionSuccessorResult {
+  def fromProtoV30(
+      value: v30.ListSequencerConnectionSuccessorResponse.Result
+  ): ParsingResult[ListSequencerConnectionSuccessorResult] =
+    for {
+      contextProto <- ProtoConverter.required("context", value.context)
+      context <- BaseResult.fromProtoV30(contextProto)
+      itemProto <- ProtoConverter.required("item", value.item)
+      item <- SequencerConnectionSuccessor.fromProtoV30(itemProto)
+    } yield ListSequencerConnectionSuccessorResult(context, item)
 }

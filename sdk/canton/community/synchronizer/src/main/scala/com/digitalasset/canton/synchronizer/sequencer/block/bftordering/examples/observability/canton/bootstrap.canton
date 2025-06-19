@@ -10,13 +10,13 @@ nodes.all.foreach { node =>
 
 val synchronizerAlias = "observabilityExample"
 
-val synchronizerId = bootstrap.synchronizer(
+bootstrap.synchronizer(
   synchronizerAlias,
   sequencers = sequencers.all,
-  mediators = Seq(mediator1, mediator2),
-  synchronizerOwners = Seq(sequencer1, sequencer2, sequencer3, sequencer4),
-  synchronizerThreshold = PositiveInt.three,
-  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.dev),
+  mediators = mediators.all,
+  synchronizerOwners = sequencers.all,
+  synchronizerThreshold = 3, // > 50% of owners (i.e., of 4 sequencers) must approve topology changes
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
 // Connect participant to synchronizer if not already done
@@ -30,9 +30,9 @@ if (!participant1.synchronizers.list_registered().map(_._1.synchronizerAlias.unw
 participant1.health.ping(participant2)
 
 // Create party "observabilityExample" and assign it to participant 2 as well
-val party = participant1.parties.enable("observabilityExample")
+val party = participant1.parties.enable(synchronizerAlias)
 import com.digitalasset.canton.console.ParticipantReference
-def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
+def addPartyToParticipant(partyId: PartyId, createdAt: ParticipantReference, to: ParticipantReference): Unit = {
   Seq(createdAt, to).foreach(participant =>
     participant.topology.party_to_participant_mappings.propose_delta(
       partyId,
@@ -40,6 +40,6 @@ def addPartyToParticipant(partyId: PartyId, synchronizerId: SynchronizerId, crea
     )
   )
 }
-addPartyToParticipant(party, synchronizerId, participant1, participant2)
+addPartyToParticipant(party, participant1, participant2)
 
 logger.info("Bootstrap succeeded")

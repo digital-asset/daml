@@ -10,7 +10,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   Fingerprint,
@@ -37,6 +37,12 @@ import com.digitalasset.canton.protocol.{
   v30,
 }
 import com.digitalasset.canton.sequencing.*
+import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
+import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
+  ConnectionAttributes,
+  SequencerConnectionXHealth,
+}
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolError
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.PreviousTimestampMismatch
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason.{
@@ -109,7 +115,8 @@ class SequencerClientTest
     with BaseTest
     with HasExecutionContext
     with CloseableTest
-    with BeforeAndAfterAll {
+    with BeforeAndAfterAll
+    with ProtocolVersionChecksAnyWordSpec {
 
   private lazy val metrics = CommonMockMetrics.sequencerClient
   private lazy val deliver: Deliver[Nothing] =
@@ -139,7 +146,7 @@ class SequencerClientTest
   private var actorSystem: ActorSystem = _
   private lazy val materializer: Materializer = Materializer(actorSystem)
   private lazy val topologyWithTrafficControl =
-    TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+    TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
       .withDynamicSynchronizerParameters(
         DefaultTestIdentities.defaultDynamicSynchronizerParameters.tryUpdate(
           trafficControlParameters = Some(
@@ -151,7 +158,7 @@ class SequencerClientTest
         validFrom = CantonTimestamp.MinValue,
       )
       .build()
-      .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+      .forOwnerAndSynchronizer(participant1)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -1043,7 +1050,8 @@ class SequencerClientTest
         testF.futureValueUS
       }
 
-      "have new transport be used for sends" in {
+      // TODO(i25218): remove "onlyRunWhen" when no longer necessary
+      "have new transport be used for sends" onlyRunWhen (_ < ProtocolVersion.dev) in {
         val secondTransport = MockTransport()
 
         val env = RichEnvFactory.create()
@@ -1062,7 +1070,7 @@ class SequencerClientTest
         env.client.close()
       }
 
-      "have new transport be used for logout" in {
+      "have new transport be used for logout" onlyRunWhen (_ < ProtocolVersion.dev) in {
         val secondTransport = MockTransport()
 
         val env = RichEnvFactory.create()
@@ -1078,7 +1086,8 @@ class SequencerClientTest
         env.client.close()
       }
 
-      "have new transport be used for sends when there is subscription" in {
+      // TODO(i25218): remove "onlyRunWhen" when no longer necessary
+      "have new transport be used for sends when there is subscription" onlyRunWhen (_ < ProtocolVersion.dev) in {
         val secondTransport = MockTransport()
 
         val env = RichEnvFactory.create()
@@ -1095,7 +1104,8 @@ class SequencerClientTest
         env.client.close()
       }
 
-      "have new transport be used with same sequencerId but different sequencer alias" in {
+      // TODO(i25218): remove "onlyRunWhen" when no longer necessary
+      "have new transport be used with same sequencerId but different sequencer alias" onlyRunWhen (_ < ProtocolVersion.dev) in {
         val secondTransport = MockTransport()
 
         val env = RichEnvFactory.create()
@@ -1410,6 +1420,112 @@ class SequencerClientTest
     def apply(): MockTransport & SequencerClientTransportPekko.Aux[Uninhabited] = new MockTransport
   }
 
+  private class MockConnection(override val name: String) extends SequencerConnectionX {
+
+    override def health: SequencerConnectionXHealth = ???
+
+    override def config: ConnectionXConfig = ???
+
+    override def attributes: ConnectionAttributes =
+      ConnectionAttributes(
+        DefaultTestIdentities.physicalSynchronizerId,
+        DefaultTestIdentities.daSequencerId,
+        defaultStaticSynchronizerParameters,
+      )
+
+    override def fail(reason: String)(implicit traceContext: TraceContext): Unit = ???
+
+    override def fatal(reason: String)(implicit traceContext: TraceContext): Unit = ???
+
+    val lastSend = new AtomicReference[Option[SubmissionRequest]](None)
+
+    override def sendAsync(request: SignedContent[SubmissionRequest], timeout: Duration)(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
+      lastSend.set(Some(request.content))
+      EitherTUtil.unitUS
+    }
+
+    override def acknowledgeSigned(
+        signedRequest: SignedContent[AcknowledgeRequest],
+        timeout: Duration,
+    )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Boolean] =
+      EitherT.rightT(true)
+
+    override def getTrafficStateForMember(
+        request: GetTrafficStateForMemberRequest,
+        timeout: Duration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = ???
+
+    override def logout()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, Status, Unit] = ???
+
+    override def downloadTopologyStateForInit(
+        request: TopologyStateForInitRequest,
+        timeout: Duration,
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] = ???
+
+    override def subscribe[E](
+        request: SubscriptionRequestV2,
+        handler: SequencedEventHandler[E],
+        timeout: Duration,
+    )(implicit traceContext: TraceContext): SequencerSubscription[E] = ???
+
+    override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
+
+    override protected def loggerFactory: NamedLoggerFactory =
+      SequencerClientTest.this.loggerFactory
+  }
+
+  private class MockPool extends SequencerConnectionXPool {
+    private val connection = new MockConnection(name = "test")
+
+    override protected def loggerFactory: NamedLoggerFactory =
+      SequencerClientTest.this.loggerFactory
+    override def physicalSynchronizerId: Option[PhysicalSynchronizerId] = ???
+
+    override def start()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError.TimeoutError, Unit] = ???
+
+    override def config: SequencerConnectionXPool.SequencerConnectionXPoolConfig = ???
+
+    override def updateConfig(newConfig: SequencerConnectionXPool.SequencerConnectionXPoolConfig)(
+        implicit traceContext: TraceContext
+    ): Either[SequencerConnectionXPool.SequencerConnectionXPoolError, Unit] = ???
+
+    override def health: SequencerConnectionXPool.SequencerConnectionXPoolHealth = ???
+
+    override def nbSequencers: NonNegativeInt = ???
+
+    override def nbConnections: NonNegativeInt = ???
+
+    override def getConnections(nb: PositiveInt, exclusions: Set[SequencerId])(implicit
+        traceContext: TraceContext
+    ): Set[SequencerConnectionX] = Set(connection)
+
+    override def getOneConnectionPerSequencer()(implicit
+        traceContext: TraceContext
+    ): Map[SequencerId, SequencerConnectionX] = ???
+
+    override def getAllConnections()(implicit
+        traceContext: TraceContext
+    ): Seq[SequencerConnectionX] = ???
+
+    override def contents: Map[SequencerId, Set[SequencerConnectionX]] = ???
+
+    override protected val timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
+  }
+
+  private object MockPool {
+    def apply(): MockPool = new MockPool
+  }
+
   private implicit class EnrichedSequencerClient(client: RichSequencerClient) {
     // flush needs to be called twice in order to finish asynchronous processing
     // (see comment around shutdown in SequencerClient). So we have this small
@@ -1473,7 +1589,6 @@ class SequencerClientTest
       )
         .thenReturn(FutureUnlessShutdown.pure(TestSynchronizerParameters.defaultDynamic))
       SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-        BaseTest.defaultStaticSynchronizerParameters,
         None,
         topologyClient,
         loggerFactory,
@@ -1554,9 +1669,9 @@ class SequencerClientTest
 
       val topologyClient =
         topologyO.getOrElse(
-          TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+          TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
             .build(loggerFactory)
-            .forOwnerAndSynchronizer(mediatorId, DefaultTestIdentities.synchronizerId)
+            .forOwnerAndSynchronizer(mediatorId)
         )
       val trafficStateController = new TrafficStateController(
         mediatorId,
@@ -1582,7 +1697,8 @@ class SequencerClientTest
         DefaultTestIdentities.physicalSynchronizerId,
         mediatorId,
         SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
-        options,
+        connectionPool = MockPool(),
+        options.copy(useNewConnectionPool = testedProtocolVersion >= ProtocolVersion.dev),
         TestingConfigInternal(),
         BaseTest.defaultStaticSynchronizerParameters.protocolVersion,
         maxRequestSizeLookup,
@@ -1660,7 +1776,7 @@ class SequencerClientTest
       val topologyClient = topologyO.getOrElse(
         TestingTopology()
           .build(loggerFactory)
-          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.physicalSynchronizerId)
       )
       val trafficStateController = new TrafficStateController(
         participant1,
@@ -1686,7 +1802,8 @@ class SequencerClientTest
         DefaultTestIdentities.physicalSynchronizerId,
         participant1,
         SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
-        options,
+        connectionPool = MockPool(),
+        options.copy(useNewConnectionPool = testedProtocolVersion >= ProtocolVersion.dev),
         TestingConfigInternal(),
         BaseTest.defaultStaticSynchronizerParameters.protocolVersion,
         maxRequestSizeLookup,

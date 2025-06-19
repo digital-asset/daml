@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.health.HealthElement
-import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
@@ -15,6 +16,7 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -86,6 +88,22 @@ object InternalSequencerConnectionX {
     override protected def initialHealthState: State = SequencerConnectionXState.Initial
 
     override protected def closingState: State = SequencerConnectionXState.Fatal
+  }
+
+  object SequencerConnectionXHealth {
+    class AlwaysValidated(
+        override val name: String,
+        protected override val logger: TracedLogger,
+    ) extends SequencerConnectionXHealth(
+          name,
+          new OnShutdownRunner.PureOnShutdownRunner(logger),
+          logger,
+        ) {
+      override protected val initialHealthState: SequencerConnectionXState =
+        SequencerConnectionXState.Validated
+      override val closingState: SequencerConnectionXState =
+        SequencerConnectionXState.Validated
+    }
   }
 
   sealed trait SequencerConnectionXInternalError extends Product with Serializable
@@ -176,12 +194,12 @@ object InternalSequencerConnectionX {
   /** Attributes of this sequencer connection.
     */
   final case class ConnectionAttributes(
-      synchronizerId: PhysicalSynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       staticParameters: StaticSynchronizerParameters,
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[ConnectionAttributes] = prettyOfClass(
-      param("physical synchronizer id", _.synchronizerId),
+      param("physical synchronizer id", _.physicalSynchronizerId),
       param("sequencer", _.sequencerId),
       param("static parameters", _.staticParameters),
     )
@@ -190,6 +208,8 @@ object InternalSequencerConnectionX {
 
 trait InternalSequencerConnectionXFactory {
   def create(connectionXConfig: ConnectionXConfig)(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): InternalSequencerConnectionX
 }

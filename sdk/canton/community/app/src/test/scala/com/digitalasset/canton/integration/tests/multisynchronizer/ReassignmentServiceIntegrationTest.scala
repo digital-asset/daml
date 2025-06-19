@@ -229,7 +229,7 @@ abstract class ReassignmentServiceIntegrationTest
         participant2,
         signatoryOnParticipant2.toLf,
         ledgerEndP2,
-        filterBy = _.synchronizerTime.value.synchronizerId == daId.toProtoPrimitive,
+        filterBy = _.synchronizerTime.value.synchronizerId == daId.logical.toProtoPrimitive,
       ) should be(empty)
 
       // but can see the updates
@@ -240,7 +240,7 @@ abstract class ReassignmentServiceIntegrationTest
         participant1,
         observer,
         ledgerEndP1,
-        filterBy = _.synchronizerTime.value.synchronizerId == daId.toProtoPrimitive,
+        filterBy = _.synchronizerTime.value.synchronizerId == daId.logical.toProtoPrimitive,
       ) should be(empty)
 
       // a submitting party on a submitting participant should see the completion
@@ -248,7 +248,7 @@ abstract class ReassignmentServiceIntegrationTest
         participant1,
         signatory,
         ledgerEndP1,
-        filterBy = _.synchronizerTime.value.synchronizerId == daId.toProtoPrimitive,
+        filterBy = _.synchronizerTime.value.synchronizerId == daId.logical.toProtoPrimitive,
       ) should not be empty
 
       // but and the updates
@@ -361,7 +361,6 @@ abstract class ReassignmentServiceIntegrationTest
         )
 
       // Assign contract
-      val reassignmentId = getReassignmentId(unassignedEvent)
       val assignmentCmd = getReassignmentCommand(
         getAssignmentCmd(
           source = daId,
@@ -378,7 +377,7 @@ abstract class ReassignmentServiceIntegrationTest
       )
 
       inside(res) { case error: GenericCommandError =>
-        error.cause should include(reassignmentId.toString)
+        error.cause should include(unassignedEvent.reassignmentId.toString)
         error.cause should include("unknown reassignment id")
       }
 
@@ -683,8 +682,8 @@ abstract class ReassignmentServiceIntegrationTest
       unassignId = unassignedEvent.unassignId, // We don't know this value
       contractId = cid.coid,
       templateId = expectedTemplateId,
-      source = daId.toProtoPrimitive,
-      target = acmeId.toProtoPrimitive,
+      source = daId.logical.toProtoPrimitive,
+      target = acmeId.logical.toProtoPrimitive,
       submitter = submittingParty.toLf,
       reassignmentCounter = 1,
       assignmentExclusivity =
@@ -749,8 +748,8 @@ abstract class ReassignmentServiceIntegrationTest
         .replace(0)
 
     val expectedAssignedEvent = proto.reassignment.AssignedEvent(
-      source = daId.toProtoPrimitive,
-      target = acmeId.toProtoPrimitive,
+      source = daId.logical.toProtoPrimitive,
+      target = acmeId.logical.toProtoPrimitive,
       unassignId = expectedUnassignedEvent.unassignId,
       submitter = submittingParty.toLf,
       reassignmentCounter = 1,

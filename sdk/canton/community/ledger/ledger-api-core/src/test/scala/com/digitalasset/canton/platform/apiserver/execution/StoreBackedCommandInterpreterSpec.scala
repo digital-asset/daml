@@ -36,7 +36,12 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{Node as LfNode, SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  Node as LfNode,
+  SubmittedTransaction,
+  Transaction,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
@@ -91,7 +96,7 @@ class StoreBackedCommandInterpreterSpec
   private val disclosedContract = DisclosedContract(
     fatContractInstance = FatContract.fromCreateNode(
       disclosedCreateNode,
-      createTime = disclosedContractCreateTime,
+      createTime = CreationTime.CreatedAt(disclosedContractCreateTime),
       cantonData = salt,
     ),
     synchronizerIdO = Some(disclosedContractSynchronizerId),
@@ -100,14 +105,14 @@ class StoreBackedCommandInterpreterSpec
   private val processedDisclosedContracts = ImmArray(
     FatContract.fromCreateNode(
       create = disclosedCreateNode,
-      createTime = disclosedContractCreateTime,
+      createTime = CreationTime.CreatedAt(disclosedContractCreateTime),
       cantonData = salt,
     )
   )
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
-    submissionTime = Time.Timestamp.now(),
+    preparationTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
     timeBoundaries = Time.Range.unconstrained,
     nodeSeeds = ImmArray.Empty,
@@ -271,7 +276,7 @@ class StoreBackedCommandInterpreterSpec
           keyOpt = None,
           version = LfTransactionVersion.StableVersions.max,
         ),
-        createTime = Timestamp.now(),
+        createTime = CreationTime.CreatedAt(Timestamp.now()),
         cantonData = Bytes.Empty,
       )
     )

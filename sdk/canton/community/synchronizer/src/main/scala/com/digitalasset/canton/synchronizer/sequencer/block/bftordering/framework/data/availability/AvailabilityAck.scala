@@ -25,7 +25,7 @@ final case class AvailabilityAck(from: BftNodeId, signature: Signature) {
         (),
         ValidationError.NodeNotInTopology,
       )
-      keyId = FingerprintKeyId.toBftKeyId(signature.signedBy)
+      keyId = FingerprintKeyId.toBftKeyId(signature.authorizingLongTermKey)
       _ <- Either.cond(
         currentOrderingTopology.nodesTopologyInfo
           .get(from)
@@ -61,7 +61,7 @@ object AvailabilityAck {
       from: BftNodeId,
       metrics: BftOrderingMetrics,
   )(implicit metricsContext: MetricsContext): Hash =
-    metrics.performance.orderingStageLatency.timer.time(
+    metrics.performance.orderingStageLatency.time(
       Hash
         .build(
           HashPurpose.BftAvailabilityAck,

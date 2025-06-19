@@ -25,7 +25,11 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
-import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
+import com.digitalasset.canton.store.{
+  IndexedPhysicalSynchronizer,
+  IndexedStringStore,
+  IndexedSynchronizer,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
@@ -45,7 +49,8 @@ import scala.concurrent.ExecutionContext
 
 class DbSyncPersistentState(
     participantId: ParticipantId,
-    override val indexedSynchronizer: IndexedSynchronizer,
+    override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
+    override val synchronizerIdx: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
     storage: DbStorage,
@@ -73,7 +78,7 @@ class DbSyncPersistentState(
 
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
-    ReassignmentTag.Target(indexedSynchronizer),
+    ReassignmentTag.Target(synchronizerIdx),
     indexedStringStore,
     ReassignmentTag.Target(staticSynchronizerParameters.protocolVersion),
     pureCryptoApi,
@@ -86,7 +91,7 @@ class DbSyncPersistentState(
   val activeContractStore: DbActiveContractStore =
     new DbActiveContractStore(
       storage,
-      indexedSynchronizer,
+      synchronizerIdx,
       enableAdditionalConsistencyChecks,
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
@@ -95,13 +100,12 @@ class DbSyncPersistentState(
     )
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
-    indexedSynchronizer,
-    staticSynchronizerParameters.protocolVersion,
+    physicalSynchronizerIdx,
     timeouts,
     loggerFactory,
   )
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
-    indexedSynchronizer,
+    physicalSynchronizerIdx,
     storage,
     insertBatchAggregatorConfig = batching.aggregator,
     replaceBatchAggregatorConfig = batching.aggregator,
@@ -110,7 +114,7 @@ class DbSyncPersistentState(
   )
   val acsCommitmentStore = new DbAcsCommitmentStore(
     storage,
-    indexedSynchronizer,
+    synchronizerIdx,
     acsCounterParticipantConfigStore,
     staticSynchronizerParameters.protocolVersion,
     timeouts,
@@ -119,7 +123,7 @@ class DbSyncPersistentState(
 
   val parameterStore: DbSynchronizerParameterStore =
     new DbSynchronizerParameterStore(
-      indexedSynchronizer.synchronizerId,
+      physicalSynchronizerIdx.synchronizerId,
       storage,
       timeouts,
       loggerFactory,
@@ -130,7 +134,7 @@ class DbSyncPersistentState(
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      indexedSynchronizer,
+      physicalSynchronizerIdx,
       parameters.stores.journalPruning.toInternal,
       timeouts,
       loggerFactory,
@@ -139,7 +143,7 @@ class DbSyncPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      SynchronizerStore(indexedSynchronizer.synchronizerId),
+      SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,
@@ -171,7 +175,7 @@ class DbSyncPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
         forceFlags,
       )
 
@@ -184,7 +188,7 @@ class DbSyncPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
       )
 
     override def checkInsufficientSignatoryAssigningParticipantsForParty(
@@ -202,7 +206,7 @@ class DbSyncPersistentState(
         nextThreshold,
         nextConfirmingParticipants,
         forceFlags,
-        () => Map(indexedSynchronizer.synchronizerId -> reassignmentStore),
+        () => Map(synchronizerIdx.synchronizerId -> reassignmentStore),
         () => ledgerApiStore.value.ledgerEnd,
       )
 
@@ -215,7 +219,7 @@ class DbSyncPersistentState(
       checkInsufficientParticipantPermissionForSignatoryParty(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
       )
   }
 
@@ -237,7 +241,7 @@ class DbSyncPersistentState(
 
   override def acsInspection: AcsInspection =
     new AcsInspection(
-      indexedSynchronizer.synchronizerId,
+      synchronizerIdx.synchronizerId,
       activeContractStore,
       contractStore,
       ledgerApiStore,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.daml.metrics.api.testing.MetricValues.*
-import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalSequencerReference
@@ -17,8 +17,9 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
+
+import scala.collection.immutable.Seq
 
 sealed trait BftSynchronizerSequencerConnectionManipulationTest
     extends CommunityIntegrationTest
@@ -36,31 +37,15 @@ sealed trait BftSynchronizerSequencerConnectionManipulationTest
     // STEP 1: connect participants for the synchronizer via "their" sequencers
     clue("participant1 connects to sequencer1, sequencer2") {
       participant1.synchronizers.connect_local_bft(
-        alias = daName,
-        synchronizer = NonEmpty
-          .mk(
-            Seq,
-            SequencerAlias.tryCreate("seq1x") -> sequencer1,
-            SequencerAlias.tryCreate("seq2x") -> sequencer2,
-          )
-          .toMap,
-        // Threshold 2 ensures that the participant connects to both sequencers.
-        // TODO(#19911) Make this properly configurable
+        sequencers = Seq(sequencer1, sequencer2),
+        synchronizerAlias = daName,
         sequencerTrustThreshold = PositiveInt.two,
       )
     }
-    clue("participant2 connects to sequencer1, sequencer2") {
+    clue("participant2 connects to sequencer2, sequencer1") {
       participant2.synchronizers.connect_local_bft(
-        alias = daName,
-        synchronizer = NonEmpty
-          .mk(
-            Seq,
-            SequencerAlias.tryCreate("seq2x") -> sequencer2,
-            SequencerAlias.tryCreate("seq1x") -> sequencer1,
-          )
-          .toMap,
-        // Threshold 2 ensures that the participant connects to both sequencers.
-        // TODO(#19911) Make this properly configurable
+        sequencers = Seq(sequencer2, sequencer1),
+        synchronizerAlias = daName,
         sequencerTrustThreshold = PositiveInt.two,
       )
     }

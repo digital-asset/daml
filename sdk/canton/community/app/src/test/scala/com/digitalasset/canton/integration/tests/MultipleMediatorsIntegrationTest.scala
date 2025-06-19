@@ -7,7 +7,6 @@ import com.daml.test.evidence.scalatest.OperabilityTestHelpers
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalMediatorReference,
@@ -33,6 +32,7 @@ import com.digitalasset.canton.integration.{
   IsolatedEnvironments,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SynchronizerWithoutMediatorError
 import com.digitalasset.canton.sequencing.protocol.{
   ClosedEnvelope,
@@ -46,16 +46,18 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendPolicy,
 }
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
+import com.digitalasset.canton.topology.transaction.{
+  NamespaceDelegation,
+  OwnerToKeyMapping,
+  TopologyChangeOp,
+}
 import com.digitalasset.canton.topology.{ForceFlag, MediatorId}
 import org.scalatest.Assertion
-import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =>
+trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
 
   protected def participantSeesMediators(
       ref: ParticipantReference,
@@ -76,13 +78,13 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
 
     sequencer.topology.transactions.load(
       med2Identity,
-      sequencer.synchronizer_id.logical,
+      sequencer.synchronizer_id,
       ForceFlag.AlienMember,
     )
     eventually() {
       sequencer.topology.transactions
         .list(
-          store = TopologyStoreId.Synchronizer(sequencer.synchronizer_id),
+          store = sequencer.physical_synchronizer_id,
           filterNamespace = mediator.namespace.filterString,
         )
         .result
@@ -94,6 +96,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
   protected def switchMediatorDuringSubmission[T](
       sequencer: LocalSequencerReference,
       oldMediatorGroup: NonNegativeInt,
+      oldMediator: LocalMediatorReference,
       newMediatorGroup: NonNegativeInt,
       newMediator: MediatorReference,
       participant: LocalParticipantReference,
@@ -128,35 +131,18 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
         )
         .cause
 
-      val errorUnknownSender = SequencerErrors
-        .SenderUnknown(
-          s"(Eligible) Senders are unknown: MED::"
-        )
-        .cause
-
+      val errorUnknownSender = "(Eligible) Senders are unknown: MED::"
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         submit(),
-        logEntries => {
-          logEntries.size should be <= 4
-          if (logEntries.sizeIs == 4) {
-            logEntries.head.errorMessage should include(
-              errorUnknownSender
-            ) // GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN
-            logEntries(1).warningMessage should include(error) // warning
-            // failure of the submission when no tracking is used
-            logEntries(2).warningMessage should include(error)
-          } else if (logEntries.sizeIs == 3) {
-            // we can have either GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN and warning,
-            // or warning and failure of the submission when no tracking is used
-            if (logEntries.head.level == Level.ERROR)
-              logEntries.head.errorMessage should include(errorUnknownSender)
-            else logEntries.head.warningMessage should include(error)
-            logEntries(1).warningMessage should include(error)
-          } else if (logEntries.sizeIs == 2) {
-            logEntries.head.warningMessage should include(error)
-          } else succeed
-          logEntries.last.errorMessage should include(error) // failure of console command
-        },
+        LogEntry.assertLogSeq(
+          mustContainWithClue = Seq(
+            (_.warningMessage should include(error), "warning"), // warning
+            (_.errorMessage should include(error), "error"), // failure of console command
+          ),
+          mayContain = Seq(
+            _.warningMessage should include(errorUnknownSender)
+          ),
+        ),
       )
     }
 
@@ -170,6 +156,9 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
 
       logger.debug("Remove the old mediator group")
       sequencer.topology.mediators.remove_group(synchronizerId, oldMediatorGroup)
+
+      // Note: we stop the old mediator that can trigger time requests and produce warnings that flake the tests
+      oldMediator.stop()
 
       logger.debug("Switched out the mediator")
       promiseNewMediatorActive.success(())
@@ -296,7 +285,7 @@ class MultipleMediatorsIntegrationTest
         )
         val pingCount = 10
         Future
-          .traverse((1 to pingCount)) { i =>
+          .traverse(1 to pingCount) { i =>
             Future {
               participant1.health.ping(participant1, id = s"mediator-round-robin-ping-$i")
             }
@@ -371,6 +360,7 @@ class MultipleMediatorsIntegrationTest
         val submissionF = switchMediatorDuringSubmission(
           sequencer = sequencer1,
           oldMediatorGroup = NonNegativeInt.zero,
+          oldMediator = mediator1,
           newMediatorGroup = NonNegativeInt.one,
           newMediator = mediator2,
           participant = participant1,
@@ -387,6 +377,17 @@ class MultipleMediatorsIntegrationTest
         logger.debug(
           "Make sure that the participant receives another timestamp that triggers the rejection"
         )
+
+        eventually() {
+          // The participant should see the removed mediator group,
+          // otherwise the next command can be flaky
+          participant1.topology.mediators
+            .list(
+              synchronizerId = daId,
+              group = Some(NonNegativeInt.zero),
+              operation = Some(TopologyChangeOp.Remove),
+            ) should not be empty
+        }
 
         // A plain fetch_synchronizer_time isn't enough because the SynchronizerTimeTracker may use the delayed submission
         // as the witness for the time

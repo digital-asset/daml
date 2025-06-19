@@ -81,7 +81,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
   ): PossiblyIgnoredSequencedEvent[DefaultOpenEnvelope] = {
     import env.*
     participant1.testing.state_inspection
-      .findMessage(daName, LatestUpto(CantonTimestamp.MaxValue))
+      .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
       .value
       .value
   }
@@ -105,12 +105,12 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         assertThrowsAndLogsCommandFailures(
           participant1.repair
             .ignore_events(daId, SequencerCounter.Genesis, SequencerCounter.Genesis),
-          _.commandFailureMessage should include("Could not find synchronizer1"),
+          _.commandFailureMessage should include(s"Could not find persistent state for $daId"),
         )
         assertThrowsAndLogsCommandFailures(
           participant1.repair
             .unignore_events(daId, SequencerCounter.Genesis, SequencerCounter.Genesis),
-          _.commandFailureMessage should include("Could not find synchronizer1"),
+          _.commandFailureMessage should include(s"Could not find persistent state for $daId"),
         )
       }
     }
@@ -148,13 +148,53 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         import env.*
 
         // Ignore the next two events, corresponding to a single create ping request.
-        participant1.synchronizers.disconnect(daName)
-        val lastCounter = loadLastStoredEvent().counter
-        participant1.repair.ignore_events(daId, lastCounter + 1, lastCounter + 2)
-        participant1.repair.unignore_events(daId, lastCounter + 1, lastCounter + 2)
-        participant1.synchronizers.reconnect(daName)
+        val synchronizer = daName
+        val synchronizerId = daId
+        val participant = participant1
+        participant.synchronizers.disconnect(synchronizer)
+        // user-manual-entry-begin: LookUpLastSequencedEventToIgnore
+        import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
+        val lastSequencedEvent = participant.testing.state_inspection
+          .findMessage(synchronizerId, SearchCriterion.Latest)
+          .getOrElse(throw new Exception("Sequenced event not found"))
+          .getOrElse(throw new Exception("Unable to parse sequenced event"))
+        val lastCounter = lastSequencedEvent.counter
+        // user-manual-entry-end: LookUpLastSequencedEventToIgnore
+        val sequencedEventTimestamp = lastSequencedEvent.timestamp
+        // user-manual-entry-begin: LookUpSequencedEventToIgnoreByTimestamp
+        import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
+        val sequencedEvent = participant.testing.state_inspection
+          .findMessage(synchronizerId, ByTimestamp(sequencedEventTimestamp))
+          .getOrElse(throw new Exception("Sequenced event not found"))
+          .getOrElse(throw new Exception("Unable to parse sequenced event"))
+        val sequencerCounter = sequencedEvent.counter
+        // user-manual-entry-end: LookUpSequencedEventToIgnoreByTimestamp
+        lastCounter shouldBe sequencerCounter
 
-        participant1.health.ping(participant1)
+        val fromInclusive = lastCounter + 1
+        val toInclusive = lastCounter + 2
+
+        // user-manual-entry-begin: RepairIgnoreEvents
+        participant.repair.ignore_events(
+          synchronizerId,
+          fromInclusive,
+          toInclusive,
+          force = false,
+        )
+        // user-manual-entry-end: RepairIgnoreEvents
+
+        // user-manual-entry-begin: RepairUnignoreEvents
+        participant.repair.unignore_events(
+          synchronizerId,
+          fromInclusive,
+          toInclusive,
+          force = false,
+        )
+        // user-manual-entry-end: RepairUnignoreEvents
+
+        participant.synchronizers.reconnect(synchronizer)
+
+        participant.health.ping(participant)
       }
 
       "neither ignore nor unignore events before the first sequencer index" in { implicit env =>
@@ -307,7 +347,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         val tamperedEvent = DeliverError.create(
           None,
           lastStoredEvent.timestamp,
-          daId.toPhysical,
+          daId,
           MessageId.tryCreate("schnitzel"),
           SequencerErrors.SubmissionRequestRefused(""),
           testedProtocolVersion,
@@ -318,8 +358,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
         // Replace last event by the tamperedEvent
         val p1Node = participant1.underlying.value
-        val p1PersistentState =
-          p1Node.sync.syncPersistentStateManager.getByAlias(daName).value
+        val p1PersistentState = p1Node.sync.syncPersistentStateManager.get(daId).value
         val p1SequencedEventStore = p1PersistentState.sequencedEventStore
         p1SequencedEventStore.delete(lastStoredEvent.counter).futureValueUS
         p1SequencedEventStore.store(Seq(tracedSignedTamperedEvent)).futureValueUS
@@ -484,7 +523,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         import env.*
 
         val lastEvent = participant1.testing.state_inspection
-          .findMessage(daName, LatestUpto(CantonTimestamp.MaxValue))
+          .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
           .value
           .value
         val lastEventRecipients =

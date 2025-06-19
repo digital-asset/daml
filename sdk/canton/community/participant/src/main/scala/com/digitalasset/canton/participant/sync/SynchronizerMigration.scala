@@ -19,7 +19,10 @@ import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, Pa
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.SyncStateInspectionError
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
+  InFlightCount,
+  SyncStateInspectionError,
+}
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
@@ -46,7 +49,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
+import com.digitalasset.canton.util.{MonadUtil, ReassignmentTag, SameReassignmentType}
 
 import scala.concurrent.ExecutionContext
 
@@ -192,7 +195,7 @@ class SynchronizerMigration(
   ] =
     for {
       targetSynchronizerInfo <- target.traverse(synchronizerConnectionConfig =>
-        performUnlessClosingEitherUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           sequencerInfoLoader
             .loadAndAggregateSequencerEndpoints(
               synchronizerConnectionConfig.synchronizerAlias,
@@ -211,7 +214,7 @@ class SynchronizerMigration(
             }
         )
       )
-      _ <- performUnlessClosingEitherUSF(functionFullName)(
+      _ <- synchronizeWithClosing(functionFullName)(
         aliasManager
           .processHandshake(
             target.unwrap.synchronizerAlias,
@@ -226,10 +229,10 @@ class SynchronizerMigration(
           )
       )
 
-      inFlights <- performUnlessClosingEitherUSF(functionFullName)(
-        inspection
-          .countInFlight(source.unwrap)
-          .leftMap(_ => SyncServiceUnknownSynchronizer.Error(source.unwrap))
+      inFlights <- synchronizeWithClosing(functionFullName)(
+        countAllInFlight(source.unwrap).leftMap(_ =>
+          SyncServiceUnknownSynchronizer.Error(source.unwrap)
+        )
       )
 
       _ <-
@@ -250,6 +253,21 @@ class SynchronizerMigration(
             )
             .leftWiden[SyncServiceError]
     } yield targetSynchronizerInfo
+
+  /** Count all in-flight transactions for the given alias. To be on the safe side, we sum over all
+    * physical instances.
+    */
+  private def countAllInFlight(
+      alias: SynchronizerAlias
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, InFlightCount] = {
+    val psids = inspection.syncPersistentStateManager
+      .synchronizerIdsForAlias(alias)
+      .fold(Seq.empty[PhysicalSynchronizerId])(_.forgetNE.toSeq)
+
+    MonadUtil
+      .sequentialTraverse(psids)(inspection.countInFlight)
+      .map(_.foldLeft(InFlightCount.zero)(_.+(_)))
+  }
 
   /** Performs the synchronizer migration. Assumes that [[isSynchronizerMigrationPossible]] was
     * called before to check preconditions.
@@ -324,22 +342,18 @@ class SynchronizerMigration(
     }
 
     for {
-      sourcePSId <- performUnlessClosingEitherUSF(functionFullName)(prepare())
-      sourceLSId <- performUnlessClosingEitherUSF(functionFullName)(
-        source.traverse(getSynchronizerId(_))
-      )
+      sourcePSId <- synchronizeWithClosing(functionFullName)(prepare())
+      sourceLSId <- source.traverse(getSynchronizerId(_))
       _ <- prepareSynchronizerConnection(Traced(target.unwrap.synchronizerAlias))
       _ <- migrateContracts(source, sourceLSId, targetPSId.map(_.logical))
-      _ <- performUnlessClosingEitherUSF(functionFullName)(
-        updateSynchronizerStatus(
-          target.map(_.synchronizerAlias),
-          targetPSId.map(KnownPhysicalSynchronizerId(_): ConfiguredPhysicalSynchronizerId),
-          SynchronizerConnectionConfigStore.Active,
-        )
+      _ <- updateSynchronizerStatus(
+        target.map(_.synchronizerAlias),
+        targetPSId.map(KnownPhysicalSynchronizerId(_): ConfiguredPhysicalSynchronizerId),
+        SynchronizerConnectionConfigStore.Active,
       )
-      _ <- performUnlessClosingEitherUSF(functionFullName)(
-        updateSynchronizerStatus(source, sourcePSId, SynchronizerConnectionConfigStore.Inactive)
-      )
+
+      _ <- updateSynchronizerStatus(source, sourcePSId, SynchronizerConnectionConfigStore.Inactive)
+
     } yield ()
   }
 
@@ -367,7 +381,7 @@ class SynchronizerMigration(
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] =
     for {
       // load all contracts on source synchronizer
-      acs <- performUnlessClosingEitherUSF(functionFullName)(
+      acs <- synchronizeWithClosing(functionFullName)(
         inspection
           .findAcs(sourceAlias.unwrap)
           .leftMap[SynchronizerMigrationError](err =>
@@ -382,7 +396,7 @@ class SynchronizerMigration(
         case None => EitherT.right[SynchronizerMigrationError](FutureUnlessShutdown.unit)
         case Some(contractIds) =>
           // move contracts from one synchronizer to the other synchronizer using repair service in batches of batchSize
-          performUnlessClosingEitherUSF(functionFullName)(
+          synchronizeWithClosing(functionFullName)(
             repair.changeAssignation(
               contractIds.map((_, None)),
               source,

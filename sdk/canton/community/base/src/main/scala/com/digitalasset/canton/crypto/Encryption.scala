@@ -814,6 +814,15 @@ object EncryptionError {
       param("supportedAlgorithmSpec", _.supportedAlgorithmSpec),
     )
   }
+  final case class UnsupportedKeyFormat(
+      keyFormat: CryptoKeyFormat,
+      supportedKeyFormats: Set[CryptoKeyFormat],
+  ) extends EncryptionError {
+    override protected def pretty: Pretty[UnsupportedKeyFormat] = prettyOfClass(
+      param("format", _.keyFormat),
+      param("supportedKeyFormats", _.supportedKeyFormats),
+    )
+  }
   final case class UnsupportedSchemeForDeterministicEncryption(error: String)
       extends EncryptionError {
     override protected def pretty: Pretty[UnsupportedSchemeForDeterministicEncryption] =
@@ -866,6 +875,24 @@ object DecryptionError {
   ) extends DecryptionError {
     override protected def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
       param("encryptionKeySpec", _.encryptionKeySpec),
+      param("supportedKeySpecs", _.supportedKeySpecs),
+    )
+  }
+  final case class UnsupportedKeyFormat(
+      keyFormat: CryptoKeyFormat,
+      supportedKeyFormats: Set[CryptoKeyFormat],
+  ) extends DecryptionError {
+    override protected def pretty: Pretty[UnsupportedKeyFormat] = prettyOfClass(
+      param("format", _.keyFormat),
+      param("supportedKeyFormats", _.supportedKeyFormats),
+    )
+  }
+  final case class UnsupportedSymmetricKeySpec(
+      symmetricKeySpec: SymmetricKeyScheme,
+      supportedKeySpecs: Set[SymmetricKeyScheme],
+  ) extends DecryptionError {
+    override protected def pretty: Pretty[UnsupportedSymmetricKeySpec] = prettyOfClass(
+      param("symmetricKeySpec", _.symmetricKeySpec),
       param("supportedKeySpecs", _.supportedKeySpecs),
     )
   }

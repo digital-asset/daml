@@ -75,7 +75,7 @@ class PackageUploader(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, DarMainPackageId] =
-    performUnlessClosingEitherUSF("validate DAR") {
+    synchronizeWithClosing("validate DAR") {
       val stream = new ZipInputStream(payload.newInput())
       for {
         dar <- catchUpstreamErrors(DarParser.readArchive(darName, stream))
@@ -103,7 +103,7 @@ class PackageUploader(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, (LfPackageId, List[LfPackageId])] =
-    performUnlessClosingEitherUSF("upload DAR") {
+    synchronizeWithClosing("upload DAR") {
 
       for {
         lengthValidatedDescO <- description.traverse(description =>

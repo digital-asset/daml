@@ -59,13 +59,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
 
-  private val synchronizers = TrieMap.empty[SynchronizerId, SynchronizerTopologyClient]
+  private val synchronizers = TrieMap.empty[PhysicalSynchronizerId, SynchronizerTopologyClient]
 
   def add(
       synchronizerClient: SynchronizerTopologyClient
   )(implicit traceContext: TraceContext): Unit =
     synchronizers
-      .put(synchronizerClient.synchronizerId, synchronizerClient)
+      .put(synchronizerClient.physicalSynchronizerId, synchronizerClient)
       .foreach { oldTopologyClient =>
         logger.warn(
           s"Synchronizer ${synchronizerClient.synchronizerId} already registered a topology client"
@@ -73,18 +73,18 @@ class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFac
         oldTopologyClient.close()
       }
 
-  def remove(synchronizerId: SynchronizerId): Option[SynchronizerTopologyClient] =
+  def remove(synchronizerId: PhysicalSynchronizerId): Option[SynchronizerTopologyClient] =
     synchronizers.remove(synchronizerId)
 
   def allSynchronizers: Iterable[SynchronizerTopologyClient] = synchronizers.values
 
-  def tryForSynchronizer(synchronizerId: SynchronizerId): SynchronizerTopologyClient =
+  def tryForSynchronizer(synchronizerId: PhysicalSynchronizerId): SynchronizerTopologyClient =
     synchronizers.getOrElse(
       synchronizerId,
       sys.error("unknown synchronizer " + synchronizerId.toString),
     )
 
-  def forSynchronizer(synchronizerId: SynchronizerId): Option[SynchronizerTopologyClient] =
+  def forSynchronizer(synchronizerId: PhysicalSynchronizerId): Option[SynchronizerTopologyClient] =
     synchronizers.get(synchronizerId)
 
 }
@@ -94,6 +94,8 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   /** The synchronizer this client applies to */
   def physicalSynchronizerId: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
+
+  def protocolVersion: ProtocolVersion = physicalSynchronizerId.protocolVersion
 
   /** Our current snapshot approximation
     *
@@ -576,7 +578,7 @@ trait VettedPackagesSnapshotClient {
 }
 
 trait SynchronizerGovernanceSnapshotClient {
-  this: BaseTopologySnapshotClient with NamedLogging =>
+  this: BaseTopologySnapshotClient & NamedLogging =>
 
   def trafficControlParameters(
       protocolVersion: ProtocolVersion,
@@ -646,10 +648,21 @@ trait MembersTopologySnapshotClient {
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 }
 
-trait SynchronizerMigrationClient {
-  def isSynchronizerMigrationOngoing()(implicit
+trait SynchronizerUpgradeClient {
+
+  /** In case the synchronizer owners have announced a synchronizer upgrade, returns the physical
+    * synchronizer id of the successor of this synchronizer. Otherwise, returns None.
+    */
+  def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+
+  /** Returns the known sequencer connection details for the successor synchronizer as published by
+    * the sequencers.
+    */
+  def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]]
 }
 
 trait TopologySnapshot
@@ -663,7 +676,7 @@ trait TopologySnapshot
     with SynchronizerGovernanceSnapshotClient
     with MembersTopologySnapshotClient
     with PartyKeyTopologySnapshotClient
-    with SynchronizerMigrationClient { this: BaseTopologySnapshotClient with NamedLogging => }
+    with SynchronizerUpgradeClient { this: BaseTopologySnapshotClient & NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
@@ -1048,7 +1061,7 @@ trait VettedPackagesSnapshotLoader extends VettedPackagesSnapshotClient with Vet
 }
 
 trait SynchronizerGovernanceSnapshotLoader extends SynchronizerGovernanceSnapshotClient {
-  this: BaseTopologySnapshotClient with NamedLogging =>
+  this: BaseTopologySnapshotClient & NamedLogging =>
 }
 
 /** Loading interface with a more optimal method to read data from a store

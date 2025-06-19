@@ -5,14 +5,14 @@ package com.digitalasset.canton.synchronizer.sequencer.store
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
+import com.digitalasset.canton.config.CantonRequireTypes.{String1, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -26,7 +26,7 @@ class DbSequencerSynchronizerConfigurationStore(
     extends SequencerSynchronizerConfigurationStore
     with DbStore {
 
-  private type SerializedRow = (String255, ByteString)
+  private type SerializedRow = (String300, ByteString)
   import DbStorage.Implicits.*
   import storage.api.*
 
@@ -43,7 +43,7 @@ class DbSequencerSynchronizerConfigurationStore(
       rowO <- EitherT.right(
         storage
           .query(
-            sql"""select synchronizer_id, static_synchronizer_parameters from sequencer_synchronizer_configuration #${storage
+            sql"""select physical_synchronizer_id, static_synchronizer_parameters from sequencer_synchronizer_configuration #${storage
                 .limit(1)}"""
               .as[SerializedRow]
               .headOption,
@@ -68,13 +68,13 @@ class DbSequencerSynchronizerConfigurationStore(
           storage.profile match {
             case _: DbStorage.Profile.H2 =>
               sqlu"""merge into sequencer_synchronizer_configuration
-                   (lock, synchronizer_id, static_synchronizer_parameters)
+                   (lock, physical_synchronizer_id, static_synchronizer_parameters)
                    values
                    ($singleRowLockValue, $synchronizerId, $synchronizerParameters)"""
             case _: DbStorage.Profile.Postgres =>
-              sqlu"""insert into sequencer_synchronizer_configuration (synchronizer_id, static_synchronizer_parameters)
+              sqlu"""insert into sequencer_synchronizer_configuration (physical_synchronizer_id, static_synchronizer_parameters)
               values ($synchronizerId, $synchronizerParameters)
-              on conflict (lock) do update set synchronizer_id = excluded.synchronizer_id,
+              on conflict (lock) do update set physical_synchronizer_id = excluded.physical_synchronizer_id,
                 static_synchronizer_parameters = excluded.static_synchronizer_parameters"""
           },
           "save-configuration",
@@ -91,9 +91,12 @@ class DbSequencerSynchronizerConfigurationStore(
   private def deserialize(
       row: SerializedRow
   ): ParsingResult[SequencerSynchronizerConfiguration] = for {
-    synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
+    psid <- PhysicalSynchronizerId.fromProtoPrimitive(
+      row._1.unwrap,
+      "physical_synchronizer_id",
+    )
     synchronizerParameters <- StaticSynchronizerParameters.fromTrustedByteString(
       row._2
     )
-  } yield SequencerSynchronizerConfiguration(synchronizerId, synchronizerParameters)
+  } yield SequencerSynchronizerConfiguration(psid, synchronizerParameters)
 }
