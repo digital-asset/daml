@@ -273,7 +273,7 @@ instance IsParties a => IsParties [a] where
 
 instance IsParties a => IsParties (Optional a) where
   toParties None = []
-  toParties (Some p) = isParties p
+  toParties (Some p) = toParties p
 
 instance Eq AnyTemplate where
   (==) = primitive @"BEEqual"
