@@ -84,7 +84,8 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
-        _ <- validatePackages(mainPackage :: dependencies)
+        lfDar = LfDar(mainPackage, dependencies)
+        _ <- validateLfDarPackages(lfDar)
       } yield DarMainPackageId.tryCreate(mainPackage._1)
     }
 
@@ -194,7 +195,8 @@ class PackageUploader(
           DarDescription(mainPackageId, persistedDescription, mainInfo.name, mainInfo.version),
           darPayload.toByteArray,
         )
-      _ <- validatePackages(allPackages.map(_._2))
+      lfDar = LfDar(mainPackage._2, dependencies.map(_._2))
+      _ <- validateLfDarPackages(lfDar)
       toUpload <- EitherT.fromEither[FutureUnlessShutdown](
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
@@ -220,19 +222,20 @@ class PackageUploader(
       case success: Success[UnlessShutdown[Unit]] => FutureUnlessShutdown.lift(success.value)
     }
 
-  private def validatePackages(
-      packages: List[(LfPackageId, Ast.Package)]
+  private def validateLfDarPackages(
+      dar: LfDar[(LfPackageId, Ast.Package)],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
-          .validatePackages(packages.toMap)
+          .validateDar(dar)
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
           )
       )
+      packages = dar.main +: dar.all
       _ <-
         if (enableUpgradeValidation) {
           val packageMetadataSnapshot = packageMetadataView.getSnapshot

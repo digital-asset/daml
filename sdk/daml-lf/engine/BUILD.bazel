@@ -32,6 +32,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-lf-engine:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
         "//daml-lf/language",

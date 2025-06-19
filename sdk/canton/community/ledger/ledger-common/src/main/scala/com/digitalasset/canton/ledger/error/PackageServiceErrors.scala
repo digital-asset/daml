@@ -224,8 +224,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           languageVersion,
           allowedLanguageVersions,
         )
-      case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-        SelfConsistency.Error(packageIds, missingDependencies)
+      case Error.Package.SelfConsistency(packageIds, missingDependencies, extraDependencies) =>
+        SelfConsistency.Error(packageIds, missingDependencies, extraDependencies)
     }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
@@ -274,14 +274,16 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       final case class Error(
           packageIds: Set[Ref.PackageId],
           missingDependencies: Set[Ref.PackageId],
+          extraDependencies: Set[Ref.PackageId],
       )(implicit
           val loggingContext: ErrorLoggingContext
       ) extends ContextualizedDamlError(
             cause =
-              "The set of packages in the dar is not self-consistent and is missing dependencies",
+              s"The set of packages in the dar is not self-consistent and is missing dependencies ($missingDependencies) or has extra dependencies ($extraDependencies)",
             extraContext = Map(
               "packageIds" -> packageIds,
               "missingDependencies" -> missingDependencies,
+              "extraDependencies" -> extraDependencies,
             ),
           )
     }
