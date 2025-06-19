@@ -11,7 +11,7 @@ import DA.Daml.Doc.Anchor
 import qualified Data.Text as T
 import Data.List.Extra
 import Data.Either
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, isNothing)
 import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
@@ -22,8 +22,7 @@ applyAnnotations = applyMove . applyHide
 -- module to another.
 applyMove :: [ModuleDoc] -> [ModuleDoc]
 applyMove
-    = filter (not . isEmptyModule)
-    . map (foldr1 combineModules)
+    = map (foldr1 combineModules)
     . groupSortOn md_name
     . concatMap performRenames
   where
@@ -48,6 +47,7 @@ applyMove
         && null md_functions
         && null md_classes
         && null md_instances
+        && isNothing md_descr
 
     performRenames :: ModuleDoc -> [ModuleDoc]
     performRenames md@ModuleDoc{..} =
@@ -75,7 +75,9 @@ applyMove
             , md_classes = classes
             , md_instances = instances
             }
-       in filteredMd : (newModsTemplates ++ newModsInterfaces ++ newModsAdts ++ newModsFunctions ++ newModsClasses ++ newModsInstances)
+          -- If moving docs made the module empty, we can omit it. Cannot otherwise.
+          lFilteredMd = ([filteredMd | not (isEmptyModule filteredMd && not (isEmptyModule md'))])
+       in lFilteredMd ++ newModsTemplates ++ newModsInterfaces ++ newModsAdts ++ newModsFunctions ++ newModsClasses ++ newModsInstances
 
     -- | Rename module according to its MOVE annotation, if present.
     -- If the module is renamed, we drop the rest of the module's
