@@ -16,9 +16,6 @@ packageA = PackageName "package-vetting-package-a" "1.0.0"
 packageB : PackageName
 packageB = PackageName "package-vetting-package-b" "1.0.0"
 
-currentPackage: PackageName
-currentPackage = PackageName "-dummy-package-name-" "0.0.0"
-
 canUseImportedPackage : Script ()
 canUseImportedPackage = script do
   alice <- allocateParty "Alice"
@@ -66,7 +63,7 @@ assertVettedPackages : [PackageName] -> [PackageName] -> Script ()
 assertVettedPackages = assertPackages listVettedPackages
 
 assertAllPackages : Script ()
-assertAllPackages = assertPackages listAllPackages [packageA, packageB, currentPackage] []
+assertAllPackages = assertPackages listAllPackages [packageA, packageB] []
 
 listPackagesIsCorrect : Script ()
 listPackagesIsCorrect = script do
