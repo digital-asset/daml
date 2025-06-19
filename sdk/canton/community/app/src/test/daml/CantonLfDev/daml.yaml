@@ -4,7 +4,7 @@ build-options:
 name: CantonLfDev
 source: daml
 version: 3.4.0
-dependencies: 
+dependencies:
 - daml-prim
 - daml-stdlib
 - daml-script
