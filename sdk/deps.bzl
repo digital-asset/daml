@@ -37,7 +37,8 @@ rules_scala_sha256 = "e734eef95cf26c0171566bdc24d83bd82bdaf8ca7873bec6ce9b0d524b
 rules_haskell_version = "a361943682c2f312de4afff0e4438259bfd8119c"  # 1.0
 rules_haskell_sha256 = "f2b04c7dd03f8adacc44f44e6232cd086c02395a03236228d8f09335a931ab9c"
 rules_haskell_patches = [
-    # TODO This patch should be upstreamed
+    # TODO This patch should be removed once upstream merged the following fix.
+    # https://github.com/tweag/rules_haskell/pull/2311
     "@com_github_digital_asset_daml//bazel_tools:haskell-import-dirs-empty-libs.patch",
     # This is a daml specific patch and not upstreamable.
     "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
