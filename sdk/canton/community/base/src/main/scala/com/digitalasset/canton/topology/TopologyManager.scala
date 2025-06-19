@@ -93,7 +93,7 @@ class SynchronizerTopologyManager(
       futureSupervisor,
       loggerFactory,
     ) {
-  def synchronizerId: SynchronizerId = store.storeId.synchronizerId
+  def synchronizerId: PhysicalSynchronizerId = store.storeId.synchronizerId
 
   override protected val processor: TopologyStateProcessor =
     TopologyStateProcessor.forTopologyManager(
@@ -496,7 +496,8 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           EitherT.cond[Future](
             existingSerial == proposed,
             existingSerial,
-            TopologyManagerError.MappingAlreadyExists.Failure(mapping, signatures.map(_.signedBy)),
+            TopologyManagerError.MappingAlreadyExists
+              .Failure(mapping, signatures.map(_.authorizingLongTermKey)),
           )
 
         case (Some((_, _, existingSerial, _)), None) =>
@@ -537,11 +538,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         case Some((`transactionOp`, `transactionMapping`, _, existingSignatures)) =>
           EitherT.cond[FutureUnlessShutdown][TopologyManagerError, Unit](
             (keysToUseForSigning -- existingSignatures
-              .map(_.signedBy)
+              .map(_.authorizingLongTermKey)
               .toSet).nonEmpty,
             (),
             TopologyManagerError.MappingAlreadyExists
-              .Failure(transactionMapping, existingSignatures.map(_.signedBy)),
+              .Failure(transactionMapping, existingSignatures.map(_.authorizingLongTermKey)),
           )
         case _ => EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](())
       }

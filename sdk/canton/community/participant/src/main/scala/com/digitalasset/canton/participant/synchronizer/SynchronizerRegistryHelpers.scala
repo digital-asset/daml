@@ -171,13 +171,13 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
 
       // If the connection to a synchronizer fails, the topology client and crypto cache are not removed from the cache.
       // This is why we want to clear the topology client and crypto caches before creating the new clients.
-      _ = cryptoApiProvider.removeAndClose(synchronizerId.logical)
+      _ = cryptoApiProvider.removeAndClose(synchronizerId)
       _ = cryptoApiProvider.ips.add(topologyClient)
 
       synchronizerCryptoApi <- EitherT.fromEither[FutureUnlessShutdown](
         cryptoApiProvider
           .forSynchronizer(
-            synchronizerId.logical,
+            synchronizerId,
             sequencerAggregatedInfo.staticSynchronizerParameters,
           )
           .toRight(

@@ -43,7 +43,10 @@ class DisseminationProtocolStateTest
     "the topology is unchanged" should {
       "do nothing" in {
         val orderingTopology =
-          orderingTopologyWith(ANodeId, BftKeyId(noSignature.signedBy.toProtoPrimitive))
+          orderingTopologyWith(
+            ANodeId,
+            BftKeyId(noSignature.authorizingLongTermKey.toProtoPrimitive),
+          )
         val disseminatedBatchMetadata =
           disseminatedBatchMetadataWith(AnEpochNumber, ANodeId, ABatchId, noSignature, SomeStats)
         DisseminationProgress.reviewReadyForOrdering(
@@ -57,7 +60,10 @@ class DisseminationProtocolStateTest
     "an acking node is removed" should {
       "remove the ack from the node that has been removed" in {
         val orderingTopology =
-          orderingTopologyWith(ANodeId, BftKeyId(noSignature.signedBy.toProtoPrimitive))
+          orderingTopologyWith(
+            ANodeId,
+            BftKeyId(noSignature.authorizingLongTermKey.toProtoPrimitive),
+          )
         val disseminatedBatchMetadata =
           disseminatedBatchMetadataWith(AnEpochNumber, ANodeId, ABatchId, noSignature, SomeStats)
         val newTopology = orderingTopology.copy(nodesTopologyInfo = Map.empty)
@@ -84,7 +90,10 @@ class DisseminationProtocolStateTest
     "an acking node's signing key is changed" should {
       "remove the ack from the node that has changed its signing key" in {
         val orderingTopology =
-          orderingTopologyWith(ANodeId, BftKeyId(noSignature.signedBy.toProtoPrimitive))
+          orderingTopologyWith(
+            ANodeId,
+            BftKeyId(noSignature.authorizingLongTermKey.toProtoPrimitive),
+          )
         val disseminatedBatchMetadata =
           disseminatedBatchMetadataWith(AnEpochNumber, ANodeId, ABatchId, noSignature, SomeStats)
         val newTopology =

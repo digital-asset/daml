@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.admin.grpc.PrivateKeyMetadata
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.cycle as C
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
@@ -1042,11 +1043,14 @@ trait TopologyManagementIntegrationTest
     "query migration announcements" in { implicit env =>
       import env.*
 
+      val upgradeTime = CantonTimestamp.now()
+
       val announcementMapping = synchronizerOwners1
         .map { owner =>
           owner.topology.synchronizer_upgrade.announcement.propose(
             daId,
             PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+            upgradeTime,
           )
         }
         .headOption
@@ -1067,6 +1071,7 @@ trait TopologyManagementIntegrationTest
         _.topology.synchronizer_upgrade.announcement.revoke(
           daId,
           PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
+          upgradeTime,
         )
       )
     }

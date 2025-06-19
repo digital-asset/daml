@@ -61,7 +61,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
 
   def mk(
       store: InMemoryTopologyStore[TopologyStoreId] = new InMemoryTopologyStore(
-        SynchronizerStore(Factory.synchronizerId1),
+        SynchronizerStore(Factory.physicalSynchronizerId1),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -1243,7 +1243,10 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         val signatures = validatedPkgTx.transaction.signatures
 
         validatedPkgTx.rejectionReason shouldBe None
-        signatures.map(_.signedBy).forgetNE should contain theSameElementsAs Set(key1, key8).map(
+        signatures.map(_.authorizingLongTermKey).forgetNE should contain theSameElementsAs Set(
+          key1,
+          key8,
+        ).map(
           _.id
         )
 
@@ -1408,7 +1411,7 @@ class TopologyTransactionAuthorizationValidatorTestMultiTransactionHash
     import Factory.*
     val newSig = okm1ak5k1E_k2.signatures.filter(
       // Remove the signature from key5, which we need for this OTK, and keep only the namespace signature
-      _.signature.signedBy == SigningKeys.key2.fingerprint
+      _.signature.authorizingLongTermKey == SigningKeys.key2.fingerprint
     )
     // Create a signature for an OTK with participant 2. Should not authorize okm1ak5k1E_k2 in any way because it's
     // a different transaction

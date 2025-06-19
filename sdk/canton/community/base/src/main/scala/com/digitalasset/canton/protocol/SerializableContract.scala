@@ -4,23 +4,22 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
+import com.digitalasset.canton.ProtoDeserializationError.{
+  TimestampConversionError,
+  ValueConversionError,
+}
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUtil}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfTimestamp, admin, crypto, protocol}
+import com.digitalasset.canton.{admin, crypto, protocol}
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
-import com.google.protobuf.timestamp.Timestamp
 import io.scalaland.chimney.dsl.*
-
-import java.time.Instant
 
 /** Represents a serializable contract.
   *
@@ -43,7 +42,7 @@ case class SerializableContract(
     contractId: LfContractId,
     rawContractInstance: SerializableRawContractInstance,
     metadata: ContractMetadata,
-    ledgerCreateTime: LedgerCreateTime,
+    ledgerCreateTime: CreationTime.CreatedAt,
     contractSalt: Salt,
 )
 // The class implements `HasVersionedWrapper` because we serialize it to an anonymous binary format (ByteString/Array[Byte]) when
@@ -63,7 +62,7 @@ case class SerializableContract(
       // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V30
       // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
       metadata = Some(metadata.toProtoV30),
-      ledgerCreateTime = ledgerCreateTime.ts.toProtoPrimitive,
+      ledgerCreateTime = CreationTime.encode(ledgerCreateTime),
       // Contract salt can be empty for contracts created in protocol versions < 4.
       contractSalt = Some(contractSalt.toProtoV30),
     )
@@ -75,7 +74,7 @@ case class SerializableContract(
       // Even though [[ContractMetadata]] also implements `HasVersionedWrapper`, we explicitly use Protobuf V30
       // -> we only use `UntypedVersionedMessage` when required and not for 'regularly' nested Protobuf messages
       metadata = Some(metadata.toProtoV30.transformInto[admin.participant.v30.Contract.Metadata]),
-      ledgerCreateTime = Some(ledgerCreateTime.ts.toProtoTimestamp),
+      ledgerCreateTime = Some(CantonTimestamp(ledgerCreateTime.time).toProtoTimestamp),
       // Contract salt can be empty for contracts created in protocol versions < 4.
       contractSalt = Some(contractSalt.toProtoV30.transformInto[admin.crypto.v30.Salt]),
     )
@@ -84,7 +83,7 @@ case class SerializableContract(
     param("contractId", _.contractId),
     paramWithoutValue("instance"), // Do not leak confidential data (such as PII) to the log file!
     param("metadata", _.metadata),
-    param("create time", _.ledgerCreateTime.ts),
+    param("create time", _.ledgerCreateTime),
     param("contract salt", _.contractSalt),
   )
 
@@ -103,7 +102,7 @@ case class SerializableContract(
   def tryFatContractInstance: FatContractInstance =
     FatContractInstance.fromCreateNode(
       toLf,
-      CreationTime.CreatedAt(ledgerCreateTime.toLf),
+      ledgerCreateTime,
       DriverContractMetadata(contractSalt).toLfBytes(
         CantonContractIdVersion.tryCantonContractIdVersion(contractId)
       ),
@@ -124,19 +123,6 @@ object SerializableContract
 
   override def name: String = "serializable contract"
 
-  // Ledger time of the "repair transaction" creating the contract
-  final case class LedgerCreateTime(ts: CantonTimestamp) extends AnyVal {
-    def toProtoPrimitive: Timestamp = ts.toProtoTimestamp
-    def toInstant: Instant = ts.toInstant
-    def toLf: LfTimestamp = ts.toLf
-  }
-
-  object LedgerCreateTime extends PrettyUtil {
-    implicit val ledgerCreateTimeOrdering: Ordering[LedgerCreateTime] = Ordering.by(_.ts)
-    implicit val prettyLedgerCreateTime: Pretty[LedgerCreateTime] =
-      prettyOfClass[LedgerCreateTime](param("ts", _.ts))
-  }
-
   def apply(
       contractId: LfContractId,
       contractInstance: LfThinContractInst,
@@ -147,7 +133,13 @@ object SerializableContract
     SerializableRawContractInstance
       .create(contractInstance)
       .map(
-        SerializableContract(contractId, _, metadata, LedgerCreateTime(ledgerTime), contractSalt)
+        SerializableContract(
+          contractId,
+          _,
+          metadata,
+          CreationTime.CreatedAt(ledgerTime.toLf),
+          contractSalt,
+        )
       )
 
   def fromFatContract(
@@ -204,7 +196,14 @@ object SerializableContract
       serializableContractInstanceP
 
     for {
-      ledgerCreateTime <- CantonTimestamp.fromProtoPrimitive(ledgerCreateTimeP)
+      ledgerCreateTime <- CreationTime
+        .decode(ledgerCreateTimeP)
+        .flatMap {
+          case absolute: CreationTime.CreatedAt => Right(absolute)
+          case CreationTime.Now =>
+            Left("Cannot convert 'now' creation time to ledger create time")
+        }
+        .leftMap(TimestampConversionError.apply)
       contract <- toSerializableContract(
         contractIdP,
         rawP,
@@ -237,7 +236,7 @@ object SerializableContract
         contractIdP,
         rawP,
         metadataP.transformInto[Option[protocol.v30.SerializableContract.Metadata]],
-        ledgerCreateTime,
+        CreationTime.CreatedAt(ledgerCreateTime.toLf),
         contractSaltP.transformInto[Option[crypto.v30.Salt]],
       )
     } yield contract
@@ -247,7 +246,7 @@ object SerializableContract
       contractIdP: String,
       rawP: ByteString,
       metadataP: Option[protocol.v30.SerializableContract.Metadata],
-      ledgerCreateTime: CantonTimestamp,
+      ledgerCreateTime: CreationTime.CreatedAt,
       contractSaltO: Option[crypto.v30.Salt],
   ): ParsingResult[SerializableContract] =
     for {
@@ -263,7 +262,7 @@ object SerializableContract
       contractId,
       raw,
       metadata,
-      LedgerCreateTime(ledgerCreateTime),
+      ledgerCreateTime,
       contractSalt,
     )
 

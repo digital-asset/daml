@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -42,6 +43,8 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
   private def successorSynchronizerId(implicit env: TestConsoleEnvironment) =
     env.daId.copy(serial = NonNegativeInt.one)
 
+  private lazy val upgradeTime = CantonTimestamp.now().plusSeconds(3600)
+
   "migration announcement does not permit further topology transactions" in { implicit env =>
     import env.*
 
@@ -49,6 +52,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       owner.topology.synchronizer_upgrade.announcement.propose(
         daId,
         PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
+        upgradeTime,
       )
     }
 
@@ -68,6 +72,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       _.topology.synchronizer_upgrade.announcement.revoke(
         daId,
         PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
+        upgradeTime = upgradeTime,
       )
     )
 
@@ -100,6 +105,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       _.topology.synchronizer_upgrade.announcement.propose(
         daId,
         successorSynchronizerId,
+        upgradeTime = upgradeTime,
       )
     )
 

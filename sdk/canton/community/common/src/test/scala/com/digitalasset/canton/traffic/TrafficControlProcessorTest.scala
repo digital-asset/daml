@@ -44,7 +44,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
 
   private val synchronizerCrypto = TestingTopology(synchronizerParameters = List.empty)
     .build(loggerFactory)
-    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId.logical)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 

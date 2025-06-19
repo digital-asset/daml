@@ -33,6 +33,7 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeSynchronizer
 import com.digitalasset.canton.store.{
+  IndexedString,
   IndexedStringStore,
   IndexedSynchronizer,
   PrunableByTimeParameters,
@@ -74,7 +75,11 @@ class DbActiveContractStore(
 )(implicit val ec: ExecutionContext)
     extends ActiveContractStore
     with DbStore
-    with DbPrunableByTimeSynchronizer {
+    with DbPrunableByTimeSynchronizer[IndexedSynchronizer] {
+
+  override protected[this] implicit def setParameterIndexedSynchronizer
+      : SetParameter[IndexedSynchronizer] = IndexedString.setParameterIndexedString
+  override protected[this] def partitionColumn: String = "synchronizer_idx"
 
   import ActiveContractStore.*
   import DbStorage.Implicits.*

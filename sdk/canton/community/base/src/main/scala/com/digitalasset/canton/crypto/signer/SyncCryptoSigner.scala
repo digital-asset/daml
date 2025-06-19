@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{
   Hash,
   Signature,
@@ -59,27 +59,33 @@ object SyncCryptoSigner {
       staticSynchronizerParameters: StaticSynchronizerParameters,
       member: Member,
       crypto: SynchronizerCrypto,
-      sessionSigningKeysConfig: SessionSigningKeysConfig,
+      cryptoConfig: CryptoConfig,
       futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
-    if (sessionSigningKeysConfig.enabled) {
-      new SyncCryptoSignerWithSessionKeys(
-        synchronizerId,
-        staticSynchronizerParameters,
-        member,
-        crypto.privateCrypto,
-        sessionSigningKeysConfig,
-        futureSupervisor: FutureSupervisor,
-        timeouts,
-        loggerFactory,
-      )
-    } else
-      SyncCryptoSigner.createWithLongTermKeys(
-        member,
-        crypto,
-        loggerFactory,
-      )
+    cryptoConfig.kms.map(_.sessionSigningKeys) match {
+      // session signing keys can only be used if we are directly storing all our private keys in an external KMS
+      case Some(sessionSigningKeysConfig)
+          if cryptoConfig.provider == CryptoProvider.Kms &&
+            cryptoConfig.privateKeyStore.encryption.isEmpty &&
+            sessionSigningKeysConfig.enabled =>
+        new SyncCryptoSignerWithSessionKeys(
+          synchronizerId,
+          staticSynchronizerParameters,
+          member,
+          crypto.privateCrypto,
+          sessionSigningKeysConfig,
+          futureSupervisor: FutureSupervisor,
+          timeouts,
+          loggerFactory,
+        )
+      case _ =>
+        SyncCryptoSigner.createWithLongTermKeys(
+          member,
+          crypto,
+          loggerFactory,
+        )
+    }
 
 }

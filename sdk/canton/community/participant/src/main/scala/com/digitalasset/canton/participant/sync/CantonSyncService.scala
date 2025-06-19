@@ -279,6 +279,15 @@ class CantonSyncService(
   private def logicalToPhysical(id: SynchronizerId): Option[PhysicalSynchronizerId] =
     connectedSynchronizersMap.keys.filter(_.logical == id).maxOption
 
+  def activePSIdForLSId(
+      id: SynchronizerId
+  ): Option[PhysicalSynchronizerId] =
+    // TODO(#26005): review the usage of singleExpected=true
+    synchronizerConnectionConfigStore
+      .getActive(id, singleExpected = true)
+      .toOption
+      .flatMap(_.configuredPSId.toOption)
+
   // A connected synchronizer is ready if recovery has succeeded
   private[canton] def readyConnectedSynchronizerById(
       synchronizerId: SynchronizerId
@@ -673,7 +682,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
     lazy val onlyConnectedSynchronizer = connectedSynchronizersMap.toSeq match {
-      case Seq((synchronizerId, _)) => Right(synchronizerId.logical)
+      case Seq((synchronizerId, _)) => Right(synchronizerId)
       case Seq() =>
         Left(
           SubmissionResult.SynchronousError(
@@ -690,8 +699,22 @@ class CantonSyncService(
         )
     }
 
+    val specifiedSynchronizer =
+      synchronizerIdO.map(lsid =>
+        connectedSynchronizersLookup
+          .get(lsid)
+          .map(_.synchronizerId)
+          .toRight(
+            SubmissionResult.SynchronousError(
+              SyncServiceInjectionError.NotConnectedToSynchronizer
+                .Error(lsid.toProtoPrimitive)
+                .rpcStatus()
+            )
+          )
+      )
+
     val synchronizerIdOrDetectionError =
-      synchronizerIdO.map(Right(_)).getOrElse(onlyConnectedSynchronizer)
+      specifiedSynchronizer.getOrElse(onlyConnectedSynchronizer)
 
     synchronizerIdOrDetectionError
       .map(partyAllocation.allocate(hint, rawSubmissionId, _))
@@ -806,9 +829,9 @@ class CantonSyncService(
     logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.get).map(_.timeTracker)
 
   def lookupTopologyClient(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   ): Option[SynchronizerTopologyClientWithInit] =
-    logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.get).map(_.topologyClient)
+    connectedSynchronizersMap.get(synchronizerId).map(_.topologyClient)
 
   /** Adds a new synchronizer to the sync service's configuration.
     *
@@ -1464,7 +1487,7 @@ class CantonSyncService(
 
           _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
 
-          _ = syncCrypto.remove(psid.logical)
+          _ = syncCrypto.remove(psid)
           _ = synchronizerHandle.close()
         } yield psid
     }
@@ -1542,7 +1565,7 @@ class CantonSyncService(
           persistent = synchronizerHandle.syncPersistentState
 
           synchronizerCrypto = syncCrypto.tryForSynchronizer(
-            synchronizerId.logical,
+            synchronizerId,
             synchronizerHandle.staticParameters,
           )
 
@@ -1776,8 +1799,11 @@ class CantonSyncService(
     (for {
       synchronizerId <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
     } yield {
-      syncCrypto.remove(synchronizerId)
-      logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.remove) match {
+      val removed = logicalToPhysical(synchronizerId).flatMap { psid =>
+        syncCrypto.remove(psid)
+        connectedSynchronizersMap.remove(psid)
+      }
+      removed match {
         case Some(connectedSynchronizer) =>
           Try(LifeCycle.close(connectedSynchronizer)(logger)) match {
             case Success(_) =>
@@ -2037,7 +2063,7 @@ class CantonSyncService(
   ): FutureUnlessShutdown[SyncService.ConnectedSynchronizerResponse] = {
     def getSnapshot(
         synchronizerAlias: SynchronizerAlias,
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
     ): FutureUnlessShutdown[TopologySnapshot] =
       syncCrypto.ips
         .forSynchronizer(synchronizerId)
@@ -2053,7 +2079,7 @@ class CantonSyncService(
       .collect {
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
-            topology <- getSnapshot(synchronizerAlias, synchronizerId.logical)
+            topology <- getSnapshot(synchronizerAlias, synchronizerId)
             partyWithAttributes <- topology.hostedOn(
               Set(request.party),
               participantId = request.participantId.getOrElse(participantId),
@@ -2166,7 +2192,7 @@ class CantonSyncService(
   ): RoutingSynchronizerState = {
     val syncCryptoPureApi: RoutingSynchronizerStateFactory.SyncCryptoPureApiLookup =
       (synchronizerId, staticSyncParameters) =>
-        syncCrypto.forSynchronizer(synchronizerId.logical, staticSyncParameters).map(_.pureCrypto)
+        syncCrypto.forSynchronizer(synchronizerId, staticSyncParameters).map(_.pureCrypto)
     RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup, syncCryptoPureApi)
   }
 }

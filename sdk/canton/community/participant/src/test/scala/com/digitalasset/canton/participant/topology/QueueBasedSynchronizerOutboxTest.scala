@@ -110,7 +110,7 @@ class QueueBasedSynchronizerOutboxTest
     )
   ] = {
     val target = new InMemoryTopologyStore(
-      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,

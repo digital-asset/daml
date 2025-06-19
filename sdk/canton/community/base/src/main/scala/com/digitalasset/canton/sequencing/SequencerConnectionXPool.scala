@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
@@ -21,6 +22,7 @@ import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.MonadUtil
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.stream.Materializer
 
 import java.time.Duration
 import scala.concurrent.ExecutionContextExecutor
@@ -282,7 +284,9 @@ trait SequencerConnectionXPoolFactory {
   def create(
       initialConfig: SequencerConnectionXPoolConfig
   )(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool]
 
   // TODO(i25218): remove when no longer needed
@@ -292,6 +296,8 @@ trait SequencerConnectionXPoolFactory {
       tracingConfig: TracingConfig,
   )(implicit
       ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
       traceContext: TraceContext,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool]
 }

@@ -70,7 +70,8 @@ object TopologyStoreId {
     * @param synchronizerId
     *   the synchronizer id of the store
     */
-  final case class SynchronizerStore(synchronizerId: SynchronizerId) extends TopologyStoreId {
+  final case class SynchronizerStore(synchronizerId: PhysicalSynchronizerId)
+      extends TopologyStoreId {
     override val dbString = synchronizerId.toLengthLimitedString
 
     override protected def pretty: Pretty[this.type] =

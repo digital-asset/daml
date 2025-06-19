@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.{
   CachingConfigs,
   LoggingConfig,
   ProcessingTimeout,
-  SessionSigningKeysConfig,
   StartupMemoryCheckConfig,
   WatchdogConfig,
 }
@@ -54,7 +53,6 @@ object CantonNodeParameters {
     ) extends CantonNodeParameters.General
   }
   trait Protocol {
-    def sessionSigningKeys: SessionSigningKeysConfig
     def alphaVersionSupport: Boolean
     def betaVersionSupport: Boolean
     def dontWarnOnDeprecatedPV: Boolean
@@ -62,7 +60,6 @@ object CantonNodeParameters {
 
   object Protocol {
     final case class Impl(
-        sessionSigningKeys: SessionSigningKeysConfig,
         alphaVersionSupport: Boolean,
         betaVersionSupport: Boolean,
         dontWarnOnDeprecatedPV: Boolean,
@@ -95,7 +92,6 @@ trait HasProtocolCantonNodeParameters extends CantonNodeParameters.Protocol {
 
   protected def protocol: CantonNodeParameters.Protocol
 
-  def sessionSigningKeys: SessionSigningKeysConfig = protocol.sessionSigningKeys
   def alphaVersionSupport: Boolean = protocol.alphaVersionSupport
   def betaVersionSupport: Boolean = protocol.betaVersionSupport
   def dontWarnOnDeprecatedPV: Boolean = protocol.dontWarnOnDeprecatedPV

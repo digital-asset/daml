@@ -29,7 +29,7 @@ import com.digitalasset.canton.sequencing.handlers.{
   StripSignature,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
-import com.digitalasset.canton.store.{IndexedSynchronizer, SequencerCounterTrackerStore}
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, SequencerCounterTrackerStore}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.{
   SequencerAdminStatus,
@@ -96,7 +96,7 @@ class SequencerRuntime(
     localNodeParameters: SequencerNodeParameters,
     timeTracker: SynchronizerTimeTracker,
     val metrics: SequencerMetrics,
-    indexedSynchronizer: IndexedSynchronizer,
+    physicalIndexedSynchronizer: IndexedPhysicalSynchronizer,
     val syncCrypto: SynchronizerCryptoClient,
     val syncCryptoForAuthentication: SynchronizerCryptoClient,
     synchronizerTopologyManager: SynchronizerTopologyManager,
@@ -122,8 +122,7 @@ class SequencerRuntime(
 
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
-  def synchronizerId: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(indexedSynchronizer.synchronizerId, staticSynchronizerParameters)
+  def synchronizerId: PhysicalSynchronizerId = physicalIndexedSynchronizer.synchronizerId
 
   def initialize()(implicit
       traceContext: TraceContext
@@ -281,7 +280,7 @@ class SequencerRuntime(
   protected[canton] val topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore =
     SequencerCounterTrackerStore(
       storage,
-      indexedSynchronizer,
+      physicalIndexedSynchronizer,
       timeouts,
       loggerFactory,
     )
