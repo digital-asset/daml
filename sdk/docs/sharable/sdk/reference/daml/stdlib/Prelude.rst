@@ -571,13 +571,13 @@ Typeclasses
 
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
+  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ a \=\> `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ a)
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` `Party <type-da-internal-lf-party-57932_>`_)
+  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ a \=\> `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` a)
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`Set <type-da-set-types-set-90436>` `Party <type-da-internal-lf-party-57932_>`_)
+  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ a \=\> `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`Set <type-da-set-types-set-90436>` a)
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ \[`Party <type-da-internal-lf-party-57932_>`_\]
+  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ a \=\> `IsParties <class-da-internal-template-functions-isparties-53750_>`_ \[a\]
 
 .. _class-ghc-base-functor-31205:
 
@@ -1537,14 +1537,6 @@ Data Types
 
   **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
-
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`NonEmpty <type-da-nonempty-types-nonempty-16010>` `Party <type-da-internal-lf-party-57932_>`_)
-
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (:ref:`Set <type-da-set-types-set-90436>` `Party <type-da-internal-lf-party-57932_>`_)
-
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ \[`Party <type-da-internal-lf-party-57932_>`_\]
-
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Party <type-da-internal-lf-party-57932_>`_
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `Party <type-da-internal-lf-party-57932_>`_
@@ -1656,7 +1648,7 @@ Data Types
 
   **instance** `Applicative <class-da-internal-prelude-applicative-9257_>`_ `Optional <type-da-internal-prelude-optional-37153_>`_
 
-  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
+  **instance** `IsParties <class-da-internal-template-functions-isparties-53750_>`_ a \=\> `IsParties <class-da-internal-template-functions-isparties-53750_>`_ (`Optional <type-da-internal-prelude-optional-37153_>`_ a)
 
   **instance** :ref:`Traversable <class-da-traversable-traversable-18144>` `Optional <type-da-internal-prelude-optional-37153_>`_
 
