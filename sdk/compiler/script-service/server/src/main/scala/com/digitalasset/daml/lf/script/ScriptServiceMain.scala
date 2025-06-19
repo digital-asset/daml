@@ -9,9 +9,6 @@ import org.apache.pekko.stream.Materializer
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.logging.{Level, Logger}
-import scalaz.std.option._
-import scalaz.std.scalaFuture._
-import scalaz.syntax.traverse._
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
@@ -228,12 +225,11 @@ class ScriptService(implicit
     val scriptName = req.getScriptName
     val contextId = req.getContextId
     val response: Future[Option[Either[ScriptError, ScriptResult]]] =
-      contexts
-        .get(contextId)
-        .traverse { context =>
+      contexts.get(contextId) match {
+        case Some(context) =>
           context.interpretScript(scriptName, canceledByRequest).map {
             case error: IdeLedgerRunner.ScriptError =>
-              Left(
+              val scriptError =
                 new Conversions(
                   context.homePackageId,
                   error.ledger,
@@ -245,9 +241,9 @@ class ScriptService(implicit
                   context.devMode,
                 )
                   .convertScriptError(error.error)
-              )
+              Some(Left(scriptError))
             case success: IdeLedgerRunner.ScriptSuccess =>
-              Right(
+              val scriptResult =
                 new Conversions(
                   context.homePackageId,
                   success.ledger,
@@ -259,9 +255,10 @@ class ScriptService(implicit
                   context.devMode,
                 )
                   .convertScriptResult(success.resultValue)
-              )
+              Some(Right(scriptResult))
           }
-        }
+        case None => Future.successful(None)
+      }
 
     Future {
       val startedAt = Instant.now.toEpochMilli

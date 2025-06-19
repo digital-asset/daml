@@ -61,7 +61,7 @@ withTempDirResource f = withResource newTempDir delete (f . fmap fst)
 --
 -- >>> :t withResourceCps withDevNull
 -- withResourceCps withDevNull :: (IO Handle -> TestTree) -> TestTree
-withResourceCps :: ((a -> IO ()) -> IO ()) -> ((IO a -> TestTree) -> TestTree)
+withResourceCps :: ((a -> IO ()) -> IO ()) -> (IO a -> TestTree) -> TestTree
 withResourceCps withResourceIO f = withResource acquire release action
   where
     acquire = do
