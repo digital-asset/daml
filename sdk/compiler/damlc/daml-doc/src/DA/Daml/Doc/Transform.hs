@@ -18,8 +18,8 @@ import Data.Maybe
 applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
 applyTransform opts@TransformOptions{..}
     = distributeInstanceDocs opts
-    . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
     . (if to_ignoreAnnotations then id else applyAnnotations)
+    . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
     . (if to_dataOnly then map pruneNonData else id)
     . filter (keepModule opts)
   where
