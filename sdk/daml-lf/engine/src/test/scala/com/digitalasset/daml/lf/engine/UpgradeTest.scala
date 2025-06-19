@@ -509,9 +509,6 @@ trait UpgradeTestCases {
       val v2KeyTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}Key"
       val v2ChoiceArgTypeQualifiedName = s"'$v2PkgId':Mod:${templateName}ChoiceArgType"
 
-      // change `p` on Client to alice, add bob
-      // update Mod:alice and Mod:bob to index that instead
-      // drop alice and bob from common defs
       val createV1ContractExpr =
         s""" create
            |    @$v1TplQualifiedName
