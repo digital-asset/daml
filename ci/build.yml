@@ -54,11 +54,20 @@ jobs:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
+    - checkout: self
+    - bash: |
+        echo "The checkout step failed. Displaying Git status to identify unstaged changes:"
+        set -euo pipefail
+        cd sdk
+        git status
+      displayName: 'Show Git Status on Checkout Failure'
+      condition: failed()
     - bash: |
         set -euo pipefail
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/docs-sphinx-build.sh
+      condition: succeeded()
 
 - job: Linux
   dependsOn:
