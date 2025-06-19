@@ -41,6 +41,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 type Just a = Maybe a
 
 type InternedKindsMap = IM.InternedMap P.KindSum Int32
+type InternedTypesMap = IM.InternedMap P.TypeSum Int32
 
 type Encode a = State EncodeEnv a
 
@@ -56,6 +57,7 @@ data EncodeEnv = EncodeEnv
     , nextInternedTypeId :: !Int32
 
     , _internedKindsMap :: InternedKindsMap
+    , _internedTypesMap :: InternedTypesMap
     }
 
 makeLenses ''EncodeEnv
@@ -70,6 +72,7 @@ initEncodeEnv version =
     , internedTypes = Map.empty
     , nextInternedTypeId = 0
     , _internedKindsMap = IM.empty
+    , _internedTypesMap = IM.empty
     , ..
     }
 
@@ -346,18 +349,31 @@ encodeType :: Type -> Encode (Just P.Type)
 encodeType = (Just <$>) . encodeType'
 
 allocType :: P.TypeSum -> Encode P.Type
-allocType ptyp = fmap (P.Type . Just) $ do
-    env@EncodeEnv{internedTypes, nextInternedTypeId = n} <- get
-    case ptyp `Map.lookup` internedTypes of
-        Just n -> pure (P.TypeSumInterned n)
-        Nothing -> do
-            when (n == maxBound) $
-                error "Type interning table grew too large"
-            put $! env
-                { internedTypes = Map.insert ptyp n internedTypes
-                , nextInternedTypeId = n + 1
-                }
-            pure (P.TypeSumInterned n)
+allocType = internType . P.Type . Just
+-- allocType ptyp = fmap (P.Type . Just) $ do
+--     env@EncodeEnv{internedTypes, nextInternedTypeId = n} <- get
+--     case ptyp `Map.lookup` internedTypes of
+--         Just n -> pure (P.TypeSumInterned n)
+--         Nothing -> do
+--             when (n == maxBound) $
+--                 error "Type interning table grew too large"
+--             put $! env
+--                 { internedTypes = Map.insert ptyp n internedTypes
+--                 , nextInternedTypeId = n + 1
+--                 }
+--             pure (P.TypeSumInterned n)
+
+internType :: P.Type -> Encode P.Type
+internType t =
+  do
+    EncodeEnv{version} <- get
+    if isDevVersion version
+      then case t of
+        (P.Type (Just t')) -> do
+            n <- zoom internedTypesMap $ IM.internState t'
+            return $ (P.Type . Just . P.TypeSumInterned) n
+        (P.Type Nothing) -> error "nothing type during encoding"
+      else return t
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
