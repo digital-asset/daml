@@ -856,11 +856,11 @@ generatePackageDepsRule options =
         -- build package
         return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs)
 
-contextForFile :: NormalizedFilePath -> Action SS.Context
-contextForFile file = do
+contextForModule :: NormalizedFilePath -> Action SS.Context
+contextForModule modFile = do
     lfVersion <- getDamlLfVersion
-    WhnfPackage pkg <- use_ GeneratePackage file
-    PackageMap pkgMap <- use_ GeneratePackageMap file
+    WhnfPackage pkg <- use_ GeneratePackage modFile
+    PackageMap pkgMap <- use_ GeneratePackageMap modFile
     stablePackages <- useNoFile_ GenerateStablePackages
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
@@ -873,23 +873,19 @@ contextForFile file = do
         , ctxPackageMetadata = LF.packageMetadata pkg
         }
 
-contextForPackage :: NormalizedFilePath -> LF.Package -> Action SS.Context
-contextForPackage file pkg = do
-    lfVersion <- getDamlLfVersion
-    encodedModules <-
-        mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
-        NM.toList $ LF.packageModules pkg
+contextForExtPkg :: NormalizedFilePath -> LF.ExternalPackage -> Action SS.Context
+contextForExtPkg file extPkg = do
     PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- useNoFile_ GenerateStablePackages
     pure
         SS.Context
-            { ctxModules = Map.fromList encodedModules
+            { ctxModules = Map.empty -- modules are loaded as a package
             , ctxPackages =
                   [ (LF.dalfPackageId pkg, LF.dalfPackageBytes pkg)
                   | pkg <- Map.elems pkgMap ++ Map.elems stablePackages
                   ]
             , ctxSkipValidation = SS.SkipValidation True -- no validation for external packages
-            , ctxPackageMetadata = LF.packageMetadata pkg
+            , ctxPackageMetadata = LF.packageMetadata $ LF.extPackagePkg extPkg
             }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
@@ -909,7 +905,7 @@ instance Exception ScriptBackendException
 createScriptContextRule :: Rules ()
 createScriptContextRule =
     define $ \CreateScriptContext file -> do
-        ctx <- contextForFile file
+        ctx <- contextForModule file
         Just scriptService <- envScriptService <$> getDamlServiceEnv
         scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
         -- We need to keep the lock while creating the context not just while
@@ -958,7 +954,7 @@ getScriptsRule =
       let scripts =
               [ VRScript file name
               | (sc, _scLoc) <- scriptsInModule m
-              , let name = LF.unExprValName $ LF.qualObject sc
+              , let name = LF.unExprValName sc
               , testFilter name]
       pure ([], Just scripts)
 
@@ -976,17 +972,15 @@ runSingleScriptRule =
       ctxId <- use_ CreateScriptContext ctxRoot
 
       let scripts =
-              [ sc
-              | (sc, _scLoc) <- scriptsInModule m
-              , targetScriptName == LF.unExprValName (LF.qualObject sc)]
+            [ (sc, loc)
+            | (sc, loc) <- scriptsInModule m
+            , targetScriptName == LF.unExprValName sc]
 
       lvl <- getDetailLevel
       scriptResults <-
-          forM scripts $ \script -> do
-              (vr, res) <- runScript scriptService file ctxId script
-              let scriptName = LF.qualObject script
-              let mbLoc = NM.lookup scriptName (LF.moduleValues m) >>= LF.dvalLocation
-              let range = maybe noRange sourceLocToRange mbLoc
+          forM scripts $ \(script, loc) -> do
+              (vr, res) <- runScript scriptService file ctxId (LF.moduleName m) script
+              let range = maybe noRange sourceLocToRange loc
               pure (toDiagnostics lvl world file range res, (vr, res))
       let (diags, results) = unzip scriptResults
       pure (concat diags, Just results)
@@ -996,9 +990,9 @@ runScriptsPkg ::
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
-runScriptsPkg projRoot extPkg pkgs = do
+runScriptsPkg file extPkg pkgs = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
-    ctx <- contextForPackage projRoot pkg
+    ctx <- contextForExtPkg file extPkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx
     ctxId <-
         liftIO $
@@ -1007,21 +1001,13 @@ runScriptsPkg projRoot extPkg pkgs = do
             pure
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
-    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert projRoot ctxId
-    rs <- do
-        lvl <- getDetailLevel
-        scriptResults <- forM scripts $ \script ->
-            runScript
-                scriptService
-                pkgName'
-                ctxId
-                script
-        pure $
-            [ (toDiagnostics lvl world pkgName' noRange res, (vr, res))
-            | (vr, res) <- scriptResults
-            ]
-    let (diags, results) = unzip rs
-    pure (concat diags, Just results)
+    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert file ctxId
+    lvl <- getDetailLevel
+    results <- forM scripts $ \(modName, script) -> 
+        runScript scriptService pkgName' ctxId modName script
+    -- modify result to map back to PackageId
+    let diags = concatMap (toDiagnostics lvl world pkgName' noRange . snd) results
+    pure (diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
     pkgName' =
@@ -1030,12 +1016,12 @@ runScriptsPkg projRoot extPkg pkgs = do
         LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
     world = LF.initWorldSelf pkgs pkg
     scripts =
-        map fst $
-        concat
-            [ scriptsInModule mod
-            | mod <- NM.elems $ LF.packageModules pkg
-            , not $ ["Daml", "Script"] `isPrefixOf` LF.unModuleName (LF.moduleName mod)
-            ]
+        [ (modName, sc)
+        | mod <- NM.elems $ LF.packageModules pkg
+        , let modName = LF.moduleName mod
+        , not $ ["Daml", "Script"] `isPrefixOf` LF.unModuleName modName
+        , (sc, _scLoc) <- scriptsInModule mod
+        ]
 
 toDiagnostics ::
        PrettyLevel
@@ -1365,13 +1351,12 @@ formatScriptResult lvl world errOrRes =
         Right res ->
             LF.renderScriptResult lvl world res
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> Action (VirtualResource, Either SS.Error SS.ScriptResult)
-runScript scriptService file ctxId script = do
+runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ModuleName -> LF.ExprValName -> Action (VirtualResource, Either SS.Error SS.ScriptResult)
+runScript scriptService file ctxId moduleName scriptName = do
     ShakeExtras {lspEnv} <- getShakeExtras
-    let scriptName = LF.qualObject script
-    let vr = VRScript file (LF.unExprValName scriptName)
+    let vr = VRScript file $ LF.unExprValName scriptName
     logger <- actionLogger
-    res <- liftIO $ SS.runLiveScript scriptService ctxId logger script $ vrProgressNotification lspEnv vr
+    res <- liftIO $ SS.runLiveScript scriptService ctxId logger moduleName scriptName $ vrProgressNotification lspEnv vr
     pure (vr, res)
 
 encodeModuleRule :: Options -> Rules ()
@@ -1478,9 +1463,9 @@ isDamlScriptModule (LF.ModuleName ["Daml", "Script"]) = True
 isDamlScriptModule (LF.ModuleName ["Daml", "Script", "Internal", "LowLevel"]) = True
 isDamlScriptModule _ = False
 
-scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
+scriptsInModule :: LF.Module -> [(LF.ExprValName, Maybe LF.SourceLoc)]
 scriptsInModule m =
-    [ (LF.Qualified LF.SelfPackageId (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
+    [ (LF.dvalName val, LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m)
     , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
     , LF.TConApp (LF.Qualified _ damlScriptModule (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]

@@ -107,7 +107,7 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updSkipValidation :: SkipValidation
-  , updPackageMetadata :: LF.PackageMetadata 
+  , updPackageMetadata :: LF.PackageMetadata
   }
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -328,7 +328,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
-          (Just $ convPackageMetadata updPackageMetadata)
+          (Just $ convPackageMetadata updPackageMetadata) 
   pure (void res)
   where
     updModules =
@@ -352,28 +352,20 @@ mangleModuleName (LF.ModuleName modName) =
     T.intercalate "." $
     map (fromRight (error "Failed to mangle script module name") . mangleIdentifier) modName
 
-toIdentifier :: LF.ValueRef -> SS.Identifier
-toIdentifier (LF.Qualified pkgId modName defn) =
-  let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
-        LF.SelfPackageId     -> SS.PackageIdentifierSumSelf SS.Empty
-        LF.ImportedPackageId x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
-      mangledDefn =
-          fromRight (error "Failed to mangle script name") $
-          mangleIdentifier (LF.unExprValName defn)
-      mangledModName = mangleModuleName modName
-  in
-    SS.Identifier
-      (Just ssPkgId)
-      (TL.fromStrict $ mangledModName <> ":" <> mangledDefn)
+mangleScriptName :: LF.ModuleName -> LF.ExprValName -> TL.Text
+mangleScriptName modName scriptName = 
+  TL.fromStrict $
+  mangleModuleName modName
+  <> ":"
+  <> fromRight (error "Failed to mangle script name") (mangleIdentifier $ LF.unExprValName scriptName)
 
-runScript :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScriptResult)
-runScript Handle{..} (ContextId ctxId) name = do
+runScript :: Handle -> ContextId -> LF.ModuleName -> LF.ExprValName -> IO (Either Error SS.ScriptResult)
+runScript Handle{..} (ContextId ctxId) modName scriptName = do
   res <-
     performRequest
       (SS.scriptServiceRunScript hClient)
       (optGrpcTimeout hOptions)
-      (SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $
-        SS.RunScriptStart ctxId (Just (toIdentifier name)))
+      (SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $ SS.RunScriptStart ctxId $ mangleScriptName modName scriptName)
   pure $ case res of
     Left err -> Left (BackendError err)
     Right (SS.RunScriptResponse (Just (SS.RunScriptResponseResponseError err))) -> Left (ScriptError err)
@@ -395,12 +387,11 @@ runBiDiLive
   :: (SS.ScriptService ClientRequest ClientResult
       -> ClientRequest 'BiDiStreaming SS.RunScriptRequest SS.RunScriptResponseOrStatus
       -> IO (ClientResult 'BiDiStreaming SS.RunScriptResponseOrStatus))
-  -> Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
+  -> Handle -> ContextId -> TL.Text -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
   -> IO (Either Error SS.ScriptResult)
-runBiDiLive runner Handle{..} (ContextId ctxId) name logger stopSemaphore statusUpdateHandler = do
+runBiDiLive runner Handle{..} (ContextId ctxId) scriptName logger stopSemaphore statusUpdateHandler = do
   let startReq =
-        SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $
-          SS.RunScriptStart ctxId (Just (toIdentifier name))
+        SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $ SS.RunScriptStart ctxId scriptName
   let cancelReq = SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumCancel SS.RunScriptCancel
 
   (updateFinalResponse, getFinalResponse) <- do
@@ -501,6 +492,7 @@ instance Semigroup ScriptResultUpdate where
     MultipleResponses (toMultipleResponses res1 ++ toMultipleResponses res2)
 
 runLiveScript
-  :: Handle -> ContextId -> LF.ValueRef -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
+  :: Handle -> ContextId -> LF.ModuleName -> LF.ExprValName -> Logger -> MVar Bool -> (SS.ScriptStatus -> IO ())
   -> IO (Either Error SS.ScriptResult)
-runLiveScript = runBiDiLive SS.scriptServiceRunLiveScript
+runLiveScript handle context modName scriptName =
+  runBiDiLive SS.scriptServiceRunLiveScript handle context (mangleScriptName modName scriptName)

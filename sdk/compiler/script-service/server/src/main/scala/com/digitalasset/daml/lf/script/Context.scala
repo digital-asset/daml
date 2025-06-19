@@ -8,14 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.data.{ImmArray, assertRight}
-import com.digitalasset.daml.lf.data.Ref.{
-  Identifier,
-  ModuleName,
-  PackageId,
-  PackageName,
-  PackageVersion,
-  QualifiedName,
-}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
@@ -80,12 +73,10 @@ class Context(
   private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SDefinition]] = HashMap.empty
-  private var defns: Map[SDefinitionRef, SDefinition] = HashMap.empty
-  private var selfPackageMetadata: Ast.PackageMetadata = Ast.PackageMetadata(
-    name = PackageName.assertFromString("-dummy-package-name-"),
-    version = PackageVersion.assertFromString("0.0.0"),
-    upgradedPackageId = None,
-  )
+  // the if of the package that contains the scripts to run
+  // can be different from the home package id if we run scripts from an external package
+  private var packageId: PackageId = homePackageId
+  private var allSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
@@ -96,8 +87,8 @@ class Context(
     newCtx.extDefns = extDefns
     newCtx.modules = modules
     newCtx.modDefns = modDefns
-    newCtx.defns = defns
-    newCtx.selfPackageMetadata = selfPackageMetadata
+    newCtx.packageId = packageId
+    newCtx.allSignatures = allSignatures
     newCtx
   }
 
@@ -108,7 +99,7 @@ class Context(
       unloadPackages: Set[PackageId],
       loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
-      selfPackageMetadata: Option[Ast.PackageMetadata],
+      packageMetadata: Ast.PackageMetadata,
   ): Unit = synchronized {
 
     val newModules = loadModules.map(module =>
@@ -137,49 +128,58 @@ class Context(
         newModules
       }
 
-    selfPackageMetadata.foreach(this.selfPackageMetadata = _)
-    val pkgInterface = new language.PackageInterface(allSignatures)
-    val compiler = new Compiler(pkgInterface, compilerConfig)
-
-    modulesToCompile.foreach { mod =>
-      if (!omitValidation)
-        assertRight(
-          Validation
-            .checkModule(pkgInterface, homePackageId, mod)
-            .left
-            .map(_.pretty)
-        )
-      modDefns +=
-        mod.name -> compiler.unsafeCompileModule(homePackageId, mod).toMap
+    if (modules.nonEmpty) {
+      // we don't have a package id for these modules, so we use the default homePackageId
+      packageId = homePackageId
+      allSignatures = extSignatures.updated(
+        packageId,
+        AstUtil.toSignature(
+          Ast.Package(modules, extSignatures.keySet, languageVersion, packageMetadata)
+        ),
+      )
+      val pkgInterface = new language.PackageInterface(allSignatures)
+      val compiler = new Compiler(pkgInterface, compilerConfig)
+      modulesToCompile.foreach { mod =>
+        if (!omitValidation)
+          assertRight(
+            Validation
+              .checkModule(pkgInterface, packageId, mod)
+              .left
+              .map(_.pretty)
+          )
+        modDefns +=
+          mod.name -> compiler.unsafeCompileModule(packageId, mod).toMap
+      }
+    } else {
+      // the context's package is either an already loaded package or an empty package that has no module
+      val packageSig = extSignatures.find { case (_, sig) =>
+        sig.metadata.name == packageMetadata.name && sig.metadata.version == packageMetadata.version
+      }
+      packageSig match {
+        case Some((pkgId, _)) =>
+          this.packageId = pkgId
+          this.allSignatures = extSignatures
+        case None =>
+          this.packageId = homePackageId
+          this.allSignatures = extSignatures.updated(
+            packageId,
+            Ast.PackageSignature(Map.empty, extSignatures.keySet, languageVersion, packageMetadata),
+          )
+      }
     }
-
-    defns = extDefns
-    modDefns.values.foreach(defns ++= _)
-  }
-
-  def allSignatures: Map[PackageId, Ast.PackageSignature] = {
-    val extSignatures = this.extSignatures
-    extSignatures.updated(
-      homePackageId,
-      AstUtil.toSignature(
-        Ast.Package(modules, extSignatures.keySet, languageVersion, selfPackageMetadata)
-      ),
-    )
   }
 
   def interpretScript(
-      pkgId: String,
       name: String,
-      canceledByRequest: () => Boolean = () => false,
+      canceledByRequest: () => Boolean,
   )(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Option[IdeLedgerRunner.ScriptResult]] = {
-    val defns = this.defns
+  ): Future[IdeLedgerRunner.ScriptResult] = {
+    val defns = extDefns ++ modDefns.values.flatten
     val compiledPackages = PureCompiledPackages(allSignatures, defns, compilerConfig)
-    val scriptId =
-      Identifier(PackageId.assertFromString(pkgId), QualifiedName.assertFromString(name))
+    val scriptId = Identifier(packageId, QualifiedName.assertFromString(name))
     val traceLog = Speedy.Machine.newTraceLog
     val warningLog = Speedy.Machine.newWarningLog
     val profile = Speedy.Machine.newProfile
@@ -208,16 +208,14 @@ class Context(
       // SError are the errors that should be handled and displayed as
       // failed partial transactions.
       Success(
-        Some(
-          IdeLedgerRunner.ScriptError(
-            ideLedgerContext.ledger,
-            traceLog,
-            warningLog,
-            ideLedgerContext.currentSubmission,
-            // TODO (MK) https://github.com/digital-asset/daml/issues/7276
-            ImmArray.Empty,
-            e,
-          )
+        IdeLedgerRunner.ScriptError(
+          ideLedgerContext.ledger,
+          traceLog,
+          warningLog,
+          ideLedgerContext.currentSubmission,
+          // TODO (MK) https://github.com/digital-asset/daml/issues/7276
+          ImmArray.Empty,
+          e,
         )
       )
 
@@ -227,16 +225,14 @@ class Context(
     resultF.transform {
       case Success(v) =>
         Success(
-          Some(
-            IdeLedgerRunner.ScriptSuccess(
-              ideLedgerContext.ledger,
-              traceLog,
-              warningLog,
-              profile,
-              dummyDuration,
-              dummySteps,
-              v,
-            )
+          IdeLedgerRunner.ScriptSuccess(
+            ideLedgerContext.ledger,
+            traceLog,
+            warningLog,
+            profile,
+            dummyDuration,
+            dummySteps,
+            v,
           )
         )
       case Failure(e: Error) => handleFailure(e)

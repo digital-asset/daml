@@ -106,7 +106,8 @@ message UpdateContextRequest {
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
   bool noValidation = 4; // if true, does not run the package validations
-  PackageMetadata self_package_metadata = 5;
+   // the metadata of the package that contains the scripts to run
+  PackageMetadata package_metadata = 5;
 }
 
 message UpdateContextResponse {
@@ -125,7 +126,7 @@ message RunScriptRequest {
 
 message RunScriptStart {
   int64 context_id = 1;
-  Identifier script_id = 2;
+  string script_name = 3;
 }
 
 message RunScriptCancel {
