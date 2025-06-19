@@ -31,6 +31,9 @@ module Daml.Script.Internal
     ContractNotFoundAdditionalInfo
   , isNotActive
   , DevErrorType (..)
+
+  , -- Deprecated. Should be removed soon
+    trySubmitConcurrently
   ) where
 
 import Daml.Script.Internal.Questions

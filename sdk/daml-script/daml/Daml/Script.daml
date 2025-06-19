@@ -29,7 +29,6 @@ module Daml.Script
   , prefetchKeys
   , SubmitOptions
   , concurrently
-  , trySubmitConcurrently
   -- Backwards compat submits
   , submitMulti
   , submitMultiMustFail
