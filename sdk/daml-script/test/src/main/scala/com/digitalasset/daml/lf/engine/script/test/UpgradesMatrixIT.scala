@@ -48,7 +48,7 @@ class UpgradeTestIntegration
     os.toByteString
   }
 
-  override lazy val languageVersion: LanguageVersion = LanguageVersion.v2_dev
+  override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
 
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   override protected val disableUpgradeValidation: Boolean = true
@@ -97,7 +97,7 @@ class UpgradeTestIntegration
     )
     scriptClient = new GrpcLedgerClient(
       client,
-      Some(Ref.ApplicationId.assertFromString("upgrade-test-matrix")),
+      Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
       None,
       compiledPackages,
     )
@@ -114,7 +114,7 @@ class UpgradeTestIntegration
         readAs = Set(),
         disclosures = List(),
         optPackagePreference = None,
-        commands = List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId, arg), true)),
+        commands = List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
         prefetchContractKeys = List(),
         optLocation = None,
         languageVersionLookup =
@@ -196,22 +196,22 @@ class UpgradeTestIntegration
       commands = apiCommands.toList.map {
         case n @ ApiCommand.Create(`tplRef`, _) =>
           ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = TypeConRef.fromIdentifier(testHelper.v1TplId)),
+            n.copy(templateRef = testHelper.v1TplId.toRef),
             false,
           )
         case n @ ApiCommand.Exercise(`tplRef`, _, _, _) =>
           ScriptLedgerClient.CommandWithMeta(
-            n.copy(typeRef = TypeConRef.fromIdentifier(testHelper.v1TplId)),
+            n.copy(typeRef = testHelper.v1TplId.toRef),
             false,
           )
         case n @ ApiCommand.ExerciseByKey(`tplRef`, _, _, _) =>
           ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = TypeConRef.fromIdentifier(testHelper.v1TplId)),
+            n.copy(templateRef = testHelper.v1TplId.toRef),
             false,
           )
         case n @ ApiCommand.CreateAndExercise(`tplRef`, _, _, _) =>
           ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = TypeConRef.fromIdentifier(testHelper.v1TplId)),
+            n.copy(templateRef = testHelper.v1TplId.toRef),
             false,
           )
         case n => ScriptLedgerClient.CommandWithMeta(n, true)
@@ -245,7 +245,6 @@ class UpgradeTestIntegration
           error should (
             be(a[SubmitError.UpgradeError.ValidationFailed]) or
               be(a[SubmitError.UpgradeError.DowngradeDropDefinedField]) or
-              be(a[SubmitError.UpgradeError.ViewMismatch]) or
               be(a[SubmitError.UpgradeError.DowngradeFailed])
           )
         }
