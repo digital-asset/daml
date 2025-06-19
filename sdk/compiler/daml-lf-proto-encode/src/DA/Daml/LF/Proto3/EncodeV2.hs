@@ -26,7 +26,6 @@ import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
 import           Data.Int
-import           Data.Word (Word32)
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
@@ -41,7 +40,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
-type InternedKindsMap = IM.InternedMap P.KindSum Word32
+type InternedKindsMap = IM.InternedMap P.KindSum Int32
 
 type Encode a = State EncodeEnv a
 
