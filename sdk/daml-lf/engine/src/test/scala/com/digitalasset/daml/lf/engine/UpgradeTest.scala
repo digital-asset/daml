@@ -98,8 +98,7 @@ class UpgradeTestUnit
         version = langVersion,
         packageName = clientPkg.pkgName,
         template = testHelper.clientTplId,
-        arg =
-          testHelper.clientContractArg(setupData.alice, setupData.bob),
+        arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
       )
 
     val globalContract: FatContractInstance =
@@ -233,7 +232,7 @@ abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers with Up
               for (entryPoint <- entryPoints) {
                 entryPoint.name - {
                   for (contractOrigin <- contractOrigins) {
-                    contractOrigin.name - {
+                    (testCase.templateName + "_" + operation.name + "_" + contractOrigin.name) - {
                       testHelper
                         .makeApiCommands(
                           operation,
@@ -407,10 +406,16 @@ trait UpgradeTestCases {
       ImmArray.empty
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    def additionalv1KeyArgsValue(@nowarn v1PkgId: PackageId, @nowarn setupData: SetupData): ImmArray[(Option[Name], Value)] =
+    def additionalv1KeyArgsValue(
+        @nowarn v1PkgId: PackageId,
+        @nowarn setupData: SetupData,
+    ): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
     // Used for creating *ByKey commands
-    def additionalv2KeyArgsValue(@nowarn v2PkgId: PackageId, @nowarn setupData: SetupData): ImmArray[(Option[Name], Value)] =
+    def additionalv2KeyArgsValue(
+        @nowarn v2PkgId: PackageId,
+        @nowarn setupData: SetupData,
+    ): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
     // Used for looking up contracts by key in choice bodies
     def additionalv2KeyArgsLf(v2PkgId: PackageId): String = ""
@@ -1678,7 +1683,10 @@ trait UpgradeTestCases {
     override def v2AdditionalKeyFields: String = ""
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    override def additionalv1KeyArgsValue(v1PkgId: PackageId, setupData: SetupData): ImmArray[(Option[Name], Value)] =
+    override def additionalv1KeyArgsValue(
+        v1PkgId: PackageId,
+        setupData: SetupData,
+    ): ImmArray[(Option[Name], Value)] =
       ImmArray(
         Some("extra": Name) -> ValueOptional(Some(ValueUnit))
       )
