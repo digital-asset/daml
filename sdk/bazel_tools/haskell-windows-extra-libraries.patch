@@ -1,9 +1,9 @@
 diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index ef1d06f9..c6f40536 100644
+index 842b9eee..2c0e31a5 100644
 --- a/haskell/private/actions/package.bzl
 +++ b/haskell/private/actions/package.bzl
-@@ -101,7 +101,13 @@ def package(
-         "import-dirs": [import_dir],
+@@ -102,7 +102,13 @@ def package(
+         "import-dirs": [import_dir] if has_iface else [],
          "library-dirs": [pkgroot_lib_path] + extra_lib_dirs,
          "dynamic-library-dirs": [pkgroot_lib_path] + extra_dynamic_lib_dirs,
 -        "extra-libraries": extra_libs,
