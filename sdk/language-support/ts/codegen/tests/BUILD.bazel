@@ -108,6 +108,7 @@ sh_test(
         "$(location //test-common:model-tests-2.1.dar)",
         "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
+        "$(location //canton:openapi_ts)",
         "$(POSIX_DIFF)",
     ],
     data = [
@@ -117,6 +118,7 @@ sh_test(
         "//:java",
         "//:yarn",
         "//canton:community_app_deploy.jar",
+        "//canton:openapi_ts",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major
@@ -151,6 +153,7 @@ sh_test(
         "$(location @jq_dev_env//:jq)",
         "$(location :npmcheck1.dar)",
         "$(location :npmcheck2.dar)",
+        "$(location @nodejs//:node)",
         sdk_version,
     ],
     data = [
@@ -158,6 +161,7 @@ sh_test(
         ":npmcheck2.dar",
         "//:daml2js",
         "@jq_dev_env//:jq",
+        "@nodejs//:node",
         "@nodejs//:npm_bin",
     ],
     deps = [

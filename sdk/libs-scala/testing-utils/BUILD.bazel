@@ -44,6 +44,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "testing-utils-tests",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     deps = [
         ":testing-utils",
     ],

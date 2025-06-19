@@ -6,6 +6,7 @@
   ],
   "resolutions": {
     "@daml/types": "file:daml-types",
-    "@daml/ledger": "file:daml-ledger"
+    "@daml/ledger": "file:daml-ledger",
+    "@daml/openapi": "file:daml-openapi"
   }
 }
