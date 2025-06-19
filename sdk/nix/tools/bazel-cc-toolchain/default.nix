@@ -52,6 +52,9 @@ let
           echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
           echo "-resource-dir=${stdenv.cc}/resource-root" >> $out/nix-support/cc-cflags
           echo "-D_DNS_SD_LIBDISPATCH" >> $out/nix-support/cc-cflags # Needed for DNSServiceSetDispatchQueue to be available for gRPC
+        ''
+        + lib.optionalString (builtins.hasAttr "libcxxabi" llvmPackages) ''
+          echo "-L${llvmPackages.libcxxabi}/lib" >> $out/nix-support/cc-cflags
         '';
       nativeTools = false;
     };
