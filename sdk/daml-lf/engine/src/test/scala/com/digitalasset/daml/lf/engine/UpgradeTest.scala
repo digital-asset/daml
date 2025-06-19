@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
@@ -25,6 +24,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, ParallelTestExecution}
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import scala.annotation.nowarn
 import scala.collection.immutable
@@ -81,7 +81,7 @@ class UpgradeTestUnit
   def normalize(value: Value, typ: Ast.Type): Value = {
     Machine.fromPureSExpr(compiledPackages, SEImportValue(typ, value)).runPure() match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-      case Right(sValue) => sValue.toNormalizedValue(languageVersion)
+      case Right(sValue) => sValue.toNormalizedValue(langVersion)
     }
   }
 
@@ -93,29 +93,27 @@ class UpgradeTestUnit
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: ContractOrigin,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
-    val clientContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
-        clientPkg.pkgName,
-        Some(clientPkg.metadata.version),
-        testHelper.clientTplId,
-        testHelper.clientContractArg(setupData.alice, setupData.bob),
+    val clientContract: FatContractInstance =
+      FatContractInstance.fromThinInstance(
+        version = langVersion,
+        packageName = clientPkg.pkgName,
+        template = testHelper.clientTplId,
+        arg =
+          testHelper.clientContractArg(setupData.alice, setupData.bob),
       )
-    )
 
-    val globalContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
-        templateDefsV1Pkg.pkgName,
-        Some(templateDefsV1Pkg.metadata.version),
-        testHelper.v1TplId,
-        testHelper.globalContractArg(setupData.alice, setupData.bob),
+    val globalContract: FatContractInstance =
+      FatContractInstance.fromThinInstance(
+        version = langVersion,
+        packageName = clientPkg.pkgName,
+        template = testHelper.v1TplId,
+        arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
       )
-    )
 
     val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = languageVersion,
+      version = langVersion,
       contractId = setupData.globalContractId,
       packageName = templateDefsPkgName,
-      packageVersion = None,
       templateId = testHelper.v1TplId,
       createArg = normalize(
         testHelper.globalContractArg(setupData.alice, setupData.bob),
@@ -124,7 +122,7 @@ class UpgradeTestUnit
       signatories = immutable.TreeSet(setupData.alice),
       stakeholders = immutable.TreeSet(setupData.alice),
       contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
-      createdAt = Time.Timestamp.Epoch,
+      createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
       cantonData = Bytes.assertFromString("00"),
     )
 
@@ -267,7 +265,7 @@ abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers with Up
 
 trait UpgradeTestCases {
 
-  val langVersion: LanguageVersion =
+  lazy val langVersion: LanguageVersion =
     LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
 
   private[this] implicit def parserParameters(implicit
@@ -281,7 +279,7 @@ trait UpgradeTestCases {
   def encodeDalfArchive(
       pkgId: PackageId,
       pkg: Ast.Package,
-      lfVersion: LanguageVersion = languageVersion,
+      lfVersion: LanguageVersion = langVersion,
   ): (String, Archive, Ast.Package, PackageId) = {
     val archive = Encode.encodeArchive(pkgId -> pkg, lfVersion)
     val computedPkgId = PackageId.assertFromString(archive.getHash)
