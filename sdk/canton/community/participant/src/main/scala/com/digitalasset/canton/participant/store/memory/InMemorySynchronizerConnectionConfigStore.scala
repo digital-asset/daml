@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
   SynchronizerConnectionConfigStore,
+  SynchronizerPredecessor,
 }
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasResolution,
@@ -58,6 +59,7 @@ class InMemorySynchronizerConnectionConfigStore(
       config: SynchronizerConnectionConfig,
       status: SynchronizerConnectionConfigStore.Status,
       configuredPSId: ConfiguredPhysicalSynchronizerId,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] = {
@@ -67,6 +69,8 @@ class InMemorySynchronizerConnectionConfigStore(
     val res = blocking {
       synchronized {
         for {
+          _ <- predecessorCompatibilityCheck(configuredPSId, synchronizerPredecessor)
+
           _ <- configuredPSId match {
             case KnownPhysicalSynchronizerId(psid) =>
               for {
@@ -80,7 +84,12 @@ class InMemorySynchronizerConnectionConfigStore(
           _ <- configuredSynchronizerMap
             .putIfAbsent(
               (config.synchronizerAlias, configuredPSId),
-              StoredSynchronizerConnectionConfig(config, status, configuredPSId),
+              StoredSynchronizerConnectionConfig(
+                config,
+                status,
+                configuredPSId,
+                synchronizerPredecessor,
+              ),
             )
             .fold(Either.unit[ConfigAlreadyExists])(existingConfig =>
               Either.cond(
@@ -275,6 +284,11 @@ class InMemorySynchronizerConnectionConfigStore(
 
             // Check that there exist one entry for this alias without psid
             config <- get(alias, UnknownPhysicalSynchronizerId)
+
+            _ <- predecessorCompatibilityCheck(
+              KnownPhysicalSynchronizerId(psid),
+              config.predecessor,
+            )
 
           } yield {
             configuredSynchronizerMap.addOne(

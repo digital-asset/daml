@@ -117,8 +117,7 @@ trait TopologyAwaiter extends FlagCloseable {
   */
 class StoreBasedSynchronizerTopologyClient(
     val clock: Clock,
-    val physicalSynchronizerId: PhysicalSynchronizerId,
-    store: TopologyStore[TopologyStoreId],
+    store: TopologyStore[TopologyStoreId.SynchronizerStore],
     packageDependenciesResolver: PackageDependencyResolverUS,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
@@ -128,7 +127,8 @@ class StoreBasedSynchronizerTopologyClient(
     with TopologyAwaiter
     with NamedLogging {
 
-  val synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+  def psid: PhysicalSynchronizerId = store.storeId.psid
+  val synchronizerId: SynchronizerId = psid.logical
 
   private val effectiveTimeAwaiter =
     new TimeAwaiter(

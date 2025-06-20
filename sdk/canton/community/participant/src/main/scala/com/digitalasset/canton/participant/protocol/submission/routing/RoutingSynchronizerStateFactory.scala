@@ -90,12 +90,12 @@ class RoutingSynchronizerStateImpl private[routing] (
                   case (cid, status) if status.status.isActive =>
                     (
                       cid,
-                      (connectedSynchronizer.synchronizerId, ContractStateStatus.Active),
+                      (connectedSynchronizer.psid, ContractStateStatus.Active),
                     )
                   case (cid, status) if status.status.isArchived =>
                     (
                       cid,
-                      (connectedSynchronizer.synchronizerId, ContractStateStatus.Archived),
+                      (connectedSynchronizer.psid, ContractStateStatus.Archived),
                     )
                 }
               (pending.filterNot(cid => done.contains(cid)), done)

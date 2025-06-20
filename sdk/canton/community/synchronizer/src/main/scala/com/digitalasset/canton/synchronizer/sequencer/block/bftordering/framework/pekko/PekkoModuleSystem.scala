@@ -248,33 +248,37 @@ object PekkoModuleSystem {
       futureUnlessShutdown: () => FutureUnlessShutdown[MessageT],
       orderingStage: Option[String] = None,
   ) {
-    def map[B](f: MessageT => B, orderingStage: Option[String] = None)(implicit
+    def map[B](f: MessageT => B, mapOrderingStage: Option[String] = None)(implicit
         ec: ExecutionContext
     ): PekkoFutureUnlessShutdown[B] =
-      PekkoFutureUnlessShutdown(action, () => futureUnlessShutdown().map(f), orderingStage)
+      PekkoFutureUnlessShutdown(
+        action,
+        () => futureUnlessShutdown().map(f),
+        mapOrderingStage,
+      )
 
     def flatMap[B](
         f: MessageT => PekkoFutureUnlessShutdown[B],
-        orderingStage: Option[String] = None,
+        flatMapOrderingStage: Option[String] = None,
     )(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[B] =
       PekkoFutureUnlessShutdown(
         s"$action.flatmap(...)",
         () => futureUnlessShutdown().flatMap(x => f(x).futureUnlessShutdown()),
-        orderingStage,
+        flatMapOrderingStage,
       )
 
     def failed(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[Throwable] =
       PekkoFutureUnlessShutdown(action, () => futureUnlessShutdown().failed)
 
-    def zip[Y](future2: PekkoFutureUnlessShutdown[Y], orderingStage: Option[String] = None)(implicit
-        ec: ExecutionContext
+    def zip[Y](future2: PekkoFutureUnlessShutdown[Y], zipOrderingStage: Option[String] = None)(
+        implicit ec: ExecutionContext
     ): PekkoFutureUnlessShutdown[(MessageT, Y)] =
       PekkoFutureUnlessShutdown(
         s"$action.zip(${future2.action})",
         () =>
           Applicative[FutureUnlessShutdown](parallelApplicativeFutureUnlessShutdown)
             .product(futureUnlessShutdown(), future2.futureUnlessShutdown()),
-        orderingStage,
+        zipOrderingStage,
       )
   }
 

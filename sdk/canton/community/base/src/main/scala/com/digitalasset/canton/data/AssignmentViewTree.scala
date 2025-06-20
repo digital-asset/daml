@@ -153,13 +153,16 @@ final case class AssignmentCommonData private (
     reassigningParticipants: Set[ParticipantId],
 )(
     hashOps: HashOps,
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      AssignmentCommonData.type
-    ],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[AssignmentCommonData](hashOps)
     with HasProtocolVersionedWrapper[AssignmentCommonData]
     with ReassignmentCommonData {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[
+    AssignmentCommonData.type
+  ] = AssignmentCommonData.protocolVersionRepresentativeFor(
+    targetSynchronizerId.unwrap.protocolVersion
+  )
 
   @transient override protected lazy val companionObj: AssignmentCommonData.type =
     AssignmentCommonData
@@ -204,24 +207,21 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetSynchronizer: Target[PhysicalSynchronizerId],
+      targetPSId: Target[PhysicalSynchronizerId],
       targetMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      targetProtocolVersion: Target[
-        ProtocolVersion
-      ], // TODO(#25482) Reduce duplication in parameters
       reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
-    targetSynchronizerId = targetSynchronizer,
+    targetSynchronizerId = targetPSId,
     targetMediatorGroup = targetMediatorGroup,
     stakeholders = stakeholders,
     uuid = uuid,
     submitterMetadata = submitterMetadata,
     reassigningParticipants = reassigningParticipants,
-  )(hashOps, protocolVersionRepresentativeFor(targetProtocolVersion.unwrap), None)
+  )(hashOps, None)
 
   private[this] def fromProtoV30(
       hashOps: HashOps,
@@ -263,8 +263,6 @@ object AssignmentCommonData
           .fromProtoPrimitive(uid, "reassigning_participant_uids")
           .map(ParticipantId(_))
       )
-
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield AssignmentCommonData(
       salt,
       targetSynchronizerId,
@@ -273,7 +271,7 @@ object AssignmentCommonData
       uuid,
       submitterMetadata,
       reassigningParticipants = reassigningParticipants.toSet,
-    )(hashOps, rpv, Some(bytes))
+    )(hashOps, Some(bytes))
   }
 }
 

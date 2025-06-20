@@ -30,7 +30,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
   private def buildTestInstance(
       behaviors: Map[SerializableContract, Either[String, Unit]]
   ) = new TransactionProcessingSteps(
-    synchronizerId = synchronizerId,
+    psid = synchronizerId,
     participantId = participantId,
     confirmationRequestFactory = mock[TransactionConfirmationRequestFactory],
     confirmationResponsesFactory = mock[TransactionConfirmationResponsesFactory],

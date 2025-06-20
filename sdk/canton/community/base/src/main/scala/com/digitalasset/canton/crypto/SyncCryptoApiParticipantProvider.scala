@@ -312,7 +312,7 @@ object SyncCryptoClient {
   */
 class SynchronizerCryptoClient private (
     val member: Member,
-    val physicalSynchronizerId: PhysicalSynchronizerId,
+    val psid: PhysicalSynchronizerId,
     val ips: SynchronizerTopologyClient,
     val crypto: SynchronizerCrypto,
     val syncCryptoSigner: SyncCryptoSigner,
@@ -326,7 +326,7 @@ class SynchronizerCryptoClient private (
     with NamedLogging
     with FlagCloseable {
 
-  val synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+  val synchronizerId: SynchronizerId = psid.logical
 
   override val pureCrypto: SynchronizerCryptoPureApi = crypto.pureCrypto
 
@@ -352,7 +352,7 @@ class SynchronizerCryptoClient private (
 
   def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
     new SynchronizerSnapshotSyncCryptoApi(
-      synchronizerId,
+      psid,
       snapshot,
       crypto,
       syncCryptoSigner,
@@ -489,7 +489,7 @@ object SynchronizerCryptoClient {
 
 /** crypto operations for a (synchronizer,timestamp) */
 class SynchronizerSnapshotSyncCryptoApi(
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: SynchronizerCrypto,
     val syncCryptoSigner: SyncCryptoSigner,

@@ -49,7 +49,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.retry.Pause
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ServerServiceDefinition
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.*
@@ -66,7 +65,6 @@ import BlockSequencerFactory.OrderingTimeFixMode
 class BlockSequencer(
     blockOrderer: BlockOrderer,
     name: String,
-    synchronizerId: PhysicalSynchronizerId,
     cryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
@@ -78,7 +76,6 @@ class BlockSequencer(
     futureSupervisor: FutureSupervisor,
     health: Option[SequencerHealthConfig],
     clock: Clock,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     minimumSequencingTime: CantonTimestamp,
@@ -107,9 +104,7 @@ class BlockSequencer(
       None,
       health,
       clock,
-      synchronizerId,
       sequencerId,
-      protocolVersion,
       cryptoApi,
       metrics,
       loggerFactory,
@@ -120,6 +115,8 @@ class BlockSequencer(
     with DatabaseSequencerIntegration
     with NamedLogging
     with FlagCloseableAsync {
+
+  private val protocolVersion = cryptoApi.protocolVersion
 
   private[sequencer] val pruningQueue = new SimpleExecutionQueue(
     "block-sequencer-pruning-queue",
@@ -651,8 +648,6 @@ class BlockSequencer(
       )
       _ <- trafficPurchasedSubmissionHandler.sendTrafficPurchasedRequest(
         member,
-        synchronizerId,
-        protocolVersion,
         serial,
         totalTrafficPurchased,
         sequencerClient,

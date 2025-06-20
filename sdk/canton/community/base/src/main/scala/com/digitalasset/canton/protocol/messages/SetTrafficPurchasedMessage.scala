@@ -21,14 +21,15 @@ final case class SetTrafficPurchasedMessage private (
     totalTrafficPurchased: NonNegativeLong,
     synchronizerId: PhysicalSynchronizerId,
 )(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      SetTrafficPurchasedMessage.type
-    ],
-    override val deserializedFrom: Option[ByteString],
+    override val deserializedFrom: Option[ByteString]
 ) extends ProtocolVersionedMemoizedEvidence
     with HasProtocolVersionedWrapper[SetTrafficPurchasedMessage]
     with PrettyPrinting
     with SignedProtocolMessageContent {
+
+  val representativeProtocolVersion: RepresentativeProtocolVersion[
+    SetTrafficPurchasedMessage.type
+  ] = SetTrafficPurchasedMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   // Only used in security tests, this is not part of the protobuf payload
   override val signingTimestamp: Option[CantonTimestamp] = None
@@ -80,12 +81,10 @@ object SetTrafficPurchasedMessage
       member: Member,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
-      synchronizerId: PhysicalSynchronizerId,
-      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
+      psid: PhysicalSynchronizerId,
   ): SetTrafficPurchasedMessage =
-    SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, synchronizerId)(
-      protocolVersionRepresentativeFor(protocolVersion),
-      None,
+    new SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, psid)(
+      None
     )
 
   def fromProtoV30(
@@ -102,16 +101,12 @@ object SetTrafficPurchasedMessage
         proto.physicalSynchronizerId,
         "physical_synchronizer_id",
       )
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
-    } yield SetTrafficPurchasedMessage(
+    } yield new SetTrafficPurchasedMessage(
       member,
       serial,
       totalTrafficPurchased,
       synchronizerId,
-    )(
-      rpv,
-      Some(bytes),
-    )
+    )(Some(bytes))
 
   implicit val setTrafficPurchasedCast: SignedMessageContentCast[SetTrafficPurchasedMessage] =
     SignedMessageContentCast.create[SetTrafficPurchasedMessage](

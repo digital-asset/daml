@@ -99,9 +99,8 @@ import scala.util.Random
 final class BftBlockOrderer(
     config: BftBlockOrdererConfig,
     sharedLocalStorage: Storage,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     sequencerId: SequencerId,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
     authenticationServicesO: Option[
@@ -122,7 +121,7 @@ final class BftBlockOrderer(
 
   import BftBlockOrderer.*
 
-  private implicit val synchronizerProtocolVersion: ProtocolVersion = protocolVersion
+  private implicit val protocolVersion: ProtocolVersion = psid.protocolVersion
 
   require(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
@@ -200,7 +199,7 @@ final class BftBlockOrderer(
   private val maybeServerAuthenticatingFilter =
     maybeAuthenticationServices.map { authenticationServices =>
       new ServerAuthenticatingServerFilter(
-        synchronizerId,
+        psid,
         sequencerId,
         authenticationServices.syncCryptoForAuthentication.crypto,
         Seq(protocolVersion),
@@ -214,8 +213,7 @@ final class BftBlockOrderer(
     val maybeGrpcNetworkingAuthenticationInitialState =
       maybeAuthenticationServices.map { authenticationServices =>
         GrpcNetworking.AuthenticationInitialState(
-          protocolVersion,
-          synchronizerId,
+          psid,
           sequencerId,
           authenticationServices,
           authenticationTokenManagerConfig,

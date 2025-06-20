@@ -465,8 +465,6 @@ object Availability {
     ) extends Consensus[E]
 
     final case class Ordered(batchIds: Seq[BatchId]) extends Consensus[Nothing]
-
-    final case object LocalClockTick extends Consensus[Nothing]
   }
 }
 

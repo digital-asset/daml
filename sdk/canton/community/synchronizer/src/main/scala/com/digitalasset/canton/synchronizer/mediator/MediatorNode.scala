@@ -216,14 +216,14 @@ class MediatorNodeBootstrap(
       case SynchronizerStore(synchronizerId) =>
         replicaManager.mediatorRuntime
           .map(_.mediator.topologyClient)
-          .filter(_.physicalSynchronizerId == synchronizerId)
+          .filter(_.psid == synchronizerId)
       case _ => None
     }
 
   override protected lazy val lookupActivePSId: PSIdLookup =
     synchronizerId =>
       synchronizerTopologyManager.get
-        .map(_.synchronizerId)
+        .map(_.psid)
         .filter(_.logical == synchronizerId)
 
   private lazy val deferredSequencerClientHealth =
@@ -315,10 +315,10 @@ class MediatorNodeBootstrap(
             PhysicalSynchronizerId,
         )
     ): EitherT[FutureUnlessShutdown, String, StartupNode] = {
-      val (staticSynchronizerParameters, synchronizerId) = result
+      val (staticSynchronizerParameters, psid) = result
       val synchronizerTopologyStore =
         TopologyStore(
-          SynchronizerStore(synchronizerId),
+          SynchronizerStore(psid),
           storage,
           staticSynchronizerParameters.protocolVersion,
           timeouts,
@@ -335,7 +335,6 @@ class MediatorNodeBootstrap(
           mediatorId,
           staticSynchronizerParameters,
           authorizedTopologyManager,
-          synchronizerId,
           synchronizerConfigurationStore,
           synchronizerTopologyStore,
           healthService,
@@ -404,7 +403,6 @@ class MediatorNodeBootstrap(
       mediatorId: MediatorId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
-      synchronizerId: PhysicalSynchronizerId,
       synchronizerConfigurationStore: MediatorSynchronizerConfigurationStore,
       synchronizerTopologyStore: TopologyStore[SynchronizerStore],
       healthService: DependenciesHealthService,
@@ -415,7 +413,7 @@ class MediatorNodeBootstrap(
       with HasCloseContext {
 
     private val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", synchronizerId.toString)
+      loggerFactory.append("synchronizerId", synchronizerTopologyStore.storeId.psid.toString)
 
     override protected def attempt()(implicit
         traceContext: TraceContext
@@ -425,7 +423,6 @@ class MediatorNodeBootstrap(
           synchronizerTopologyManager: SynchronizerTopologyManager
       ) =
         new SynchronizerOutboxFactory(
-          synchronizerId = synchronizerId,
           memberId = mediatorId,
           authorizedTopologyManager = authorizedTopologyManager,
           synchronizerTopologyManager = synchronizerTopologyManager,
@@ -484,7 +481,7 @@ class MediatorNodeBootstrap(
               () =>
                 mkMediatorRuntime(
                   mediatorId,
-                  synchronizerId,
+                  synchronizerTopologyStore.storeId.psid,
                   indexedStringStore,
                   synchronizerConfigurationStore,
                   storage,
@@ -503,14 +500,13 @@ class MediatorNodeBootstrap(
           val node = new MediatorNode(
             arguments.config,
             mediatorId,
-            synchronizerId,
+            synchronizerTopologyStore.storeId.psid,
             replicaManager,
             storage,
             clock,
             adminToken,
             synchronizerLoggerFactory,
             healthData = healthService.dependencies.map(_.toComponentStatus),
-            staticSynchronizerParameters.protocolVersion,
           )
           addCloseable(node)
           Some(new RunningNode(bootstrapStageCallback, node))
@@ -593,9 +589,6 @@ class MediatorNodeBootstrap(
     } yield connectionPool
 
     val mediatorRuntimeET = for {
-      indexedSynchronizerId <- EitherT
-        .right(IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId.logical))
-
       physicalSynchronizerIdx <- EitherT
         .right(IndexedPhysicalSynchronizer.indexed(indexedStringStore)(synchronizerId))
 
@@ -754,7 +747,6 @@ class MediatorNodeBootstrap(
 
       mediatorRuntime <- MediatorRuntimeFactory.create(
         mediatorId,
-        synchronizerId,
         storage,
         sequencerCounterTrackerStore,
         sequencedEventStore,
@@ -766,7 +758,6 @@ class MediatorNodeBootstrap(
         synchronizerOutboxFactory,
         timeTracker,
         parameters,
-        staticSynchronizerParameters.protocolVersion,
         clock,
         arguments.metrics,
         config.mediator,
@@ -830,14 +821,13 @@ object MediatorNodeBootstrap {
 class MediatorNode(
     config: MediatorNodeConfig,
     mediatorId: MediatorId,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
     override val adminToken: CantonAdminToken,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
-    protocolVersion: ProtocolVersion,
 ) extends CantonNode
     with NamedLogging
     with HasUptime {
@@ -851,14 +841,13 @@ class MediatorNode(
 
     MediatorNodeStatus(
       mediatorId.uid,
-      synchronizerId,
+      psid,
       uptime(),
       ports,
       replicaManager.isActive,
       replicaManager.getTopologyQueueStatus,
       healthData,
       ReleaseVersion.current,
-      protocolVersion,
     )
   }
 
@@ -867,5 +856,4 @@ class MediatorNode(
       replicaManager,
       storage,
     )(logger)
-
 }

@@ -7,7 +7,6 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig.EmptyBlockCreationInterval
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftKeyId,
   EpochNumber,
@@ -19,10 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability.LocalDissemination.LocalBatchStoredSigned
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.LocalAvailability.ProposalCreated
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
-import com.digitalasset.canton.time.SimClock
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -30,8 +26,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.duration.*
-import scala.jdk.DurationConverters.*
 
 class AvailabilityModuleConsensusProposalRequestTest
     extends AnyWordSpec
@@ -46,83 +40,31 @@ class AvailabilityModuleConsensusProposalRequestTest
         "record the proposal request" in {
           val disseminationProtocolState = new DisseminationProtocolState()
           val mempoolCell = new AtomicReference[Option[Mempool.Message]](None)
+          val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
 
           val availability = createAvailability[IgnoringUnitTestEnv](
             disseminationProtocolState = disseminationProtocolState,
             mempool = fakeCellModule(mempoolCell),
+            consensus = fakeCellModule(consensusCell),
           )
           mempoolCell.get() should contain(
             Mempool.CreateLocalBatches(
               (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
             )
           )
+          consensusCell.get() shouldBe empty
+
           availability.receive(
             Availability.Consensus
               .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
           )
 
+          consensusCell.get() should contain(Consensus.LocalAvailability.NoProposalAvailableYet)
+
           disseminationProtocolState.disseminationProgress should be(empty)
           disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
         }
-      }
-
-    "it receives Consensus.CreateProposal (from local consensus) and " +
-      "some time has passed with no batches ready for ordering" should {
-
-        "record the proposal request and " +
-          "send an empty block proposal to local consensus" in {
-            val disseminationProtocolState = new DisseminationProtocolState()
-            val mempoolCell = new AtomicReference[Option[Mempool.Message]](None)
-            val consensusCell = new AtomicReference[Option[Consensus.ProtocolMessage]](None)
-            val timerCell = new AtomicReference[
-              Option[(DelayCount, Availability.Message[FakeTimerCellUnitTestEnv])]
-            ](None)
-            implicit val timeCellContext
-                : FakeTimerCellUnitTestContext[Availability.Message[FakeTimerCellUnitTestEnv]] =
-              new FakeTimerCellUnitTestContext(timerCell)
-            val clock = new SimClock(loggerFactory = loggerFactory)
-
-            // initially consensus requests a proposal and there is nothing to be ordered, then a message is sent to mempool
-            val availability = createAvailability[FakeTimerCellUnitTestEnv](
-              disseminationProtocolState = disseminationProtocolState,
-              mempool = fakeCellModule(mempoolCell),
-              consensus = fakeCellModule(consensusCell),
-              clock = clock,
-            )
-            mempoolCell.get() should contain(
-              Mempool.CreateLocalBatches(
-                (BftBlockOrdererConfig.DefaultMaxBatchesPerProposal * AvailabilityModule.DisseminateAheadMultiplier).toShort
-              )
-            )
-            availability.receive(
-              Availability.Consensus
-                .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, EpochNumber.First)
-            )
-
-            disseminationProtocolState.disseminationProgress should be(empty)
-            disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
-            disseminationProtocolState.batchesReadyForOrdering should be(empty)
-
-            consensusCell.get() shouldBe None
-            timerCell.get() shouldBe None
-
-            // a clock tick signals that we want to check if it's time to propose an empty block,
-            // but not enough time has yet passed so nothing happens, only a new clock tick is scheduled
-            availability.receive(Availability.Consensus.LocalClockTick)
-
-            consensusCell.get() shouldBe None
-            timerCell.get() should contain(1 -> Availability.Consensus.LocalClockTick)
-
-            // after enough time has passed, and we do a new clock tick, we propose an empty block to consensus
-            clock.advance(EmptyBlockCreationInterval.plus(1.micro).toJava)
-            availability.receive(Availability.Consensus.LocalClockTick)
-
-            consensusCell.get() shouldBe Some(
-              ProposalCreated(OrderingBlock(List.empty), EpochNumber.First)
-            ) // empty block
-            timerCell.get() should contain(2 -> Availability.Consensus.LocalClockTick)
-          }
       }
 
     "it receives Consensus.CreateProposal (from local consensus), " +
@@ -489,7 +431,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
 
-          consensusCell.get() should be(empty)
+          consensusCell.get() should contain(Consensus.LocalAvailability.NoProposalAvailableYet)
 
           val selfSendMessages = pipeToSelfQueue.flatMap(_.apply())
           selfSendMessages should contain only
@@ -669,7 +611,8 @@ class AvailabilityModuleConsensusProposalRequestTest
           disseminationProtocolState.toBeProvidedToConsensus should contain only
             ToBeProvidedToConsensus(16, EpochNumber.First)
           disseminationProtocolState.batchesReadyForOrdering shouldBe empty
-          consensusBuffer shouldBe empty
+          consensusBuffer should contain(Consensus.LocalAvailability.NoProposalAvailableYet)
+
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
             .LocalBatchesStoredSigned(
@@ -743,7 +686,8 @@ class AvailabilityModuleConsensusProposalRequestTest
           disseminationProtocolState.toBeProvidedToConsensus should contain only
             ToBeProvidedToConsensus(16, EpochNumber.First)
           disseminationProtocolState.batchesReadyForOrdering shouldBe empty
-          consensusBuffer shouldBe empty
+          consensusBuffer should contain(Consensus.LocalAvailability.NoProposalAvailableYet)
+
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
             .LocalBatchesStored(

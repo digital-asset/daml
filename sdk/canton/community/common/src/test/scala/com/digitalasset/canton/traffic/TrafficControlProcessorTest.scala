@@ -54,7 +54,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   private lazy val topoTx: TopologyTransactionsBroadcast = TopologyTransactionsBroadcast(
     synchronizerId,
     List(factory.ns1k1_k1),
-    testedProtocolVersion,
   )
 
   private def mkSetTrafficPurchased(
@@ -65,7 +64,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       PositiveInt.one,
       NonNegativeLong.tryCreate(100),
       synchronizerId,
-      testedProtocolVersion,
     )
 
     signatureO match {

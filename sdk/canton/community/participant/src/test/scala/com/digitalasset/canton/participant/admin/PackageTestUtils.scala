@@ -7,8 +7,8 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.archive.{Dar as LfDar, DarWriter}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageName
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -83,7 +83,7 @@ object PackageTestUtils {
     def lfArchiveToByteString: ByteString = Using(ByteString.newOutput()) { os =>
       DarWriter.encode(
         BuildInfo.damlLibrariesVersion,
-        LfDar(("archive.dalf", archive.toByteArray), List()),
+        LfDar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), List()),
         os,
       )
       os.toByteString

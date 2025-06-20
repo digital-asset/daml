@@ -21,11 +21,11 @@ import com.digitalasset.canton.version.{
 final case class TopologyTransactionsBroadcast(
     override val synchronizerId: PhysicalSynchronizerId,
     transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TopologyTransactionsBroadcast.type
-    ]
 ) extends UnsignedProtocolMessage {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[
+    TopologyTransactionsBroadcast.type
+  ] = TopologyTransactionsBroadcast.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   @transient override protected lazy val companionObj: TopologyTransactionsBroadcast.type =
     TopologyTransactionsBroadcast
@@ -50,15 +50,12 @@ object TopologyTransactionsBroadcast
     ] {
 
   def apply(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
-      protocolVersion: ProtocolVersion,
   ): TopologyTransactionsBroadcast =
     TopologyTransactionsBroadcast(
-      synchronizerId,
-      SignedTopologyTransactions(transactions, protocolVersion),
-    )(
-      versioningTable.protocolVersionRepresentativeFor(protocolVersion)
+      psid,
+      SignedTopologyTransactions(transactions, psid.protocolVersion),
     )
 
   override def name: String = "TopologyTransactionsBroadcast"
@@ -95,9 +92,7 @@ object TopologyTransactionsBroadcast
         "signed_transactions",
         signedTopologyTransactionsP,
       )
-
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TopologyTransactionsBroadcast(synchronizerId, signedTopologyTransactions)(rpv)
+    } yield TopologyTransactionsBroadcast(synchronizerId, signedTopologyTransactions)
   }
 
   /** The state of the submission of a topology transaction broadcast. In combination with the

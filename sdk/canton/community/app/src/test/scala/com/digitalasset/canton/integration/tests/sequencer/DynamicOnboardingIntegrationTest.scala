@@ -134,7 +134,6 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         RootHashMessage(
           RootHash(TestHash.digest(1)),
           daId,
-          testedProtocolVersion,
           TransactionViewType,
           CantonTimestamp.Epoch,
           EmptyRootHashMessagePayload,

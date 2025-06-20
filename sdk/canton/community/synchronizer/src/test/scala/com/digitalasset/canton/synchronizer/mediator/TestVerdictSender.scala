@@ -13,7 +13,6 @@ import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
 import com.digitalasset.canton.topology.MediatorId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
@@ -24,14 +23,12 @@ class TestVerdictSender(
     crypto: SynchronizerCryptoClient,
     mediatorId: MediatorId,
     sequencerSend: SequencerClientSend,
-    protocolVersion: ProtocolVersion,
     loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends DefaultVerdictSender(
       sequencerSend,
       crypto,
       mediatorId,
-      protocolVersion,
       loggerFactory,
     ) {
 

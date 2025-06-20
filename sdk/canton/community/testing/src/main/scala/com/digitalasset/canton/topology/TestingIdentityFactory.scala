@@ -399,7 +399,7 @@ class TestingIdentityFactory(
 
         override def synchronizerId: SynchronizerId = dId.logical
 
-        override def physicalSynchronizerId: PhysicalSynchronizerId = dId
+        override def psid: PhysicalSynchronizerId = dId
 
         override def trySnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext

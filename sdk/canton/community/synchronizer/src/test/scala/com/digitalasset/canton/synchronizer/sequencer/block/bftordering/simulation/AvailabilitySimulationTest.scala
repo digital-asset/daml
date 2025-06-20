@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -142,7 +143,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         val requests = Seq(
           Traced(
             OrderingRequest(
-              "tx",
+              BlockFormat.SendTag,
               ByteString.copyFromUtf8(
                 f"$thisNode-request-${simulationModel.requestIndex}"
               ),
@@ -222,6 +223,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             abort("Proposal received before being requested")
           }
 
+        case Consensus.LocalAvailability.NoProposalAvailableYet => ()
         case unexpectedMessage =>
           abort(s"Unexpected message type for consensus module: $unexpectedMessage")
       }

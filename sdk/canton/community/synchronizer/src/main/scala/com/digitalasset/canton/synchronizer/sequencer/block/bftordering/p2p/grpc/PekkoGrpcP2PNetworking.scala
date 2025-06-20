@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   P2PEndpoint,
@@ -236,8 +237,9 @@ object PekkoGrpcP2PNetworking {
               try {
                 serverEndpoint.onNext(msg)
                 // Network send succeeded (but it may still be lost)
-                metrics.p2p.send.networkWriteLatency.update(
-                  Duration.between(sendMsg.sendInstant, now)
+                updateTimer(
+                  metrics.p2p.send.networkWriteLatency,
+                  Duration.between(sendMsg.sendInstant, now),
                 )(sendMsg.metricsContext)
               } catch {
                 case exception: Exception =>

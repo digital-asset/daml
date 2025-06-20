@@ -31,19 +31,19 @@ private[sync] object ConnectedSynchronizersLookup {
     new ConnectedSynchronizersLookup {
       override def get(synchronizerId: SynchronizerId): Option[ConnectedSynchronizer] =
         connected.values
-          .filter(_.synchronizerId.logical == synchronizerId)
-          .maxByOption(_.synchronizerId)
+          .filter(_.psid.logical == synchronizerId)
+          .maxByOption(_.psid)
 
       override def getAcsInspection(synchronizerId: SynchronizerId): Option[AcsInspection] =
         connected.values
-          .find(_.synchronizerId.logical == synchronizerId)
+          .find(_.psid.logical == synchronizerId)
           .map(_.persistent.acsInspection)
 
       override def get(synchronizerId: PhysicalSynchronizerId): Option[ConnectedSynchronizer] =
         connected.get(synchronizerId)
 
       override def isConnected(synchronizerId: SynchronizerId): Boolean =
-        connected.values.exists(_.synchronizerId.logical == synchronizerId)
+        connected.values.exists(_.psid.logical == synchronizerId)
 
       override def snapshot: collection.Map[PhysicalSynchronizerId, ConnectedSynchronizer] =
         connected.readOnlySnapshot()

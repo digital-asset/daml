@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
@@ -52,7 +53,7 @@ class IssClient[E <: Env[E]](
       Mempool.OrderRequest(
         Traced(
           OrderingRequest(
-            "tag",
+            BlockFormat.SendTag,
             ByteString.copyFromUtf8(s"$name-submission-$submissionNumber").concat(additionalPayload),
           )
         )

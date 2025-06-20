@@ -31,23 +31,25 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.topology.{GeneratorsTopology, ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{Generators, LfPartyId}
+import com.digitalasset.canton.{Generators, GeneratorsLf, LfPartyId}
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsMessages(
     protocolVersion: ProtocolVersion,
     generatorsData: GeneratorsData,
+    generatorsLf: GeneratorsLf,
     generatorsProtocol: GeneratorsProtocol,
     generatorsLocalVerdict: GeneratorsLocalVerdict,
     generatorsVerdict: GeneratorsVerdict,
+    generatorsTopology: GeneratorsTopology,
     generatorTransactions: GeneratorsTransaction,
 ) {
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.GeneratorsLf.*
+  import generatorsLf.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
   import generatorsData.*
   import generatorsLocalVerdict.*
   import generatorsProtocol.*
@@ -77,7 +79,7 @@ final class GeneratorsMessages(
 
   implicit val confirmationResultMessageArb: Arbitrary[ConfirmationResultMessage] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       viewType <- Arbitrary.arbitrary[ViewType]
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
@@ -85,12 +87,11 @@ final class GeneratorsMessages(
 
       // TODO(#14515) Also generate instance that makes pv above cover all the values
     } yield ConfirmationResultMessage.create(
-      synchronizerId,
+      psid,
       viewType,
       requestId,
       rootHash,
       verdict,
-      protocolVersion,
     )
   )
 
@@ -184,7 +185,7 @@ final class GeneratorsMessages(
     for {
       encrypted <- byteStringArb.arbitrary
       encryptionAlgorithmSpec <- encryptionAlgorithmSpecArb.arbitrary
-      fingerprint <- GeneratorsTopology.fingerprintArb.arbitrary
+      fingerprint <- generatorsTopology.fingerprintArb.arbitrary
     } yield AsymmetricEncrypted(encrypted, encryptionAlgorithmSpec, fingerprint)
   )
 
@@ -230,14 +231,13 @@ final class GeneratorsMessages(
     Arbitrary(
       for {
         rootHash <- Arbitrary.arbitrary[RootHash]
-        synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+        psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
         viewType <- viewTypeArb.arbitrary
         submissionTopologyTime <- Arbitrary.arbitrary[CantonTimestamp]
         payload <- Arbitrary.arbitrary[RootHashMessagePayload]
       } yield RootHashMessage.apply(
         rootHash,
-        synchronizerId,
-        protocolVersion,
+        psid,
         viewType,
         submissionTopologyTime,
         payload,
@@ -246,11 +246,11 @@ final class GeneratorsMessages(
 
   implicit val topologyTransactionsBroadcast: Arbitrary[TopologyTransactionsBroadcast] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       transactions <- Gen.listOf(
         Arbitrary.arbitrary[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
       )
-    } yield TopologyTransactionsBroadcast(synchronizerId, transactions, protocolVersion)
+    } yield TopologyTransactionsBroadcast(psid, transactions)
   )
 
   // TODO(#14515) Check that the generator is exhaustive

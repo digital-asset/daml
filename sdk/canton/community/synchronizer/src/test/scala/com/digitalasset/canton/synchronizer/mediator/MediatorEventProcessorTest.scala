@@ -361,7 +361,7 @@ class MediatorEventProcessorTest
       val event3 = mkEvent(
         ts(2),
         mkDefaultOpenEnvelope(
-          TopologyTransactionsBroadcast(physicalSynchronizerId, Seq.empty, testedProtocolVersion)
+          TopologyTransactionsBroadcast(physicalSynchronizerId, Seq.empty)
         ),
       )
 

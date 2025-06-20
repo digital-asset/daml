@@ -93,7 +93,7 @@ class SynchronizerTopologyManager(
       futureSupervisor,
       loggerFactory,
     ) {
-  def synchronizerId: PhysicalSynchronizerId = store.storeId.synchronizerId
+  def psid: PhysicalSynchronizerId = store.storeId.psid
 
   override protected val processor: TopologyStateProcessor =
     TopologyStateProcessor.forTopologyManager(

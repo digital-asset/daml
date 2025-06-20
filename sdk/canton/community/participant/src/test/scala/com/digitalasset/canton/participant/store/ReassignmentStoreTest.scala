@@ -42,7 +42,6 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
@@ -284,7 +283,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
             data.unassignmentRequest.submitter,
             targetSynchronizer,
             contract,
-            sourcePV = ProtocolVersion.create("6", allowDeleted = true).value,
           )
           _ <- store.addUnassignmentData(modifiedReassignmentData).value
           entry <- store.findReassignmentEntry(data.reassignmentId).value
@@ -1474,7 +1472,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetSynchronizerId: Target[SynchronizerId],
       contract: SerializableContract = contract,
-      sourcePV: ProtocolVersion = BaseTest.testedProtocolVersion,
       unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
 
@@ -1493,7 +1490,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       submittingParty,
       DefaultTestIdentities.participant1,
       sourceMediator,
-      sourcePV,
     )()
 
     helpers.unassignmentData(reassignmentId, unassignmentRequest, unassignmentTs)

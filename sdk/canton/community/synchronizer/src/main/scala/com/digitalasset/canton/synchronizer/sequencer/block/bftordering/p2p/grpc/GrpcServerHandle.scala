@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grp
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
 import com.digitalasset.canton.tracing.TraceContext
@@ -26,7 +27,7 @@ final class GrpcServerHandle[NetworkMessage](
 
   override def onNext(message: NetworkMessage): Unit = {
     getMessageSendInstant(message).foreach(sendInstant =>
-      metrics.p2p.send.grpcLatency.update(Duration.between(sendInstant, Instant.now))
+      updateTimer(metrics.p2p.send.grpcLatency, Duration.between(sendInstant, Instant.now))
     )
     inputModule.asyncSend(message)
   }

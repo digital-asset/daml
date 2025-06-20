@@ -235,7 +235,6 @@ class ConfirmationRequestAndResponseProcessorTest
         syncCryptoApi,
         mediatorId,
         sequencerSend,
-        testedProtocolVersion,
         loggerFactory,
       )
     private val timeTracker: SynchronizerTimeTracker = mock[SynchronizerTimeTracker]
@@ -250,13 +249,11 @@ class ConfirmationRequestAndResponseProcessorTest
     )
     mediatorState.initialize(CantonTimestamp.MinValue).futureValueUS
     val processor = new ConfirmationRequestAndResponseProcessor(
-      synchronizerId,
       mediatorId,
       verdictSender,
       syncCryptoApi,
       timeTracker,
       mediatorState,
-      testedProtocolVersion,
       loggerFactory,
       timeouts,
     )
@@ -274,7 +271,7 @@ class ConfirmationRequestAndResponseProcessorTest
     val responses: ConfirmationResponses = ConfirmationResponses.tryCreate(
       requestId,
       fullInformeeTree.transactionId.toRootHash,
-      factory.physicalSynchronizerId,
+      factory.psid,
       participant,
       NonEmpty.mk(
         Seq,
@@ -304,7 +301,7 @@ class ConfirmationRequestAndResponseProcessorTest
     val confirmationResponses: ConfirmationResponses = ConfirmationResponses.tryCreate(
       requestId,
       fullInformeeTree.transactionId.toRootHash,
-      factory.physicalSynchronizerId,
+      factory.psid,
       participant,
       responses,
       testedProtocolVersion,
@@ -344,7 +341,6 @@ class ConfirmationRequestAndResponseProcessorTest
         RootHashMessage(
           fullInformeeTree.tree.rootHash,
           synchronizerId,
-          testedProtocolVersion,
           TransactionViewType,
           testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
@@ -460,7 +456,7 @@ class ConfirmationRequestAndResponseProcessorTest
         response = ConfirmationResponses.tryCreate(
           reqId,
           fullInformeeTree.transactionId.toRootHash,
-          factory.physicalSynchronizerId,
+          factory.psid,
           participant,
           NonEmpty.mk(
             Seq,
@@ -532,7 +528,6 @@ class ConfirmationRequestAndResponseProcessorTest
         RootHashMessage(
           correctRootHash,
           synchronizerId,
-          testedProtocolVersion,
           correctViewType,
           testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
@@ -596,7 +591,6 @@ class ConfirmationRequestAndResponseProcessorTest
         RootHashMessage(
           rootHash,
           synchronizerId,
-          testedProtocolVersion,
           correctViewType,
           testTopologyTimestamp,
           SerializedRootHashMessagePayload.empty,
@@ -787,7 +781,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
         synchronizerId,
-        testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
@@ -873,7 +866,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
         synchronizerId,
-        testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
@@ -1129,7 +1121,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
         synchronizerId,
-        testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
@@ -1146,7 +1137,7 @@ class ConfirmationRequestAndResponseProcessorTest
         val response = ConfirmationResponses.tryCreate(
           requestId,
           fullInformeeTree.transactionId.toRootHash,
-          factory.physicalSynchronizerId,
+          factory.psid,
           participant,
           NonEmpty.mk(
             Seq,
@@ -1266,7 +1257,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         fullInformeeTree.transactionId.toRootHash,
         synchronizerId,
-        testedProtocolVersion,
         ViewType.TransactionViewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
@@ -1350,7 +1340,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
         synchronizerId,
-        testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,
@@ -1444,7 +1433,6 @@ class ConfirmationRequestAndResponseProcessorTest
       val rootHashMessage = RootHashMessage(
         mediatorRequest.rootHash,
         synchronizerId,
-        testedProtocolVersion,
         mediatorRequest.viewType,
         testTopologyTimestamp,
         SerializedRootHashMessagePayload.empty,

@@ -4,6 +4,9 @@
 package com.digitalasset.canton.http.json.v2
 
 package js {
+
+  import io.circe.Json
+
   final case class AllocatePartyRequest(
       partyIdHint: String,
       localMetadata: Option[com.daml.ledger.api.v2.admin.object_meta.ObjectMeta] = None,
@@ -11,4 +14,10 @@ package js {
       synchronizerId: String = "",
       userId: String = "",
   )
+
+  final case class PrefetchContractKey(
+      templateId: Option[com.daml.ledger.api.v2.value.Identifier],
+      contractKey: Json,
+  )
+
 }

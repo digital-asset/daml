@@ -249,7 +249,7 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
   def tryCreate(
       requestId: RequestId,
       rootHash: RootHash,
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       sender: ParticipantId,
       responses: NonEmpty[Seq[ConfirmationResponse]],
       protocolVersion: ProtocolVersion,
@@ -257,7 +257,7 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
     ConfirmationResponses(
       requestId,
       rootHash,
-      synchronizerId,
+      psid,
       sender,
       responses,
     )(protocolVersionRepresentativeFor(protocolVersion), None)

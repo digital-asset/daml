@@ -10,9 +10,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.store.{
+  SynchronizerConnectionConfigStore,
+  SynchronizerPredecessor,
+}
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.topology.KnownPhysicalSynchronizerId
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -21,8 +23,9 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
+import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureUtil
+import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
 
 import scala.concurrent.ExecutionContext
@@ -42,6 +45,8 @@ class SequencerConnectionSuccessorListener(
     alias: SynchronizerAlias,
     topologyClient: SynchronizerTopologyClient,
     configStore: SynchronizerConnectionConfigStore,
+    synchronizerHandshake: HandshakeWithPSId,
+    automaticallyConnectToUpgradedSynchronizer: Boolean,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyTransactionProcessingSubscriber
@@ -73,7 +78,7 @@ class SequencerConnectionSuccessorListener(
     val resultOT = for {
       snapshot <- OptionT.liftF(topologyClient.awaitSnapshot(snapshotTs))
       activeConfig <- OptionT.fromOption[FutureUnlessShutdown](
-        configStore.get(topologyClient.physicalSynchronizerId).toOption
+        configStore.get(topologyClient.psid).toOption
       )
       configuredSequencers =
         activeConfig.config.sequencerConnections.aliasToConnection.forgetNE.toSeq.flatMap {
@@ -82,7 +87,8 @@ class SequencerConnectionSuccessorListener(
         }.toMap
       configuredSequencerIds = configuredSequencers.keySet
 
-      successorSynchronizerId <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      synchronizerUpgradeOngoing <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      (successorSynchronizerId, upgradeTime) = synchronizerUpgradeOngoing
 
       _ = logger.debug(
         s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorSynchronizerId"
@@ -133,9 +139,11 @@ class SequencerConnectionSuccessorListener(
             )
           configStore
             .put(
-              updated,
+              config = updated,
               status = SynchronizerConnectionConfigStore.MigratingTo,
-              KnownPhysicalSynchronizerId(successorSynchronizerId),
+              configuredPSId = KnownPhysicalSynchronizerId(successorSynchronizerId),
+              synchronizerPredecessor =
+                Some(SynchronizerPredecessor(topologyClient.psid, upgradeTime)),
             )
             .toOption
         case Some(currentSuccessorConfig) =>
@@ -143,8 +151,18 @@ class SequencerConnectionSuccessorListener(
             currentSuccessorConfig.config.copy(sequencerConnections = sequencerConnections)
           configStore.replace(currentSuccessorConfig.configuredPSId, updated).toOption
       }
+
+      _ = if (automaticallyConnectToUpgradedSynchronizer)
+        FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
+          synchronizerHandshake.performHandshake(successorSynchronizerId),
+          s"failed to perform the synchronizer handshake with $successorSynchronizerId",
+        )
     } yield ()
     resultOT.value.void
 
   }
+}
+
+trait HandshakeWithPSId {
+  def performHandshake(psid: PhysicalSynchronizerId): FutureUnlessShutdown[Unit]
 }
