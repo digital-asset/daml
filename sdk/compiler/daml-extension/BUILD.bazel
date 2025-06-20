@@ -64,9 +64,11 @@ genrule(
             # from the filename because we need to create the path (mkdir -p)
             # before we can write the file
             file=$$(basename $$f)
-            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
-            mkdir -p $$dir
-            cp -Lr ../$$f $$dir/$$file
+            dir=$$(dirname $$f | sed -E 's:^.*/node_modules/?::')
+            if [[ -n "$$dir" ]]; then
+              mkdir -p "$$dir"
+            fi
+            cp -Lr ../$$f ./$$dir/$$file
         done
         cd ..
         # Avoid file path too long errors on Windows of the form
