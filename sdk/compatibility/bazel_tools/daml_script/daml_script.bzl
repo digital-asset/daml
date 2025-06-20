@@ -122,7 +122,7 @@ chmod +x $(OUTS)
             upload_dar = "0",
             wait_for_port_file = "1",
         ),
-        exec_tools = [
+        tools = [
             compiled_dar,
             daml_runner,
         ],
