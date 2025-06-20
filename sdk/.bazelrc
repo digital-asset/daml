@@ -1,3 +1,11 @@
+# Disable bzlmod lock-file.
+# During the migration from workspace to bzlmod the lock-file is mostly
+# going to get in the way.
+# More generally, multi-platform projects with platform specific
+# dependencies require some extra considerations to make a Bazel lockfile
+# work well.
+common --lockfile_mode=off
+
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
 build:darwin --remote_cache=https://bazel-cache.da-ext.net/202506bzlmod/macos
