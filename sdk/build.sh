@@ -97,6 +97,10 @@ fi
 echo "Running 'bazel build //...'"
 bazel fetch @damlc_legacy
 bazel query --output location "@damlc_legacy//:*"
+set +x
+ls -l /private/var/tmp/_bazel_vsts/*/external/damlc_legacy
+ls -l /private/var/tmp/_bazel_vsts/*/external/damlc_legacy/*
+set -x
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
