@@ -66,7 +66,7 @@ genrule(
             file=$$(basename $$f)
             dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
             mkdir -p $$dir
-            cp ../$$f $$dir/$$file
+            cp -r ../$$f $$dir/$$file
         done
         cd ..
         # Avoid file path too long errors on Windows of the form
