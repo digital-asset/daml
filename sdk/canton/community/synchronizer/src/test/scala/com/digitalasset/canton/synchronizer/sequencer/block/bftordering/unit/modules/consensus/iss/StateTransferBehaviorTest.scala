@@ -455,6 +455,7 @@ class StateTransferBehaviorTest
         Consensus.ConsensusMessage.BlockOrdered(
           OrderedBlock(aCommitCert.blockMetadata, batchRefs = Seq.empty, CanonicalCommitSet.empty),
           aCommitCert,
+          hasCompletedLedSegment = false,
         )
       stateTransferBehavior.receive(anotherMessage)
 
@@ -621,7 +622,7 @@ object StateTransferBehaviorTest {
         .create(
           blockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
           viewNumber = ViewNumber.First,
-          block = OrderingBlock(Seq.empty),
+          block = OrderingBlock.empty,
           canonicalCommitSet = CanonicalCommitSet.empty,
           from = myId,
         )

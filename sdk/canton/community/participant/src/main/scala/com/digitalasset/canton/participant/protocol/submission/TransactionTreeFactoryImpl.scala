@@ -125,7 +125,7 @@ class TransactionTreeFactoryImpl(
       )
 
     val commonMetadata = CommonMetadata
-      .create(cryptoOps, protocolVersion)(
+      .create(cryptoOps)(
         synchronizerId,
         mediator,
         commonMetadataSalt,

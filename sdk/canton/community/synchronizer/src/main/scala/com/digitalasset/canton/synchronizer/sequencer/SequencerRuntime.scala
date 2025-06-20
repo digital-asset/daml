@@ -318,7 +318,6 @@ class SequencerRuntime(
     maybeSynchronizerOutboxFactory
       .map(
         _.createOnlyOnce(
-          staticSynchronizerParameters.protocolVersion,
           topologyClient,
           client,
           timeTracker,

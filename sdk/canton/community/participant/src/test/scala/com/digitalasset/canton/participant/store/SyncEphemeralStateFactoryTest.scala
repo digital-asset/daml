@@ -10,6 +10,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   SequencerIndex,
   SynchronizerIndex,
 }
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestData
 import com.digitalasset.canton.participant.protocol.{
   MessageCleanReplayStartingPoint,
@@ -22,7 +23,11 @@ import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  DefaultTestIdentities,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -33,6 +38,7 @@ import com.digitalasset.canton.{
   SequencerCounter,
 }
 import org.scalatest.wordspec.AsyncWordSpec
+import org.slf4j.event.Level
 
 class SyncEphemeralStateFactoryTest
     extends AsyncWordSpec
@@ -67,6 +73,7 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             None,
+            None,
           )
         } yield {
           startingPoints shouldBe ProcessingStartingPoints.tryCreate(
@@ -91,11 +98,8 @@ class SyncEphemeralStateFactoryTest
           withCleanSc <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            Some(
-              SynchronizerIndex.of(
-                SequencerIndex(ts)
-              )
-            ),
+            Some(SynchronizerIndex.of(SequencerIndex(ts))),
+            None,
           )
         } yield {
           val cleanReplay = MessageCleanReplayStartingPoint(rc, sc, ts.immediatePredecessor)
@@ -142,27 +146,19 @@ class SyncEphemeralStateFactoryTest
           sp1 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            Some(
-              SynchronizerIndex.of(
-                SequencerIndex(ts0)
-              )
-            ),
+            Some(SynchronizerIndex.of(SequencerIndex(ts0))),
+            None,
           )
           sp2 <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
-            Some(
-              SynchronizerIndex.of(
-                SequencerIndex(ts1)
-              )
-            ),
+            Some(SynchronizerIndex.of(SequencerIndex(ts1))),
+            None,
           )
           synchronizerIndex = Some(
             SynchronizerIndex(
               repairIndex = None,
-              sequencerIndex = Some(
-                SequencerIndex(ts3)
-              ),
+              sequencerIndex = Some(SequencerIndex(ts3)),
               recordTime = ts3,
             )
           )
@@ -170,11 +166,13 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             synchronizerIndex,
+            None,
           )
           sp3WithRecordTimeIncrease <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
             synchronizerIndex.map(_.copy(recordTime = ts3plus)),
+            None,
           )
           _ <- rjs.insert(RequestData.initial(rc + 4L, ts6))
           _ <- rjs.insert(RequestData.initial(rc + 3L, ts5))
@@ -182,6 +180,7 @@ class SyncEphemeralStateFactoryTest
             rjs,
             ses,
             synchronizerIndex,
+            None,
           )
           sp3b <- SyncEphemeralStateFactory.startingPoints(
             rjs,
@@ -189,12 +188,11 @@ class SyncEphemeralStateFactoryTest
             Some(
               SynchronizerIndex(
                 repairIndex = None,
-                sequencerIndex = Some(
-                  SequencerIndex(ts4)
-                ),
+                sequencerIndex = Some(SequencerIndex(ts4)),
                 recordTime = ts4,
               )
             ),
+            None,
           )
         } yield {
           // The clean sequencer index is ahead of the clean request index
@@ -305,20 +303,14 @@ class SyncEphemeralStateFactoryTest
             sp0 <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              Some(
-                SynchronizerIndex.of(
-                  SequencerIndex(ts0)
-                )
-              ),
+              Some(SynchronizerIndex.of(SequencerIndex(ts0))),
+              None,
             )
             sp2 <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
-              Some(
-                SynchronizerIndex.of(
-                  SequencerIndex(ts1)
-                )
-              ),
+              Some(SynchronizerIndex.of(SequencerIndex(ts1))),
+              None,
             )
           } yield {
             // start with request 0 because request 1 hasn't yet been marked as clean and request 0 commits after request 1 starts
@@ -376,12 +368,11 @@ class SyncEphemeralStateFactoryTest
               Some(
                 SynchronizerIndex(
                   repairIndex = None,
-                  sequencerIndex = Some(
-                    SequencerIndex(ts0)
-                  ),
+                  sequencerIndex = Some(SequencerIndex(ts0)),
                   recordTime = ts0,
                 )
               ),
+              None,
             )
             repairAndSequencedEvent <- SyncEphemeralStateFactory.startingPoints(
               rjs,
@@ -389,17 +380,13 @@ class SyncEphemeralStateFactoryTest
               Some(
                 SynchronizerIndex(
                   repairIndex = Some(
-                    RepairIndex(
-                      timestamp = ts1,
-                      counter = repairCounter,
-                    )
+                    RepairIndex(timestamp = ts1, counter = repairCounter)
                   ),
-                  sequencerIndex = Some(
-                    SequencerIndex(ts1)
-                  ),
+                  sequencerIndex = Some(SequencerIndex(ts1)),
                   recordTime = ts1,
                 )
               ),
+              None,
             )
             loneRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
@@ -407,15 +394,13 @@ class SyncEphemeralStateFactoryTest
               Some(
                 SynchronizerIndex(
                   repairIndex = Some(
-                    RepairIndex(
-                      timestamp = ts1,
-                      counter = repairCounter + 1L,
-                    )
+                    RepairIndex(timestamp = ts1, counter = repairCounter + 1L)
                   ),
                   sequencerIndex = None,
                   recordTime = ts1,
                 )
               ),
+              None,
             )
             repairFollowedBySequencedEvent <- SyncEphemeralStateFactory.startingPoints(
               rjs,
@@ -428,12 +413,11 @@ class SyncEphemeralStateFactoryTest
                       counter = repairCounter + 1L,
                     )
                   ),
-                  sequencerIndex = Some(
-                    SequencerIndex(ts2)
-                  ),
+                  sequencerIndex = Some(SequencerIndex(ts2)),
                   recordTime = ts2,
                 )
               ),
+              None,
             )
           } yield {
             noRepair.cleanReplay shouldBe MessageCleanReplayStartingPoint(
@@ -511,6 +495,7 @@ class SyncEphemeralStateFactoryTest
                   recordTime = repairTs,
                 )
               ),
+              None,
             )
             synchronizerIndex = Some(
               SynchronizerIndex(
@@ -528,12 +513,14 @@ class SyncEphemeralStateFactoryTest
               rjs,
               ses,
               synchronizerIndex,
+              None,
             )
             // Repair has crashed before advancing the clean request index
             crashedRepair <- SyncEphemeralStateFactory.startingPoints(
               rjs,
               ses,
               synchronizerIndex,
+              None,
             )
           } yield {
             val startOne = MessageProcessingStartingPoint(
@@ -565,6 +552,49 @@ class SyncEphemeralStateFactoryTest
             crashedRepair shouldBe twoRepairs
           }
         }
+      }
+
+      "return the right result across migrations" in {
+        val rjs = new InMemoryRequestJournalStore(loggerFactory)
+        val ses = new InMemorySequencedEventStore(loggerFactory, timeouts)
+        val ts0 = CantonTimestamp.ofEpochSecond(0)
+        val predecessor = SynchronizerPredecessor(
+          psid = DefaultTestIdentities.physicalSynchronizerId,
+          upgradeTime = ts0.plusSeconds(1),
+        )
+
+        for {
+          /*
+          This fails because:
+          - synchronizer is defined, but
+          - sequenced event store is empty (which means there is no event for ts0)
+           */
+          failure <- loggerFactory
+            .assertEventuallyLogsSeq(SuppressionRule.Level(Level.ERROR))(
+              SyncEphemeralStateFactory.startingPoints(
+                rjs,
+                ses,
+                synchronizerIndexO = Some(SynchronizerIndex.of(SequencerIndex(ts0))),
+                None,
+              ),
+              forExactly(1, _)(
+                _.errorMessage should include("An internal error has occurred.")
+              ),
+            )
+            .failed
+
+          _ =
+            failure.getMessage shouldBe s"SequencerIndex with timestamp $ts0 is not found in sequenced event store"
+
+          success <- SyncEphemeralStateFactory.startingPoints(
+            rjs,
+            ses,
+            synchronizerIndexO = Some(SynchronizerIndex.of(SequencerIndex(ts0))),
+            synchronizerPredecessor = Some(predecessor),
+          )
+
+          _ = success shouldBe ProcessingStartingPoints.default
+        } yield succeed
       }
     }
   }

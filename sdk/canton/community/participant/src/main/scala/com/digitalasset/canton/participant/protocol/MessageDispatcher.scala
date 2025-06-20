@@ -48,7 +48,6 @@ import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.google.common.annotations.VisibleForTesting
 import com.google.rpc.status.Status
@@ -63,9 +62,6 @@ import scala.concurrent.ExecutionContext
   */
 trait MessageDispatcher { this: NamedLogging =>
   import MessageDispatcher.*
-
-  // TODO(#25482) Reduce duplication in parameters
-  protected def protocolVersion: ProtocolVersion
 
   protected def synchronizerId: PhysicalSynchronizerId
 
@@ -770,9 +766,7 @@ private[participant] object MessageDispatcher {
 
   trait Factory[+T <: MessageDispatcher] {
     def create(
-        // TODO(#25482) Reduce duplication in parameters
-        protocolVersion: ProtocolVersion,
-        synchronizerId: PhysicalSynchronizerId,
+        psid: PhysicalSynchronizerId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         requestProcessors: RequestProcessors,
@@ -788,8 +782,7 @@ private[participant] object MessageDispatcher {
     )(implicit ec: ExecutionContext, tracer: Tracer): T
 
     def create(
-        protocolVersion: ProtocolVersion,
-        synchronizerId: PhysicalSynchronizerId,
+        psid: PhysicalSynchronizerId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         transactionProcessor: TransactionProcessor,
@@ -816,8 +809,7 @@ private[participant] object MessageDispatcher {
       }
 
       create(
-        protocolVersion,
-        synchronizerId,
+        psid,
         participantId,
         requestTracker,
         requestProcessors,

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -40,6 +41,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
+    metrics: BftOrderingMetrics,
 )(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
     extends SegmentModuleRefFactory[E] {
   override def apply(
@@ -64,6 +66,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
       context.self,
       dependencies.availability,
       dependencies.p2pNetworkOut,
+      metrics,
       timeouts,
       loggerFactory,
     )

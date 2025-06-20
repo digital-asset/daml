@@ -350,7 +350,6 @@ sealed trait AcsCommitmentProcessorBaseTest
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
     val acsCommitmentProcessor = AcsCommitmentProcessor(
-      synchronizerId,
       localId,
       sequencerClient,
       synchronizerCrypto,
@@ -358,7 +357,6 @@ sealed trait AcsCommitmentProcessorBaseTest
       store,
       _ => (),
       ParticipantTestMetrics.synchronizer.commitments,
-      testedProtocolVersion,
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,

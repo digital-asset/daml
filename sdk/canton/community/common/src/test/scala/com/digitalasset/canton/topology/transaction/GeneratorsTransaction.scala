@@ -44,13 +44,16 @@ import scala.math.Ordering.Implicits.*
 
 final class GeneratorsTransaction(
     protocolVersion: ProtocolVersion,
+    generatorsLf: GeneratorsLf,
     generatorsProtocol: GeneratorsProtocol,
+    generatorsTopology: GeneratorsTopology,
+    generatorsSequencing: GeneratorsSequencing,
 ) {
   import GeneratorsCrypto.*
-  import GeneratorsLf.*
+  import generatorsLf.*
   import generatorsProtocol.*
-  import GeneratorsSequencing.*
-  import GeneratorsTopology.*
+  import generatorsSequencing.*
+  import generatorsTopology.*
   import Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
 

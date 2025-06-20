@@ -450,7 +450,7 @@ class ExampleTransactionFactory(
     extends EitherValues {
 
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
-  val physicalSynchronizerId: PhysicalSynchronizerId =
+  val psid: PhysicalSynchronizerId =
     PhysicalSynchronizerId(synchronizerId, protocolVersion)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val random = new Random(0)
@@ -804,8 +804,8 @@ class ExampleTransactionFactory(
 
   val commonMetadata: CommonMetadata =
     CommonMetadata
-      .create(cryptoOps, protocolVersion)(
-        physicalSynchronizerId,
+      .create(cryptoOps)(
+        psid,
         mediatorGroup,
         Salt.tryDeriveSalt(transactionSeed, 1, cryptoOps),
         transactionUuid,

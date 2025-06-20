@@ -136,12 +136,10 @@ class SequencerReaderTestV2
     val eventSignaller = new ManualEventSignaller()
     val reader = new SequencerReader(
       testConfig,
-      synchronizerId,
       storeSpy,
       cryptoD,
       eventSignaller,
       topologyClientMember,
-      testedProtocolVersion,
       timeouts,
       loggerFactory,
     )

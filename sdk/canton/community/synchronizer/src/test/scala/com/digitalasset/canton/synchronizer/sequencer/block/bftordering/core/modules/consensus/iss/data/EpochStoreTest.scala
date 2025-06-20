@@ -405,7 +405,7 @@ object EpochStoreTest {
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),
       ViewNumber(viewNumber),
-      OrderingBlock(Seq.empty),
+      OrderingBlock.empty,
       CanonicalCommitSet(Set.empty),
       from = BftNodeId("address"),
     )

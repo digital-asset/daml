@@ -132,7 +132,7 @@ class TransactionRoutingProcessor(
           (),
           SubmissionSynchronizerNotReady.Error(synchronizerId),
         )
-      transactionSubmittedF <- wrapSubmissionError(synchronizer.synchronizerId)(
+      transactionSubmittedF <- wrapSubmissionError(synchronizer.psid)(
         synchronizer
           .submitTransaction(
             submitterInfo,

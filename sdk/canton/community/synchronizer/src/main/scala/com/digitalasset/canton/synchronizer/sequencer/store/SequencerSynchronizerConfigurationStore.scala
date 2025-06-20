@@ -23,8 +23,6 @@ final case class SequencerSynchronizerConfiguration(
 sealed trait SequencerSynchronizerConfigurationStoreError
 
 object SequencerSynchronizerConfigurationStoreError {
-  final case class DbError(exception: Throwable)
-      extends SequencerSynchronizerConfigurationStoreError
   final case class DeserializationError(deserializationError: ProtoDeserializationError)
       extends SequencerSynchronizerConfigurationStoreError
 }

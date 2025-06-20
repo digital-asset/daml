@@ -35,7 +35,6 @@ import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
@@ -49,7 +48,6 @@ import scala.util.{Failure, Success}
   * [[com.digitalasset.canton.participant.protocol.ProtocolProcessor]].
   */
 class ParallelMessageDispatcher(
-    override protected val protocolVersion: ProtocolVersion,
     override protected val synchronizerId: PhysicalSynchronizerId,
     override protected val participantId: ParticipantId,
     override protected val requestTracker: RequestTracker,

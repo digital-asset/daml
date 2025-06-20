@@ -343,12 +343,11 @@ class SyncPersistentStateManager(
       )
 
   def topologyFactoryFor(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Option[TopologyComponentFactory] =
-    get(synchronizerId).map(state =>
+    get(psid).map(state =>
       new TopologyComponentFactory(
-        synchronizerId,
-        synchronizerId.protocolVersion,
+        psid,
         synchronizerCryptoFactory(state.staticSynchronizerParameters),
         clock,
         parameters.processingTimeouts,
@@ -359,7 +358,7 @@ class SyncPersistentStateManager(
         parameters.unsafeOnlinePartyReplication,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         state.topologyStore,
-        loggerFactory.append("synchronizerId", synchronizerId.toString),
+        loggerFactory.append("synchronizerId", psid.toString),
       )
     )
 

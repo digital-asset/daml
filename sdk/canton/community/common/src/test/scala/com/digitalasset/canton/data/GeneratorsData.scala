@@ -16,12 +16,13 @@ import com.digitalasset.canton.data.MerkleTree.VersionedMerkleTree
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
+import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
+import com.digitalasset.canton.time.TimeProofTestUtil
+import com.digitalasset.canton.topology.{GeneratorsTopology, ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
-import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
+import com.digitalasset.canton.{GeneratorsLf, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.value.Value.ValueInt64
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -31,16 +32,17 @@ import scala.util.Random
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
+    generatorsLf: GeneratorsLf,
     generatorsProtocol: GeneratorsProtocol,
+    generatorsTopology: GeneratorsTopology,
 ) {
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.GeneratorsLf.*
+  import generatorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
-  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
   import generatorsProtocol.*
   import org.scalatest.OptionValues.*
 
@@ -62,7 +64,7 @@ final class GeneratorsData(
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
 
       mediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -71,8 +73,8 @@ final class GeneratorsData(
 
       hashOps = TestHash // Not used for serialization
     } yield CommonMetadata
-      .create(hashOps, protocolVersion)(
-        synchronizerId,
+      .create(hashOps)(
+        psid,
         mediator,
         salt,
         uuid,
@@ -503,7 +505,7 @@ final class GeneratorsData(
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
+      targetPSId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
 
       targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -519,12 +521,11 @@ final class GeneratorsData(
     } yield AssignmentCommonData
       .create(hashOps)(
         salt,
-        targetSynchronizerId,
+        targetPSId,
         targetMediator,
         stakeholders,
         uuid,
         submitterMetadata,
-        targetProtocolVersion,
         reassigningParticipants,
       )
   )
@@ -573,6 +574,21 @@ final class GeneratorsData(
         targetProtocolVersion,
       )
       .value
+  )
+
+  private def timeProofArb(protocolVersion: ProtocolVersion): Arbitrary[TimeProof] = Arbitrary(
+    for {
+      timestamp <- Arbitrary.arbitrary[CantonTimestamp]
+      previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
+      counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
+      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
+    } yield TimeProofTestUtil.mkTimeProof(
+      timestamp,
+      previousEventTimestamp,
+      counter,
+      targetSynchronizerId,
+      protocolVersion,
+    )
   )
 
   implicit val unassignmentViewArb: Arbitrary[UnassignmentView] = Arbitrary(

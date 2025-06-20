@@ -40,9 +40,8 @@ final case class TransactionConfirmationRequest(
     rootHash = rootHash,
     synchronizerId = informeeMessage.synchronizerId,
     viewType = ViewType.TransactionViewType,
-    submissionTopologyTime = submissionTopologyTime,
+    submissionTopologyTimestamp = submissionTopologyTime,
     payload = EmptyRootHashMessagePayload,
-    protocolVersion = protocolVersion,
   )
 
   def asBatch(ipsSnapshot: TopologySnapshot)(implicit

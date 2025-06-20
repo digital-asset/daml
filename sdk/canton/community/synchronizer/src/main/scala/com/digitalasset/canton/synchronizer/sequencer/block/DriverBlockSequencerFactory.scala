@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -71,7 +71,6 @@ class DriverBlockSequencerFactory[C](
 
   override protected final def createBlockSequencer(
       name: String,
-      synchronizerId: PhysicalSynchronizerId,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -81,7 +80,6 @@ class DriverBlockSequencerFactory[C](
       health: Option[SequencerHealthConfig],
       clock: Clock,
       driverClock: Clock,
-      protocolVersion: ProtocolVersion,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       minimumSequencingTime: CantonTimestamp,
@@ -102,13 +100,12 @@ class DriverBlockSequencerFactory[C](
           nodeParameters.nonStandardConfig,
           driverClock,
           initialBlockHeight,
-          synchronizerId.toString,
+          cryptoApi.psid.toString,
           synchronizerLoggerFactory,
         ),
         orderingTimeFixMode,
       ),
       name,
-      synchronizerId,
       cryptoApi,
       sequencerId,
       stateManager,
@@ -120,7 +117,6 @@ class DriverBlockSequencerFactory[C](
       futureSupervisor,
       health,
       clock,
-      protocolVersion,
       rateLimitManager,
       orderingTimeFixMode,
       minimumSequencingTime,

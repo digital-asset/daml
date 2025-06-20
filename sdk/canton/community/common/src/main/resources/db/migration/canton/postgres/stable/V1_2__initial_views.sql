@@ -269,7 +269,8 @@ create or replace view debug.par_synchronizer_connection_configs as
     physical_synchronizer_id,
     empty_if_null_physical_synchronizer_id,
     config,
-    status
+    status,
+    synchronizer_predecessor
   from par_synchronizer_connection_configs;
 
 create or replace view debug.par_registered_synchronizers as

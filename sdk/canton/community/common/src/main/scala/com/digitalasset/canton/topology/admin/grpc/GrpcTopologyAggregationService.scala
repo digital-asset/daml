@@ -63,9 +63,9 @@ class GrpcTopologyAggregationService(
       stores.collect {
         case store
             if synchronizerIds.contains(
-              store.storeId.synchronizerId.logical
+              store.storeId.psid.logical
             ) || synchronizerIds.isEmpty =>
-          val synchronizerId = store.storeId.synchronizerId
+          val synchronizerId = store.storeId.psid
           // get approximate timestamp from synchronizer client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips

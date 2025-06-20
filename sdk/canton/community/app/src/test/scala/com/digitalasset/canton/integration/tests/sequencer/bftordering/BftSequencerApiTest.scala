@@ -75,8 +75,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
 
     factory
       .create(
-        synchronizerId,
-        SequencerId(synchronizerId.uid),
+        SequencerId(psid.uid),
         clock,
         driverClock,
         crypto,

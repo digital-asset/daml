@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -30,7 +31,7 @@ import scala.concurrent.duration.FiniteDuration
 class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private val AnOrderRequest = Mempool.OrderRequest(
-    Traced(OrderingRequest("tag", ByteString.copyFromUtf8("b")))
+    Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("b")))
   )
 
   private val requestRefusedHandler = Some(new ModuleRef[SequencerNode.Message] {
@@ -56,7 +57,7 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         mempool.receiveInternal(Mempool.CreateLocalBatches(1))
         mempool.receiveInternal(
           Mempool.OrderRequest(
-            Traced(OrderingRequest("tag", ByteString.EMPTY)),
+            Traced(OrderingRequest(BlockFormat.SendTag, ByteString.EMPTY)),
             requestRefusedHandler,
           )
         )
@@ -72,7 +73,24 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         suppressProblemLogs(
           mempool.receiveInternal(
             Mempool.OrderRequest(
-              Traced(OrderingRequest("tag", ByteString.copyFromUtf8("c"))),
+              Traced(OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("c"))),
+              requestRefusedHandler,
+            )
+          )
+        )
+        succeed
+      }
+    }
+
+    "the request tag it invalid" should {
+      "refuse the request" in {
+        val mempool =
+          createMempool[UnitTestEnv](fakeModuleExpectingSilence, maxRequestPayloadBytes = 0)
+        mempool.receiveInternal(Mempool.CreateLocalBatches(1))
+        suppressProblemLogs(
+          mempool.receiveInternal(
+            Mempool.OrderRequest(
+              Traced(OrderingRequest("invalidTag", ByteString.copyFromUtf8("c"))),
               requestRefusedHandler,
             )
           )

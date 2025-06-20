@@ -65,7 +65,7 @@ class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFac
       synchronizerClient: SynchronizerTopologyClient
   )(implicit traceContext: TraceContext): Unit =
     synchronizers
-      .put(synchronizerClient.physicalSynchronizerId, synchronizerClient)
+      .put(synchronizerClient.psid, synchronizerClient)
       .foreach { oldTopologyClient =>
         logger.warn(
           s"Synchronizer ${synchronizerClient.synchronizerId} already registered a topology client"
@@ -92,10 +92,10 @@ class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFac
 trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** The synchronizer this client applies to */
-  def physicalSynchronizerId: PhysicalSynchronizerId
+  def psid: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
 
-  def protocolVersion: ProtocolVersion = physicalSynchronizerId.protocolVersion
+  def protocolVersion: ProtocolVersion = psid.protocolVersion
 
   /** Our current snapshot approximation
     *
@@ -651,11 +651,12 @@ trait MembersTopologySnapshotClient {
 trait SynchronizerUpgradeClient {
 
   /** In case the synchronizer owners have announced a synchronizer upgrade, returns the physical
-    * synchronizer id of the successor of this synchronizer. Otherwise, returns None.
+    * synchronizer id of the successor of this synchronizer and the upgrade time. Otherwise, returns
+    * None.
     */
   def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]
 
   /** Returns the known sequencer connection details for the successor synchronizer as published by
     * the sequencers.

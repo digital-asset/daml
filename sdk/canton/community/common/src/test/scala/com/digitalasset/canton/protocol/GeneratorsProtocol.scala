@@ -14,23 +14,25 @@ import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
+import com.digitalasset.canton.{GeneratorsLf, LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsProtocol(
-    protocolVersion: ProtocolVersion
+    protocolVersion: ProtocolVersion,
+    generatorsLf: GeneratorsLf,
+    generatorsTopology: GeneratorsTopology,
 ) {
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.GeneratorsLf.*
+  import generatorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.time.GeneratorsTime.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
   import org.scalatest.EitherValues.*
 
   implicit val staticSynchronizerParametersArb: Arbitrary[StaticSynchronizerParameters] =

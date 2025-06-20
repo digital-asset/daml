@@ -92,7 +92,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     with TransactionAuthorizationCache[PureCrypto] {
 
   private val synchronizerId =
-    TopologyStoreId.select[TopologyStoreId.SynchronizerStore](store).map(_.storeId.synchronizerId)
+    TopologyStoreId.select[TopologyStoreId.SynchronizerStore](store).map(_.storeId.psid)
 
   /** Validates the provided topology transactions and applies the certificates to the auth state
     *

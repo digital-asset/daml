@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.openapi
+package com.digitalasset.canton.http.json
 
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -11,11 +11,14 @@ object StdGenerators {
   // Three is no reason to generate larger strings or sequences
   private val maxStringLength = 20
   private val maxSeqSize = 5
-  val shortAlphaNumStr: Gen[String] = for {
-    len <- Gen.choose(1, maxStringLength) // short strings: 1 to 10 characters
+  // We generate daml-lf compatible strings
+  val shortDamlLfIdStr: Gen[String] = for {
+    len <- Gen.choose(1, maxStringLength)
+    firstChar <- Gen.alphaChar
     chars <- Gen.listOfN(len, Gen.alphaNumChar)
-  } yield chars.mkString
-  implicit val arbShortAlphaNumStr: Arbitrary[String] = Arbitrary(shortAlphaNumStr)
+  } yield firstChar +: chars.mkString
+
+  implicit val arbDamlLfStr: Arbitrary[String] = Arbitrary(shortDamlLfIdStr)
 
   implicit val arbJson: Arbitrary[io.circe.Json] = Arbitrary {
     io.circe.Json.obj(("field1", io.circe.Json.fromString("value1")))

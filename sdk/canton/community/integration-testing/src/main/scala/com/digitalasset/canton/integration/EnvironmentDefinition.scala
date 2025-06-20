@@ -395,7 +395,7 @@ object EnvironmentDefinition extends LazyLogging {
       new NetworkBootstrapper(S2M1)
     }
 
-  private lazy val P1S1M1_Config = buildBaseEnvironmentDefinition(
+  lazy val P1S1M1_Config = buildBaseEnvironmentDefinition(
     numParticipants = 1,
     numSequencers = 1,
     numMediators = 1,

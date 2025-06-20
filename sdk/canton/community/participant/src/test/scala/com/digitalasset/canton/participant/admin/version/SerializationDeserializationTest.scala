@@ -5,8 +5,11 @@ package com.digitalasset.canton.participant.admin.version
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.admin.data.{ActiveContractOld, GeneratorsData}
-import com.digitalasset.canton.protocol.GeneratorsProtocol
-import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
+import com.digitalasset.canton.version.{
+  AllGenerators,
+  ProtocolVersion,
+  SerializationDeserializationTestHelpers,
+}
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
@@ -17,9 +20,9 @@ class SerializationDeserializationTest
     with SerializationDeserializationTestHelpers {
 
   forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
-    val generatorsProtocol = new GeneratorsProtocol(version)
-    val generatorsData = new GeneratorsData(version, generatorsProtocol)
-    import generatorsData.*
+    val generators = new AllGenerators(version)
+    val generatorsAdminData = new GeneratorsData(version, generators.protocol, generators.topology)
+    import generatorsAdminData.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {

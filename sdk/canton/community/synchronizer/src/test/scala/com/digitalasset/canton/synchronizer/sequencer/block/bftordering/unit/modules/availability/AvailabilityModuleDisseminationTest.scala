@@ -11,8 +11,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
+  OrderingRequest,
+  OrderingRequestBatch,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability.LocalDissemination.LocalBatchStoredSigned
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability.{
@@ -382,8 +385,62 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include regex (
+          log.message should include regex
             """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains more requests \(1\) than allowed \(0\), skipping"""
+        },
+      )
+
+      disseminationProtocolState.disseminationProgress should be(empty)
+      disseminationProtocolState.batchesReadyForOrdering should be(empty)
+      disseminationProtocolState.toBeProvidedToConsensus should be(empty)
+      verifyZeroInteractions(availabilityStore)
+    }
+
+    "not store if batch contains requests with invalid tags" in {
+      val disseminationProtocolState = new DisseminationProtocolState()
+
+      val availabilityStore = spy(new FakeAvailabilityStore[IgnoringUnitTestEnv])
+      val availability = createAvailability[IgnoringUnitTestEnv](
+        availabilityStore = availabilityStore,
+        disseminationProtocolState = disseminationProtocolState,
+      )
+      loggerFactory.assertLogs(
+        availability.receive(
+          RemoteDissemination.RemoteBatch
+            .create(ABatchIdWithInvalidTags, ABatchWithInvalidTags, from = Node1)
+        ),
+        log => {
+          log.level shouldBe Level.WARN
+          val validTags = OrderingRequest.ValidTags.mkString(", ")
+          log.message should include regex
+            """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains requests with invalid tags, """ +
+            s"valid tags are: \\($validTags\\); skipping"
+        },
+      )
+
+      disseminationProtocolState.disseminationProgress should be(empty)
+      disseminationProtocolState.batchesReadyForOrdering should be(empty)
+      disseminationProtocolState.toBeProvidedToConsensus should be(empty)
+      verifyZeroInteractions(availabilityStore)
+    }
+
+    "not store if any single request is too large" in {
+      val disseminationProtocolState = new DisseminationProtocolState()
+
+      val availabilityStore = spy(new FakeAvailabilityStore[IgnoringUnitTestEnv])
+      val availability = createAvailability[IgnoringUnitTestEnv](
+        availabilityStore = availabilityStore,
+        disseminationProtocolState = disseminationProtocolState,
+        maxRequestPayloadBytes = 0,
+      )
+      loggerFactory.assertLogs(
+        availability.receive(
+          RemoteDissemination.RemoteBatch.create(ANonEmptyBatchId, ANonEmptyBatch, from = Node1)
+        ),
+        log => {
+          log.level shouldBe Level.WARN
+          log.message should include regex (
+            """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains one or more batches that exceed the maximum allowed request size bytes \(0\), skipping"""
           )
         },
       )
@@ -411,9 +468,8 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include regex (
+          log.message should include regex
             """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains an expired batch at epoch number 0 which is 500 epochs or more older than last known epoch 501, skipping"""
-          )
         },
       )
 
@@ -429,9 +485,8 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include regex (
+          log.message should include regex
             """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains a batch whose epoch number 1501 is too far in the future compared to last known epoch 501, skipping"""
-          )
         },
       )
 
@@ -440,6 +495,7 @@ class AvailabilityModuleDisseminationTest
       disseminationProtocolState.toBeProvidedToConsensus should be(empty)
       verifyZeroInteractions(availabilityStore)
     }
+
     "not store if there is no dissemination quota available for node" in {
       implicit val ctx: ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
         new ProgrammableUnitTestContext()
@@ -458,6 +514,7 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState = disseminationProtocolState,
         maxNonOrderedBatchesPerNode = disseminationQuotaSize.toShort,
         cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        consensus = fakeIgnoringModule,
       )
 
       def canAcceptBatch(batchId: BatchId) =
@@ -530,6 +587,7 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState = disseminationProtocolState,
         cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         availabilityStore = availabilityStore,
+        consensus = fakeIgnoringModule,
         initialEpochNumber = Genesis.GenesisEpochNumber,
       )
 

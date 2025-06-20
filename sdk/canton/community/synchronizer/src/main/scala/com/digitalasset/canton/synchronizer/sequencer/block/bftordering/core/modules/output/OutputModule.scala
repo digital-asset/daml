@@ -375,13 +375,7 @@ class OutputModule[E <: Env[E]](
             val blockNumber = orderedBlock.metadata.blockNumber
             blocksBeingFetched
               .remove(blockNumber)
-              .foreach(
-                metrics.performance.orderingStageLatency.emitOrderingStageLatency(
-                  metrics.performance.orderingStageLatency.labels.stage.values.output.Fetch,
-                  _,
-                  Instant.now(),
-                )
-              )
+              .foreach(emitFetchLatency)
             logger.debug(
               s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
                 s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"
@@ -400,11 +394,11 @@ class OutputModule[E <: Env[E]](
                 orderedBlockBftTime,
                 epochCouldAlterOrderingTopology,
               ) =>
+            emitRequestsOrderingStats(metrics, orderedBlockData, orderedBlockBftTime)
+
             // If the epoch could alter the ordering topology as a result of this block data,
             //  the epoch metadata was stored before sending this message.
             currentEpochMetadataStored = epochCouldAlterOrderingTopology
-
-            emitRequestsOrderingStats(metrics, orderedBlockData, orderedBlockBftTime)
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
             //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
@@ -650,9 +644,10 @@ class OutputModule[E <: Env[E]](
 
   private def potentiallyAltersSequencersTopology(
       orderedBlockData: CompleteBlockData
-  ): Boolean =
-    metrics.performance.orderingStageLatency.emitOrderingStageLatency(
-      metrics.performance.orderingStageLatency.labels.stage.values.output.Inspection,
+  ): Boolean = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.output.Inspection,
       () =>
         orderedBlockData.requestsView.toSeq.findLast {
           case tracedOrderingRequest @ Traced(orderingRequest) =>
@@ -664,6 +659,7 @@ class OutputModule[E <: Env[E]](
             )
         }.isDefined,
     )
+  }
 
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   private def fetchNewEpochTopologyIfNeeded(
@@ -829,6 +825,14 @@ class OutputModule[E <: Env[E]](
         val timestamp = BftTime.requestBftTime(blockBftTime, index)
         Traced(OrderedRequest(timestamp.toMicros, tag, body))(tracedRequest.traceContext)
     }.toSeq
+
+  private def emitFetchLatency(start: Instant): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.output.Fetch,
+      Some(start),
+    )
+  }
 }
 
 object OutputModule {

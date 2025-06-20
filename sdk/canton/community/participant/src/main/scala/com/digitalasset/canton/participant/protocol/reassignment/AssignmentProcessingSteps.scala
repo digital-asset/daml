@@ -60,7 +60,7 @@ private[reassignment] class AssignmentProcessingSteps(
     seedGenerator: SeedGenerator,
     override protected val contractAuthenticator: ContractAuthenticator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
-    targetProtocolVersion: Target[ProtocolVersion],
+    val protocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends ReassignmentProcessingSteps[
@@ -169,7 +169,7 @@ private[reassignment] class AssignmentProcessingSteps(
           targetSynchronizer,
           mediator,
           assignmentUuid,
-          targetProtocolVersion,
+          protocolVersion,
           unassignmentData.unassignmentRequest.reassigningParticipants,
         )
       )
@@ -208,7 +208,7 @@ private[reassignment] class AssignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           recentSnapshot,
-          targetProtocolVersion.unwrap,
+          protocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
           EncryptionError(contractIds, _)
@@ -218,7 +218,6 @@ private[reassignment] class AssignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           synchronizerId.unwrap,
-          targetProtocolVersion.unwrap,
           ViewType.AssignmentViewType,
           recentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -239,7 +238,7 @@ private[reassignment] class AssignmentProcessingSteps(
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      ReassignmentsSubmission(Batch.of(targetProtocolVersion.unwrap, messages*), rootHash)
+      ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash)
     }
   }
 
@@ -281,7 +280,7 @@ private[reassignment] class AssignmentProcessingSteps(
         participantId,
       ) { bytes =>
         FullAssignmentTree
-          .fromByteString(snapshot.pureCrypto, targetProtocolVersion)(bytes)
+          .fromByteString(snapshot.pureCrypto, protocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(fullTree =>
@@ -296,7 +295,6 @@ private[reassignment] class AssignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (Target(parsedRequest.fullViewTree.synchronizerId) == synchronizerId) {
       val contractIds = parsedRequest.fullViewTree.contracts.contractIds.toSet
       val contractCheck = ActivenessCheck.tryCreate(
@@ -366,8 +364,9 @@ private[reassignment] class AssignmentProcessingSteps(
         if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFound)
           createConfirmationResponses(
             parsedRequest.requestId,
+            parsedRequest.malformedPayloads,
             parsedRequest.snapshot.ipsSnapshot,
-            targetProtocolVersion.unwrap,
+            protocolVersion.unwrap,
             parsedRequest.fullViewTree.confirmingParties,
             assignmentValidationResult,
           ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
@@ -412,7 +411,7 @@ private[reassignment] class AssignmentProcessingSteps(
           entry,
           LocalRejectError.TimeRejects.LocalTimeout
             .Reject()
-            .toLocalReject(targetProtocolVersion.unwrap),
+            .toLocalReject(protocolVersion.unwrap),
         ),
       )
     }
@@ -591,7 +590,6 @@ object AssignmentProcessingSteps {
         stakeholders = stakeholders,
         uuid = assignmentUuid,
         submitterMetadata,
-        targetProtocolVersion,
         reassigningParticipants,
       )
 

@@ -678,7 +678,6 @@ abstract class TopologyTransactionProcessorTest
                 TopologyTransactionsBroadcast(
                   synchronizerId,
                   List(transaction),
-                  testedProtocolVersion,
                 ),
                 recipients = Recipients.cc(AllMembersOfSynchronizer),
               )(testedProtocolVersion)

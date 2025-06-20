@@ -67,15 +67,14 @@ object TopologyStoreId {
 
   /** A topology store storing sequenced topology transactions
     *
-    * @param synchronizerId
+    * @param psid
     *   the synchronizer id of the store
     */
-  final case class SynchronizerStore(synchronizerId: PhysicalSynchronizerId)
-      extends TopologyStoreId {
-    override val dbString = synchronizerId.toLengthLimitedString
+  final case class SynchronizerStore(psid: PhysicalSynchronizerId) extends TopologyStoreId {
+    override val dbString = psid.toLengthLimitedString
 
     override protected def pretty: Pretty[this.type] =
-      prettyOfParam(_.synchronizerId)
+      prettyOfParam(_.psid)
 
     override def isSynchronizerStore: Boolean = true
   }

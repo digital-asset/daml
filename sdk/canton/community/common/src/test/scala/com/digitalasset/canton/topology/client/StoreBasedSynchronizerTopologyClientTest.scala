@@ -35,7 +35,7 @@ trait StoreBasedTopologySnapshotTest
   import EffectiveTimeTestHelpers.*
 
   def topologySnapshot(
-      mk: () => TopologyStore[TopologyStoreId]
+      mk: () => TopologyStore[TopologyStoreId.SynchronizerStore]
   ): Unit = {
 
     val factory = new TestingOwnerWithKeys(
@@ -66,11 +66,10 @@ trait StoreBasedTopologySnapshotTest
     )
 
     class Fixture {
-      val store: TopologyStore[TopologyStoreId] = mk()
+      val store: TopologyStore[TopologyStoreId.SynchronizerStore] = mk()
       val client =
         new StoreBasedSynchronizerTopologyClient(
           mock[Clock],
-          DefaultTestIdentities.physicalSynchronizerId,
           store,
           StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
           DefaultProcessingTimeouts.testing,
@@ -357,7 +356,7 @@ class StoreBasedTopologySnapshotTestInMemory extends StoreBasedTopologySnapshotT
   "InMemoryTopologyStore" should {
     behave like topologySnapshot(() =>
       new InMemoryTopologyStore(
-        TopologyStoreId.AuthorizedStore,
+        TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,

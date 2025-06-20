@@ -16,7 +16,6 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.UUID
 
@@ -56,7 +55,6 @@ final case class ReassignmentDataHelpers(
       submitter: LfPartyId,
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
-      sourceProtocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   )(
       reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
   ): UnassignmentRequest =
@@ -65,7 +63,6 @@ final case class ReassignmentDataHelpers(
       reassigningParticipants = reassigningParticipants,
       contracts = ContractsReassignmentBatch(contract, ReassignmentCounter(1)),
       sourceSynchronizer = sourceSynchronizer,
-      sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
       targetTimeProof = targetTimeProof,

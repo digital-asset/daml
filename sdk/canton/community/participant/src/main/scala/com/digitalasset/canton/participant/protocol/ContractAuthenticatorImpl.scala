@@ -62,6 +62,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       driverMetadata <- DriverContractMetadata
         .fromLfBytes(contract.cantonData.toByteArray)
         .leftMap(_.toString)
+
       // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
       createTime <- (contract.createdAt: CreationTime) match {
         case absolute: CreationTime.CreatedAt => Right(absolute)

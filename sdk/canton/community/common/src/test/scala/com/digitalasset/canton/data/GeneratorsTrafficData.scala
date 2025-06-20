@@ -10,15 +10,16 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   TrafficState,
 }
-import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.Arbitrary
 
 final class GeneratorsTrafficData(
-    protocolVersion: ProtocolVersion
+    protocolVersion: ProtocolVersion,
+    generatorsTopology: GeneratorsTopology,
 ) {
   import com.digitalasset.canton.config.GeneratorsConfig.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
   import GeneratorsDataTime.*
 
   implicit val setTrafficPurchasedArb: Arbitrary[SetTrafficPurchasedMessage] = Arbitrary(
@@ -26,13 +27,12 @@ final class GeneratorsTrafficData(
       member <- Arbitrary.arbitrary[Member]
       serial <- Arbitrary.arbitrary[PositiveInt]
       trafficPurchased <- Arbitrary.arbitrary[NonNegativeLong]
-      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
     } yield SetTrafficPurchasedMessage.apply(
       member,
       serial,
       trafficPurchased,
-      synchronizerId,
-      protocolVersion,
+      psid,
     )
   )
 

@@ -34,7 +34,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
@@ -214,26 +213,24 @@ class ParticipantTopologyDispatcher(
   }
 
   def onboardToSynchronizer(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       alias: SynchronizerAlias,
       sequencerConnectClient: SequencerConnectClient,
-      protocolVersion: ProtocolVersion,
   )(implicit
       executionContext: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
-    getState(synchronizerId).flatMap { state =>
+    getState(psid).flatMap { state =>
       SynchronizerOnboardingOutbox
         .initiateOnboarding(
           alias,
-          synchronizerId,
-          protocolVersion,
+          psid,
           participantId,
           sequencerConnectClient,
           manager.store,
           timeouts,
           loggerFactory
-            .append("synchronizerId", synchronizerId.toString)
+            .append("synchronizerId", psid.toString)
             .appendUnnamedKey("onboarding", "onboarding"),
           SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
         )
@@ -241,22 +238,19 @@ class ParticipantTopologyDispatcher(
 
   def createHandler(
       synchronizerAlias: SynchronizerAlias,
-      synchronizerId: PhysicalSynchronizerId,
-      protocolVersion: ProtocolVersion,
       client: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
       timeTracker: SynchronizerTimeTracker,
   ): ParticipantTopologyDispatcherHandle = {
-    val synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
+    val synchronizerLoggerFactory =
+      loggerFactory.append("synchronizerId", sequencerClient.psid.toString)
     new ParticipantTopologyDispatcherHandle {
       val handle = new SequencerBasedRegisterTopologyTransactionHandle(
         sequencerClient,
-        synchronizerId,
         participantId,
         timeTracker,
         clock,
         config.topology,
-        protocolVersion,
         timeouts,
         synchronizerLoggerFactory,
       )
@@ -264,13 +258,11 @@ class ParticipantTopologyDispatcher(
       override def synchronizerConnected()(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
-        getState(synchronizerId)
+        getState(sequencerClient.psid)
           .flatMap { state =>
             val queueBasedSynchronizerOutbox = new QueueBasedSynchronizerOutbox(
               synchronizerAlias = synchronizerAlias,
-              synchronizerId = synchronizerId,
               memberId = participantId,
-              protocolVersion = protocolVersion,
               handle = handle,
               targetClient = client,
               synchronizerOutboxQueue = state.synchronizerOutboxQueue,
@@ -283,9 +275,7 @@ class ParticipantTopologyDispatcher(
 
             val storeBasedSynchronizerOutbox = new StoreBasedSynchronizerOutbox(
               synchronizerAlias = synchronizerAlias,
-              synchronizerId = synchronizerId,
               memberId = participantId,
-              protocolVersion = protocolVersion,
               handle = handle,
               targetClient = client,
               authorizedStore = manager.store,
@@ -296,12 +286,13 @@ class ParticipantTopologyDispatcher(
               broadcastBatchSize = topologyConfig.broadcastBatchSize,
               futureSupervisor = futureSupervisor,
             )
+            val psid = client.psid
             ErrorUtil.requireState(
-              !synchronizers.contains(synchronizerId),
-              s"topology pusher for $synchronizerId already exists",
+              !synchronizers.contains(psid),
+              s"topology pusher for $psid already exists",
             )
             val outboxes = NonEmpty(Seq, queueBasedSynchronizerOutbox, storeBasedSynchronizerOutbox)
-            synchronizers += synchronizerId -> outboxes
+            synchronizers += psid -> outboxes
 
             state.topologyManager.addObserver(new TopologyManagerObserver {
               override def addedNewTransactions(
@@ -340,8 +331,7 @@ class ParticipantTopologyDispatcher(
   */
 private class SynchronizerOnboardingOutbox(
     synchronizerAlias: SynchronizerAlias,
-    val synchronizerId: PhysicalSynchronizerId,
-    val protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
+    val psid: PhysicalSynchronizerId,
     participantId: ParticipantId,
     sequencerConnectClient: SequencerConnectClient,
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
@@ -381,7 +371,7 @@ private class SynchronizerOnboardingOutbox(
       candidates <- EitherT.right(
         synchronizeWithClosing(functionFullName)(
           authorizedStore
-            .findParticipantOnboardingTransactions(participantId, synchronizerId.logical)
+            .findParticipantOnboardingTransactions(participantId, psid.logical)
         )
       )
       applicable <- EitherT.right(
@@ -438,7 +428,6 @@ object SynchronizerOnboardingOutbox {
   def initiateOnboarding(
       synchronizerAlias: SynchronizerAlias,
       synchronizerId: PhysicalSynchronizerId,
-      protocolVersion: ProtocolVersion,
       participantId: ParticipantId,
       sequencerConnectClient: SequencerConnectClient,
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
@@ -452,7 +441,6 @@ object SynchronizerOnboardingOutbox {
     val outbox = new SynchronizerOnboardingOutbox(
       synchronizerAlias,
       synchronizerId,
-      protocolVersion,
       participantId,
       sequencerConnectClient,
       authorizedStore,

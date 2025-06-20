@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
@@ -72,7 +73,7 @@ class BftP2PNetworkIn[E <: Env[E]](
     val mc1 = receiveMetricsContext(metrics)(outcome)
     locally {
       implicit val mc: MetricsContext = mc1
-      metrics.p2p.receive.processingLatency.update(Duration.between(start, end))
+      updateTimer(metrics.p2p.receive.processingLatency, Duration.between(start, end))
       emitReceiveStats(metrics, size = body.map(_.serializedSize.toLong).getOrElse(0L))
     }
   }

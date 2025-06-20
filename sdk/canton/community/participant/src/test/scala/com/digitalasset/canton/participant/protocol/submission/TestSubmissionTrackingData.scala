@@ -17,6 +17,5 @@ object TestSubmissionTrackingData {
         SynchronizerId.tryFromString("da::default"),
         BaseTest.testedProtocolVersion,
       ),
-      BaseTest.testedProtocolVersion,
     )
 }

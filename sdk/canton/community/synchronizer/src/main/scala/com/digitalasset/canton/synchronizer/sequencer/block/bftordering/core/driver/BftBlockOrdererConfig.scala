@@ -45,8 +45,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
   P2PNetworkConfig,
   PruningConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
@@ -100,14 +98,6 @@ final case class BftBlockOrdererConfig(
     // We may want to flip the default once we're satisfied with initial performance
     enablePerformanceMetrics: Boolean = true,
 ) extends UniformCantonConfigValidation {
-  // The below parameters are not yet dynamically configurable.
-  private val EmptyBlockCreationIntervalMultiplayer = 3L
-  require(
-    BlockCompletionTimeout > AvailabilityModuleConfig.EmptyBlockCreationInterval * EmptyBlockCreationIntervalMultiplayer,
-    s"The block completion timeout should be sufficiently larger (currently $EmptyBlockCreationIntervalMultiplayer times) " +
-      "than the empty block creation interval to avoid unnecessary view changes.",
-  )
-
   private val maxRequestsPerBlock = maxBatchesPerBlockProposal * maxRequestsInBatch
   require(
     maxRequestsPerBlock < BftTime.MaxRequestsPerBlock,

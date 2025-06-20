@@ -81,7 +81,7 @@ trait FinalizedResponseStoreTest {
       testedProtocolVersion,
     )
     val commonMetadata = CommonMetadata
-      .create(hashOps, testedProtocolVersion)(
+      .create(hashOps)(
         synchronizerId,
         MediatorGroupRecipient(MediatorGroupIndex.zero),
         s(5417),

@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Fingerprint, Hash, Signature, SignatureFormat}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -100,13 +101,29 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
   protected val AnotherBatchId = BatchId.createForTesting("AnotherBatchId")
   protected val anEpochNumber = EpochNumber.First
   protected val anOrderingRequest: Traced[OrderingRequest] = Traced(
-    OrderingRequest("tag", ByteString.EMPTY)
+    OrderingRequest(BlockFormat.SendTag, ByteString.EMPTY)
+  )
+  protected val anOrderingRequestWithInvalidTag: Traced[OrderingRequest] = Traced(
+    OrderingRequest("invalidTag", ByteString.EMPTY)
+  )
+  protected val aNonEmptyOrderingRequest: Traced[OrderingRequest] = Traced(
+    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("request"))
   )
   protected val ABatch = OrderingRequestBatch.create(
     Seq(anOrderingRequest),
     anEpochNumber,
   )
+  protected val ANonEmptyBatch = OrderingRequestBatch.create(
+    Seq(aNonEmptyOrderingRequest),
+    anEpochNumber,
+  )
+  protected val ABatchWithInvalidTags = OrderingRequestBatch.create(
+    Seq(anOrderingRequest, anOrderingRequestWithInvalidTag),
+    anEpochNumber,
+  )
   protected val ABatchId = BatchId.from(ABatch)
+  protected val ANonEmptyBatchId = BatchId.from(ANonEmptyBatch)
+  protected val ABatchIdWithInvalidTags = BatchId.from(ABatchWithInvalidTags)
   protected val AnInProgressBatchMetadata =
     InProgressBatchMetadata(ABatchId, anEpochNumber, ABatch.stats)
   protected val WrongBatchId = BatchId.createForTesting("Wrong BatchId")
@@ -341,6 +358,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       otherNodes: Set[BftNodeId] = Set.empty,
       otherNodesCustomKeys: Map[BftNodeId, BftKeyId] = Map.empty,
       initialEpochNumber: EpochNumber = EpochNumber.First,
+      maxRequestPayloadBytes: Int = BftBlockOrdererConfig.DefaultMaxRequestPayloadBytes,
       maxRequestsInBatch: Short = BftBlockOrdererConfig.DefaultMaxRequestsInBatch,
       maxBatchesPerProposal: Short = BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,
       maxNonOrderedBatchesPerNode: Short = AvailabilityModuleConfig.MaxNonOrderedBatchesPerNode,
@@ -397,7 +415,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       disseminationProtocolState,
       outputFetchProtocolState,
     )(messageAuthorizer)(
-      new BftBlockOrdererConfig(),
+      new BftBlockOrdererConfig(maxRequestPayloadBytes = maxRequestPayloadBytes),
       synchronizerProtocolVersion,
       MetricsContext.Empty,
     )

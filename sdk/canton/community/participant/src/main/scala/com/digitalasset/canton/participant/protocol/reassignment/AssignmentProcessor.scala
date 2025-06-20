@@ -62,8 +62,6 @@ class AssignmentProcessor(
       ephemeral,
       synchronizerCrypto,
       sequencerClient,
-      synchronizerId.unwrap,
-      targetProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,
       promiseFactory,

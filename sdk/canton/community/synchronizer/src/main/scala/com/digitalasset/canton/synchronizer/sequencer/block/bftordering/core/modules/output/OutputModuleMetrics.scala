@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.CompleteBlockData
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput
 
@@ -35,15 +36,17 @@ private[output] object OutputModuleMetrics {
     metrics.output.blockSizeBytes.update(bytesOrdered)(outputMc)
     metrics.output.blockSizeRequests.update(requestsOrdered)(outputMc)
     metrics.output.blockSizeBatches.update(batchesOrdered)(outputMc)
-    metrics.output.blockDelay.update(
-      Duration.between(orderedBlockBftTime.toInstant, orderingCompletionInstant)
+    updateTimer(
+      metrics.output.blockDelay,
+      Duration.between(orderedBlockBftTime.toInstant, orderingCompletionInstant),
     )(outputMc)
     metrics.global.blocksOrdered.mark(1L)
     orderedBlockData.batches.foreach { batch =>
       batch._2.requests.foreach { request =>
         request.value.orderingStartInstant.foreach { i =>
-          metrics.global.requestsOrderingLatency.timer.update(
-            Duration.between(i, orderingCompletionInstant)
+          updateTimer(
+            metrics.global.requestsOrderingLatency.timer,
+            Duration.between(i, orderingCompletionInstant),
           )(
             mc.withExtraLabels(
               metrics.global.requestsOrderingLatency.labels.ReceivingSequencer ->

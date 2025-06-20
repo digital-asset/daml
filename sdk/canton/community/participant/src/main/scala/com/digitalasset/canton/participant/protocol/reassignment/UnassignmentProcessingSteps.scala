@@ -189,7 +189,6 @@ class UnassignmentProcessingSteps(
           contracts,
           submitterMetadata,
           synchronizerId,
-          protocolVersion,
           mediator,
           targetSynchronizer,
           Source(sourceRecentSnapshot.ipsSnapshot),
@@ -250,7 +249,6 @@ class UnassignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           synchronizerId.unwrap,
-          protocolVersion.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -339,7 +337,6 @@ class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (parsedRequest.fullViewTree.synchronizerId == synchronizerId.unwrap) {
       val contractIdS = parsedRequest.fullViewTree.contracts.contractIds.toSet
       // Either check contracts for activeness and lock them normally or lock them knowing the
@@ -476,6 +473,7 @@ class UnassignmentProcessingSteps(
       val responseF =
         createConfirmationResponses(
           parsedRequest.requestId,
+          parsedRequest.malformedPayloads,
           sourceSnapshot.unwrap,
           protocolVersion.unwrap,
           fullTree.confirmingParties,

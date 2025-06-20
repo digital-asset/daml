@@ -280,7 +280,7 @@ object RetransmissionMessageValidatorTest {
   def prePrepare(
       epochNumber: Long,
       blockNumber: Long,
-      block: OrderingBlock = OrderingBlock(Seq.empty),
+      block: OrderingBlock = OrderingBlock.empty,
   )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     PrePrepare
       .create(

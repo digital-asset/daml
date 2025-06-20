@@ -48,7 +48,7 @@ final class TransactionTreeFactoryImplTest
   def createTransactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submittingParticipant,
-      factory.physicalSynchronizerId,
+      factory.psid,
       factory.cryptoOps,
       loggerFactory,
     )

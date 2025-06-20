@@ -55,8 +55,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
 
     factory
       .create(
-        synchronizerId,
-        SequencerId(synchronizerId.uid),
+        SequencerId(psid.uid),
         clock,
         driverClock,
         crypto,

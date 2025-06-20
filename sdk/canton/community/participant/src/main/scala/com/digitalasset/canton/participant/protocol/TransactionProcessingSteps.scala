@@ -118,7 +118,7 @@ import scala.util.{Failure, Success}
   */
 @nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     confirmationResponsesFactory: TransactionConfirmationResponsesFactory,
@@ -209,7 +209,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId.logical)
+    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, psid.logical)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
@@ -290,8 +290,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         TransactionSubmissionTrackingData.CauseWithTemplate(error),
-        synchronizerId,
-        protocolVersion,
+        psid,
       )
 
     override def submissionId: Option[LedgerSubmissionId] = submitterInfo.submissionId
@@ -405,8 +404,7 @@ class TransactionProcessingSteps(
         val trackingData = TransactionSubmissionTrackingData(
           submitterInfoWithDedupPeriod.toCompletionInfo,
           rejectionCause,
-          synchronizerId,
-          protocolVersion,
+          psid,
         )
         Success(Outcome(Left(trackingData)))
       }
@@ -436,8 +434,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         submitterInfo.toCompletionInfo.copy(optDeduplicationPeriod = None),
         TransactionSubmissionTrackingData.TimeoutCause,
-        synchronizerId,
-        protocolVersion,
+        psid,
       )
 
     override def embedInFlightSubmissionTrackerError(
@@ -506,8 +503,7 @@ class TransactionProcessingSteps(
       TransactionSubmissionTrackingData(
         completionInfo,
         rejectionCause,
-        synchronizerId,
-        protocolVersion,
+        psid,
       )
     }
   }
@@ -850,7 +846,7 @@ class TransactionProcessingSteps(
         authenticationResult <- AuthenticationValidator.verifyViewSignatures(
           parsedRequest,
           reInterpretedTopLevelViews,
-          synchronizerId,
+          psid,
           protocolVersion,
           transactionEnricher,
           createNodeEnricher,
@@ -1049,12 +1045,14 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Option[ConfirmationResponses] =
-    confirmationResponsesFactory.createConfirmationResponsesForMalformedPayloads(
-      requestId,
-      rootHash,
-      malformedPayloads,
-    )
+  ): Option[ConfirmationResponses] = ProcessingSteps.constructResponsesForMalformedPayloads(
+    requestId = requestId,
+    rootHash = rootHash,
+    malformedPayloads = malformedPayloads,
+    synchronizerId = psid,
+    participantId = participantId,
+    protocolVersion = protocolVersion,
+  )
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
@@ -1072,7 +1070,7 @@ class TransactionProcessingSteps(
         Update.SequencedCommandRejected(
           completionInfo,
           rejection,
-          synchronizerId.logical,
+          psid.logical,
           ts,
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1113,7 +1111,7 @@ class TransactionProcessingSteps(
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId.logical,
+        psid.logical,
         requestTime,
       )
     )
@@ -1264,7 +1262,7 @@ class TransactionProcessingSteps(
           transaction = LfCommittedTransaction(lfTx.unwrap),
           updateId = lfTxId,
           contractMetadata = contractMetadata,
-          synchronizerId = synchronizerId.logical,
+          synchronizerId = psid.logical,
           recordTime = requestTime,
         )
     } yield CommitAndStoreContractsAndPublishEvent(
@@ -1447,7 +1445,7 @@ class TransactionProcessingSteps(
 
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)
-        .leftMap(SynchronizerParametersError(synchronizerId, _))
+        .leftMap(SynchronizerParametersError(psid, _))
 
       _ <-
         (if (ts <= maxDecisionTime) EitherT.pure[Future, TransactionProcessorError](())
