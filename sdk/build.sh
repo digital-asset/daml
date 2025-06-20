@@ -95,6 +95,9 @@ if has_regenerate_stackage_trailer; then
 fi
 
 echo "Running 'bazel build //...'"
+bazel fetch @damlc_legacy
+bazel query --output location "@damlc_legacy//:*"
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
   --build_tag_filters "${tag_filter}" \
