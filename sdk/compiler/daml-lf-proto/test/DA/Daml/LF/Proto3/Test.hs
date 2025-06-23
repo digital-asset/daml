@@ -1,16 +1,19 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# OPTIONS_GHC -Wno-missing-signatures #-}
-
 module DA.Daml.LF.Proto3.Test (
         module DA.Daml.LF.Proto3.Test
 ) where
 
 
-import qualified Data.NameMap as NM
+import           Control.Monad.State.Strict
+import           Data.Int
+import qualified Data.NameMap                             as NM
+import qualified Data.Vector                              as V
 
 import           DA.Daml.LF.Proto3.EncodeV2
+import           DA.Daml.LF.Proto3.InternedMap
+
 import           DA.Daml.LF.Proto3.DecodeV2
 
 import           DA.Daml.LF.Ast
@@ -28,9 +31,8 @@ entry = defaultMain $ testGroup "All tests"
 ------------------------------------------------------------------------
 -- Params
 ------------------------------------------------------------------------
-
-version :: Version
-version = Version V2 PointDev
+testVersion :: Version
+testVersion = Version V2 PointDev
 
 ------------------------------------------------------------------------
 -- Rount-trip
@@ -71,11 +73,126 @@ rtt_fail1 = testCase "this fails" $ True @=? False
 ------------------------------------------------------------------------
 -- EncodeTests
 ------------------------------------------------------------------------
+encodeKindAssert :: Kind -> P.Kind -> Assertion
+encodeKindAssert k pk =
+  let (pk', _) = runState (encodeKind k) env
+  in  pk @=? pk'
+    where
+      env = initEncodeEnv testVersion
+
+encodeKindTest :: String -> Kind -> P.Kind -> TestTree
+encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
+
 enc_tests :: TestTree
 enc_tests = testGroup "Encoding tests"
-    [
-    ]
+  [ enc_pure_tests
+  , enc_interning_tests
+  ]
 
+enc_pure_tests :: TestTree
+enc_pure_tests = testGroup "Encoding tests (non-interning)" $
+  map (uncurry3 encodeKindTest)
+    [ ("Kind star", KStar, pkstar)
+    , ("Kind Nat", KNat, pknat)
+    ]
+  where
+    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+    uncurry3 f (a, b, c) = f a b c
+
+
+enc_interning_tests :: TestTree
+enc_interning_tests = testGroup "Encoding tests (interning)"
+  [ enc_interning_starToStar
+  , enc_interning_starToNatToStar
+  ]
+
+runEncodeTest :: Kind -> (P.Kind, EncodeEnv)
+runEncodeTest k = runState (encodeKind k) (initEncodeEnv testVersion)
+
+enc_interning_starToStar :: TestTree
+enc_interning_starToStar =
+  let (pk, EncodeEnv{_internedKindsMap}) = runEncodeTest (KArrow KStar KStar)
+  in  testCase "star to star" $ do
+    pk @=? interned 0
+    toVec _internedKindsMap V.! 0 @=? pkarr' pkstar pkstar
+
+enc_interning_starToNatToStar :: TestTree
+enc_interning_starToNatToStar =
+  let (pk, EncodeEnv{_internedKindsMap}) = runEncodeTest (KArrow (KArrow KStar KNat) KStar)
+  in  testCase "(star to nat) to star" $ do
+    pk @=? interned 1
+    toVec _internedKindsMap V.! 0 @=? pkarr' pkstar pknat
+    toVec _internedKindsMap V.! 1 @=? pkarr' (interned 0) pkstar
+
+------------------------------------------------------------------------
+-- DecodeTests
+------------------------------------------------------------------------
+dec_tests :: TestTree
+dec_tests = testGroup "decoding tests"
+  [ dec_pure_tests
+  , dec_interning_tests
+  ]
+
+emptyDecodeEnv :: DecodeEnv
+emptyDecodeEnv = DecodeEnv V.empty V.empty V.empty V.empty SelfPackageId
+
+decodeKindAssert :: P.Kind -> Kind -> Assertion
+decodeKindAssert pk k =
+  either
+    (\err -> assertFailure $ "Unexpected error: " ++ show err)
+    (\k' -> k @=? k')
+    (runDecode env (decodeKind pk))
+    where
+      env = emptyDecodeEnv
+
+
+decodeKindTest :: String -> P.Kind -> Kind -> TestTree
+decodeKindTest str pk k = testCase str $ decodeKindAssert pk k
+
+dec_pure_tests :: TestTree
+dec_pure_tests = testGroup "decoding tests (non-interning)" $ map (uncurry3 decodeKindTest)
+  [ ("Kind star", pkstar, KStar)
+  , ("Kind Nat", pknat, KNat)
+  , ("star to star", pkarr pkstar pkstar, KArrow KStar KStar)
+  , ("(star to nat) to star", pkarr (pkarr pkstar pknat) pkstar, KArrow (KArrow KStar KNat) KStar)
+  ]
+  where
+    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
+    uncurry3 f (a, b, c) = f a b c
+
+
+dec_interning_tests :: TestTree
+dec_interning_tests = testGroup "decoding tests (interning)"
+  [ dec_interning_starToStar
+  ]
+
+
+dec_interning_starToStar :: TestTree
+dec_interning_starToStar =
+  let kinds = V.singleton (KArrow KStar KStar)
+      env = emptyDecodeEnv{internedKinds = kinds}
+  in  testCase "star to star" $ either
+        (\err -> assertFailure $ "Unexpected error: " ++ show err)
+        (\k -> k @=? KArrow KStar KStar)
+        (runDecode env (decodeKind (interned 0)))
+
+------------------------------------------------------------------------
+-- Proto Ast helpers
+------------------------------------------------------------------------
+pkstar :: P.Kind
+pkstar = (P.Kind . Just . P.KindSumStar) P.Unit
+
+pknat :: P.Kind
+pknat = (P.Kind . Just . P.KindSumNat) P.Unit
+
+pkarr :: P.Kind -> P.Kind -> P.Kind
+pkarr k1 k2 = (P.Kind . Just) (pkarr' k1 k2)
+
+pkarr' :: P.Kind -> P.Kind -> P.KindSum
+pkarr' k1 k2 = P.KindSumArrow $ P.Kind_Arrow (V.singleton k1) (Just k2)
+
+interned :: Int32 -> P.Kind
+interned = P.Kind . Just . P.KindSumInterned
 
 ------------------------------------------------------------------------
 -- Examples
@@ -136,7 +253,7 @@ oneModulePackage :: Module -> Package
 oneModulePackage m = Package{..}
   where
     packageLfVersion :: Version
-    packageLfVersion = version
+    packageLfVersion = testVersion
     packageModules :: NM.NameMap Module
     packageModules = NM.fromList [m]
     packageMetadata :: PackageMetadata

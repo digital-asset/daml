@@ -4,7 +4,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
-module DA.Daml.LF.Proto3.InternedMap (InternedMap, internState, toVec, empty) where
+module DA.Daml.LF.Proto3.InternedMap (
+  InternedMap, internState, toVec, empty, extend
+  ) where
 
 import           Control.Monad.State.Strict
 

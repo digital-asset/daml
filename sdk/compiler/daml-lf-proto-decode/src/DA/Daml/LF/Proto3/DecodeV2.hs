@@ -7,6 +7,9 @@ module DA.Daml.LF.Proto3.DecodeV2
     ( decodePackage
     , decodeSinglePackageModule
     , Error(..)
+    , DecodeEnv(..)
+    , runDecode
+    , decodeKind
     ) where
 
 import           DA.Daml.LF.Ast as LF

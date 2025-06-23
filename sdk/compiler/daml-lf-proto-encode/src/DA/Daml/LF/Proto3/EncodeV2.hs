@@ -8,6 +8,9 @@
 module DA.Daml.LF.Proto3.EncodeV2
   ( encodeSinglePackageModule
   , encodePackage
+  , initEncodeEnv
+  , encodeKind
+  , EncodeEnv(..)
   ) where
 
 import           Control.Lens ((^.), matching, makeLenses, zoom)
