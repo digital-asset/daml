@@ -164,6 +164,7 @@ def daml_deps():
                 sha256 = rules_nixpkgs_sha256,
                 patches = rules_nixpkgs_toolchain_patches[toolchain],
                 patch_args = ["-p3"],
+                repo_mapping = {"@io_bazel_rules_go": "@rules_go"},
             )
 
     if "com_github_madler_zlib" not in native.existing_rules():
@@ -204,9 +205,9 @@ def daml_deps():
             patch_args = ["-E", "-p1"],
         )
 
-    if "io_bazel_rules_go" not in native.existing_rules():
+    if "rules_go" not in native.existing_rules():
         http_archive(
-            name = "io_bazel_rules_go",
+            name = "rules_go",
             urls = [
                 "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
                 "https://github.com/bazelbuild/rules_go/releases/download/v{version}/rules_go-v{version}.zip".format(version = rules_go_version),
@@ -343,6 +344,7 @@ def daml_deps():
             sha256 = "79204ed1fa385c03b5235f65b25ced6ac51cf4b00e45e1157beca6a28bdb8043",
             patches = ["@com_github_digital_asset_daml//:bazel_tools/remote_apis_no_services.patch"],
             patch_args = ["-p1"],
+            repo_mapping = {"@io_bazel_rules_go": "@rules_go"},
         )
 
     # Buildifier.
