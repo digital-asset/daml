@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "daml-lf-proto",
@@ -28,8 +28,8 @@ da_haskell_library(
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-proto-util",
-        "//libs-haskell/da-hs-base",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
@@ -38,7 +38,6 @@ da_haskell_test(
     srcs = [
         "test/DA/Daml/LF/Proto3/Test.hs",
     ],
-    main_function = "DA.Daml.LF.Proto3.Test.entry",
     hackage_deps = [
         "base",
         # "containers",
@@ -55,6 +54,7 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
     ],
+    main_function = "DA.Daml.LF.Proto3.Test.entry",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
