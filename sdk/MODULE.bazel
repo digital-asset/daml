@@ -2,3 +2,5 @@ module(
     name = "daml",
     repo_name = "com_github_digital_asset_daml",
 )
+
+bazel_dep(name = "platforms", version = "1.0.0")
