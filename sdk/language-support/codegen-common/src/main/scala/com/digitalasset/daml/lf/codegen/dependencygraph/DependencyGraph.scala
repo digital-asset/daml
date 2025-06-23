@@ -4,32 +4,24 @@
 package com.digitalasset.daml.lf.codegen.dependencygraph
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.typesig.DefInterface
+import com.digitalasset.daml.lf.typesig._
 import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
-import scalaz.std.list._
-import scalaz.syntax.bifoldable._
-import scalaz.syntax.foldable._
 
 private[codegen] object DependencyGraph {
-
-  import com.digitalasset.daml.lf.codegen.Util.genTypeTopLevelDeclNames
-
   private def toNode(namedTypeDecl: (Identifier, TypeDecl)) =
     namedTypeDecl match {
       case id -> TypeDecl.Normal(t) =>
         Left(
           id -> Node(
             NodeType.Internal(t),
-            t.bifoldMap(genTypeTopLevelDeclNames)(genTypeTopLevelDeclNames),
+            getTopLevelDeclNames(t.dataType),
           )
         )
       case id -> TypeDecl.Template(rec, template) =>
-        val recDeps = rec.foldMap(genTypeTopLevelDeclNames)
-        val choiceAndKeyDeps = template.foldMap(genTypeTopLevelDeclNames)
         Right(
           id -> Node(
             NodeType.Root.Template(rec, template),
-            recDeps ++ choiceAndKeyDeps,
+            getTopLevelDeclNames(rec) ++ getTopLevelDeclNames(template),
           )
         )
     }
@@ -37,7 +29,7 @@ private[codegen] object DependencyGraph {
   private def toNode(interface: DefInterface.FWT) =
     Node(
       NodeType.Root.Interface(interface),
-      interface.foldMap(genTypeTopLevelDeclNames) ++ interface.viewType.toList,
+      getTopLevelDeclNames(interface) ++ interface.viewType.toList,
     )
 
   def orderedDependencies(
@@ -62,4 +54,34 @@ private[codegen] object DependencyGraph {
   ): TransitiveClosure =
     TransitiveClosure.from(orderedDependencies(serializableTypes, interfaces))
 
-}
+  private def getTopLevelDeclNames(dataType: DataType[Type, Type]): List[Identifier] =
+    dataType match {
+      case _: Enum => List.empty
+      case record: Record[Type] =>
+        record.fields.toList.flatMap { case (_, t) => getTopLevelDeclNames(t) }
+      case variant: Variant[Type] =>
+        variant.fields.toList.flatMap { case (_, t) => getTopLevelDeclNames(t) }
+    }
+
+  private def getTopLevelDeclNames(template: DefTemplate[Type]): List[Identifier] = {
+    val fromChoices = template.tChoices.resolvedChoices.values.toList
+      .flatMap(_.values)
+      .flatMap(getTopLevelDeclNames)
+    val fromKey = template.key.toList.flatMap(getTopLevelDeclNames)
+    fromChoices ++ fromKey
+  }
+
+  private def getTopLevelDeclNames(interface: DefInterface[Type]): List[Identifier] =
+    interface.choices.values.toList.flatMap(getTopLevelDeclNames)
+
+  private def getTopLevelDeclNames(choice: TemplateChoice[Type]): List[Identifier] =
+    getTopLevelDeclNames(choice.param) ++ getTopLevelDeclNames(choice.returnType)
+
+  private def getTopLevelDeclNames(tpe: Type): List[Identifier] =
+    tpe match {
+      case TypeCon(TypeConId(nm), typArgs) => nm :: typArgs.toList.flatMap(getTopLevelDeclNames)
+      case TypePrim(_, typArgs) => typArgs.toList.flatMap(getTopLevelDeclNames)
+      case TypeVar(_) | TypeNumeric(_) => Nil
+    }
+
+};

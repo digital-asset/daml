@@ -12,7 +12,6 @@ import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.typesig._
 import com.squareup.javapoet._
-import scalaz.@@
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -20,7 +19,13 @@ import scala.jdk.CollectionConverters._
 package inner {
   case class FieldInfo(damlName: String, damlType: Type, javaName: String, javaType: TypeName)
 
-  sealed trait PackagePrefixesTag
+  class PackagePrefixes(val toMap: Map[PackageId, String]) extends AnyVal {
+    def getOrElse(key: PackageId, default: => String): String = toMap.getOrElse(key, default)
+  }
+
+  object PackagePrefixes {
+    def apply(value: Map[PackageId, String]): PackagePrefixes = new PackagePrefixes(value)
+  }
 }
 
 package object inner {
@@ -135,9 +140,6 @@ package object inner {
         sys.error("Assumption error: toAPITypeName should not be called for type constructors!")
     }
 
-  type PackagePrefixes = Map[PackageId, String] @@ PackagePrefixesTag
-  private[codegen] val PackagePrefixes = scalaz.Tag.of[PackagePrefixesTag]
-
   def fullyQualifiedName(
       identifier: Identifier
   )(implicit packagePrefixes: PackagePrefixes): String = {
@@ -149,7 +151,7 @@ package object inner {
     val className = name.segments.toSeq.takeRight(1)
 
     val packageName = packageSegments.map(_.toLowerCase)
-    val packagePrefix = PackagePrefixes.unwrap(packagePrefixes).getOrElse(packageId, "")
+    val packagePrefix = packagePrefixes.getOrElse(packageId, "")
 
     (Vector(packagePrefix) ++ packageName ++ className)
       .filter(_.nonEmpty)

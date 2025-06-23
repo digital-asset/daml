@@ -4,19 +4,17 @@
 package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.typesig
-import typesig.TypeConId
-import typesig.PackageSignature.TypeDecl
-import scalaz.std.list._
-
+import com.digitalasset.daml.lf.typesig._
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import scala.util.matching.Regex
 
 object Util {
 
-  private[codegen] def genTypeTopLevelDeclNames(genType: typesig.Type): List[Ref.Identifier] =
-    genType foldMapConsPrims {
-      case TypeConId(nm) => List(nm)
-      case _: typesig.PrimType => Nil
+  private[codegen] def genTypeTopLevelDeclNames(genType: Type): List[Ref.Identifier] =
+    genType match {
+      case TypeCon(TypeConId(nm), typArgs) => nm :: typArgs.toList.flatMap(genTypeTopLevelDeclNames)
+      case TypePrim(_, typArgs) => typArgs.toList.flatMap(genTypeTopLevelDeclNames)
+      case TypeVar(_) | TypeNumeric(_) => Nil
     }
 
   // Template names can be filtered by given regexes (default: use all templates)
