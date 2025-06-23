@@ -1,0 +1,13 @@
+diff --git a/toolchains/go/go.bzl b/toolchains/go/go.bzl
+index a40c2ac..d2beebc 100644
+--- a/toolchains/go/go.bzl
++++ b/toolchains/go/go.bzl
+@@ -16,7 +16,7 @@ def _is_bzlmod_enabled():
+     # these start with `@@`.
+     return str(Label("@rules_nixpkgs_go//:go.bzl")).startswith("@@")
+ 
+-RULES_GO = "rules_go" if _is_bzlmod_enabled() else "io_bazel_rules_go"
++RULES_GO = "io_bazel_rules_go"
+ 
+ def _detect_host_platform(ctx):
+     """Copied from `rules_go`, since we have no other way to determine the proper `goarch` value.
