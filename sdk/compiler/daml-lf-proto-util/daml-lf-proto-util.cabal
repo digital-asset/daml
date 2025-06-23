@@ -19,18 +19,10 @@ library
     default-language: Haskell2010
     hs-source-dirs: src
     build-depends:
-      -- @stackage//:base
-      base,
-      -- @stackage//:bytestring
-      bytestring,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
       -- //daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
-      -- @stackage//:either
-      either,
-      -- @stackage//:text
-      text,
     exposed-modules:
       DA.Daml.LF.Mangling
       DA.Daml.LF.Proto3.Error
