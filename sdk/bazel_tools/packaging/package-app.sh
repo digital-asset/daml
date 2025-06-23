@@ -234,7 +234,18 @@ elif [[ "$(uname -s)" == "Darwin" ]]; then
     mv "$from_copied.resign" "$from_copied"
   }
   # Set the dynamic library load path to the relative lib/ directory.
-  /usr/bin/install_name_tool -add_rpath "@loader_path/lib" $WORKDIR/$NAME/$NAME
+  /usr/bin/install_name_tool -add_rpath "@loader_path/lib" $WORKDIR/$NAME/$NAME || {
+    echo "install_name_tool failed" >&2
+    set -x
+    ls -l $WORKDIR/$NAME/$NAME
+    ls -l $SRC
+    file $WORKDIR/$NAME/$NAME
+    file $SRC
+    xxd $WORKDIR/$NAME/$NAME | head -n 3
+    xxd $SRC | head -n 3
+    set +x
+    exit 1
+  }
 
   # Copy all dynamic library dependencies referred to from our binary
   copy_deps $SRC $WORKDIR/$NAME/$NAME
