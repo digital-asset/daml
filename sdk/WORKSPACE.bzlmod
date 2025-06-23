@@ -605,7 +605,7 @@ nixpkgs_go_configure(
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
-load("@rules_go//go:deps.bzl", "go_register_toolchains")
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 
 go_register_toolchains(version = "1.22.8") if is_windows else go_register_toolchains()
 
@@ -616,7 +616,7 @@ load("//:go_deps.bzl", "go_deps")
 # gazelle:repository_macro go_deps.bzl%go_deps
 go_deps()
 
-load("@rules_go//go:deps.bzl", "go_rules_dependencies")
+load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
 go_rules_dependencies()
 
