@@ -620,6 +620,7 @@ class Engine(val config: EngineConfig) {
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
     val darManifest = dar.all.toMap
     val mainPackageId = dar.main._1
+    val mainPackageDependencies = dar.main._2.directDeps
     val utilityPackageIds = darManifest.collect {
       case (pkgId, pkg)
           if List("daml-prim", "daml-stdlib").contains(pkg.metadata.name) && pkg.isUtilityPackage =>
@@ -665,7 +666,7 @@ class Engine(val config: EngineConfig) {
       // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
       // extraDeps are Dar manifest package IDs that are not stable packages, are not utility packages and are not used (but their packages may also be missing from the Dar manifest)
       (transitiveDeps, missingDeps) = calculateDependencyInformation(
-        dar.dependencies.map(_._1).toSet,
+        mainPackageDependencies,
         Set.empty,
         Set.empty,
       )
