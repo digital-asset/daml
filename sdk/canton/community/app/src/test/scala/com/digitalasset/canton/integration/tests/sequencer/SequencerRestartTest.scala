@@ -144,7 +144,6 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
         val rhm = RootHashMessage(
           RootHash(TestHash.digest(1)),
           daId,
-          testedProtocolVersion,
           TransactionViewType,
           CantonTimestamp.Epoch,
           EmptyRootHashMessagePayload,

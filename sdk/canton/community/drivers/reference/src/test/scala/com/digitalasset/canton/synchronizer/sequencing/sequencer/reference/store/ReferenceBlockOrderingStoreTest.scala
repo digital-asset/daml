@@ -92,60 +92,6 @@ trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with F
         }
       }
     }
-
-    // TODO(#14736): remove this code once we dont need insertRequestWithHeight
-    "set height" should {
-      "get from height to the end" in {
-        val sut = mk()
-        for {
-          _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
-          _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
-          _ <- sut.insertRequestWithHeight(2L, event3)(traceContext3)
-          result0 <- sut.queryBlocks(1)
-          result1 <- sut.queryBlocks(2)
-        } yield {
-          result0 should contain theSameElementsInOrderAs Seq(
-            block(1L, Traced(event2)(traceContext2)),
-            block(2L, Traced(event3)(traceContext3)),
-          )
-          result1 should contain only block(2L, Traced(event3)(traceContext3))
-        }
-      }
-      "support gaps" in {
-        val sut = mk()
-        for {
-          _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
-          _ <- sut.insertRequestWithHeight(2L, event3)(traceContext3)
-          result0 <- sut.queryBlocks(0)
-          _ = result0 should contain theSameElementsInOrderAs Seq(
-            block(0L, Traced(event1)(traceContext1))
-          )
-          _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
-
-          result1 <- sut.queryBlocks(0)
-        } yield {
-          result1 should contain theSameElementsInOrderAs Seq(
-            block(0L, Traced(event1)(traceContext1)),
-            block(1L, Traced(event2)(traceContext2)),
-            block(2L, Traced(event3)(traceContext3)),
-          )
-        }
-      }
-      "be idempotent" in {
-        val sut = mk()
-        for {
-          _ <- sut.insertRequestWithHeight(0L, event1)(traceContext1)
-          _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
-          _ <- sut.insertRequestWithHeight(1L, event2)(traceContext2)
-          result0 <- sut.queryBlocks(0)
-        } yield {
-          result0 should contain theSameElementsInOrderAs Seq(
-            block(0L, Traced(event1)(traceContext1)),
-            block(1L, Traced(event2)(traceContext2)),
-          )
-        }
-      }
-    }
   }
 }
 

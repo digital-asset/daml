@@ -54,6 +54,7 @@ object Consensus {
 
   sealed trait LocalAvailability extends ProtocolMessage
   object LocalAvailability {
+    final case object NoProposalAvailableYet extends LocalAvailability
     final case class ProposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)
         extends LocalAvailability
   }
@@ -80,6 +81,7 @@ object Consensus {
     final case class BlockOrdered(
         block: OrderedBlock,
         commitCertificate: CommitCertificate,
+        hasCompletedLedSegment: Boolean,
     ) extends ConsensusMessage
 
     final case class CompleteEpochStored(epoch: Epoch, commitCertificates: Seq[CommitCertificate])

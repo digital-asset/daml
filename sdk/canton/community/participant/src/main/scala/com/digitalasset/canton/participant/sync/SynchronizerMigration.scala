@@ -171,6 +171,8 @@ class SynchronizerMigration(
         target.unwrap,
         SynchronizerConnectionConfigStore.MigratingTo,
         KnownPhysicalSynchronizerId(psid),
+        // TODO(#26263) Ensure that this None is fine
+        synchronizerPredecessor = None,
       )
       .leftMap[SynchronizerMigrationError](_ =>
         InternalError.DuplicateConfig(target.unwrap.synchronizerAlias)

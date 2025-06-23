@@ -45,7 +45,6 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
       completionInfo,
       TransactionSubmissionTrackingData.TimeoutCause,
       SynchronizerId.tryFromString("da::default").toPhysical,
-      testedProtocolVersion,
     )
   private lazy val trackingData3 = TransactionSubmissionTrackingData(
     completionInfo,
@@ -55,7 +54,6 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
         .rpcStatusWithoutLoggingContext()
     ),
     SynchronizerId.tryFromString("da::default").toPhysical,
-    testedProtocolVersion,
   )
   private lazy val submission1 = InFlightSubmission(
     changeId1,

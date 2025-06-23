@@ -14,8 +14,8 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.SimulationEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.EpochChecker
@@ -463,7 +463,6 @@ object BftOrderingSimulationTest {
 
 /*
 // TODO(#25531) currently consensus overwrites the previous crypto provider with the current on startup
-// TODO(#25536) availability currently don't support all other nodes doing key rotations
 class TestKeyRotations extends BftOrderingSimulationTest {
   override def numberOfRuns: Int = 10
   override def numberOfInitialNodes: Int = 2
@@ -732,8 +731,8 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
         // or view change happened. Similarly, we don't know how "advanced" the empty block creation at that moment is.
         // Since the simulation is deterministic and runs multiple times, we can base this value on the empty block creation
         // interval to get the desired test coverage.
-        livenessCheckInterval = AvailabilityModuleConfig.EmptyBlockCreationInterval * 2 + 1.second
-          + 1.second, // TODO(#24283)  This value can't be too low, so adding an extra second
+        livenessCheckInterval =
+          IssSegmentModule.EmptyBlockCreationTimeout + 1.second, // TODO(#24283)  This value can't be too low, so adding an extra second
       ),
       // The purpose of this test is to make sure we progress time by making empty blocks. As such we don't want view
       // changes to happen (since they would also make the network do progress). So we need to explicitly check that

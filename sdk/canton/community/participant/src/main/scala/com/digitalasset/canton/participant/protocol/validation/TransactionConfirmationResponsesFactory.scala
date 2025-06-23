@@ -5,14 +5,11 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
-  MalformedPayload,
-  WrongRecipientsDueToTopologyChange,
-}
+import com.digitalasset.canton.participant.protocol.ProcessingSteps
+import com.digitalasset.canton.participant.protocol.ProtocolProcessor.MalformedPayload
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -288,10 +285,13 @@ class TransactionConfirmationResponsesFactory(
 
     if (malformedPayloads.nonEmpty) {
       FutureUnlessShutdown.pure(
-        createConfirmationResponsesForMalformedPayloads(
-          requestId,
-          transactionValidationResult.transactionId.toRootHash,
-          malformedPayloads,
+        ProcessingSteps.constructResponsesForMalformedPayloads(
+          requestId = requestId,
+          rootHash = transactionValidationResult.transactionId.toRootHash,
+          malformedPayloads = malformedPayloads,
+          synchronizerId = synchronizerId,
+          participantId = participantId,
+          protocolVersion = protocolVersion,
         )
       )
     } else {
@@ -306,41 +306,4 @@ class TransactionConfirmationResponsesFactory(
     err
   }
 
-  def createConfirmationResponsesForMalformedPayloads(
-      requestId: RequestId,
-      rootHash: RootHash,
-      malformedPayloads: Seq[MalformedPayload],
-  )(implicit traceContext: TraceContext): Option[ConfirmationResponses] = {
-    val rejectError = LocalRejectError.MalformedRejects.Payloads.Reject(malformedPayloads.toString)
-
-    val dueToTopologyChange = malformedPayloads.forall {
-      case WrongRecipientsDueToTopologyChange(_) => true
-      case _ => false
-    }
-    if (!dueToTopologyChange) logged(requestId, rejectError).discard
-
-    checked(
-      Some(
-        ConfirmationResponses
-          .tryCreate(
-            requestId,
-            rootHash,
-            synchronizerId,
-            participantId,
-            NonEmpty.mk(
-              Seq,
-              ConfirmationResponse.tryCreate(
-                // We don't have to specify a viewPosition.
-                // The mediator will interpret this as a rejection
-                // for all views and on behalf of all declared confirming parties hosted by the participant.
-                None,
-                rejectError.toLocalReject(protocolVersion),
-                Set.empty,
-              ),
-            ),
-            protocolVersion,
-          )
-      )
-    )
-  }
 }

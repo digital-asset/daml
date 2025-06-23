@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
-import cats.implicits.*
+import cats.implicits.{catsSyntaxParallelTraverse1, toFoldableOps, toTraverseOps}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
@@ -30,6 +30,7 @@ import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion, LfPartyId, checked}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party}
@@ -418,6 +419,7 @@ private[execution] class TopologyAwareCommandExecutor(
       s"Computing per-synchronizer package preference sets using the draft transaction's party-packages ($draftPartyPackages)"
     )
 
+    val draftPackageNames = draftPartyPackages.values.flatten.toSet
     val syncsPartiesPackagePreferencesMap
         : Map[PhysicalSynchronizerId, Map[LfPartyId, PackagesForName]] =
       synchronizersPartiesVettingState.view.mapValues {
@@ -451,25 +453,27 @@ private[execution] class TopologyAwareCommandExecutor(
         val topologyAndDraftTransactionBasedPackageMap: PackagesForName =
           partyPackagesTopology.view.values.flatten.groupMapReduce(_._1)(_._2)(_ intersect _)
 
-        // If a package preference set intersection for any package name for a synchronizer ultimately leads to 0,
-        // the synchronizer is discarded
-        View(topologyAndDraftTransactionBasedPackageMap)
-          .filterNot { packageMap =>
-            val hasEmptyPreferenceForPackageName = packageMap.exists(_._2.isEmpty)
-            if (hasEmptyPreferenceForPackageName)
-              logTrace(
-                s"Synchronizer $syncId discarded: empty package preference after party dimension reduction for package-name $packageMap"
-              )
-            hasEmptyPreferenceForPackageName
-          }
-          .map(syncId -> _)
+        // If a package preference set intersection for a package name that appears in the draft transaction
+        // for a synchronizer ultimately leads to 0, the synchronizer is discarded
+        preserveOnlyPackageNamesWithCandidates(
+          topologyAndDraftTransactionBasedPackageMap,
+          draftPackageNames,
+          partyPackagesTopology,
+        )
+          .fold(
+            { discardedReason =>
+              logger.debug(s"Discarding synchronizer $syncId due to: $discardedReason")
+              View.empty
+            },
+            packageMapForSync => View(syncId -> packageMapForSync),
+          )
       }
 
     val perSynchronizerPreferenceSetE =
       syncPackageMapAfterDraftIntersection.foldLeft(
-        Either.right[StatusRuntimeException, Map[PhysicalSynchronizerId, Set[LfPackageId]]](
-          Map.empty
-        )
+        Right(Map.empty): Either[StatusRuntimeException, Map[PhysicalSynchronizerId, Set[
+          LfPackageId
+        ]]]
       ) { case (syncCandidatesAccE, (syncId, topologyAndDraftTransactionBasedPackageMap)) =>
         for {
           syncCandidatesAcc <- syncCandidatesAccE
@@ -491,6 +495,36 @@ private[execution] class TopologyAwareCommandExecutor(
         .toRight(buildSelectionFailedError(prescribedSynchronizerIdO))
     } yield nonEmptyPreference
   }
+
+  private def preserveOnlyPackageNamesWithCandidates(
+      packagesForName: PackagesForName,
+      draftPackageNames: Set[LfPackageName],
+      partyPackagesTopology: Map[LfPartyId, PackagesForName],
+  ): Either[String, PackagesForName] =
+    packagesForName.toList.foldM(Map.empty: PackagesForName) {
+      case (acc, (pkgName, pkgRefs)) if pkgRefs.nonEmpty =>
+        // Note that we aim to add as many packages as possible to the preference set
+        // to maximize the chance for successful package-name to package-id resolutions
+        // even when the structure of the transaction and the involved packages
+        // changes between the draft interpretation and the second interpretation.
+        Right(acc + (pkgName -> pkgRefs))
+      case (_acc, (pkgName, _emptyPkgRefs)) if draftPackageNames(pkgName) =>
+        val involvedPartiesDebugLines = partyPackagesTopology.view.flatMap {
+          case (party, packagesForName) =>
+            packagesForName
+              .get(pkgName)
+              .toList
+              .flatMap(pkgs => List(show"Party $party vetted: ${pkgs.map(_.pkgId.show).toList}"))
+        }.toList
+
+        Left(
+          show"No commonly-vetted package candidates for '$pkgName' for the involved parties: $involvedPartiesDebugLines"
+        )
+      case (acc, (pkgName, _emptyPkgRefs)) =>
+        // Do not add the package-name to the preference set if it has no candidates
+        // and it is not used in the draft transaction.
+        Right(acc)
+    }
 
   private def buildSelectionFailedError(prescribedSynchronizerIdO: Option[SynchronizerId])(implicit
       tc: TraceContext

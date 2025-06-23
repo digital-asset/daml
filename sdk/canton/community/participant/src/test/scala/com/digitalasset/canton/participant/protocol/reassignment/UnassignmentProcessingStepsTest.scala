@@ -200,7 +200,6 @@ final class UnassignmentProcessingStepsTest
     reassigningParticipants = Set(submittingParticipant),
     ContractsReassignmentBatch(contract, initialReassignmentCounter),
     sourceSynchronizer,
-    Source(testedProtocolVersion),
     sourceMediator,
     targetSynchronizer,
     timeProof,
@@ -364,7 +363,6 @@ final class UnassignmentProcessingStepsTest
           ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
           submitterMetadata(submitter),
           sourceSynchronizer,
-          Source(testedProtocolVersion),
           sourceMediator,
           targetSynchronizer,
           Source(sourceTopologySnapshot),
@@ -553,7 +551,6 @@ final class UnassignmentProcessingStepsTest
             reassigningParticipants = Set(submittingParticipant, participant1),
             contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
             sourceSynchronizer = sourceSynchronizer,
-            sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
             targetTimeProof = timeProof,
@@ -591,7 +588,6 @@ final class UnassignmentProcessingStepsTest
               Set(submittingParticipant, participant1, participant3, participant4),
             contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
             sourceSynchronizer = sourceSynchronizer,
-            sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
             targetTimeProof = timeProof,
@@ -623,7 +619,6 @@ final class UnassignmentProcessingStepsTest
           reassigningParticipants = Set(submittingParticipant, participant1),
           contracts = ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
           sourceSynchronizer = sourceSynchronizer,
-          sourceProtocolVersion = Source(testedProtocolVersion),
           sourceMediator = sourceMediator,
           targetSynchronizer = targetSynchronizer,
           targetTimeProof = timeProof,
@@ -739,7 +734,6 @@ final class UnassignmentProcessingStepsTest
         reassigningParticipants = Set(submittingParticipant),
         ContractsReassignmentBatch(contract, initialReassignmentCounter),
         sourceSynchronizer,
-        Source(testedProtocolVersion),
         sourceMediator,
         targetSynchronizer,
         timeProof,
@@ -815,7 +809,6 @@ final class UnassignmentProcessingStepsTest
           RequestId(CantonTimestamp.Epoch),
           rootHash,
           Verdict.Approve(testedProtocolVersion),
-          testedProtocolVersion,
         )
 
       val synchronizerParameters = DynamicSynchronizerParametersWithValidity(
@@ -1001,7 +994,6 @@ final class UnassignmentProcessingStepsTest
     RootHashMessage(
       request.rootHash,
       sourceSynchronizer.unwrap,
-      testedProtocolVersion,
       UnassignmentViewType,
       testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,

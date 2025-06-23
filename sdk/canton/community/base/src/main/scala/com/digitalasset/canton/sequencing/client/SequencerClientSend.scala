@@ -9,9 +9,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.protocol.{AggregationRule, Batch, MessageId}
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 trait SequencerClientSend {
+  def psid: PhysicalSynchronizerId
+  final def protocolVersion: ProtocolVersion = psid.protocolVersion
 
   /** Sends a request to sequence a deliver event to the sequencer. If we fail to make the request
     * to the sequencer and are certain that it was not received by the sequencer an error is

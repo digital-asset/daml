@@ -58,7 +58,6 @@ import scala.concurrent.ExecutionContext
   * high-availability, several instances need to be created.
   */
 private[mediator] class Mediator(
-    val synchronizerId: PhysicalSynchronizerId,
     val mediatorId: MediatorId,
     @VisibleForTesting
     val sequencerClient: RichSequencerClient,
@@ -72,7 +71,6 @@ private[mediator] class Mediator(
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
     parameters: CantonNodeParameters,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     clock: Clock,
     metrics: MediatorMetrics,
     protected val loggerFactory: NamedLoggerFactory,
@@ -80,6 +78,9 @@ private[mediator] class Mediator(
     extends NamedLogging
     with FlagCloseableAsync
     with HasCloseContext {
+
+  def psid: PhysicalSynchronizerId = sequencerClient.psid
+  def protocolVersion: ProtocolVersion = sequencerClient.protocolVersion
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
@@ -92,16 +93,14 @@ private[mediator] class Mediator(
     )
 
   private val verdictSender =
-    VerdictSender(sequencerClient, syncCrypto, mediatorId, protocolVersion, loggerFactory)
+    VerdictSender(sequencerClient, syncCrypto, mediatorId, loggerFactory)
 
   private val processor = new ConfirmationRequestAndResponseProcessor(
-    synchronizerId,
     mediatorId,
     verdictSender,
     syncCrypto,
     timeTracker,
     state,
-    protocolVersion,
     loggerFactory,
     timeouts,
   )
@@ -115,7 +114,7 @@ private[mediator] class Mediator(
   )
 
   private val eventsProcessor = new MediatorEventsProcessor(
-    topologyTransactionProcessor.createHandler(synchronizerId),
+    topologyTransactionProcessor.createHandler(psid),
     processor,
     deduplicator,
     loggerFactory,

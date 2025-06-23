@@ -73,6 +73,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
       fromJson: (String) => V
   )(implicit arb: Arbitrary[T], encoder: Encoder[T], decoder: Decoder[T], classTag: ClassTag[T]) =
     (1 to randomSamplesPerMappedClass).foreach(_ => checkType(fromJson))
+
   "mappings" should {
     "have openapi spec matching used circe serialization " in {
       forAll(allMappingExamples) { mapping =>
@@ -122,7 +123,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
   // reason is that magnolia generates multiple lines of code for arbitrary instances generation
   object Mappings {
 
-    import StdGenerators.*
+    import com.digitalasset.canton.http.json.StdGenerators.*
     import CantonGenerators.*
     import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
     import com.digitalasset.canton.http.json.v2.JsCommandServiceCodecs.*
@@ -376,11 +377,6 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.GetPreferredPackageVersionResponse.fromJson
         ),
-      )
-    }
-
-    object GrpcMappings2 {
-      val value: Seq[Mapping[_, _]] = Seq(
         Mapping[v2.update_service.GetTransactionByIdRequest, openapi.GetTransactionByIdRequest](
           openapi.GetTransactionByIdRequest.fromJson
         ),
@@ -390,6 +386,11 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.GetTransactionByOffsetRequest.fromJson
         ),
+      )
+    }
+
+    object GrpcMappings2 {
+      val value: Seq[Mapping[_, _]] = Seq(
         Mapping[v2.update_service.GetUpdateByIdRequest, openapi.GetUpdateByIdRequest](
           openapi.GetUpdateByIdRequest.fromJson
         ),
@@ -515,22 +516,40 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.ParticipantAdmin.fromJson
         ),
         Mapping[
-          json.JsSchema.JsTopologyEvent.ParticipantAuthorizationAdded,
+          v2.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationAdded,
           openapi.ParticipantAuthorizationAdded,
         ](
           openapi.ParticipantAuthorizationAdded.fromJson
         ),
         Mapping[
-          json.JsSchema.JsTopologyEvent.ParticipantAuthorizationChanged,
+          v2.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationChanged,
           openapi.ParticipantAuthorizationChanged,
         ](
           openapi.ParticipantAuthorizationChanged.fromJson
         ),
         Mapping[
-          json.JsSchema.JsTopologyEvent.ParticipantAuthorizationRevoked,
+          v2.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationRevoked,
           openapi.ParticipantAuthorizationRevoked,
         ](
           openapi.ParticipantAuthorizationRevoked.fromJson
+        ),
+        Mapping[
+          v2.topology_transaction.ParticipantAuthorizationAdded,
+          openapi.ParticipantAuthorizationAdded1,
+        ](
+          openapi.ParticipantAuthorizationAdded1.fromJson
+        ),
+        Mapping[
+          v2.topology_transaction.ParticipantAuthorizationChanged,
+          openapi.ParticipantAuthorizationChanged1,
+        ](
+          openapi.ParticipantAuthorizationChanged1.fromJson
+        ),
+        Mapping[
+          v2.topology_transaction.ParticipantAuthorizationRevoked,
+          openapi.ParticipantAuthorizationRevoked1,
+        ](
+          openapi.ParticipantAuthorizationRevoked1.fromJson
         ),
         Mapping[
           v2.transaction_filter.ParticipantAuthorizationTopologyFormat,
@@ -552,6 +571,9 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ),
         Mapping[com.google.protobuf.any.Any, openapi.ProtoAny](
           openapi.ProtoAny.fromJson
+        ),
+        Mapping[json.js.PrefetchContractKey, openapi.PrefetchContractKey](
+          openapi.PrefetchContractKey.fromJson
         ),
         Mapping[json.JsUpdate.Reassignment, openapi.Reassignment1](
           openapi.Reassignment1.fromJson
@@ -589,8 +611,8 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.SinglePartySignatures.fromJson
         ),
-        Mapping[com.google.rpc.status.Status, openapi.Status](
-          openapi.Status.fromJson
+        Mapping[com.google.rpc.status.Status, openapi.JsStatus](
+          openapi.JsStatus.fromJson
         ),
         Mapping[
           v2.command_service.SubmitAndWaitForReassignmentRequest,
@@ -619,11 +641,17 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.TemplateFilter.fromJson
         ),
+        Mapping[v2.topology_transaction.TopologyEvent, openapi.TopologyEvent](
+          openapi.TopologyEvent.fromJson
+        ),
         Mapping[v2.transaction_filter.TopologyFormat, openapi.TopologyFormat](
           openapi.TopologyFormat.fromJson
         ),
         Mapping[json.JsUpdate.TopologyTransaction, openapi.TopologyTransaction](
           openapi.TopologyTransaction.fromJson
+        ),
+        Mapping[v2.topology_transaction.TopologyTransaction, openapi.JsTopologyTransaction](
+          openapi.JsTopologyTransaction.fromJson
         ),
       )
     }
@@ -807,7 +835,6 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           Mapping[json.JsSchema.JsReassignment, openapi.JsReassignment](
             openapi.JsReassignment.fromJson
           ),
-          Mapping[json.JsSchema.JsStatus, openapi.JsStatus](openapi.JsStatus.fromJson),
           Mapping[
             json.JsSubmitAndWaitForReassignmentResponse,
             openapi.JsSubmitAndWaitForReassignmentResponse,
@@ -824,9 +851,6 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
             json.JsSubmitAndWaitForTransactionTreeResponse,
             openapi.JsSubmitAndWaitForTransactionTreeResponse,
           ](openapi.JsSubmitAndWaitForTransactionTreeResponse.fromJson),
-          Mapping[json.JsSchema.JsTopologyTransaction, openapi.JsTopologyTransaction](
-            openapi.JsTopologyTransaction.fromJson
-          ),
           Mapping[json.JsSchema.JsTransaction, openapi.JsTransaction](
             openapi.JsTransaction.fromJson
           ),

@@ -30,7 +30,7 @@ import java.time.Duration
 
 final case class SequencerNodeStatus(
     uid: UniqueIdentifier,
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     connectedMembers: Seq[Member],
@@ -39,8 +39,9 @@ final case class SequencerNodeStatus(
     admin: SequencerAdminStatus,
     components: Seq[ComponentStatus],
     version: ReleaseVersion,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
 ) extends NodeStatus.Status {
+  private val protocolVersion: ProtocolVersion = psid.protocolVersion
+
   override def active: Boolean = sequencer.isActive
 
   private val connectedParticipants = connectedMembers.collect { case participant: ParticipantId =>
@@ -55,7 +56,7 @@ final case class SequencerNodeStatus(
     prettyOfString(_ =>
       Seq(
         s"Sequencer id: ${uid.toProtoPrimitive}",
-        s"Synchronizer id: ${synchronizerId.toProtoPrimitive}",
+        s"Synchronizer id: ${psid.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
         s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
@@ -84,7 +85,7 @@ final case class SequencerNodeStatus(
       connectedParticipants = connectedParticipantsP,
       connectedMediators = connectedMediatorsP,
       sequencer = sequencer.toProtoV30.some,
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = psid.toProtoPrimitive,
       admin = admin.toProtoV30.some,
       protocolVersion = protocolVersion.toProtoPrimitive,
     )

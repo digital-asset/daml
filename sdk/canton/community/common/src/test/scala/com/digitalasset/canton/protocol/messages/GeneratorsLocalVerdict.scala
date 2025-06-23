@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.LocalRejectError.AssignmentRejects.AlreadyCompleted
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
@@ -26,11 +25,15 @@ import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
 import com.digitalasset.canton.protocol.LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{GeneratorsLf, LfPartyId}
 import org.scalacheck.{Arbitrary, Gen}
 
-final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
+final case class GeneratorsLocalVerdict(
+    protocolVersion: ProtocolVersion,
+    generatorsLf: GeneratorsLf,
+) {
 
-  import com.digitalasset.canton.GeneratorsLf.lfPartyIdArb
+  import generatorsLf.*
 
   // TODO(#14515) Check that the generator is exhaustive
   private def localVerdictRejectGen: Gen[LocalReject] = {

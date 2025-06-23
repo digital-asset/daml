@@ -42,7 +42,9 @@ class LeaderSegmentState(
       completedBlockIsEmpty.getOrElse(blockNumber, false)
 
     new BlockedProgressDetector(
+      state.segment,
       epoch.segments
+        .filterNot(_.originalLeader == state.leader)
         .map(s => s.originalLeader -> s)
         .toMap,
       isBlockComplete,

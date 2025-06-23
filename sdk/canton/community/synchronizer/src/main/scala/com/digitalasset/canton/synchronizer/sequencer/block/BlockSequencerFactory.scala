@@ -35,7 +35,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.{
   TrafficPurchasedManager,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -97,7 +97,6 @@ abstract class BlockSequencerFactory(
 
   protected def createBlockSequencer(
       name: String,
-      synchronizerId: PhysicalSynchronizerId,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -107,7 +106,6 @@ abstract class BlockSequencerFactory(
       health: Option[SequencerHealthConfig],
       clock: Clock,
       driverClock: Clock,
-      protocolVersion: ProtocolVersion,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       minimumSequencingTime: CantonTimestamp,
@@ -176,7 +174,6 @@ abstract class BlockSequencerFactory(
     )
 
   override final def create(
-      synchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,
@@ -233,14 +230,15 @@ abstract class BlockSequencerFactory(
       trafficConfig,
     )
 
-    val synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
+    val synchronizerLoggerFactory =
+      loggerFactory.append("synchronizerId", synchronizerSyncCryptoApi.psid.toString)
 
     for {
       initialBlockHeight <- FutureUnlessShutdown(Future.successful(initialBlockHeight))
       _ <- balanceManager.initialize
       stateManager <- FutureUnlessShutdown.lift(
         BlockSequencerStateManager.create(
-          synchronizerId,
+          synchronizerSyncCryptoApi.psid,
           store,
           trafficConsumedStore,
           nodeParameters.enableAdditionalConsistencyChecks,
@@ -251,7 +249,6 @@ abstract class BlockSequencerFactory(
     } yield {
       val sequencer = createBlockSequencer(
         name,
-        synchronizerId,
         synchronizerSyncCryptoApi,
         stateManager,
         store,
@@ -261,7 +258,6 @@ abstract class BlockSequencerFactory(
         health,
         clock,
         driverClock,
-        protocolVersion,
         rateLimitManager,
         orderingTimeFixMode,
         minimumSequencingTime,

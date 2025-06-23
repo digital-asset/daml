@@ -657,7 +657,7 @@ final class RepairService(
     }
 
   private def performIfRangeSuitableForIgnoreOperations[T](
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       from: SequencerCounter,
       force: Boolean,
   )(
@@ -665,20 +665,30 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, T] =
     for {
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        lookUpSynchronizerPersistence(synchronizerId)
+        lookUpSynchronizerPersistence(psid)
       )
       _ <- EitherT.right(
         ledgerApiIndexer.value
-          .ensureNoProcessingForSynchronizer(synchronizerId.logical)
+          .ensureNoProcessingForSynchronizer(psid.logical)
       )
       synchronizerIndex <- EitherT.right(
-        ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId.logical)
+        ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(psid.logical)
       )
+
+      synchronizerPredecessor <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          synchronizerLookup
+            .connectionConfig(psid)
+            .toRight(s"Cannot find connection config for $psid")
+        )
+        .map(_.predecessor)
+
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
           persistentState.requestJournalStore,
           persistentState.sequencedEventStore,
           synchronizerIndex,
+          synchronizerPredecessor,
         )
       )
       _ <- EitherTUtil
@@ -1281,6 +1291,8 @@ object RepairService {
     /** Return the persistent state of the give physical synchronizer.
       */
     def persistentStateFor(synchronizerId: PhysicalSynchronizerId): Option[SyncPersistentState]
+
+    def connectionConfig(psid: PhysicalSynchronizerId): Option[StoredSynchronizerConnectionConfig]
 
     /** Return the latest [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] known for the
       * given [[com.digitalasset.canton.topology.SynchronizerId]].
