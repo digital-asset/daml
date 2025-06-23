@@ -55,12 +55,6 @@ object Question {
         // In case of failure, the callback sets machine control to an SErrorDamlException and return false
         callback: Option[ContractId] => Boolean,
     ) extends Update
-
-    final case class NeedPackageId(
-        module: ModuleName,
-        pid0: PackageId,
-        callback: PackageId => Unit,
-    ) extends Update
   }
 
 }
