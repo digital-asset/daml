@@ -56,7 +56,7 @@ rules_nixpkgs_toolchain_patches = {
     "java": [],
     "cc": [],
     "python": [],
-    "go": [],
+    "go": ["//bazel_tools:nixpkgs-go-repo-name.patch"],
     "rust": [],
     "posix": [],
 }
