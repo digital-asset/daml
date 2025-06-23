@@ -171,7 +171,7 @@ exec \$LIB_DIR/$ld_name --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-  cp $SRC $WORKDIR/$NAME/$NAME
+  cp -L $SRC $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
     local from_original=$(canonicalpath $1)
