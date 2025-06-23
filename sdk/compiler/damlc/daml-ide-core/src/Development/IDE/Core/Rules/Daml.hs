@@ -874,8 +874,8 @@ contextForModule modFile = do
         }
 
 contextForExtPkg :: NormalizedFilePath -> LF.ExternalPackage -> Action SS.Context
-contextForExtPkg file extPkg = do
-    PackageMap pkgMap <- use_ GeneratePackageMap file
+contextForExtPkg damlFile extPkg = do
+    PackageMap pkgMap <- use_ GeneratePackageMap damlFile
     stablePackages <- useNoFile_ GenerateStablePackages
     pure
         SS.Context
@@ -990,9 +990,9 @@ runScriptsPkg ::
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
-runScriptsPkg file extPkg pkgs = do
+runScriptsPkg damlFile extPkg pkgs = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
-    ctx <- contextForExtPkg file extPkg
+    ctx <- contextForExtPkg damlFile extPkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx
     ctxId <-
         liftIO $
@@ -1001,7 +1001,7 @@ runScriptsPkg file extPkg pkgs = do
             pure
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
-    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert file ctxId
+    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert damlFile ctxId
     lvl <- getDetailLevel
     results <- forM scripts $ \(modName, script) -> 
         runScript scriptService pkgName' ctxId modName script

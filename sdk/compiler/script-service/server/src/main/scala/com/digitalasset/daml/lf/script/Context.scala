@@ -69,13 +69,21 @@ class Context(
     */
   val homePackageId: PackageId = PackageId.assertFromString("-homePackageId-")
 
+  /* To run a script on a daml project, we load the project as modules (daml files), and we load
+   * its dependencies as packages (DALF files). The loaded packages are also called the external
+   * packages. The home package is built dynamically from the loaded modules.
+   * In the case of `test --all`, to run the scripts from a dependency, there should not be any
+   * module to load, and packageId should be the id of the package in which we run the scripts, not
+   * the `homePackageId`.
+   */
   private var extSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
   private var extDefns: Map[SDefinitionRef, SDefinition] = HashMap.empty
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SDefinition]] = HashMap.empty
-  // the if of the package that contains the scripts to run
+  // the id of the package that contains the scripts to run
   // can be different from the home package id if we run scripts from an external package
   private var packageId: PackageId = homePackageId
+  // Contains all the signatures, of the external packages and the home package.
   private var allSignatures: Map[PackageId, Ast.PackageSignature] = HashMap.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys

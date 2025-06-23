@@ -93,7 +93,9 @@ execTest
     -> IO ()
 execTest inFiles runAllTests coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
-    let optsWithPkg = maybe opts (\PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }) mPkgConfig
+    let optsWithPkg = case mPkgConfig of
+            Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
+            Nothing -> opts
     withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
         testRun h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         diags <- getDiagnostics h
