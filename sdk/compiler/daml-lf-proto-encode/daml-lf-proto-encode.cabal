@@ -41,6 +41,8 @@ library
       memory,
       -- @stackage//:mtl
       mtl,
+      -- @stackage//:pretty-show
+      pretty-show,
       -- @stackage//:proto3-suite
       proto3-suite,
       -- @stackage//:text
@@ -53,6 +55,7 @@ library
       DA.Daml.LF.Proto3.Archive.Encode
       DA.Daml.LF.Proto3.Encode
       DA.Daml.LF.Proto3.EncodeV2
+      DA.Daml.LF.Proto3.InternedMap
     default-extensions:
       BangPatterns
       DeriveDataTypeable

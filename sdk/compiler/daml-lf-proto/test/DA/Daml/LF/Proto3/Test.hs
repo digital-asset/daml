@@ -16,10 +16,14 @@ import           DA.Daml.LF.Proto3.DecodeV2
 import           DA.Daml.LF.Ast
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
-import           Text.Pretty.Simple
+import           Test.Tasty.HUnit
+import           Test.Tasty
 
 entry :: IO ()
-entry = return ()
+entry = defaultMain $ testGroup "All tests"
+    [ rtt_tests
+    , enc_tests
+    ]
 
 ------------------------------------------------------------------------
 -- Params
@@ -29,17 +33,53 @@ version :: Version
 version = Version V2 PointDev
 
 ------------------------------------------------------------------------
--- Encoding
+-- Rount-trip
 ------------------------------------------------------------------------
 
-encodeTest :: Int -> P.Package
-encodeTest 0 = encodePackage $ oneModulePackage emptyModule
-encodeTest 1 = encodePackage $ oneModulePackage tyLamModule
-encodeTest _ = error "arg out of bounds"
+roundTripPackage :: Package -> Either Error Package
+roundTripPackage p = (decode . encodePackage) p
+  where
+    decode :: P.Package -> Either Error Package
+    decode = decodePackage
+      (packageLfVersion p) --from passed package
+      SelfPackageId --no idea what this is
 
-encodeTest' i = pPrint $ encodeTest i
+
+roundTripTest :: Package -> Assertion
+roundTripTest p =
+  either
+    (\err -> assertFailure $ "Unexpected error: " ++ show err)
+    (\val -> p @=? val)
+    (roundTripPackage p)
+
+rtt_tests :: TestTree
+rtt_tests = testGroup "Round-trip tests"
+    [ rtt_empty
+    , rtt_tyLam
+    ]
+
+rtt_empty :: TestTree
+rtt_empty = testCase "empty pacakge" $ roundTripTest $ oneModulePackage emptyModule
+
+rtt_tyLam :: TestTree
+rtt_tyLam = testCase "tylam pacakge" $ roundTripTest $ oneModulePackage tyLamModule
+
+rtt_fail1 :: TestTree
+rtt_fail1 = testCase "this fails" $ True @=? False
 
 
+------------------------------------------------------------------------
+-- EncodeTests
+------------------------------------------------------------------------
+enc_tests :: TestTree
+enc_tests = testGroup "Encoding tests"
+    [
+    ]
+
+
+------------------------------------------------------------------------
+-- Examples
+------------------------------------------------------------------------
 emptyModule :: Module
 emptyModule = Module{..}
   where
@@ -108,12 +148,3 @@ oneModulePackage m = Package{..}
         packageVersion = PackageVersion "0.0"
         upgradedPackageId :: Maybe UpgradedPackageId
         upgradedPackageId = Nothing
-
-------------------------------------------------------------------------
--- Decoding
-------------------------------------------------------------------------
-
-decode :: P.Package -> Either Error Package
-decode = decodePackage version SelfPackageId
-
--- decode' = decodePackage' version SelfPackageId
