@@ -73,6 +73,7 @@ rtt_fail1 = testCase "this fails" $ True @=? False
 ------------------------------------------------------------------------
 -- EncodeTests
 ------------------------------------------------------------------------
+<<<<<<< HEAD
 encodeKindAssert :: Kind -> P.Kind -> Assertion
 encodeKindAssert k pk =
   let (pk', _) = runState (encodeKind k) env
@@ -194,6 +195,14 @@ pkarr' k1 k2 = P.KindSumArrow $ P.Kind_Arrow (V.singleton k1) (Just k2)
 interned :: Int32 -> P.Kind
 interned = P.Kind . Just . P.KindSumInterned
 
+=======
+enc_tests :: TestTree
+enc_tests = testGroup "Encoding tests"
+    [
+    ]
+
+
+>>>>>>> e4dd2a9a25 (Unit tests for encode/decode)
 ------------------------------------------------------------------------
 -- Examples
 ------------------------------------------------------------------------
