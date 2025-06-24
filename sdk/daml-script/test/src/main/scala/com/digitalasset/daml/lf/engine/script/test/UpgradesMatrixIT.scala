@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.UpgradeTest
+import com.digitalasset.daml.lf.engine.{UpgradeTest, UpgradeTestCases}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -31,6 +31,7 @@ class UpgradeTestIntegration
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
     ]
     with CantonFixture {
+  import UpgradeTestCases._
   def encodeDar(
       mainDalfName: String,
       mainDalf: Archive,
@@ -40,15 +41,15 @@ class UpgradeTestIntegration
     DarWriter.encode(
       SdkVersion.sdkVersion,
       Dar(
-        (mainDalfName, mainDalf.toByteArray),
-        deps.map { case (name, dalf) => (name, dalf.toByteArray) },
+        (mainDalfName, Bytes.fromByteString(mainDalf.toByteString)),
+        deps.map { case (name, dalf) => (name, Bytes.fromByteString(dalf.toByteString)) },
       ),
       os,
     )
     os.toByteString
   }
 
-  override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
+  //override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
 
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   override protected val disableUpgradeValidation: Boolean = true

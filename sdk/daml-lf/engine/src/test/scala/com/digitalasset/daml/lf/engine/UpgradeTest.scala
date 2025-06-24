@@ -66,6 +66,7 @@ import scala.language.implicitConversions
 class UpgradeTestUnit
     extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)]
     with ParallelTestExecution {
+  import UpgradeTestCases._
   def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
@@ -203,7 +204,8 @@ class UpgradeTestUnit
   }
 }
 
-abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers with UpgradeTestCases {
+abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers {
+  import UpgradeTestCases._
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
   def execute(
@@ -262,10 +264,11 @@ abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers with Up
     }
 }
 
-trait UpgradeTestCases {
+object UpgradeTestCases {
 
-  lazy val langVersion: LanguageVersion =
-    LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
+  //lazy val langVersion: LanguageVersion =
+  //  LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
+  lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
 
   private[this] implicit def parserParameters(implicit
       pkgId: PackageId
