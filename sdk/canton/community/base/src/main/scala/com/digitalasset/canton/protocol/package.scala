@@ -88,7 +88,7 @@ package object protocol {
   type LfLeafOnlyActionNode = Node.LeafOnlyAction
 
   /** Shorthand for contract instances. */
-  type LfFatContractInst = FatContractInstance
+  type LfFatContractInst = FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt }
   val LfFatContractInst: FatContractInstance.type = FatContractInstance
 
   type LfThinContractInst = Value.VersionedThinContractInstance

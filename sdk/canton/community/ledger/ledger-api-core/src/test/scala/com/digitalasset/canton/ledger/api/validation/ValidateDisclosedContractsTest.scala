@@ -23,6 +23,7 @@ import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
   CantonContractIdVersion,
   DriverContractMetadata,
+  LfFatContractInst,
   LfTransactionVersion,
   Unicum,
 }
@@ -329,7 +330,7 @@ object ValidateDisclosedContractsTest {
       version = LfTransactionVersion.StableVersions.max,
     )
 
-    val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
+    val fatContractInstance: LfFatContractInst = FatContractInstance.fromCreateNode(
       create = createNode,
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),

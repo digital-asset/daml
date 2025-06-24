@@ -50,7 +50,6 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 
@@ -164,7 +163,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   object dummyAuthenticator extends ContractAuthenticator {
     override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
       Either.unit
-    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
+    override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,

@@ -20,6 +20,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal.ping.Ping
+import com.digitalasset.canton.synchronizer.sequencer.SendPolicy.processTimeProofs_
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import monocle.macros.syntax.lens.*
 
@@ -55,13 +56,15 @@ class PingServiceVacuumingIntegrationTest
     val sequencer = getProgrammableSequencer(sequencer1.name)
     val flushPromise = Promise[Unit]()
     val p2id = participant2.id
-    sequencer.setPolicy_("drop all messages from participant2") { submissionRequest =>
-      if (submissionRequest.sender == p2id) {
-        SendDecision.HoldBack(flushPromise.future)
-      } else {
-        SendDecision.Process
-      }
-    }
+    // Process time proofs to avoid shutdown issues when there are test failures
+    sequencer.setPolicy_("drop messages from participant2")(processTimeProofs_ {
+      submissionRequest =>
+        if (submissionRequest.sender == p2id) {
+          SendDecision.HoldBack(flushPromise.future)
+        } else {
+          SendDecision.Process
+        }
+    })
     flushPromise
   }
 
@@ -111,7 +114,7 @@ class PingServiceVacuumingIntegrationTest
       resetPolicy(holdPromise)
     }
 
-    "vacuum its own leftover ping proposal contracts" in { implicit env =>
+    "vacuum its own leftover bong proposal contracts" in { implicit env =>
       import env.*
 
       val holdPromise = holdMessagesByP2(env)

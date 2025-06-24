@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries, 
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PrepareTransactionData
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.topology.{GeneratorsTopology, SynchronizerId}
 import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.crypto
@@ -190,7 +191,7 @@ final class GeneratorsInteractiveSubmission(
   private val globalKeyMappingGen: Gen[Map[GlobalKey, Option[Value.ContractId]]] =
     Gen.mapOf(globalKeyMappingEntryGen)
 
-  private def inputContractsGen(overrideCid: Value.ContractId): Gen[FatContractInstance] = for {
+  private def inputContractsGen(overrideCid: Value.ContractId): Gen[LfFatContractInst] = for {
     create <- ValueGenerators
       .malformedCreateNodeGenWithVersion(LanguageVersion.v2_1)
       .map(normalizeNodeForV1)

@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessSet,
 }
 import com.digitalasset.canton.participant.store.ReassignmentLookup
-import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.{
@@ -74,7 +74,6 @@ class TestProcessingSteps(
       TestProcessingError,
     ]
     with BaseTest {
-  override type SubmissionResultArgs = Unit
   override type RejectionArgs = Unit
   override type PendingSubmissions = concurrent.Map[Int, Unit]
   override type PendingSubmissionId = Int
@@ -122,14 +121,16 @@ class TestProcessingSteps(
   override def createSubmission(
       submissionParam: Int,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncEphemeralStateLookup,
+      ephemeralState: SyncEphemeralState,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TestProcessingError, Submission] = {
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, (Submission, PendingSubmissionData)] = {
+    pendingSubmissionMap.put(submissionParam, ())
+
     val envelope: ProtocolMessage = mock[ProtocolMessage]
     val recipient: Member = ParticipantId("participant1")
-    EitherT.rightT(new UntrackedSubmission {
+    val submission = new UntrackedSubmission {
       override def batch: Batch[DefaultOpenEnvelope] =
         Batch.of(testedProtocolVersion, (envelope, Recipients.cc(recipient)))
       override def pendingSubmissionId: Int = submissionParam
@@ -140,21 +141,13 @@ class TestProcessingSteps(
       ): TestProcessingError =
         TestProcessorError(err)
       override def toSubmissionError(err: TestProcessingError): TestProcessingError = err
-    })
-  }
-
-  override def updatePendingSubmissions(
-      pendingSubmissionMap: concurrent.Map[Int, Unit],
-      submissionParam: Int,
-      pendingSubmissionId: Int,
-  ): EitherT[Future, TestProcessingError, SubmissionResultArgs] = {
-    pendingSubmissionMap.put(submissionParam, ())
-    EitherT.pure(())
+    }
+    EitherT.rightT((submission, ()))
   }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],
-      submissionResultArgs: SubmissionResultArgs,
+      submissionResultArgs: PendingSubmissionData,
   ): Unit =
     ()
 

@@ -12,7 +12,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.Activeness
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
 import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
-import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -37,12 +36,6 @@ private[reassignment] class UnassignmentValidation(
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
-
-    val reassignmentId: ReassignmentId =
-      ReassignmentId(
-        fullTree.sourceSynchronizer,
-        UnassignId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp),
-      )
 
     for {
 
@@ -73,7 +66,7 @@ private[reassignment] class UnassignmentValidation(
 
     } yield UnassignmentValidationResult(
       fullTree = fullTree,
-      reassignmentId = reassignmentId,
+      reassignmentId = parsedRequest.reassignmentId,
       hostedStakeholders = hostedStakeholders,
       assignmentExclusivity = assignmentExclusivity,
       validationResult = validationResult,

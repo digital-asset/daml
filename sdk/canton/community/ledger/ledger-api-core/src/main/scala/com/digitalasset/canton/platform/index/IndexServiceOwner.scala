@@ -23,6 +23,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InMemoryState
 import com.digitalasset.canton.platform.apiserver.TimedIndexService
 import com.digitalasset.canton.platform.config.IndexServiceConfig
+import com.digitalasset.canton.platform.index.IndexServiceOwner.GetPackagePreferenceForViewsUpgrading
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.common.MismatchException
 import com.digitalasset.canton.platform.store.cache.*
@@ -61,11 +62,7 @@ final class IndexServiceOwner(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
-    getPackagePreference: logging.LoggingContextWithTrace => Ref.PackageName => Set[
-      Ref.PackageId
-    ] => FutureUnlessShutdown[
-      Option[Ref.PackageId]
-    ],
+    getPackagePreference: GetPackagePreferenceForViewsUpgrading,
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
@@ -122,7 +119,7 @@ final class IndexServiceOwner(
         metrics = metrics,
         loggerFactory = loggerFactory,
         idleStreamOffsetCheckpointTimeout = config.idleStreamOffsetCheckpointTimeout,
-        getPreferredPackageVersion = getPackagePreference,
+        getPreferredPackages = getPackagePreference,
       )
     } yield new TimedIndexService(indexService, metrics)
   }
@@ -220,4 +217,26 @@ final class IndexServiceOwner(
     )
 
   private object InMemoryStateNotInitialized extends NoStackTrace
+}
+
+object IndexServiceOwner {
+
+  trait GetPackagePreferenceForViewsUpgrading {
+
+    /** @param packageName
+      *   the package-name for which the preference is requested
+      * @param candidatePackageIds
+      *   the candidate package-ids restriction
+      * @param candidatePackageIdsDescription
+      *   a description of the candidate package-ids restriction
+      * @param loggingContext
+      *   the logging context for the request
+      */
+    def apply(
+        packageName: Ref.PackageName,
+        candidatePackageIds: Set[Ref.PackageId],
+        candidatePackageIdsDescription: String,
+        loggingContext: logging.LoggingContextWithTrace,
+    ): FutureUnlessShutdown[Either[String, Ref.PackageId]]
+  }
 }

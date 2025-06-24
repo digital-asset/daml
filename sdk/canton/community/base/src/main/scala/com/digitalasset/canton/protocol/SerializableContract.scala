@@ -99,7 +99,7 @@ case class SerializableContract(
   )
 
   // Will succeed providing the contract has been authenticated
-  def tryFatContractInstance: FatContractInstance =
+  def tryFatContractInstance: LfFatContractInst =
     FatContractInstance.fromCreateNode(
       toLf,
       ledgerCreateTime,
@@ -143,15 +143,10 @@ object SerializableContract
       )
 
   def fromFatContract(
-      fat: FatContractInstance
+      fat: LfFatContractInst
   ): Either[String, SerializableContract] = {
     val driverContractMetadataBytes = fat.cantonData.toByteArray
     for {
-      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-      ledgerTime <- (fat.createdAt: CreationTime) match {
-        case CreationTime.Now => Left("Invalid createdAt timestamp")
-        case CreationTime.CreatedAt(ts) => Right(CantonTimestamp(ts))
-      }
       _disclosedContractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(fat.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
@@ -177,7 +172,7 @@ object SerializableContract
         contractId = fat.contractId,
         contractInstance = contractInstance,
         metadata = cantonContractMetadata,
-        ledgerTime = ledgerTime,
+        ledgerTime = CantonTimestamp(fat.createdAt.time),
         contractSalt = salt,
       ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
     } yield contract

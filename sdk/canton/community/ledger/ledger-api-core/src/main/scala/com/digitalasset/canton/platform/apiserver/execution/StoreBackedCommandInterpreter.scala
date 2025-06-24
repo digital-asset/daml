@@ -40,7 +40,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
@@ -525,11 +524,6 @@ final class StoreBackedCommandInterpreter(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
           )
-        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-        ledgerTime <- (originalContract.createdAt: CreationTime) match {
-          case CreationTime.CreatedAt(time) => Right(time)
-          case CreationTime.Now => Left("Failed to recompute contract creation time")
-        }
         contract <- SerializableContract(
           contractId = originalContract.contractId,
           contractInstance = ThinContract(
@@ -538,7 +532,7 @@ final class StoreBackedCommandInterpreter(
             Versioned(originalContract.version, originalContract.createArg),
           ),
           metadata = recomputedMetadata,
-          ledgerTime = CantonTimestamp(ledgerTime),
+          ledgerTime = CantonTimestamp(originalContract.createdAt.time),
           contractSalt = salt,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
       } yield contract

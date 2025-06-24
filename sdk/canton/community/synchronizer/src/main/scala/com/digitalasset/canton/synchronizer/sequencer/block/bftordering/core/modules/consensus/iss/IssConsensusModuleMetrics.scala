@@ -44,6 +44,8 @@ private[iss] object IssConsensusModuleMetrics {
       prevEpochPrepareVotes: Map[BftNodeId, Long],
       prevEpochCommitVotes: Map[BftNodeId, Long],
   )(implicit mc: MetricsContext): Unit = {
+    metrics.consensus.epochViewChanges.updateValue(prevEpochViewsCount - prevEpoch.segments.size)
+
     val totalConsensusStageVotes =
       totalConsensusStageVotesInEpoch(
         prevEpoch.currentMembership.orderingTopology.nodes.size,

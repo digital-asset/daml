@@ -48,8 +48,13 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   ProgrammableSequencerPolicies,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.util.ReassignmentTag.Source
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SynchronizerAlias}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  ReassignmentCounter,
+  SynchronizerAlias,
+}
 import org.scalatest.Assertion
 
 import scala.collection.mutable
@@ -179,8 +184,15 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
             .fromProtoTimestamp(unassignmentCompletion.synchronizerTime.value.recordTime.value)
             .value
 
-          val reassignmentId =
-            ReassignmentId(Source(daId), UnassignId(Source(daId), unassignmentTs))
+          val reassignmentId = ReassignmentId(
+            Source(daId),
+            UnassignId(
+              Source(daId),
+              Target(acmeId),
+              unassignmentTs,
+              Seq(cid -> ReassignmentCounter(0)),
+            ),
+          )
 
           // Entry is deleted upon timeout
           getReassignmentData(

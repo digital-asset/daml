@@ -41,8 +41,26 @@ service InteractiveSubmissionService {
   //
   // Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
   //
-  // Experimental API: this endpoint is not guaranteed to provide backwards compatibility in future releases
+  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0
   rpc GetPreferredPackageVersion(GetPreferredPackageVersionRequest) returns (GetPreferredPackageVersionResponse);
+
+  // Compute the preferred packages for the vetting requirements in the request.
+  // A preferred package is the highest-versioned package for a provided package-name
+  // that is vetted by all the participants hosting the provided parties.
+  //
+  // Ledger API clients should use this endpoint for constructing command submissions
+  // that are compatible with the provided preferred packages, by making informed decisions on:
+  // - which are the compatible packages that can be used to create contracts
+  // - which contract or exercise choice argument version can be used in the command
+  // - which choices can be executed on a template or interface of a contract
+  //
+  // If the package preferences could not be computed due to no selection satisfying the requirements,
+  // a `FAILED_PRECONDITION` error will be returned.
+  //
+  // Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+  //
+  // Experimental API: this endpoint is not guaranteed to provide backwards compatibility in future releases
+  rpc GetPreferredPackages(GetPreferredPackagesRequest) returns (GetPreferredPackagesResponse);
 }
 
 message PrepareSubmissionRequest {
@@ -396,6 +414,57 @@ message PackagePreference {
   PackageReference package_reference = 1;
 
   // The synchronizer for which the preferred package was computed.
+  // If the synchronizer_id was specified in the request, then it matches the request synchronizer_id.
+  // Required
+  string synchronizer_id = 2;
+}
+
+// Defines a package-name for which the commonly vetted package with the highest version must be found.
+message PackageVettingRequirement {
+  // The parties whose participants' vetting state should be considered when resolving the preferred package.
+  // Required
+  repeated string parties = 1;
+
+  // The package-name for which the preferred package should be resolved.
+  // Required
+  string package_name = 2;
+}
+
+message GetPreferredPackagesRequest {
+  // The package-name vetting requirements for which the preferred packages should be resolved.
+  //
+  // Generally it is enough to provide the requirements for the intended command's root package-names.
+  // Additional package-name requirements can be provided when additional Daml transaction informees need to use
+  // package dependencies of the command's root packages.
+  //
+  // Required
+  repeated PackageVettingRequirement package_vetting_requirements = 1;
+
+  // The synchronizer whose vetting state to use for resolving this query.
+  // If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+  // Optional
+  string synchronizer_id = 2;
+
+  // The timestamp at which the package vetting validity should be computed
+  // on the latest topology snapshot as seen by the participant.
+  // If not provided, the participant's current clock time is used.
+  // Optional
+  google.protobuf.Timestamp vetting_valid_at = 3;
+}
+
+message GetPreferredPackagesResponse {
+  // The package references of the preferred packages.
+  // Must contain one package reference for each requested package-name.
+  //
+  // If you build command submissions whose content depends on the returned
+  // preferred packages, then we recommend submitting the preferred package-ids
+  // in the ``package_id_selection_preference`` of the command submission to
+  // avoid race conditions with concurrent changes of the on-ledger package vetting state.
+  //
+  // Required
+  repeated PackageReference package_references = 1;
+
+  // The synchronizer for which the package preferences are computed.
   // If the synchronizer_id was specified in the request, then it matches the request synchronizer_id.
   // Required
   string synchronizer_id = 2;

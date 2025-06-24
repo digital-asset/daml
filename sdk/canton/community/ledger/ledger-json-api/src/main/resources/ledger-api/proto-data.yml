@@ -1171,6 +1171,39 @@ messages:
         package_preference: |-
           Not populated when no preferred package is found
           Optional
+  GetPreferredPackagesRequest:
+    message:
+      comments: null
+      fieldComments:
+        package_vetting_requirements: |-
+          The package-name vetting requirements for which the preferred packages should be resolved.
+
+          Generally it is enough to provide the requirements for the intended command's root package-names.
+          Additional package-name requirements can be provided when additional Daml transaction informees need to use
+          package dependencies of the command's root packages.
+
+          Required
+        synchronizer_id: |-
+          The synchronizer whose vetting state to use for resolving this query.
+          If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+          Optional
+        vetting_valid_at: |-
+          The timestamp at which the package vetting validity should be computed
+          on the latest topology snapshot as seen by the participant.
+          If not provided, the participant's current clock time is used.
+          Optional
+  GetPreferredPackagesResponse:
+    message:
+      comments: null
+      fieldComments:
+        package_references: |-
+          The package references of the preferred packages.
+          Must contain one package reference for each requested package-name.
+          Required
+        synchronizer_id: |-
+          The synchronizer for which the package preferences are computed.
+          If the synchronizer_id was specified in the request, then it matches the request synchronizer_id.
+          Required
   GetTimeRequest:
     message:
       comments: null
@@ -1704,6 +1737,17 @@ messages:
         package_id: Required
         package_name: Required
         package_version: Required
+  PackageVettingRequirement:
+    message:
+      comments: Defines a package-name for which the commonly vetted package with
+        the highest version must be found.
+      fieldComments:
+        parties: |-
+          The parties whose participants' vetting state should be considered when resolving the preferred package.
+          Required
+        package_name: |-
+          The package-name for which the preferred package should be resolved.
+          Required
   ParticipantAuthorizationAdded:
     message:
       comments: null
@@ -2826,6 +2870,8 @@ oneOfs:
   GetPartiesResponse: {}
   GetPreferredPackageVersionRequest: {}
   GetPreferredPackageVersionResponse: {}
+  GetPreferredPackagesRequest: {}
+  GetPreferredPackagesResponse: {}
   GetTimeRequest: {}
   GetTimeResponse: {}
   GetTransactionByIdRequest: {}
@@ -2918,6 +2964,7 @@ oneOfs:
   PackageDetails: {}
   PackagePreference: {}
   PackageReference: {}
+  PackageVettingRequirement: {}
   ParticipantAuthorizationAdded: {}
   ParticipantAuthorizationChanged: {}
   ParticipantAuthorizationRevoked: {}

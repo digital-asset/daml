@@ -5,6 +5,7 @@ package com.digitalasset.canton
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -17,7 +18,7 @@ package object platform {
   private[platform] type ContractId = lfval.ContractId
   private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
-  private[platform] type FatContract = lfTrans.FatContractInstance
+  private[platform] type FatContract = LfFatContractInst
   private[platform] val FatContract: lfTrans.FatContractInstance.type = lfTrans.FatContractInstance
   private[platform] type ThinContract = lfval.VersionedThinContractInstance
   private[platform] val ThinContract: lfval.VersionedContractInstance.type =

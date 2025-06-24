@@ -39,6 +39,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
   private val waitTimeMs =
     (mediatorReactionTimeout + confirmationResponseTimeout + config.NonNegativeFiniteDuration
       .ofMillis(500)).duration.toMillis
+  private val reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M2.withSetup { implicit env =>
@@ -56,6 +57,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
           _.update(
             mediatorReactionTimeout = mediatorReactionTimeout,
             confirmationResponseTimeout = confirmationResponseTimeout,
+            reconciliationInterval = reconciliationInterval,
           ),
         )
       )

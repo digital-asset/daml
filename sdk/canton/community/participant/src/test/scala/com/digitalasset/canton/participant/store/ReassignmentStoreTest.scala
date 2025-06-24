@@ -42,7 +42,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, ReassignmentCounter}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -1503,7 +1503,15 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       contract: SerializableContract = contract,
   ): UnassignmentData = {
     val reassignmentId =
-      ReassignmentId(sourceSynchronizer, UnassignId(sourceSynchronizer, unassignmentTs))
+      ReassignmentId(
+        sourceSynchronizer,
+        UnassignId(
+          sourceSynchronizer,
+          targetSynchronizer,
+          unassignmentTs,
+          Seq(contract.contractId -> ReassignmentCounter(0)),
+        ),
+      )
     mkUnassignmentDataForSynchronizer(
       reassignmentId,
       sourceMediator,

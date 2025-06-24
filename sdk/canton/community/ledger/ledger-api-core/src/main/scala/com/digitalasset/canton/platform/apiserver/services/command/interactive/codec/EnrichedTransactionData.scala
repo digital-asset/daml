@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, TracedLogger}
 import com.digitalasset.canton.platform.apiserver.execution.CommandInterpretationResult
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
@@ -48,7 +49,7 @@ object EnrichedTransactionData {
     */
   final case class ExternalInputContract(
       enrichedContract: FatContractInstance,
-      originalContract: FatContractInstance,
+      originalContract: LfFatContractInst,
   ) {
     require(
       enrichedContract.contractId == originalContract.contractId,
