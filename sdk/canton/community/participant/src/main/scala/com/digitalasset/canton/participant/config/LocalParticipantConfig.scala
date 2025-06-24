@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{DiscardOps, config}
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import monocle.macros.syntax.lens.*
 
 /** Base for all participant configs - both local and remote */

@@ -17,7 +17,7 @@ import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 import io.gatling.core.scenario.Simulation
 import io.gatling.netty.util.Transports
-import io.netty.channel.EventLoopGroup
+import io.grpc.netty.shaded.io.netty.channel.EventLoopGroup
 import org.scalatest.OptionValues._
 import scalaz.syntax.tag._
 import scalaz.\/
@@ -127,7 +127,7 @@ object Main extends StrictLogging {
       val promise = Promise[Unit]()
       val future = elg.shutdownGracefully(0, terminationTimeout.length, terminationTimeout.unit)
       discard {
-        future.addListener((f: io.netty.util.concurrent.Future[_]) =>
+        future.addListener((f: io.grpc.netty.shaded.io.netty.util.concurrent.Future[_]) =>
           discard { promise.complete(Try(f.get).map(_ => ())) }
         )
       }

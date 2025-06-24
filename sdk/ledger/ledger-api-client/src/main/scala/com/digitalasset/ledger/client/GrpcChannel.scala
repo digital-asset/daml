@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.ports.Port
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.{Channel, ManagedChannel}
 
 import scala.concurrent.Future

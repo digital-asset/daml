@@ -12,8 +12,8 @@ import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor
 import com.google.protobuf.Message
 import io.grpc.*
-import io.grpc.netty.NettyServerBuilder
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}

@@ -15,7 +15,7 @@ import com.daml.ledger.api.v1.ledger_identity_service.{
 }
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import io.grpc.StatusRuntimeException
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.annotation.nowarn
 import scala.concurrent.Future

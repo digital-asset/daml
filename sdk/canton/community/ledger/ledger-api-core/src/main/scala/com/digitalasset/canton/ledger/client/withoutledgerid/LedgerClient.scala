@@ -38,7 +38,7 @@ import com.digitalasset.canton.ledger.client.services.version.withoutledgerid.Ve
 import com.digitalasset.canton.ledger.client.{GrpcChannel, LedgerClient as ClassicLedgerClient}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import java.io.Closeable
 import scala.annotation.nowarn

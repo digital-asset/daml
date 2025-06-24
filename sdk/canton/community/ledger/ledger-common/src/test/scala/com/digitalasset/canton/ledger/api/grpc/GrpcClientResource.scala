@@ -6,10 +6,10 @@ package com.digitalasset.canton.ledger.api.grpc
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.ports.Port
 import io.grpc.Channel
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import io.netty.channel.EventLoopGroup
-import io.netty.handler.ssl.SslContext
-import io.netty.util.concurrent.DefaultThreadFactory
+import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.netty.shaded.io.netty.channel.EventLoopGroup
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.netty.util.concurrent.DefaultThreadFactory
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.UUID

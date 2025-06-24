@@ -72,7 +72,7 @@ da_scala_binary(
             "//ledger-test-tool/runner:runner-%s" % lf_version,
             "//ledger-test-tool/suites:suites-%s" % lf_version,
             "//libs-scala/build-info",
-            "@maven//:io_netty_netty_handler",
+            "@maven//:io_grpc_grpc_netty_shaded",
         ],
     )
     for lf_version in testtool_lf_versions

@@ -21,7 +21,7 @@ import com.daml.nonrepudiation.{
   SignedPayload,
 }
 import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import org.scalatest.Inside
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers

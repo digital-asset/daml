@@ -11,7 +11,7 @@ import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.ledger.client.GrpcChannel
 import com.digitalasset.canton.participant.admin.{v0 => admin_package_service}
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 import java.io.Closeable
 import scala.concurrent.{ExecutionContext, Future}
