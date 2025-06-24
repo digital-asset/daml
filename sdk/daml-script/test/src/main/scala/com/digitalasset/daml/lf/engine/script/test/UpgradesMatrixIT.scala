@@ -63,7 +63,7 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     os.toByteString
   }
 
-  //override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
+  // override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
 
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   override protected val disableUpgradeValidation: Boolean = true
@@ -236,7 +236,8 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
         actAs = OneAnd(setupData.alice, Set()),
         readAs = Set(),
         disclosures = disclosures,
-        optPackagePreference = Some(List(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId)),
+        optPackagePreference =
+          Some(List(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId)),
         commands = commands,
         prefetchContractKeys = List(),
         optLocation = None,

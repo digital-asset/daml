@@ -44,7 +44,10 @@ class UpgradeTestUnit2 extends UpgradeTestUnit(3, 2)
   * sanity checking before running UpgradesMatrixIT.
   */
 abstract class UpgradeTestUnit(n: Int, k: Int)
-    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)](UpgradeTestCasesV2MaxStable, Some((n, k)))
+    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)](
+      UpgradeTestCasesV2MaxStable,
+      Some((n, k)),
+    )
     with ParallelTestExecution {
   import UpgradeTestCases._
   def toContractId(s: String): ContractId =
@@ -137,7 +140,8 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
     newEngine()
       .submit(
         packageMap = cases.packageMap,
-        packagePreference = Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
+        packagePreference =
+          Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
@@ -209,7 +213,9 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   * will run a quarter of the tests with MyRunner0, another quarter over
   * MyRunner1, and so on, all in parallel.
   */
-abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None) extends AsyncFreeSpec with Matchers {
+abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None)
+    extends AsyncFreeSpec
+    with Matchers {
   import UpgradeTestCases._
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
@@ -233,50 +239,59 @@ abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(In
   // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
   for (testCase <- cases.testCases) {
-      val testHelper = new cases.TestHelper(testCase)
-      for (operation <- cases.operations) {
-          for (catchBehavior <- cases.catchBehaviors) {
-              for (entryPoint <- cases.entryPoints) {
-                  for (contractOrigin <- cases.contractOrigins) {
-                      val shouldShow =
-                        nk match {
-                          case Some((n, k)) => testIdx % n == k
-                          case None => true
-                        }
-                      if (shouldShow)
-                        testHelper
-                          .makeApiCommands(
-                            operation,
-                            catchBehavior,
-                            entryPoint,
-                            contractOrigin,
-                          )
-                          .foreach { getApiCommands =>
-                            val title =
-                              List(testCase.templateName, operation.name, catchBehavior.name, entryPoint.name, contractOrigin.name, testCase.expectedOutcome.description, testIdx.toString).mkString("/")
-                            title in {
-                              for {
-                                setupData <- setup(testHelper)
-                                apiCommands = getApiCommands(setupData)
-                                outcome <- execute(setupData, testHelper, apiCommands, contractOrigin)
-                              } yield assertResultMatchesExpectedOutcome(
-                                outcome,
-                                testCase.expectedOutcome,
-                              )
-                            }
-                          }
-                      testIdx += 1
-                  }
+    val testHelper = new cases.TestHelper(testCase)
+    for (operation <- cases.operations) {
+      for (catchBehavior <- cases.catchBehaviors) {
+        for (entryPoint <- cases.entryPoints) {
+          for (contractOrigin <- cases.contractOrigins) {
+            val shouldShow =
+              nk match {
+                case Some((n, k)) => testIdx % n == k
+                case None => true
               }
+            if (shouldShow)
+              testHelper
+                .makeApiCommands(
+                  operation,
+                  catchBehavior,
+                  entryPoint,
+                  contractOrigin,
+                )
+                .foreach { getApiCommands =>
+                  val title =
+                    List(
+                      testCase.templateName,
+                      operation.name,
+                      catchBehavior.name,
+                      entryPoint.name,
+                      contractOrigin.name,
+                      testCase.expectedOutcome.description,
+                      testIdx.toString,
+                    ).mkString("/")
+                  title in {
+                    for {
+                      setupData <- setup(testHelper)
+                      apiCommands = getApiCommands(setupData)
+                      outcome <- execute(setupData, testHelper, apiCommands, contractOrigin)
+                    } yield assertResultMatchesExpectedOutcome(
+                      outcome,
+                      testCase.expectedOutcome,
+                    )
+                  }
+                }
+            testIdx += 1
           }
+        }
       }
+    }
   }
 }
 
 // Instances of UpgradeTestCases which provide cases built with LF 2.dev or the
 // highest stable 2.x version, respectively
 object UpgradeTestCasesV2Dev extends UpgradeTestCases(LanguageVersion.v2_dev)
-object UpgradeTestCasesV2MaxStable extends UpgradeTestCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
+object UpgradeTestCasesV2MaxStable
+    extends UpgradeTestCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
 
 /** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
   * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
