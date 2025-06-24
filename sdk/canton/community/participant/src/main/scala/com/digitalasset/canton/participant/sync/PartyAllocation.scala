@@ -16,9 +16,13 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
 import com.digitalasset.canton.participant.topology.{LedgerServerPartyNotifier, PartyOps}
 import com.digitalasset.canton.topology.TopologyManagerError.MappingAlreadyExists
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId}
 import io.opentelemetry.api.trace.Tracer
 
@@ -41,7 +45,7 @@ private[sync] class PartyAllocation(
   def allocate(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
@@ -52,7 +56,7 @@ private[sync] class PartyAllocation(
   private def allocateInternal(
       partyName: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
     import com.google.rpc.status.Status
     import io.grpc.Status.Code
@@ -61,8 +65,6 @@ private[sync] class PartyAllocation(
       SubmissionResult.SynchronousError(
         Status.of(statusCode.getOrElse(Code.UNKNOWN).value(), reason, Seq())
       )
-
-    val protocolVersion = ProtocolVersion.latest
 
     val result =
       for {
@@ -101,7 +103,7 @@ private[sync] class PartyAllocation(
           }
           .toEitherT[FutureUnlessShutdown]
         _ <- partyOps
-          .allocateParty(partyId, participantId, synchronizerId, protocolVersion)
+          .allocateParty(partyId, participantId, synchronizerId)
           .leftMap[SubmissionResult] {
             case IdentityManagerParentError(e) if e.code == MappingAlreadyExists =>
               reject(

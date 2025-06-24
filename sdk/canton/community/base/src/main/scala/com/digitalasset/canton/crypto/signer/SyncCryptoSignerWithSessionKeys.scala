@@ -151,7 +151,7 @@ class SyncCryptoSignerWithSessionKeys(
     */
   private def createDelegationSignature(
       validityPeriod: SignatureDelegationValidityPeriod,
-      longTermKey: SigningPublicKey,
+      activeLongTermKey: SigningPublicKey,
       sessionKey: SigningPublicKey,
   )(implicit
       traceContext: TraceContext
@@ -165,7 +165,7 @@ class SyncCryptoSignerWithSessionKeys(
             sessionKey,
             validityPeriod,
           ),
-          longTermKey.fingerprint,
+          activeLongTermKey.fingerprint,
           SigningKeyUsage.ProtocolOnly,
         )
         .leftMap[SyncCryptoError](err => SyncCryptoError.SyncCryptoSigningError(err))
@@ -191,15 +191,9 @@ class SyncCryptoSignerWithSessionKeys(
       timestamp < validityPeriod
         .computeCutOffTimestamp(cutOffDuration)
 
-  private def signingLongTermKeyIsValid(
-      activeLongTermKeyIds: Seq[Fingerprint],
-      signedBy: Fingerprint,
-  ) =
-    activeLongTermKeyIds.contains(signedBy)
-
   private def generateNewSessionKey(
       validityPeriod: SignatureDelegationValidityPeriod,
-      longTermKey: SigningPublicKey,
+      activeLongTermKey: SigningPublicKey,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, SessionKeyAndDelegation] =
@@ -215,7 +209,7 @@ class SyncCryptoSignerWithSessionKeys(
       // sign session key + metadata with long-term key to authorize the delegation
       signatureDelegation <- createDelegationSignature(
         validityPeriod,
-        longTermKey,
+        activeLongTermKey,
         sessionKeyPair.publicKey,
       )
       sessionKeyAndDelegation = SessionKeyAndDelegation(
@@ -229,17 +223,13 @@ class SyncCryptoSignerWithSessionKeys(
         )
     } yield sessionKeyAndDelegation
 
-  private def selectLongTermKeyAndValidityPeriod(
-      topologySnapshot: TopologySnapshot,
-      activeLongTermKeys: NonEmpty[Seq[SigningPublicKey]],
-  ): (SigningPublicKey, SignatureDelegationValidityPeriod) = {
-    val longTermKey = PublicKey
-      .getLatestKey(activeLongTermKeys)
-
+  private def determineValidityPeriod(
+      topologySnapshot: TopologySnapshot
+  ): SignatureDelegationValidityPeriod = {
     /* If the session signing key created for a signing request at timestamp ts is valid from
      * ts-cutoff/2 to ts+x-cutoff/2, then if there is a sequence of signature request timestamps in the following
      * order ts, ts-1us , ts-2us, ts-3us, ... ts-n, we do not create n session keys, but rather n / cutoff.
-     * Although not optional this a better approach than setting the validity period from ts to ts+x in terms
+     * Although not optimal this a better approach than setting the validity period from ts to ts+x in terms
      * of number of keys created.
      */
     val margin = cutOffDuration.unwrap.dividedBy(2) // cuttoff/2
@@ -250,11 +240,10 @@ class SyncCryptoSignerWithSessionKeys(
           topologySnapshot.timestamp.minus(margin)
         )
         .getOrElse(CantonTimestamp.MinValue)
-    val validityPeriod = SignatureDelegationValidityPeriod(
+    SignatureDelegationValidityPeriod(
       validityStart,
       sessionKeyValidityDuration,
     )
-    (longTermKey, validityPeriod)
   }
 
   /** The selection of a session key is based on its validity. If multiple options are available, we
@@ -263,12 +252,10 @@ class SyncCryptoSignerWithSessionKeys(
     */
   private def getSessionKey(
       topologySnapshot: TopologySnapshot,
-      activeLongTermKeys: NonEmpty[Seq[SigningPublicKey]],
+      activeLongTermKey: SigningPublicKey,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, SessionKeyAndDelegation] = {
-
-    val activeLongTermKeyIds = activeLongTermKeys.map(_.id)
 
     val sessionKeyOrGenerationData = blocking(lock.synchronized {
       // get hold of all existing or pending session keys
@@ -278,7 +265,7 @@ class SyncCryptoSignerWithSessionKeys(
       // check if there is a session key in the cache that is valid and can be used
       val validUsableSessionKeysInCache = keysInCache.filter { skD =>
         isUsableDelegation(topologySnapshot.timestamp, skD.signatureDelegation.validityPeriod) &&
-        signingLongTermKeyIsValid(activeLongTermKeyIds, skD.signatureDelegation.signature.signedBy)
+        activeLongTermKey.id == skD.signatureDelegation.delegatingKeyId
       }
 
       NonEmpty.from(validUsableSessionKeysInCache) match {
@@ -287,11 +274,10 @@ class SyncCryptoSignerWithSessionKeys(
           val validUsablePendingRequests =
             pendingSessionKeys.view.filterKeys { case (validityPeriod, signedBy) =>
               isUsableDelegation(topologySnapshot.timestamp, validityPeriod) &&
-              signingLongTermKeyIsValid(activeLongTermKeyIds, signedBy)
+              activeLongTermKey.id == signedBy
             }.toMap
 
-          val (longTermKey, validityPeriod) =
-            selectLongTermKeyAndValidityPeriod(topologySnapshot, activeLongTermKeys)
+          val validityPeriod = determineValidityPeriod(topologySnapshot)
 
           // if there are no pending keys valid and usable, we add a promise to the [[pendingRequests]] map
           // and store this information in the [[PendingValidSessionKeysAndMetadata]].
@@ -302,7 +288,7 @@ class SyncCryptoSignerWithSessionKeys(
                   s"sync-crypto-signer-pending-requests-$validityPeriod",
                   futureSupervisor,
                 )
-              pendingRequests.put((validityPeriod, longTermKey.id), promise).discard
+              pendingRequests.put((validityPeriod, activeLongTermKey.id), promise).discard
               promise
             }
 
@@ -310,7 +296,7 @@ class SyncCryptoSignerWithSessionKeys(
             PendingUsableSessionKeysAndMetadata(
               promiseO,
               validUsablePendingRequests,
-              longTermKey,
+              activeLongTermKey,
               validityPeriod,
             )
           )
@@ -331,9 +317,11 @@ class SyncCryptoSignerWithSessionKeys(
           case Some(pendingSessionKeyGenerationPromise) =>
             generateNewSessionKey(
               metadata.validityPeriod,
-              metadata.longTermKey,
+              metadata.activeLongTermKey,
             ).thereafter { result =>
-              pendingRequests.remove((metadata.validityPeriod, metadata.longTermKey.id)).discard
+              pendingRequests
+                .remove((metadata.validityPeriod, metadata.activeLongTermKey.id))
+                .discard
               // maps an AbortedDueToShutdown to None, indicating to other signing calls that this session signing key
               // will not be available.
               result match {
@@ -351,7 +339,7 @@ class SyncCryptoSignerWithSessionKeys(
             EitherT(first.transformWith {
               case Success(UnlessShutdown.Outcome(Some(sessionKeyAndDelegation))) =>
                 FutureUnlessShutdown.pure(Right(sessionKeyAndDelegation))
-              case _ => getSessionKey(topologySnapshot, activeLongTermKeys).value
+              case _ => getSessionKey(topologySnapshot, activeLongTermKey).value
             })
         }
       case Right(sessionKeyAndDelegation) =>
@@ -374,24 +362,25 @@ class SyncCryptoSignerWithSessionKeys(
           s"Session signing keys are not supposed to be used for non-protocol messages. Requested usage: $usage"
         ),
       )
-      activeLongTermKeys <- EitherT.right(
+      allKeys <- EitherT.right(
         topologySnapshot
           .signingKeys(member, SigningKeyUsage.ProtocolOnly)
       )
-      activeLongTermKeysNE <- EitherT.fromEither[FutureUnlessShutdown](
+      activeLongTermKey <- EitherT.fromEither[FutureUnlessShutdown](
         NonEmpty
-          .from(activeLongTermKeys)
+          .from(allKeys)
           .toRight(
             SyncCryptoError
               .KeyNotAvailable(
                 member,
                 KeyPurpose.Signing,
                 topologySnapshot.timestamp,
-                activeLongTermKeys.map(_.fingerprint),
+                allKeys.map(_.fingerprint),
               )
           )
+          .map(PublicKey.getLatestKey)
       )
-      sessionKeyAndDelegation <- getSessionKey(topologySnapshot, activeLongTermKeysNE)
+      sessionKeyAndDelegation <- getSessionKey(topologySnapshot, activeLongTermKey)
       SessionKeyAndDelegation(sessionKey, delegation) = sessionKeyAndDelegation
       signature <- signPublicApiSoftwareBased
         .sign(hash, sessionKey, usage)
@@ -420,7 +409,7 @@ object SyncCryptoSignerWithSessionKeys {
       ],
       // valid and usable pending session keys that are already being generated by others
       validUsablePendingRequests: PendingSessionKeysMap,
-      longTermKey: SigningPublicKey,
+      activeLongTermKey: SigningPublicKey,
       validityPeriod: SignatureDelegationValidityPeriod,
   )
 }

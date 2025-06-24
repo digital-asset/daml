@@ -7,7 +7,6 @@ import com.daml.test.evidence.scalatest.OperabilityTestHelpers
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalMediatorReference,
@@ -47,7 +46,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendPolicy,
 }
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
   OwnerToKeyMapping,
@@ -86,7 +84,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
     eventually() {
       sequencer.topology.transactions
         .list(
-          store = TopologyStoreId.Synchronizer(sequencer.synchronizer_id),
+          store = sequencer.physical_synchronizer_id,
           filterNamespace = mediator.namespace.filterString,
         )
         .result
@@ -98,6 +96,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
   protected def switchMediatorDuringSubmission[T](
       sequencer: LocalSequencerReference,
       oldMediatorGroup: NonNegativeInt,
+      oldMediator: LocalMediatorReference,
       newMediatorGroup: NonNegativeInt,
       newMediator: MediatorReference,
       participant: LocalParticipantReference,
@@ -132,12 +131,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
         )
         .cause
 
-      val errorUnknownSender = SequencerErrors
-        .SenderUnknown(
-          s"(Eligible) Senders are unknown: MED::"
-        )
-        .cause
-
+      val errorUnknownSender = "(Eligible) Senders are unknown: MED::"
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         submit(),
         LogEntry.assertLogSeq(
@@ -162,6 +156,9 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
 
       logger.debug("Remove the old mediator group")
       sequencer.topology.mediators.remove_group(synchronizerId, oldMediatorGroup)
+
+      // Note: we stop the old mediator that can trigger time requests and produce warnings that flake the tests
+      oldMediator.stop()
 
       logger.debug("Switched out the mediator")
       promiseNewMediatorActive.success(())
@@ -363,6 +360,7 @@ class MultipleMediatorsIntegrationTest
         val submissionF = switchMediatorDuringSubmission(
           sequencer = sequencer1,
           oldMediatorGroup = NonNegativeInt.zero,
+          oldMediator = mediator1,
           newMediatorGroup = NonNegativeInt.one,
           newMediator = mediator2,
           participant = participant1,

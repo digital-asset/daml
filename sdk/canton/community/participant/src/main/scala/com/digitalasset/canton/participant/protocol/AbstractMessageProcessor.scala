@@ -23,11 +23,9 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 import scala.concurrent.ExecutionContext
@@ -37,12 +35,12 @@ abstract class AbstractMessageProcessor(
     ephemeral: SyncEphemeralState,
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
-    protocolVersion: ProtocolVersion,
-    synchronizerId: PhysicalSynchronizerId,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
+
+  private def psid = sequencerClient.psid
 
   protected def terminateRequest(
       requestCounter: RequestCounter,
@@ -61,7 +59,7 @@ abstract class AbstractMessageProcessor(
         // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
         eventO.getOrElse(
           SequencerIndexMoved(
-            synchronizerId = synchronizerId.logical,
+            synchronizerId = psid.logical,
             recordTime = requestTimestamp,
           )
         ),
@@ -87,7 +85,7 @@ abstract class AbstractMessageProcessor(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] =
-    SignedProtocolMessage.trySignAndCreate(responses, ips, protocolVersion)
+    SignedProtocolMessage.trySignAndCreate(responses, ips, psid.protocolVersion)
 
   // Assumes that we are not closing (i.e., that this is synchronized with shutdown somewhere higher up the call stack)
   protected def sendResponses(
@@ -107,14 +105,16 @@ abstract class AbstractMessageProcessor(
       for {
         synchronizerParameters <- crypto.ips
           .awaitSnapshot(requestId.unwrap)
-          .flatMap(snapshot => snapshot.findDynamicSynchronizerParametersOrDefault(protocolVersion))
+          .flatMap(snapshot =>
+            snapshot.findDynamicSynchronizerParametersOrDefault(psid.protocolVersion)
+          )
 
         maxSequencingTime = requestId.unwrap.add(
           synchronizerParameters.confirmationResponseTimeout.unwrap
         )
         _ <- sequencerClient
           .sendAsync(
-            Batch.of(protocolVersion, messages*),
+            Batch.of(psid.protocolVersion, messages*),
             topologyTimestamp = Some(requestId.unwrap),
             maxSequencingTime = maxSequencingTime,
             messageId = messageId.getOrElse(MessageId.randomMessageId()),

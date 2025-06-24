@@ -15,7 +15,8 @@ import "scalapb/scalapb.proto";
 
 message ReassignmentId {
   string source_synchronizer_id = 1;
-  int64 timestamp = 2; // in microseconds of UTC time since Unix epoch
+  // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
+  string unassign_id = 2;
 }
 
 // Messages sent by a participant as part of the reassignment protocol

@@ -5,16 +5,17 @@ package com.digitalasset.canton.participant.admin.data
 
 import com.digitalasset.canton.Generators.*
 import com.digitalasset.canton.protocol.GeneratorsProtocol
-import com.digitalasset.canton.topology.GeneratorsTopology.*
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{GeneratorsTopology, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.Arbitrary
 
 final class GeneratorsData(
     protocolVersion: ProtocolVersion,
     generatorsProtocol: GeneratorsProtocol,
+    generatorsTopology: GeneratorsTopology,
 ) {
   import generatorsProtocol.*
+  import generatorsTopology.*
 
   implicit val activeContractArb: Arbitrary[ActiveContractOld] =
     Arbitrary(

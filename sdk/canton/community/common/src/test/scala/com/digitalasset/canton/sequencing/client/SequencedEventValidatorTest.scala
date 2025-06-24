@@ -600,7 +600,7 @@ class SequencedEventValidatorTest
       val syncCryptoApi = TestingIdentityFactory(loggerFactory)
         .forOwnerAndSynchronizer(
           subscriberId,
-          defaultSynchronizerId.logical,
+          defaultSynchronizerId,
           CantonTimestamp.ofEpochSecond(2),
         )
       val validator = mkValidator(syncCryptoApi)

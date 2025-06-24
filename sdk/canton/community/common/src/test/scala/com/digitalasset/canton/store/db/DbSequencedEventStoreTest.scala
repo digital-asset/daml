@@ -7,7 +7,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.{IndexedSynchronizer, SequencedEventStoreTest}
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, SequencedEventStoreTest}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
@@ -33,8 +33,8 @@ trait DbSequencedEventStoreTest extends AsyncWordSpec with BaseTest with Sequenc
     behave like sequencedEventStore(ec =>
       new DbSequencedEventStore(
         storage,
-        IndexedSynchronizer.tryCreate(SynchronizerId.tryFromString("da::default"), 1),
-        testedProtocolVersion,
+        IndexedPhysicalSynchronizer
+          .tryCreate(SynchronizerId.tryFromString("da::default").toPhysical, 1),
         DefaultProcessingTimeouts.testing,
         loggerFactory,
       )(ec)

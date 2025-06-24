@@ -5,7 +5,6 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, TestHash, TestSalt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.{
   BaseTest,
   LfPackageName,
@@ -124,7 +123,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             )
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),
-          ledgerCreateTime = LedgerCreateTime(CantonTimestamp(createdAt)),
+          ledgerCreateTime = CreationTime.CreatedAt(createdAt),
           contractSalt = contractSalt,
         )
       }

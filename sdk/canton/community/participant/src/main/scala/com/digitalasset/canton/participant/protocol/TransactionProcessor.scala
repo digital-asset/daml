@@ -120,8 +120,6 @@ class TransactionProcessor(
       ephemeral,
       crypto,
       sequencerClient,
-      synchronizerId,
-      staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       futureSupervisor,
       promiseFactory,

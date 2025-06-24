@@ -36,7 +36,7 @@ import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionCo
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.util.FutureInstances.*
@@ -74,7 +74,7 @@ abstract class RehydrationIntegrationTest
   private var observedAcs: Map[String, CreatedEvent] = _
 
   private var alice: PartyId = _
-  private var synchronizerId: SynchronizerId = _
+  private var synchronizerId: PhysicalSynchronizerId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition(

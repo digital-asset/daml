@@ -74,7 +74,7 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
         .loneElement shouldBe SigningKeys.key7
 
       // check that the only signature is from key1
-      tx.signatures.forgetNE.loneElement.signedBy shouldBe SigningKeys.key1.fingerprint
+      tx.signatures.forgetNE.loneElement.authorizingLongTermKey shouldBe SigningKeys.key1.fingerprint
     }
 
   private def rejectingMissingSigningKeySignatures(
@@ -143,7 +143,7 @@ class TopologyManagerTest extends AnyWordSpec with BaseTest with HasExecutionCon
       Factory.syncCryptoClient.crypto,
       defaultStaticSynchronizerParameters,
       new InMemoryTopologyStore(
-        TopologyStoreId.SynchronizerStore(Factory.synchronizerId1),
+        TopologyStoreId.SynchronizerStore(Factory.physicalSynchronizerId1),
         testedProtocolVersion,
         loggerFactory,
         timeouts,

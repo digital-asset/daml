@@ -24,15 +24,13 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class TopologyComponentFactory(
-    synchronizerId: SynchronizerId,
-    protocolVersion: ProtocolVersion,
+    psid: PhysicalSynchronizerId,
     crypto: SynchronizerCrypto,
     clock: Clock,
     timeouts: ProcessingTimeout,
@@ -45,9 +43,6 @@ class TopologyComponentFactory(
     topologyStore: TopologyStore[SynchronizerStore],
     loggerFactory: NamedLoggerFactory,
 ) {
-  // TODO(#25483) synchronizerId of this class should be physical
-  val psid = PhysicalSynchronizerId(synchronizerId, protocolVersion)
-
   def createTopologyProcessorFactory(
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
@@ -66,7 +61,6 @@ class TopologyComponentFactory(
 
       val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
         psid,
-        protocolVersion,
         recordOrderPublisher,
         topologyStore,
         recordOrderPublisher.initTimestamp,
@@ -78,7 +72,7 @@ class TopologyComponentFactory(
         for {
           topologyEventPublishedOnInitialRecordTime <- FutureUnlessShutdown.outcomeF(
             ledgerApiStore.topologyEventOffsetPublishedOnRecordTime(
-              synchronizerId,
+              psid.logical,
               recordOrderPublisher.initTimestamp,
             )
           )
@@ -92,7 +86,7 @@ class TopologyComponentFactory(
 
       terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
         val processor = new TopologyTransactionProcessor(
-          synchronizerId,
+          psid,
           crypto.pureCrypto,
           topologyStore,
           acsCommitmentScheduleEffectiveTime,
@@ -116,7 +110,7 @@ class TopologyComponentFactory(
       executionContext: ExecutionContext
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
-      protocolVersion,
+      psid.protocolVersion,
       crypto.pureCrypto,
       topologyStore,
       timeouts,
@@ -128,7 +122,6 @@ class TopologyComponentFactory(
   )(implicit executionContext: ExecutionContext): SynchronizerTopologyClientWithInit =
     new StoreBasedSynchronizerTopologyClient(
       clock,
-      psid,
       topologyStore,
       packageDependencyResolver,
       timeouts,
@@ -144,7 +137,6 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
-      psid,
       topologyStore,
       packageDependencyResolver,
       caching,

@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.sequencer.reference
 import com.digitalasset.canton.MockedNodeParameters
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig, StorageConfig}
+import com.digitalasset.canton.config.{ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -55,8 +55,7 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
 
     factory
       .create(
-        synchronizerId,
-        SequencerId(synchronizerId.uid),
+        SequencerId(psid.uid),
         clock,
         driverClock,
         crypto,
@@ -81,7 +80,6 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         ProcessingTimeout()
       ),
       protocol = CantonNodeParameters.Protocol.Impl(
-        sessionSigningKeys = SessionSigningKeysConfig.disabled,
         alphaVersionSupport = false,
         betaVersionSupport = true,
         dontWarnOnDeprecatedPV = false,

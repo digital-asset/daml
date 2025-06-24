@@ -46,7 +46,8 @@ class ContractStoreBasedMaximumLedgerTimeService(
                 Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
 
               case active: ContractState.Active =>
-                val createdAt = active.contractInstance.createdAt match {
+                // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+                val createdAt = (active.contractInstance.createdAt: CreationTime) match {
                   case CreationTime.CreatedAt(time) => Some(time)
                   case CreationTime.Now => None
                 }

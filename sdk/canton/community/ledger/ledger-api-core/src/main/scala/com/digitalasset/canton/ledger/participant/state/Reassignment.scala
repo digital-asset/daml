@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.UnassignId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -100,6 +100,6 @@ final case class ReassignmentInfo(
     sourceSynchronizer: Source[SynchronizerId],
     targetSynchronizer: Target[SynchronizerId],
     submitter: Option[Ref.Party],
-    unassignId: CantonTimestamp,
+    unassignId: UnassignId,
     isReassigningParticipant: Boolean,
 )

@@ -262,7 +262,7 @@ object EncryptedViewMessageFactory {
       for {
         informeeParticipants <- cryptoSnapshot.ipsSnapshot
           .activeParticipantsOfAll(informeeParties)
-          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.synchronizerId))
+          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.synchronizerId.logical))
         memberEncryptionKeys <- EitherT
           .right[EncryptedViewMessageCreationError](
             cryptoSnapshot.ipsSnapshot
@@ -413,7 +413,7 @@ object EncryptedViewMessageFactory {
         UnableToDetermineKey(
           member,
           error,
-          cryptoSnapshot.synchronizerId,
+          cryptoSnapshot.synchronizerId.logical,
         ): EncryptedViewMessageCreationError
       }
 

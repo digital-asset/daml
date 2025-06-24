@@ -305,8 +305,7 @@ object SequencedEventStore {
 
   def apply[Env <: Envelope[_]](
       storage: Storage,
-      indexedSynchronizer: IndexedSynchronizer,
-      protocolVersion: ProtocolVersion,
+      physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SequencedEventStore =
@@ -315,8 +314,7 @@ object SequencedEventStore {
       case dbStorage: DbStorage =>
         new DbSequencedEventStore(
           dbStorage,
-          indexedSynchronizer,
-          protocolVersion,
+          physicalSynchronizerIdx,
           timeouts,
           loggerFactory,
         )

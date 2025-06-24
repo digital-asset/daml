@@ -127,6 +127,7 @@ class AdminWorkflowServices(
           new PartyReplicator(
             participantId,
             syncService,
+            clock,
             futureSupervisor,
             parameters.exitOnFatalFailures,
             parameters.processingTimeouts,

@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentDat
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.store.ReassignmentStore.UnknownReassignmentId
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.protocol.{ReassignmentId, TestSynchronizerParameters}
+import com.digitalasset.canton.protocol.{ReassignmentId, TestSynchronizerParameters, UnassignId}
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencer,
@@ -179,7 +179,8 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
             .fromProtoTimestamp(unassignmentCompletion.synchronizerTime.value.recordTime.value)
             .value
 
-          val reassignmentId = ReassignmentId(Source(daId), unassignmentTs)
+          val reassignmentId =
+            ReassignmentId(Source(daId), UnassignId(Source(daId), unassignmentTs))
 
           // Entry is deleted upon timeout
           getReassignmentData(

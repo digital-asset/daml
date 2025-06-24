@@ -95,14 +95,17 @@ class JsPartyManagementService(
     Either[JsCantonError, party_management_service.AllocatePartyResponse]
   ] =
     caller =>
-      req =>
+      req => {
+        implicit val traceContext: TraceContext = req.traceContext
         for {
+
           request <- protocolConverters.AllocatePartyRequest.fromJson(req.in)
           response <- partyManagementClient
-            .serviceStub(caller.token())(req.traceContext)
+            .serviceStub(caller.token())
             .allocateParty(request)
             .resultToRight
         } yield response
+      }
 
   private val updateParty: CallerContext => TracedInput[
     (String, party_management_service.UpdatePartyDetailsRequest)

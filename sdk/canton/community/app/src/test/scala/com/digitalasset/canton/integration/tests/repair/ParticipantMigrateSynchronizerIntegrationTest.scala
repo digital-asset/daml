@@ -346,7 +346,6 @@ final class ParticipantMigrateSynchronizerIntegrationTest
 
         }
 
-        // TODO(#14242) We can't reuse the command ID :-(
         "test that we cannot use the command ID" in { implicit env =>
           import env.*
           val bob = grabParty(participant2, "Bob")

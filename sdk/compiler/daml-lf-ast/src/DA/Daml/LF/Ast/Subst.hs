@@ -279,11 +279,6 @@ applySubstInUpdate subst = \case
         choiceName
         (applySubstInExpr subst e1)
         (applySubstInExpr subst e2)
-    UDynamicExercise templateName choiceName e1 e2 -> UDynamicExercise
-        templateName
-        choiceName
-        (applySubstInExpr subst e1)
-        (applySubstInExpr subst e2)
     UExerciseInterface interface choiceName e1 e2 e3 -> UExerciseInterface
         interface
         choiceName

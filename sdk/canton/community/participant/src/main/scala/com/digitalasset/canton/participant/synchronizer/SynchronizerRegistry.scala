@@ -390,7 +390,7 @@ trait SynchronizerHandle extends AutoCloseable {
 
   def staticParameters: StaticSynchronizerParameters
 
-  def synchronizerId: PhysicalSynchronizerId
+  def psid: PhysicalSynchronizerId
 
   def synchronizerAlias: SynchronizerAlias
 

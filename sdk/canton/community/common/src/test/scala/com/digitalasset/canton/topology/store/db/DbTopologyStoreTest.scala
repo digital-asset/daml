@@ -31,7 +31,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
     behave like topologyStore(mkStore)
 
     "properly handle insertion order for large topology snapshots" in {
-      val store = mkStore(testData.synchronizer1_p1p2_synchronizerId)
+      val store = mkStore(testData.synchronizer1_p1p2_physicalSynchronizerId)
 
       val synchronizerSetup = Seq(
         0 -> testData.nsd_p1,

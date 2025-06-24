@@ -46,7 +46,7 @@ object StateTransferTestHelpers {
       .create(
         blockMetadata = blockMetadata,
         viewNumber = ViewNumber.First,
-        block = OrderingBlock(Seq.empty),
+        block = OrderingBlock.empty,
         canonicalCommitSet = CanonicalCommitSet.empty,
         from = otherId,
       )

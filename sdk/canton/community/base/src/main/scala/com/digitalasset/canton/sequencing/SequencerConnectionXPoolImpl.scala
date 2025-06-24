@@ -6,6 +6,7 @@ package com.digitalasset.canton.sequencing
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -35,6 +36,7 @@ import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.collection.{immutable, mutable}
@@ -52,7 +54,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     futureSupervisor: FutureSupervisor,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContextExecutor)
+)(implicit ec: ExecutionContextExecutor, esf: ExecutionSequencerFactory, materializer: Materializer)
     extends SequencerConnectionXPool {
   import SequencerConnectionXPoolImpl.*
 
@@ -598,7 +600,9 @@ class GrpcSequencerConnectionXPoolFactory(
   override def create(
       initialConfig: SequencerConnectionXPoolConfig
   )(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] = {
     val connectionFactory = new GrpcInternalSequencerConnectionXFactory(
       clientProtocolVersions,
@@ -632,6 +636,8 @@ class GrpcSequencerConnectionXPoolFactory(
       tracingConfig: TracingConfig,
   )(implicit
       ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
       tracingContext: TraceContext,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] = {
     val poolConfig = SequencerConnectionXPoolConfig.fromSequencerConnections(

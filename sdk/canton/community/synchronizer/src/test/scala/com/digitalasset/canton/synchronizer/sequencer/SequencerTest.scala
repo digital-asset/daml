@@ -99,13 +99,13 @@ class SequencerTest
     val crypto: SynchronizerCryptoClient = valueOrFail(
       testingTopology
         .forOwner(SequencerId(synchronizerId.uid))
-        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building crypto")
     val aliceCrypto: SynchronizerCryptoClient = valueOrFail(
       testingTopology
         .forOwner(alice)
-        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building alice crypto")
 
@@ -135,9 +135,7 @@ class SequencerTest
         sequencerStore,
         minimumSequencingTime = CantonTimestamp.MinValue,
         clock,
-        synchronizerId,
         topologyClientMember,
-        testedProtocolVersion,
         crypto,
         metrics,
         loggerFactory,

@@ -26,7 +26,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   AggregationRule,
   Batch,
   ClosedEnvelope,
-  GeneratorsProtocol as GeneratorsProtocolSequencing,
   GetTrafficStateForMemberRequest,
   GetTrafficStateForMemberResponse,
   MaxRequestSizeToDeserialize,
@@ -38,7 +37,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   TopologyStateForInitRequest,
 }
 import com.digitalasset.canton.topology.transaction.{
-  GeneratorsTransaction,
   SignedTopologyTransaction,
   SignedTopologyTransactions,
   TopologyTransaction,
@@ -53,39 +51,19 @@ class SerializationDeserializationTest
     with BaseTest
     with ScalaCheckPropertyChecks
     with SerializationDeserializationTestHelpers {
-  import com.digitalasset.canton.sequencing.GeneratorsSequencing.*
 
   forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
-    val generatorsProtocol = new GeneratorsProtocol(version)
-    val generatorsData =
-      new GeneratorsData(version, generatorsProtocol)
-    val generatorsTransaction = new GeneratorsTransaction(version, generatorsProtocol)
-    val generatorsLocalVerdict = GeneratorsLocalVerdict(version)
-    val generatorsVerdict = GeneratorsVerdict(version, generatorsLocalVerdict)
-    val generatorsMessages = new GeneratorsMessages(
-      version,
-      generatorsData,
-      generatorsProtocol,
-      generatorsLocalVerdict,
-      generatorsVerdict,
-      generatorsTransaction,
-    )
-    val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
-      version,
-      generatorsMessages,
-    )
-    val generatorsTrafficData = new GeneratorsTrafficData(
-      version
-    )
+    val generators = new AllGenerators(version)
 
-    import generatorsData.*
-    import generatorsMessages.*
-    import generatorsTrafficData.*
-    import generatorsVerdict.*
-    import generatorsLocalVerdict.*
-    import generatorsProtocol.*
-    import generatorsProtocolSeq.*
-    import generatorsTransaction.*
+    import generators.data.*
+    import generators.generatorsMessages.*
+    import generators.trafficData.*
+    import generators.verdict.*
+    import generators.localVerdict.*
+    import generators.protocol.*
+    import generators.generatorsProtocolSeq.*
+    import generators.generatorsSequencing.*
+    import generators.transaction.*
     import com.digitalasset.canton.crypto.GeneratorsCrypto.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
@@ -102,7 +80,6 @@ class SerializationDeserializationTest
         testContext(TypedSignedProtocolMessageContent, version, version)
         testContext(SignedProtocolMessage, version, version)
         test(ProtocolSymmetricKey, version)
-
         test(LocalVerdict, version)
         testContext(EnvelopeContent, (TestHash, version), version)
         test(ConfirmationResultMessage, version)
@@ -111,12 +88,11 @@ class SerializationDeserializationTest
         test(AggregationRule, version)
         test(ClosedEnvelope, version)
         test(SequencingSubmissionCost, version)
-
         testVersioned(ContractMetadata, version)(
-          generatorsProtocol.contractMetadataArb(canHaveEmptyKey = true)
+          generators.protocol.contractMetadataArb(canHaveEmptyKey = true)
         )
         testVersioned[SerializableContract](SerializableContract, version)(
-          generatorsProtocol.serializableContractArb(canHaveEmptyKey = true)
+          generators.protocol.serializableContractArb(canHaveEmptyKey = true)
         )
 
         test(ActionDescription, version)
@@ -129,7 +105,6 @@ class SerializationDeserializationTest
         testContext(AssignmentView, TestHash, version)
         testContext(UnassignmentCommonData, TestHash, version)
         testContext(UnassignmentView, TestHash, version)
-
         testContext(ViewCommonData, TestHash, version)
 
         test(TopologyTransaction, version)
@@ -161,7 +136,6 @@ class SerializationDeserializationTest
         test(SignedContent, version)
         testContext(TransactionView, (TestHash, version), version)
         testContext(FullInformeeTree, (TestHash, version), version)
-
         // testing MerkleSeq structure with specific VersionedMerkleTree: SubmitterMetadata.
         testContext(
           MerkleSeq,
@@ -174,10 +148,8 @@ class SerializationDeserializationTest
           ),
           version,
         )
-
         val randomnessLength = computeRandomnessLength(ExampleTransactionFactory.pureCrypto)
         testContext(LightTransactionViewTree, ((TestHash, randomnessLength), version), version)
-
         testContextTaggedProtocolVersion(AssignmentViewTree, TestHash, Target(version))
         testContext(
           UnassignmentViewTree,

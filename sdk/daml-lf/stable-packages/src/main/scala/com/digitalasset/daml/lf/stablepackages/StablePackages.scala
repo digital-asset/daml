@@ -7,7 +7,8 @@ package stablepackages
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.ArchiveDecoder
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+
 import com.digitalasset.daml.lf.language.{
   Ast,
   LanguageMajorVersion,
@@ -75,30 +76,39 @@ private[daml] sealed class StablePackagesImpl(
     scala.io.Source
       .fromResource(manifestResourcePath)
       .getLines()
-      .map(decodeDalfResource)
-      .map((toStablePackage _).tupled)
-      .map(pkg => pkg.moduleName.dottedName -> pkg)
+      .map { path =>
+        val (pkgId, pkg, bytes) = decodeDalfResource(path)
+        val stablePkg = toStablePackage(pkgId, pkg, bytes)
+        stablePkg.moduleName.dottedName -> stablePkg
+      }
       .toMap
+
+  def values = allPackagesByName.values
 
   /** Loads and decodes a dalf embedded as a resource.
     */
   @throws[IllegalArgumentException]("if the resource cannot be found")
   @throws[archive.Error]("if the dalf cannot be decoded")
-  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package) = {
+  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package, data.Bytes) = {
     val inputStream = getClass.getClassLoader.getResourceAsStream(path)
     require(inputStream != null, s"Resource not found: $path")
-    ArchiveDecoder
-      .fromInputStream(getClass.getClassLoader.getResourceAsStream(path))
-      .fold(throw _, identity)
+    val bytes = data.Bytes.fromInputStream(inputStream)
+    val (pkgId, pkg) = ArchiveDecoder.assertFromBytes(bytes)
+    (pkgId, pkg, bytes)
   }
 
   /** Converts a decoded package to a [[StablePackage]] */
-  private def toStablePackage(pkgId: Ref.PackageId, pkgAst: Ast.Package): StablePackage = {
+  private def toStablePackage(
+      pkgId: Ref.PackageId,
+      pkgAst: Ast.Package,
+      bytes: Bytes,
+  ): StablePackage = {
     assert(pkgAst.modules.size == 1)
     StablePackage(
       moduleName = pkgAst.modules.head._1,
       packageId = pkgId,
       pkg = pkgAst,
+      bytes = bytes,
     )
   }
 }

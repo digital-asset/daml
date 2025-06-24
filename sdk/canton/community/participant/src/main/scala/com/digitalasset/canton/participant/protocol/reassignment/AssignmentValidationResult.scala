@@ -112,7 +112,7 @@ final case class AssignmentValidationResult(
           DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
 
         Reassignment.Assign(
-          ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
+          ledgerEffectiveTime = contract.ledgerCreateTime.time,
           createNode = createNode,
           contractMetadata = driverContractMetadata,
           reassignmentCounter = reassign.counter.unwrap,
@@ -144,7 +144,7 @@ final case class AssignmentValidationResult(
         sourceSynchronizer = reassignmentId.sourceSynchronizer,
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
-        unassignId = reassignmentId.unassignmentTs,
+        unassignId = reassignmentId.unassignId,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment = reassignment,

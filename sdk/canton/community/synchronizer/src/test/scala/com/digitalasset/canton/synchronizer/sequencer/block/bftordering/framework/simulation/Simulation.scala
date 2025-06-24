@@ -33,7 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
-import pprint.{PPrinter, Tree}
+import pprint.Tree
 
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
@@ -314,91 +314,78 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   def run(verifier: SimulationVerifier = NoVerification): History = {
-    logger.debug(
-      s"Starting simulation with these settings:\n${PPrinter(additionalHandlers = fixupDurationPrettyPrinting)(simSettings)}}"
-    )
-
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var continueToRun = true
-    try {
-      while (continueToRun) {
-        val whatToDo = nextThingTodo()
+    while (continueToRun) {
+      val whatToDo = nextThingTodo()
 
-        clock.advanceTo(whatToDo.at, logAdvancementAtInfo = false)(TraceContext.empty)
-        local.tick(clock.now)
-        network.tick()
-        val _ = currentHistory.addOne(whatToDo.command)
+      clock.advanceTo(whatToDo.at, logAdvancementAtInfo = false)(TraceContext.empty)
+      local.tick(clock.now)
+      network.tick()
+      val _ = currentHistory.addOne(whatToDo.command)
 
-        logger.trace(s"Simulation will run ${whatToDo.command}")
+      logger.trace(s"Simulation will run ${whatToDo.command}")
 
-        whatToDo.command match {
-          case InternalEvent(machineName, to, _, msg) =>
-            executeEvent(machineName, ModuleAddress.ViaName(to), msg)
-          case InjectedSend(machineName, to, _, msg) =>
-            executeEvent(
-              machineName,
-              to,
-              ModuleControl.Send(msg, TraceContext.empty, MetricsContext.Empty),
-            )
-          case InternalTick(machineName, to, _, msg) =>
-            executeEvent(machineName, ModuleAddress.ViaName(to), msg)
-          case RunFuture(machine, to, toRun, fun, traceContext) =>
-            logger.trace(s"Future ${toRun.name} for $machine:$to completed")
-            executeFuture(machine, to, toRun, fun, traceContext)
-            verifier.aFutureHappened(machine)
-          case ReceiveNetworkMessage(machineName, msg, traceContext) =>
-            local.scheduleEvent(
-              machineName,
-              tryGetMachine(machineName).networkInReactor,
-              EventOriginator.FromNetwork,
-              ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
-            )
-          case ClientTick(machine, _, msg, traceContext) =>
-            logger.trace(s"Client for $machine ticks")
-            executeClientTick(machine, msg, traceContext)
-          case StartMachine(endpoint) =>
-            val node = startMachine(endpoint)
-            verifier.nodeStarted(clock.now, node)
-            addCommands(onboardingManager.machineStarted(clock.now, endpoint, node))
-          case PrepareOnboarding(node) =>
-            addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
-          case AddEndpoint(endpoint, to) =>
-            addEndpoint(endpoint, to)
-          case EstablishConnection(from, to, endpoint, continuation) =>
-            logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
-            continuation(endpoint.id, to)
-            val machine = tryGetMachine(from)
-            runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
-          case CrashNode(node) =>
-            logger.info(s"Crashing '$node'")
-            crashNode(node)
-          case RestartNode(node) =>
-            logger.info(s"Restarting '$node'")
+      whatToDo.command match {
+        case InternalEvent(machineName, to, _, msg) =>
+          executeEvent(machineName, ModuleAddress.ViaName(to), msg)
+        case InjectedSend(machineName, to, _, msg) =>
+          executeEvent(
+            machineName,
+            to,
+            ModuleControl.Send(msg, TraceContext.empty, MetricsContext.Empty),
+          )
+        case InternalTick(machineName, to, _, msg) =>
+          executeEvent(machineName, ModuleAddress.ViaName(to), msg)
+        case RunFuture(machine, to, toRun, fun, traceContext) =>
+          logger.trace(s"Future ${toRun.name} for $machine:$to completed")
+          executeFuture(machine, to, toRun, fun, traceContext)
+          verifier.aFutureHappened(machine)
+        case ReceiveNetworkMessage(machineName, msg, traceContext) =>
+          local.scheduleEvent(
+            machineName,
+            tryGetMachine(machineName).networkInReactor,
+            EventOriginator.FromNetwork,
+            ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
+          )
+        case ClientTick(machine, _, msg, traceContext) =>
+          logger.trace(s"Client for $machine ticks")
+          executeClientTick(machine, msg, traceContext)
+        case StartMachine(endpoint) =>
+          val node = startMachine(endpoint)
+          verifier.nodeStarted(clock.now, node)
+          addCommands(onboardingManager.machineStarted(clock.now, endpoint, node))
+        case PrepareOnboarding(node) =>
+          addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
+        case AddEndpoint(endpoint, to) =>
+          addEndpoint(endpoint, to)
+        case EstablishConnection(from, to, endpoint, continuation) =>
+          logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
+          continuation(endpoint.id, to)
+          val machine = tryGetMachine(from)
+          runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
+        case CrashNode(node) =>
+          logger.info(s"Crashing '$node'")
+          crashNode(node)
+        case RestartNode(node) =>
+          logger.info(s"Restarting '$node'")
+          restartNode(node)
+        case MakeSystemHealthy =>
+          local.makeHealthy()
+          network.makeHealthy()
+          topology.activeNodes.foreach { node =>
             restartNode(node)
-          case MakeSystemHealthy =>
-            local.makeHealthy()
-            network.makeHealthy()
-            topology.activeNodes.foreach { node =>
-              restartNode(node)
-            }
-            verifier.resumeCheckingLiveness(clock.now)
-          case ResumeLivenessChecks =>
-            verifier.resumeCheckingLiveness(clock.now)
-          case Quit(reason) =>
-            logger.debug(s"Stopping simulation because: $reason")
-            continueToRun = false
-        }
-
-        verifier.checkInvariants(clock.now)
-        addCommands(onboardingManager.commandsToSchedule(clock.now))
+          }
+          verifier.resumeCheckingLiveness(clock.now)
+        case ResumeLivenessChecks =>
+          verifier.resumeCheckingLiveness(clock.now)
+        case Quit(reason) =>
+          logger.debug(s"Stopping simulation because: $reason")
+          continueToRun = false
       }
-    } catch {
-      case e: Throwable =>
-        logger.error(
-          s"Uncaught exception during simulation, it failed with these settings:\n${PPrinter(additionalHandlers = fixupDurationPrettyPrinting)(simSettings)}",
-          e,
-        )
-        throw e
+
+      verifier.checkInvariants(clock.now)
+      addCommands(onboardingManager.commandsToSchedule(clock.now))
     }
     currentHistory.toSeq
   }
@@ -430,8 +417,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       )(agenda)
     newSim
   }
+}
 
-  private def fixupDurationPrettyPrinting: PartialFunction[Any, Tree] = {
+object Simulation {
+  def fixupDurationPrettyPrinting: PartialFunction[Any, Tree] = {
     case duration: java.time.Duration =>
       Tree.Literal(s"Duration.ofNanos(${duration.toNanos}L)")
   }

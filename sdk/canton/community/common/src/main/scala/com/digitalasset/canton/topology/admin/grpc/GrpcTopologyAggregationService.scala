@@ -17,7 +17,13 @@ import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.client.*
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{MemberCode, ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  MemberCode,
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{MonadUtil, OptionUtil}
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
@@ -43,16 +49,23 @@ class GrpcTopologyAggregationService(
       loggerFactory,
     )
 
-  private def snapshots(synchronizerIds: Set[SynchronizerId], asOf: Option[ProtoTimestamp])(implicit
+  private def snapshots(
+      synchronizerIds: Set[SynchronizerId],
+      asOf: Option[ProtoTimestamp],
+  )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, List[(SynchronizerId, TopologySnapshotLoader)]] =
+  ): EitherT[FutureUnlessShutdown, RpcError, List[
+    (PhysicalSynchronizerId, TopologySnapshotLoader)
+  ]] =
     for {
       asOfO <- wrapErrUS(asOf.traverse(CantonTimestamp.fromProtoTimestamp))
     } yield {
       stores.collect {
         case store
-            if synchronizerIds.contains(store.storeId.synchronizerId) || synchronizerIds.isEmpty =>
-          val synchronizerId = store.storeId.synchronizerId
+            if synchronizerIds.contains(
+              store.storeId.psid.logical
+            ) || synchronizerIds.isEmpty =>
+          val synchronizerId = store.storeId.psid
           // get approximate timestamp from synchronizer client to prevent race conditions (when we have written data into the stores but haven't yet updated the client)
           val asOf = asOfO.getOrElse(
             ips
@@ -78,7 +91,7 @@ class GrpcTopologyAggregationService(
     }
 
   private def findMatchingParties(
-      clients: List[(SynchronizerId, TopologySnapshotLoader)],
+      clients: List[(PhysicalSynchronizerId, TopologySnapshotLoader)],
       filterParty: String,
       filterParticipant: String,
       limit: Int,
@@ -94,11 +107,11 @@ class GrpcTopologyAggregationService(
     .map(_._1)
 
   private def findParticipants(
-      clients: List[(SynchronizerId, TopologySnapshotLoader)],
+      clients: List[(PhysicalSynchronizerId, TopologySnapshotLoader)],
       partyId: PartyId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[ParticipantId, Map[SynchronizerId, ParticipantPermission]]] =
+  ): FutureUnlessShutdown[Map[ParticipantId, Map[PhysicalSynchronizerId, ParticipantPermission]]] =
     clients
       .parFlatTraverse { case (synchronizerId, client) =>
         client
@@ -140,8 +153,9 @@ class GrpcTopologyAggregationService(
                 participantUid = participantId.uid.toProtoPrimitive,
                 synchronizers = synchronizers.map { case (synchronizerId, permission) =>
                   v30.ListPartiesResponse.Result.ParticipantSynchronizers.SynchronizerPermissions(
-                    synchronizerId = synchronizerId.toProtoPrimitive,
+                    synchronizerId = synchronizerId.logical.toProtoPrimitive,
                     permission = permission.toProtoV30,
+                    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
                   )
                 }.toSeq,
               )
@@ -186,9 +200,10 @@ class GrpcTopologyAggregationService(
           keyPerSynchronizer.map { case (synchronizerId, keys) =>
             v30.ListKeyOwnersResponse.Result(
               keyOwner = owner.toProtoPrimitive,
-              synchronizerId = synchronizerId.toProtoPrimitive,
+              synchronizerId = synchronizerId.logical.toProtoPrimitive,
               signingKeys = keys.signingKeys.map(_.toProtoV30),
               encryptionKeys = keys.encryptionKeys.map(_.toProtoV30),
+              physicalSynchronizerId = synchronizerId.toProtoPrimitive,
             )
           }
         }

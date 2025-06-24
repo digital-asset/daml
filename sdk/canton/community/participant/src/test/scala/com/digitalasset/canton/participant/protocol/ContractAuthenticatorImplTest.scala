@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.lfHash
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
@@ -17,7 +16,7 @@ import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, de
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
 import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
@@ -117,7 +116,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           ) {
             val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
             testFailedAuthentication(
-              _.copy(ledgerCreateTime = LedgerCreateTime(changedLedgerTime)),
+              _.copy(ledgerCreateTime = CreationTime.CreatedAt(changedLedgerTime.toLf)),
               testedLedgerTime = changedLedgerTime,
             )
           }
@@ -327,7 +326,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     viewPosition = ViewPosition(List.empty),
     viewParticipantDataSalt = TestSalt.generateSalt(1),
     createIndex = 0,
-    ledgerCreateTime = LedgerCreateTime(ledgerTime),
+    ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
     metadata = contractMetadata,
     suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
     cantonContractIdVersion = contractIdVersion,
@@ -362,7 +361,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     val recomputedUnicum = unicumGenerator
       .recomputeUnicum(
         contractSalt = testedSalt,
-        ledgerCreateTime = LedgerCreateTime(testedLedgerTime),
+        ledgerCreateTime = CreationTime.CreatedAt(testedLedgerTime.toLf),
         metadata = ContractMetadata
           .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
         suffixedContractInstance = testedContractInstance,

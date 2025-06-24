@@ -265,39 +265,37 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   private def sessionSigningKeysOnlyWithKms(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
-    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+    val errors = config.allNodes.toSeq.mapFilter { case (_, nodeConfig) =>
       val cryptoConfig = nodeConfig.crypto
-      val sessionSigningKeysConfig = nodeConfig.parameters.sessionSigningKeys
+      cryptoConfig.kms match {
+        case Some(kmsConfig) =>
+          val sessionSigningKeysConfig = kmsConfig.sessionSigningKeys
+          cryptoConfig.provider match {
+            case CryptoProvider.Kms =>
+              val schemesE = CryptoSchemes.fromConfig(cryptoConfig)
+              val supportedAlgoSpecs =
+                schemesE.map(_.signingAlgoSpecs.allowed.forgetNE).getOrElse(Set.empty)
+              val supportedKeySpecs =
+                schemesE.map(_.signingKeySpecs.allowed.forgetNE).getOrElse(Set.empty)
 
-      cryptoConfig.provider match {
-        case CryptoProvider.Jce if !sessionSigningKeysConfig.enabled => None
-        case CryptoProvider.Jce =>
-          Some(
-            s"Session signing keys should not be enabled with the JCE crypto provider on node ${name.unwrap}"
-          )
-        case CryptoProvider.Kms if !sessionSigningKeysConfig.enabled => None
-        case CryptoProvider.Kms =>
-          val schemesE = CryptoSchemes.fromConfig(cryptoConfig)
-          val supportedAlgoSpecs =
-            schemesE.map(_.signingAlgoSpecs.allowed.forgetNE).getOrElse(Set.empty)
-          val supportedKeySpecs =
-            schemesE.map(_.signingKeySpecs.allowed.forgetNE).getOrElse(Set.empty)
-
-          // the signing algorithm spec configured for session keys is not supported
-          if (!supportedAlgoSpecs.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
-            Some(
-              s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
-                s"for session signing keys is not supported. Supported algorithms " +
-                s"are: ${cryptoConfig.signing.algorithms.allowed}."
-            )
-          // the signing key spec configured for session keys is not supported
-          else if (!supportedKeySpecs.contains(sessionSigningKeysConfig.signingKeySpec))
-            Some(
-              s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
-                s"for session signing keys is not supported. Supported algorithms " +
-                s"are: ${cryptoConfig.signing.keys.allowed}."
-            )
-          else None
+              // the signing algorithm spec configured for session keys is not supported
+              if (!supportedAlgoSpecs.contains(sessionSigningKeysConfig.signingAlgorithmSpec))
+                Some(
+                  s"The selected signing algorithm specification, ${sessionSigningKeysConfig.signingAlgorithmSpec}, " +
+                    s"for session signing keys is not supported. Supported algorithms " +
+                    s"are: ${cryptoConfig.signing.algorithms.allowed}."
+                )
+              // the signing key spec configured for session keys is not supported
+              else if (!supportedKeySpecs.contains(sessionSigningKeysConfig.signingKeySpec))
+                Some(
+                  s"The selected signing key specification, ${sessionSigningKeysConfig.signingKeySpec}, " +
+                    s"for session signing keys is not supported. Supported algorithms " +
+                    s"are: ${cryptoConfig.signing.keys.allowed}."
+                )
+              else None
+            case _ => None
+          }
+        case None => None
       }
     }
 

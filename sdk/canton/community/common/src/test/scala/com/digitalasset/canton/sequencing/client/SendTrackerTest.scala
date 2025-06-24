@@ -30,7 +30,7 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
-import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, synchronizerId}
+import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
@@ -145,9 +145,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
   ): Env = {
     val store = new InMemorySendTrackerStore()
     val topologyClient =
-      TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+      TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
         .build(loggerFactory)
-        .forOwnerAndSynchronizer(participant1, synchronizerId)
+        .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.physicalSynchronizerId)
 
     val histogramInventory = new HistogramInventory()
     val trafficStateController = new TrafficStateController(

@@ -7,13 +7,11 @@ import com.daml.ledger.api.v2 as proto
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.console.{ConsoleCommandResult, LocalParticipantReference}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.ParticipantReferenceOps
 import com.digitalasset.canton.integration.util.GrpcServices.ReassignmentsService
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
-import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{
   BaseTest,
   LedgerCommandId,
@@ -268,10 +266,4 @@ trait HasReassignmentCommandsHelpers {
     workflowId,
     submittingParty,
   )
-
-  protected def getReassignmentId(out: UpdateService.UnassignedWrapper): ReassignmentId =
-    ReassignmentId(
-      sourceSynchronizer = Source(SynchronizerId.tryFromString(out.source)),
-      unassignmentTs = CantonTimestamp.assertFromLong(out.unassignId.toLong),
-    )
 }

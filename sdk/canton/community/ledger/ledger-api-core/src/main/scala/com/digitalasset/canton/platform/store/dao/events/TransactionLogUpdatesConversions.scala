@@ -882,7 +882,7 @@ private[events] object TransactionLogUpdatesConversions {
                 ApiAssignedEvent(
                   source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
                   target = info.targetSynchronizer.unwrap.toProtoPrimitive,
-                  unassignId = info.unassignId.toMicros.toString,
+                  unassignId = info.unassignId.toProtoPrimitive,
                   submitter = info.submitter.getOrElse(""),
                   reassignmentCounter = assigned.reassignmentCounter,
                   createdEvent = Some(createdEvent),
@@ -900,7 +900,7 @@ private[events] object TransactionLogUpdatesConversions {
                   offset = reassignmentAccepted.offset.unwrap,
                   source = info.sourceSynchronizer.unwrap.toProtoPrimitive,
                   target = info.targetSynchronizer.unwrap.toProtoPrimitive,
-                  unassignId = info.unassignId.toMicros.toString,
+                  unassignId = info.unassignId.toProtoPrimitive,
                   submitter = info.submitter.getOrElse(""),
                   reassignmentCounter = unassigned.reassignmentCounter,
                   contractId = unassigned.contractId.coid,

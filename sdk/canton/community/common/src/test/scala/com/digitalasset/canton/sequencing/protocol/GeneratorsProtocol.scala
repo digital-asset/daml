@@ -27,10 +27,8 @@ import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
   HasCryptographicEvidence,
 }
-import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -39,13 +37,13 @@ import org.scalacheck.{Arbitrary, Gen}
 final class GeneratorsProtocol(
     protocolVersion: ProtocolVersion,
     generatorsMessages: GeneratorsMessages,
+    generatorsTopology: GeneratorsTopology,
 ) {
-  import GeneratorsProtocol.*
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
   import generatorsMessages.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
@@ -259,13 +257,6 @@ final class GeneratorsProtocol(
       )
     }
   )
-}
-
-object GeneratorsProtocol {
-  import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.config.GeneratorsConfig.*
-  import com.digitalasset.canton.data.GeneratorsDataTime.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
 
   implicit val groupRecipientArb: Arbitrary[GroupRecipient] = genArbitrary
   implicit val recipientArb: Arbitrary[Recipient] = genArbitrary
@@ -321,20 +312,5 @@ object GeneratorsProtocol {
     topologyTimestampO,
     protocolVersion,
     trafficReceipt,
-  )
-
-  def timeProofArb(protocolVersion: ProtocolVersion): Arbitrary[TimeProof] = Arbitrary(
-    for {
-      timestamp <- Arbitrary.arbitrary[CantonTimestamp]
-      previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
-      counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
-    } yield TimeProofTestUtil.mkTimeProof(
-      timestamp,
-      previousEventTimestamp,
-      counter,
-      targetSynchronizerId,
-      protocolVersion,
-    )
   )
 }

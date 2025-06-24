@@ -794,7 +794,7 @@ class EnterpriseSequencerRateLimitManagerTest
               Some(senderTs),
               Some(incorrectSubmissionCostNN),
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.signedBy),
+              Some(Signature.noSignature.authorizingLongTermKey),
               Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,
@@ -860,7 +860,7 @@ class EnterpriseSequencerRateLimitManagerTest
               None,
               Some(submissionCostNN),
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.signedBy),
+              Some(Signature.noSignature.authorizingLongTermKey),
               Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,

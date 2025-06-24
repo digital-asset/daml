@@ -54,13 +54,15 @@ class GrpcSequencerInitializationService(
   override def initializeSequencerFromGenesisState(
       responseObserver: StreamObserver[InitializeSequencerFromGenesisStateResponse]
   ): StreamObserver[InitializeSequencerFromGenesisStateRequest] =
-    GrpcStreamingUtils.streamFromClient(
+    GrpcStreamingUtils.streamFromClient[
+      InitializeSequencerFromGenesisStateRequest,
+      InitializeSequencerFromGenesisStateResponse,
+      Option[v30.StaticSynchronizerParameters],
+    ](
       _.topologySnapshot,
       _.synchronizerParameters,
-      (
-          topologySnapshot: ByteString,
-          synchronizerParams: Option[v30.StaticSynchronizerParameters],
-      ) => initializeSequencerFromGenesisState(topologySnapshot, synchronizerParams),
+      (topologySnapshot, synchronizerParams) =>
+        initializeSequencerFromGenesisState(topologySnapshot, synchronizerParams),
       responseObserver,
     )
 
@@ -76,7 +78,6 @@ class GrpcSequencerInitializationService(
           .fromTrustedByteString(topologySnapshot)
           .leftMap(ProtoDeserializationFailure.Wrap(_))
       )
-
       synchronizerParameters <- EitherT.fromEither[Future](
         ProtoConverter
           .parseRequired(
@@ -153,7 +154,11 @@ class GrpcSequencerInitializationService(
         ),
       )
 
-      initializeRequest = InitializeSequencerRequest(genesisState, synchronizerParameters, None)
+      initializeRequest = InitializeSequencerRequest(
+        genesisState,
+        synchronizerParameters,
+        None,
+      )
       result <- handler
         .initialize(initializeRequest)
         .leftMap(FailedToInitialiseSynchronizerNode.Failure(_))

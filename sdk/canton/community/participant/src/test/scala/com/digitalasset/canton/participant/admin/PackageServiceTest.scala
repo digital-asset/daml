@@ -35,6 +35,7 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.testing.Encode
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, DarWriter}
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
@@ -500,7 +501,7 @@ class PackageServiceTest
     Using(ByteString.newOutput()) { os =>
       DarWriter.encode(
         BuildInfo.damlLibrariesVersion,
-        LfDar(("archive.dalf", archive.toByteArray), List()),
+        LfDar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), List()),
         os,
       )
       os.toByteString

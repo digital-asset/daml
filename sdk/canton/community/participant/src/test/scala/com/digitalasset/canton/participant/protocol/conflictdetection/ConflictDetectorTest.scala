@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.CantonTimestamp.{Epoch, ofEpochMilli}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
@@ -46,7 +47,12 @@ import com.digitalasset.canton.participant.store.memory.{
   ReassignmentCacheTest,
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange, TimeOfRequest}
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId, ReassignmentId}
+import com.digitalasset.canton.protocol.{
+  ExampleTransactionFactory,
+  LfContractId,
+  ReassignmentId,
+  UnassignId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{Checked, CheckedT}
@@ -86,8 +92,10 @@ class ConflictDetectorTest
   private val coid21: LfContractId = ExampleTransactionFactory.suffixedId(2, 1)
   private val coid22: LfContractId = ExampleTransactionFactory.suffixedId(2, 2)
 
-  private val reassignment1 = ReassignmentId(sourceSynchronizer1, Epoch)
-  private val reassignment2 = ReassignmentId(sourceSynchronizer2, Epoch)
+  private val unassignedId = UnassignId(TestHash.digest(0))
+
+  private val reassignment1 = ReassignmentId(sourceSynchronizer1, unassignedId)
+  private val reassignment2 = ReassignmentId(sourceSynchronizer2, unassignedId)
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
   private val reassignmentCounter1 = initialReassignmentCounter + 1

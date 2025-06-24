@@ -90,7 +90,7 @@ class SequencerAggregatorPekkoTest
   private def normalize(event: SequencedSerializedEvent): SequencedSerializedEvent =
     event.copy(signedEvent =
       event.signedEvent.copy(signatures =
-        event.signedEvent.signatures.sortBy(_.signedBy.toProtoPrimitive)
+        event.signedEvent.signatures.sortBy(_.authorizingLongTermKey.toProtoPrimitive)
       )
     )(event.traceContext)
 

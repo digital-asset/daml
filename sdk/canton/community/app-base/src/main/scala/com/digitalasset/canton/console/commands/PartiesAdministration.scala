@@ -44,7 +44,6 @@ import com.digitalasset.canton.grpc.FileStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -227,7 +226,7 @@ class ParticipantPartiesAdministrationGroup(
             partyId,
             participants,
             threshold,
-            synchronizerId.logical,
+            synchronizerId,
             mustFullyAuthorize,
             synchronize,
           ).toEither
@@ -264,7 +263,7 @@ class ParticipantPartiesAdministrationGroup(
       partyId: PartyId,
       participants: Seq[ParticipantId],
       threshold: PositiveInt,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       mustFullyAuthorize: Boolean,
       synchronize: Option[NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
@@ -291,7 +290,7 @@ class ParticipantPartiesAdministrationGroup(
           // let the topology service determine the appropriate keys to use
           signedBy = Seq.empty,
           serial = nextSerial,
-          store = TopologyStoreId.Synchronizer(synchronizerId),
+          store = synchronizerId,
           mustFullyAuthorize = mustFullyAuthorize,
           change = TopologyChangeOp.Replace,
           forceChanges = ForceFlags.none,
@@ -312,7 +311,7 @@ class ParticipantPartiesAdministrationGroup(
         party,
         removes = List(this.participantId),
         forceFlags = forceFlags,
-        store = TopologyStoreId.Synchronizer(synchronizerId.logical),
+        store = synchronizerId,
       )
       .discard
   }

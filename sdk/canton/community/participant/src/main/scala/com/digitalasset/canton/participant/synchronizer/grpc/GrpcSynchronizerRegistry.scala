@@ -88,7 +88,7 @@ class GrpcSynchronizerRegistry(
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   private class GrpcSynchronizerHandle(
-      override val synchronizerId: PhysicalSynchronizerId,
+      override val psid: PhysicalSynchronizerId,
       override val synchronizerAlias: SynchronizerAlias,
       override val staticParameters: StaticSynchronizerParameters,
       sequencer: RichSequencerClient,
@@ -112,7 +112,7 @@ class GrpcSynchronizerRegistry(
         SyncCloseable("SyncCryptoClient", syncCrypto.close()),
         SyncCloseable(
           "topologyOutbox",
-          topologyDispatcher.synchronizerDisconnected(synchronizerId),
+          topologyDispatcher.synchronizerDisconnected(psid),
         ),
         // Close the sequencer client so that the processors won't receive or handle events when
         // their shutdown is initiated.

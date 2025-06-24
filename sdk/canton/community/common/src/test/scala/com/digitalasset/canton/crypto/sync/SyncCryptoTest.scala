@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.sync
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.KmsConfig.Driver
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
@@ -25,6 +26,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, par
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
+  PhysicalSynchronizerId,
   SynchronizerId,
   TestingIdentityFactory,
   TestingTopology,
@@ -33,6 +35,8 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.typesafe.config.ConfigValueFactory
+import monocle.Monocle.toAppliedFocusOps
 import org.scalatest.wordspec.AnyWordSpec
 
 trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext {
@@ -60,25 +64,55 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
     protocolVersion = protocolVersion,
   )
 
-  protected lazy val otherSynchronizerId: SynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("other::default")
+  protected lazy val otherSynchronizerId: PhysicalSynchronizerId = PhysicalSynchronizerId(
+    SynchronizerId(
+      UniqueIdentifier.tryFromProtoPrimitive("other::default")
+    ),
+    jceStaticSynchronizerParameters,
   )
 
   protected lazy val testingTopology: TestingIdentityFactory =
-    TestingTopology(sessionSigningKeysConfig = sessionSigningKeysConfig)
-      .withSynchronizers(synchronizers = DefaultTestIdentities.synchronizerId, otherSynchronizerId)
+    TestingTopology()
+      .withSynchronizers(
+        synchronizers = DefaultTestIdentities.physicalSynchronizerId,
+        otherSynchronizerId,
+      )
       .withSimpleParticipants(participant1, participant2)
-      // We need to use JCE-enabled static synchronizer parameters because we're using a JCE crypto provider.
-      // Otherwise, validation checks will fail when attempting to sign or verify messages.
       .withStaticSynchronizerParams(jceStaticSynchronizerParameters)
+      .withCryptoConfig(cryptoConfigWithSessionSigningKeysConfig(sessionSigningKeysConfig))
       .build(crypto, loggerFactory)
 
   protected lazy val defaultUsage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.ProtocolOnly
   protected lazy val storage: Storage = new MemoryStorage(loggerFactory, timeouts)
 
+  private val cryptoConfig: CryptoConfig = CryptoConfig()
+
+  // we define a "fake" [[CryptoConfig]] with a session signing keys configuration to control whether
+  // the testing environment uses session signing keys or not. Although the actual `crypto` implementation
+  // used in the tests is a JCE provider (and not a real KMS-backed environment), this "fake" configuration
+  // allows us to simulate a KMS-like setup. By enabling session signing keys within this config, we can trick
+  // the system into behaving as if it's running in a KMS environment, which is useful for testing code paths
+  // that depend on the presence of session signing keys without needing a real KMS infrastructure.
+  protected def cryptoConfigWithSessionSigningKeysConfig(
+      sessionSigningKeys: SessionSigningKeysConfig
+  ): CryptoConfig =
+    cryptoConfig
+      .focus(_.kms)
+      .replace(
+        Some(
+          Driver(
+            "mock",
+            ConfigValueFactory.fromAnyRef(0),
+            sessionSigningKeys = sessionSigningKeys,
+          )
+        )
+      )
+      .focus(_.provider)
+      .replace(CryptoProvider.Kms)
+
   protected lazy val crypto: Crypto = Crypto
     .create(
-      CryptoConfig(),
+      cryptoConfig,
       storage,
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       CommunityKmsFactory,

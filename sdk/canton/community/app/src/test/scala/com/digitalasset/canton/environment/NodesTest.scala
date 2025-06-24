@@ -46,6 +46,7 @@ import com.digitalasset.canton.resource.{
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.{
@@ -90,7 +91,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       override def caching: CachingConfigs = CachingConfigs()
       override def alphaVersionSupport: Boolean = false
       override def watchdog: Option[WatchdogConfig] = None
-      override def sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled
     }
   }
 
@@ -108,7 +108,6 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       nonStandardConfig: Boolean = false,
       dbMigrateAndStart: Boolean = false,
       disableUpgradeValidation: Boolean = false,
-      sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
       alphaVersionSupport: Boolean = false,
       betaVersionSupport: Boolean = false,
       dontWarnOnDeprecatedPV: Boolean = false,
@@ -211,6 +210,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
     override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] = Nil
 
+    override protected def lookupActivePSId: PSIdLookup =
+      _ => None
   }
 
   class TestNodeFactory {

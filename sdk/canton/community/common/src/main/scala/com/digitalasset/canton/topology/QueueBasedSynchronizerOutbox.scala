@@ -23,7 +23,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUnlessShutdownUtil, retry}
-import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
@@ -32,9 +31,7 @@ import scala.concurrent.{ExecutionContext, Promise}
 
 class QueueBasedSynchronizerOutbox(
     synchronizerAlias: SynchronizerAlias,
-    val synchronizerId: PhysicalSynchronizerId,
     val memberId: Member,
-    val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
     val targetClient: SynchronizerTopologyClientWithInit,
     val synchronizerOutboxQueue: SynchronizerOutboxQueue,
@@ -48,7 +45,6 @@ class QueueBasedSynchronizerOutbox(
     extends SynchronizerOutbox
     with QueueBasedSynchronizerOutboxDispatchHelper
     with FlagCloseable {
-
   protected def awaitTransactionObserved(
       transaction: GenericSignedTopologyTransaction,
       timeout: Duration,

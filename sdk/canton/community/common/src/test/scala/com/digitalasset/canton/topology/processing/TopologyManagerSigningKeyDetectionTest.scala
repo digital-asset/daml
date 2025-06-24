@@ -31,7 +31,7 @@ class TopologyManagerSigningKeyDetectionTest
     def mk() =
       new TopologyManagerSigningKeyDetection(
         new InMemoryTopologyStore(
-          SynchronizerStore(Factory.synchronizerId1),
+          SynchronizerStore(Factory.physicalSynchronizerId1),
           testedProtocolVersion,
           loggerFactory,
           timeouts,

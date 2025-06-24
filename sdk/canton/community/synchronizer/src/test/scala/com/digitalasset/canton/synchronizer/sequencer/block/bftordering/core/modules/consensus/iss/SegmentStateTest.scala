@@ -1613,7 +1613,7 @@ object SegmentStateTest {
       .create(
         BlockMetadata(epochInfo.number, blockNumber),
         ViewNumber(view),
-        OrderingBlock(Seq.empty),
+        OrderingBlock.empty,
         CanonicalCommitSet(Set.empty),
         from,
       )
@@ -1628,7 +1628,7 @@ object SegmentStateTest {
       .create(
         BlockMetadata.mk(epochInfo.number, blockNumber),
         ViewNumber(view),
-        OrderingBlock(Seq.empty),
+        OrderingBlock.empty,
         CanonicalCommitSet(Set.empty),
         from,
       )

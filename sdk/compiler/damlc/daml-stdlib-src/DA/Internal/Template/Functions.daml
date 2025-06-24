@@ -105,22 +105,12 @@ type Choice t c r =
   , HasChoiceController t c
   , HasChoiceObserver t c
 #endif -- DAML_CHOICE_FUNCS
-{-
-TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise): add once we generate instances for all templates.
-#ifdef DAML_DYNAMIC_EXERCISE
-  , HasDynamicExercise t c r
-#endif -- DAML_DYNAMIC_EXERCISE
--}
   )
 
 -- | Exposes `exercise` function. Part of the `Choice` constraint.
 class HasExercise t c r | t c -> r where
   -- | Exercise a choice on the contract with the given contract ID.
   exercise : ContractId t -> c -> Update r
-
-class HasDynamicExercise t c r | t c -> r where
-  -- | HIDE
-  _dynamicExercise : ContractId t -> c -> Update r
 
 -- | Exposes `choiceController` function. Part of the `Choice` constraint.
 class HasChoiceController t c where
@@ -144,14 +134,6 @@ choiceObserver : HasChoiceObserver t c => t -> c -> [Party]
 choiceObserver = _choiceObserver
 
 #endif -- DAML_CHOICE_FUNCS
-
-#ifdef DAML_DYNAMIC_EXERCISE
-
--- | TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
-dynamicExercise : HasDynamicExercise t c r => ContractId t -> c -> Update r
-dynamicExercise = _dynamicExercise
-
-#endif -- DAML_DYNAMIC_EXERCISE
 
 -- | (1.dev only) Exposes `exerciseGuarded` function.
 -- Only available for interface choices.

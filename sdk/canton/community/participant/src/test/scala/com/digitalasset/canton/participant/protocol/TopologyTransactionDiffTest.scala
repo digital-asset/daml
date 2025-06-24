@@ -34,7 +34,7 @@ class TopologyTransactionDiffTest
 
   private lazy val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::mysync")
-  )
+  ).toPhysical
 
   private def ptp(
       partyId: PartyId,
@@ -106,7 +106,6 @@ class TopologyTransactionDiffTest
         initialTxs,
         newState,
         p1,
-        testedProtocolVersion,
       )
         .map { case TopologyTransactionDiff(events, _, _) =>
           events

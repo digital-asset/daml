@@ -4,16 +4,20 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.EitherT
+import cats.syntax.apply.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AtMostOnePhysicalActive,
   Error,
+  InconsistentPredecessorLogicalSynchronizerIds,
   MissingConfigForSynchronizer,
   NoActiveSynchronizer,
   UnknownAlias,
@@ -27,6 +31,8 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerConnectionConfig,
 }
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
@@ -34,15 +40,33 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ReleaseProtocolVersion
+import com.digitalasset.canton.version.{
+  HasVersionedMessageCompanion,
+  HasVersionedMessageCompanionCommon,
+  HasVersionedMessageCompanionDbHelpers,
+  HasVersionedWrapper,
+  ProtoVersion,
+  ProtocolVersion,
+  ReleaseProtocolVersion,
+}
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
 
+/** @param config
+  *   Connection config for the synchronizer
+  * @param status
+  *   Status of the synchronizer
+  * @param configuredPSId
+  *   Configured physical synchronizer id. Is unknown before the first connect/handshake is made.
+  * @param predecessor
+  *   Is defined iff the predecessor exists and the participant was connected to it.
+  */
 final case class StoredSynchronizerConnectionConfig(
     config: SynchronizerConnectionConfig,
     status: SynchronizerConnectionConfigStore.Status,
     configuredPSId: ConfiguredPhysicalSynchronizerId,
+    predecessor: Option[SynchronizerPredecessor],
 )
 
 /** The configured synchronizers and their connection configuration.
@@ -68,6 +92,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       config: SynchronizerConnectionConfig,
       status: SynchronizerConnectionConfigStore.Status,
       configuredPSId: ConfiguredPhysicalSynchronizerId,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit]
@@ -151,6 +176,26 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
   /** Retrieves all configured synchronizers connection configs
     */
   def getAll(): Seq[StoredSynchronizerConnectionConfig]
+
+  /** Ensures a configured PSId can be the successor of another one.
+    */
+  protected def predecessorCompatibilityCheck(
+      configuredPSId: ConfiguredPhysicalSynchronizerId,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
+  ): Either[Error, Unit] =
+    (configuredPSId.toOption, synchronizerPredecessor)
+      .mapN((_, _))
+      .map { case (psid, SynchronizerPredecessor(predecessorPSId, _)) =>
+        Either.cond(
+          psid.logical == predecessorPSId.logical,
+          (),
+          InconsistentPredecessorLogicalSynchronizerIds(
+            currentPSId = psid,
+            predecessorPSId = predecessorPSId,
+          ),
+        )
+      }
+      .getOrElse(Right(()))
 
   /*
   Internal method that queries the DB (bypassing the cache for the DB store)
@@ -264,6 +309,7 @@ object SynchronizerConnectionConfigStore {
     override def message: String =
       s"Connection for synchronizer with alias `$alias` and id `$id` already exists."
   }
+
   final case class InconsistentLogicalSynchronizerIds(
       alias: SynchronizerAlias,
       newPSId: PhysicalSynchronizerId,
@@ -271,6 +317,14 @@ object SynchronizerConnectionConfigStore {
   ) extends Error {
     val message =
       s"Synchronizer with id $newPSId and alias $alias cannot be registered because existing id `$existingPSId` is for a different logical synchronizer"
+  }
+
+  final case class InconsistentPredecessorLogicalSynchronizerIds(
+      currentPSId: PhysicalSynchronizerId,
+      predecessorPSId: PhysicalSynchronizerId,
+  ) extends Error {
+    val message =
+      s"Synchronizer with id $predecessorPSId cannot be the predecessor of $predecessorPSId because their logical IDs are incompatible"
   }
 
   final case class MissingConfigForSynchronizer(
@@ -332,4 +386,66 @@ object SynchronizerConnectionConfigStore {
           loggerFactory,
         ).initialize()
     }
+}
+
+/** Information about the predecessor of a synchronizer.
+  * @param psid
+  *   Id of the predecessor.
+  * @param upgradeTime
+  *   When the migration happened/is supposed to happen.
+  */
+final case class SynchronizerPredecessor(
+    psid: PhysicalSynchronizerId,
+    upgradeTime: CantonTimestamp,
+) extends HasVersionedWrapper[SynchronizerPredecessor] {
+  override protected def companionObj: HasVersionedMessageCompanionCommon[SynchronizerPredecessor] =
+    SynchronizerPredecessor
+
+  def toProtoV30: v30.SynchronizerPredecessor =
+    v30.SynchronizerPredecessor(
+      psid.toProtoPrimitive,
+      Some(upgradeTime.toProtoTimestamp),
+    )
+}
+
+object SynchronizerPredecessor
+    extends HasVersionedMessageCompanion[SynchronizerPredecessor]
+    with HasVersionedMessageCompanionDbHelpers[SynchronizerPredecessor] {
+  override def name: String = "PredecessorInfo"
+
+  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
+    ProtoVersion(30) -> ProtoCodec(
+      ProtocolVersion.v34,
+      supportedProtoVersion(v30.SynchronizerPredecessor)(fromProtoV30),
+      _.toProtoV30,
+    )
+  )
+
+  private def fromProtoV30(
+      proto: v30.SynchronizerPredecessor
+  ): ParsingResult[SynchronizerPredecessor] = {
+    val v30.SynchronizerPredecessor(psidP, upgradeTimePO) = proto
+
+    for {
+      psid <- PhysicalSynchronizerId.fromProtoPrimitive(psidP, "predecessor_physical_id")
+      upgradeTime <- ProtoConverter.parseRequired(
+        CantonTimestamp.fromProtoTimestamp,
+        "upgrade_time",
+        upgradeTimePO,
+      )
+    } yield SynchronizerPredecessor(psid, upgradeTime)
+  }
+
+  implicit val predecessorInfoGetResult: GetResult[SynchronizerPredecessor] = GetResult { r =>
+    SynchronizerPredecessor(
+      psid = GetResult[PhysicalSynchronizerId].apply(r),
+      upgradeTime = GetResult[CantonTimestamp].apply(r),
+    )
+  }
+
+  implicit val predecessorInfoSetParameter: SetParameter[SynchronizerPredecessor] = SetParameter {
+    (predecessorInfo, pp) =>
+      pp >> predecessorInfo.psid
+      pp >> predecessorInfo.upgradeTime
+  }
 }

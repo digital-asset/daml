@@ -18,7 +18,6 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, topology}
 
 import scala.concurrent.ExecutionContext
@@ -34,7 +33,6 @@ object ParticipantTopologyTerminateProcessing {
 
 class ParticipantTopologyTerminateProcessing(
     synchronizerId: PhysicalSynchronizerId,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     recordOrderPublisher: RecordOrderPublisher,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     initialRecordTime: CantonTimestamp,
@@ -248,11 +246,10 @@ class ParticipantTopologyTerminateProcessing(
       traceContext: TraceContext
   ): Option[EventInfo] =
     TopologyTransactionDiff(
-      synchronizerId = synchronizerId.logical,
+      synchronizerId = synchronizerId,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
       localParticipantId = participantId,
-      protocolVersion = protocolVersion,
     ).map { case TopologyTransactionDiff(events, updateId, requiresLocalPartyReplication) =>
       EventInfo(
         Update.TopologyTransactionEffective(

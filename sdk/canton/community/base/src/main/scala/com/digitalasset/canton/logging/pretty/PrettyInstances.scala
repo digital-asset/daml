@@ -18,7 +18,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{DottedName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.ActiveLedgerState
 import com.digitalasset.daml.lf.transaction.TransactionErrors.*
-import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import io.grpc.Status
@@ -158,6 +158,11 @@ trait PrettyInstances {
 
   implicit def prettyLfTimestamp: Pretty[LfTimestamp] = prettyOfString(_.toString)
 
+  implicit def prettyCreationTime: Pretty[CreationTime] = prettyOfString {
+    case CreationTime.CreatedAt(timestamp) => timestamp.toString
+    case CreationTime.Now => "now"
+  }
+
   implicit def prettyLfPartyId: Pretty[LfPartyId] = prettyOfString(prettyUidString(_))
 
   implicit def prettyLfHash: Pretty[LfHash] = prettyOfString(_.toHexString.readableHash.toString)
@@ -188,7 +193,7 @@ trait PrettyInstances {
     prettyOfString(id => show"${id.packageId}:${id.qualifiedName}")
 
   implicit def prettyLfPackageName: Pretty[com.digitalasset.daml.lf.data.Ref.PackageName] =
-    prettyOfString(packageName => show"$packageName")
+    prettyOfString(_.toString())
 
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
 

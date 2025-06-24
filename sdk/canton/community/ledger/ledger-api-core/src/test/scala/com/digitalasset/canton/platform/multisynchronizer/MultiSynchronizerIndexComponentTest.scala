@@ -4,9 +4,11 @@
 package com.digitalasset.canton.platform.multisynchronizer
 
 import com.digitalasset.canton.RepairCounter
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.platform.IndexComponentTest
+import com.digitalasset.canton.protocol.UnassignId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -40,7 +42,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           sourceSynchronizer = Source(synchronizer1),
           targetSynchronizer = Target(synchronizer2),
           submitter = Option(party),
-          unassignId = CantonTimestamp.now(),
+          unassignId = UnassignId(TestHash.digest(0)),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(

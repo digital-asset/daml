@@ -8,7 +8,6 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.topology.*

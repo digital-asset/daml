@@ -94,7 +94,7 @@ class BlockSequencerTest
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        SynchronizerStore(synchronizerId.logical),
+        SynchronizerStore(synchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -117,7 +117,6 @@ class BlockSequencerTest
 
     private val topologyClient = new StoreBasedSynchronizerTopologyClient(
       mock[Clock],
-      synchronizerId,
       topologyStore,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       DefaultProcessingTimeouts.testing,
@@ -167,7 +166,6 @@ class BlockSequencerTest
       new BlockSequencer(
         blockOrderer = fakeBlockOrderer,
         name = "test",
-        synchronizerId = synchronizerId,
         cryptoApi = cryptoApi,
         sequencerId = sequencer1,
         fakeBlockSequencerStateManager,
@@ -179,7 +177,6 @@ class BlockSequencerTest
         FutureSupervisor.Noop,
         health = None,
         clock = new SimClock(loggerFactory = loggerFactory),
-        protocolVersion = testedProtocolVersion,
         blockRateLimitManager = defaultRateLimiter,
         orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
         minimumSequencingTime = CantonTimestamp.MinValue,

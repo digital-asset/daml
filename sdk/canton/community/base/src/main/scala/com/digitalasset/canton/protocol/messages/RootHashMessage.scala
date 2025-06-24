@@ -35,9 +35,11 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     viewType: ViewType,
     submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
-)(override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type])
-    extends UnsignedProtocolMessage
+) extends UnsignedProtocolMessage
     with PrettyPrinting {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type] =
+    RootHashMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.RootHashMessage(toProtoV30)
@@ -84,7 +86,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
       viewType,
       submissionTopologyTime,
       payload,
-    )(representativeProtocolVersion)
+    )
 
   @transient override protected lazy val companionObj: RootHashMessage.type = RootHashMessage
 }
@@ -100,21 +102,6 @@ object RootHashMessage
       _.toProtoV30,
     )
   )
-
-  def apply[Payload <: RootHashMessagePayload](
-      rootHash: RootHash,
-      synchronizerId: PhysicalSynchronizerId,
-      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
-      viewType: ViewType,
-      submissionTopologyTime: CantonTimestamp,
-      payload: Payload,
-  ): RootHashMessage[Payload] = RootHashMessage(
-    rootHash,
-    synchronizerId,
-    viewType,
-    submissionTopologyTime,
-    payload,
-  )(protocolVersionRepresentativeFor(protocolVersion))
 
   def fromProtoV30[Payload <: RootHashMessagePayload](
       payloadDeserializer: ByteString => ParsingResult[Payload]
@@ -138,14 +125,13 @@ object RootHashMessage
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       submissionTopologyTime <- CantonTimestamp.fromProtoPrimitive(submissionTopologyTimeP)
       payloadO <- payloadDeserializer(payloadP)
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield RootHashMessage(
       rootHash,
       synchronizerId,
       viewType,
       submissionTopologyTime,
       payloadO,
-    )(rpv)
+    )
   }
 
   implicit def rootHashMessageProtocolMessageContentCast[Payload <: RootHashMessagePayload](implicit

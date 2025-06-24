@@ -33,6 +33,7 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
 
   protected def keyId: Option[KmsKeyId]
   protected def nodes: Set[String]
+  protected def nodesWithSessionSigningKeysDisabled: Set[String]
   protected def enableEncryptedPrivateStore: EncryptedPrivateStoreStatus
   protected def kmsConfig: KmsConfig
 
@@ -40,6 +41,13 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
   protected val loggerFactory: NamedLoggerFactory
 
   protected def createKms()(implicit ec: ExecutionContext): Either[KmsError, Kms]
+
+  // ensure that all nodes with session signing keys `disabled` are part of the full protected node set
+  require(
+    nodesWithSessionSigningKeysDisabled.subsetOf(nodes),
+    s"`nodesWithSessionSigningKeysDisabled` must be a subset of `nodes`, but found: " +
+      s"${nodesWithSessionSigningKeysDisabled.diff(nodes).mkString(", ")}",
+  )
 
   protected def withKmsClient[V](
       f: Kms => EitherT[Future, KmsError, V]
@@ -58,23 +66,44 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
   private def encryptedPrivateStoreConfig(reverted: Boolean) =
     EncryptedPrivateStoreConfig.Kms(wrapperKeyId = keyId, reverted)
 
-  private def enableKms(name: String, cryptoConfig: CryptoConfig): CryptoConfig =
-    if (nodes.contains(name)) changeCryptoConfig(cryptoConfig)
+  private def enableKms(
+      name: String,
+      cryptoConfig: CryptoConfig,
+  ): CryptoConfig =
+    if (nodes.contains(name))
+      changeCryptoConfig(cryptoConfig, disableSessionSigningKeysForNode(name))
     else cryptoConfig
 
-  private def changeCryptoConfig(conf: CryptoConfig): CryptoConfig =
+  private def changeCryptoConfig(conf: CryptoConfig, disableSessionKeys: Boolean): CryptoConfig =
     enableEncryptedPrivateStore match {
-      case EncryptedPrivateStoreStatus.Enable => enableEncryptedPrivateStore(addKmsConfig(conf))
-      case EncryptedPrivateStoreStatus.Revert => revertEncryptedPrivateStore(addKmsConfig(conf))
-      case EncryptedPrivateStoreStatus.Disable => disableEncryptedPrivateStore(addKmsConfig(conf))
+      case EncryptedPrivateStoreStatus.Enable =>
+        enableEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys = true))
+      case EncryptedPrivateStoreStatus.Revert =>
+        revertEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys = true))
+      // session signing keys can only be used if we are directly storing all our private keys in an external KMS
+      case EncryptedPrivateStoreStatus.Disable =>
+        disableEncryptedPrivateStore(addKmsConfig(conf, disableSessionKeys))
     }
 
-  private def addKmsConfig(conf: CryptoConfig): CryptoConfig =
+  private def disableSessionKeysInKmsConfig(kmsConfig: KmsConfig): KmsConfig =
+    kmsConfig match {
+      case driverConfig: KmsConfig.Driver =>
+        driverConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+      case awsConfig: KmsConfig.Aws =>
+        awsConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+      case gcpConfig: KmsConfig.Gcp =>
+        gcpConfig.focus(_.sessionSigningKeys.enabled).replace(false)
+    }
+
+  private def addKmsConfig(conf: CryptoConfig, disableSessionKeys: Boolean): CryptoConfig =
     conf
       .focus(_.kms)
       .replace(
         Some(
-          kmsConfig
+          {
+            if (disableSessionKeys) disableSessionKeysInKmsConfig(kmsConfig)
+            else kmsConfig
+          }
         )
       )
 
@@ -93,18 +122,27 @@ abstract class UseKms extends EnvironmentSetupPlugin with AutoCloseable with NoT
       .focus(_.privateKeyStore.encryption)
       .replace(None)
 
+  private def disableSessionSigningKeysForNode(name: String): Boolean =
+    nodesWithSessionSigningKeysDisabled.contains(name)
+
   private def transformConfig(config: CantonConfig): CantonConfig = {
     // change the overall configs
     val updateParticipantConfigs = ConfigTransforms.updateAllParticipantConfigs {
       case (name, config) =>
-        config.focus(_.crypto).replace(enableKms(name, config.crypto))
+        config
+          .focus(_.crypto)
+          .replace(enableKms(name, config.crypto))
     }
     val updateSequencersConfigs = ConfigTransforms.updateAllSequencerConfigs {
       case (name, config) =>
-        config.focus(_.crypto).replace(enableKms(name, config.crypto))
+        config
+          .focus(_.crypto)
+          .replace(enableKms(name, config.crypto))
     }
     val updateMediatorsConfigs = ConfigTransforms.updateAllMediatorConfigs { case (name, config) =>
-      config.focus(_.crypto).replace(enableKms(name, config.crypto))
+      config
+        .focus(_.crypto)
+        .replace(enableKms(name, config.crypto))
     }
     updateSequencersConfigs
       .compose(updateMediatorsConfigs)

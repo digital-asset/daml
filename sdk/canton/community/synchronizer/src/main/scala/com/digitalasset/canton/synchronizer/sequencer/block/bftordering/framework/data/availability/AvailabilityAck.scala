@@ -25,7 +25,7 @@ final case class AvailabilityAck(from: BftNodeId, signature: Signature) {
         (),
         ValidationError.NodeNotInTopology,
       )
-      keyId = FingerprintKeyId.toBftKeyId(signature.signedBy)
+      keyId = FingerprintKeyId.toBftKeyId(signature.authorizingLongTermKey)
       _ <- Either.cond(
         currentOrderingTopology.nodesTopologyInfo
           .get(from)

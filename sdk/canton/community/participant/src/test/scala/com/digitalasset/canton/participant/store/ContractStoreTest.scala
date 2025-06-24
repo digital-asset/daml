@@ -10,15 +10,15 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   contractInstance,
   packageId,
 }
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
   SerializableContract,
 }
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
@@ -208,7 +208,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
           .storeContract(
             contract2.copy(
               contractId = contractId5,
-              ledgerCreateTime = LedgerCreateTime(CantonTimestamp.Epoch),
+              ledgerCreateTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
             )
           )
           .failOnShutdown

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.health.HealthElement
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
@@ -15,6 +16,7 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -206,6 +208,8 @@ object InternalSequencerConnectionX {
 
 trait InternalSequencerConnectionXFactory {
   def create(connectionXConfig: ConnectionXConfig)(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): InternalSequencerConnectionX
 }

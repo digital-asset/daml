@@ -12,22 +12,21 @@ import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.config.CantonRequireTypes.String2066
 import com.digitalasset.canton.config.{BatchAggregatorConfig, CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Salt
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
+import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbDeserializationException}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherUtil.RichEitherIterable
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{BatchAggregator, ErrorUtil, MonadUtil, TryUtil}
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.collection.immutable
@@ -54,18 +53,28 @@ class DbContractStore(
 
   override protected[store] def logger: TracedLogger = super.logger
 
+  private implicit val creationTimeGetResult: GetResult[CreationTime] = GetResult { r =>
+    CreationTime.assertDecode(r.nextLong())
+  }
+
   private implicit val contractGetResult: GetResult[SerializableContract] = GetResult { r =>
     val contractId = r.<<[LfContractId]
     val contractInstance = r.<<[SerializableRawContractInstance]
     val metadata = r.<<[ContractMetadata]
-    val ledgerCreateTime = r.<<[CantonTimestamp]
+    val ledgerCreateTime = r.<<[CreationTime]
+    val absoluteCreateTime = ledgerCreateTime match {
+      case absolute: CreationTime.CreatedAt => absolute
+      case CreationTime.Now =>
+        throw new DbDeserializationException("Cannot convert creation time 'now' to a timestamp")
+    }
+
     val contractSalt = r.<<[Salt]
 
     SerializableContract(
       contractId,
       contractInstance,
       metadata,
-      LedgerCreateTime(ledgerCreateTime),
+      absoluteCreateTime,
       contractSalt,
     )
   }
@@ -256,7 +265,7 @@ class DbContractStore(
             contractId: LfContractId,
             instance: SerializableRawContractInstance,
             metadata: ContractMetadata,
-            ledgerCreateTime: LedgerCreateTime,
+            ledgerCreateTime: CreationTime.CreatedAt,
             contractSalt: Salt,
           ) = contract
 
@@ -266,7 +275,7 @@ class DbContractStore(
 
           pp >> contractId
           pp >> metadata
-          pp >> ledgerCreateTime.ts
+          pp >> CreationTime.encode(ledgerCreateTime)
           pp >> packageId
           pp >> templateId
           pp >> contractSalt

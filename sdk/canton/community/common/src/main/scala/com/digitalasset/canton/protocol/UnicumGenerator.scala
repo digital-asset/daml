@@ -5,10 +5,10 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt}
 import com.digitalasset.canton.data.ViewPosition
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import java.util.UUID
 
@@ -140,7 +140,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       viewPosition: ViewPosition,
       viewParticipantDataSalt: Salt,
       createIndex: Int,
-      ledgerCreateTime: LedgerCreateTime,
+      ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       cantonContractIdVersion: CantonContractIdVersion,
@@ -185,7 +185,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     */
   def recomputeUnicum(
       contractSalt: Salt,
-      ledgerCreateTime: LedgerCreateTime,
+      ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       cantonContractIdVersion: CantonContractIdVersion,
@@ -207,7 +207,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
   }
 
   private def computeUnicumHash(
-      ledgerCreateTime: LedgerCreateTime,
+      ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       suffixedContractInstance: SerializableRawContractInstance,
       contractSalt: Salt,
@@ -220,7 +220,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       // The salt's length is determined by the hash algorithm and the contract ID version determines the hash algorithm,
       // so salts have fixed length.
       .addWithoutLengthPrefix(contractSalt.forHashing)
-      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.toInstant))
+      .addWithoutLengthPrefix(DeterministicEncoding.encodeInstant(ledgerCreateTime.time.toInstant))
       .add(
         DeterministicEncoding.encodeSeqWith(metadata.signatories.toSeq.sorted)(
           DeterministicEncoding.encodeParty

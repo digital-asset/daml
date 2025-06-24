@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.BaseTest.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SigningPublicKey
@@ -108,12 +109,9 @@ class TopologyStoreTestData(
   val dns_p1p2 = DecentralizedNamespaceDefinition.computeNamespace(
     Set(p1Namespace, p2Namespace)
   )
-  val da_p1p2_synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryCreate(
-      "da",
-      dns_p1p2,
-    )
-  )
+  val da_p1p2_physicalSynchronizerId =
+    SynchronizerId(UniqueIdentifier.tryCreate("da", dns_p1p2)).toPhysical
+  val da_p1p2_synchronizerId = da_p1p2_physicalSynchronizerId.logical
 
   val medKey = factory.SigningKeys.key4
   val medNamespace = Namespace(medKey.fingerprint)
@@ -125,9 +123,9 @@ class TopologyStoreTestData(
     Set(p1Namespace, seqNamespace)
   )
 
-  val synchronizer1_p1p2_synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryCreate("synchronizer1", dns_p1p2)
-  )
+  val synchronizer1_p1p2_physicalSynchronizerId =
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer1", dns_p1p2)).toPhysical
+  val synchronizer1_p1p2_synchronizerId = synchronizer1_p1p2_physicalSynchronizerId.logical
   val med1Id = MediatorId(UniqueIdentifier.tryCreate("mediator1", medNamespace))
   val med2Id = MediatorId(UniqueIdentifier.tryCreate("mediator2", medNamespace))
   val seq1Id = SequencerId(UniqueIdentifier.tryCreate("sequencer1", seqNamespace))

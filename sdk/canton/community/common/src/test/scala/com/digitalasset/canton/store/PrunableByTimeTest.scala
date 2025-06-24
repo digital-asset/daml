@@ -7,7 +7,7 @@ import cats.instances.future.catsStdInstancesForFuture
 import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, Threading}
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
@@ -33,7 +33,7 @@ trait PrunableByTimeTest {
     val ts2 = ts.addMicros(1)
     val ts3 = ts2.addMicros(1)
 
-    implicit val closeContext = HasTestCloseContext.makeTestCloseContext(logger)
+    implicit val closeContext: CloseContext = HasTestCloseContext.makeTestCloseContext(logger)
 
     "pruning timestamps increase" in {
       val acs = mkPrunable(executionContext)
@@ -46,14 +46,14 @@ trait PrunableByTimeTest {
         _ <- acs.prune(ts2)
         status3 <- acs.pruningStatus
       } yield {
-        assert(status0 == None, "No pruning status initially")
+        assert(status0.isEmpty, "No pruning status initially")
         assert(
           status1.contains(PruningStatus(PruningPhase.Completed, ts, Some(ts))),
           s"Pruning status at $ts",
         )
         assert(
           status2.contains(PruningStatus(PruningPhase.Completed, ts3, Some(ts3))),
-          s"Pruniadvances to $ts3",
+          s"Pruning advances to $ts3",
         )
         assert(
           status3.contains(PruningStatus(PruningPhase.Completed, ts3, Some(ts3))),

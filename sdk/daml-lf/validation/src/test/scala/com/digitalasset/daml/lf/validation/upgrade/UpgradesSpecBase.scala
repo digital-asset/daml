@@ -17,6 +17,7 @@ import java.io.File
 import java.io.FileInputStream
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.daml.SdkVersion
@@ -424,7 +425,7 @@ abstract class UpgradesSpec(val suffix: String)
     val os = ByteString.newOutput()
     DarWriter.encode(
       SdkVersion.sdkVersion,
-      Dar(("archive.dalf", archive.toByteArray), List()),
+      Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), List()),
       os,
     )
 

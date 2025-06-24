@@ -1115,10 +1115,8 @@ object LedgerApiCommands {
       def source: String = head.source
       def target: String = head.target
       def unassignId: String = head.unassignId
-      def reassignmentId: ReassignmentId = ReassignmentId(
-        Source(SynchronizerId.tryFromString(source)),
-        CantonTimestamp.assertFromLong(unassignId.toLong),
-      )
+      def reassignmentId: ReassignmentId =
+        ReassignmentId.tryCreate(Source(SynchronizerId.tryFromString(source)), unassignId)
     }
 
     final case class EmptyReassignmentWrapper(

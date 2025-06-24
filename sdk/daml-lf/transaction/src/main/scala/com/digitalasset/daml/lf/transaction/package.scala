@@ -33,5 +33,4 @@ package object transaction {
   type CommittedTransaction = CommittedTransaction.T
 
   type VersionedGlobalKey = Versioned[GlobalKey]
-
 }

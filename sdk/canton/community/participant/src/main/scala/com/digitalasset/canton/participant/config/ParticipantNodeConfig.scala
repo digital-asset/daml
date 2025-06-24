@@ -43,7 +43,6 @@ trait BaseParticipantConfig extends NodeConfig with Product with Serializable {
 
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
-    override val sessionSigningKeys: SessionSigningKeysConfig,
     override val alphaVersionSupport: Boolean,
     override val betaVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
@@ -334,6 +333,10 @@ object TestingTimeServiceConfig {
   *   Disable the package upgrade verification on DAR upload
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
+  * @param automaticallyConnectToUpgradedSynchronizer
+  *   Whether the participant automatically performs a handshake with the upgraded synchronizer
+  *   after receiving enough sequencer connections, and whether the participants automatically
+  *   connects to the synchronizer after the upgrade time.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -348,7 +351,6 @@ final case class ParticipantNodeParameterConfig(
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     alphaVersionSupport: Boolean = true,
     betaVersionSupport: Boolean = false,
@@ -365,6 +367,8 @@ final case class ParticipantNodeParameterConfig(
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
+    // TODO(#25344): check whether this should be removed
+    automaticallyConnectToUpgradedSynchronizer: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

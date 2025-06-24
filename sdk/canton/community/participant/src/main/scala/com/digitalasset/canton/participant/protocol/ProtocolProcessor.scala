@@ -66,7 +66,6 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 import com.google.common.annotations.VisibleForTesting
 
@@ -106,8 +105,6 @@ abstract class ProtocolProcessor[
     ephemeral: SyncEphemeralState,
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
-    synchronizerId: PhysicalSynchronizerId,
-    protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     promiseFactory: PromiseUnlessShutdownFactory,
@@ -117,13 +114,13 @@ abstract class ProtocolProcessor[
       ephemeral,
       crypto,
       sequencerClient,
-      protocolVersion,
-      synchronizerId,
     )
     with RequestProcessor[RequestViewType] {
 
   import ProtocolProcessor.*
   import com.digitalasset.canton.util.ShowUtil.*
+
+  private val protocolVersion = sequencerClient.protocolVersion
 
   def testingConfig: TestingConfigInternal
 
@@ -297,7 +294,7 @@ abstract class ProtocolProcessor[
     val inFlightSubmission = InFlightSubmission(
       changeIdHash = tracked.changeIdHash,
       submissionId = tracked.submissionId,
-      submissionSynchronizerId = synchronizerId,
+      submissionSynchronizerId = sequencerClient.psid,
       messageUuid = messageUuid,
       rootHashO = None,
       sequencingInfo =
@@ -714,8 +711,7 @@ abstract class ProtocolProcessor[
               _.leftMap(_ =>
                 steps.embedRequestError(
                   UnableToGetDynamicSynchronizerParameters(
-                    // TODO(#25467) synchronizerId in the snapshot should be physical
-                    PhysicalSynchronizerId(snapshot.synchronizerId, protocolVersion),
+                    snapshot.synchronizerId,
                     snapshot.ipsSnapshot.timestamp,
                   )
                 )
@@ -1299,7 +1295,7 @@ abstract class ProtocolProcessor[
             _.leftMap(_ =>
               steps.embedResultError(
                 UnableToGetDynamicSynchronizerParameters(
-                  synchronizerId,
+                  sequencerClient.psid,
                   requestId.unwrap,
                 )
               )

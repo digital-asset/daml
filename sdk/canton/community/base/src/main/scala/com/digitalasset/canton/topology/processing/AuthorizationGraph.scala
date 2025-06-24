@@ -28,7 +28,7 @@ final case class AuthorizedTopologyTransaction[T <: TopologyMapping](
 ) extends DelegatedTopologyTransactionLike[TopologyChangeOp, T] {
   override protected def transactionLikeDelegate: TopologyTransactionLike[TopologyChangeOp, T] =
     transaction
-  def signingKeys: NonEmpty[Set[Fingerprint]] = transaction.signatures.map(_.signedBy)
+  def signingKeys: NonEmpty[Set[Fingerprint]] = transaction.signatures.map(_.authorizingLongTermKey)
 }
 
 object AuthorizedTopologyTransaction {

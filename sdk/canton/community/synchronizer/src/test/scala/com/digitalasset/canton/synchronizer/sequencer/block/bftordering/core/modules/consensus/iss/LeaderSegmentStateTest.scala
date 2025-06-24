@@ -85,7 +85,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
                 .create(
                   BlockMetadata(EpochNumber.First, n),
                   ViewNumber.First,
-                  OrderingBlock(Seq.empty),
+                  OrderingBlock.empty,
                   CanonicalCommitSet(Set.empty),
                   myId,
                 )
@@ -111,7 +111,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       leaderSegmentState.moreSlotsToAssign shouldBe true
 
       // Self has one slot left to assign (block=4); assign and verify
-      val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock(Seq.empty), commits.take(1))
+      val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, commits.take(1))
       orderedBlock.metadata.blockNumber shouldBe 4L
       orderedBlock.canonicalCommitSet.sortedCommits shouldBe commits
       leaderSegmentState.moreSlotsToAssign shouldBe false

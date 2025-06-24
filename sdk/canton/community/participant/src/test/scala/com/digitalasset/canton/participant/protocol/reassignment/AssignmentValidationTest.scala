@@ -159,7 +159,7 @@ class AssignmentValidationTest
       )
     )
 
-    val reassignmentId = ReassignmentId(sourceSynchronizer, CantonTimestamp.Epoch)
+    val reassignmentId = ReassignmentId(sourceSynchronizer, UnassignId(TestHash.digest(0)))
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,

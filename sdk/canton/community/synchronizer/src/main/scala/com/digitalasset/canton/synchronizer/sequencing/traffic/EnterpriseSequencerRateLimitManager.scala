@@ -494,7 +494,7 @@ class EnterpriseSequencerRateLimitManager(
                 Some(submissionTimestamp),
                 submittedCost,
                 validationSnapshot.timestamp,
-                processingSequencerSignature.map(_.signedBy),
+                processingSequencerSignature.map(_.authorizingLongTermKey),
                 // this will be filled in at the end of the processing when we update the traffic consumed, even in case of failure
                 Option.empty[TrafficReceipt],
                 correctCostDetails,
@@ -531,7 +531,7 @@ class EnterpriseSequencerRateLimitManager(
             None,
             submittedCost,
             validationSnapshot.timestamp,
-            processingSequencerSignature.map(_.signedBy),
+            processingSequencerSignature.map(_.authorizingLongTermKey),
             // this will be filled in at the end of the processing when we update the traffic consumed, even in case of failure
             Option.empty[TrafficReceipt],
             correctCostDetails,

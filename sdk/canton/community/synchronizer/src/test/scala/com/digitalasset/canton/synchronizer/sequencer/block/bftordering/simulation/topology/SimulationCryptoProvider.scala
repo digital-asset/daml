@@ -149,18 +149,18 @@ final case class SimulationCryptoProvider(
       signerStr: => String,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
-    validKeys.get(signature.signedBy) match {
+    validKeys.get(signature.authorizingLongTermKey) match {
       case Some(key) =>
         crypto.pureCrypto.verifySignature(hash, key, signature, usage)
       case None =>
         val error =
           if (validKeys.isEmpty)
             SignerHasNoValidKeys(
-              s"There are no valid keys for $signerStr but received message signed with ${signature.signedBy}"
+              s"There are no valid keys for $signerStr but received message signed with ${signature.authorizingLongTermKey}"
             )
           else
             SignatureWithWrongKey(
-              s"Key ${signature.signedBy.unwrap} used to generate signature is not a valid key for $signerStr. Valid keys are ${validKeys.values
+              s"Key ${signature.authorizingLongTermKey.unwrap} used to generate signature is not a valid key for $signerStr. Valid keys are ${validKeys.values
                   .map(_.fingerprint.unwrap)} at $timestamp"
             )
         Left(error)

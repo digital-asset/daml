@@ -39,7 +39,6 @@ import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.stub.{AbstractStub, StreamObserver}
 import io.grpc.{Channel, ClientInterceptors, ManagedChannel}
 import org.slf4j.event.Level
@@ -219,12 +218,12 @@ final class GrpcNetworking(
       val maybeAuthenticationContext =
         authenticationInitialState.map(auth =>
           new GrpcSequencerClientAuth(
-            auth.synchronizerId,
+            auth.psid,
             member = auth.sequencerId,
             crypto = auth.authenticationServices.syncCryptoForAuthentication.crypto,
             channelPerEndpoint =
               NonEmpty(Map, Endpoint(serverEndpoint.address, serverEndpoint.port) -> channel),
-            supportedProtocolVersions = Seq(auth.protocolVersion),
+            supportedProtocolVersions = Seq(auth.psid.protocolVersion),
             tokenManagerConfig = auth.authTokenConfig,
             clock = auth.clock,
             timeouts = timeouts,
@@ -599,8 +598,7 @@ object GrpcNetworking {
   }
 
   private[bftordering] final case class AuthenticationInitialState(
-      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       authenticationServices: AuthenticationServices,
       authTokenConfig: AuthenticationTokenManagerConfig,

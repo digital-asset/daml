@@ -60,7 +60,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long,
-      block: OrderingBlock = OrderingBlock(Seq.empty),
+      block: OrderingBlock = OrderingBlock.empty,
   ) = PrePrepare
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),

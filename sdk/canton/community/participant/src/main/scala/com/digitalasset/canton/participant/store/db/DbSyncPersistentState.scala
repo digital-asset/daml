@@ -100,13 +100,12 @@ class DbSyncPersistentState(
     )
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
-    synchronizerIdx,
-    staticSynchronizerParameters.protocolVersion,
+    physicalSynchronizerIdx,
     timeouts,
     loggerFactory,
   )
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
-    synchronizerIdx,
+    physicalSynchronizerIdx,
     storage,
     insertBatchAggregatorConfig = batching.aggregator,
     replaceBatchAggregatorConfig = batching.aggregator,
@@ -135,7 +134,7 @@ class DbSyncPersistentState(
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      synchronizerIdx,
+      physicalSynchronizerIdx,
       parameters.stores.journalPruning.toInternal,
       timeouts,
       loggerFactory,
@@ -144,7 +143,7 @@ class DbSyncPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      SynchronizerStore(synchronizerIdx.synchronizerId),
+      SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,

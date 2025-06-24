@@ -24,6 +24,8 @@ class SequencerConnectionXPoolImplTest
     with FailOnShutdown
     with ConnectionPoolTestHelpers {
 
+  import ConnectionPoolTestHelpers.*
+
   "SequencerConnectionXPool" should {
     "initialize in the happy path" in {
       withConnectionPool(

@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.admin.grpc
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxEitherId
+import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -106,6 +107,7 @@ class GrpcTopologyManagerReadService(
     stores: => Seq[topology.store.TopologyStore[topology.store.TopologyStoreId]],
     crypto: Crypto,
     topologyClientLookup: topology.store.TopologyStoreId => Option[SynchronizerTopologyClient],
+    physicalSynchronizerIdLookup: PSIdLookup,
     processingTimeout: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -125,14 +127,27 @@ class GrpcTopologyManagerReadService(
 
   private def collectStores(
       storeO: Option[grpc.TopologyStoreId]
-  ): EitherT[FutureUnlessShutdown, RpcError, Seq[
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Seq[
     topology.store.TopologyStore[topology.store.TopologyStoreId]
   ]] =
     storeO match {
       case Some(store) =>
-        EitherT.rightT(stores.filter(_.storeId == store.toInternal))
+        EitherT.rightT(
+          activePSIdFor(store).toOption.toList.flatMap(targetStoreId =>
+            stores.filter(_.storeId == targetStoreId)
+          )
+        )
       case None => EitherT.rightT(stores)
     }
+
+  private def activePSIdFor(
+      grpcTopologyStoreId: grpc.TopologyStoreId
+  )(implicit
+      traceContext: TraceContext
+  ): Either[RpcError, topology.store.TopologyStoreId] =
+    grpcTopologyStoreId
+      .toInternal(physicalSynchronizerIdLookup)
+      .leftMap(TopologyManagerError.InvalidSynchronizer.Failure(_))
 
   private def collectSynchronizerStore(
       storeO: Option[grpc.TopologyStoreId]
@@ -145,20 +160,21 @@ class GrpcTopologyManagerReadService(
         : Either[RpcError, topology.store.TopologyStore[topology.store.TopologyStoreId]] =
       storeO match {
         case Some(store) =>
-          val targetStoreInternal = store.toInternal
-          val synchronizerStores = stores.filter { s =>
-            s.storeId.isSynchronizerStore && s.storeId == targetStoreInternal
-          }
-          synchronizerStores match {
-            case Nil =>
-              TopologyManagerError.TopologyStoreUnknown
-                .Failure(targetStoreInternal)
-                .asLeft
-            case Seq(synchronizerStore) => synchronizerStore.asRight
-            case _ =>
-              TopologyManagerError.InvalidSynchronizer
-                .MultipleSynchronizerStoresFound(targetStoreInternal)
-                .asLeft
+          activePSIdFor(store).flatMap { targetStoreInternal =>
+            val synchronizerStores = stores.filter { s =>
+              s.storeId.isSynchronizerStore && s.storeId == targetStoreInternal
+            }
+            synchronizerStores match {
+              case Nil =>
+                TopologyManagerError.TopologyStoreUnknown
+                  .Failure(targetStoreInternal)
+                  .asLeft
+              case Seq(synchronizerStore) => synchronizerStore.asRight
+              case multiple =>
+                TopologyManagerError.InvalidSynchronizer
+                  .MultipleSynchronizerStoresFound(multiple.map(_.storeId))
+                  .asLeft
+            }
           }
 
         case None =>
@@ -246,7 +262,7 @@ class GrpcTopologyManagerReadService(
           col.result
             .filter(
               baseQuery.filterSigningKey.isEmpty || _.transaction.signatures
-                .exists(_.signedBy.unwrap.startsWith(baseQuery.filterSigningKey))
+                .exists(_.authorizingLongTermKey.unwrap.startsWith(baseQuery.filterSigningKey))
             )
             .parTraverse { tx =>
               val resultE = for {
@@ -272,7 +288,7 @@ class GrpcTopologyManagerReadService(
                   signedTx.operation,
                   signedTx.transaction.hash.hash.getCryptographicEvidence,
                   signedTx.transaction.serial,
-                  signedTx.signatures.map(_.signedBy),
+                  signedTx.signatures.map(_.authorizingLongTermKey),
                 )
               } yield (result, tx.transaction.transaction.mapping)
 
@@ -705,7 +721,7 @@ class GrpcTopologyManagerReadService(
         StoredTopologyTransactions(
           acc.result ++ elem.result.filter(
             baseQuery.filterSigningKey.isEmpty || _.transaction.signatures.exists(
-              _.signedBy.unwrap.startsWith(baseQuery.filterSigningKey)
+              _.authorizingLongTermKey.unwrap.startsWith(baseQuery.filterSigningKey)
             )
           )
         )

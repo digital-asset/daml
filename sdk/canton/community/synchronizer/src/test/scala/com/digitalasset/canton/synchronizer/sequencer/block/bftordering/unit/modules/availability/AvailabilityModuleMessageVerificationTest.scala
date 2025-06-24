@@ -59,7 +59,7 @@ class AvailabilityModuleMessageVerificationTest
 
           verify(messageAuthorizer).isAuthorized(
             Node0,
-            FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy),
+            FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey),
           )
 
           context.runPipedMessages() shouldBe empty
@@ -75,7 +75,7 @@ class AvailabilityModuleMessageVerificationTest
           cryptoProvider = cryptoProvider,
           otherNodes = Set(Node1),
           otherNodesCustomKeys =
-            Map(Node1 -> FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy)),
+            Map(Node1 -> FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey)),
         )
 
         val underlyingMessage = mock[Availability.RemoteProtocolMessage]
@@ -104,7 +104,7 @@ class AvailabilityModuleMessageVerificationTest
           cryptoProvider = cryptoProvider,
           otherNodes = Set(Node1),
           otherNodesCustomKeys =
-            Map(Node1 -> FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy)),
+            Map(Node1 -> FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey)),
         )
 
         val underlyingMessage = mock[Availability.RemoteProtocolMessage]

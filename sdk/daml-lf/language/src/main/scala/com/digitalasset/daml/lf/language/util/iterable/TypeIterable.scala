@@ -144,10 +144,6 @@ private[lf] object TypeIterable {
         Iterator(TTyCon(templateId)) ++
           iterator(cid) ++
           iterator(arg)
-      case UpdateDynamicExercise(templateId, choice @ _, cid, arg) =>
-        Iterator(TTyCon(templateId)) ++
-          iterator(cid) ++
-          iterator(arg)
       case UpdateExerciseInterface(interface, choice @ _, cid, arg, guard) =>
         Iterator(TTyCon(interface)) ++
           iterator(cid) ++

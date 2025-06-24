@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
   Mempool,
@@ -15,7 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.Miscellaneous.dequeueN
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import java.time.Instant
 
@@ -58,6 +59,13 @@ class MempoolModule[E <: Env[E]](
             logger.info(rejectionMessage)
             from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
             metrics.ingress.labels.outcome.values.QueueFull
+          } else if (!orderingRequest.isTagValid) {
+            val rejectionMessage =
+              s"mempool received a client request with an invalid tag '${orderingRequest.tag}', " +
+                s"valid tags are: (${OrderingRequest.ValidTags.mkString(", ")}); dropping it"
+            logger.warn(rejectionMessage)
+            from.foreach(_.asyncSend(SequencerNode.RequestRejected(rejectionMessage)))
+            metrics.ingress.labels.outcome.values.InvalidTag
           } else {
             val payloadSize = orderingRequest.payload.size()
             if (payloadSize > config.maxRequestPayloadBytes) {
@@ -137,18 +145,23 @@ class MempoolModule[E <: Env[E]](
         s"$messageType: mempool sending batch to local availability with the following tids ${requests
             .flatMap(_.traceContext.traceId)}"
       )
-      import metrics.performance.orderingStageLatency.*
-      requests.foreach(
-        _.value.orderingStartInstant.foreach(
-          emitOrderingStageLatency(
-            labels.stage.values.mempool.RequestQueuedForBatchInclusion,
-            _,
-            batchCreationInstant,
-          )
-        )
-      )
+      emitRequestsQueuedForBatchInclusionLatencies(requests, batchCreationInstant)
       availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))
     }
     emitStateStats(metrics, mempoolState)
+  }
+
+  private def emitRequestsQueuedForBatchInclusionLatencies(
+      requests: Seq[Traced[OrderingRequest]],
+      batchCreationInstant: Instant,
+  ): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    requests.foreach(r =>
+      emitOrderingStageLatency(
+        labels.stage.values.mempool.RequestQueuedForBatchInclusion,
+        r.value.orderingStartInstant,
+        batchCreationInstant,
+      )
+    )
   }
 }

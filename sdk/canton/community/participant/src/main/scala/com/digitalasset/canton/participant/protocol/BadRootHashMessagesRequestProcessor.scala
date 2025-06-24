@@ -16,9 +16,8 @@ import com.digitalasset.canton.protocol.messages.{ConfirmationResponse, Confirma
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -26,9 +25,7 @@ class BadRootHashMessagesRequestProcessor(
     ephemeral: SyncEphemeralState,
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClient,
-    synchronizerId: PhysicalSynchronizerId,
     participantId: ParticipantId,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -36,8 +33,6 @@ class BadRootHashMessagesRequestProcessor(
       ephemeral,
       crypto,
       sequencerClient,
-      protocolVersion,
-      synchronizerId,
     ) {
 
   /** Sends `reject` for the given `rootHash`. Also ticks the record order publisher.
@@ -57,17 +52,17 @@ class BadRootHashMessagesRequestProcessor(
           ConfirmationResponses.tryCreate(
             requestId,
             rootHash,
-            synchronizerId,
+            sequencerClient.psid,
             participantId,
             NonEmpty.mk(
               Seq,
               ConfirmationResponse.tryCreate(
                 viewPositionO = None,
-                localVerdict = reject.toLocalReject(protocolVersion),
+                localVerdict = reject.toLocalReject(sequencerClient.protocolVersion),
                 confirmingParties = Set.empty,
               ),
             ),
-            protocolVersion,
+            sequencerClient.protocolVersion,
           )
         )
         signedRejection <- signResponses(snapshot, rejection)

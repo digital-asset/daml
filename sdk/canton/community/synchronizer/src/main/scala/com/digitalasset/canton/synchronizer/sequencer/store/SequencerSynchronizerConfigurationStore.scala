@@ -10,21 +10,19 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
 final case class SequencerSynchronizerConfiguration(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     synchronizerParameters: StaticSynchronizerParameters,
 )
 
 sealed trait SequencerSynchronizerConfigurationStoreError
 
 object SequencerSynchronizerConfigurationStoreError {
-  final case class DbError(exception: Throwable)
-      extends SequencerSynchronizerConfigurationStoreError
   final case class DeserializationError(deserializationError: ProtoDeserializationError)
       extends SequencerSynchronizerConfigurationStoreError
 }

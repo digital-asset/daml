@@ -55,7 +55,7 @@ class ParticipantTopologyTerminateProcessingTest
 
   protected def mkStore: TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.synchronizerId),
+      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
@@ -85,7 +85,6 @@ class ParticipantTopologyTerminateProcessingTest
 
     val proc = new ParticipantTopologyTerminateProcessing(
       DefaultTestIdentities.physicalSynchronizerId,
-      testedProtocolVersion,
       recordOrderPublisher,
       store,
       initialRecordTime,

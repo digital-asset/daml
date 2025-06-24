@@ -248,6 +248,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             dependencies,
             loggerFactory,
             timeouts,
+            metrics,
           )
 
           new PreIssConsensusModule(

@@ -89,7 +89,6 @@ object LanguageVersion {
 
     val choiceFuncs = v2_dev
     val choiceAuthority = v2_dev
-    val dynamicExercise = v2_dev
 
     /** TYPE_REP_TYCON_NAME builtin */
     val templateTypeRepToText = v2_dev
@@ -136,7 +135,6 @@ object LanguageVersion {
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
     val packageUpgrades = v1_17
-    val dynamicExercise = v1_dev
     val sharedKeys = v1_17
 
     /** TYPE_REP_TYCON_NAME builtin */

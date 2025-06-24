@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.util
 
 import com.digitalasset.canton.console.{InstanceReference, SequencerReference}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 trait OnboardsNewSequencerNode {
 
@@ -17,7 +17,7 @@ trait OnboardsNewSequencerNode {
   ): Unit = ()
 
   protected def onboardNewSequencer(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       newSequencerReference: SequencerReference,
       existingSequencerReference: SequencerReference,
       synchronizerOwners: Set[InstanceReference],
@@ -29,7 +29,7 @@ trait OnboardsNewSequencerNode {
       // user-manual-entry-begin: DynamicallyOnboardBftSequencer
       bootstrap
         .onboard_new_sequencer(
-          synchronizerId,
+          synchronizerId.logical,
           newSequencerReference,
           existingSequencerReference,
           synchronizerOwners,
@@ -39,7 +39,7 @@ trait OnboardsNewSequencerNode {
     } else {
       bootstrap
         .onboard_new_sequencer(
-          synchronizerId,
+          synchronizerId.logical,
           newSequencerReference,
           existingSequencerReference,
           synchronizerOwners,

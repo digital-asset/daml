@@ -155,7 +155,7 @@ final class CachingSynchronizerTopologyClient(
   }
 
   override def synchronizerId: SynchronizerId = delegate.synchronizerId
-  override def physicalSynchronizerId: PhysicalSynchronizerId = delegate.physicalSynchronizerId
+  override def psid: PhysicalSynchronizerId = delegate.psid
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     delegate.snapshotAvailable(timestamp)
@@ -239,7 +239,6 @@ object CachingSynchronizerTopologyClient {
 
   def create(
       clock: Clock,
-      synchronizerId: PhysicalSynchronizerId,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       packageDependenciesResolver: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
@@ -257,7 +256,6 @@ object CachingSynchronizerTopologyClient {
     val dbClient =
       new StoreBasedSynchronizerTopologyClient(
         clock,
-        synchronizerId,
         store,
         packageDependenciesResolver,
         timeouts,
@@ -300,6 +298,7 @@ private class ForwardingTopologySnapshotClient(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     parent.loadParticipantStates(participants)
+
   override private[client] def loadActiveParticipantsOf(
       party: PartyId,
       participantStates: Seq[ParticipantId] => FutureUnlessShutdown[
@@ -403,7 +402,8 @@ private class ForwardingTopologySnapshotClient(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] = parent.isSynchronizerUpgradeOngoing()
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+    parent.isSynchronizerUpgradeOngoing()
 
   override def sequencerConnectionSuccessors()(implicit
       traceContext: TraceContext
@@ -441,14 +441,16 @@ class CachingTopologySnapshot(
       .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Option[ParticipantAttributes]](
         cache = cachingConfigs.participantCache.buildScaffeine(),
         loader = implicit traceContext => pid => parent.findParticipantState(pid),
-        allLoader = Some(implicit traceContext =>
-          pids =>
-            parent.loadParticipantStates(pids.toSeq).map { attributes =>
+        allLoader = Some { implicit traceContext => pids =>
+          parent
+            .loadParticipantStates(pids.toSeq)
+            .map(attributes =>
               // make sure that the returned map contains an entry for each input element
               pids.map(pid => pid -> attributes.get(pid)).toMap
-            }
-        ),
+            )
+        },
       )(logger, "participantCache")
+
   private val keyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, KeyCollection] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, KeyCollection](
       cache = cachingConfigs.keyCache.buildScaffeine(),
@@ -527,8 +529,10 @@ class CachingTopologySnapshot(
     loader = implicit traceContext => party => parent.partyAuthorization(party),
   )(logger, "partyAuthorizationsCache")
 
-  private val topologyFrozenCache =
-    new AtomicReference[Option[FutureUnlessShutdown[Option[PhysicalSynchronizerId]]]](None)
+  private val synchronizerUpgradeCache =
+    new AtomicReference[
+      Option[FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]]
+    ](None)
 
   override def allKeys(owner: Member)(implicit
       traceContext: TraceContext
@@ -685,8 +689,8 @@ class CachingTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
-    getAndCache(topologyFrozenCache, parent.isSynchronizerUpgradeOngoing())
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+    getAndCache(synchronizerUpgradeCache, parent.isSynchronizerUpgradeOngoing())
 
   override def sequencerConnectionSuccessors()(implicit
       traceContext: TraceContext

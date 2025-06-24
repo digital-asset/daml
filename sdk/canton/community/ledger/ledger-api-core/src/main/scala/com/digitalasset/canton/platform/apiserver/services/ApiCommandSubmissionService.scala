@@ -15,7 +15,6 @@ import com.daml.metrics.Timed
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
@@ -174,7 +173,7 @@ final class ApiCommandSubmissionService(
                     ReassignmentCommand.Assign(
                       sourceSynchronizer = assignCommand.sourceSynchronizerId,
                       targetSynchronizer = assignCommand.targetSynchronizerId,
-                      unassignId = CantonTimestamp(assignCommand.unassignId),
+                      unassignId = assignCommand.unassignId,
                     )
                   case Right(unassignCommand) =>
                     ReassignmentCommand.Unassign(

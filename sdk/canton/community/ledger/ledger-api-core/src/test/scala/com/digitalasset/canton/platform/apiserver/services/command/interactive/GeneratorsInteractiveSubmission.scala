@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
-import com.digitalasset.canton.GeneratorsLf.*
 import com.digitalasset.canton.config.GeneratorsConfig.*
 import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
@@ -11,9 +10,8 @@ import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries, 
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PrepareTransactionData
-import com.digitalasset.canton.topology.GeneratorsTopology.*
-import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.{LedgerUserId, LfPackageId, LfPartyId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, SynchronizerId}
+import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
@@ -36,7 +34,13 @@ import org.scalacheck.{Arbitrary, Gen}
 
 import scala.util.Random
 
-object InteractiveSubmissionGenerators {
+final class GeneratorsInteractiveSubmission(
+    generatorsLf: GeneratorsLf,
+    generatorsTopology: GeneratorsTopology,
+) {
+  import generatorsLf.*
+  import generatorsTopology.*
+
   // Updated nodes that filter out fields not supported in LF 2.1
   def normalizeNodeForV1[N <: Node](node: N): N = node match {
     case node: Node.Create =>

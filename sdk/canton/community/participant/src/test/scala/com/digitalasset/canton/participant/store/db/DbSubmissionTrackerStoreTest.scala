@@ -7,7 +7,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.SubmissionTrackerStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.store.{IndexedSynchronizer, PrunableByTimeParameters}
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, PrunableByTimeParameters}
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -30,7 +30,7 @@ trait DbSubmissionTrackerStoreTest extends SubmissionTrackerStoreTest {
   private def mkDbStore(): DbSubmissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      IndexedSynchronizer.tryCreate(DefaultTestIdentities.synchronizerId, 1),
+      IndexedPhysicalSynchronizer.tryCreate(DefaultTestIdentities.physicalSynchronizerId, 1),
       PrunableByTimeParameters.testingParams,
       timeouts,
       loggerFactory,

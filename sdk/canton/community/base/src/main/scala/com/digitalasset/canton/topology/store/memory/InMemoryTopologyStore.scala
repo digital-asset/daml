@@ -169,7 +169,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
             tx.transaction.hashOfSignatures(protocolVersion),
             tx.hash,
           )
-          if (topologyTransactionsStoreUniqueIndex.add(uniqueKey)) {
+          if (topologyTransactionsStoreUniqueIndex.add(uniqueKey))
             topologyTransactionStore.append(
               TopologyStoreEntry(
                 tx.transaction,
@@ -181,7 +181,6 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
                 )(effective),
               )
             )
-          }
         }
       }
     }

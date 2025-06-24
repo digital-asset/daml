@@ -5,19 +5,18 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import com.daml.ledger.api.v2.interactive.transaction.v1.interactive_submission_data.Node.NodeType
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionGenerators.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PreparedTransactionCodec.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.{
   PreparedTransactionDecoder,
   PreparedTransactionEncoder,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.topology.GeneratorsTopology
+import com.digitalasset.canton.{BaseTest, GeneratorsLf, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.test.ValueGenerators
-import magnolify.scalacheck.auto.genArbitrary
 import org.scalacheck.Arbitrary
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -35,7 +34,14 @@ class PreparedTransactionCodecV1Spec
   private val encoder = new PreparedTransactionEncoder(loggerFactory)
   private val decoder = new PreparedTransactionDecoder(loggerFactory)
 
+  private lazy val generatorsTopology = new GeneratorsTopology(testedProtocolVersion)
+  private lazy val generatorsLf = new GeneratorsLf(generatorsTopology)
+  private lazy val generatorsInteractiveSubmission =
+    new GeneratorsInteractiveSubmission(generatorsLf, generatorsTopology)
+
   "Prepared transaction" should {
+    import generatorsInteractiveSubmission.*
+
     "round trip encode and decode any LF transaction" in {
       forAll { (transaction: VersionedTransaction, nodeSeeds: Option[ImmArray[(NodeId, Hash)]]) =>
         val result = for {

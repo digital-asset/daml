@@ -436,11 +436,6 @@ Typeclasses
 
     Exercise a choice on the contract with the given contract ID\.
 
-.. _class-da-internal-template-functions-hasdynamicexercise-47252:
-
-**class** `HasDynamicExercise <class-da-internal-template-functions-hasdynamicexercise-47252_>`_ t c r **where**
-
-
 .. _class-da-internal-template-functions-haschoicecontroller-39229:
 
 **class** `HasChoiceController <class-da-internal-template-functions-haschoicecontroller-39229_>`_ t c **where**

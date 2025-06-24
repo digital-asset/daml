@@ -49,7 +49,7 @@ import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, LfValue, checked}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -478,7 +478,7 @@ object ModelConformanceChecker {
             createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
               cid -> FatContractInstance.fromCreateNode(
                 enrichedNode,
-                CreationTime.CreatedAt(storedContract.ledgerCreateTime.toLf),
+                storedContract.ledgerCreateTime,
                 saltFromSerializedContract(storedContract),
               )
             }

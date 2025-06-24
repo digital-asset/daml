@@ -30,6 +30,7 @@ import scala.jdk.CollectionConverters.*
 class UseKmsDriver(
     protected val keyId: Option[KmsKeyId] = None,
     protected val nodes: Set[String],
+    protected val nodesWithSessionSigningKeysDisabled: Set[String] = Set.empty,
     protected val enableEncryptedPrivateStore: EncryptedPrivateStoreStatus =
       EncryptedPrivateStoreStatus.Enable,
     val driverName: String,

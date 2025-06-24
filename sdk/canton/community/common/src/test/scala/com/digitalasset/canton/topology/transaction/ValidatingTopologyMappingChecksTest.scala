@@ -59,7 +59,7 @@ class ValidatingTopologyMappingChecksTest
   def mk() = {
     val store =
       new InMemoryTopologyStore(
-        SynchronizerStore(DefaultTestIdentities.synchronizerId),
+        SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
         testedProtocolVersion,
         loggerFactory,
         timeouts,

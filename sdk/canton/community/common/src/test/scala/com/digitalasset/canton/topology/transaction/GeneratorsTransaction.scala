@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.{
   Namespace,
   ParticipantId,
   PartyId,
+  PhysicalSynchronizerId,
   SequencerId,
   SynchronizerId,
 }
@@ -43,13 +44,16 @@ import scala.math.Ordering.Implicits.*
 
 final class GeneratorsTransaction(
     protocolVersion: ProtocolVersion,
+    generatorsLf: GeneratorsLf,
     generatorsProtocol: GeneratorsProtocol,
+    generatorsTopology: GeneratorsTopology,
+    generatorsSequencing: GeneratorsSequencing,
 ) {
   import GeneratorsCrypto.*
-  import GeneratorsLf.*
+  import generatorsLf.*
   import generatorsProtocol.*
-  import GeneratorsSequencing.*
-  import GeneratorsTopology.*
+  import generatorsSequencing.*
+  import generatorsTopology.*
   import Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
 
@@ -93,6 +97,23 @@ final class GeneratorsTransaction(
       onboarding <- Arbitrary.arbBool.arbitrary
     } yield HostingParticipant(pid, permission, onboarding)
   )
+
+  implicit val synchronizerUpgradeAnnouncementArb: Arbitrary[SynchronizerUpgradeAnnouncement] =
+    Arbitrary(for {
+      psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
+
+      // The goal is to generate a serial bigger then what is in psid1
+      // We need to take care of the case where it is already MaxValue
+      (psid1, psid2) <-
+        if (psid.serial.value == Int.MaxValue)
+          Gen.const((psid.copy(serial = NonNegativeInt.zero), psid))
+        else
+          Gen.choose(psid.serial.value + 1, Int.MaxValue).map { biggerSerial =>
+            (psid, psid.copy(serial = NonNegativeInt.tryCreate(biggerSerial)))
+          }
+
+      upgradeTime <- Arbitrary.arbitrary[CantonTimestamp]
+    } yield SynchronizerUpgradeAnnouncement.tryCreate(psid1, psid2, upgradeTime))
 
   implicit val topologyMappingArb: Arbitrary[TopologyMapping] = genArbitrary
 

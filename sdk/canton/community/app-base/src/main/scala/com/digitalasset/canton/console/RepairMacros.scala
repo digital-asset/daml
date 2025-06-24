@@ -7,7 +7,6 @@ import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -134,7 +133,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           // Initial synchronizer state, needed for the sequencer to open the init service offering `assign_from_genesis_state`
           val synchronizerGenesisTransactions = node.topology.transactions
             .list(
-              store = TopologyStoreId.Synchronizer(synchronizerId),
+              store = synchronizerId,
               timeQuery = TimeQuery.Snapshot(
                 SignedTopologyTransaction.InitialTopologySequencingTime.immediateSuccessor // Convention used only by internal Canton tooling
               ),

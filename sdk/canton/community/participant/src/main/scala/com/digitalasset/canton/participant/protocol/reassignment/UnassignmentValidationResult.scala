@@ -40,6 +40,7 @@ final case class UnassignmentValidationResult(
       Target[CantonTimestamp]
     ], // Defined iff the participant is reassigning
     validationResult: ValidationResult,
+    unassignmentTs: CantonTimestamp,
 ) extends ReassignmentValidationResult {
   val rootHash = fullTree.rootHash
   val submitterMetadata = fullTree.submitterMetadata
@@ -83,7 +84,8 @@ final case class UnassignmentValidationResult(
   )
 
   def createReassignmentAccepted(
-      participantId: ParticipantId
+      participantId: ParticipantId,
+      recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, Update.SequencedReassignmentAccepted] =
@@ -114,7 +116,7 @@ final case class UnassignmentValidationResult(
         sourceSynchronizer = reassignmentId.sourceSynchronizer,
         targetSynchronizer = targetSynchronizer.map(_.logical),
         submitter = Option(submitterMetadata.submitter),
-        unassignId = reassignmentId.unassignmentTs,
+        unassignId = reassignmentId.unassignId,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment =
@@ -129,7 +131,7 @@ final case class UnassignmentValidationResult(
             nodeId = idx,
           )
         }),
-      recordTime = reassignmentId.unassignmentTs,
+      recordTime = recordTime,
       synchronizerId = reassignmentId.sourceSynchronizer.unwrap,
     )
 }

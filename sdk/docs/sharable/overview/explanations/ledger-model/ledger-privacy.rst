@@ -260,7 +260,7 @@ Examine each party's projection in turn:
    Yet, the output of this transaction (contract #2) is used
    in the last commit of Alice's projection.
    Accordingly, contract #2 is shown as an input to the left, outside of the ledger.
-   This effect is discussed below under :ref:`input divulgence <da-model-divulgence>`.
+   This effect is discussed below under :ref:`retroactive divulgence <da-model-divulgence>`.
 
 #. Bob's projection is analogous to Alice's:
    He sees everything of the second, third, and forth commit,
@@ -295,23 +295,23 @@ Divulgence is a deliberate choice in the design of Canton Ledgers and comes in t
   In general, there is no point in hiding the consequences of an action.
   Bob could anyway compute the consequences of the actions it is an informee of, because Daml is deterministic.
 
-* **Input divulgence** refers to an input contract being shown to the non-informee witnesses of a node using this contract.
+* **Retroactive divulgence** refers to an input contract being shown to the non-informee witnesses of a node using this contract.
   For example, the Fetch on Bob's ``SimpleAsset`` (contract #2) is visible to Alice
   and Alice's projection therefore references this contract as an input
   even though the Create action for #2 is not part of Alice's projection.
 
-  Input divulgence enables Alice to validate the transactions in her projection
+  Retroactive divulgence enables Alice to validate the transactions in her projection
   (see :ref:`da-model-consistency` for ledger integrity).
   That is, Alice can check that Bob does allocate a suitable ``SimpleAsset`` according to what she specified in her proposal.
 
-  Input divulgence does not make Alice a witness of the Create action for Bob's ``SimpleAsset`` (contract #2),
+  Retroactive divulgence does not make Alice a witness of the Create action for Bob's ``SimpleAsset`` (contract #2),
   because an input contract is not the same as its Create action.
   In the diagrams, this distinction is visualized via the dashed border for input contracts and them being placed to the left.
   
 Via the Ledger API's :externalref:`update service <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`,
 a user can see the immediately divulged contracts in the trees of the parties' projection
 as these trees contain the Create nodes.
-In contrast, the Ledger API currently does not offer a means for a user to look up a contract ID of an input divulgence.
+In contrast, the Ledger API currently does not offer a means for a user to look up a contract ID of a retroactive divulgence.
   
 
 

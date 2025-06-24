@@ -27,6 +27,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
 import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.protocol.UnassignId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.command.*
@@ -41,7 +42,6 @@ import scalaz.syntax.tag.*
 import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
-import scala.util.Try
 
 final class CommandsValidator(
     validateDisclosedContracts: ValidateDisclosedContracts,
@@ -191,18 +191,15 @@ final class CommandsValidator(
             for {
               sourceSynchronizerId <- requireSynchronizerId(assignCommand.value.source, "source")
               targetSynchronizerId <- requireSynchronizerId(assignCommand.value.target, "target")
-              longUnassignId <- Try(assignCommand.value.unassignId.toLong).toEither.left.map(_ =>
-                ValidationErrors.invalidField("unassign_id", "Invalid unassign ID")
-              )
-              timestampUnassignId <- Time.Timestamp
-                .fromLong(longUnassignId)
+              unassignId <- UnassignId
+                .fromProtoPrimitive(assignCommand.value.unassignId)
                 .left
                 .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
             } yield Left(
               submission.AssignCommand(
                 sourceSynchronizerId = Source(sourceSynchronizerId),
                 targetSynchronizerId = Target(targetSynchronizerId),
-                unassignId = timestampUnassignId,
+                unassignId = unassignId,
               )
             )
           case unassignCommand: ReassignmentCommand.Command.UnassignCommand =>

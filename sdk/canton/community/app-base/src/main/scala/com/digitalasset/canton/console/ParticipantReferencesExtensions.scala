@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(implicit
     override val consoleEnvironment: ConsoleEnvironment
@@ -172,12 +173,14 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
           sequencer - A local sequencer reference
           alias - A synchronizer alias to register this connection for.
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
+          physicalSynchronizerId - An optional Synchronizer Id to ensure the connection is made to the correct synchronizer.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)
     def connect_local(
         sequencer: SequencerReference,
         alias: SynchronizerAlias,
         manualConnect: Boolean = false,
+        physicalSynchronizerId: Option[PhysicalSynchronizerId] = None,
         synchronize: Option[NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -187,6 +190,7 @@ class ParticipantReferencesExtensions(participants: Seq[ParticipantReference])(i
           Seq(sequencer),
           alias,
           manualConnect,
+          physicalSynchronizerId,
         )
 
       connect(config)

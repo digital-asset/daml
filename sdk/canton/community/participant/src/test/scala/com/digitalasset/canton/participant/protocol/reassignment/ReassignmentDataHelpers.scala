@@ -16,7 +16,6 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import java.util.UUID
 
@@ -56,7 +55,6 @@ final case class ReassignmentDataHelpers(
       submitter: LfPartyId,
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
-      sourceProtocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   )(
       reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
   ): UnassignmentRequest =
@@ -65,7 +63,6 @@ final case class ReassignmentDataHelpers(
       reassigningParticipants = reassigningParticipants,
       contracts = ContractsReassignmentBatch(contract, ReassignmentCounter(1)),
       sourceSynchronizer = sourceSynchronizer,
-      sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
       targetTimeProof = targetTimeProof,
@@ -74,6 +71,7 @@ final case class ReassignmentDataHelpers(
   def unassignmentData(
       reassignmentId: ReassignmentId,
       unassignmentRequest: UnassignmentRequest,
+      unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
     val uuid = new UUID(10L, 0L)
     val seed = seedGenerator.generateSaltSeed()
@@ -89,6 +87,7 @@ final case class ReassignmentDataHelpers(
     UnassignmentData(
       reassignmentId = reassignmentId,
       unassignmentRequest = fullUnassignmentViewTree,
+      unassignmentTs = unassignmentTs,
     )
   }
 }
@@ -102,7 +101,7 @@ object ReassignmentDataHelpers {
       identityFactory: TestingIdentityFactory,
   ) = {
     val pureCrypto = identityFactory
-      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap.logical)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
       .pureCrypto
 
     new ReassignmentDataHelpers(
@@ -114,14 +113,14 @@ object ReassignmentDataHelpers {
         identityFactory
           .forOwnerAndSynchronizer(
             DefaultTestIdentities.mediatorId,
-            sourceSynchronizer.unwrap.logical,
+            sourceSynchronizer.unwrap,
           )
       ),
       sequencerCryptoClient = Some(
         identityFactory
           .forOwnerAndSynchronizer(
             DefaultTestIdentities.sequencerId,
-            sourceSynchronizer.unwrap.logical,
+            sourceSynchronizer.unwrap,
           )
       ),
     )

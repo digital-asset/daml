@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
-import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.ExecutionContext
@@ -29,8 +28,7 @@ object ParallelMessageDispatcherFactory
     viewType == TransactionViewType || viewType == ViewType.UnassignmentViewType || viewType == ViewType.AssignmentViewType
 
   override def create(
-      protocolVersion: ProtocolVersion,
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       participantId: ParticipantId,
       requestTracker: RequestTracker,
       requestProcessors: RequestProcessors,
@@ -45,8 +43,7 @@ object ParallelMessageDispatcherFactory
       metrics: ConnectedSynchronizerMetrics,
   )(implicit ec: ExecutionContext, tracer: Tracer): ParallelMessageDispatcher =
     new ParallelMessageDispatcher(
-      protocolVersion,
-      synchronizerId,
+      psid,
       participantId,
       requestTracker,
       requestProcessors,

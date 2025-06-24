@@ -20,6 +20,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 final case class UnassignmentData(
     reassignmentId: ReassignmentId,
     unassignmentRequest: FullUnassignmentTree,
+    unassignmentTs: CantonTimestamp,
 ) {
   def contracts: ContractsReassignmentBatch = unassignmentRequest.contracts
 
@@ -28,8 +29,6 @@ final case class UnassignmentData(
   def sourceSynchronizer: Source[PhysicalSynchronizerId] = Source(
     unassignmentRequest.synchronizerId
   )
-
-  def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
 
   def sourceMediator: MediatorGroupRecipient = unassignmentRequest.mediator
 }

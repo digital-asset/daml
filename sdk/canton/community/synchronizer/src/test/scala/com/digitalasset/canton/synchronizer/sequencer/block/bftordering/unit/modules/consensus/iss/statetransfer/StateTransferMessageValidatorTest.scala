@@ -154,7 +154,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
     val prePrepare = PrePrepare.create(
       blockMetadata,
       ViewNumber.First,
-      OrderingBlock(Seq.empty),
+      OrderingBlock.empty,
       CanonicalCommitSet.empty,
       otherId,
     )(testedProtocolVersion)

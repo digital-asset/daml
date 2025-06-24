@@ -14,8 +14,8 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnl
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.mediator.admin.v30.VerdictsResponse
+import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.InformeeMessage
-import com.digitalasset.canton.protocol.{GeneratorsProtocol, RequestId}
 import com.digitalasset.canton.synchronizer.mediator.MediatorVerdict.MediatorApprove
 import com.digitalasset.canton.synchronizer.mediator.service.GrpcMediatorScanService
 import com.digitalasset.canton.synchronizer.mediator.store.InMemoryFinalizedResponseStore
@@ -24,6 +24,7 @@ import com.digitalasset.canton.time.TimeAwaiter
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
+import com.digitalasset.canton.version.AllGenerators
 import io.grpc.stub.ServerCallStreamObserver
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -32,12 +33,11 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 
 class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
+  private lazy val generators = new AllGenerators(testedProtocolVersion)
 
   // use our generators to generate a random full informee tree
-  private val fullInformeeTree = new GeneratorsData(
-    testedProtocolVersion,
-    new GeneratorsProtocol(testedProtocolVersion),
-  ).fullInformeeTreeArb.arbitrary.sample.value
+  private val fullInformeeTree =
+    generators.data.fullInformeeTreeArb.arbitrary.sample.value
 
   private val informeeMessage: InformeeMessage =
     InformeeMessage(

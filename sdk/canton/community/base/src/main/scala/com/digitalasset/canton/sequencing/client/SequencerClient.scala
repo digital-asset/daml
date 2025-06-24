@@ -86,7 +86,6 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
@@ -180,8 +179,6 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
-
-  def protocolVersion: ProtocolVersion
 }
 
 trait RichSequencerClient extends SequencerClient {
@@ -206,13 +203,12 @@ trait RichSequencerClient extends SequencerClient {
 }
 
 abstract class SequencerClientImpl(
-    val synchronizerId: PhysicalSynchronizerId,
+    val psid: PhysicalSynchronizerId,
     val member: Member,
     sequencerTransports: SequencerTransports[?],
     connectionPool: SequencerConnectionXPool,
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
-    val protocolVersion: ProtocolVersion,
     synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
       SequencerSynchronizerParameters
     ],
@@ -238,7 +234,7 @@ abstract class SequencerClientImpl(
   import SequencerClientImpl.LinkDetails
 
   noTracingLogger.debug(
-    s"[$member] Using connection pool: ${config.useNewConnectionPool} for synchronizer $synchronizerId"
+    s"[$member] Using connection pool: ${config.useNewConnectionPool} for synchronizer $psid"
   )
 
   override def logout()(implicit
@@ -273,7 +269,6 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    // TODO(#12950): Validate that group addresses map to at least one member
     sendAsyncInternal(
       batch,
       topologyTimestamp,
@@ -297,7 +292,7 @@ abstract class SequencerClientImpl(
       serializedRequestSize <= maxRequestSize.unwrap,
       (),
       SendAsyncClientError.RequestInvalid(
-        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for synchronizer $synchronizerId"
+        s"Batch size ($serializedRequestSize bytes) is exceeding maximum size ($maxRequestSize bytes) for synchronizer $psid"
       ),
     )
   }
@@ -315,7 +310,7 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
     implicit val metricsContextImplicit =
-      metricsContext.withExtraLabels("synchronizer" -> synchronizerId.toString)
+      metricsContext.withExtraLabels("synchronizer" -> psid.toString)
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
       def mkRequestE(
           cost: Option[SequencingSubmissionCost]
@@ -382,7 +377,7 @@ abstract class SequencerClientImpl(
               Deliver.create(
                 previousTimestamp = None,
                 CantonTimestamp.now(),
-                synchronizerId,
+                psid,
                 messageIdO = None,
                 Batch(List.empty, protocolVersion),
                 topologyTimestampO = None,
@@ -863,24 +858,40 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
     val triedSequencersRef = new AtomicReference[Set[SequencerId]](Set.empty)
 
-    def downloadSnapshot
-        : EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+    def downloadSnapshot(
+        request: TopologyStateForInitRequest
+    ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
       val triedSequencers = triedSequencersRef.get
 
       // We ignore the amplification part
-      val (_, sequencerId, transport, _) =
-        sequencersTransportState.nextAmplifiedTransport(triedSequencers.toSeq)
-      triedSequencersRef.updateAndGet(_ + sequencerId).discard
+      val (linkDetailsO, _) = getNextLink(triedSequencers.toSeq)
 
-      logger.debug(
-        s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
-      )
-      transport
-        .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
-        .map(_.topologyTransactions.value)
-        .mapK(FutureUnlessShutdown.outcomeK)
+      val resultET = linkDetailsO match {
+        case Some(LinkDetails(_, sequencerId, transportOrPoolConnection)) =>
+          triedSequencersRef.updateAndGet(_ + sequencerId).discard
+          logger.debug(
+            s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
+          )
+          transportOrPoolConnection match {
+            case Right(connection) =>
+              connection.downloadTopologyStateForInit(request, timeouts.network.duration)
+
+            case Left(transport) =>
+              transport
+                .downloadTopologyStateForInit(request)
+                .mapK(FutureUnlessShutdown.outcomeK)
+          }
+
+        case None =>
+          EitherT.leftT[FutureUnlessShutdown, TopologyStateForInitResponse](
+            "No connection available to download topology state for init"
+          )
+      }
+
+      resultET.map(_.topologyTransactions.value)
     }
 
+    val request = TopologyStateForInitRequest(member, protocolVersion)
     val resultFUS = retry
       .Pause(
         logger = logger,
@@ -890,7 +901,7 @@ abstract class SequencerClientImpl(
         operationName = "Download topology state for init",
         retryLogLevel = retryLogLevel,
       )
-      .unlessShutdown(downloadSnapshot.value, NoExceptionRetryPolicy)
+      .unlessShutdown(downloadSnapshot(request).value, NoExceptionRetryPolicy)
 
     EitherT(resultFUS)
   }
@@ -919,13 +930,12 @@ object SequencerClientImpl {
   * throughout the participant node.
   */
 class RichSequencerClientImpl(
-    synchronizerId: PhysicalSynchronizerId,
+    override val psid: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[?],
     connectionPool: SequencerConnectionXPool,
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
-    protocolVersion: ProtocolVersion,
     synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
       SequencerSynchronizerParameters
     ],
@@ -946,13 +956,12 @@ class RichSequencerClientImpl(
     futureSupervisor: FutureSupervisor,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClientImpl(
-      synchronizerId,
+      psid,
       member,
       sequencerTransports,
       connectionPool,
       config,
       testingConfig,
-      protocolVersion,
       synchronizerParametersLookup,
       timeouts,
       clock,
@@ -1100,7 +1109,7 @@ class RichSequencerClientImpl(
           loggerFactory,
         )
         val eventHandler = monotonicityChecker.handler(
-          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory).apply(
+          StoreSequencedEvent(sequencedEventStore, psid, loggerFactory).apply(
             timeTracker.wrapHandler(throttledEventHandler)
           )
         )
@@ -1121,10 +1130,10 @@ class RichSequencerClientImpl(
         periodicAcknowledgementsRef.set(
           PeriodicAcknowledgements
             .create(
-              config.acknowledgementInterval.underlying,
+              interval = config.acknowledgementInterval.underlying,
               isHealthy = deferredSubscriptionHealth.getState.isAlive,
-              RichSequencerClientImpl.this,
-              fetchCleanTimestamp,
+              client = RichSequencerClientImpl.this,
+              fetchCleanTimestamp = fetchCleanTimestamp,
               clock,
               timeouts,
               loggerFactory,
@@ -1161,14 +1170,14 @@ class RichSequencerClientImpl(
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
         elem.memberName == member.identifier.unwrap &&
-          elem.synchronizerName == synchronizerId.logical.identifier.unwrap
+          elem.synchronizerName == psid.logical.identifier.unwrap
       )
 
       first match {
         case Some(value) =>
           DelayedSequencerClient.registerAndCreate(
             value.environmentId,
-            synchronizerId,
+            psid,
             member.uid.toString,
           )
         case None => NoDelay
@@ -1629,13 +1638,12 @@ class RichSequencerClientImpl(
 }
 
 class SequencerClientImplPekko[E: Pretty](
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[E],
     connectionPool: SequencerConnectionXPool,
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
-    protocolVersion: ProtocolVersion,
     synchronizerParametersLookup: DynamicSynchronizerParametersLookup[
       SequencerSynchronizerParameters
     ],
@@ -1656,13 +1664,12 @@ class SequencerClientImplPekko[E: Pretty](
     futureSupervisor: FutureSupervisor,
 )(implicit executionContext: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends SequencerClientImpl(
-      synchronizerId,
+      psid,
       member,
       sequencerTransports,
       connectionPool,
       config,
       testingConfig,
-      protocolVersion,
       synchronizerParametersLookup,
       timeouts,
       clock,
@@ -1772,7 +1779,7 @@ class SequencerClientImplPekko[E: Pretty](
         logger.debug(subscriptionStartLogMessage)
 
         val aggregator = new SequencerAggregatorPekko(
-          synchronizerId,
+          psid,
           eventValidatorFactory.create(_),
           bufferSize = PositiveInt.one,
           syncCryptoClient.pureCrypto,
@@ -1826,7 +1833,7 @@ class SequencerClientImplPekko[E: Pretty](
           loggerFactory,
         )
         val storeSequencedEvent =
-          StoreSequencedEvent(sequencedEventStore, synchronizerId, loggerFactory)
+          StoreSequencedEvent(sequencedEventStore, psid, loggerFactory)
 
         val aggregatorFlow = aggregator.aggregateFlow(initialTimestampOrPriorEvent)
         val subscriptionSource = configSource

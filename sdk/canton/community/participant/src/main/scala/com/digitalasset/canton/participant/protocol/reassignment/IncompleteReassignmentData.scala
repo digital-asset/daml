@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.syntax.either.*
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
+import com.digitalasset.canton.data.{FullUnassignmentTree, Offset}
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.protocol.*
@@ -61,7 +61,7 @@ object IncompleteReassignmentData {
 
   private def create(
       sourceSynchronizer: Source[SynchronizerId],
-      unassignmentTs: CantonTimestamp,
+      unassignId: UnassignId,
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
@@ -75,7 +75,7 @@ object IncompleteReassignmentData {
 
     reassignmentEventGlobalOffsetE.map { reassignmentEventGlobalOffset =>
       IncompleteReassignmentData(
-        ReassignmentId(sourceSynchronizer, unassignmentTs),
+        ReassignmentId(sourceSynchronizer, unassignId),
         unassignmentRequest.map(_.reassigningParticipants),
         reassignmentEventGlobalOffset,
         queryOffset,
@@ -85,14 +85,14 @@ object IncompleteReassignmentData {
 
   def tryCreate(
       sourceSynchronizer: Source[SynchronizerId],
-      unassignmentTs: CantonTimestamp,
+      unassignId: UnassignId,
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
   ): IncompleteReassignmentData =
     create(
       sourceSynchronizer,
-      unassignmentTs,
+      unassignId,
       unassignmentRequest,
       reassignmentGlobalOffset,
       queryOffset,

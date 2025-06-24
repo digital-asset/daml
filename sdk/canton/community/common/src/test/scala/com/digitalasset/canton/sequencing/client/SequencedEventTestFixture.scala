@@ -59,15 +59,9 @@ class SequencedEventTestFixture(
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
   lazy val subscriberCryptoApi: SynchronizerCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
-      subscriberId,
-      defaultSynchronizerId.logical,
-    )
+    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(subscriberId)
   private lazy val sequencerCryptoApi: SynchronizerCryptoClient =
-    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
-      sequencerAlice,
-      defaultSynchronizerId.logical,
-    )
+    TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(sequencerAlice)
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
     UniqueIdentifier.tryCreate("da2", namespace)

@@ -185,7 +185,9 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 
 }
 
-/** @param signingAlgorithmSpec
+/** @param signedBy
+  *   The fingerprint of the key that was used to generate the signature.
+  * @param signingAlgorithmSpec
   *   The signing algorithm scheme used to generate this signature. It is optional to ensure
   *   backwards compatibility.
   * @param signatureDelegation
@@ -196,13 +198,19 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
 final case class Signature private (
     format: SignatureFormat,
     private val signature: ByteString,
-    signedBy: Fingerprint,
+    private[crypto] val signedBy: Fingerprint,
     signingAlgorithmSpec: Option[SigningAlgorithmSpec],
     signatureDelegation: Option[SignatureDelegation],
 ) extends HasVersionedWrapper[Signature]
     with PrettyPrinting {
 
   override protected def companionObj: Signature.type = Signature
+
+  /** The long-term key used to authorize the signature. If a signature delegation is present, this
+    * key's fingerprint is stored inside `signatureDelegation.delegatingKeyId`.
+    */
+  def authorizingLongTermKey: Fingerprint =
+    signatureDelegation.map(_.delegatingKeyId).getOrElse(signedBy)
 
   def toProtoV30: v30.Signature =
     // The signature delegation protobuf does not contain a `signedBy` field. Because of this, if a signature
@@ -215,7 +223,7 @@ final case class Signature private (
       signature = signature,
       // In case of a signature delegation store the delegating key id as we do not ship the id as part of
       // the signature delegation message for message size reasons.
-      signedBy = signatureDelegation.map(_.delegatingKeyId).getOrElse(signedBy).toProtoPrimitive,
+      signedBy = authorizingLongTermKey.toProtoPrimitive,
       signingAlgorithmSpec = SigningAlgorithmSpec.toProtoEnumOption(signingAlgorithmSpec),
       signatureDelegation = signatureDelegation.map(_.toProtoV30),
     )
@@ -266,7 +274,13 @@ final case class Signature private (
   })
 
   override protected def pretty: Pretty[Signature] =
-    prettyOfClass(param("signature", _.signature), param("signedBy", _.signedBy))
+    prettyOfClass(
+      param("signature", _.signature),
+      param("format", _.format),
+      param("signedBy", _.signedBy),
+      param("signingAlgorithmSpec", _.signingAlgorithmSpec),
+      param("signatureDelegation", _.signatureDelegation, _.signatureDelegation.isDefined),
+    )
 
   /** Access to the raw signature, must NOT be used for serialization */
   private[crypto] def unwrap: ByteString = signature
@@ -410,7 +424,8 @@ final case class SignatureDelegation private[crypto] (
     validityPeriod: SignatureDelegationValidityPeriod,
     signature: Signature,
 ) extends Product
-    with Serializable {
+    with Serializable
+    with PrettyPrinting {
 
   // All session signing keys must be an ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure and be
   // set to be used for protocol messages
@@ -420,8 +435,10 @@ final case class SignatureDelegation private[crypto] (
       signature.signatureDelegation.isEmpty // we don't support recursive delegations
   )
 
-  /** Returns the key id of the long-term key that authorized the delegation */
-  def delegatingKeyId: Fingerprint = signature.signedBy
+  /** Returns the key ID of the long-term key that authorized the delegation. Since nested signature
+    * delegations are not supported, `authorizingLongTermKey` == `signedBy`.
+    */
+  def delegatingKeyId: Fingerprint = signature.authorizingLongTermKey
 
   def isValidAt(timestamp: CantonTimestamp): Boolean =
     validityPeriod.covers(timestamp)
@@ -437,6 +454,13 @@ final case class SignatureDelegation private[crypto] (
       // already included in the v30.SignatureDelegation message (e.g. format).
       signature = signature.toProtoV30.signature,
       signingAlgorithmSpec = SigningAlgorithmSpec.toProtoEnumOption(signature.signingAlgorithmSpec),
+    )
+
+  override protected def pretty: Pretty[SignatureDelegation] =
+    prettyOfClass(
+      param("sessionKey", _.sessionKey),
+      param("validityPeriod", _.validityPeriod),
+      param("signature", _.signature),
     )
 }
 

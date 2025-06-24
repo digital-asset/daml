@@ -1311,7 +1311,7 @@ object OutputModuleTest {
     private def createFuture[A](a: A): E#FutureUnlessShutdownT[A] = () => a
   }
 
-  private val aTag = "tag"
+  private val aTag = BlockFormat.SendTag
   private val aTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
   private val anotherTimestamp =

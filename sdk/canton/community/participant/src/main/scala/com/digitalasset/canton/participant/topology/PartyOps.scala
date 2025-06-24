@@ -24,20 +24,18 @@ import com.digitalasset.canton.topology.transaction.{
   TopologyChangeOp,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class PartyOps(
-    topologyManagerLookup: SynchronizerId => Option[SynchronizerTopologyManager],
+    topologyManagerLookup: PhysicalSynchronizerId => Option[SynchronizerTopologyManager],
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
   def allocateParty(
       partyId: PartyId,
       participantId: ParticipantId,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -132,7 +130,7 @@ class PartyOps(
             updatedPTP,
             serial = nextSerial,
             signingKeys = Seq.empty,
-            protocolVersion,
+            synchronizerId.protocolVersion,
             expectFullAuthorization = true,
             waitToBecomeEffective = None,
           )

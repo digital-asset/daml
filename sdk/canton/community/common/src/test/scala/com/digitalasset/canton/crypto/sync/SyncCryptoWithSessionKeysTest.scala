@@ -81,7 +81,9 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
     topologySnapshot
       .signingKeys(p.member, defaultUsage)
       .futureValueUS
-      .map(_.id) should contain(sessionKeyAndDelegation.signatureDelegation.signature.signedBy)
+      .map(_.id) should contain(
+      sessionKeyAndDelegation.signatureDelegation.signature.authorizingLongTermKey
+    )
 
     val sessionKeyId = sessionKeyAndDelegation.signatureDelegation.sessionKey.id
     val validityPeriod = sessionKeyAndDelegation.signatureDelegation.validityPeriod
@@ -334,7 +336,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
         .signatureDelegation
         .valueOrFail("no signature delegation")
 
-      signatureDelegationNew should not equal (signatureDelegation1)
+      signatureDelegationNew should not equal signatureDelegation1
 
     }
 

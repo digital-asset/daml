@@ -158,7 +158,7 @@ private[update] class TrafficControlValidator(
         // sent submissions to multiple sequencers at once, therefore temporarily bypassing its limit.
         case error: SequencerRateLimitError.AboveTrafficLimit =>
           logger.debug(
-            s"Sender does not have enough traffic at $sequencingTimestamp for event with cost ${error.trafficCost} processed by sequencer ${orderingRequest.signature.signedBy}"
+            s"Sender does not have enough traffic at $sequencingTimestamp for event with cost ${error.trafficCost} processed by sequencer ${orderingRequest.signature.authorizingLongTermKey}"
           )
           SubmissionOutcome.Reject
             .logAndCreate(

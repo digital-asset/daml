@@ -883,7 +883,7 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            TopologyStoreId.Synchronizer(synchronizerId.logical),
+            synchronizerId,
             ForceFlag.AlienMember,
           )
         }
@@ -939,7 +939,7 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            TopologyStoreId.Synchronizer(synchronizerId.logical),
+            synchronizerId,
             ForceFlag.AlienMember,
           )
         }

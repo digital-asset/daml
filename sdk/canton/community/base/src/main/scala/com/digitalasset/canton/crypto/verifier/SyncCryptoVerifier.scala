@@ -172,14 +172,14 @@ class SyncCryptoVerifier(
         validKeys.nonEmpty,
         (),
         SignerHasNoValidKeys(
-          s"There are no valid keys for $signerStr but received message signed with ${signature.signedBy}"
+          s"There are no valid keys for $signerStr but received message signed with ${signature.authorizingLongTermKey}"
         ),
       )
       keyToUse <- validKeys
-        .get(signature.signedBy)
+        .get(signature.authorizingLongTermKey)
         .toRight(
           SignatureWithWrongKey(
-            s"Key ${signature.signedBy} used to generate signature is not a valid key for $signerStr. " +
+            s"Key ${signature.authorizingLongTermKey} used to generate signature is not a valid key for $signerStr. " +
               s"Valid keys are ${validKeys.values.map(_.fingerprint.unwrap)}"
           )
         )
@@ -276,6 +276,7 @@ class SyncCryptoVerifier(
       validKeys <- validKeysO.fold(
         getValidKeys(topologySnapshot, signers, usage)
       )(validKeys => EitherT.rightT[FutureUnlessShutdown, SignatureCheckError](validKeys))
+
       // delegation is in the cache, and it's valid, so we can use it to directly verify the signature
       _ <-
         if (
@@ -415,13 +416,7 @@ class SyncCryptoVerifier(
               usage,
             ).fold(
               _.invalid,
-              _ => {
-                signature.signatureDelegation match {
-                  case Some(signatureDelegation) =>
-                    keyMember(signatureDelegation.signature.signedBy).valid[SignatureCheckError]
-                  case None => keyMember(signature.signedBy).valid[SignatureCheckError]
-                }
-              },
+              _ => keyMember(signature.authorizingLongTermKey).valid[SignatureCheckError],
             )
         }
       )

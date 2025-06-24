@@ -44,7 +44,7 @@ trait MediatorSynchronizerConfigurationStoreTest {
         None,
       )
       val originalConfig = MediatorSynchronizerConfiguration(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         defaultStaticSynchronizerParameters,
         SequencerConnections.single(connection),
       )
@@ -75,14 +75,14 @@ trait MediatorSynchronizerConfigurationStoreTest {
         sequencerId,
       )
       val originalConfig = MediatorSynchronizerConfiguration(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         defaultParams,
         SequencerConnections.single(connection()),
       )
 
       val updatedConfig =
         MediatorSynchronizerConfiguration(
-          DefaultTestIdentities.synchronizerId,
+          DefaultTestIdentities.physicalSynchronizerId,
           BaseTest.defaultStaticSynchronizerParameters,
           SequencerConnections.single(connection(Some(DefaultTestIdentities.sequencerId))),
         )

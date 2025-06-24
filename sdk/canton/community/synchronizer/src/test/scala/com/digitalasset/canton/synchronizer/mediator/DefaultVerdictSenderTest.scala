@@ -187,7 +187,6 @@ class DefaultVerdictSenderTest
     val rootHashMessage = RootHashMessage(
       fullInformeeTree.transactionId.toRootHash,
       synchronizerId,
-      testedProtocolVersion,
       ViewType.TransactionViewType,
       testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,
@@ -211,7 +210,7 @@ class DefaultVerdictSenderTest
     val synchronizerSyncCryptoApi: SynchronizerCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v34) {
         val topology = TestingTopology.from(
-          Set(synchronizerId.logical),
+          Set(synchronizerId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -228,10 +227,10 @@ class DefaultVerdictSenderTest
           dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
-        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId.logical)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       } else {
         val topology = TestingTopology.from(
-          Set(synchronizerId.logical),
+          Set(synchronizerId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -255,7 +254,7 @@ class DefaultVerdictSenderTest
           dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
-        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId.logical)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
       }
 
     private val sequencerClientSend: TestSequencerClientSend = new TestSequencerClientSend
@@ -269,7 +268,6 @@ class DefaultVerdictSenderTest
       sequencerClientSend,
       synchronizerSyncCryptoApi,
       mediatorId,
-      testedProtocolVersion,
       loggerFactory,
     )
 

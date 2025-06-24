@@ -4,7 +4,6 @@
 package com.digitalasset.canton.config
 
 trait ProtocolConfig {
-  def sessionSigningKeys: SessionSigningKeysConfig
   def alphaVersionSupport: Boolean
   def betaVersionSupport: Boolean
   def dontWarnOnDeprecatedPV: Boolean

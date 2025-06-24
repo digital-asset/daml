@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.IndexedSynchronizer
+import com.digitalasset.canton.store.IndexedPhysicalSynchronizer
 import com.digitalasset.canton.store.db.DbBulkUpdateProcessor
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext
 import scala.util.{Success, Try}
 
 class DbRequestJournalStore(
-    indexedSynchronizer: IndexedSynchronizer,
+    physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     override protected val storage: DbStorage,
     insertBatchAggregatorConfig: BatchAggregatorConfig,
     replaceBatchAggregatorConfig: BatchAggregatorConfig,
@@ -88,7 +88,7 @@ class DbRequestJournalStore(
       ): DBIOAction[Array[Int], NoStream, Effect.All] = {
         def setData(pp: PositionedParameters)(item: RequestData): Unit = {
           val RequestData(rc, state, requestTimestamp, commitTime) = item
-          pp >> indexedSynchronizer
+          pp >> physicalSynchronizerIdx
           pp >> rc
           pp >> state
           pp >> requestTimestamp
@@ -96,7 +96,7 @@ class DbRequestJournalStore(
         }
 
         val query =
-          """insert into par_journal_requests(synchronizer_idx, request_counter, request_state_index, request_timestamp, commit_time)
+          """insert into par_journal_requests(physical_synchronizer_idx, request_counter, request_state_index, request_timestamp, commit_time)
              values (?, ?, ?, ?, ?)
              on conflict do nothing"""
         DbStorage.bulkOperation(query, items.map(_.value).toList, storage.profile)(setData)
@@ -145,7 +145,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, RequestData] = {
     val query =
       sql"""select request_counter, request_state_index, request_timestamp, commit_time
-              from par_journal_requests where request_counter = $rc and synchronizer_idx = $indexedSynchronizer"""
+              from par_journal_requests where request_counter = $rc and physical_synchronizer_idx = $physicalSynchronizerIdx"""
         .as[RequestData]
     OptionT(storage.query(query.headOption, functionFullName))
   }
@@ -156,7 +156,7 @@ class DbRequestJournalStore(
     import DbStorage.Implicits.BuilderChain.*
     val query =
       sql"""select request_counter, request_state_index, request_timestamp, commit_time
-              from par_journal_requests where synchronizer_idx = $indexedSynchronizer and """ ++ DbStorage
+              from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx and """ ++ DbStorage
         .toInClause(
           "request_counter",
           rcs,
@@ -178,7 +178,7 @@ class DbRequestJournalStore(
                   with committed_after(request_counter) as (
                     select request_counter
                     from par_journal_requests
-                    where synchronizer_idx = $indexedSynchronizer and commit_time > $commitTimeExclusive)
+                    where physical_synchronizer_idx = $physicalSynchronizerIdx and commit_time > $commitTimeExclusive)
                   select min(request_counter) from committed_after;
               """.as[Option[RequestCounter]].headOption.map(_.flatten),
             functionFullName + ".committed_after",
@@ -190,7 +190,7 @@ class DbRequestJournalStore(
               sql"""
                     select request_counter, request_state_index, request_timestamp, commit_time
                     from par_journal_requests
-                    where synchronizer_idx = $indexedSynchronizer and request_counter = $rc
+                    where physical_synchronizer_idx = $physicalSynchronizerIdx and request_counter = $rc
                 """.as[RequestData].headOption,
               functionFullName,
             )
@@ -200,7 +200,7 @@ class DbRequestJournalStore(
         storage.query(
           sql"""
                 select request_counter, request_state_index, request_timestamp, commit_time
-                from par_journal_requests where synchronizer_idx = $indexedSynchronizer and commit_time > $commitTimeExclusive
+                from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx and commit_time > $commitTimeExclusive
                 order by request_counter #${storage.limit(1)}
             """.as[RequestData].headOption,
           functionFullName,
@@ -250,15 +250,15 @@ class DbRequestJournalStore(
           batchTraceContext: TraceContext
       ): DBIOAction[Array[Int], NoStream, Effect.All] = {
         val updateQuery =
-          """update /*+ INDEX (journal_requests (request_counter, synchronizer_idx)) */ par_journal_requests
+          """update /*+ INDEX (journal_requests (request_counter, physical_synchronizer_idx)) */ par_journal_requests
              set request_state_index = ?, commit_time = coalesce (?, commit_time)
-             where synchronizer_idx = ? and request_counter = ? and request_timestamp = ?"""
+             where physical_synchronizer_idx = ? and request_counter = ? and request_timestamp = ?"""
         DbStorage.bulkOperation(updateQuery, items.map(_.value).toList, storage.profile) {
           pp => item =>
             val ReplaceRequest(rc, requestTimestamp, newState, commitTime) = item
             pp >> newState
             pp >> commitTime
-            pp >> indexedSynchronizer
+            pp >> physicalSynchronizerIdx
             pp >> rc
             pp >> requestTimestamp
         }
@@ -316,7 +316,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
       sqlu"""
-        delete from par_journal_requests where request_timestamp <= $beforeInclusive and synchronizer_idx = $indexedSynchronizer
+        delete from par_journal_requests where request_timestamp <= $beforeInclusive and physical_synchronizer_idx = $physicalSynchronizerIdx
       """,
       functionFullName,
     )
@@ -324,7 +324,7 @@ class DbRequestJournalStore(
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
       sqlu"""
-        delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer
+        delete from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx
       """,
       functionFullName,
     )
@@ -339,7 +339,7 @@ class DbRequestJournalStore(
           val endFilter = end.fold(sql"")(ts => sql" and request_timestamp <= $ts")
           (sql"""
              select 1
-             from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_timestamp >= $start
+             from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx and request_timestamp >= $start
             """ ++ endFilter).as[Int]
         },
         functionFullName,
@@ -351,7 +351,7 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val statement =
       sqlu"""
-        delete from par_journal_requests where synchronizer_idx = $indexedSynchronizer and request_timestamp >= $fromInclusive
+        delete from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx and request_timestamp >= $fromInclusive
         """
     storage.update_(statement, functionFullName)
   }
@@ -362,7 +362,7 @@ class DbRequestJournalStore(
     val statement =
       sql"""
         select count(*)
-        from par_journal_requests where synchronizer_idx = $indexedSynchronizer and commit_time is null
+        from par_journal_requests where physical_synchronizer_idx = $physicalSynchronizerIdx and commit_time is null
         """.as[Int].head
     storage.query(statement, functionFullName).map(NonNegativeInt.tryCreate)
   }
@@ -374,8 +374,8 @@ class DbRequestJournalStore(
       sql"""
         select request_timestamp, request_counter
         from par_journal_requests
-        where synchronizer_idx = $indexedSynchronizer and request_timestamp <= $requestTimestamp
-        order by (synchronizer_idx, request_timestamp) desc
+        where physical_synchronizer_idx = $physicalSynchronizerIdx and request_timestamp <= $requestTimestamp
+        order by (physical_synchronizer_idx, request_timestamp) desc
         #${storage.limit(1)}
         """.as[TimeOfRequest].headOption,
       functionFullName,

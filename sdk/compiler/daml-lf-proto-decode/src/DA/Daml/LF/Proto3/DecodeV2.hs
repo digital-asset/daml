@@ -609,12 +609,6 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
   LF2.UpdateSumSoftExercise LF2.Update_SoftExercise{} ->
     throwError (ParseError "Update.Sum.soft_exercise is no longer supported")
-  LF2.UpdateSumDynamicExercise LF2.Update_DynamicExercise{..} ->
-    fmap EUpdate $ UDynamicExercise
-      <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConId
-      <*> decodeNameId ChoiceName update_DynamicExerciseChoiceInternedStr
-      <*> mayDecode "update_DynamicExerciseCid" update_DynamicExerciseCid decodeExpr
-      <*> mayDecode "update_DynamicExerciseArg" update_DynamicExerciseArg decodeExpr
   LF2.UpdateSumExerciseInterface LF2.Update_ExerciseInterface{..} ->
     fmap EUpdate $ UExerciseInterface
       <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConId

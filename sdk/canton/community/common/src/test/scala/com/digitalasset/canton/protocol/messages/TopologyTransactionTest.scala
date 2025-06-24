@@ -32,7 +32,7 @@ class TopologyTransactionTest
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
   private val sequencerId = DefaultTestIdentities.daSequencerId
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
   private val crypto =
     TestingTopology(sequencerGroup =
       SequencerGroup(

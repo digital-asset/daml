@@ -1019,21 +1019,6 @@ message Update {
     Expr arg = 4;
   }
 
-  // Dynamic Exercise Update
-  message DynamicExercise {
-    // Template type
-    TypeConId template = 1;
-
-    // name of the exercised template choice
-    // *Must be a valid interned identifier*
-    int32 choice_interned_str = 2;
-
-    // contract id
-    Expr cid = 3;
-    // argument
-    Expr arg = 4;
-  }
-
   // Interface Exercise Update
   message ExerciseInterface {
     // Interface type
@@ -1134,7 +1119,6 @@ message Update {
 
     Expr ledger_time_lt = 15;
 
-    DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
     SoftExercise soft_exercise = 1003; // *Available in versions >= 2.dev*
   }

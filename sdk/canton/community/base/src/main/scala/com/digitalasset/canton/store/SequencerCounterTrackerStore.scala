@@ -57,12 +57,17 @@ trait SequencerCounterTrackerStore extends FlagCloseable {
 object SequencerCounterTrackerStore {
   def apply(
       storage: Storage,
-      indexedSynchronizer: IndexedSynchronizer,
+      physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): SequencerCounterTrackerStore = storage match {
     case _: MemoryStorage => new InMemorySequencerCounterTrackerStore(loggerFactory, timeouts)
     case dbStorage: DbStorage =>
-      new DbSequencerCounterTrackerStore(indexedSynchronizer, dbStorage, timeouts, loggerFactory)
+      new DbSequencerCounterTrackerStore(
+        physicalSynchronizerIdx,
+        dbStorage,
+        timeouts,
+        loggerFactory,
+      )
   }
 }

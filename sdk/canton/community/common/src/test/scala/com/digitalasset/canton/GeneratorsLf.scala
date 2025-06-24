@@ -15,14 +15,14 @@ import com.digitalasset.canton.protocol.{
   LfTemplateId,
   Unicum,
 }
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.{GeneratorsTopology, PartyId}
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.scalacheck.{Arbitrary, Gen}
 
-object GeneratorsLf {
+final class GeneratorsLf(generatorsTopology: GeneratorsTopology) {
   import com.digitalasset.canton.data.GeneratorsDataTime.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
 
   implicit val lfPartyIdArb: Arbitrary[LfPartyId] = Arbitrary(
     Arbitrary.arbitrary[PartyId].map(_.toLf)

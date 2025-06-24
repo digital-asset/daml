@@ -17,8 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.PositiveSignedTopologyTransactions
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPartyId}
 
 private[protocol] object TopologyTransactionDiff {
@@ -37,11 +36,10 @@ private[protocol] object TopologyTransactionDiff {
     *   participant
     */
   private[protocol] def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       oldRelevantState: PositiveSignedTopologyTransactions,
       currentRelevantState: PositiveSignedTopologyTransactions,
       localParticipantId: ParticipantId,
-      protocolVersion: ProtocolVersion,
   ): Option[TopologyTransactionDiff] = {
 
     val before = partyToParticipant(oldRelevantState)
@@ -81,7 +79,7 @@ private[protocol] object TopologyTransactionDiff {
       .map(
         TopologyTransactionDiff(
           _,
-          updateId(synchronizerId, protocolVersion, oldRelevantState, currentRelevantState),
+          updateId(synchronizerId, oldRelevantState, currentRelevantState),
           requiresLocalParticipantPartyReplication =
             locallyAddedPartiesExistingOnOtherParticipants(added).nonEmpty,
         )
@@ -89,8 +87,7 @@ private[protocol] object TopologyTransactionDiff {
   }
 
   private[protocol] def updateId(
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
       oldRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       currentRelevantState: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
   ): LedgerTransactionId = {
@@ -100,7 +97,7 @@ private[protocol] object TopologyTransactionDiff {
         stateTransactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
     ): Unit =
       stateTransactions
-        .map(_.hashOfSignatures(protocolVersion).toHexString)
+        .map(_.hashOfSignatures(synchronizerId.protocolVersion).toHexString)
         .sorted // for not relying on retrieval order
         .foreach(builder.add)
 

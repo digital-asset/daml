@@ -4,18 +4,14 @@
 package com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.{CantonTimestamp, Counter, PeanoTreeQueue}
+import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.BatchTag
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.{
-  BlockCounter,
-  CounterDiscriminator,
-  TimestampedBlock,
-}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -25,10 +21,6 @@ import scala.concurrent.{ExecutionContext, blocking}
 trait ReferenceBlockOrderingStore extends AutoCloseable {
 
   def insertRequest(request: BlockFormat.OrderedRequest)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
-
-  def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
 
@@ -68,8 +60,6 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
   import java.util.concurrent.ConcurrentLinkedDeque
 
   private val deque = new ConcurrentLinkedDeque[Traced[BlockFormat.OrderedRequest]]()
-  private val peanoQueue =
-    new PeanoTreeQueue[CounterDiscriminator, BlockFormat.OrderedRequest](BlockCounter(0L))
 
   override def insertRequest(
       request: BlockFormat.OrderedRequest
@@ -84,26 +74,6 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
     blocking(deque.synchronized {
       deque.add(Traced(request)).discard
     })
-
-  def insertRequestWithHeight(blockHeight: Long, request: BlockFormat.OrderedRequest)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] = {
-
-    if (!peanoQueue.alreadyInserted(BlockCounter(blockHeight)))
-      peanoQueue.insert(BlockCounter(blockHeight), request): Unit
-
-    val blocks = LazyList
-      .continually(peanoQueue.poll())
-      .takeWhile(_.isDefined)
-      .collect { case Some((_, block)) =>
-        block
-      }
-      .toList
-
-    blocks.foreach(insertRequestInternal)
-
-    FutureUnlessShutdown.unit
-  }
 
   override def maxBlockHeight()(implicit
       traceContext: TraceContext

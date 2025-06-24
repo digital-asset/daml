@@ -320,6 +320,13 @@ object Value {
       ): Either[String, V2] =
         build(timePrefix(time) ++ discriminator(nodeSeed), suffix)
 
+      private[lf] def assertSuffixed(
+          time: Time.Timestamp,
+          nodeSeed: crypto.Hash,
+          suffix: Bytes,
+      ): V2 =
+        assertRight(suffixed(time, nodeSeed, suffix))
+
       def fromBytes(bytes: Bytes): Either[String, V2] =
         if (bytes.startsWith(prefix) && bytes.length >= suffixStart) {
           val local = bytes.slice(prefix.length, suffixStart)

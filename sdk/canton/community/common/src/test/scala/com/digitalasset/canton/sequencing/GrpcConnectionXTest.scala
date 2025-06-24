@@ -26,7 +26,7 @@ class GrpcConnectionXTest
     with ConnectionPoolTestHelpers {
 
   "ConnectionX" should {
-    lazy val stubFactory = SequencerConnectionXStubFactoryImpl
+    lazy val stubFactory = new SequencerConnectionXStubFactoryImpl(loggerFactory)
 
     "notify on state changes" in {
       ResourceUtil.withResource(mkConnection()) { connection =>

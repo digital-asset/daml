@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.BatchAggregatorConfig
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.RequestJournalStoreTest
 import com.digitalasset.canton.resource.DbStorage
-import com.digitalasset.canton.store.IndexedSynchronizer
+import com.digitalasset.canton.store.IndexedPhysicalSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,7 +22,9 @@ trait DbRequestJournalStoreTest
     with FailOnShutdown {
   this: DbTest =>
 
-  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+  private val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("da::default")
+  ).toPhysical
 
   override def cleanDb(
       storage: DbStorage
@@ -37,7 +39,7 @@ trait DbRequestJournalStoreTest
   "DbRequestJournalStore" should {
     behave like requestJournalStore(() =>
       new DbRequestJournalStore(
-        IndexedSynchronizer.tryCreate(synchronizerId, 1),
+        IndexedPhysicalSynchronizer.tryCreate(synchronizerId, 1),
         storage,
         BatchAggregatorConfig.defaultsForTesting,
         BatchAggregatorConfig.defaultsForTesting,

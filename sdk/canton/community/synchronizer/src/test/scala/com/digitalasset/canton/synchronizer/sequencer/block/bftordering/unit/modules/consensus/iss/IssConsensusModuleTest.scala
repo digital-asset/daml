@@ -764,7 +764,11 @@ class IssConsensusModuleTest
 
           consensus.receive(
             Consensus.ConsensusMessage
-              .BlockOrdered(expectedOrderedBlock, CommitCertificate(prePrepare.fakeSign, Seq.empty))
+              .BlockOrdered(
+                expectedOrderedBlock,
+                CommitCertificate(prePrepare.fakeSign, Seq.empty),
+                hasCompletedLedSegment = false,
+              )
           )
           outputBuffer should contain theSameElementsInOrderAs Seq[
             Output.Message[FakePipeToSelfCellUnitTestEnv]

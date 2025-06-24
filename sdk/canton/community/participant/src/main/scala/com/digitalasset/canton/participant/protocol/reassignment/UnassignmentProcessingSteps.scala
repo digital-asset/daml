@@ -189,7 +189,6 @@ class UnassignmentProcessingSteps(
           contracts,
           submitterMetadata,
           synchronizerId,
-          protocolVersion,
           mediator,
           targetSynchronizer,
           Source(sourceRecentSnapshot.ipsSnapshot),
@@ -250,7 +249,6 @@ class UnassignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           synchronizerId.unwrap,
-          protocolVersion.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -296,8 +294,8 @@ class UnassignmentProcessingSteps(
       deliver: Deliver[Envelope[_]],
       pendingSubmission: SubmissionResultArgs,
   ): SubmissionResult = {
-    val requestId = RequestId(deliver.timestamp)
-    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), requestId.unwrap)
+    val unassignId = UnassignId(synchronizerId.map(_.logical), deliver.timestamp)
+    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), unassignId)
     SubmissionResult(reassignmentId, pendingSubmission.reassignmentCompletion.future)
   }
 
@@ -339,7 +337,6 @@ class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
-    // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (parsedRequest.fullViewTree.synchronizerId == synchronizerId.unwrap) {
       val contractIdS = parsedRequest.fullViewTree.contracts.contractIds.toSet
       // Either check contracts for activeness and lock them normally or lock them knowing the
@@ -366,7 +363,7 @@ class UnassignmentProcessingSteps(
         UnexpectedSynchronizer(
           ReassignmentId(
             parsedRequest.fullViewTree.sourceSynchronizer,
-            parsedRequest.requestTimestamp,
+            unassignId(parsedRequest),
           ),
           synchronizerId.unwrap,
         )
@@ -427,6 +424,12 @@ class UnassignmentProcessingSteps(
         )
     } yield snapshot.map(_.ipsSnapshot)
 
+  private def unassignId(req: ParsedReassignmentRequest[FullUnassignmentTree]): UnassignId =
+    UnassignId(
+      req.fullViewTree.sourceSynchronizer,
+      req.requestTimestamp,
+    )
+
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
       reassignmentLookup: ReassignmentLookup,
@@ -441,12 +444,11 @@ class UnassignmentProcessingSteps(
   ] = {
     val fullTree: FullUnassignmentTree = parsedRequest.fullViewTree
     val requestCounter = parsedRequest.rc
-    val requestTimestamp = parsedRequest.requestTimestamp
     val sourceSnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
-    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), requestTimestamp)
+    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), unassignId(parsedRequest))
 
     if (isReassigningParticipant) {
       reassignmentCoordination.addPendingUnassignment(reassignmentId)
@@ -471,6 +473,7 @@ class UnassignmentProcessingSteps(
       val responseF =
         createConfirmationResponses(
           parsedRequest.requestId,
+          parsedRequest.malformedPayloads,
           sourceSnapshot.unwrap,
           protocolVersion.unwrap,
           fullTree.confirmingParties,
@@ -579,6 +582,7 @@ class UnassignmentProcessingSteps(
           val unassignmentData = UnassignmentData(
             reassignmentId = unassignmentValidationResult.reassignmentId,
             unassignmentRequest = unassignmentValidationResult.fullTree,
+            unassignmentTs = unassignmentValidationResult.unassignmentTs,
           )
           for {
             _ <- ifThenET(isReassigningParticipant) {
@@ -598,7 +602,10 @@ class UnassignmentProcessingSteps(
               else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
             reassignmentAccepted <- EitherT.fromEither[FutureUnlessShutdown](
-              unassignmentValidationResult.createReassignmentAccepted(participantId)
+              unassignmentValidationResult.createReassignmentAccepted(
+                participantId,
+                requestId.unwrap,
+              )
             )
           } yield CommitAndStoreContractsAndPublishEvent(
             commitSetFO,
@@ -620,7 +627,7 @@ class UnassignmentProcessingSteps(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT.rightT(
       reassignmentCoordination.completeUnassignment(
-        ReassignmentId(synchronizerId.map(_.logical), parsedRequest.requestTimestamp)
+        ReassignmentId(synchronizerId.map(_.logical), unassignId(parsedRequest))
       )
     )
 

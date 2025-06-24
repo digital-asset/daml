@@ -610,7 +610,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       withNormalization: Boolean = true,
       withFieldsReversed: Boolean = false,
       key: Option[Value] = None,
-  ): FatContractInstanceImpl = {
+  ): FatContractInstanceImpl[CreationTime.CreatedAt] = {
     val recordFields = ImmArray(
       (if (withNormalization) None else Some(Ref.Name.assertFromString("owners"))) -> parties,
       (if (withNormalization) None else Some(Ref.Name.assertFromString("data"))) -> Value

@@ -229,7 +229,7 @@ create or replace view debug.par_active_contracts as
 
 create or replace view debug.par_fresh_submitted_transaction as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     root_hash_hex,
     debug.canton_timestamp(request_id) as request_id,
     debug.canton_timestamp(max_sequencing_time) as max_sequencing_time
@@ -237,7 +237,7 @@ create or replace view debug.par_fresh_submitted_transaction as
 
 create or replace view debug.par_fresh_submitted_transaction_pruning as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -254,7 +254,7 @@ create or replace view debug.med_response_aggregations as
 
 create or replace view debug.common_sequenced_events as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     sequenced_event,
     type,
     debug.canton_timestamp(ts) as ts,
@@ -263,20 +263,14 @@ create or replace view debug.common_sequenced_events as
     ignore
   from common_sequenced_events;
 
-create or replace view debug.sequencer_client_pending_sends as
-  select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
-    message_id,
-    debug.canton_timestamp(max_sequencing_time) as max_sequencing_time
-  from sequencer_client_pending_sends;
-
 create or replace view debug.par_synchronizer_connection_configs as
   select
     synchronizer_alias,
     physical_synchronizer_id,
     empty_if_null_physical_synchronizer_id,
     config,
-    status
+    status,
+    synchronizer_predecessor
   from par_synchronizer_connection_configs;
 
 create or replace view debug.par_registered_synchronizers as
@@ -289,6 +283,7 @@ create or replace view debug.par_reassignments as
   select
     debug.resolve_common_static_string(target_synchronizer_idx) as target_synchronizer_idx,
     debug.resolve_common_static_string(source_synchronizer_idx) as source_synchronizer_idx,
+    unassign_id,
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
@@ -299,7 +294,7 @@ create or replace view debug.par_reassignments as
 
 create or replace view debug.par_journal_requests as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     request_counter,
     request_state_index,
     debug.canton_timestamp(request_timestamp) as request_timestamp,
@@ -404,7 +399,7 @@ create or replace view debug.par_commitment_pruning as
 
 create or replace view debug.common_sequenced_event_store_pruning as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     phase,
     debug.canton_timestamp(ts) as ts,
     debug.canton_timestamp(succeeded) as succeeded
@@ -413,7 +408,7 @@ create or replace view debug.common_sequenced_event_store_pruning as
 create or replace view debug.mediator_synchronizer_configuration as
   select
     lock,
-    synchronizer_id,
+    physical_synchronizer_id,
     static_synchronizer_parameters,
     sequencer_connection,
     is_topology_initialized
@@ -421,7 +416,7 @@ create or replace view debug.mediator_synchronizer_configuration as
 
 create or replace view debug.common_head_sequencer_counters as
   select
-    debug.resolve_common_static_string(synchronizer_idx) as synchronizer_idx,
+    debug.resolve_common_static_string(physical_synchronizer_idx) as physical_synchronizer_idx,
     prehead_counter,
     debug.canton_timestamp(ts) as ts
   from common_head_sequencer_counters;
@@ -536,7 +531,7 @@ create or replace view debug.par_command_deduplication_pruning as
 create or replace view debug.sequencer_synchronizer_configuration as
   select
     lock,
-    synchronizer_id,
+    physical_synchronizer_id,
     static_synchronizer_parameters
   from sequencer_synchronizer_configuration;
 

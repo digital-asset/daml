@@ -3,7 +3,7 @@
 
 syntax = "proto3";
 
-package com.digitalasset.canton.participant.admin.party.v30;
+package com.digitalasset.canton.participant.protocol.v30;
 
 import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "scalapb/scalapb.proto";

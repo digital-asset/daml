@@ -22,10 +22,13 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
-import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.SynchronizerIsMissingInternally
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.{
+  PhysicalSynchronizerIdNotConfigured,
+  SynchronizerIsMissingInternally,
+}
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownSynchronizer
+import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncServiceError}
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,
   SynchronizerConnectionConfig,
@@ -68,15 +71,24 @@ class GrpcSynchronizerConnectivityService(
       synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonBaseError, Unit] =
     for {
-      synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
-        aliasManager
-          .synchronizerIdForAlias(synchronizerAlias),
-        SynchronizerIsMissingInternally(synchronizerAlias, "aliasManager"),
+      synchronizerConnectionConfig <- EitherT.fromEither[FutureUnlessShutdown](
+        sync.synchronizerConnectionConfigStore
+          .getActive(synchronizerAlias, singleExpected = false)
+          .leftMap(err =>
+            SyncServiceError.SyncServiceAliasResolution
+              .Error(synchronizerAlias, err.message)
+          )
       )
-      client <- EitherT.fromOption[FutureUnlessShutdown](
-        sync.syncCrypto.ips
-          .forSynchronizer(synchronizerId),
-        SynchronizerIsMissingInternally(synchronizerAlias, "ips"),
+      client <- EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerConnectionConfig.configuredPSId.toOption
+          .toRight(PhysicalSynchronizerIdNotConfigured(synchronizerAlias, "connectivity service"))
+          .flatMap(
+            sync.syncCrypto.ips
+              .forSynchronizer(_)
+              .toRight(
+                SynchronizerIsMissingInternally(synchronizerAlias, "ips")
+              )
+          )
       )
       active <- EitherT
         .right(client.awaitUS(_.isParticipantActive(sync.participantId), timeouts.network.unwrap))
