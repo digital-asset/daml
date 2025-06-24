@@ -69,7 +69,7 @@ genrule(
         exclude = ["**/.daml/**"],
     ) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
-        # "//daml-script/daml:daml-script-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -84,10 +84,10 @@ genrule(
             -C source/sdk/reference/daml/stdlib
 
         # Copy in daml-script documentation
-        # mkdir -p source/sdk/reference/daml-script/api/
-        # tar xf $$(location //daml-script/daml:daml-script-rst.tar.gz) \\
-        #     --strip-components 1 \\
-        #     -C source/sdk/reference/daml-script/api/
+        mkdir -p source/sdk/reference/daml-script/api/
+        tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
+            --strip-components 1 \\
+            -C source/sdk/reference/daml-script/api/
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
@@ -108,7 +108,7 @@ genrule(
         "configs/pdf/logo.png",
         "//templates:templates-tarball",
         "//compiler/damlc:daml-base-rst.tar.gz",
-        # "//daml-script/daml:daml-script-rst.tar.gz",
+        "//daml-script/daml:daml-script-rst.tar.gz",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -128,7 +128,7 @@ genrule(
     cp $(location //templates:templates-tarball) $$DIR/deps/
 
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
-    # cp $$(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
     cp -L $(location //:LICENSE) $$DIR/deps/
     cp -L $(location //:NOTICES) $$DIR/deps/
 

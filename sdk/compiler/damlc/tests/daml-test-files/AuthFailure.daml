@@ -65,7 +65,7 @@ t3_FetchMissingAuthorization = script do
   cid <- bob `submit`
     exerciseCmd builder TheChoice with s2 = alice
   disclosedCid <- fromSome <$> queryDisclosure alice cid
-  _ <- submitWithDisclosures bob [disclosedCid] (createAndExerciseCmd (Test3 bob cid) Call3)
+  _ <- (actAs bob <> disclose disclosedCid) `submit` (createAndExerciseCmd (Test3 bob cid) Call3)
   abort "t3 finished"
 
 template TheContract4

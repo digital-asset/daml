@@ -88,7 +88,8 @@ genrule(
             --format=Json \
             --target=2.dev \
             -Wno-deprecated-exceptions \
-            $(location Daml/Script.daml)
+            $(location Daml/Script.daml) \
+            $(location Daml/Script/Internal.daml)
     """,
     tools = [
         "//compiler/damlc",

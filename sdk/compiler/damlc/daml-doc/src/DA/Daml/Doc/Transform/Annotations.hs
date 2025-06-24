@@ -10,6 +10,8 @@ import DA.Daml.Doc.Anchor
 
 import qualified Data.Text as T
 import Data.List.Extra
+import Data.Either
+import Data.Maybe (fromMaybe, isNothing)
 import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
@@ -22,14 +24,67 @@ applyMove :: [ModuleDoc] -> [ModuleDoc]
 applyMove
     = map (foldr1 combineModules)
     . groupSortOn md_name
-    . map renameModule
+    . concatMap performRenames
   where
+    defModule :: Modulename -> ModuleDoc
+    defModule name = ModuleDoc
+      { md_name = name
+      , md_anchor = Just (moduleAnchor name)
+      , md_descr = Nothing
+      , md_templates = []
+      , md_interfaces = []
+      , md_adts = []
+      , md_functions = []
+      , md_classes = []
+      , md_instances = []
+      }
+
+    isEmptyModule :: ModuleDoc -> Bool
+    isEmptyModule ModuleDoc{..} =
+      null md_templates
+        && null md_interfaces
+        && null md_adts
+        && null md_functions
+        && null md_classes
+        && null md_instances
+        && isNothing md_descr
+
+    performRenames :: ModuleDoc -> [ModuleDoc]
+    performRenames md@ModuleDoc{..} =
+      let md' = renameModule md
+          isMoveComponent :: (a -> Maybe DocText) -> (a -> Maybe DocText -> a) -> a -> Either (Modulename, a) a
+          isMoveComponent getDesc setDesc c
+            | Just (new, desc) <- isMove (getDesc c) = Left (new, setDesc c desc)
+            | otherwise = Right c
+          moveComponents :: [a] -> (a -> Maybe DocText) -> (a -> Maybe DocText -> a) -> (ModuleDoc -> [a] -> ModuleDoc) -> ([ModuleDoc], [a])
+          moveComponents cs getDesc setDesc writeComponents =
+            let (movedComponents, stillComponents) = partitionEithers $ map (isMoveComponent getDesc setDesc) cs
+                newMods = flip map movedComponents $ \(new, c) -> writeComponents (defModule new) [c]
+             in (newMods, stillComponents)
+          (newModsTemplates, templates) = moveComponents md_templates td_descr (\td d -> td {td_descr = d}) (\md ts -> md {md_templates = ts})
+          (newModsInterfaces, interfaces) = moveComponents md_interfaces if_descr (\id d -> id {if_descr = d}) (\md is -> md {md_interfaces = is})
+          (newModsAdts, adts) = moveComponents md_adts ad_descr (\adr d -> adr {ad_descr = d}) (\md adts -> md {md_adts = adts})
+          (newModsFunctions, functions) = moveComponents md_functions fct_descr (\fd d -> fd {fct_descr = d}) (\md fs -> md {md_functions = fs})
+          (newModsClasses, classes) = moveComponents md_classes cl_descr (\cld d -> cld {cl_descr = d}) (\md cs -> md {md_classes = cs})
+          (newModsInstances, instances) = moveComponents md_instances id_descr (\iid d -> iid {id_descr = d}) (\md is -> md {md_instances = is})
+          filteredMd = md'
+            { md_templates = templates
+            , md_interfaces = interfaces
+            , md_adts = adts
+            , md_functions = functions
+            , md_classes = classes
+            , md_instances = instances
+            }
+          -- If moving docs made the module empty, we can omit it. Cannot otherwise.
+          lFilteredMd = ([filteredMd | not (isEmptyModule filteredMd && not (isEmptyModule md'))])
+       in lFilteredMd ++ newModsTemplates ++ newModsInterfaces ++ newModsAdts ++ newModsFunctions ++ newModsClasses ++ newModsInstances
+
     -- | Rename module according to its MOVE annotation, if present.
     -- If the module is renamed, we drop the rest of the module's
     -- description.
     renameModule :: ModuleDoc -> ModuleDoc
     renameModule md@ModuleDoc{..}
-        | Just new <- isMove md_descr = md
+        | Just (new, _) <- isMove md_descr = md
             { md_name = new
             , md_anchor = Just (moduleAnchor new)
                 -- Update the module anchor
@@ -84,14 +139,19 @@ applyHide = concatMap onModule
             | ADTDoc{..} <- x, all (isHide . ac_descr) ad_constrs = pure x{ad_constrs = []}
             | otherwise = [x]
 
-
-getAnn :: Maybe DocText -> [T.Text]
-getAnn = maybe [] (T.words . unDocText)
+-- Returns first line words and rest of lines
+getAnn :: Maybe DocText -> ([T.Text], [T.Text])
+getAnn mDoc = fromMaybe ([], []) $ do
+  doc <- mDoc
+  (firstLine, rest) <- uncons $ T.lines $ unDocText doc
+  pure (T.words firstLine, rest)
 
 isHide :: Maybe DocText -> Bool
-isHide x = ["HIDE"] `isPrefixOf` getAnn x
+isHide x = ["HIDE"] `isPrefixOf` fst (getAnn x)
 
-isMove :: Maybe DocText -> Maybe Modulename
+isMove :: Maybe DocText -> Maybe (Modulename, Maybe DocText)
 isMove x = case getAnn x of
-    "MOVE":y:_ -> Just (Modulename y)
+    ("MOVE":y:restFirst, restLines) ->
+      let rest = T.unlines $ ([T.unwords restFirst | not (null restFirst)]) ++ restLines
+       in Just (Modulename y, if T.null rest then Nothing else Just $ DocText rest)
     _ -> Nothing
