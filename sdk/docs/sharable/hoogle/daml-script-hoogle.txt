@@ -11,7 +11,7 @@
 @package daml-script
 @version 3.0.0
 
--- | The Daml Script testing library
+-- | The Daml Script testing library.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#module-daml-script-55737
 module Daml.Script
 
@@ -1049,7 +1049,8 @@ archiveCmd :: (Choice t Archive ()) => ContractId t -> Commands ()
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-lowlevel-script-65113
 script :: Script a -> Script a
 
--- | Contains all Internal and Alpha functionality provided by Daml Script
+-- | Contains all Internal and Alpha functionality provided by Daml Script.
+--   Use these with care. No stability guarantees are given for them across SDK upgrades.
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#module-daml-script-internal-18793
 module Daml.Script.Internal
 

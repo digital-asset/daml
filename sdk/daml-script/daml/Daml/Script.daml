@@ -3,7 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 
--- | The Daml Script testing library
+-- | The Daml Script testing library.
 module Daml.Script
   ( Script
 
