@@ -25,11 +25,16 @@ import scalaz.OneAnd
 import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, Succeeded}
 
-class UpgradeTestIntegration
+class UpgradeTestIntegration0 extends UpgradeTestIntegration(4, 0)
+class UpgradeTestIntegration1 extends UpgradeTestIntegration(4, 1)
+class UpgradeTestIntegration2 extends UpgradeTestIntegration(4, 2)
+class UpgradeTestIntegration3 extends UpgradeTestIntegration(4, 3)
+
+abstract class UpgradeTestIntegration(n: Int, k: Int)
     extends UpgradeTest[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradeTestCasesV2Dev)
+    ](UpgradeTestCasesV2Dev, Some((n, k)))
     with CantonFixture {
   import UpgradeTestCases._
 
