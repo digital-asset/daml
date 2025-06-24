@@ -250,12 +250,12 @@ class IsParties a where
 instance IsParties Party where
   toParties p = [p]
 
-instance IsParties [Party] where
-  toParties ps = ps
+instance IsParties a => IsParties [a] where
+  toParties ps = concatMap toParties ps
 
-instance IsParties (Optional Party) where
+instance IsParties a => IsParties (Optional a) where
   toParties None = []
-  toParties (Some p) = [p]
+  toParties (Some p) = toParties p
 
 instance Eq AnyTemplate where
   (==) = primitive @"BEEqual"
