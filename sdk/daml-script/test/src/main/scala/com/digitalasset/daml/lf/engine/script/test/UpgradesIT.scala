@@ -25,8 +25,14 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
-    extends AsyncWordSpec
+class UpgradesIT(
+    runCantonInDevMode: Boolean,
+    languageVersion: LanguageVersion,
+    upgradeTestLibDarPath: String,
+    testFilesDirPath: String,
+    numParticipants: Int,
+    testCaseFilter: TestCase => Boolean,
+) extends AsyncWordSpec
     with AbstractScriptTest
     with Inside
     with Matchers {
@@ -34,22 +40,19 @@ class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
   final override protected lazy val nParticipants = numParticipants
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
-  final override protected lazy val devMode = true
+  final override protected lazy val devMode = runCantonInDevMode
   final override protected val disableUpgradeValidation = true
 
-  // TODO(https://github.com/digital-asset/daml/issues/18457): split the test into one with contract
-  //  keys and one without, and revert to the default version. Here and below, in the loaded dars.
-  val languageVersion: LanguageVersion = LanguageVersion.v2_dev
   override val majorLanguageVersion: LanguageMajorVersion = languageVersion.major
 
   override protected lazy val darFiles = List()
 
-  lazy val upgradeTestLibDar: Path = rlocation(Paths.get("daml-script/test/upgrade-test-lib.dar"))
+  lazy val upgradeTestLibDar: Path = rlocation(Paths.get(upgradeTestLibDarPath))
 
   val testUtil = new UpgradeTestUtil(upgradeTestLibDar)
 
-  val testFileDir: Path = rlocation(Paths.get("daml-script/test/daml/upgrades/"))
-  val testCases: Seq[TestCase] = UpgradeTestUtil.getTestCases(testFileDir)
+  val testFileDir: Path = rlocation(Paths.get(testFilesDirPath))
+  val testCases: Seq[TestCase] = UpgradeTestUtil.getTestCases(languageVersion, testFileDir)
 
   private def traverseSequential[A, B](elems: Seq[A])(f: A => Future[B]): Future[Seq[B]] =
     elems.foldLeft(Future.successful(Seq.empty[B])) { case (comp, elem) =>
@@ -62,7 +65,7 @@ class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
       (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
-          (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(testCase)
+          (testDarPath, _) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)
 
           // Create ide ledger client
           testDar = CompiledDar.read(testDarPath, Runner.compilerConfig(LanguageMajorVersion.V2))
@@ -89,7 +92,7 @@ class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
       (testCase.name + " on Canton") in {
         for {
           // Build dars
-          (testDarPath, deps) <- testUtil.buildTestCaseDarMemoized(testCase)
+          (testDarPath, deps) <- testUtil.buildTestCaseDarMemoized(languageVersion, testCase)
 
           // Connection
           clients <- scriptClients(provideAdminPorts = true)
@@ -179,16 +182,34 @@ class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
 }
 
 // Because the test cases are listed even before the canton fixture is initialized,
-// `bazel run --sandbox_debug -- -z SubViews` will not wastefully spawn canton for UpgradesITSmall. It is thus safe
-// to break down tests into many classes like this.
-class UpgradesITSmall
+// `bazel run --sandbox_debug -- -z SubViews` will not wastefully spawn canton for UpgradesITSmallStable. It is thus
+// safe to break down tests into many classes like this.
+class UpgradesITSmallStable
     extends UpgradesIT(
+      runCantonInDevMode = false,
+      languageVersion = LanguageVersion.Major.V2.maxStableVersion,
+      upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
+      testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 2,
       testCaseFilter = _.name != "SubViews",
     )
 
-class UpgradesITSLarge
+class UpgradesITSLargeStable
     extends UpgradesIT(
+      runCantonInDevMode = false,
+      languageVersion = LanguageVersion.Major.V2.maxStableVersion,
+      upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib.dar",
+      testFilesDirPath = "daml-script/test/daml/upgrades/stable",
       numParticipants = 5,
       testCaseFilter = _.name == "SubViews",
+    )
+
+class UpgradesITSmallDev
+    extends UpgradesIT(
+      runCantonInDevMode = true,
+      languageVersion = LanguageVersion.Major.V2.dev,
+      upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib-dev.dar",
+      testFilesDirPath = "daml-script/test/daml/upgrades/dev",
+      numParticipants = 2,
+      testCaseFilter = _.name != "SubViews",
     )

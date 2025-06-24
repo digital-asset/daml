@@ -20,6 +20,7 @@ module UpgradeTestLib (
   waitForCid,
   withUnvettedPackage,
   withUnvettedPackageOnParticipant,
+  expectPackageMissingFailure,
   module Daml.Script,
   module Daml.Script.Internal,
   module DA.Assert,
@@ -96,6 +97,12 @@ withUnvettedPackageOnParticipant packageName packageVersion participant act = do
     Left fs -> failWithStatus fs
     Right r -> pure r
 
+expectPackageMissingFailure : Either SubmitError a -> Script ()
+expectPackageMissingFailure (Right _) = fail "Expected failure, got success."
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "PACKAGE_NOT_VETTED_BY_RECIPIENTS" -> True))) = pure ()
+expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
+
 withUnvettedPackage : Text -> Text -> Script a -> Script a
 withUnvettedPackage packageName packageVersion act = do
   let pkg = PackageName packageName packageVersion
@@ -140,4 +147,3 @@ waitManyTimesForCid tries p cid
         sleep (milliseconds 200)
         waitManyTimesForCid (tries - 1) p cid
       Some _ -> pure ()
-      
