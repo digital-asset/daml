@@ -1288,17 +1288,6 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfSoftFetchTemplate(tpl: TypeConId, cid: Expr): Work[Type] = {
-      discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
-      pkgInterface.lookupTemplateKey(tpl) match {
-        case Right(_) => throw ESoftFetchTemplateWithKey(ctx, tpl)
-        case Left(_) =>
-      }
-      checkExpr(cid, TContractId(TTyCon(tpl))) {
-        Ret(TUpdate(TTyCon(tpl)))
-      }
-    }
-
     private def typeOfFetchInterface(tpl: TypeConId, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
@@ -1326,18 +1315,12 @@ private[validation] object Typing {
         typeOfCreateInterface(iface, arg)
       case UpdateExercise(tpl, choice, cid, arg) =>
         typeOfExercise(tpl, choice, cid, arg)
-      case UpdateSoftExercise(tpl, choice, cid, arg) =>
-        // TODO: https://github.com/digital-asset/daml/issues/16151
-        // want typeOfSoftExercise
-        typeOfExercise(tpl, choice, cid, arg)
       case UpdateExerciseInterface(tpl, choice, cid, arg, guard) =>
         typeOfExerciseInterface(tpl, choice, cid, arg, guard)
       case UpdateExerciseByKey(tpl, choice, key, arg) =>
         typeOfExerciseByKey(tpl, choice, key, arg)
       case UpdateFetchTemplate(tpl, cid) =>
         typeOfFetchTemplate(tpl, cid)
-      case UpdateSoftFetchTemplate(tpl, cid) =>
-        typeOfSoftFetchTemplate(tpl, cid)
       case UpdateFetchInterface(tpl, cid) =>
         typeOfFetchInterface(tpl, cid)
       case UpdateGetTime =>
