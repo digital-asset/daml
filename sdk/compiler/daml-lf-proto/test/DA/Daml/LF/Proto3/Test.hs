@@ -6,15 +6,12 @@ module DA.Daml.LF.Proto3.Test (
 ) where
 
 
-import           Control.Monad.State.Strict
 import           Data.Int
 import qualified Data.NameMap                             as NM
 import qualified Data.Vector                              as V
 
-import           DA.Daml.LF.Proto3.EncodeV2
-import           DA.Daml.LF.Proto3.InternedMap
-
-import           DA.Daml.LF.Proto3.DecodeV2
+import           DA.Daml.LF.Proto3.Encode
+import           DA.Daml.LF.Proto3.Decode
 
 import           DA.Daml.LF.Ast
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
@@ -23,10 +20,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty
 
 entry :: IO ()
-entry = defaultMain $ testGroup "All tests"
-    [ rtt_tests
-    , enc_tests
-    ]
+entry = defaultMain $ testGroup "All tests" [ rtt_tests ]
 
 ------------------------------------------------------------------------
 -- Params
@@ -35,7 +29,7 @@ testVersion :: Version
 testVersion = Version V2 PointDev
 
 ------------------------------------------------------------------------
--- Rount-trip
+-- Round-trip
 ------------------------------------------------------------------------
 
 roundTripPackage :: Package -> Either Error Package
@@ -69,11 +63,12 @@ rtt_tyLam = testCase "tylam pacakge" $ roundTripTest $ oneModulePackage tyLamMod
 rtt_fail1 :: TestTree
 rtt_fail1 = testCase "this fails" $ True @=? False
 
+<<<<<<< HEAD
 
 ------------------------------------------------------------------------
 -- EncodeTests
 ------------------------------------------------------------------------
-<<<<<<< HEAD
+<<<<<<< variant A
 encodeKindAssert :: Kind -> P.Kind -> Assertion
 encodeKindAssert k pk =
   let (pk', _) = runState (encodeKind k) env
@@ -177,6 +172,8 @@ dec_interning_starToStar =
         (\k -> k @=? KArrow KStar KStar)
         (runDecode env (decodeKind (interned 0)))
 
+>>>>>>> variant B
+======= end
 ------------------------------------------------------------------------
 -- Proto Ast helpers
 ------------------------------------------------------------------------

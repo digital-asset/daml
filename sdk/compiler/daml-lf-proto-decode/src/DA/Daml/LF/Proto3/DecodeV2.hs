@@ -3,14 +3,10 @@
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 
-module DA.Daml.LF.Proto3.DecodeV2
-    ( decodePackage
-    , decodeSinglePackageModule
-    , Error(..)
-    , DecodeEnv(..)
-    , runDecode
-    , decodeKind
-    ) where
+module DA.Daml.LF.Proto3.DecodeV2 (
+  module DA.Daml.LF.Proto3.DecodeV2
+) where
+
 
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error

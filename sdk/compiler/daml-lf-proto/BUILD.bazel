@@ -40,7 +40,6 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
-        "mtl",
         "tasty",
         "tasty-hunit",
         "vector",

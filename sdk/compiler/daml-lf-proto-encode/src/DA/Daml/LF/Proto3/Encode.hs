@@ -3,6 +3,8 @@
 
 module DA.Daml.LF.Proto3.Encode
   ( encodePayload
+  , EncodeV2.encodePackage
+  , EncodeV2.encodeSinglePackageModule
   ) where
 
 import qualified Data.Text.Lazy as TL
