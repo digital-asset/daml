@@ -603,13 +603,13 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         components = {
             "hpp": ["lib", "exe"],
             "attoparsec": [
-                "lib:attoparsec",
                 "lib:attoparsec-internal",
+                "lib:attoparsec",
             ],
         },
-        components_dependencies = {
-            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
-        },
+        # components_dependencies = {
+        #     "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        # },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "ghcide": "@ghcide_ghc_lib//:ghcide",
@@ -648,13 +648,13 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
         components = {
             "haskell-language-server": ["lib", "exe"],
             "attoparsec": [
-                "lib:attoparsec",
                 "lib:attoparsec-internal",
+                "lib:attoparsec",
             ],
         },
-        components_dependencies = {
-            "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
-        },
+        # components_dependencies = {
+        #     "attoparsec": """{"lib:attoparsec": ["lib:attoparsec-internal"]}""",
+        # },
         stack = "@stack_windows//:stack.exe" if is_windows else None,
         vendored_packages = {
             "zip": "@zip//:zip",
