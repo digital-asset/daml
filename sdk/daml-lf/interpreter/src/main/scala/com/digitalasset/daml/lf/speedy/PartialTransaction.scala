@@ -477,7 +477,7 @@ private[speedy] case class PartialTransaction(
         ExercisesContextInfo(
           targetId = targetId,
           packageName = packageName,
-          templateId = templateId, // may differ from contract.templateId during soft-exercise
+          templateId = templateId, // may differ from contract.templateId
           interfaceId = interfaceId,
           contractKey =
             // We need to renormalize the key

@@ -1276,28 +1276,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             }
           }
 
-        case PLF.Update.SumCase.SOFT_EXERCISE =>
-          val exercise = lfUpdate.getSoftExercise
-          val templateId = decodeTypeConId(exercise.getTemplate)
-          val choice = internedName(exercise.getChoiceInternedStr)
-          decodeExpr(exercise.getCid, definition) { cidE =>
-            decodeExpr(exercise.getArg, definition) { argE =>
-              Ret(
-                UpdateSoftExercise(templateId, choice, cidE, argE)
-              )
-            }
-          }
-
-        case PLF.Update.SumCase.DYNAMIC_EXERCISE =>
-          val exercise = lfUpdate.getDynamicExercise
-          val templateId = decodeTypeConId(exercise.getTemplate)
-          val choice = internedName(exercise.getChoiceInternedStr)
-          decodeExpr(exercise.getCid, definition) { cidE =>
-            decodeExpr(exercise.getArg, definition) { argE =>
-              Ret(UpdateDynamicExercise(templateId, choice, cidE, argE))
-            }
-          }
-
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
           val exercise = lfUpdate.getExerciseInterface
           decodeExpr(exercise.getCid, definition) { cidE =>
@@ -1342,17 +1320,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val fetch = lfUpdate.getFetch
           decodeExpr(fetch.getCid, definition) { contractId =>
             Ret(UpdateFetchTemplate(templateId = decodeTypeConId(fetch.getTemplate), contractId))
-          }
-
-        case PLF.Update.SumCase.SOFT_FETCH =>
-          val softFetch = lfUpdate.getSoftFetch
-          decodeExpr(softFetch.getCid, definition) { contractId =>
-            Ret(
-              UpdateSoftFetchTemplate(
-                templateId = decodeTypeConId(softFetch.getTemplate),
-                contractId,
-              )
-            )
           }
 
         case PLF.Update.SumCase.FETCH_INTERFACE =>

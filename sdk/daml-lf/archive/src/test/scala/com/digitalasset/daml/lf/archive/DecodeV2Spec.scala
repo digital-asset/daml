@@ -868,37 +868,6 @@ class DecodeV2Spec
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
     }
-
-    s"decode softFetch" in {
-      val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
-      val unit = DamlLf2.Unit.newBuilder().build()
-      val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
-      val modRef =
-        DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
-      val templateTyConName =
-        DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(1)
-
-      val softFetchProto = {
-        val exe = DamlLf2.Update.SoftFetch
-          .newBuilder()
-          .setTemplate(templateTyConName)
-          .setCid(unitExpr)
-          .build()
-        DamlLf2.Update.newBuilder().setSoftFetch(exe).build()
-      }
-
-      val softFetchScala = Ast.UpdateSoftFetchTemplate(
-        Ref.Identifier.assertFromString("noPkgId:Mod:T"),
-        EUnit,
-      )
-
-      forEveryVersion { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, typeTable)
-        val proto = DamlLf2.Expr.newBuilder().setUpdate(softFetchProto).build()
-        val result = Try(decoder.decodeExprForTest(proto, "test"))
-        result shouldBe Success(Ast.EUpdate(softFetchScala))
-      }
-    }
   }
 
   "decodeModule" should {
