@@ -440,9 +440,6 @@ class HasExercise t c r
 @url https://docs.daml.com/daml/stdlib/Prelude.html#function-da-internal-template-functions-exercise-22396
 exercise :: (HasExercise t c r) => ContractId t -> c -> Update r
 
-@url https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasdynamicexercise-47252
-class HasDynamicExercise t c r
-
 -- | Exposes `choiceController` function. Part of the `Choice` constraint.
 @url https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-haschoicecontroller-39229
 class HasChoiceController t c

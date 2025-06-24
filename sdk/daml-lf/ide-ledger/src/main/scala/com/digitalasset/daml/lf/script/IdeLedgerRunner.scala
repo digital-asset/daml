@@ -362,11 +362,6 @@ private[lf] object IdeLedgerRunner {
             case Question.Update.NeedTime(callback) =>
               callback(ledger.currentTime)
               go()
-            case Question.Update.NeedPackageId(module @ _, pid0, callback) =>
-              // TODO https://github.com/digital-asset/daml/issues/16154 (dynamic-exercise)
-              // For now this just continues with the input package id
-              callback(pid0)
-              go()
             case res: Question.Update.NeedPackage =>
               throw Error.Internal(s"unexpected $res")
           }
