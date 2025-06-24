@@ -65,6 +65,10 @@ da_haskell_test(
         "tasty",
         "tasty-hunit",
         "vector",
+        "pretty-simple",
+        "proto3-suite",
+        #TODO: remove after switching to internedmap
+        "containers",
     ],
     main_function = "DA.Daml.LF.Proto3.EncodeTest.entry",
     src_strip_prefix = "test",

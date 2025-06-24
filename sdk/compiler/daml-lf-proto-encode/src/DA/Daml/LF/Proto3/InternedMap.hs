@@ -17,6 +17,8 @@ import qualified Data.Vector         as V
 data InternedMap val key where
   InternedMap :: (Ord val, Ord key, Num key, Bounded key) => !(Map.Map val key) -> !key -> InternedMap val key
 
+deriving instance (Show val, Show key) => Show (InternedMap val key)
+
 empty :: (Ord val, Ord key, Num key, Bounded key) => InternedMap val key
 empty = InternedMap Map.empty 0
 

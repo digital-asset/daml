@@ -40,6 +40,7 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "pretty-simple", #for debugging with pPrint
         "tasty",
         "tasty-hunit",
         "vector",

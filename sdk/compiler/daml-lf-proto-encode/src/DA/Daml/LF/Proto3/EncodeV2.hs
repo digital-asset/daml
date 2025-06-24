@@ -57,6 +57,8 @@ data EncodeEnv = EncodeEnv
     , _internedKindsMap :: InternedKindsMap
     }
 
+deriving instance Show EncodeEnv
+
 makeLenses ''EncodeEnv
 
 initEncodeEnv :: Version -> EncodeEnv
