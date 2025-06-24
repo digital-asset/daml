@@ -6,7 +6,7 @@
 Daml.Script
 ===========
 
-The Daml Script testing library
+The Daml Script testing library\.
 
 Typeclasses
 -----------

@@ -6,7 +6,8 @@
 Daml.Script.Internal
 ====================
 
-Contains all Internal and Alpha functionality provided by Daml Script
+Contains all Internal and Alpha functionality provided by Daml Script\.
+Use these with care\. No stability guarantees are given for them across SDK upgrades\.
 
 Data Types
 ----------
