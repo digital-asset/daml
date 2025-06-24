@@ -374,6 +374,7 @@ da_scala_test(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
+    args = [ "-P" ], # run suites in parallel
     tags = [
         "cpu:4",
     ],

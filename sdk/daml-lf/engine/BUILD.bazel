@@ -206,7 +206,7 @@ da_scala_test(
     srcs = glob([
         "src/test/**/UpgradeTest.scala",
     ]),
-    args = ["-P"],  # run the test cases in parallel
+    args = ["-P"], # run suites in parallel
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
