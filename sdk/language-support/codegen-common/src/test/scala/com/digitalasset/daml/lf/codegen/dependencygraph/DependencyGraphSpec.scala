@@ -10,7 +10,6 @@ import com.digitalasset.daml.lf.typesig._
 import PackageSignature.TypeDecl
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.syntax.std.map._
 
 final class DependencyGraphSpec extends AnyWordSpec with Matchers {
 
@@ -74,7 +73,7 @@ object DependencyGraphSpec {
   private[this] val fooRec = Record(ImmArraySeq.empty)
   private val typeDecls =
     Map(
-      "a:b:HasKey" -> TypeDecl.Template(
+      Ref.Identifier.assertFromString("a:b:HasKey") -> TypeDecl.Template(
         fooRec,
         DefTemplate(
           TemplateChoices.Resolved(Map.empty),
@@ -82,8 +81,9 @@ object DependencyGraphSpec {
           Seq.empty,
         ),
       ),
-      "a:b:NoKey" -> TypeDecl.Template(fooRec, DefTemplate.Empty),
-      "a:b:It" -> TypeDecl.Normal(DefDataType(ImmArraySeq.empty, fooRec)),
-    ) mapKeys Ref.Identifier.assertFromString
-
+      Ref.Identifier.assertFromString("a:b:NoKey") -> TypeDecl.Template(fooRec, DefTemplate.Empty),
+      Ref.Identifier.assertFromString("a:b:It") -> TypeDecl.Normal(
+        DefDataType(ImmArraySeq.empty, fooRec)
+      ),
+    )
 }

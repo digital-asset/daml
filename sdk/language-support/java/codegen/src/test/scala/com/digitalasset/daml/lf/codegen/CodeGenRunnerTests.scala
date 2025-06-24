@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.typesig._
+import com.digitalasset.daml.lf.codegen.backend.java.inner.PackagePrefixes
 import com.digitalasset.daml.lf.codegen.conf.PackageReference
 import com.digitalasset.daml.lf.language.Reference
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
@@ -29,7 +30,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     // `daml-prim` + `daml-stdlib` + testDar
     scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(3)
-    scope.packagePrefixes should ===(Map.empty)
+    scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
 
@@ -43,7 +44,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
 
     // `daml-prim` + `daml-stdlib` + testDar + testDarWithSameDependencies
     scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(4)
-    scope.packagePrefixes should ===(Map.empty)
+    scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
 
@@ -63,7 +64,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     // + `daml-stdlib` from different LF version
     // + testDarWithSameDependenciesButDifferentTargetVersion
     scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(6)
-    scope.packagePrefixes should ===(Map.empty)
+    scope.packagePrefixes should ===(PackagePrefixes(Map.empty))
     scope.toBeGenerated should ===(Set.empty)
   }
 
@@ -72,7 +73,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     val scope = CodeGenRunner.configureCodeGenScope(Map(testDar -> Some("prefix")), Map.empty)
 
     scope.signatures.map(_.packageId).length should ===(dar.all.length)
-    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    val prefixes = scope.packagePrefixes.toMap
     prefixes.size should ===(dar.all.length)
     all(prefixes.values) should ===("prefix")
     scope.toBeGenerated should ===(Set.empty)
@@ -87,7 +88,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
       )
 
     scope.signatures.map(_.packageId).length should ===(dar.all.length)
-    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    val prefixes = scope.packagePrefixes.toMap
     prefixes.size should ===(dar.all.length)
     all(prefixes.values) should ===("prefix")
     scope.toBeGenerated should ===(Set.empty)
@@ -115,7 +116,7 @@ final class CodeGenRunnerTests extends AnyFlatSpec with Matchers {
     //  + testDependsOnBarTplDar
     //  + `test-another-bar.dar`
     scope.signatures.map(_.packageId).diff(stablePackageIds).length should ===(5)
-    val prefixes = backend.java.inner.PackagePrefixes unwrap scope.packagePrefixes
+    val prefixes = scope.packagePrefixes.toMap
     prefixes.size should ===(3)
     // prefix1 is applied to the main package containing template Bar
     prefixes.values.count(_ == "prefix1") should ===(1)

@@ -21,8 +21,6 @@ import com.digitalasset.daml.lf.typesig
 import typesig._
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.{\/, \/-}
-import scalaz.syntax.std.option._
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -96,7 +94,7 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .addMethod(generateCreateAndMethod(className))
         .addType(
-          generateCreateAndClass(className, \/-(template.implementedInterfaces))
+          generateCreateAndClass(className, Right(template.implementedInterfaces))
         )
         .addFields(
           generateChoicesMetadata(
@@ -113,7 +111,7 @@ private[inner] object TemplateClass extends StrictLogging {
         templateType
           .addMethod(byKeyMethod)
           .addType(
-            generateByKeyClass(className, \/-(template.implementedInterfaces))
+            generateByKeyClass(className, Right(template.implementedInterfaces))
           )
       }
       logger.debug("End")
@@ -196,7 +194,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateByKeyClass(
       markerName: ClassName,
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConId],
+      implementedInterfaces: Either[ContractIdClass.For.Interface.type, Seq[Ref.TypeConId]],
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
@@ -364,7 +362,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateCreateAndClass(
       markerName: ClassName,
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConId],
+      implementedInterfaces: Either[ContractIdClass.For.Interface.type, Seq[Ref.TypeConId]],
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
@@ -575,8 +573,8 @@ private[inner] object TemplateClass extends StrictLogging {
     import scala.language.existentials
     import javaapi.data.codegen.ContractCompanion
 
-    private val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey.cata(
-      keyType =>
+    private val (fieldClass, keyTypes, keyParams, keyArgs) = maybeKey match {
+      case Some(keyType) =>
         (
           classOf[ContractCompanion.WithKey[_, _, _, _]],
           Seq(toJavaTypeName(keyType)),
@@ -585,9 +583,9 @@ private[inner] object TemplateClass extends StrictLogging {
             FromValueGenerator
               .extractor(keyType, "e", CodeBlock.of("e"), newNameGenerator)
           ),
-        ),
-      (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty),
-    )
+        )
+      case None => (classOf[ContractCompanion.WithoutKey[_, _, _]], Seq.empty, "", Seq.empty)
+    }
 
     private val contractIdName = nestedClassName(templateClassName, "ContractId")
     private val contractName = nestedClassName(templateClassName, "Contract")
@@ -653,14 +651,14 @@ private[inner] object TemplateClass extends StrictLogging {
     // for template, use createAnd() or byKey(); toInterface methods need public
     // access if in different packages, though
     private[TemplateClass] def publicIfInterface(
-        isInterface: ContractIdClass.For.Interface.type \/ _
+        isInterface: Either[ContractIdClass.For.Interface.type, _]
     ) =
       self.addModifiers(
         isInterface.fold(_ => Some(Modifier.PUBLIC), _ => None).toList.asJava
       )
 
     private[TemplateClass] def companionIfInterface(
-        isInterface: ContractIdClass.For.Interface.type \/ _
+        isInterface: Either[ContractIdClass.For.Interface.type, _]
     ) =
       isInterface.fold(
         { _ =>
@@ -701,7 +699,7 @@ private[inner] object TemplateClass extends StrictLogging {
       extends AnyVal {
     private[TemplateClass] def addGetCompanion(
         markerName: ClassName,
-        isInterface: ContractIdClass.For.Interface.type \/ _,
+        isInterface: Either[ContractIdClass.For.Interface.type, _],
     ) =
       self.addMethod(
         ContractIdClass.Builder.generateGetCompanion(

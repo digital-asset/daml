@@ -4,18 +4,7 @@
 package com.digitalasset.daml.lf.typesig
 
 import com.daml.nonempty.NonEmpty
-import com.daml.scalatest.WordSpecCheckLaws
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AnyWordSpec
 import scalaz.Equal
-import scalaz.scalacheck.{ScalazProperties => SZP}
-
-class DefDataTypeSpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
-  import DefDataTypeSpec._
-  "TemplateChoices Traverse" should {
-    checkLaws(SZP.traverse.laws[TemplateChoices])
-  }
-}
 
 object DefDataTypeSpec {
   import org.scalacheck.{Arbitrary, Gen}, Arbitrary.arbitrary

@@ -7,9 +7,6 @@ import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
-import scalaz.Monoid
-import scalaz.syntax.foldable._
-import scalaz.syntax.monoid._
 
 import scala.jdk.CollectionConverters._
 
@@ -68,15 +65,6 @@ sealed abstract class Type extends Product with Serializable {
       case t @ TypePrim(_, _) => TypePrim(t.typ, t.typArgs.map(_.mapTypeVars(f)))
       case t @ TypeNumeric(_) => t
     }
-
-  /** Fold over the [[TypeConIdOrPrimType]]s therein. */
-  def foldMapConsPrims[Z: Monoid](f: TypeConIdOrPrimType => Z): Z = this match {
-    case TypeCon(typ, typArgs) =>
-      f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
-    case TypePrim(typ, typArgs) =>
-      f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
-    case TypeVar(_) | TypeNumeric(_) => mzero[Z]
-  }
 }
 
 final case class TypeCon(tycon: TypeConId, typArgs: ImmArraySeq[Type])

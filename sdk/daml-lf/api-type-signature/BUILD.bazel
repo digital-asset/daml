@@ -71,9 +71,7 @@ da_scala_test(
     data = [":InterfaceTestPackage-v2.dar"] + ([":InterfaceTestPackage-v1.dar"] if is_intel else []),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
-        "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
-        "@maven//:org_scalaz_scalaz_scalacheck_binding",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -86,7 +84,6 @@ da_scala_test(
         "//daml-lf/parser",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/nonempty",
-        "//libs-scala/scalatest-utils",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )

@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi
 import ClassGenUtils.{companionFieldName, optional, setOfStrings}
 import com.digitalasset.daml.lf.typesig.Type
 import com.squareup.javapoet._
-import scalaz.syntax.std.option._
 
 import scala.jdk.CollectionConverters._
 import javax.lang.model.element.Modifier
@@ -126,10 +125,10 @@ object ContractClass {
       val contractKeyClassName = key.map(toJavaTypeName(_))
 
       import scala.language.existentials
-      val (contractSuperclass, keyTparams) = contractKeyClassName.cata(
-        kname => (classOf[javaapi.data.codegen.ContractWithKey[_, _, _]], Seq(kname)),
-        (classOf[javaapi.data.codegen.Contract[_, _]], Seq.empty),
-      )
+      val (contractSuperclass, keyTparams) = contractKeyClassName match {
+        case Some(kname) => (classOf[javaapi.data.codegen.ContractWithKey[_, _, _]], Seq(kname))
+        case None => (classOf[javaapi.data.codegen.Contract[_, _]], Seq.empty)
+      }
       classBuilder.superclass(
         ParameterizedTypeName.get(
           ClassName get contractSuperclass,

@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, PackageName, Qu
 import com.digitalasset.daml.lf.typesig.{DefInterface, PackageMetadata}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.-\/
 
 import javax.lang.model.element.Modifier
 import scala.jdk.CollectionConverters._
@@ -66,12 +65,12 @@ object InterfaceClass extends StrictLogging {
         .addType(
           TemplateClass.generateCreateAndClass(
             interfaceName,
-            -\/(ContractIdClass.For.Interface),
+            Left(ContractIdClass.For.Interface),
           )
         )
         .addType(
           TemplateClass
-            .generateByKeyClass(interfaceName, -\/(ContractIdClass.For.Interface))
+            .generateByKeyClass(interfaceName, Left(ContractIdClass.For.Interface))
         )
         .addType(
           generateInterfaceCompanionClass(

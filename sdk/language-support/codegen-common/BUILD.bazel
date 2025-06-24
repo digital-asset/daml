@@ -23,6 +23,7 @@ da_scala_library(
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//libs-scala/build-info",
+        "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",
     ],
 )

@@ -6,7 +6,6 @@ package com.digitalasset.daml.lf.codegen.json
 import com.daml.ledger.javaapi.{data => JData}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Numeric, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.value.{Value => LfValue}
-import scalaz.syntax.std.option._
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -89,20 +88,20 @@ object ValueConversion {
   def fromLfValue(lfV: LfValue): JData.Value = lfV match {
     case LfValue.ValueRecord(tycon, fields) =>
       val lfFields = fields.toSeq.map { case (name, value) =>
-        name.cata(
-          n => new JData.DamlRecord.Field(n, fromLfValue(value)),
-          new JData.DamlRecord.Field(fromLfValue(value)),
-        )
+        name match {
+          case Some(n) => new JData.DamlRecord.Field(n, fromLfValue(value))
+          case None => new JData.DamlRecord.Field(fromLfValue(value))
+        }
       }.asJava
-      tycon.cata(
-        id => new JData.DamlRecord(fromRefId(id), lfFields),
-        new JData.DamlRecord(lfFields),
-      )
+      tycon match {
+        case Some(id) => new JData.DamlRecord(fromRefId(id), lfFields)
+        case None => new JData.DamlRecord(lfFields)
+      }
     case LfValue.ValueVariant(tycon, variant, value) =>
-      tycon.cata(
-        id => new JData.Variant(fromRefId(id), variant, fromLfValue(value)),
-        new JData.Variant(variant, fromLfValue(value)),
-      )
+      tycon match {
+        case Some(id) => new JData.Variant(fromRefId(id), variant, fromLfValue(value))
+        case None => new JData.Variant(variant, fromLfValue(value))
+      }
 
     case LfValue.ValueContractId(value) => new JData.ContractId(value.coid)
     case LfValue.ValueList(values) =>
@@ -120,10 +119,10 @@ object ValueConversion {
         ).asJava
       )
     case LfValue.ValueEnum(tycon, value) =>
-      tycon.cata(
-        id => new JData.DamlEnum(fromRefId(id), value),
-        new JData.DamlEnum(value),
-      )
+      tycon match {
+        case Some(id) => new JData.DamlEnum(fromRefId(id), value)
+        case None => new JData.DamlEnum(value)
+      }
     case LfValue.ValueInt64(value) => new JData.Int64(value)
     case LfValue.ValueNumeric(value) => new JData.Numeric(value)
     case LfValue.ValueText(value) => new JData.Text(value)

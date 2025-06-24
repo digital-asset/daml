@@ -4,20 +4,10 @@
 package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.typesig
-import typesig.TypeConId
-import typesig.PackageSignature.TypeDecl
-import scalaz.std.list._
-
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl
 import scala.util.matching.Regex
 
 object Util {
-
-  private[codegen] def genTypeTopLevelDeclNames(genType: typesig.Type): List[Ref.Identifier] =
-    genType foldMapConsPrims {
-      case TypeConId(nm) => List(nm)
-      case _: typesig.PrimType => Nil
-    }
 
   // Template names can be filtered by given regexes (default: use all templates)
   // If a template does not match any regex, it becomes a "normal" datatype.
