@@ -494,8 +494,6 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           UpdateFetchInterface(I.tycon, e"e"),
         "exercise @Mod:T Choice cid arg" ->
           UpdateExercise(T.tycon, n"Choice", e"cid", e"arg"),
-        "dynamic_exercise @Mod:T Choice cid arg" ->
-          UpdateDynamicExercise(T.tycon, n"Choice", e"cid", e"arg"),
         "exercise_interface @Mod:I Choice cid arg" ->
           UpdateExerciseInterface(I.tycon, n"Choice", e"cid", e"arg", None),
         "exercise_interface_with_guard @Mod:I Choice cid arg guard" ->

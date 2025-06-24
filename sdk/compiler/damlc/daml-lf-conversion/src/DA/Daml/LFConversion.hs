@@ -815,12 +815,6 @@ convertTypeDef env o@(ATyCon t) = withRange (convNameLoc t) $ if
     , NameIn DA_Internal_Template_Functions "HasChoiceObserver" <- cls
     -> pure []
 
-    -- Remove HasDynamicExercise instances when dynamicExercise is unsupported
-    | not (envLfVersion env `supports` featureDynamicExercise)
-    , Just cls <- tyConClass_maybe t
-    , NameIn DA_Internal_Template_Functions "HasDynamicExercise" <- cls
-    -> pure []
-
     -- Constraint tuples are represented by LF structs.
     | isConstraintTupleTyCon t
     -> pure []
@@ -1390,20 +1384,6 @@ convertBind env mc (name, x)
     , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasChoiceObserver") _ <- name
     = pure []
 
-    -- Remove dynamicExercise when unsupported
-    | not (envLfVersion env `supports` featureDynamicExercise)
-    , "$c_dynamicExercise" `T.isPrefixOf` getOccText name
-    = pure []
-    | not (envLfVersion env `supports` featureDynamicExercise)
-    , NameIn DA_Internal_Template_Functions "_dynamicExercise" <- name
-    = pure []
-    | not (envLfVersion env `supports` featureDynamicExercise)
-    , NameIn DA_Internal_Template_Functions "dynamicExercise" <- name
-    = pure []
-    | not (envLfVersion env `supports` featureDynamicExercise)
-    , DesugarDFunId _ _ (NameIn DA_Internal_Template_Functions "HasDynamicExercise") _ <- name
-    = pure []
-
     -- Remove internal functions.
     | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
@@ -1665,11 +1645,6 @@ convertExpr env0 e = do
     go env (VarIn DA_Internal_Template_Functions "choiceObserver") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
         = conversionError $ OnlySupportedOnDev "The function `choiceObserver` is"
-
-    go env (VarIn DA_Internal_Template_Functions "dynamicExercise") _
-        | not $ envLfVersion env `supports` featureDynamicExercise
-        = conversionError $ OnlySupportedOnDev "The function `dynamicExercise` is"
-
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
         = fmap (, args') $ do

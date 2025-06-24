@@ -174,13 +174,6 @@ featureTemplateTypeRepToText = Feature
     , featureCppFlag = Just "DAML_TEMPLATE_TYPEREP_TO_TEXT"
     }
 
-featureDynamicExercise :: Feature
-featureDynamicExercise = Feature
-    { featureName = "dynamicExercise function"
-    , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_DYNAMIC_EXERCISE"
-    }
-
 featureContractKeys :: Feature
 featureContractKeys = Feature
     { featureName = "Contract Keys"
@@ -226,7 +219,6 @@ allFeatures =
     , featureContractKeys
     , featureUnstable
     , featureExperimental
-    , featureDynamicExercise
     , featureCrypto
     ]
 

@@ -383,14 +383,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setSoftExercise(b)
-        case UpdateDynamicExercise(templateId, choice, cid, arg) =>
-          assertSince(LV.Features.dynamicExercise, "DynamicExercise")
-          val b = PLF.Update.DynamicExercise.newBuilder()
-          b.setTemplate(templateId)
-          setInternedString(choice, b.setChoiceInternedStr)
-          b.setCid(cid)
-          b.setArg(arg)
-          builder.setDynamicExercise(b)
         case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)

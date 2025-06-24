@@ -326,20 +326,6 @@ private[lf] object Speedy {
         )
       )
 
-    final private[speedy] def needPackageId(
-        location: => String,
-        module: ModuleName,
-        pid0: PackageId,
-        continue: PackageId => Control[Question.Update],
-    ): Control.Question[Question.Update] =
-      Control.Question(
-        Question.Update.NeedPackageId(
-          module,
-          pid0,
-          pkgId => safelyContinue(location, "NeedPackageId", continue(pkgId)),
-        )
-      )
-
     private[speedy] def lookupContract(coid: V.ContractId)(
         f: V.ContractInstance => Control[Question.Update]
     ): Control[Question.Update] =

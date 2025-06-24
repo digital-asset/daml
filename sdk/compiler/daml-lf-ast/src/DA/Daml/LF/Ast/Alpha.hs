@@ -466,12 +466,6 @@ alphaUpdate env = \case
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> structuralMismatch
-    UDynamicExercise t1 c1 e1a e1b -> \case
-        UDynamicExercise t2 c2 e2a e2b -> alphaTypeCon env t1 t2
-            && alphaEq' c1 c2
-            && alphaExpr' env e1a e2a
-            && alphaExpr' env e1b e2b
-        _ -> structuralMismatch
     UExerciseInterface i1 c1 e1a e1b e1c -> \case
         UExerciseInterface i2 c2 e2a e2b e2c ->
             let eqMaybe1 f (Just a) (Just b) = f a b

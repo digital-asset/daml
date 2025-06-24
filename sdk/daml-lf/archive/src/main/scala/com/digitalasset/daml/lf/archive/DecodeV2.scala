@@ -1288,16 +1288,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             }
           }
 
-        case PLF.Update.SumCase.DYNAMIC_EXERCISE =>
-          val exercise = lfUpdate.getDynamicExercise
-          val templateId = decodeTypeConId(exercise.getTemplate)
-          val choice = internedName(exercise.getChoiceInternedStr)
-          decodeExpr(exercise.getCid, definition) { cidE =>
-            decodeExpr(exercise.getArg, definition) { argE =>
-              Ret(UpdateDynamicExercise(templateId, choice, cidE, argE))
-            }
-          }
-
         case PLF.Update.SumCase.EXERCISE_INTERFACE =>
           val exercise = lfUpdate.getExerciseInterface
           decodeExpr(exercise.getCid, definition) { cidE =>

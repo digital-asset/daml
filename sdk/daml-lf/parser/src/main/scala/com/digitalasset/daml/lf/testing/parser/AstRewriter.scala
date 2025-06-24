@@ -201,8 +201,6 @@ private[daml] class AstRewriter(
         UpdateExercise(apply(templateId), choice, apply(cid), apply(arg))
       case UpdateSoftExercise(templateId, choice, cid, arg) =>
         UpdateSoftExercise(apply(templateId), choice, apply(cid), apply(arg))
-      case UpdateDynamicExercise(templateId, choice, cid, arg) =>
-        UpdateDynamicExercise(apply(templateId), choice, apply(cid), apply(arg))
       case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
         UpdateExerciseInterface(
           apply(interface),

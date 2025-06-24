@@ -709,12 +709,6 @@ private[lf] final class PhaseOne(
             Return(t.TemplateChoiceDefRef(tmplId, chId)(cid, arg))
           }
         }
-      case UpdateDynamicExercise(tmplId, chId, cid, arg) =>
-        compileExp(env, cid) { cid =>
-          compileExp(env, arg) { arg =>
-            Return(SBUDynamicExercise(tmplId, chId)(cid, arg))
-          }
-        }
       case UpdateExerciseInterface(ifaceId, chId, cid, arg, maybeGuard) =>
         compileExp(env, cid) { cid =>
           compileExp(env, arg) { arg =>

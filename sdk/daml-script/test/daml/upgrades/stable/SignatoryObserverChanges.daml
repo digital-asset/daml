@@ -67,7 +67,6 @@ main : TestTree
 main = tests $
   [ subtree description
       [ ("static exercise", testCase exerciseStaticChoice)
-      , ("dynamic exercise", testCase exerciseDynamicChoice)
       ]
   | (description, testCase) <-
       [ ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
@@ -87,10 +86,6 @@ exerciseStaticChoice cidV1 =
   let cidV2 = coerceContractId @V1.SignatoryObserverChangesTemplate @V2.SignatoryObserverChangesTemplate cidV1
   in exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
 
-exerciseDynamicChoice : ChoiceExerciser
-exerciseDynamicChoice cidV1 =
-  let cidI = coerceContractId @V1.SignatoryObserverChangesTemplate @Iface.I cidV1
-  in exerciseCmd cidI Iface.NoOp
 
 -- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
 -- and the same for observers
