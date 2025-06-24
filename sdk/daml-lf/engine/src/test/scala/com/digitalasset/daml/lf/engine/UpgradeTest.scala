@@ -31,41 +31,17 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
+// Split the Upgrade unit tests over three suites, which seems to be the sweet
+// spot (~30s instead of ~40s runtime)
 class UpgradeTestUnit0 extends UpgradeTestUnit(3, 0)
 class UpgradeTestUnit1 extends UpgradeTestUnit(3, 1)
 class UpgradeTestUnit2 extends UpgradeTestUnit(3, 2)
 
-/** A test suite for smart contract upgrades.
+/** A test suite to run the UpgradeTest matrix directly in the engine
   *
-  * It tests many scenarios of the following form in a systematic way:
-  *   - define a v1 template
-  *   - define a v2 template that changes one aspect of the v1 template (e.g. observers)
-  *   - create a v1 contract (locally, globally, or as a disclosure)
-  *   - perform some v2 operation on the v1 contract (exercise, exercise by key, fetch, etc.)
-  *   - compare the execution result to the expected outcome
-  *
-  * Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
-  * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
-  * [[TestCase.v2Observers]] with an expression that is different from [[TestCase.v1Observers]].
-  * Each test case is tested many times against the cartesian product of the following features:
-  *  - The operation to perform ([[Exercise]], [[ExerciseByKey]], etc.), listed in [[operations]].
-  *  - Whether or not to try and catch exceptions thrown when performing the operation, listed in [[catchBehaviors]].
-  *  - What triggered the operation: a toplevel command or the body of a choice, listed in [[entryPoints]].
-  *  - The origin of the contract being operated on: locally created, globally created, or disclosed. This is listed in
-  *    [[contractOrigins]].
-  *
-  * Some combinations of these features don't make sense. For instance, there are no commands for fetching a contract.
-  * These invalid combinations are discarded in [[TestHelper.makeApiCommands]]. For other valid combinations, this method
-  * produces a command to be run against an engine by the main test loop.
-  *
-  * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
-  * role is to exercise/fetch/lookup the v1 contract. The template for that client contract is defined in [[clientPkg]].
-  * It defines a large number of choices: one per combination of operation, catch behavior, entry point and test case.
-  * These choices are defined in [[TestCase.clientChoices]]. This method is pretty boilerplate-y and constitutes the
-  * bulk of this test suite.
-  *
-  * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
-  * parties. These are defined in [[commonDefsPkg]].
+  * This runs a lot more quickly (~40s on a single suite) than UpgradesMatrixIT
+  * (~5000s) because it does not need to spin up Canton, so we can use this for
+  * sanity checking before running UpgradesMatrixIT.
   */
 abstract class UpgradeTestUnit(n: Int, k: Int)
     extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)](UpgradeTestCasesV2MaxStable, Some((n, k)))
@@ -208,7 +184,31 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   }
 }
 
-// UpgradeTest takes a 
+/** A test suite for smart contract upgrades.
+  *
+  * It tests many scenarios of the following form in a systematic way:
+  *   - define a v1 template
+  *   - define a v2 template that changes one aspect of the v1 template (e.g. observers)
+  *   - create a v1 contract (locally, globally, or as a disclosure)
+  *   - perform some v2 operation on the v1 contract (exercise, exercise by key, fetch, etc.)
+  *   - compare the execution result to the expected outcome
+  *
+  * It picks up its list of test scenarios from [[cases]], which is an instance
+  * of [[UpgradeTestCases]] class - consult the documentation for the class for
+  * more about how the test cases are generated.
+  *
+  * It can be parameterized with (n, k) to run only those tests when the test is
+  * the ith test, where i % n = k. We can use this to split tests over multiple
+  * suites that get run in parallel, i.e.
+  *
+  * class MyRunner0 extends UpgradeTest[...](..., nk = Some(4, 0)) { ... }
+  * class MyRunner1 extends UpgradeTest[...](..., nk = Some(4, 1)) { ... }
+  * class MyRunner2 extends UpgradeTest[...](..., nk = Some(4, 2)) { ... }
+  * class MyRunner3 extends UpgradeTest[...](..., nk = Some(4, 3)) { ... }
+  *
+  * will run a quarter of the tests with MyRunner0, another quarter over
+  * MyRunner1, and so on, all in parallel.
+  */
 abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None) extends AsyncFreeSpec with Matchers {
   import UpgradeTestCases._
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
@@ -273,11 +273,34 @@ abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(In
   }
 }
 
-// Test cases with LF 2.dev or the highest stable version, respectively
+// Instances of UpgradeTestCases which provide cases built with LF 2.dev or the
+// highest stable 2.x version, respectively
 object UpgradeTestCasesV2Dev extends UpgradeTestCases(LanguageVersion.v2_dev)
 object UpgradeTestCasesV2MaxStable extends UpgradeTestCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
 
-// Generate LF code and packages for all possible test cases
+/** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
+  * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
+  * [[TestCase.v2Observers]] with an expression that is different from [[TestCase.v1Observers]].
+  * Each test case is tested many times against the cartesian product of the following features:
+  *  - The operation to perform ([[Exercise]], [[ExerciseByKey]], etc.), listed in [[operations]].
+  *  - Whether or not to try and catch exceptions thrown when performing the operation, listed in [[catchBehaviors]].
+  *  - What triggered the operation: a toplevel command or the body of a choice, listed in [[entryPoints]].
+  *  - The origin of the contract being operated on: locally created, globally created, or disclosed. This is listed in
+  *    [[contractOrigins]].
+  *
+  * Some combinations of these features don't make sense. For instance, there are no commands for fetching a contract.
+  * These invalid combinations are discarded in [[TestHelper.makeApiCommands]]. For other valid combinations, this method
+  * produces a command to be run against an engine by the main test loop.
+  *
+  * In order to test scenarios where the operation is triggered by a choice body, we need a "client" contract whose only
+  * role is to exercise/fetch/lookup the v1 contract. The template for that client contract is defined in [[clientPkg]].
+  * It defines a large number of choices: one per combination of operation, catch behavior, entry point and test case.
+  * These choices are defined in [[TestCase.clientChoices]]. This method is pretty boilerplate-y and constitutes the
+  * bulk of this test suite.
+  *
+  * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
+  * parties. These are defined in [[commonDefsPkg]].
+  */
 class UpgradeTestCases(val langVersion: LanguageVersion) {
   import UpgradeTestCases._
   private[this] implicit def parserParameters(implicit

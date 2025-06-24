@@ -25,11 +25,19 @@ import scalaz.OneAnd
 import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, Succeeded}
 
+// Split the tests across four suites with four Canton runners, which brings
+// down the runtime from ~4000s on a single suite to ~1400s
 class UpgradeTestIntegration0 extends UpgradeTestIntegration(4, 0)
 class UpgradeTestIntegration1 extends UpgradeTestIntegration(4, 1)
 class UpgradeTestIntegration2 extends UpgradeTestIntegration(4, 2)
 class UpgradeTestIntegration3 extends UpgradeTestIntegration(4, 3)
 
+/** A test suite to run the UpgradeTest matrix on Canton.
+  *
+  * This takes a while (~5000s when running with a single suite), so we have a
+  * different test [[UpgradeTestUnit]] to catch simple engine issues early which
+  * takes only ~40s.
+  */
 abstract class UpgradeTestIntegration(n: Int, k: Int)
     extends UpgradeTest[
       ScriptLedgerClient.SubmitFailure,
