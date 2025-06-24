@@ -262,7 +262,7 @@ class UpgradeTestIntegration
         }
       case ExpectUnhandledException =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.UnhandledException]
+          error shouldBe a[SubmitError.FailureStatusError]
         }
       case ExpectInternalInterpretationError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
