@@ -85,6 +85,7 @@ class DecodeV2Spec
       dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
       kindTable: ImmArraySeq[Ast.Kind] = ImmArraySeq.empty,
       typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
+      exprTable: ImmArraySeq[Ast.Expr] = ImmArraySeq.empty,
   ) = {
     new DecodeV2(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
@@ -92,6 +93,7 @@ class DecodeV2Spec
       dottedNameTable,
       kindTable,
       typeTable,
+      exprTable,
       None,
       Some(dummyModuleName),
       onlySerializableDataDefs = false,
@@ -914,6 +916,21 @@ class DecodeV2Spec
           )
         val proto = DamlLf2.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
+      }
+    }
+
+    "reject Expr if INTERNED is set" in {
+      val input = DamlLf2.Expr
+        .newBuilder()
+        .setInterned(32)
+        .build()
+
+      // TODO: when added, convert to forEveryVersion
+      // forEveryVersionSuchThat(_ < LV.Features.exprInterning) { version =>
+      // }
+      // TODO: figure out what this definitinon is we pass to decodeExprForTest
+      forEveryVersion { version =>
+        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeExprForTest(input, ""))
       }
     }
   }

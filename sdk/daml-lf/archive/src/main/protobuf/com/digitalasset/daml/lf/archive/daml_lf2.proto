@@ -884,6 +884,8 @@ message Expr {
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
 
+    int32 interned = 44; // *Available in versions >= 2.dev*
+
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*
     ChoiceController choice_controller = 1001;
@@ -1350,4 +1352,5 @@ message Package {
   // at smaller indices.
   repeated Type interned_types = 5;
   repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
+  repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
 }
