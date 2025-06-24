@@ -55,6 +55,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames,
       IndexedSeq.empty,
       IndexedSeq.empty,
+      IndexedSeq.empty,
       Some(dependencyTracker),
       None,
       onlySerializableDataDefs,
@@ -62,9 +63,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     val internedKinds = Work.run(decodeInternedKinds(env0, lfPackage))
     val env1 = env0.copy(internedKinds = internedKinds)
-    // val env1 = env0
     val internedTypes = Work.run(decodeInternedTypes(env1, lfPackage))
-    val env = env1.copy(internedTypes = internedTypes)
+    val env2 = env1.copy(internedTypes = internedTypes)
+    val internedExprs = Work.run(decodeInternedExprs(env2, lfPackage))
+    val env = env2.copy(internedExprs = internedExprs)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -122,6 +124,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       packageId,
       internedStrings,
       internedDottedNames,
+      IndexedSeq.empty,
       IndexedSeq.empty,
       IndexedSeq.empty,
       None,
@@ -203,6 +206,25 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       .toIndexedSeq
   }
 
+  private[archive] def decodeInternedExprsForTest( // test entry point
+      env: Env,
+      lfPackage: PLF.Package,
+  ): IndexedSeq[Expr] = {
+    Work.run(decodeInternedExprs(env, lfPackage))
+  }
+
+  private def decodeInternedExprs(
+      env: Env,
+      lfPackage: PLF.Package,
+  ): Work[IndexedSeq[Expr]] = Ret {
+    val lfExprs = lfPackage.getInternedExprsList
+    lfExprs.iterator.asScala
+      .foldLeft(new mutable.ArrayBuffer[Expr](lfExprs.size)) { (buf, typ) =>
+        buf += env.copy(internedExprs = buf).decodeExprForTest(typ, "interning") //TODO[RB]: give proper tag(?)
+      }
+      .toIndexedSeq
+  }
+
   private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
 
@@ -219,6 +241,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames: ImmArraySeq[DottedName],
       internedKinds: collection.IndexedSeq[Kind],
       internedTypes: collection.IndexedSeq[Type],
+      internedExprs: collection.IndexedSeq[Expr],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
@@ -667,6 +690,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
+    // TODO[RB]: figure out exact interning parameters
     private def decodeKind(lfKind: PLF.Kind): Work[Kind] = {
       Work.Delay { () =>
         lfKind.getSumCase match {
@@ -696,13 +720,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    /** Roger: As far as I understand, [[decodeType()]] is the checked version of
-      * [[uncheckedDecodeType()]] in the sense that [[decodeType()]] allows only
-      * references to interned kinds, meant to be used to parse the ast (after
-      * the interning table was parsed). It is meant to disallow any concrete
-      * types (any non-interned-referencing) types. In the long run, if we want
-      * to only intern trees of depth >= n, we need to weaken this restriction
-      */
+    /** Roger: [decodeType()]] is the checked version of [[uncheckedDecodeType()]]
+     * in the sense that [[decodeType()]] allows only references to interned
+     * kinds, meant to be used to parse the ast (after the interning table was
+     * parsed). It is meant to disallow any concrete types (any
+     * non-interned-referencing) types.
+     *
+     * TODO[RB]: figure out exact interning parameters. Decide on whehter to
+     * intern everything, everything but leaf nodes, or allow trees of depth n.
+     * Alternatively: intern everything, but allow leaf nodes and/or trees of
+     * depth n _in the interning table only_.
+     */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
         Work.Delay { () =>
@@ -724,6 +752,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       )
     }
 
+    // TODO[RB]: figure out exact interning parameters
     private def uncheckedDecodeType(lfType: PLF.Type): Work[Type] = {
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
@@ -840,10 +869,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
+    // TODO[RB]: figure out exact interning parameters
     private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
       Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
     }
 
+    // TODO[RB]: figure out exact interning parameters
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
@@ -1223,6 +1254,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           decodeType(experimental.getType) { typ =>
             Ret(EExperimental(experimental.getName, typ))
           }
+
+        case PLF.Expr.SumCase.INTERNED =>
+          assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
+          Ret(
+            internedExprs.applyOrElse(
+              lfExpr.getInterned,
+              (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
+            )
+          )
 
       }) { expr =>
         decodeLocation(lfExpr, definition) match {
