@@ -39,10 +39,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.authentication.ServerAuthenticatingServerFilter
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftOrderingModuleSystemInitializer,
@@ -69,8 +66,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.authentication.ServerAuthenticatingServerFilter
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.{
   GrpcBftOrderingService,
+  GrpcNetworking,
   PekkoGrpcP2PNetworking,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError

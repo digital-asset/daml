@@ -170,7 +170,12 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           ),
           queryExecutionContext = executorService,
           commandExecutionContext = executorService,
-          getPackagePreference = _ => _ => _ => FutureUnlessShutdown.pure(None),
+          getPackagePreference = (
+              _: PackageName,
+              _: Set[PackageId],
+              _: String,
+              _: LoggingContextWithTrace,
+          ) => FutureUnlessShutdown.pure(Left("not used")),
         )
       } yield indexService -> indexer
 

@@ -400,7 +400,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Block commit time at the consensus (PBFT) level.",
+      "description": "Block commit latency at the consensus (PBFT/ISS) level.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -503,7 +503,7 @@
           "refId": "A"
         }
       ],
-      "title": "Consensus Block Time",
+      "title": "Consensus Block Latency",
       "type": "timeseries"
     },
     {

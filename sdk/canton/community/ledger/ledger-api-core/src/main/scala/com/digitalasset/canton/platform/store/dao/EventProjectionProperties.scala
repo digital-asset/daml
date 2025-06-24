@@ -69,9 +69,9 @@ object EventProjectionProperties {
   ) {
     def append(other: Projection): Projection =
       Projection(
-        interfaces ++ other.interfaces,
-        createdEventBlob || other.createdEventBlob,
-        contractArguments || other.contractArguments,
+        interfaces = interfaces ++ other.interfaces,
+        createdEventBlob = createdEventBlob || other.createdEventBlob,
+        contractArguments = contractArguments || other.contractArguments,
       )
   }
 

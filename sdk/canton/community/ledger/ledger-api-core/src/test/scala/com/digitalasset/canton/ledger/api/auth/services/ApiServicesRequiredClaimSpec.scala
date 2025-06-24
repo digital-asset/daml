@@ -109,7 +109,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -135,7 +135,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -160,7 +160,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(

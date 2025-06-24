@@ -12,7 +12,6 @@ import com.digitalasset.canton.ledger.participant.state.index.{
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -46,11 +45,7 @@ class ContractStoreBasedMaximumLedgerTimeService(
                 Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
 
               case active: ContractState.Active =>
-                // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-                val createdAt = (active.contractInstance.createdAt: CreationTime) match {
-                  case CreationTime.CreatedAt(time) => Some(time)
-                  case CreationTime.Now => None
-                }
+                val createdAt = Some(active.contractInstance.createdAt.time)
                 val newMaximumLedgerTime = Ordering[Option[Timestamp]].max(resultSoFar, createdAt)
                 goAsync(newMaximumLedgerTime, otherContractIds)
             }(directEc)

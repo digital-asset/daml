@@ -13,7 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dri
   P2PServerConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
   TlsP2PEndpoint,

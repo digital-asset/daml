@@ -11,7 +11,7 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.ContractsReassignmentBatch
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -88,7 +88,7 @@ private final class ChangeAssignation(
 
       _ <- EitherT.right(
         publishAssignmentEvent(
-          unassignmentData.payload.reassignmentId,
+          unassignmentData.payload.unassignmentTs,
           unassignmentData.map(_ => unassignedContracts),
         )
       )
@@ -131,7 +131,7 @@ private final class ChangeAssignation(
       _ <- persistContracts(changeBatch)
       newChanges = changes.map(_ => changeBatch)
       _ <- persistUnassignAndAssign(newChanges).toEitherT
-      _ <- EitherT.right(publishReassignmentEvents(newChanges))
+      _ <- EitherT.right(publishReassignmentEvents(repairSource.unwrap.timestamp, newChanges))
     } yield ()
   }
 
@@ -376,10 +376,10 @@ private final class ChangeAssignation(
   }
 
   private def publishAssignmentEvent(
-      reassignmentId: ReassignmentId,
+      unassignmentTs: CantonTimestamp,
       changes: ChangeAssignation.Data[Changes],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val updates = assignment(reassignmentId, changes)
+    val updates = assignment(unassignmentTs, changes)
 
     for {
       _ <- FutureUnlessShutdown.outcomeF(
@@ -389,13 +389,12 @@ private final class ChangeAssignation(
   }
 
   private def publishReassignmentEvents(
-      changes: ChangeAssignation.Data[Changes]
+      unassignmentTs: CantonTimestamp,
+      changes: ChangeAssignation.Data[Changes],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val unassignId = UnassignId(sourceSynchronizerId, repairSource.unwrap.timestamp)
-    val reassignmentId = ReassignmentId(sourceSynchronizerId, unassignId)
-    val updates = unassignment(reassignmentId, changes) ++ assignment(reassignmentId, changes)
+    val updates = unassignment(unassignmentTs, changes) ++ assignment(unassignmentTs, changes)
     for {
       _ <- FutureUnlessShutdown.outcomeF(
         MonadUtil.sequentialTraverse(updates)(repairIndexer.offer(_))
@@ -404,12 +403,18 @@ private final class ChangeAssignation(
   }
 
   private def unassignment(
-      reassignmentId: ReassignmentId,
+      unassignmentTs: CantonTimestamp,
       changes: ChangeAssignation.Data[Changes],
   )(implicit
       traceContext: TraceContext
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
+      val unassignId = UnassignId(
+        sourceSynchronizerId,
+        targetSynchronizerId,
+        unassignmentTs,
+        batch.contractIdCounters,
+      )
       Update.RepairReassignmentAccepted(
         workflowId = None,
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
@@ -417,7 +422,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = reassignmentId.unassignId,
+          unassignId = unassignId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>
@@ -437,10 +442,16 @@ private final class ChangeAssignation(
       )
     }
 
-  private def assignment(reassignmentId: ReassignmentId, changes: ChangeAssignation.Data[Changes])(
+  private def assignment(unassignmentTs: CantonTimestamp, changes: ChangeAssignation.Data[Changes])(
       implicit traceContext: TraceContext
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
+      val unassignId = UnassignId(
+        sourceSynchronizerId,
+        targetSynchronizerId,
+        unassignmentTs,
+        batch.contractIdCounters,
+      )
       Update.RepairReassignmentAccepted(
         workflowId = None,
         updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
@@ -448,7 +459,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = reassignmentId.unassignId,
+          unassignId = unassignId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>

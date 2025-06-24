@@ -8,19 +8,20 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionResponse,
   PreparedTransaction,
 }
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   PrepareRequest,
 }
+import com.digitalasset.canton.ledger.api.validation.GetPreferredPackagesRequestValidator.PackageVettingRequirements
 import com.digitalasset.canton.ledger.api.{Commands, PackageReference}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.canton.{LfPartyId, LfTimestamp}
-import com.digitalasset.daml.lf.data.Ref.{PackageName, SubmissionId, UserId}
+import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
 
 object InteractiveSubmissionService {
   final case class PrepareRequest(commands: Commands, verboseHashing: Boolean)
@@ -46,12 +47,11 @@ trait InteractiveSubmissionService {
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[ExecuteSubmissionResponse]
 
-  def getPreferredPackageVersion(
-      parties: Set[LfPartyId],
-      packageName: PackageName,
+  def getPreferredPackages(
+      packageVettingRequirements: PackageVettingRequirements,
       synchronizerId: Option[SynchronizerId],
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, PhysicalSynchronizerId)]]
+  ): FutureUnlessShutdown[Either[String, (Seq[PackageReference], PhysicalSynchronizerId)]]
 }

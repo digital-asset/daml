@@ -102,6 +102,13 @@
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>org.flywaydb.core.Flyway</logger>
+            <maxLevel>INFO</maxLevel>
+            <contains>cleanOnValidationError is deprecated and will be removed in a later release</contains>
+            <testing>true</testing>
+        </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.auth.AuthInterceptor</logger>
             <maxLevel>INFO</maxLevel>
             <contains>The command is missing a (valid) JWT token </contains>

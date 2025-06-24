@@ -372,6 +372,24 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           openapi.GetPartiesResponse.fromJson
         ),
         Mapping[
+          v2.interactive.interactive_submission_service.PackageVettingRequirement,
+          openapi.PackageVettingRequirement,
+        ](
+          openapi.PackageVettingRequirement.fromJson
+        ),
+        Mapping[
+          v2.interactive.interactive_submission_service.GetPreferredPackagesRequest,
+          openapi.GetPreferredPackagesRequest,
+        ](
+          openapi.GetPreferredPackagesRequest.fromJson
+        ),
+        Mapping[
+          v2.interactive.interactive_submission_service.GetPreferredPackagesResponse,
+          openapi.GetPreferredPackagesResponse,
+        ](
+          openapi.GetPreferredPackagesResponse.fromJson
+        ),
+        Mapping[
           v2.interactive.interactive_submission_service.GetPreferredPackageVersionResponse,
           openapi.GetPreferredPackageVersionResponse,
         ](
@@ -500,14 +518,14 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.OffsetCheckpoint.fromJson
         ),
+        Mapping[v2.package_reference.PackageReference, openapi.PackageReference](
+          openapi.PackageReference.fromJson
+        ),
         Mapping[
           v2.interactive.interactive_submission_service.PackagePreference,
           openapi.PackagePreference,
         ](
           openapi.PackagePreference.fromJson
-        ),
-        Mapping[v2.package_reference.PackageReference, openapi.PackageReference](
-          openapi.PackageReference.fromJson
         ),
         Mapping[
           v2.admin.user_management_service.Right.Kind.ParticipantAdmin,

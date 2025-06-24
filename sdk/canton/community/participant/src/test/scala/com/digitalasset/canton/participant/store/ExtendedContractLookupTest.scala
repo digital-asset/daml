@@ -14,7 +14,6 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 }
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -25,7 +24,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
   private object dummyAuthenticator extends ContractAuthenticator {
     override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
       Either.unit
-    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
+    override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,

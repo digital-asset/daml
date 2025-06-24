@@ -248,8 +248,10 @@ class BftOrderingMetrics private[metrics] (
             object consensus {
               // Time waited for a block proposal from availability
               val BlockProposalWait = "consensus-block-proposal-wait"
-              // Time waited for a new epoch to start
+              // Time waited for a new epoch to complete
               val EpochCompletionWait = "consensus-epoch-completion-wait"
+              // Time waited for a new epoch to start
+              val EpochStartWait = "consensus-epoch-start-wait"
             }
 
             object output {
@@ -618,6 +620,16 @@ class BftOrderingMetrics private[metrics] (
         summary = "Epoch length",
         description = "Length of the current epoch in number of blocks.",
         qualification = MetricQualification.Traffic,
+      ),
+      0,
+    )
+
+    val epochViewChanges: Gauge[Long] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "epoch-view-changes",
+        summary = "Number of view changes occurred",
+        description = "Number of view changes occurred.",
+        qualification = MetricQualification.Latency,
       ),
       0,
     )

@@ -164,18 +164,19 @@ abstract class ProtocolProcessor[
     for {
       mediator <- chooseMediator(recentSnapshot.ipsSnapshot, explicitMediatorGroupIndex)
         .leftMap(steps.embedNoMediatorError)
-      submission <- steps.createSubmission(submissionParam, mediator, ephemeral, recentSnapshot)
+      submissionPair <- steps.createSubmission(submissionParam, mediator, ephemeral, recentSnapshot)
+      (submission, pendingSubmission) = submissionPair
       _ = logger.debug(
         s"Topology snapshot timestamp at submission: ${recentSnapshot.ipsSnapshot.timestamp}"
       )
       result <- {
         submission match {
           case untracked: steps.UntrackedSubmission =>
-            submitWithoutTracking(submissionParam, untracked).tapLeft(submissionError =>
-              logger.warn(s"Failed to submit submission due to $submissionError")
+            submitWithoutTracking(submissionParam, untracked, pendingSubmission).tapLeft(
+              submissionError => logger.warn(s"Failed to submit submission due to $submissionError")
             )
           case tracked: steps.TrackedSubmission =>
-            submitWithTracking(submissionParam, tracked)
+            submitWithTracking(submissionParam, tracked, pendingSubmission)
         }
       }
     } yield result
@@ -232,6 +233,7 @@ abstract class ProtocolProcessor[
   private def submitWithoutTracking(
       submissionParam: SubmissionParam,
       untracked: steps.UntrackedSubmission,
+      pendingSubmission: steps.PendingSubmissionData,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SubmissionError, FutureUnlessShutdown[SubmissionResult]] = {
@@ -243,7 +245,7 @@ abstract class ProtocolProcessor[
             .getOrElse(sequencerClient.generateMaxSequencingTime)
         )
 
-      sendResultAndResultArgs <- submitInternal(
+      sendResult <- submitInternal(
         submissionParam,
         untracked.pendingSubmissionId,
         MessageId.randomMessageId(),
@@ -251,9 +253,9 @@ abstract class ProtocolProcessor[
         maxSequencingTime,
         untracked.embedSubmissionError,
       )
-      (sendResult, resultArgs) = sendResultAndResultArgs
       result <- EitherT.fromEither[FutureUnlessShutdown](sendResult match {
-        case SendResult.Success(deliver) => Right(steps.createSubmissionResult(deliver, resultArgs))
+        case SendResult.Success(deliver) =>
+          Right(steps.createSubmissionResult(deliver, pendingSubmission))
         case SendResult.Error(error) =>
           Left(untracked.embedSubmissionError(SequencerDeliverError(error)))
         case SendResult.Timeout(sequencerTime) =>
@@ -273,6 +275,7 @@ abstract class ProtocolProcessor[
   private def submitWithTracking(
       submissionParam: SubmissionParam,
       tracked: steps.TrackedSubmission,
+      pendingSubmission: steps.PendingSubmissionData,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SubmissionError, FutureUnlessShutdown[SubmissionResult]] = {
@@ -280,12 +283,15 @@ abstract class ProtocolProcessor[
       tracked.maxSequencingTimeO
         .getOrElse(sequencerClient.generateMaxSequencingTime)
 
-    EitherT.right(maxSequencingTimeF).flatMap(submitWithTracking(submissionParam, tracked, _))
+    EitherT
+      .right(maxSequencingTimeF)
+      .flatMap(submitWithTracking(submissionParam, tracked, pendingSubmission, _))
   }
 
   private def submitWithTracking(
       submissionParam: SubmissionParam,
       tracked: steps.TrackedSubmission,
+      pendingSubmission: steps.PendingSubmissionData,
       maxSequencingTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -390,10 +396,10 @@ abstract class ProtocolProcessor[
           // we would observe the sequencing here only if the participant has not crashed.
           // We therefore delegate observing the sequencing to the MessageDispatcher,
           // which can rely on the SequencedEventStore for persistence.
-          unlessError(submittedEF, mayHaveBeenSent = true) { case (sendResult, resultArgs) =>
+          unlessError(submittedEF, mayHaveBeenSent = true) { case sendResult =>
             val submissionResult = sendResult match {
               case SendResult.Success(deliver) =>
-                steps.createSubmissionResult(deliver, resultArgs)
+                steps.createSubmissionResult(deliver, pendingSubmission)
               case _: SendResult.NotSequenced => tracked.onDefinitiveFailure
             }
             FutureUnlessShutdown.pure(submissionResult)
@@ -436,7 +442,7 @@ abstract class ProtocolProcessor[
   ): EitherT[
     FutureUnlessShutdown,
     steps.SubmissionSendError,
-    (SendResult, steps.SubmissionResultArgs),
+    SendResult,
   ] = {
     implicit val metricsContext: MetricsContext = metricsContextForSubmissionParam(submissionParam)
 
@@ -445,30 +451,21 @@ abstract class ProtocolProcessor[
         .removePendingSubmission(steps.pendingSubmissions(ephemeral), submissionId)
         .discard[Option[steps.PendingSubmissionData]]
 
+    logger.info(
+      s"Phase 1 completed: Submitting ${batch.envelopes.length} envelopes for ${steps.requestKind} request, ${steps
+          .submissionDescription(submissionParam)}"
+    )
+
+    // use the send callback and a promise to capture the eventual sequenced event read by the submitter
+    // We use a promise produced by the passed-in promise factory instead of `SendCallback.future` so that
+    // we stop waiting for the result as soon as the promise factory (typically the connected synchronizer) is closed.
+    // This way, we can safely wrap the submission in a `performUnlessClosing*F` call without getting into
+    // tricky shutdown order dependencies.
+    val sendResultP = promiseFactory.mkPromise[SendResult](
+      "sequenced-event-send-result",
+      futureSupervisor,
+    )
     for {
-      // The pending submission must be registered before the request is sent, to avoid races
-      resultArgs <- steps
-        .updatePendingSubmissions(
-          steps.pendingSubmissions(ephemeral),
-          submissionParam,
-          submissionId,
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
-
-      _ = logger.info(
-        s"Phase 1 completed: Submitting ${batch.envelopes.length} envelopes for ${steps.requestKind} request, ${steps
-            .submissionDescription(submissionParam)}"
-      )
-
-      // use the send callback and a promise to capture the eventual sequenced event read by the submitter
-      // We use a promise produced by the passed-in promise factory instead of `SendCallback.future` so that
-      // we stop waiting for the result as soon as the promise factory (typically the connected synchronizer) is closed.
-      // This way, we can safely wrap the submission in a `performUnlessClosing*F` call without getting into
-      // tricky shutdown order dependencies.
-      sendResultP = promiseFactory.mkPromise[SendResult](
-        "sequenced-event-send-result",
-        futureSupervisor,
-      )
       _ <- sequencerClient
         .sendAsync(
           batch,
@@ -506,7 +503,7 @@ abstract class ProtocolProcessor[
           removePendingSubmission()
       }
 
-      sendResult -> resultArgs
+      sendResult
     }
   }
 
@@ -651,7 +648,6 @@ abstract class ProtocolProcessor[
     }
   }
 
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   @VisibleForTesting
   private[protocol] def processRequestInternal(
       ts: CantonTimestamp,

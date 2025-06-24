@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.Send
@@ -31,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleName,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
 import pprint.Tree
@@ -227,9 +227,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     runClientCollector(node, machine.clientCollector)
   }
 
-  private def startMachine(
-      endpoint: P2PEndpoint
-  ): BftNodeId = {
+  private def startMachine(endpoint: P2PEndpoint): BftNodeId = {
     val node = endpointToTestBftNodeId(endpoint)
     val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
     val onboardingData = onboardingManager.provide(ProvideForInit, node)

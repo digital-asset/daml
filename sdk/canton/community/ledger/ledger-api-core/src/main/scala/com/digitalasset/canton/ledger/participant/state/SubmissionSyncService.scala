@@ -4,9 +4,10 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.LfKeyResolver
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 
 import java.util.concurrent.CompletionStage
 
@@ -95,7 +96,7 @@ trait SubmissionSyncService {
       // TODO(#25385): Consider removing since it's currently not used
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[FatContractInstance],
+      processedDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]

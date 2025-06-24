@@ -277,13 +277,20 @@ class StartableStoppableLedgerApiServer(
         ),
         queryExecutionContext = queryExecutionContext,
         commandExecutionContext = executionContext,
-        getPackagePreference = loggingContext =>
-          packageName =>
-            candidatePackageIds =>
-              packagePreferenceBackend
-                .getPreferredPackageVersionForParticipant(packageName, candidatePackageIds)(
-                  loggingContext
-                ),
+        getPackagePreference = (
+            packageName,
+            candidatePackageIds,
+            candidatePackageIdsRestrictionDescription,
+            loggingContext,
+        ) =>
+          packagePreferenceBackend
+            .getPreferredPackageVersionForParticipant(
+              packageName,
+              candidatePackageIds,
+              candidatePackageIdsRestrictionDescription,
+            )(
+              loggingContext
+            ),
       )
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(

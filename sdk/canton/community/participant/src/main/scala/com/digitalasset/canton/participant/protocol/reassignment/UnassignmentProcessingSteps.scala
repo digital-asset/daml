@@ -49,7 +49,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Purged,
   ReassignedAway,
 }
-import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
@@ -86,8 +86,6 @@ class UnassignmentProcessingSteps(
     ]
     with NamedLogging {
 
-  override type SubmissionResultArgs = PendingReassignmentSubmission
-
   override type RequestType = ProcessingSteps.RequestType.Unassignment
   override val requestType: RequestType = ProcessingSteps.RequestType.Unassignment
 
@@ -107,11 +105,15 @@ class UnassignmentProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncEphemeralStateLookup,
+      ephemeralState: SyncEphemeralState,
       sourceRecentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentProcessorError,
+    (Submission, PendingSubmissionData),
+  ] = {
     val SubmissionParam(
       submitterMetadata,
       contractIds,
@@ -270,34 +272,28 @@ class UnassignmentProcessingSteps(
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-    } yield {
-      ReassignmentsSubmission(
-        Batch.of(protocolVersion.unwrap, messages*),
-        rootHash,
-      )
-    }
-  }
-
-  override def updatePendingSubmissions(
-      pendingSubmissionMap: PendingSubmissions,
-      submissionParam: SubmissionParam,
-      pendingSubmissionId: PendingSubmissionId,
-  ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
-    performPendingSubmissionMapUpdate(
-      pendingSubmissionMap,
-      ReassignmentRef(submissionParam.contractIds.toSet),
-      submissionParam.submittingParty,
-      pendingSubmissionId,
+      pendingSubmission <-
+        performPendingSubmissionMapUpdate(
+          pendingSubmissions(ephemeralState),
+          ReassignmentRef(submissionParam.contractIds.toSet),
+          submissionParam.submittingParty,
+          rootHash,
+          validated.request.mkReassignmentId,
+        )
+    } yield (
+      ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash),
+      pendingSubmission,
     )
+  }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],
-      pendingSubmission: SubmissionResultArgs,
-  ): SubmissionResult = {
-    val unassignId = UnassignId(synchronizerId.map(_.logical), deliver.timestamp)
-    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), unassignId)
-    SubmissionResult(reassignmentId, pendingSubmission.reassignmentCompletion.future)
-  }
+      pendingSubmission: PendingSubmissionData,
+  ): SubmissionResult =
+    SubmissionResult(
+      pendingSubmission.mkReassignmentId(deliver.timestamp),
+      pendingSubmission.reassignmentCompletion.future,
+    )
 
   override protected def decryptTree(
       sourceSnapshot: SynchronizerSnapshotSyncCryptoApi,
@@ -360,13 +356,7 @@ class UnassignmentProcessingSteps(
       Right(activenessSet)
     } else
       Left(
-        UnexpectedSynchronizer(
-          ReassignmentId(
-            parsedRequest.fullViewTree.sourceSynchronizer,
-            unassignId(parsedRequest),
-          ),
-          synchronizerId.unwrap,
-        )
+        UnexpectedSynchronizer(parsedRequest.reassignmentId, synchronizerId.unwrap)
       )
 
   protected override def contractsMaybeUnknown(
@@ -424,12 +414,6 @@ class UnassignmentProcessingSteps(
         )
     } yield snapshot.map(_.ipsSnapshot)
 
-  private def unassignId(req: ParsedReassignmentRequest[FullUnassignmentTree]): UnassignId =
-    UnassignId(
-      req.fullViewTree.sourceSynchronizer,
-      req.requestTimestamp,
-    )
-
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
       reassignmentLookup: ReassignmentLookup,
@@ -448,10 +432,9 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
-    val reassignmentId = ReassignmentId(synchronizerId.map(_.logical), unassignId(parsedRequest))
 
     if (isReassigningParticipant) {
-      reassignmentCoordination.addPendingUnassignment(reassignmentId)
+      reassignmentCoordination.addPendingUnassignment(parsedRequest.reassignmentId)
     }
 
     for {
@@ -626,9 +609,7 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT.rightT(
-      reassignmentCoordination.completeUnassignment(
-        ReassignmentId(synchronizerId.map(_.logical), unassignId(parsedRequest))
-      )
+      reassignmentCoordination.completeUnassignment(parsedRequest.reassignmentId)
     )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(

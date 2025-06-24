@@ -31,14 +31,14 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
-import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
+import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Party, SubmissionId, UserId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.sdk.OpenTelemetrySdk
@@ -177,7 +177,7 @@ object ApiPackageManagementServiceSpec {
         // Currently, the estimated interpretation cost is not used
         _estimatedInterpretationCost: Long,
         keyResolver: LfKeyResolver,
-        processedDisclosedContracts: ImmArray[FatContractInstance],
+        processedDisclosedContracts: ImmArray[LfFatContractInst],
     )(implicit
         traceContext: TraceContext
     ): CompletionStage[SubmissionResult] =

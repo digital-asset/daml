@@ -18,14 +18,14 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
+import com.digitalasset.canton.protocol.{LfContractId, LfFatContractInst, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
+import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
@@ -43,7 +43,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       // Currently, the estimated interpretation cost is not used
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[FatContractInstance],
+      processedDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =

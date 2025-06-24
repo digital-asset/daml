@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.platform.store
 
+import com.digitalasset.canton.protocol.LfFatContractInst
+
 package object cache {
   import com.digitalasset.daml.lf.value.Value as lfval
   private[cache] type ContractId = lfval.ContractId
@@ -10,7 +12,7 @@ package object cache {
   private[cache] type Value = lfval.VersionedValue
 
   import com.digitalasset.daml.lf.transaction as lftx
-  private[cache] type FatContract = lftx.FatContractInstance
+  private[cache] type FatContract = LfFatContractInst
   private[cache] type Key = lftx.GlobalKey
 
   import com.digitalasset.daml.lf.data as lfdata

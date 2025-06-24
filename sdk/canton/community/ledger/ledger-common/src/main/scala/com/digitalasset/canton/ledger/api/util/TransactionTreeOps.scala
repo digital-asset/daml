@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.transaction.TransactionTree
 
 import scala.annotation.tailrec
 
+//TODO(#23504) remove when transaction trees are removed
 object TransactionTreeOps {
 
   implicit class TransactionTreeOps(val tree: TransactionTree) extends AnyVal {

@@ -8,10 +8,6 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -30,6 +26,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleName,
   ModuleRef,
   P2PNetworkRef,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
+import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -162,18 +163,21 @@ trait ReassignmentProcessingSteps[
       reassignmentRef: ReassignmentRef,
       submitterLf: LfPartyId,
       rootHash: RootHash,
-  ): EitherT[Future, ReassignmentProcessorError, PendingReassignmentSubmission] = {
-    val pendingSubmission = PendingReassignmentSubmission()
+      mkReassignmentId: CantonTimestamp => ReassignmentId,
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, PendingReassignmentSubmission] = {
+    val pendingSubmission = PendingReassignmentSubmission(mkReassignmentId)
     val existing = pendingSubmissionMap.putIfAbsent(rootHash, pendingSubmission)
-    EitherT.cond[Future](
-      existing.isEmpty,
-      pendingSubmission,
-      DuplicateReassignmentTreeHash(
-        reassignmentRef,
-        submitterLf,
-        rootHash,
-      ): ReassignmentProcessorError,
-    )
+    EitherT
+      .cond[Future](
+        existing.isEmpty,
+        pendingSubmission,
+        DuplicateReassignmentTreeHash(
+          reassignmentRef,
+          submitterLf,
+          rootHash,
+        ): ReassignmentProcessorError,
+      )
+      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   protected def decryptTree(
@@ -526,8 +530,9 @@ trait ReassignmentProcessingSteps[
 object ReassignmentProcessingSteps {
 
   final case class PendingReassignmentSubmission(
+      mkReassignmentId: CantonTimestamp => ReassignmentId,
       reassignmentCompletion: Promise[com.google.rpc.status.Status] =
-        Promise[com.google.rpc.status.Status]()
+        Promise[com.google.rpc.status.Status](),
   )
 
   final case class ParsedReassignmentRequest[VT <: FullReassignmentViewTree](
@@ -546,6 +551,16 @@ object ReassignmentProcessingSteps {
       override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
   ) extends ParsedRequest[ReassignmentSubmitterMetadata] {
     override def rootHash: RootHash = fullViewTree.rootHash
+
+    val reassignmentId = {
+      val unassignId = UnassignId(
+        fullViewTree.sourceSynchronizer,
+        fullViewTree.targetSynchronizer.map(_.logical),
+        requestTimestamp,
+        fullViewTree.contracts.contractIdCounters,
+      )
+      ReassignmentId(fullViewTree.sourceSynchronizer, unassignId)
+    }
   }
 
   trait PendingReassignment extends PendingRequestData with Product with Serializable {

@@ -55,4 +55,14 @@ public final class PackagePreference {
   public int hashCode() {
     return Objects.hash(packageReference, synchronizerId);
   }
+
+  @Override
+  public @NonNull String toString() {
+    return "PackagePreference{"
+        + "packageReference="
+        + packageReference
+        + ", synchronizerId="
+        + synchronizerId
+        + '}';
+  }
 }

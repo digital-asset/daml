@@ -241,6 +241,10 @@ final class PartyReplicationTargetParticipantProcessor(
             .finish()
           TransactionId(hash).tryAsLedgerTransactionId
         }
+        val contractIdCounters = contracts.map {
+          case ActiveContractOld(_, contract, reassignmentCounter) =>
+            (contract.contractId, reassignmentCounter)
+        }
         Update.RepairReassignmentAccepted(
           workflowId = None,
           updateId = uniqueUpdateId,
@@ -250,7 +254,9 @@ final class PartyReplicationTargetParticipantProcessor(
             submitter = None,
             unassignId = UnassignId(
               ReassignmentTag.Source(synchronizerId),
+              ReassignmentTag.Target(synchronizerId),
               timestamp,
+              contractIdCounters,
             ), // artificial unassign has same timestamp as assign
             isReassigningParticipant = false,
           ),

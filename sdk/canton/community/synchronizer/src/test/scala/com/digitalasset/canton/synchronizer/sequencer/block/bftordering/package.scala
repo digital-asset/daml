@@ -4,8 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches}

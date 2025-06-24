@@ -287,6 +287,45 @@ object Generators {
     patch <- Gen.choose(0, 100)
   } yield new PackageVersion(Array(major, minor, patch)).toString
 
+  val packageVettingRequirementsGen
+      : Gen[v2.interactive.InteractiveSubmissionServiceOuterClass.PackageVettingRequirement] =
+    for {
+      packageName <- packageNameGen
+      parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield v2.interactive.InteractiveSubmissionServiceOuterClass.PackageVettingRequirement
+      .newBuilder()
+      .addAllParties(parties.asJavaCollection)
+      .setPackageName(packageName)
+      .build()
+
+  val packageReferenceGen: Gen[v2.PackageReferenceOuterClass.PackageReference] =
+    for {
+      packageId <- Arbitrary.arbString.arbitrary
+      packageVersion <- packageVersionGen
+      packageName <- packageNameGen
+    } yield {
+      v2.PackageReferenceOuterClass.PackageReference
+        .newBuilder()
+        .setPackageId(packageId)
+        .setPackageName(packageName)
+        .setPackageVersion(packageVersion)
+        .build()
+    }
+
+  val getPreferredPackagesResponseGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesResponse
+  ] =
+    for {
+      packageReferences <- Gen.listOf(packageReferenceGen)
+      synchronizerId <- Arbitrary.arbString.arbitrary
+    } yield {
+      v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesResponse
+        .newBuilder()
+        .addAllPackageReferences(packageReferences.asJavaCollection)
+        .setSynchronizerId(synchronizerId)
+        .build()
+    }
+
   val packagePreferenceGen: Gen[
     v2.interactive.InteractiveSubmissionServiceOuterClass.PackagePreference
   ] =
@@ -729,6 +768,24 @@ object Generators {
       .pipe(builder => optCreated.fold(builder)(c => builder.setCreated(c)))
       .pipe(builder => optArchived.fold(builder)(a => builder.setArchived(a)))
       .build()
+  }
+
+  def getPreferredPackagesRequestGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesRequest
+  ] = {
+    import v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesRequest as Request
+    for {
+      packageVettingRequirements <- Gen.listOf(packageVettingRequirementsGen)
+      synchronizerId <- Arbitrary.arbOption[String].arbitrary
+      vettingValidAt <- protoTimestampGen
+    } yield {
+      val intermediate = Request
+        .newBuilder()
+        .setVettingValidAt(vettingValidAt)
+      synchronizerId.foreach(intermediate.setSynchronizerId)
+      packageVettingRequirements.foreach(intermediate.addPackageVettingRequirements)
+      intermediate.build()
+    }
   }
 
   def getPreferredPackageVersionRequestGen: Gen[

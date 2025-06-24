@@ -4,8 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey}
+import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.Future
@@ -21,7 +22,7 @@ trait ContractStore {
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[FatContractInstance]]
+  ): Future[Option[LfFatContractInst]]
 
   def lookupContractKey(readers: Set[Ref.Party], key: GlobalKey)(implicit
       loggingContext: LoggingContextWithTrace
@@ -59,5 +60,5 @@ object ContractStateStatus {
 object ContractState {
   case object NotFound extends ContractState
   case object Archived extends ContractState
-  final case class Active(contractInstance: FatContractInstance) extends ContractState
+  final case class Active(contractInstance: LfFatContractInst) extends ContractState
 }

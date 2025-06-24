@@ -21,14 +21,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
-  BftP2PNetworkIn,
-  BftP2PNetworkOut,
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory.SimulationP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.{
+  P2PNetworkInModule,
+  P2PNetworkOutModule,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
@@ -73,6 +69,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationInitializer,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
   NodeSimulationTopologyDataFactory,
   SimulationOrderingTopologyProvider,
@@ -305,7 +305,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         timeouts,
       )
     val p2pNetworkIn =
-      new BftP2PNetworkIn[SimulationEnv](
+      new P2PNetworkInModule[SimulationEnv](
         metrics,
         availabilityRef,
         consensusRef,
@@ -322,7 +322,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       pruningRef,
     )
     val p2pNetworkOut =
-      new BftP2PNetworkOut[SimulationEnv](
+      new P2PNetworkOutModule[SimulationEnv](
         thisNode,
         new SimulationP2PEndpointsStore(
           config.initialNetwork

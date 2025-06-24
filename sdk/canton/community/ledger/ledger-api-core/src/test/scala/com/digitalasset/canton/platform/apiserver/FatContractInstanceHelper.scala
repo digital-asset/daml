@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver
 
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
@@ -26,7 +27,7 @@ object FatContractInstanceHelper {
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
       version: LanguageVersion,
-  ): FatContractInstance = {
+  ): LfFatContractInst = {
     val create = Node.Create(
       templateId = templateId,
       packageName = packageName,
