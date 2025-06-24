@@ -64,13 +64,13 @@ import scala.language.implicitConversions
   * parties. These are defined in [[commonDefsPkg]].
   */
 class UpgradeTestUnit
-    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)]
+    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)](UpgradeTestCasesV2MaxStable)
     with ParallelTestExecution {
   import UpgradeTestCases._
   def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-  override def setup(testHelper: TestHelper): Future[SetupData] = Future.successful(
+  override def setup(testHelper: cases.TestHelper): Future[SetupData] = Future.successful(
     SetupData(
       alice = Party.assertFromString("Alice"),
       bob = Party.assertFromString("Bob"),
@@ -80,40 +80,40 @@ class UpgradeTestUnit
   )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
-    Machine.fromPureSExpr(compiledPackages, SEImportValue(typ, value)).runPure() match {
+    Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-      case Right(sValue) => sValue.toNormalizedValue(langVersion)
+      case Right(sValue) => sValue.toNormalizedValue(cases.langVersion)
     }
   }
 
-  def newEngine() = new Engine(engineConfig)
+  def newEngine() = new Engine(cases.engineConfig)
 
   override def execute(
       setupData: SetupData,
-      testHelper: TestHelper,
+      testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: ContractOrigin,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientContract: FatContractInstance =
       FatContractInstance.fromThinInstance(
-        version = langVersion,
-        packageName = clientPkg.pkgName,
+        version = cases.langVersion,
+        packageName = cases.clientPkg.pkgName,
         template = testHelper.clientTplId,
         arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
       )
 
     val globalContract: FatContractInstance =
       FatContractInstance.fromThinInstance(
-        version = langVersion,
-        packageName = clientPkg.pkgName,
+        version = cases.langVersion,
+        packageName = cases.clientPkg.pkgName,
         template = testHelper.v1TplId,
         arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
       )
 
     val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = langVersion,
+      version = cases.langVersion,
       contractId = setupData.globalContractId,
-      packageName = templateDefsPkgName,
+      packageName = cases.templateDefsPkgName,
       templateId = testHelper.v1TplId,
       createArg = normalize(
         testHelper.globalContractArg(setupData.alice, setupData.bob),
@@ -156,8 +156,8 @@ class UpgradeTestUnit
 
     newEngine()
       .submit(
-        packageMap = packageMap,
-        packagePreference = Set(commonDefsPkgId, templateDefsV2PkgId, clientPkgId),
+        packageMap = cases.packageMap,
+        packagePreference = Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
@@ -168,7 +168,7 @@ class UpgradeTestUnit
       )
       .consume(
         pcs = lookupContractById,
-        pkgs = lookupPackage,
+        pkgs = cases.lookupPackage,
         keys = lookupContractByKey,
       )
   }
@@ -204,18 +204,18 @@ class UpgradeTestUnit
   }
 }
 
-abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers {
+abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases) extends AsyncFreeSpec with Matchers {
   import UpgradeTestCases._
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
   def execute(
       setupData: SetupData,
-      testHelper: TestHelper,
+      testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: ContractOrigin,
   ): Future[Either[Err, Res]]
 
-  def setup(testHelper: TestHelper): Future[SetupData]
+  def setup(testHelper: cases.TestHelper): Future[SetupData]
 
   def assertResultMatchesExpectedOutcome(
       result: Either[Err, Res],
@@ -224,16 +224,16 @@ abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers {
 
   // This is the main loop of the test: for every combination of test case, operation, catch behavior, entry point, and
   // contract origin, we generate an API command, execute it, and check that the result matches the expected outcome.
-  for (testCase <- testCases)
+  for (testCase <- cases.testCases)
     testCase.templateName - {
-      val testHelper = new TestHelper(testCase)
-      for (operation <- operations) {
+      val testHelper = new cases.TestHelper(testCase)
+      for (operation <- cases.operations) {
         operation.name - {
-          for (catchBehavior <- catchBehaviors)
+          for (catchBehavior <- cases.catchBehaviors)
             catchBehavior.name - {
-              for (entryPoint <- entryPoints) {
+              for (entryPoint <- cases.entryPoints) {
                 entryPoint.name - {
-                  for (contractOrigin <- contractOrigins) {
+                  for (contractOrigin <- cases.contractOrigins) {
                     (testCase.templateName + "_" + operation.name + "_" + contractOrigin.name) - {
                       testHelper
                         .makeApiCommands(
@@ -264,12 +264,11 @@ abstract class UpgradeTest[Err, Res] extends AsyncFreeSpec with Matchers {
     }
 }
 
-object UpgradeTestCases {
+object UpgradeTestCasesV2Dev extends UpgradeTestCases(LanguageVersion.v2_dev)
+object UpgradeTestCasesV2MaxStable extends UpgradeTestCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
 
-  //lazy val langVersion: LanguageVersion =
-  //  LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
-  lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
-
+class UpgradeTestCases(val langVersion: LanguageVersion) {
+  import UpgradeTestCases._
   private[this] implicit def parserParameters(implicit
       pkgId: PackageId
   ): ParserParameters[this.type] =
@@ -329,18 +328,6 @@ object UpgradeTestCases {
       """ (parserParameters(compilingCommonDefsPkgId))
   val (commonDefsDalfName, commonDefsDalf, commonDefsPkg, commonDefsPkgId) =
     encodeDalfArchive(compilingCommonDefsPkgId, compilingCommonDefsPkg)
-
-  sealed abstract class ExpectedOutcome(val description: String)
-  case object ExpectSuccess extends ExpectedOutcome("should succeed")
-  case object ExpectPreconditionViolated
-      extends ExpectedOutcome("should fail with a precondition violated error")
-  case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
-  case object ExpectPreprocessingError
-      extends ExpectedOutcome("should fail with a preprocessing error")
-  case object ExpectUnhandledException
-      extends ExpectedOutcome("should fail with an unhandled exception")
-  case object ExpectInternalInterpretationError
-      extends ExpectedOutcome("should fail with an internal interpretation error")
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
     * scala value we can splice into an [[ApiCommand]].
@@ -1879,19 +1866,7 @@ object UpgradeTestCases {
 
   val entryPoints: List[EntryPoint] = List(Command, ChoiceBody)
 
-  sealed abstract class ContractOrigin(val name: String)
-  case object Global extends ContractOrigin("Global")
-  case object Disclosed extends ContractOrigin("Disclosed")
-  case object Local extends ContractOrigin("Local")
-
   val contractOrigins: List[ContractOrigin] = List(Global, Disclosed, Local)
-
-  case class SetupData(
-      alice: Party,
-      bob: Party,
-      clientContractId: ContractId,
-      globalContractId: ContractId,
-  )
 
   /** A class that defines all the "global" variables shared by tests for a given template name: the template ID of the
     * v1 template, the template ID of the v2 template, the ID of the v1 contract, etc. It exposes two methods:
@@ -2087,4 +2062,31 @@ object UpgradeTestCases {
       }
     }
   }
+}
+
+object UpgradeTestCases {
+  sealed abstract class ExpectedOutcome(val description: String)
+  case object ExpectSuccess extends ExpectedOutcome("should succeed")
+  case object ExpectPreconditionViolated
+      extends ExpectedOutcome("should fail with a precondition violated error")
+  case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
+  case object ExpectPreprocessingError
+      extends ExpectedOutcome("should fail with a preprocessing error")
+  case object ExpectUnhandledException
+      extends ExpectedOutcome("should fail with an unhandled exception")
+  case object ExpectInternalInterpretationError
+      extends ExpectedOutcome("should fail with an internal interpretation error")
+
+  case class SetupData(
+      alice: Party,
+      bob: Party,
+      clientContractId: ContractId,
+      globalContractId: ContractId,
+  )
+
+  sealed abstract class ContractOrigin(val name: String)
+  case object Global extends ContractOrigin("Global")
+  case object Disclosed extends ContractOrigin("Disclosed")
+  case object Local extends ContractOrigin("Local")
+
 }

@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.{UpgradeTest, UpgradeTestCases}
+import com.digitalasset.daml.lf.engine.{UpgradeTest, UpgradeTestCases, UpgradeTestCasesV2Dev}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -29,9 +29,10 @@ class UpgradeTestIntegration
     extends UpgradeTest[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ]
+    ](UpgradeTestCasesV2Dev)
     with CantonFixture {
   import UpgradeTestCases._
+
   def encodeDar(
       mainDalfName: String,
       mainDalf: Archive,
@@ -58,25 +59,25 @@ class UpgradeTestIntegration
   // Compiled dars
   // TODO: Rethink how to get the archive here without modifying the StablePackage interface in daml-lf/language
   val (primDATypesDalfName, primDATypesDalf) =
-    StablePackagesV2.allArchivesByPkgId(stablePackages.Tuple2.packageId)
-  val commonDefsDar = encodeDar(commonDefsDalfName, commonDefsDalf, List())
+    StablePackagesV2.allArchivesByPkgId(cases.stablePackages.Tuple2.packageId)
+  val commonDefsDar = encodeDar(cases.commonDefsDalfName, cases.commonDefsDalf, List())
   val templateDefsV1Dar = encodeDar(
-    templateDefsV1DalfName,
-    templateDefsV1Dalf,
-    List((commonDefsDalfName, commonDefsDalf)),
+    cases.templateDefsV1DalfName,
+    cases.templateDefsV1Dalf,
+    List((cases.commonDefsDalfName, cases.commonDefsDalf)),
   )
   val templateDefsV2Dar = encodeDar(
-    templateDefsV2DalfName,
-    templateDefsV2Dalf,
-    List((commonDefsDalfName, commonDefsDalf)),
+    cases.templateDefsV2DalfName,
+    cases.templateDefsV2Dalf,
+    List((cases.commonDefsDalfName, cases.commonDefsDalf)),
   )
   val clientDar = encodeDar(
-    clientDalfName,
-    clientDalf,
+    cases.clientDalfName,
+    cases.clientDalf,
     List(
-      (templateDefsV1DalfName, templateDefsV1Dalf),
-      (templateDefsV2DalfName, templateDefsV2Dalf),
-      (commonDefsDalfName, commonDefsDalf),
+      (cases.templateDefsV1DalfName, cases.templateDefsV1Dalf),
+      (cases.templateDefsV2DalfName, cases.templateDefsV2Dalf),
+      (cases.commonDefsDalfName, cases.commonDefsDalf),
       (primDATypesDalfName, primDATypesDalf),
     ),
   )
@@ -100,7 +101,7 @@ class UpgradeTestIntegration
       client,
       Some(Ref.UserId.assertFromString("upgrade-test-matrix")),
       None,
-      compiledPackages,
+      cases.compiledPackages,
     )
   }
 
@@ -139,7 +140,7 @@ class UpgradeTestIntegration
     )
       .flatMap(scriptClient.allocateParty(_))
 
-  override def setup(testHelper: TestHelper): Future[SetupData] =
+  override def setup(testHelper: cases.TestHelper): Future[SetupData] =
     for {
       alice <- allocateParty("Alice")
       bob <- allocateParty("Bob")
@@ -162,7 +163,7 @@ class UpgradeTestIntegration
 
   override def execute(
       setupData: SetupData,
-      testHelper: TestHelper,
+      testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
       contractOrigin: ContractOrigin,
   ): Future[Either[
@@ -222,7 +223,7 @@ class UpgradeTestIntegration
         actAs = OneAnd(setupData.alice, Set()),
         readAs = Set(),
         disclosures = disclosures,
-        optPackagePreference = Some(List(commonDefsPkgId, templateDefsV2PkgId, clientPkgId)),
+        optPackagePreference = Some(List(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId)),
         commands = commands,
         prefetchContractKeys = List(),
         optLocation = None,
