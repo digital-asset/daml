@@ -334,7 +334,7 @@ class TransactionConfirmationRequestFactoryTest
             tree.viewHash,
             randomnessMapNE,
             encryptedView,
-            transactionFactory.physicalSynchronizerId,
+            transactionFactory.psid,
             SymmetricKeyScheme.Aes128Gcm,
             testedProtocolVersion,
           )

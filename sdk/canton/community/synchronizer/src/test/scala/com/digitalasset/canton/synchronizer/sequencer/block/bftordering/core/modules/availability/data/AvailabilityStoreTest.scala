@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data
 
+import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
@@ -20,13 +21,13 @@ trait AvailabilityStoreTest extends AsyncWordSpec with BftSequencerBaseTest {
   def createStore(): AvailabilityStore[PekkoEnv]
 
   private val request1 = Traced(
-    OrderingRequest("tag", ByteString.copyFromUtf8("payload1"))
+    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload1"))
   )
   private val request2 = Traced(
-    OrderingRequest("tag", ByteString.copyFromUtf8("payload2"))
+    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload2"))
   )
   private val request3 = Traced(
-    OrderingRequest("tag", ByteString.copyFromUtf8("payload3"))
+    OrderingRequest(BlockFormat.SendTag, ByteString.copyFromUtf8("payload3"))
   )
 
   private val batch1 = OrderingRequestBatch.create(Seq(request1, request3), EpochNumber.First)

@@ -42,7 +42,7 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.ReadState
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
@@ -116,18 +116,19 @@ object SequencerReaderConfig {
 
 class SequencerReader(
     config: SequencerReaderConfig,
-    synchronizerId: PhysicalSynchronizerId,
     store: SequencerStore,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     eventSignaller: EventSignaller,
     topologyClientMember: Member,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
     with HasCloseContext {
+
+  private val psid = syncCryptoApi.psid
+  private val protocolVersion: ProtocolVersion = psid.protocolVersion
 
   def readV2(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
@@ -527,7 +528,7 @@ class SequencerReader(
             DeliverError.create(
               previousTimestamp,
               unvalidatedEvent.timestamp,
-              synchronizerId,
+              psid,
               unvalidatedEvent.event.messageId,
               error,
               protocolVersion,
@@ -540,7 +541,7 @@ class SequencerReader(
             Deliver.create(
               previousTimestamp,
               unvalidatedEvent.timestamp,
-              synchronizerId,
+              psid,
               None,
               emptyBatch,
               None,
@@ -777,7 +778,7 @@ class SequencerReader(
             Deliver.create[ClosedEnvelope](
               previousTimestamp,
               timestamp,
-              synchronizerId,
+              psid,
               messageIdO,
               filteredBatch,
               topologyTimestampO,
@@ -798,7 +799,7 @@ class SequencerReader(
             Deliver.create[ClosedEnvelope](
               previousTimestamp,
               timestamp,
-              synchronizerId,
+              psid,
               Some(messageId),
               emptyBatch,
               topologyTimestampO,
@@ -814,7 +815,7 @@ class SequencerReader(
             DeliverError.create(
               previousTimestamp,
               timestamp,
-              synchronizerId,
+              psid,
               messageId,
               status,
               protocolVersion,

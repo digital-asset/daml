@@ -19,7 +19,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
@@ -33,18 +32,18 @@ trait RegisterTopologyTransactionHandle extends FlagCloseable {
 
 class SequencerBasedRegisterTopologyTransactionHandle(
     sequencerClient: SequencerClient,
-    val synchronizerId: PhysicalSynchronizerId,
     val member: Member,
     timeTracker: SynchronizerTimeTracker,
     clock: Clock,
     topologyConfig: TopologyConfig,
-    protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends RegisterTopologyTransactionHandle
     with NamedLogging
     with PrettyPrinting {
+
+  private val psid: PhysicalSynchronizerId = sequencerClient.psid
 
   override def submit(
       transactions: Seq[GenericSignedTopologyTransaction]
@@ -55,9 +54,8 @@ class SequencerBasedRegisterTopologyTransactionHandle(
     val maxSequencingTime =
       clock.now.add(topologyConfig.topologyTransactionRegistrationTimeout.toInternal.duration)
     val request = TopologyTransactionsBroadcast(
-      synchronizerId,
+      sequencerClient.psid,
       transactions,
-      protocolVersion,
     )
     synchronizeWithClosing(functionFullName)(
       sendRequest(request, maxSequencingTime, sendCallback)
@@ -105,7 +103,8 @@ class SequencerBasedRegisterTopologyTransactionHandle(
     logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
     EitherTUtil.logOnErrorU(
       sequencerClient.sendAsync(
-        Batch.of(protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
+        Batch
+          .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
         maxSequencingTime = maxSequencingTime,
         callback = sendCallback,
         // Do not amplify because we are running our own retry loop here anyway
@@ -118,7 +117,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
 
   override protected def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
     prettyOfClass(
-      param("synchronizerId", _.synchronizerId),
+      param("synchronizerId", _.psid),
       param("member", _.member),
     )
 }

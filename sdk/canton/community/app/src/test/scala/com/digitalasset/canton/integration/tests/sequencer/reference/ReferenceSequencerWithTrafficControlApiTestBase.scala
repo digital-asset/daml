@@ -366,7 +366,6 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
       sequencerMetrics,
     )
       .create(
-        synchronizerId,
         SequencerId(synchronizerId.uid),
         clock,
         clock,

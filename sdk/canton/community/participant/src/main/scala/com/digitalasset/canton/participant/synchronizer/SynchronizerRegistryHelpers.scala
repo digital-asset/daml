@@ -277,7 +277,6 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
               synchronizerId,
               config.synchronizerAlias,
               client,
-              sequencerAggregatedInfo.staticSynchronizerParameters.protocolVersion,
             )
             _ <- EitherT.cond[FutureUnlessShutdown](
               success,

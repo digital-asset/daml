@@ -39,7 +39,6 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, ErrorUtil, SingleUseCell}
-import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
@@ -49,9 +48,7 @@ import scala.util.chaining.*
 
 class StoreBasedSynchronizerOutbox(
     synchronizerAlias: SynchronizerAlias,
-    val synchronizerId: PhysicalSynchronizerId,
     val memberId: Member,
-    val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
     val targetClient: SynchronizerTopologyClientWithInit,
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
@@ -376,6 +373,8 @@ abstract class SynchronizerOutbox extends SynchronizerOutboxHandle {
 
   def targetClient: SynchronizerTopologyClientWithInit
 
+  def psid: PhysicalSynchronizerId = targetClient.psid
+
   def newTransactionsAdded(
       asOf: CantonTimestamp,
       num: Int,
@@ -410,7 +409,6 @@ class SynchronizerOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
 }
 
 class SynchronizerOutboxFactory(
-    synchronizerId: PhysicalSynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     synchronizerTopologyManager: SynchronizerTopologyManager,
@@ -421,11 +419,12 @@ class SynchronizerOutboxFactory(
     override val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
+  private val psid: PhysicalSynchronizerId = synchronizerTopologyManager.psid
+
   private val authorizedObserverRef = new SingleUseCell[SynchronizerOutboxDynamicObserver]
   private val synchronizerObserverRef = new SingleUseCell[SynchronizerOutboxDynamicObserver]
 
   def create(
-      protocolVersion: ProtocolVersion, // // TODO(#25482) Reduce duplication in parameters
       targetTopologyClient: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
       timeTracker: SynchronizerTimeTracker,
@@ -437,12 +436,10 @@ class SynchronizerOutboxFactory(
   ): SynchronizerOutboxHandle = {
     val handle = new SequencerBasedRegisterTopologyTransactionHandle(
       sequencerClient,
-      synchronizerId,
       memberId,
       timeTracker,
       clock,
       topologyConfig,
-      protocolVersion,
       timeouts,
       synchronizerLoggerFactory,
     )
@@ -458,10 +455,8 @@ class SynchronizerOutboxFactory(
       authorizedObserverRef.getOrElse(throw new IllegalStateException("Must have observer"))
 
     val storeBasedSynchronizerOutbox = new StoreBasedSynchronizerOutbox(
-      SynchronizerAlias(synchronizerId.uid.toLengthLimitedString),
-      synchronizerId,
+      SynchronizerAlias(psid.uid.toLengthLimitedString),
       memberId = memberId,
-      protocolVersion = protocolVersion,
       handle = handle,
       targetClient = targetTopologyClient,
       authorizedStore = authorizedTopologyManager.store,
@@ -490,10 +485,8 @@ class SynchronizerOutboxFactory(
 
     val queueBasedSynchronizerOutbox =
       new QueueBasedSynchronizerOutbox(
-        SynchronizerAlias(synchronizerId.uid.toLengthLimitedString),
-        synchronizerId,
+        SynchronizerAlias(psid.uid.toLengthLimitedString),
         memberId = memberId,
-        protocolVersion = protocolVersion,
         handle = handle,
         targetClient = targetTopologyClient,
         synchronizerOutboxQueue = synchronizerTopologyManager.outboxQueue,
@@ -531,7 +524,6 @@ class SynchronizerOutboxFactory(
 }
 
 class SynchronizerOutboxFactorySingleCreate(
-    synchronizerId: PhysicalSynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     synchronizerTopologyManager: SynchronizerTopologyManager,
@@ -541,7 +533,6 @@ class SynchronizerOutboxFactorySingleCreate(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 ) extends SynchronizerOutboxFactory(
-      synchronizerId,
       memberId,
       authorizedTopologyManager,
       synchronizerTopologyManager,
@@ -555,7 +546,6 @@ class SynchronizerOutboxFactorySingleCreate(
   val outboxRef = new SingleUseCell[SynchronizerOutboxHandle]
 
   def createOnlyOnce(
-      protocolVersion: ProtocolVersion,
       targetTopologyClient: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
       timeTracker: SynchronizerTimeTracker,
@@ -575,7 +565,6 @@ class SynchronizerOutboxFactorySingleCreate(
     }
 
     create(
-      protocolVersion,
       targetTopologyClient,
       sequencerClient,
       timeTracker,

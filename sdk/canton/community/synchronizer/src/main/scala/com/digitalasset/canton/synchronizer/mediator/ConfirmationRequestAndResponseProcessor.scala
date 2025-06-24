@@ -32,7 +32,6 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
 import org.slf4j.event.Level
@@ -45,13 +44,11 @@ import scala.concurrent.{ExecutionContext, Future}
   * participants.
   */
 private[mediator] class ConfirmationRequestAndResponseProcessor(
-    synchronizerId: PhysicalSynchronizerId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
     crypto: SynchronizerCryptoClient,
     timeTracker: SynchronizerTimeTracker,
     val mediatorState: MediatorState,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext, tracer: Tracer)
@@ -60,6 +57,8 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     with FlagCloseable
     with HasCloseContext
     with MediatorEventHandler {
+
+  private val psid = crypto.psid
 
   override def observeTimestampWithoutEvent(sequencingTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -229,7 +228,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
               // Request is finalized, approve / reject immediately
               case Left(Some(rejection)) =>
-                val verdict = rejection.toVerdict(protocolVersion)
+                val verdict = rejection.toVerdict(psid.protocolVersion)
                 logger.debug(show"$requestId: finalizing immediately with verdict $verdict...")
                 for {
                   _ <-
@@ -728,13 +727,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             .leftMap(err =>
               MediatorError.MalformedMessage
                 .Reject(
-                  s"$synchronizerId (timestamp: $ts): invalid signature from ${responses.sender} with $err"
+                  s"$psid (timestamp: $ts): invalid signature from ${responses.sender} with $err"
                 )
                 .report()
             )
             .toOption
           _ <-
-            if (signedResponses.synchronizerId == synchronizerId)
+            if (signedResponses.synchronizerId == psid)
               OptionT.some[FutureUnlessShutdown](())
             else {
               MediatorError.MalformedMessage
@@ -833,7 +832,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       responseAggregation: ResponseAggregation[?],
       decisionTime: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    responseAggregation.asFinalized(protocolVersion) match {
+    responseAggregation.asFinalized(psid.protocolVersion) match {
       case Some(finalizedResponse) =>
         logger.info(
           s"Phase 6: Finalized request=${finalizedResponse.requestId} with verdict ${finalizedResponse.verdict}"

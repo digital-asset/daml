@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape
-import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
+import com.daml.ledger.api.v2.value.Identifier
+import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, state_service, transaction_filter}
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, RpcError}
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
@@ -23,6 +25,7 @@ import io.circe.{Codec, Decoder, Encoder, Json}
 import scalapb.{GeneratedEnumCompanion, UnknownFieldSet}
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.Schema.SName
+import sttp.tapir.SchemaType.SProduct
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
 import sttp.tapir.{DecodeResult, Schema, SchemaType}
@@ -77,24 +80,9 @@ object JsSchema {
       recordTime: protobuf.timestamp.Timestamp,
   )
 
-  final case class JsTopologyTransaction(
-      updateId: String,
-      events: Seq[JsTopologyEvent.TopologyEvent],
-      offset: Long,
-      synchronizerId: String,
-      traceContext: Option[TraceContext],
-      recordTime: com.google.protobuf.timestamp.Timestamp,
-  )
-
-  final case class JsStatus(
-      code: Int,
-      message: String,
-      details: Seq[com.google.protobuf.any.Any],
-  )
-
   final case class JsInterfaceView(
-      interfaceId: String,
-      viewStatus: JsStatus,
+      interfaceId: Identifier,
+      viewStatus: com.google.rpc.status.Status,
       viewValue: Option[Json],
   )
   object JsReassignmentEvent {
@@ -180,8 +168,19 @@ object JsSchema {
         : Codec[JsReassignmentEvent.JsAssignmentEvent] =
       deriveConfiguredCodec
 
+    implicit val participantPermissionEncoder: Encoder[state_service.ParticipantPermission] =
+      stringEncoderForEnum()
+
+    implicit val participantPermissionDecoder: Decoder[state_service.ParticipantPermission] =
+      stringDecoderForEnum()
+
+    implicit val jsPrefetchContractKeyRW: Codec[js.PrefetchContractKey] = deriveConfiguredCodec
+
     implicit val unrecognizedShape: Schema[transaction_filter.TransactionShape.Unrecognized] =
       Schema.derived
+
+    implicit val participantPermissionSchema: Schema[state_service.ParticipantPermission] =
+      Schema.string
 
     implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] = Schema.string
 
@@ -199,6 +198,22 @@ object JsSchema {
     implicit val jsReassignmentEventSchema: Schema[JsReassignmentEvent.JsReassignmentEvent] =
       Schema.oneOfWrapped
 
+    implicit val topologyTransactionParticipantAuthorizationAddedSchema
+        : Schema[lapi.topology_transaction.ParticipantAuthorizationAdded] =
+      Schema.derived
+    implicit val topologyTransactionParticipantAuthorizationChangedSchema
+        : Schema[lapi.topology_transaction.ParticipantAuthorizationChanged] =
+      Schema.derived
+    implicit val topologyTransactionParticipantAuthorizationRevokedSchema
+        : Schema[lapi.topology_transaction.ParticipantAuthorizationRevoked] =
+      Schema.derived
+
+    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+    implicit val topologyEventEventSchema: Schema[lapi.topology_transaction.TopologyEvent.Event] =
+      Schema.oneOfWrapped.name(
+        SName("TopologyEventEvent")
+      ) // Name selected manually otherwise it is generated as Event1
+
   }
 
   object JsEvent {
@@ -208,7 +223,7 @@ object JsSchema {
         offset: Long,
         nodeId: Int,
         contractId: String,
-        templateId: String,
+        templateId: Identifier,
         contractKey: Option[Json],
         createArgument: Option[Json],
         createdEventBlob: protobuf.ByteString,
@@ -224,18 +239,18 @@ object JsSchema {
         offset: Long,
         nodeId: Int,
         contractId: String,
-        templateId: String,
+        templateId: Identifier,
         witnessParties: Seq[String],
         packageName: String,
-        implementedInterfaces: Seq[String],
+        implementedInterfaces: Seq[Identifier],
     ) extends Event
 
     final case class ExercisedEvent(
         offset: Long,
         nodeId: Int,
         contractId: String,
-        templateId: com.daml.ledger.api.v2.value.Identifier,
-        interfaceId: Option[com.daml.ledger.api.v2.value.Identifier],
+        templateId: Identifier,
+        interfaceId: Option[Identifier],
         choice: String,
         choiceArgument: Json,
         actingParties: Seq[String],
@@ -244,29 +259,8 @@ object JsSchema {
         lastDescendantNodeId: Int,
         exerciseResult: Json,
         packageName: String,
-        implementedInterfaces: Seq[com.daml.ledger.api.v2.value.Identifier],
+        implementedInterfaces: Seq[Identifier],
     ) extends Event
-  }
-
-  object JsTopologyEvent {
-    sealed trait TopologyEvent
-
-    final case class ParticipantAuthorizationAdded(
-        partyId: String,
-        participantId: String,
-        participantPermission: Int,
-    ) extends TopologyEvent
-
-    final case class ParticipantAuthorizationChanged(
-        partyId: String,
-        participantId: String,
-        participantPermission: Int,
-    ) extends TopologyEvent
-
-    final case class ParticipantAuthorizationRevoked(
-        partyId: String,
-        participantId: String,
-    ) extends TopologyEvent
   }
 
   object JsTreeEvent {
@@ -400,31 +394,39 @@ object JsSchema {
     implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveConfiguredCodec
 
     implicit val any: Codec[com.google.protobuf.any.Any] = deriveConfiguredCodec
-    implicit val jsStatus: Codec[JsStatus] = deriveConfiguredCodec
+
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveConfiguredCodec
 
     implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveConfiguredCodec
-    implicit val jsTopologyTransaction: Codec[JsTopologyTransaction] = deriveConfiguredCodec
+
     implicit val jsSubmitAndWaitForTransactionTreeResponse
         : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveConfiguredCodec
     implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveConfiguredCodec
     implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveConfiguredCodec
     implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveConfiguredCodec
-    implicit val jsTopologyEventRW: Codec[JsTopologyEvent.TopologyEvent] = deriveConfiguredCodec
-    implicit val jsTopologyEventParticipantAuthorizationAddedRW
-        : Codec[JsTopologyEvent.ParticipantAuthorizationAdded] = deriveConfiguredCodec
-    implicit val jsParticipantAuthorizationChanged
-        : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveConfiguredCodec
-    implicit val jsParticipantAuthorizationRevoked
-        : Codec[JsTopologyEvent.ParticipantAuthorizationRevoked] = deriveConfiguredCodec
 
     implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveRelaxedCodec
     implicit val offsetCheckpointSynchronizerTime: Codec[offset_checkpoint.SynchronizerTime] =
       deriveRelaxedCodec
 
-    implicit val grpcStatusRW: Codec[
-      com.google.rpc.status.Status
-    ] = deriveConfiguredCodec
+    implicit val grpcStatusEncoder: Encoder[com.google.rpc.status.Status] = Encoder.instance {
+      status =>
+        import io.circe.syntax.*
+        Json.obj(
+          "code" -> status.code.asJson,
+          "message" -> status.message.asJson,
+          "details" -> status.details.asJson,
+        )
+    }
+
+    implicit val grpcStatusDecoder: Decoder[com.google.rpc.status.Status] = Decoder.instance {
+      cursor =>
+        for {
+          code <- cursor.downField("code").as[Int]
+          message <- cursor.downField("message").as[String]
+          details <- cursor.downField("details").as[Seq[com.google.protobuf.any.Any]]
+        } yield com.google.rpc.status.Status(code, message, details)
+    }
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
     implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
@@ -453,6 +455,24 @@ object JsSchema {
     implicit val anySchema: Schema[com.google.protobuf.any.Any] =
       Schema.derived.name(Some(SName("ProtoAny")))
 
+    implicit val statusSchema: Schema[com.google.rpc.status.Status] = {
+      val baseSchema = Schema.derived[com.google.rpc.status.Status]
+      // modified to preserve backwards compatibility with existing clients
+      val adjustedType = baseSchema.schemaType match {
+        case SProduct(fields) =>
+          SProduct(
+            fields.filter(
+              _.name.name != "unknownFields"
+            ) // This field is not needed and was introduced to generated code by mistake
+          )
+        case _ => sys.error("Error in JsSchema openapi generation expected SProduct")
+      }
+      baseSchema
+        .name(Some(SName("JsStatus")))
+        .copy(schemaType = adjustedType)
+
+    }
+
     implicit val jsEventCreatedSchema: Schema[JsEvent.CreatedEvent] = Schema.derived
 
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
@@ -471,10 +491,6 @@ object JsSchema {
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
-      Schema.oneOfWrapped
-
-    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-    implicit val jsTopologyEventEventSchema: Schema[JsTopologyEvent.TopologyEvent] =
       Schema.oneOfWrapped
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any

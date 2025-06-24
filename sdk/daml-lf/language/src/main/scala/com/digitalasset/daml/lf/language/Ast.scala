@@ -601,12 +601,6 @@ object Ast {
       cidE: Expr,
       argE: Expr,
   ) extends Update
-  final case class UpdateDynamicExercise(
-      templateId: TypeConId,
-      choice: ChoiceName,
-      cidE: Expr,
-      argE: Expr,
-  ) extends Update
   final case class UpdateExerciseInterface(
       interfaceId: TypeConId,
       choice: ChoiceName,

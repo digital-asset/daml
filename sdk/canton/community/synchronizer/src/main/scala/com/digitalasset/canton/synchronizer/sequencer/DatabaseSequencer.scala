@@ -44,7 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
@@ -71,9 +71,7 @@ object DatabaseSequencer {
       sequencerStore: SequencerStore,
       minimumSequencingTime: CantonTimestamp,
       clock: Clock,
-      synchronizerId: PhysicalSynchronizerId,
       topologyClientMember: Member,
-      protocolVersion: ProtocolVersion,
       cryptoApi: SynchronizerCryptoClient,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -107,9 +105,7 @@ object DatabaseSequencer {
       None,
       None,
       clock,
-      synchronizerId,
       topologyClientMember,
-      protocolVersion,
       cryptoApi,
       metrics,
       loggerFactory,
@@ -134,9 +130,7 @@ class DatabaseSequencer(
     exclusiveStorage: Option[Storage],
     health: Option[SequencerHealthConfig],
     clock: Clock,
-    synchronizerId: PhysicalSynchronizerId,
     topologyClientMember: Member,
-    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     cryptoApi: SynchronizerCryptoClient,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
@@ -151,6 +145,9 @@ class DatabaseSequencer(
       SignatureVerifier(cryptoApi),
     )
     with FlagCloseable {
+
+  private val psid = cryptoApi.psid
+  private val protocolVersion: ProtocolVersion = psid.protocolVersion
 
   require(
     blockSequencerMode || config.writer.eventWriteMaxConcurrency == 1,
@@ -253,12 +250,10 @@ class DatabaseSequencer(
   private val reader =
     new SequencerReader(
       config.reader,
-      synchronizerId,
       sequencerStore,
       cryptoApi,
       eventSignaller,
       topologyClientMember,
-      protocolVersion,
       timeouts,
       loggerFactory,
     )
@@ -364,7 +359,7 @@ class DatabaseSequencer(
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
-  override protected def localSequencerMember: Member = SequencerId(synchronizerId.uid)
+  override protected def localSequencerMember: Member = SequencerId(psid.uid)
 
   /** helper for performing operations that are expected to be called with a registered member so
     * will just throw if we find the member is unregistered.

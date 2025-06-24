@@ -13,6 +13,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.mediator.store.MediatorDeduplicationStore.DeduplicationData
 import com.digitalasset.canton.synchronizer.mediator.store.{
@@ -58,8 +59,8 @@ class MediatorEventDeduplicatorTest
     val finalizedResponseStore: FinalizedResponseStore =
       new InMemoryFinalizedResponseStore(loggerFactory)
 
-    val verdictSender =
-      new TestVerdictSender(null, daMediator, null, testedProtocolVersion, loggerFactory)
+    val sequencerSend = mock[SequencerClientSend]
+    val verdictSender = new TestVerdictSender(null, daMediator, sequencerSend, loggerFactory)
 
     val state = new MediatorState(
       finalizedResponseStore,

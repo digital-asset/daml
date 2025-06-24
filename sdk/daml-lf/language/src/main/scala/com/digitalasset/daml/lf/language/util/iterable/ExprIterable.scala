@@ -110,8 +110,6 @@ private[lf] object ExprIterable {
         Iterator(cid, arg)
       case UpdateSoftExercise(templateId @ _, choice @ _, cid, arg) =>
         Iterator(cid, arg)
-      case UpdateDynamicExercise(templateId @ _, choice @ _, cid, arg) =>
-        Iterator(cid, arg)
       case UpdateExerciseInterface(interface @ _, choice @ _, cid, arg, guard) =>
         Iterator(cid, arg) ++ guard.iterator
       case UpdateExerciseByKey(templateId @ _, choice @ _, key, arg) =>

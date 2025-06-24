@@ -5,18 +5,16 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochLength,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
-import com.digitalasset.canton.tracing.TraceContext
 
 import java.time.{Duration, Instant}
-
-import EpochState.Epoch
 
 private[iss] object IssConsensusModuleMetrics {
 
@@ -26,24 +24,11 @@ private[iss] object IssConsensusModuleMetrics {
   /** NOT thread-safe, must not be called concurrently
     */
   def emitConsensusLatencyStats(
-      metrics: BftOrderingMetrics,
-      logger: TracedLogger,
-  )(implicit
-      traceContext: TraceContext,
-      metricsContext: MetricsContext,
-  ): Unit = {
+      metrics: BftOrderingMetrics
+  )(implicit metricsContext: MetricsContext): Unit = {
     val now = Instant.now()
     lastConsensusCommitInstant.foreach { instant =>
-      if (now.isBefore(instant)) {
-        logger.warn(
-          s"Last consensus commit instant $instant is in the future compared to now $now: " +
-            "clock running backwards or unexpected concurrent call detected. Not updating commit latency metrics.",
-          new RuntimeException("Stacktrace to help with troubleshooting"),
-        )
-      } else {
-        val duration = Duration.between(instant, now)
-        metrics.consensus.commitLatency.update(duration)
-      }
+      updateTimer(metrics.consensus.commitLatency, Duration.between(instant, now))
     }
     lastConsensusCommitInstant = Some(now)
   }

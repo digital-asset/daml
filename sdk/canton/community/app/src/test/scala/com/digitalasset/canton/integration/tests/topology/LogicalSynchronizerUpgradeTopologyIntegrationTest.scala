@@ -9,27 +9,30 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
-import com.digitalasset.canton.sequencing.GrpcSequencerConnection
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{
   KnownPhysicalSynchronizerId,
-  PhysicalSynchronizerId,
   SequencerId,
   TopologyManagerError,
   UnknownPhysicalSynchronizerId,
 }
 import com.google.protobuf.ByteString
+import monocle.syntax.all.*
 
 import java.net.URI
 
@@ -38,7 +41,11 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S2M2
+    EnvironmentDefinition.P3_S2M2.addConfigTransform(
+      ConfigTransforms.updateAllParticipantConfigs_(
+        _.focus(_.parameters.automaticallyConnectToUpgradedSynchronizer).replace(false)
+      )
+    )
 
   private def successorSynchronizerId(implicit env: TestConsoleEnvironment) =
     env.daId.copy(serial = NonNegativeInt.one)
@@ -50,9 +57,9 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
 
     synchronizerOwners1.foreach { owner =>
       owner.topology.synchronizer_upgrade.announcement.propose(
-        daId,
-        PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
-        upgradeTime,
+        physicalSynchronizerId = daId,
+        successorPhysicalSynchronizerId = successorSynchronizerId,
+        upgradeTime = upgradeTime,
       )
     }
 
@@ -70,8 +77,8 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     import env.*
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.revoke(
-        daId,
-        PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
+        physicalSynchronizerId = daId,
+        successorPhysicalSynchronizerId = successorSynchronizerId,
         upgradeTime = upgradeTime,
       )
     )
@@ -103,8 +110,8 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     // announce the migration to prepare for the sequencer connection announcements
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.propose(
-        daId,
-        successorSynchronizerId,
+        physicalSynchronizerId = daId,
+        successorPhysicalSynchronizerId = successorSynchronizerId,
         upgradeTime = upgradeTime,
       )
     )
@@ -118,7 +125,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     )
     // check that participant1 automatically created a synchronizer config for the successor synchronizer
     // with a connection to the same sequencer alias/id
-    checkMigratedSequencerConfig(participant1, sequencer1.id -> 5000)
+    checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5000)
 
     // check that participant2 has not created any configs yet
     connectionConfigStore(participant2)
@@ -136,7 +143,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     )
     // check that participant2 automatically created a synchronizer config for the successor synchronizer
     // with a connection to the same sequencer alias/id
-    checkMigratedSequencerConfig(
+    checkUpgradedSequencerConfig(
       participant2,
       sequencer1.id -> 5000,
       sequencer2.id -> 6000,
@@ -151,7 +158,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     )
     // check that participant2 updated the synchronizer config for the successor synchronizer
     // for sequencer2
-    checkMigratedSequencerConfig(participant2, sequencer1.id -> 5000, sequencer2.id -> 6000)
+    checkUpgradedSequencerConfig(participant2, sequencer1.id -> 5000, sequencer2.id -> 6000)
 
     // sequencer1 changes its connection details for the successor synchronizer
     sequencer1.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
@@ -162,15 +169,61 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     )
     // check that the participants automatically modified their synchronizer configs for the successor synchronizer
     // according to the latest sequencer connection updates
-    checkMigratedSequencerConfig(participant1, sequencer1.id -> 5005)
-    checkMigratedSequencerConfig(participant2, sequencer1.id -> 5005, sequencer2.id -> 6000)
+    checkUpgradedSequencerConfig(participant1, sequencer1.id -> 5005)
+    checkUpgradedSequencerConfig(participant2, sequencer1.id -> 5005, sequencer2.id -> 6000)
 
+  }
+
+  // this test simulates an automation that is part of a logical synchronizer upgrade
+  "participants should be able to connect to a physical synchronizer and just perform a handshake" in {
+    implicit env =>
+      import env.*
+
+      // disable the topology freeze, otherwise the participant cannot onboard.
+      // During an actual LSU, this wouldn't be needed, because the participant would perform the handshake with the
+      // unfrozen successor synchronizer
+      synchronizerOwners1.foreach(
+        _.topology.synchronizer_upgrade.announcement.revoke(
+          daId,
+          successorSynchronizerId,
+          upgradeTime = upgradeTime,
+        )
+      )
+
+      // register the synchronizer config.
+      // During an actual LSU, this wouldn't be needed, because the successor listener would automatically create the
+      // config.
+      participant3.synchronizers.register_by_config(
+        SynchronizerConnectionConfig(
+          daName,
+          SequencerConnections.single(sequencer1.sequencerConnection),
+          synchronizerId = Some(daId),
+        ),
+        performHandshake = false,
+      )
+      // manually set the physical synchronizer id.
+      // During an actual LSU, this would be set by the participant when automatically
+      // setting up the successor synchronizer connection configuration.
+      participant3.underlying.value.sync.synchronizerConnectionConfigStore
+        .setPhysicalSynchronizerId(daName, daId)
+        .futureValueUS
+        .discard
+      // Perform a manual handshake that just downloads the topology state.
+      // During an actual LSU, the participant would make this call after every announcement. Here, we just want to test
+      // whether the call works as expected.
+      participant3.underlying.value.sync
+        .connectToPSIdWithHandshake(daId)
+        .futureValueUS
+
+      eventually() {
+        participant3.topology.sequencers.list(daId) should not be empty
+      }
   }
 
   private def connectionConfigStore(participant: LocalParticipantReference) =
     participant.underlying.value.sync.synchronizerConnectionConfigStore
 
-  private def checkMigratedSequencerConfig(
+  private def checkUpgradedSequencerConfig(
       participant: LocalParticipantReference,
       expectedSequencerPorts: (SequencerId, Int)*
   )(implicit env: TestConsoleEnvironment) = {

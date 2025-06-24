@@ -478,6 +478,8 @@ final case class CantonConfig(
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
         unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
+        automaticallyConnectToUpgradedSynchronizer =
+          participantParameters.automaticallyConnectToUpgradedSynchronizer,
       )
     }
 

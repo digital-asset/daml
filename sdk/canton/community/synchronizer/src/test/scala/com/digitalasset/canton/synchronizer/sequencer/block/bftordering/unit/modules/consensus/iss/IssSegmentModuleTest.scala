@@ -340,6 +340,7 @@ class IssSegmentModuleTest
           msg shouldBe Consensus.ConsensusMessage.BlockOrdered(
             expectedOrderedBlock0For1Node,
             CommitCertificate(block0PrePrepare1Node, Seq(expectedBlock0Commit1Node)),
+            hasCompletedLedSegment = false,
           )
         }
         inside(availabilityCell.get()) {
@@ -376,16 +377,21 @@ class IssSegmentModuleTest
             ackO shouldBe empty
         }
         availabilityCell.set(None)
-        context.delayedMessages should contain only PbftNormalTimeout(
-          block10Metadata1Node,
-          ViewNumber.First,
+        context.delayedMessages should contain theSameElementsInOrderAs Seq(
+          PbftNormalTimeout(
+            block10Metadata1Node,
+            ViewNumber.First,
+          ),
+          ConsensusSegment.Internal.BlockInactivityTimeout,
         )
 
         // Upon receiving a proposal, Consensus should start ordering a block in the local segment.
         //   Consensus produces a PrePrepare and Commit for the P2PNetworkOut module
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          )
         )
 
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) {
@@ -456,6 +462,7 @@ class IssSegmentModuleTest
           msg shouldBe Consensus.ConsensusMessage.BlockOrdered(
             expectedOrderedBlock10For1Node,
             CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node)),
+            hasCompletedLedSegment = false,
           )
         }
         inside(availabilityCell.get()) {
@@ -465,7 +472,12 @@ class IssSegmentModuleTest
             ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
-          case Seq(_: PbftNormalTimeout, _: PbftNormalTimeout) =>
+          case Seq(
+                _: PbftNormalTimeout,
+                _: ConsensusSegment.Internal.BlockInactivityTimeout.type,
+                _: PbftNormalTimeout,
+                _: ConsensusSegment.Internal.BlockInactivityTimeout.type,
+              ) =>
         }
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -500,13 +512,21 @@ class IssSegmentModuleTest
             ackO shouldBe empty
         }
         availabilityBuffer.clear()
-        context.delayedMessages should matchPattern { case Seq(_: PbftNormalTimeout) => }
+        context.delayedMessages should matchPattern {
+          case Seq(
+                _: PbftNormalTimeout,
+                _: ConsensusSegment.Internal.BlockInactivityTimeout.type,
+              ) =>
+        }
 
         // Proposal from Availability should trigger PrePrepare and Prepare sent for first block in local segment
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock3Ack, SecondEpochNumber)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock3Ack, SecondEpochNumber)
+          )
         )
+
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
             case MessageFromPipeToSelf(
@@ -591,6 +611,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
           commitCertificate,
+          hasCompletedLedSegment = false,
         )
 
         inside(availabilityBuffer.toSeq) {
@@ -600,7 +621,12 @@ class IssSegmentModuleTest
             ackO shouldBe Seq(aBatchId)
         }
         context.delayedMessages should matchPattern {
-          case Seq(_: PbftNormalTimeout, _: PbftNormalTimeout) =>
+          case Seq(
+                _: PbftNormalTimeout,
+                _: ConsensusSegment.Internal.BlockInactivityTimeout.type,
+                _: PbftNormalTimeout,
+                _: ConsensusSegment.Internal.BlockInactivityTimeout.type,
+              ) =>
         }
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -714,6 +740,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
           commitCertificate,
+          hasCompletedLedSegment = false,
         )
 
         // And in this test, NO additional proposal should be requested, as only a remote segment made progress
@@ -753,12 +780,14 @@ class IssSegmentModuleTest
         consensus.receive(ConsensusSegment.Start)
         availabilityBuffer.clear()
         // delayCount should be 1, we're waiting for the first block to be ordered
-        context.delayedMessages.size shouldBe 1
+        context.delayedMessages.collect { case t: PbftNormalTimeout => t }.size shouldBe 1
 
         // Complete the first block, but leave the 2nd and 3rd block incomplete (not started)
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          )
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
@@ -802,6 +831,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock10For1Node,
           commitCertificate,
+          hasCompletedLedSegment = false,
         )
 
         inside(availabilityBuffer.toSeq) {
@@ -814,7 +844,7 @@ class IssSegmentModuleTest
         availabilityBuffer.clear()
         parentBuffer.clear()
         // delayCount should be 2; we're waiting for the second block to be ordered
-        context.delayedMessages.size shouldBe 2
+        context.delayedMessages.collect { case t: PbftNormalTimeout => t }.size shouldBe 2
 
         // With Consensus waiting for a proposal for block 2, simulate a view change timeout
         consensus.receive(
@@ -885,7 +915,7 @@ class IssSegmentModuleTest
         // delayCount should be 4:
         //   - delayCount=3 for nested view change timer
         //   - delayCount=4 when view change completed; expecting consensus to resume on incomplete blocks
-        context.delayedMessages.size shouldBe 4
+        context.delayedMessages.collect { case t: PbftTimeout => t }.size shouldBe 4
 
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
           x should matchPattern {
@@ -933,7 +963,7 @@ class IssSegmentModuleTest
           )
         }
         // after each non-final segment block confirmation, expect delayCount to advance; here, it should be 5
-        context.delayedMessages.size shouldBe 5
+        context.delayedMessages.collect { case t: PbftTimeout => t }.size shouldBe 5
 
         val commitCertificateBottom1 = CommitCertificate(
           bottomBlock1,
@@ -950,16 +980,18 @@ class IssSegmentModuleTest
           )
         }
         // since this was the last block in the epoch; no additional delayedEvent occurs
-        context.delayedMessages.size shouldBe 5
+        context.delayedMessages.collect { case t: PbftTimeout => t }.size shouldBe 5
 
         parentBuffer shouldBe ArrayBuffer(
           Consensus.ConsensusMessage.BlockOrdered(
             orderedBlockFromPrePrepare(bottomBlock2.message),
             commitCertificateBottom2,
+            hasCompletedLedSegment = true,
           ),
           Consensus.ConsensusMessage.BlockOrdered(
             orderedBlockFromPrePrepare(bottomBlock1.message),
             commitCertificateBottom1,
+            hasCompletedLedSegment = true,
           ),
         )
 
@@ -1027,7 +1059,7 @@ class IssSegmentModuleTest
         p2pBuffer.clear()
         // Before reaching 2f+1 total view change messages, no additional delayedEvents yet
         delayCount(context) shouldBe delayCountAtStartOfViewChange
-        context.lastDelayedMessage should matchPattern { case Some((_, _: PbftNormalTimeout)) => }
+        context.delayedMessages.collect { case t: PbftNormalTimeout => t }.size shouldBe 1
 
         // Next, simulate receiving additional view change message to reach 2f+1 total
         // This view change message is still one short of the strong quorum
@@ -1137,6 +1169,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           orderedBlock0,
           CommitCertificate(bottomBlock0, Seq(commitBottomBlock0)),
+          hasCompletedLedSegment = true,
         )
 
         parentBuffer.clear()
@@ -1147,8 +1180,10 @@ class IssSegmentModuleTest
         // Availability sends proposal to Consensus before epoch is complete, which should
         // be completely ignored
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock1Ack, EpochNumber.First)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock1Ack, EpochNumber.First)
+          )
         )
         p2pBuffer shouldBe empty
         consensus.allFuturesHaveFinished shouldBe true
@@ -1190,15 +1225,19 @@ class IssSegmentModuleTest
 
         // this one is just ignored for being from an old epoch
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock1Ack, EpochNumber.First)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock1Ack, EpochNumber.First)
+          )
         )
         p2pBuffer should be(empty)
 
         // this one with the right epoch number will be used
         consensus.receive(
-          ConsensusSegment.ConsensusMessage
-            .BlockProposal(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability
+              .ProposalCreated(oneRequestOrderingBlock1Ack, SecondEpochNumber)
+          )
         )
         context.runPipedMessagesAndReceiveOnModule(consensus)
         consensus.receive(
@@ -1237,6 +1276,7 @@ class IssSegmentModuleTest
           Consensus.ConsensusMessage.BlockOrdered(
             epoch1OrderedBlock,
             CommitCertificate(epoch1PrePrepare, Seq(epoch1Commit)),
+            hasCompletedLedSegment = true,
           )
         )
         parentBuffer.clear()
@@ -1395,6 +1435,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
           CommitCertificate(remotePrePrepare, commits),
+          hasCompletedLedSegment = false,
         )
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -1528,6 +1569,7 @@ class IssSegmentModuleTest
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           expectedOrderedBlock,
           commitCertificate,
+          hasCompletedLedSegment = false,
         )
         consensus.allFuturesHaveFinished shouldBe true
       }
@@ -1686,6 +1728,130 @@ class IssSegmentModuleTest
         consensus.allFuturesHaveFinished shouldBe true
       }
     }
+
+    "receiving no proposals available from Availability" should {
+      "do nothing if not blocking progress " in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          otherNodes = otherIds.toSet,
+          cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        )(epochInfo = SecondEpochInfo)
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability.NoProposalAvailableYet
+          )
+        )
+        context.runPipedMessages() shouldBe empty
+      }
+      "order an empty block if blocking progress " in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val completeBlock = {
+          val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(otherIds(0)))
+          val prePrepare = PrePrepare
+            .create(
+              blockMetadata,
+              ViewNumber.First,
+              OrderingBlock(oneRequestOrderingBlock1Ack.proofs),
+              CanonicalCommitSet.empty,
+              myId,
+            )
+            .fakeSign
+          EpochStore.Block(
+            blockMetadata.epochNumber,
+            blockMetadata.blockNumber,
+            CommitCertificate(prePrepare, Seq.empty),
+          )
+        }
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          otherNodes = otherIds.toSet,
+          cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+          epochInProgress = EpochStore.EpochInProgress(completedBlocks = Seq(completeBlock)),
+        )(epochInfo = SecondEpochInfo)
+
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.LocalAvailability(
+            Consensus.LocalAvailability.NoProposalAvailableYet
+          )
+        )
+
+        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
+          inside(x) {
+            case MessageFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(pp: PrePrepare, _))),
+                  _,
+                ) =>
+              pp.block.proofs shouldBe empty
+          }
+        }
+        succeed
+      }
+    }
+
+    "receiving a block ordered event from the parent" should {
+      "do nothing if not blocking progress (received block was empty)" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          otherNodes = otherIds.toSet,
+          cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        )(epochInfo = SecondEpochInfo)
+
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(otherIds(0)))
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata, isEmpty = true)
+        )
+        context.runPipedMessages() shouldBe empty
+      }
+      "order an empty block if now blocking progress (received block was non-empty)" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          otherNodes = otherIds.toSet,
+          cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        )(epochInfo = SecondEpochInfo)
+
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(otherIds(0)))
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata, isEmpty = false)
+        )
+        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
+          inside(x) {
+            case MessageFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(pp: PrePrepare, _))),
+                  _,
+                ) =>
+              pp.block.proofs shouldBe empty
+          }
+        }
+        succeed
+      }
+    }
+
+    "receiving an internal block inactivity timeout" should {
+      "start ordering an empty block to avoid a view change" in {
+        implicit val context: ProgrammableUnitTestContext[ConsensusSegment.Message] =
+          new ProgrammableUnitTestContext
+        val consensus = createIssSegmentModule[ProgrammableUnitTestEnv](
+          otherNodes = otherIds.toSet,
+          cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        )(epochInfo = SecondEpochInfo)
+
+        consensus.receive(ConsensusSegment.Internal.BlockInactivityTimeout)
+
+        context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { x =>
+          inside(x) {
+            case MessageFromPipeToSelf(
+                  Some(PbftSignedNetworkMessage(SignedMessage(pp: PrePrepare, _))),
+                  _,
+                ) =>
+              pp.block.proofs shouldBe empty
+          }
+        }
+        succeed
+      }
+    }
   }
 
   def createIssSegmentModule[E <: BaseIgnoringUnitTestEnv[E]](
@@ -1719,6 +1885,7 @@ class IssSegmentModuleTest
         previousMembership = membership,
       )
     }
+    val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
     val segmentState = {
       val segment = epoch.segments.find(_.originalLeader == leader).getOrElse(fail(""))
       new SegmentState(
@@ -1727,7 +1894,7 @@ class IssSegmentModuleTest
         clock,
         epochInProgress.completedBlocks,
         fail(_),
-        SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
+        metrics,
         loggerFactory,
       )
     }
@@ -1743,6 +1910,7 @@ class IssSegmentModuleTest
       parentModuleRef,
       availabilityModuleRef,
       p2pNetworkOutModuleRef,
+      metrics,
       timeouts,
       loggerFactory,
     )
@@ -1826,7 +1994,7 @@ private object IssSegmentModuleTest {
       .create(
         blockMetadata,
         view,
-        OrderingBlock(Seq.empty),
+        OrderingBlock.empty,
         CanonicalCommitSet(Set.empty),
         from,
       )

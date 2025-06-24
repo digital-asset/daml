@@ -7,14 +7,15 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.topology.GeneratorsTopology
 import com.digitalasset.canton.{Generators, SequencerAlias}
 import magnolify.scalacheck.auto.genArbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
-object GeneratorsSequencing {
+final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
+  import generatorsTopology.*
 
   implicit val sequencerAliasArb: Arbitrary[SequencerAlias] = Arbitrary(
     string255Arb.arbitrary.map(str =>

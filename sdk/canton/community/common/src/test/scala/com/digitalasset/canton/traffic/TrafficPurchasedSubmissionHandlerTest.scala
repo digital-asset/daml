@@ -100,8 +100,6 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        synchronizerId,
-        testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
@@ -182,8 +180,6 @@ class TrafficPurchasedSubmissionHandlerTest
     val resultF = handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        synchronizerId,
-        testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
@@ -238,8 +234,6 @@ class TrafficPurchasedSubmissionHandlerTest
     handler
       .sendTrafficPurchasedRequest(
         recipient1,
-        synchronizerId,
-        testedProtocolVersion,
         PositiveInt.tryCreate(5),
         NonNegativeLong.tryCreate(1000),
         sequencerClient,
@@ -286,8 +280,6 @@ class TrafficPurchasedSubmissionHandlerTest
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          synchronizerId,
-          testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,
@@ -339,8 +331,6 @@ class TrafficPurchasedSubmissionHandlerTest
       {
         val resultF = handler.sendTrafficPurchasedRequest(
           recipient1,
-          synchronizerId,
-          testedProtocolVersion,
           PositiveInt.tryCreate(5),
           NonNegativeLong.tryCreate(1000),
           sequencerClient,

@@ -114,7 +114,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
     )
 
     val commonMetadata = CommonMetadata
-      .create(hashOps, testedProtocolVersion)(
+      .create(hashOps)(
         synchronizerId,
         mediator,
         salt(5417),

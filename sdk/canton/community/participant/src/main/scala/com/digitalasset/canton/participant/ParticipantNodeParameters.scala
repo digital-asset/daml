@@ -29,6 +29,7 @@ final case class ParticipantNodeParameters(
     disableUpgradeValidation: Boolean,
     commandProgressTracking: CommandProgressTrackerConfig,
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig],
+    automaticallyConnectToUpgradedSynchronizer: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -78,5 +79,6 @@ object ParticipantNodeParameters {
     disableUpgradeValidation = false,
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication = None,
+    automaticallyConnectToUpgradedSynchronizer = true,
   )
 }

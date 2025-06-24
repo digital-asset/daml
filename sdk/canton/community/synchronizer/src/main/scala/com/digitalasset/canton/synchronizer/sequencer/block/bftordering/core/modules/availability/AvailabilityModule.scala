@@ -31,6 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   BatchId,
+  DisseminatedBatchMetadata,
   InProgressBatchMetadata,
   OrderingBlock,
   ProofOfAvailability,
@@ -43,6 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   CompleteBlockData,
+  OrderingRequest,
   OrderingRequestBatch,
   SignedMessage,
 }
@@ -68,8 +70,6 @@ import com.google.protobuf.ByteString
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
-import scala.jdk.DurationConverters.*
 import scala.util.{Failure, Random, Success, Try}
 
 import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessage}
@@ -120,7 +120,7 @@ final class AvailabilityModule[E <: Env[E]](
   @VisibleForTesting
   private[bftordering] def getMessageAuthorizer = messageAuthorizer
 
-  private var batchWaitStartInstant: Option[Instant] = None
+  private var waitingForBatchSince: Option[Instant] = None
 
   disseminationProtocolState.lastProposalTime = Some(clock.now)
 
@@ -132,7 +132,6 @@ final class AvailabilityModule[E <: Env[E]](
   ): Unit =
     message match {
       case Availability.Start =>
-        context.self.asyncSend(Availability.Consensus.LocalClockTick)
         initiateMempoolPull(shortType(message))
         initCompleted(receiveInternal)
 
@@ -149,41 +148,74 @@ final class AvailabilityModule[E <: Env[E]](
             handleRemoteProtocolMessage(message)
 
           case Availability.UnverifiedProtocolMessage(signedMessage) =>
-            val from = signedMessage.from
-            val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
-            if (messageAuthorizer.isAuthorized(from, keyId)) {
-              logger.debug(s"Start to verify message from '$from'")
-              pipeToSelf(
-                activeCryptoProvider.verifySignedMessage(
-                  signedMessage,
-                  AuthenticatedMessageType.BftSignedAvailabilityMessage,
-                )
-              ) {
-                case Failure(exception) =>
-                  abort(
-                    s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
-                    exception,
-                  )
-                case Success(Left(exception)) =>
-                  // Info because it can also happen at epoch boundaries
-                  logger.info(
-                    s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
-                  )
-                  emitInvalidMessage(metrics, from)
-                  Availability.NoOp
-                case Success(Right(())) =>
-                  logger.debug(s"Verified message is from '$from''")
-                  signedMessage.message
-              }
-            } else {
-              logger.info(
-                s"Received a message from '$from' signed with '$keyId' " +
-                  "but it cannot be verified in the currently known " +
-                  s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
-              )
-            }
+            handleUnverifiedProtocolMessage(signedMessage)
         }
     }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  private def handleUnverifiedProtocolMessage(
+      signedMessage: SignedMessage[RemoteProtocolMessage]
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = signedMessage.message match {
+    case message: Availability.RemoteOutputFetch.RemoteBatchDataFetched =>
+      // We have a special case for RemoteBatchDataFetched where we don't check the signature. This is because we
+      // might be behind and have not seen the new keys being used. By checking that the batch correspond to the batchId
+      // we know we still got the correct data (a malicious node can't fake the batchId since it is an hash of the content).
+      val from = signedMessage.from
+      val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
+
+      if (!activeMembership.orderingTopology.contains(from)) {
+        // if the node sending is not part of the topology, this is malicious behavior. Since RemoteBatchDataFetched is
+        // a response. And if we don't know who is responding it is a warning.
+        logger.warn(
+          s"Received a message from '$from' signed with '$keyId' " +
+            "but it cannot be verified in the currently known " +
+            s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
+        )
+        emitInvalidMessage(metrics, from)
+        return
+      }
+
+      handleRemoteBatchDataFetched(message)
+
+    case _ =>
+      // default case
+      val from = signedMessage.from
+      val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
+      if (messageAuthorizer.isAuthorized(from, keyId)) {
+        logger.debug(s"Start to verify message from '$from'")
+        pipeToSelf(
+          activeCryptoProvider.verifySignedMessage(
+            signedMessage,
+            AuthenticatedMessageType.BftSignedAvailabilityMessage,
+          )
+        ) {
+          case Failure(exception) =>
+            abort(
+              s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
+              exception,
+            )
+          case Success(Left(exception)) =>
+            // Info because it can also happen at epoch boundaries
+            logger.info(
+              s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
+            )
+            emitInvalidMessage(metrics, from)
+            Availability.NoOp
+          case Success(Right(())) =>
+            logger.debug(s"Verified message is from '$from''")
+            signedMessage.message
+        }
+      } else {
+        logger.info(
+          s"Received a message from '$from' signed with '$keyId' " +
+            "but it cannot be verified in the currently known " +
+            s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
+        )
+      }
+  }
 
   private def handleLocalProtocolMessage(
       message: Availability.LocalProtocolMessage[E]
@@ -224,7 +256,7 @@ final class AvailabilityModule[E <: Env[E]](
 
     disseminationMessage match {
       case Availability.LocalDissemination.LocalBatchCreated(requests) =>
-        stopBatchWait()
+        emitBatchWaitLatency()
         val batch = OrderingRequestBatch.create(requests, lastKnownEpochNumber)
         val batchId = BatchId.from(batch)
         logger.debug(s"$messageType: received $batchId from local mempool")
@@ -517,29 +549,6 @@ final class AvailabilityModule[E <: Env[E]](
             cryptoProvider: CryptoProvider[E],
           ) =>
         updateActiveTopology(messageType, orderingTopology, cryptoProvider)
-
-      case Availability.Consensus.LocalClockTick =>
-        // If there are no batches to be ordered, but the consensus module is waiting for a proposal
-        //  and more time has passed since the last one was created than `emptyBlockCreationInterval`,
-        //  we propose an empty block to the consensus module.
-        //  That way the consensus module can potentially use it to fill a segment and unblock progress
-        //  of subsequent segments filled by other remote nodes.
-        if (
-          disseminationProtocolState.batchesReadyForOrdering.isEmpty &&
-          disseminationProtocolState.toBeProvidedToConsensus.nonEmpty &&
-          disseminationProtocolState.lastProposalTime
-            .exists(ts => (clock.now - ts).toScala > moduleConfig.emptyBlockCreationInterval)
-        ) {
-          logger.debug("LocalClockTick: proposing empty block to local consensus")
-          val maxBatchesPerProposal =
-            disseminationProtocolState.toBeProvidedToConsensus.dequeue()
-          assembleAndSendConsensusProposal( // Will propose an empty block
-            messageType,
-            maxBatchesPerProposal,
-          )
-        }
-
-        context.delayedEvent(ClockTickInterval, Availability.Consensus.LocalClockTick).discard
     }
   }
 
@@ -605,17 +614,10 @@ final class AvailabilityModule[E <: Env[E]](
     orderedBatches.foreach { orderedBatch =>
       val removed = disseminationProtocolState.batchesReadyForOrdering.remove(orderedBatch)
       val now = Instant.now
-      import metrics.performance.orderingStageLatency.*
       removed
         .map(_.readyForOrderingInstant)
         .foreach { readyForOrderingInstant =>
-          readyForOrderingInstant.foreach(
-            emitOrderingStageLatency(
-              labels.stage.values.BatchAvailabilityTotal,
-              _,
-              now,
-            )
-          )
+          emitBatchAvailabilityTotalLatency(readyForOrderingInstant, end = now)
           logger.debug(
             s"$actingOnMessageType: batch $orderedBatch is now ordered, removed from dissemination progress"
           )
@@ -764,7 +766,15 @@ final class AvailabilityModule[E <: Env[E]](
         advanceBatchIfComplete(actingOnMessageType, batchId, disseminationProgress).discard
       }
 
-    shipAvailableConsensusProposals(actingOnMessageType)
+    if (disseminationProtocolState.batchesReadyForOrdering.isEmpty) {
+      logger.debug(
+        s"$actingOnMessageType: no proposals available yet to provide to local consensus"
+      )
+      // We signal to consensus that we don't have proposals available immediately at the time it was requested.
+      // However, a proposal will still be sent out when one is available.
+      dependencies.consensus.asyncSend(Consensus.LocalAvailability.NoProposalAvailableYet)
+    } else
+      shipAvailableConsensusProposals(actingOnMessageType)
   }
 
   private def advanceBatchIfComplete(
@@ -776,14 +786,7 @@ final class AvailabilityModule[E <: Env[E]](
       logger.debug(
         s"$actingOnMessageType: $batchId has completed dissemination in ${disseminationProgress.orderingTopology}"
       )
-      import metrics.performance.orderingStageLatency.*
-      disseminationProgress.batchMetadata.availabilityEnterInstant.foreach(
-        emitOrderingStageLatency(
-          labels.stage.values.availability.BatchDissemination,
-          _,
-          Instant.now,
-        )
-      )
+      emitBatchDisseminationLatency(disseminationProgress)
       // Dissemination completed: remove it now from the progress to avoids clashes with delayed / unneeded ACKs
       disseminationProtocolState.disseminationProgress.remove(batchId).discard
       disseminationProtocolState.batchesReadyForOrdering
@@ -811,12 +814,7 @@ final class AvailabilityModule[E <: Env[E]](
         } yield batch).fold(
           error => logger.warn(error),
           batch => {
-            import metrics.performance.orderingStageLatency.*
-            emitOrderingStageLatency(
-              labels.stage.values.availability.dissemination.BatchValidation,
-              validationStart,
-              Instant.now,
-            )
+            emitBatchValidationLatency(validationStart)
             pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
               case Failure(exception) =>
                 abort(s"Failed to add batch $batchId", exception)
@@ -1066,23 +1064,38 @@ final class AvailabilityModule[E <: Env[E]](
           }
           .discard
 
-      case Availability.RemoteOutputFetch.RemoteBatchDataFetched(from, batchId, batch) =>
+      case message: Availability.RemoteOutputFetch.RemoteBatchDataFetched =>
+        handleRemoteBatchDataFetched(message)
+    }
+  }
+
+  private def handleRemoteBatchDataFetched(
+      message: Availability.RemoteOutputFetch.RemoteBatchDataFetched
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    lazy val messageType = shortType(message)
+    val batchId = message.batchId
+
+    outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
+      case Some(_) =>
+        val batch = message.batch
+        val from = message.from
         validateBatch(batchId, batch, from).fold(
           error => logger.warn(error),
-          _ =>
-            outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
-              case Some(_) =>
-                logger.debug(s"$messageType: received $batchId, persisting it")
-                pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
-                  case Failure(exception) =>
-                    abort(s"Failed to add batch $batchId", exception)
-                  case Success(_) =>
-                    Availability.LocalOutputFetch.FetchedBatchStored(batchId)
-                }
-              case None =>
-                logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
-            },
+          _ => {
+            logger.debug(s"$messageType: received $batchId, persisting it")
+            pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
+              case Failure(exception) =>
+                abort(s"Failed to add batch $batchId", exception)
+              case Success(_) =>
+                Availability.LocalOutputFetch.FetchedBatchStored(batchId)
+            }
+          },
         )
+      case None =>
+        logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
     }
   }
 
@@ -1221,19 +1234,7 @@ final class AvailabilityModule[E <: Env[E]](
       disseminationProtocolState.batchesReadyForOrdering.take(
         toBeProvidedToConsensus.maxBatchesPerProposal.toInt
       )
-    val now = Instant.now
-    import metrics.performance.orderingStageLatency.*
-    batchesToBeProposed.values
-      .map(_.readyForOrderingInstant)
-      .foreach(
-        _.foreach(
-          emitOrderingStageLatency(
-            labels.stage.values.availability.dissemination.BatchQueuedForBlockInclusion,
-            _,
-            now,
-          )
-        )
-      )
+    emitBatchesQueuedForBlockInclusionLatencies(batchesToBeProposed)
     val proposal =
       Consensus.LocalAvailability.ProposalCreated(
         OrderingBlock(batchesToBeProposed.view.values.map(_.proofOfAvailability).toSeq),
@@ -1269,20 +1270,8 @@ final class AvailabilityModule[E <: Env[E]](
     if (
       toBeProvidedToConsensus.nonEmpty && batchesReadyForOrdering.isEmpty && disseminationProgress.isEmpty
     )
-      batchWaitStartInstant = Some(Instant.now)
+      waitingForBatchSince = Some(Instant.now)
   }
-
-  private def stopBatchWait(): Unit =
-    batchWaitStartInstant.foreach { startWait =>
-      val now = Instant.now
-      import metrics.performance.orderingStageLatency.*
-      emitOrderingStageLatency(
-        labels.stage.values.availability.BatchWait,
-        startWait,
-        now,
-      )
-      batchWaitStartInstant = None
-    }
 
   private def handleFailure[ErrorType, Result](
       errorString: => String
@@ -1363,6 +1352,26 @@ final class AvailabilityModule[E <: Env[E]](
         },
       )
 
+      _ <- {
+        Either.cond(
+          batch.requests.map(_.value.payload).forall(_.size() <= config.maxRequestPayloadBytes),
+          (), {
+            emitInvalidMessage(metrics, from)
+            s"Batch $batchId from '$from' contains one or more batches that exceed the maximum " +
+              s"allowed request size bytes (${config.maxRequestPayloadBytes}), skipping"
+          },
+        )
+      }
+
+      _ <- Either.cond(
+        batch.requests.map(_.value).forall(_.isTagValid),
+        (), {
+          emitInvalidMessage(metrics, from)
+          s"Batch $batchId from '$from' contains requests with invalid tags, valid tags are: (${OrderingRequest.ValidTags
+              .mkString(", ")}); skipping"
+        },
+      )
+
       _ <- Either.cond(
         batch.epochNumber > lastKnownEpochNumber - BatchValidityDurationEpochs,
         (), {
@@ -1395,13 +1404,67 @@ final class AvailabilityModule[E <: Env[E]](
         s"this node that we can hold on to, skipping"
     },
   )
+
+  private def emitBatchWaitLatency(): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    val now = Instant.now()
+    emitOrderingStageLatency(
+      labels.stage.values.availability.BatchWait,
+      // Always emit batch wait latency for dashboard clarity, even if 0
+      startInstant = waitingForBatchSince.orElse(Some(now)),
+      endInstant = now,
+      cleanup = () => waitingForBatchSince = None,
+    )
+  }
+
+  private def emitBatchAvailabilityTotalLatency(
+      readyForOrderingInstant: Option[Instant],
+      end: Instant,
+  ): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.BatchAvailabilityTotal,
+      readyForOrderingInstant,
+      end,
+    )
+  }
+
+  private def emitBatchDisseminationLatency(disseminationProgress: DisseminationProgress): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.availability.BatchDissemination,
+      disseminationProgress.batchMetadata.availabilityEnterInstant,
+    )
+  }
+
+  private def emitBatchesQueuedForBlockInclusionLatencies(
+      batchesToBeProposed: collection.Map[BatchId, DisseminatedBatchMetadata]
+  ): Unit = {
+    val now = Instant.now
+    import metrics.performance.orderingStageLatency.*
+    batchesToBeProposed.values
+      .map(_.readyForOrderingInstant)
+      .foreach(
+        emitOrderingStageLatency(
+          labels.stage.values.availability.dissemination.BatchQueuedForBlockInclusion,
+          _,
+          now,
+        )
+      )
+  }
+
+  private def emitBatchValidationLatency(validationStart: Instant): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.availability.dissemination.BatchValidation,
+      Some(validationStart),
+    )
+  }
 }
 
 object AvailabilityModule {
 
   private type ReadyForOrdering = Boolean
-
-  private val ClockTickInterval = 100.milliseconds
 
   private def parseAvailabilityNetworkMessage(
       from: BftNodeId,

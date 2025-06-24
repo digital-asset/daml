@@ -25,11 +25,13 @@ final case class CommonMetadata private (
     uuid: UUID,
 )(
     hashOps: HashOps,
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[CommonMetadata.type],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[CommonMetadata](hashOps)
     with HasProtocolVersionedWrapper[CommonMetadata]
     with ProtocolVersionedMemoizedEvidence {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[CommonMetadata.type] =
+    CommonMetadata.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -69,21 +71,7 @@ object CommonMetadata
   )
 
   def create(
-      hashOps: HashOps,
-      protocolVersion: ProtocolVersion,
-  )(
-      synchronizerId: PhysicalSynchronizerId, // // TODO(#25482) Reduce duplication in parameters
-      mediator: MediatorGroupRecipient,
-      salt: Salt,
-      uuid: UUID,
-  ): CommonMetadata = create(
-    hashOps,
-    protocolVersionRepresentativeFor(protocolVersion),
-  )(synchronizerId, mediator, salt, uuid)
-
-  def create(
-      hashOps: HashOps,
-      protocolVersion: RepresentativeProtocolVersion[CommonMetadata.type],
+      hashOps: HashOps
   )(
       synchronizerId: PhysicalSynchronizerId,
       mediator: MediatorGroupRecipient,
@@ -92,7 +80,6 @@ object CommonMetadata
   ): CommonMetadata =
     CommonMetadata(synchronizerId, mediator, salt, uuid)(
       hashOps,
-      protocolVersion,
       None,
     )
 
@@ -110,10 +97,8 @@ object CommonMetadata
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
-      pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield CommonMetadata(synchronizerId, mediatorGroupRecipient, salt, uuid)(
       hashOps,
-      pv,
       Some(bytes),
     )
   }

@@ -182,6 +182,18 @@ object SyncServiceError extends SyncServiceErrorGroup {
           cause = s"The synchronizer with alias $synchronizerAlias cannot be registered: $error"
         )
         with SyncServiceError
+
+    final case class SuccessorInitializationError(
+        synchronizerId: PhysicalSynchronizerId,
+        error: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The synchronizer with physical synchronizer id $synchronizerId cannot be registered: $error"
+        )
+        with SyncServiceError
+
   }
 
   @Explanation("This error results if a admin command is submitted to the passive replica.")

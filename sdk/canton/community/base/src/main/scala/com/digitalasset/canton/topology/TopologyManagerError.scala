@@ -774,7 +774,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
-  // TODO(#25467): use PhysicalSynchronizerId
   @Explanation(
     "This error indicates that a synchronizer migration is ongoing and only mapping related to synchronizer migration are permitted."
   )

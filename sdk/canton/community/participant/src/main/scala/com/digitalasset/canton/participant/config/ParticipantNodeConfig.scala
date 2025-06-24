@@ -333,6 +333,10 @@ object TestingTimeServiceConfig {
   *   Disable the package upgrade verification on DAR upload
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
+  * @param automaticallyConnectToUpgradedSynchronizer
+  *   Whether the participant automatically performs a handshake with the upgraded synchronizer
+  *   after receiving enough sequencer connections, and whether the participants automatically
+  *   connects to the synchronizer after the upgrade time.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -363,6 +367,8 @@ final case class ParticipantNodeParameterConfig(
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
+    // TODO(#25344): check whether this should be removed
+    automaticallyConnectToUpgradedSynchronizer: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

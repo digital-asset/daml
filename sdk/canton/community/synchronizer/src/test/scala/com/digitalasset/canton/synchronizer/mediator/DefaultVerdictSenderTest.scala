@@ -187,7 +187,6 @@ class DefaultVerdictSenderTest
     val rootHashMessage = RootHashMessage(
       fullInformeeTree.transactionId.toRootHash,
       synchronizerId,
-      testedProtocolVersion,
       ViewType.TransactionViewType,
       testTopologyTimestamp,
       SerializedRootHashMessagePayload.empty,
@@ -269,7 +268,6 @@ class DefaultVerdictSenderTest
       sequencerClientSend,
       synchronizerSyncCryptoApi,
       mediatorId,
-      testedProtocolVersion,
       loggerFactory,
     )
 

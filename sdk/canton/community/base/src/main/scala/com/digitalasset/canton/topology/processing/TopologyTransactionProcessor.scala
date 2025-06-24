@@ -546,7 +546,6 @@ object TopologyTransactionProcessor {
 
     val cachingClientF = CachingSynchronizerTopologyClient.create(
       clock,
-      synchronizerId,
       topologyStore,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       parameters.cachingConfigs,
