@@ -361,10 +361,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           )
         case UpdateFetchTemplate(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
-        case UpdateSoftFetchTemplate(templateId, contractId) =>
-          builder.setSoftFetch(
-            PLF.Update.SoftFetch.newBuilder().setTemplate(templateId).setCid(contractId)
-          )
         case UpdateFetchInterface(interface, contractId) =>
           builder.setFetchInterface(
             PLF.Update.FetchInterface.newBuilder().setInterface(interface).setCid(contractId)
@@ -376,13 +372,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setCid(cid)
           b.setArg(arg)
           builder.setExercise(b)
-        case UpdateSoftExercise(templateId, choice, cid, arg) =>
-          val b = PLF.Update.SoftExercise.newBuilder()
-          b.setTemplate(templateId)
-          setString(choice, b.setChoiceInternedStr)
-          b.setCid(cid)
-          b.setArg(arg)
-          builder.setSoftExercise(b)
         case UpdateExerciseInterface(interface, choice, cid, arg, guard) =>
           val b = PLF.Update.ExerciseInterface.newBuilder()
           b.setInterface(interface)

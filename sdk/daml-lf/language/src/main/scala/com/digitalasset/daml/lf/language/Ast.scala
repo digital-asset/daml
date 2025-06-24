@@ -585,16 +585,9 @@ object Ast {
   final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
   final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
   final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
-  final case class UpdateSoftFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
   final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
 
   final case class UpdateExercise(
-      templateId: TypeConName,
-      choice: ChoiceName,
-      cidE: Expr,
-      argE: Expr,
-  ) extends Update
-  final case class UpdateSoftExercise(
       templateId: TypeConName,
       choice: ChoiceName,
       cidE: Expr,
