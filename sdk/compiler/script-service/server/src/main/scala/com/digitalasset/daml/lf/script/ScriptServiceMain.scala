@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
@@ -192,11 +193,7 @@ class ScriptService(implicit
       respObs: StreamObserver[RunScriptResponse],
   ): Unit =
     if (req.hasStart) {
-      runLive(
-        req.getStart,
-        ScriptStream.WithoutStatus(respObs),
-        { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name) },
-      )
+      runLive(req.getStart, ScriptStream.WithoutStatus(respObs), () => false)
     }
 
   override def runLiveScript(
@@ -211,11 +208,7 @@ class ScriptService(implicit
           cancelled = true
         } else if (req.hasStart) {
           println(f"Script started.")
-          runLive(
-            req.getStart,
-            ScriptStream.WithStatus(respObs),
-            { case (ctx, pkgId, name) => ctx.interpretScript(pkgId, name, () => cancelled) },
-          )
+          runLive(req.getStart, ScriptStream.WithStatus(respObs), () => cancelled)
         }
       }
 
@@ -230,57 +223,45 @@ class ScriptService(implicit
   private def runLive(
       req: RunScriptStart,
       respStream: ScriptStream,
-      interpret: (Context, String, String) => Future[Option[IdeLedgerRunner.ScriptResult]],
+      canceledByRequest: () => Boolean,
   ): Unit = {
-    val scriptId = req.getScriptId
+    val scriptName = req.getScriptName
     val contextId = req.getContextId
     val response: Future[Option[Either[ScriptError, ScriptResult]]] =
       contexts
         .get(contextId)
         .traverse { context =>
-          val packageId = scriptId.getPackage.getSumCase match {
-            case PackageIdentifier.SumCase.SELF =>
-              context.homePackageId
-            case PackageIdentifier.SumCase.PACKAGE_ID =>
-              scriptId.getPackage.getPackageId
-            case PackageIdentifier.SumCase.SUM_NOT_SET =>
-              throw new RuntimeException(
-                s"Package id not set when running script, context id $contextId"
+          context.interpretScript(scriptName, canceledByRequest).map {
+            case error: IdeLedgerRunner.ScriptError =>
+              Left(
+                new Conversions(
+                  context.homePackageId,
+                  error.ledger,
+                  error.currentSubmission.map(_.ptx),
+                  error.traceLog,
+                  error.warningLog,
+                  error.currentSubmission.flatMap(_.commitLocation),
+                  error.stackTrace,
+                  context.devMode,
+                )
+                  .convertScriptError(error.error)
+              )
+            case success: IdeLedgerRunner.ScriptSuccess =>
+              Right(
+                new Conversions(
+                  context.homePackageId,
+                  success.ledger,
+                  None,
+                  success.traceLog,
+                  success.warningLog,
+                  None,
+                  ImmArray.Empty,
+                  context.devMode,
+                )
+                  .convertScriptResult(success.resultValue)
               )
           }
-          interpret(context, packageId, scriptId.getName)
-            .map(_.map {
-              case error: IdeLedgerRunner.ScriptError =>
-                Left(
-                  new Conversions(
-                    context.homePackageId,
-                    error.ledger,
-                    error.currentSubmission.map(_.ptx),
-                    error.traceLog,
-                    error.warningLog,
-                    error.currentSubmission.flatMap(_.commitLocation),
-                    error.stackTrace,
-                    context.devMode,
-                  )
-                    .convertScriptError(error.error)
-                )
-              case success: IdeLedgerRunner.ScriptSuccess =>
-                Right(
-                  new Conversions(
-                    context.homePackageId,
-                    success.ledger,
-                    None,
-                    success.traceLog,
-                    success.warningLog,
-                    None,
-                    ImmArray.Empty,
-                    context.devMode,
-                  )
-                    .convertScriptResult(success.resultValue)
-                )
-            })
         }
-        .map(_.flatten)
 
     Future {
       val startedAt = Instant.now.toEpochMilli
@@ -306,7 +287,7 @@ class ScriptService(implicit
 
     response.onComplete {
       case Success(None) =>
-        log(s"runScript[$contextId]: $scriptId not found")
+        log(s"runScript: $contextId not found")
         respStream.sendError(notFoundContextError(req.getContextId))
       case Success(Some(resp)) =>
         respStream.sendFinalResponse(resp)
@@ -423,12 +404,20 @@ class ScriptService(implicit
             else
               Seq.empty
 
+          val pkgMetadataProto = req.getPackageMetadata
+          val pkgMetadata = Ast.PackageMetadata(
+            Ref.PackageName.assertFromString(pkgMetadataProto.getPackageName),
+            Ref.PackageVersion.assertFromString(pkgMetadataProto.getPackageVersion),
+            None,
+          )
+
           ctx.update(
             unloadModules,
             loadModules,
             unloadPackages,
             loadPackages,
             req.getNoValidation,
+            pkgMetadata,
           )
 
           resp.addAllLoadedModules(ctx.loadedModules().map(_.toString).asJava)
