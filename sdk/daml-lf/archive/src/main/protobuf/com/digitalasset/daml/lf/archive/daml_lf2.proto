@@ -1005,20 +1005,6 @@ message Update {
     Expr arg = 5;
   }
 
-  // Soft Exercise Update
-  // Exercises a contract of the given template type OR a predecessor.
-  // *Available in versions >= 2.dev*
-  message SoftExercise {
-    // Template type
-    TypeConId template = 1;
-    // *Must be a valid interned identifier*
-    int32 choice_interned_str = 2;
-    // contract id
-    Expr cid = 3;
-    // argument
-    Expr arg = 4;
-  }
-
   // Interface Exercise Update
   message ExerciseInterface {
     // Interface type
@@ -1051,16 +1037,6 @@ message Update {
 
   // Fetch Update
   message Fetch {
-    // Template type
-    TypeConId template = 1;
-    // contract id
-    Expr cid = 2;
-  }
-
-  // Soft Fetch Update
-  // Fetches a contract of the given template type OR a predecessor.
-  // *Available in versions >= 2.dev*
-  message SoftFetch {
     // Template type
     TypeConId template = 1;
     // contract id
@@ -1118,9 +1094,6 @@ message Update {
     FetchInterface fetch_interface = 14;
 
     Expr ledger_time_lt = 15;
-
-    SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*
-    SoftExercise soft_exercise = 1003; // *Available in versions >= 2.dev*
   }
 }
 

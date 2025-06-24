@@ -1342,43 +1342,6 @@ message Update {
     Expr arg = 5;
   }
 
-  // Soft Exercise Update
-  // Exercises a contract of the given template type OR a predecessor.
-  // *Available in versions >= 1.dev*
-  message SoftExercise {
-    // Template type
-    TypeConName template = 1;
-
-    // name of the exercised template choice
-    oneof choice {
-      // *Must be a valid identifier*
-      string choice_str = 2;
-
-      // *Must be a valid interned identifier*
-      int32 choice_interned_str = 6;
-    }
-
-    // contract id
-    Expr cid = 3;
-    // argument
-    Expr arg = 5;
-  }
-
-  // Dynamic Exercise Update
-  // *Available in versions >= 1.dev*
-  message DynamicExercise {
-    // Template type
-    TypeConName template = 1;
-
-    // name of the exercised template choice
-    // *Must be a valid interned identifier*
-    int32 choice_interned_str = 2;
-
-    // contract id
-    Expr cid = 3;
-    // argument
-    Expr arg = 4;
-  }
 
   // Interface Exercise Update
   // *Available in versions >= 1.15*
@@ -1418,16 +1381,6 @@ message Update {
     // contract id
     Expr cid = 2;
     reserved 3; // was actor, we thought we'd need this, but we don't
-  }
-
-  // Soft Fetch Update
-  // Fetches a contract of the given template type OR a predecessor.
-  // *Available in versions >= 1.dev*
-  message SoftFetch {
-    // Template type
-    TypeConName template = 1;
-    // contract id
-    Expr cid = 2;
   }
 
   // Interface Fetch Update
@@ -1480,9 +1433,6 @@ message Update {
     CreateInterface create_interface = 12; // *Available in versions >= 1.15*
     ExerciseInterface exercise_interface = 13; // *Available in versions >= 1.15*
     FetchInterface fetch_interface = 14; // *Available in versions >= 1.15*
-    DynamicExercise dynamic_exercise = 15; // *Available in versions >= 1.dev*
-    SoftFetch soft_fetch = 16; // *Available in versions >= 1.dev*
-    SoftExercise soft_exercise = 17; // *Available in versions >= 1.dev*
   }
 }
 
