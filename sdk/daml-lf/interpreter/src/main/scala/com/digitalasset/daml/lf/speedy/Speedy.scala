@@ -501,31 +501,17 @@ private[lf] object Speedy {
       ptx.contractState.locallyCreated.contains(contractId)
     }
 
-    private[speedy] def needPackage(
+    private[speedy] def ensurePackageIsLoaded(
+        loc: => String,
         packageId: PackageId,
-        ref: language.Reference,
-        k: () => Control[Question.Update],
-    ): Control[Question.Update] =
-      Control.Question(
-        Question.Update.NeedPackage(
-          packageId,
-          ref,
-          { packages =>
-            this.compiledPackages = packages
-            // To avoid infinite loop in case the packages are not updated properly by the caller
-            assert(compiledPackages.contains(packageId))
-            setControl(k())
-          },
-        )
-      )
-
-    private[speedy] def ensurePackageIsLoaded(packageId: PackageId, ref: => language.Reference)(
+        ref: => language.Reference,
+    )(
         k: () => Control[Question.Update]
     ): Control[Question.Update] =
       if (compiledPackages.contains(packageId))
         k()
       else
-        needPackage(packageId, ref, k)
+        needPackage(loc, packageId, ref, k)
 
     private[speedy] def enforceLimitSignatoriesAndObservers(
         cid: V.ContractId,

@@ -1305,6 +1305,7 @@ private[lf] object SBuiltinFun {
         resolvePackageName(machine, pkgName) { pkgId =>
           val dstTmplId = srcTmplId.copy(pkg = pkgId)
           machine.ensurePackageIsLoaded(
+            NameOf.qualifiedNameOfCurrentFunc,
             dstTmplId.packageId,
             language.Reference.Template(dstTmplId.toRef),
           ) { () =>
@@ -2389,6 +2390,7 @@ private[lf] object SBuiltinFun {
             )
           else
             machine.ensurePackageIsLoaded(
+              NameOf.qualifiedNameOfCurrentFunc,
               dstTmplId.packageId,
               language.Reference.Template(dstTmplId.toRef),
             ) { () =>
@@ -2458,6 +2460,7 @@ private[lf] object SBuiltinFun {
       case None =>
         machine.lookupContract(coid)(coinst =>
           machine.ensurePackageIsLoaded(
+            NameOf.qualifiedNameOfCurrentFunc,
             coinst.template.packageId,
             language.Reference.Template(coinst.template.toRef),
           ) { () =>
