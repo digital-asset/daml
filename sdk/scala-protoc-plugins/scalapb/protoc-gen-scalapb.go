@@ -1,12 +1,17 @@
 package main
 
 import (
+	_ "embed"
 	"log"
 	"os"
 	"os/exec"
 	"path"
+	"strings"
 	"syscall"
 )
+
+//go:embed java-path.dat
+var javaPath string
 
 func main() {
 	// This works due to the expected sandbox layout:
@@ -16,7 +21,7 @@ func main() {
 	// ./bazel-out/host/bin/external/build_stack_rules_proto/scala/linux_amd64_stripped/protoc-gen-scala
 
 	jar := mustFindInSandbox(path.Dir(os.Args[0]), "compiler_plugin_distribute.jar")
-	err, exitCode := run("external/local_jdk/bin/java", append([]string{"-jar", jar}, os.Args...), ".", nil)
+	err, exitCode := run(strings.TrimSpace(javaPath), append([]string{"-jar", jar}, os.Args...), ".", nil)
 	if err != nil {
 		log.Printf("%v", err)
 	}
