@@ -83,11 +83,54 @@ def _fat_cc_library_impl(ctx):
                 [f.path for f in static_libs],
         )
     else:
+        # Note [MRI Script Tilde]
+        # 
+        # The MRI script (`ar -M`) started failing with bzlmod enabled because
+        # some of the provided archives had `~` characters in their path due to
+        # Bazel bzlmod name mangling. The reason is that ar's MRI script format
+        # does not support `~` characters in paths, see [lexer
+        # specification](https://sourceware.org/git/?p=binutils-gdb.git;a=blob;f=binutils/arlex.l;h=d6508c4f120bbf0656c7ecf486571e21f253dd14;hb=HEAD#l81).
+        #
+        # The workaround is to replace all library paths with `~` in the file
+        # name by copies without `~` in the file name. Symlinks alone are
+        # insufficient as the same `~` restriction applies to the resolved
+        # path.
+        command = """
+set -euo pipefail
+
+TEMP_DIR=$(mktemp -d)
+trap 'rm -rf "$TEMP_DIR"' EXIT
+
+AR="$1"
+MRI="$2"
+NEW_MRI="$TEMP_DIR/$(basename "$MRI")"
+
+while IFS= read -r line; do
+  if [[ "$line" =~ ^[[:space:]]*addlib[[:space:]]+(.*)$ ]]; then
+    lib_path="${BASH_REMATCH[1]}"
+
+    if [[ "$lib_path" == *"~"* ]]; then
+      # Create copy without tilde, see Note [MRI Script Tilde]
+      copy_name=$(basename "$lib_path" | tr '~' '_')
+      copy_path="$TEMP_DIR/$copy_name"
+      cp "$lib_path" "$copy_path"
+      echo "addlib $copy_path" >> "$NEW_MRI"
+    else
+      echo "$line" >> "$NEW_MRI"
+    fi
+  else
+    echo "$line" >> "$NEW_MRI"
+  fi
+done < "$MRI"
+
+"$AR" -M < "$NEW_MRI"
+"""
         ctx.actions.run_shell(
             mnemonic = "CppLinkFatStaticLib",
             outputs = [static_lib],
             inputs = [mri_script] + static_libs,
-            command = "{ar} -M < {mri_script}".format(ar = ar, mri_script = mri_script.path),
+            command = command,
+            arguments = [ar, mri_script.path],
         )
 
     fat_lib = cc_common.create_library_to_link(
