@@ -376,7 +376,7 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [
-        "cpu:4",
+        "cpu:8",
         "main-only",
     ],
     runtime_deps = [
