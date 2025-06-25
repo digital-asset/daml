@@ -32,10 +32,9 @@ import scala.concurrent.Future
 import scala.language.implicitConversions
 
 // Split the Upgrade unit tests over three suites, which seems to be the sweet
-// spot (~30s instead of ~40s runtime)
-class UpgradeTestUnit0 extends UpgradeTestUnit(3, 0)
-class UpgradeTestUnit1 extends UpgradeTestUnit(3, 1)
-class UpgradeTestUnit2 extends UpgradeTestUnit(3, 2)
+// spot (~25s instead of ~35s runtime)
+class UpgradeTestUnit0 extends UpgradeTestUnit(2, 0)
+class UpgradeTestUnit1 extends UpgradeTestUnit(2, 1)
 
 /** A test suite to run the UpgradeTest matrix directly in the engine
   *
