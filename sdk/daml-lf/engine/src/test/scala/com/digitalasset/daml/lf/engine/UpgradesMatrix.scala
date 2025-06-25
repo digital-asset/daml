@@ -53,8 +53,10 @@ import scala.language.implicitConversions
   * pretty well utilized, but gives big improvements for integration tests with
   * multiple Canton runners.
   */
-abstract class UpgradesMatrix[Err, Res](val cases: UpgradesMatrixCases, nk: Option[(Int, Int)] = None)
-    extends AsyncFreeSpec
+abstract class UpgradesMatrix[Err, Res](
+    val cases: UpgradesMatrixCases,
+    nk: Option[(Int, Int)] = None,
+) extends AsyncFreeSpec
     with Matchers {
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 

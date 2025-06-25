@@ -178,4 +178,3 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     }
   }
 }
-
