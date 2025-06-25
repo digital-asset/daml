@@ -325,9 +325,10 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
 
   def encodeDalfArchive(
       pkgId: PackageId,
-      pkg: Ast.Package,
+      pkgSrc: String,
       lfVersion: LanguageVersion = langVersion,
   ): (String, Archive, Ast.Package, PackageId) = {
+    val pkg = p"${pkgSrc}" (parserParameters(pkgId))
     val archive = Encode.encodeArchive(pkgId -> pkg, lfVersion)
     val computedPkgId = PackageId.assertFromString(archive.getHash)
     val dalfName = s"${pkg.metadata.name}-${pkg.metadata.version}-$computedPkgId.dalf"
@@ -349,31 +350,31 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
 
   // A package that defines an interface, a key type, an exception, and a party to be used by
   // the packages defined below.
-  val compilingCommonDefsPkgId = PackageId.assertFromString("-common-defs-id-")
-  val compilingCommonDefsPkg =
-    p"""metadata ( '-common-defs-' : '1.0.0' )
-          module Mod {
-            record @serializable MyView = { value : Int64 };
-            interface (this : Iface) = {
-              viewtype Mod:MyView;
-
-              method interfaceChoiceControllers : List Party;
-              method interfaceChoiceObservers : List Party;
-
-              choice @nonConsuming InterfaceChoice (self) (u: Unit): Text
-                  , controllers (call_method @Mod:Iface interfaceChoiceControllers this)
-                  , observers (call_method @Mod:Iface interfaceChoiceObservers this)
-                  to upure @Text "InterfaceChoice was called";
-            };
-
-            record @serializable Ex = { message: Text } ;
-            exception Ex = {
-              message \(e: Mod:Ex) -> Mod:Ex {message} e
-            };
-          }
-      """ (parserParameters(compilingCommonDefsPkgId))
   val (commonDefsDalfName, commonDefsDalf, commonDefsPkg, commonDefsPkgId) =
-    encodeDalfArchive(compilingCommonDefsPkgId, compilingCommonDefsPkg)
+    encodeDalfArchive(
+      PackageId.assertFromString("-common-defs-id-"),
+      """metadata ( '-common-defs-' : '1.0.0' )
+            module Mod {
+              record @serializable MyView = { value : Int64 };
+              interface (this : Iface) = {
+                viewtype Mod:MyView;
+
+                method interfaceChoiceControllers : List Party;
+                method interfaceChoiceObservers : List Party;
+
+                choice @nonConsuming InterfaceChoice (self) (u: Unit): Text
+                    , controllers (call_method @Mod:Iface interfaceChoiceControllers this)
+                    , observers (call_method @Mod:Iface interfaceChoiceObservers this)
+                    to upure @Text "InterfaceChoice was called";
+              };
+
+              record @serializable Ex = { message: Text } ;
+              exception Ex = {
+                message \(e: Mod:Ex) -> Mod:Ex {message} e
+              };
+            }
+        """
+    )
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
     * scala value we can splice into an [[ApiCommand]].
@@ -1813,53 +1814,51 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
   /** A package that defines templates called Precondition, Signatories, ... whose metadata should evaluate without
     * throwing exceptions.
     */
-  val compilingTemplateDefsV1PkgId = PackageId.assertFromString("-template-defs-v1-id-")
-  val templateDefsV1ParserParams = parserParameters(compilingTemplateDefsV1PkgId)
-  val compilingTemplateDefsV1Pkg =
-    p"""metadata ( '$templateDefsPkgName' : '1.0.0' )
-          module Mod {
-            ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
-          }
-      """ (templateDefsV1ParserParams)
   val (templateDefsV1DalfName, templateDefsV1Dalf, templateDefsV1Pkg, templateDefsV1PkgId) =
-    encodeDalfArchive(compilingTemplateDefsV1PkgId, compilingTemplateDefsV1Pkg)
+    encodeDalfArchive(
+      PackageId.assertFromString("-template-defs-v1-id-"),
+      s"""metadata ( '$templateDefsPkgName' : '1.0.0' )
+            module Mod {
+              ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
+            }
+        """
+    )
 
   /** Version 2 of the package above. It upgrades the previously defined templates such that:
     *   - the precondition in the Precondition template is changed to throw an exception
     *   - the signatories in the Signatories template is changed to throw an exception
     *   - etc.
     */
-  val compilingTemplateDefsV2PkgId = PackageId.assertFromString("-template-defs-v2-id-")
-  val templateDefsV2ParserParams = parserParameters(compilingTemplateDefsV2PkgId)
-  val compilingTemplateDefsV2Pkg =
-    p"""metadata ( '$templateDefsPkgName' : '2.0.0' )
-          module Mod {
-            ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
-          }
-      """ (templateDefsV2ParserParams)
   val (templateDefsV2DalfName, templateDefsV2Dalf, templateDefsV2Pkg, templateDefsV2PkgId) =
-    encodeDalfArchive(compilingTemplateDefsV2PkgId, compilingTemplateDefsV2Pkg)
-
-  val compilingClientPkgId = PackageId.assertFromString("-client-id-")
-  val clientParserParams = parserParameters(compilingClientPkgId)
-  val compilingClientPkg = {
-    val choices = commandAndChoiceTestCases
-      .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
-    p"""metadata ( '-client-' : '1.0.0' )
+    encodeDalfArchive(
+      PackageId.assertFromString("-template-defs-v2-id-"),
+      s"""metadata ( '$templateDefsPkgName' : '2.0.0' )
             module Mod {
-              record @serializable Client = { alice: Party, bob: Party };
-              template (this: Client) = {
-                precondition True;
-                signatories Cons @Party [Mod:Client {alice} this] (Nil @Party);
-                observers Nil @Party;
-
-                ${choices.mkString("\n")}
-              };
+              ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
             }
-        """ (clientParserParams)
-  }
+        """
+    )
+
   val (clientDalfName, clientDalf, clientPkg, clientPkgId) =
-    encodeDalfArchive(compilingClientPkgId, compilingClientPkg)
+    encodeDalfArchive(
+      PackageId.assertFromString("-client-id-"),
+      {
+        val choices = commandAndChoiceTestCases
+          .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
+        s"""metadata ( '-client-' : '1.0.0' )
+                module Mod {
+                  record @serializable Client = { alice: Party, bob: Party };
+                  template (this: Client) = {
+                    precondition True;
+                    signatories Cons @Party [Mod:Client {alice} this] (Nil @Party);
+                    observers Nil @Party;
+
+                    ${choices.mkString("\n")}
+                  };
+                }
+            """
+      }
+    )
 
   val lookupPackage: Map[PackageId, Ast.Package] = Map(
     stablePackages.Tuple2.packageId -> stablePackages.packagesMap(stablePackages.Tuple2.packageId),
