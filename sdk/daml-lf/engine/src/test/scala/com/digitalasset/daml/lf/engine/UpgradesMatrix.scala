@@ -425,7 +425,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -446,7 +446,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -465,7 +465,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -489,7 +489,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -508,7 +508,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -527,7 +527,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
+         |         ubind _:Text <- exercise @$clientTplQualifiedName ExerciseByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
          |         e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
@@ -544,7 +544,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:$v2TplQualifiedName <-
+         |         ubind _:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -562,7 +562,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:$v2TplQualifiedName <-
+         |         ubind _:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
@@ -582,7 +582,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:$v2TplQualifiedName <-
+         |         ubind _:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -603,7 +603,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:$v2TplQualifiedName <-
+         |         ubind _:$v2TplQualifiedName <-
          |             exercise @$clientTplQualifiedName FetchByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
@@ -623,7 +623,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <-
+         |         ubind _:Text <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -642,7 +642,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Text <-
+         |         ubind _:Text <-
          |             exercise @$clientTplQualifiedName FetchInterfaceNoCatchGlobal${templateName} self cid
          |         in upure @Text "no exception was caught"
          |       catch
@@ -660,7 +660,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Option (ContractId $v2TplQualifiedName) <-
+         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
          |             exercise @$clientTplQualifiedName LookupByKeyNoCatchLocal${templateName} self ()
          |         in upure @Text "no exception was caught"
          |       catch
@@ -679,7 +679,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
          |    , controllers (Cons @Party [Mod:Client {alice} this] (Nil @Party))
          |    , observers (Nil @Party)
          |    to try @Text
-         |         ubind __:Option (ContractId $v2TplQualifiedName) <-
+         |         ubind _:Option (ContractId $v2TplQualifiedName) <-
          |             exercise @$clientTplQualifiedName LookupByKeyNoCatchGlobal${templateName} self key
          |         in upure @Text "no exception was caught"
          |       catch
