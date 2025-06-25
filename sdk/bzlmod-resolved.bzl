@@ -1,3 +1,6 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 resolved = [
      {
           "original_rule_class": "local_config_platform",
