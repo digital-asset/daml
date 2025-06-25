@@ -27,10 +27,14 @@ import org.scalatest.{Assertion, Succeeded}
 
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradeTestIntegration0 extends UpgradeTestIntegration(4, 0)
-class UpgradeTestIntegration1 extends UpgradeTestIntegration(4, 1)
-class UpgradeTestIntegration2 extends UpgradeTestIntegration(4, 2)
-class UpgradeTestIntegration3 extends UpgradeTestIntegration(4, 3)
+class UpgradeTestIntegration0 extends UpgradeTestIntegration(8, 0)
+class UpgradeTestIntegration1 extends UpgradeTestIntegration(8, 1)
+class UpgradeTestIntegration2 extends UpgradeTestIntegration(8, 2)
+class UpgradeTestIntegration3 extends UpgradeTestIntegration(8, 3)
+class UpgradeTestIntegration4 extends UpgradeTestIntegration(8, 4)
+class UpgradeTestIntegration5 extends UpgradeTestIntegration(8, 5)
+class UpgradeTestIntegration6 extends UpgradeTestIntegration(8, 6)
+class UpgradeTestIntegration7 extends UpgradeTestIntegration(8, 7)
 
 /** A test suite to run the UpgradeTest matrix on Canton.
   *
