@@ -69,7 +69,6 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
     os.toByteString
   }
 
-  override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   override protected val disableUpgradeValidation: Boolean = true
   override protected lazy val devMode: Boolean = true
 
