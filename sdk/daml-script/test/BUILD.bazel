@@ -377,6 +377,7 @@ da_scala_test(
     ],
     tags = [
         "cpu:4",
+        "main-only",
     ],
     runtime_deps = [
         ":test-utils",
