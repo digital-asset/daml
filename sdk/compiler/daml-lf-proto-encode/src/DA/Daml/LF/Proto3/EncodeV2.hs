@@ -40,6 +40,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 type Just a = Maybe a
 
 type InternedKindsMap = IM.InternedMap P.KindSum Int32
+type InternedTypesMap = IM.InternedMap P.TypeSum Int32
 
 type Encode a = State EncodeEnv a
 
@@ -55,6 +56,7 @@ data EncodeEnv = EncodeEnv
     , nextInternedTypeId :: !Int32
 
     , _internedKindsMap :: InternedKindsMap
+    , _internedTypesMap :: InternedTypesMap
     }
 
 deriving instance Show EncodeEnv
@@ -71,6 +73,7 @@ initEncodeEnv version =
     , internedTypes = Map.empty
     , nextInternedTypeId = 0
     , _internedKindsMap = IM.empty
+    , _internedTypesMap = IM.empty
     , ..
     }
 
@@ -359,6 +362,19 @@ allocType ptyp = fmap (P.Type . Just) $ do
                 , nextInternedTypeId = n + 1
                 }
             pure (P.TypeSumInterned n)
+-- allocType = internType . P.Type . Just
+
+internType :: P.Type -> Encode P.Type
+internType t =
+  do
+    EncodeEnv{version} <- get
+    if isDevVersion version
+      then case t of
+        (P.Type (Just t')) -> do
+            n <- zoom internedTypesMap $ IM.internState t'
+            return $ (P.Type . Just . P.TypeSumInterned) n
+        (P.Type Nothing) -> error "nothing type during encoding"
+      else return t
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
@@ -989,6 +1005,7 @@ encodePackage (Package version mods metadata) =
                then pIT
                else error "internedTypes of incorrect length"
         packageInternedKinds = V.map (P.Kind . Just) $ IM.toVec _internedKindsMap
+        -- packageInternedTypes = V.map (P.Type . Just) $ IM.toVec _internedTypesMap
     in
     P.Package{..}
 
