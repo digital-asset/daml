@@ -13,7 +13,7 @@ module DA.Daml.LF.Proto3.EncodeV2
   , EncodeEnv(..)
   ) where
 
-import           Control.Lens ((^.), matching, makeLenses, zoom)
+import           Control.Lens ((^.), matching, makeLensesFor, zoom)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 
@@ -58,10 +58,11 @@ data EncodeEnv = EncodeEnv
     , internedTypes :: !(Map.Map P.TypeSum Int32)
     , nextInternedTypeId :: !Int32
 
-    , _internedKindsMap :: InternedKindsMap
+    , internedKindsMap :: InternedKindsMap
     }
 
-makeLenses ''EncodeEnv
+makeLensesFor [("internedKindsMap", "internedKindsMapLens")] ''EncodeEnv
+
 
 initEncodeEnv :: Version -> EncodeEnv
 initEncodeEnv version =
@@ -72,7 +73,7 @@ initEncodeEnv version =
     , nextInternedDottedNameId = 0
     , internedTypes = Map.empty
     , nextInternedTypeId = 0
-    , _internedKindsMap = IM.empty
+    , internedKindsMap = IM.empty
     , ..
     }
 
@@ -271,7 +272,7 @@ internKind k =
     if isDevVersion version
       then case k of
         (P.Kind (Just k')) -> do
-            n <- zoom internedKindsMap $ IM.internState k'
+            n <- zoom internedKindsMapLens $ IM.internState k'
             return $ (P.Kind . Just . P.KindSumInterned) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
@@ -978,7 +979,7 @@ encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version
         ( (packageModules, packageMetadata),
-          EncodeEnv{internedStrings, internedDottedNames, internedTypes, nextInternedTypeId, _internedKindsMap}) =
+          EncodeEnv{internedStrings, internedDottedNames, internedTypes, nextInternedTypeId, internedKindsMap}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
         packageInternedStrings =
             V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
@@ -990,7 +991,7 @@ encodePackage (Package version mods metadata) =
           in if (fromIntegral $ V.length pIT) == nextInternedTypeId
                then pIT
                else error "internedTypes of incorrect length"
-        packageInternedKinds = V.map (P.Kind . Just) $ IM.toVec _internedKindsMap
+        packageInternedKinds = V.map (P.Kind . Just) $ IM.toVec internedKindsMap
     in
     P.Package{..}
 

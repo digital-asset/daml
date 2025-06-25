@@ -26,6 +26,7 @@ entry :: IO ()
 entry = defaultMain $ testGroup "All tests"
     [ rtt_tests
     , enc_tests
+    , dec_tests
     ]
 
 ------------------------------------------------------------------------
@@ -111,18 +112,18 @@ runEncodeTest k = runState (encodeKind k) (initEncodeEnv testVersion)
 
 enc_interning_starToStar :: TestTree
 enc_interning_starToStar =
-  let (pk, EncodeEnv{_internedKindsMap}) = runEncodeTest (KArrow KStar KStar)
+  let (pk, EncodeEnv{internedKindsMap}) = runEncodeTest (KArrow KStar KStar)
   in  testCase "star to star" $ do
     pk @=? interned 0
-    toVec _internedKindsMap V.! 0 @=? pkarr' pkstar pkstar
+    toVec internedKindsMap V.! 0 @=? pkarr' pkstar pkstar
 
 enc_interning_starToNatToStar :: TestTree
 enc_interning_starToNatToStar =
-  let (pk, EncodeEnv{_internedKindsMap}) = runEncodeTest (KArrow (KArrow KStar KNat) KStar)
+  let (pk, EncodeEnv{internedKindsMap}) = runEncodeTest (KArrow (KArrow KStar KNat) KStar)
   in  testCase "(star to nat) to star" $ do
     pk @=? interned 1
-    toVec _internedKindsMap V.! 0 @=? pkarr' pkstar pknat
-    toVec _internedKindsMap V.! 1 @=? pkarr' (interned 0) pkstar
+    toVec internedKindsMap V.! 0 @=? pkarr' pkstar pknat
+    toVec internedKindsMap V.! 1 @=? pkarr' (interned 0) pkstar
 
 ------------------------------------------------------------------------
 -- DecodeTests
