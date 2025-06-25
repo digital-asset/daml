@@ -368,13 +368,13 @@ da_scala_test(
     name = "upgrade-matrix-integration",
     size = "large",
     srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala"],
+    args = ["-P"],  # run suites in parallel
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    args = [ "-P" ], # run suites in parallel
     tags = [
         "cpu:4",
     ],

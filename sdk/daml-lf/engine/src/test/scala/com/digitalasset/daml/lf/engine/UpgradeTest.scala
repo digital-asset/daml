@@ -51,14 +51,15 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] = Future.successful(
-    UpgradeTestCases.SetupData(
-      alice = Party.assertFromString("Alice"),
-      bob = Party.assertFromString("Bob"),
-      clientContractId = toContractId("client"),
-      globalContractId = toContractId("1"),
+  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] =
+    Future.successful(
+      UpgradeTestCases.SetupData(
+        alice = Party.assertFromString("Alice"),
+        bob = Party.assertFromString("Bob"),
+        clientContractId = toContractId("client"),
+        globalContractId = toContractId("1"),
+      )
     )
-  )
 
   def normalize(value: Value, typ: Ast.Type): Value = {
     Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
@@ -378,7 +379,7 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
                 message \(e: Mod:Ex) -> Mod:Ex {message} e
               };
             }
-        """
+        """,
     )
 
   /** Represents an LF value specified both as some string we can splice into the textual representation of LF, and as a
@@ -1826,7 +1827,7 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
             module Mod {
               ${testCases.map(_.v1TemplateDefinition).mkString("\n")}
             }
-        """
+        """,
     )
 
   /** Version 2 of the package above. It upgrades the previously defined templates such that:
@@ -1841,13 +1842,12 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
             module Mod {
               ${testCases.map(_.v2TemplateDefinition).mkString("\n")}
             }
-        """
+        """,
     )
 
   val (clientDalfName, clientDalf, clientPkg, clientPkgId) =
     encodeDalfArchive(
-      PackageId.assertFromString("-client-id-"),
-      {
+      PackageId.assertFromString("-client-id-"), {
         val choices = commandAndChoiceTestCases
           .map(_.clientChoices(templateDefsV1PkgId, templateDefsV2PkgId))
         s"""metadata ( '-client-' : '1.0.0' )
@@ -1862,7 +1862,7 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
                   };
                 }
             """
-      }
+      },
     )
 
   val lookupPackage: Map[PackageId, Ast.Package] = Map(
