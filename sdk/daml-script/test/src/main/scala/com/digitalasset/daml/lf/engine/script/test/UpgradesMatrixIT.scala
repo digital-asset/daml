@@ -65,8 +65,6 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     os.toByteString
   }
 
-  // override lazy val langVersion: LanguageVersion = LanguageVersion.v2_dev
-
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
   override protected val disableUpgradeValidation: Boolean = true
   override protected lazy val devMode: Boolean = true
