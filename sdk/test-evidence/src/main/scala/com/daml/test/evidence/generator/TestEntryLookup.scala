@@ -25,9 +25,11 @@ object TestEntryLookup {
   private def collectEntries[TT: ClassTag, TS: ClassTag, TE](
       testEntry: (String, String, TT, Boolean, Option[TS]) => TE
   ): List[TE] = {
+    val rlocation = BazelRunfiles.rlocation("test-evidence/generator.runpath")
+    println(s"rlocation $rlocation")
     val runpathList: List[String] =
       Source
-        .fromFile(BazelRunfiles.rlocation("test-evidence/generator.runpath"))
+        .fromFile(rlocation)
         .getLines()
         .map(BazelRunfiles.rlocation)
         .toList

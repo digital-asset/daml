@@ -18,9 +18,11 @@ trait BazelRunfiles {
     )
 
   def rlocation(path: String): String =
-    if (inBazelEnvironment)
-      Runfiles.preload.unmapped().rlocation(MainWorkspace + "/" + path)
-    else
+    if (inBazelEnvironment) {
+      val runfiles: Runfiles.Preloaded = Runfiles.preload()
+      // TODO: Forward the source repository correctly
+      runfiles.withSourceRepository("").rlocation(MainWorkspace + "/" + path)
+    } else
       path
 
   def rlocation(path: Path): Path =
@@ -29,7 +31,9 @@ trait BazelRunfiles {
         .resolve(path)
         .toString
         .replace("\\", "/")
-      val runfilePath = Option(Runfiles.preload.unmapped().rlocation(workspacePathString))
+      val runfiles: Runfiles.Preloaded = Runfiles.preload()
+      // TODO: Forward the source repository correctly
+      val runfilePath = Option(runfiles.withSourceRepository("").rlocation(workspacePathString))
       Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
     } else
       path
