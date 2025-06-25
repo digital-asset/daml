@@ -6,10 +6,9 @@ package stablepackages
 
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.archive
-import com.digitalasset.daml.lf.data.Bytes
-import com.digitalasset.daml.lf.archive.DamlLf.Archive
-import com.digitalasset.daml.lf.archive.{ArchiveParser, Reader, Decode}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.archive.ArchiveDecoder
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
+
 import com.digitalasset.daml.lf.language.{
   Ast,
   LanguageMajorVersion,
@@ -74,21 +73,15 @@ private[daml] sealed class StablePackagesImpl(
 
   /** All stable packages, indexed by module name. */
   private lazy val allPackagesByName: Map[String, StablePackage] =
-    allPackagesWithArchives.map { case (sp, _) => sp.moduleName.dottedName -> sp }.toMap
-
-  private lazy val allPackagesWithArchives: Seq[(StablePackage, Archive)] =
     scala.io.Source
       .fromResource(manifestResourcePath)
       .getLines()
-      .map(decodeDalfResource)
-      .map { case (pkgId, pkg, bytes, archive) => (toStablePackage(pkgId, pkg, bytes), archive) }
-      .toSeq
-
-  /** Dalf name and archive of a [[StablePackage]] */
-  lazy val allArchivesByPkgId: Map[Ref.PackageId, (String, Archive)] =
-    allPackagesWithArchives.map { case (sp, archive) =>
-      sp.packageId -> (s"${sp.name}-${sp.packageId}.dalf", archive)
-    }.toMap
+      .map { path =>
+        val (pkgId, pkg, bytes) = decodeDalfResource(path)
+        val stablePkg = toStablePackage(pkgId, pkg, bytes)
+        stablePkg.moduleName.dottedName -> stablePkg
+      }
+      .toMap
 
   def values = allPackagesByName.values
 
@@ -96,18 +89,12 @@ private[daml] sealed class StablePackagesImpl(
     */
   @throws[IllegalArgumentException]("if the resource cannot be found")
   @throws[archive.Error]("if the dalf cannot be decoded")
-  private def decodeDalfResource(
-      path: String
-  ): (Ref.PackageId, Ast.Package, data.Bytes, Archive) = {
+  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package, data.Bytes) = {
     val inputStream = getClass.getClassLoader.getResourceAsStream(path)
     require(inputStream != null, s"Resource not found: $path")
     val bytes = data.Bytes.fromInputStream(inputStream)
-    val res = for {
-      archive <- ArchiveParser.fromBytes(bytes)
-      archivePayload <- Reader.readArchive(archive)
-      pkgData <- Decode.decodeArchivePayload(archivePayload)
-    } yield (pkgData._1, pkgData._2, bytes, archive)
-    res.fold(throw _, identity)
+    val (pkgId, pkg) = ArchiveDecoder.assertFromBytes(bytes)
+    (pkgId, pkg, bytes)
   }
 
   /** Converts a decoded package to a [[StablePackage]] */

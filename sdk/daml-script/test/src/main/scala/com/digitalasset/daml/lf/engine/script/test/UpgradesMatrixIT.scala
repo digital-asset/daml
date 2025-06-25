@@ -7,6 +7,7 @@ package test
 import com.daml.integrationtest.CantonFixture
 import com.daml.SdkVersion
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.daml.lf.archive.ArchiveParser
 import com.digitalasset.daml.lf.archive.{Dar, DarWriter}
 import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
@@ -16,7 +17,6 @@ import com.digitalasset.daml.lf.engine.{UpgradeTest, UpgradeTestCases, UpgradeTe
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.stablepackages._
 import com.digitalasset.daml.lf.value.Value._
 import com.google.protobuf.ByteString
 import scala.concurrent.{ExecutionContext, Await, Future}
@@ -68,9 +68,10 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
   override protected lazy val devMode: Boolean = true
 
   // Compiled dars
-  // TODO: Rethink how to get the archive here without modifying the StablePackage interface in daml-lf/language
-  val (primDATypesDalfName, primDATypesDalf) =
-    StablePackagesV2.allArchivesByPkgId(cases.stablePackages.Tuple2.packageId)
+  val primDATypes = cases.stablePackages.allPackages.find(_.moduleName.dottedName == "DA.Types").get
+  val primDATypesDalfName = s"${primDATypes.name}-${primDATypes.packageId}.dalf"
+  val primDATypesDalf = ArchiveParser.assertFromBytes(primDATypes.bytes)
+
   val commonDefsDar = encodeDar(cases.commonDefsDalfName, cases.commonDefsDalf, List())
   val templateDefsV1Dar = encodeDar(
     cases.templateDefsV1DalfName,

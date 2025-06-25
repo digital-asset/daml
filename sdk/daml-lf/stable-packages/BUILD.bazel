@@ -24,14 +24,10 @@ da_scala_library(
         "//compiler/damlc/stable-packages",
         "//compiler/damlc/stable-packages:gen-stable-packages-manifest-v2",
     ],
-    scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
-    ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-stable-packages:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
