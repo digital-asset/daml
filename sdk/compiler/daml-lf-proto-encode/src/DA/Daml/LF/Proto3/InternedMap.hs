@@ -4,6 +4,13 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE RankNTypes #-}
 
+{-
+This module containst the InternedMap datatype, used during the interning of
+kinds, types and expressions. The implementation is hidden in this module, as a
+separate Num tracks the length of the list. By encapsulating the constructor in
+here, we can be sure the Num and Map are not modified externally.
+-}
+
 module DA.Daml.LF.Proto3.InternedMap (
   InternedMap, internState, toVec, empty, extend
   ) where
@@ -15,7 +22,11 @@ import qualified Data.Map.Strict     as Map
 import qualified Data.Vector         as V
 
 data InternedMap val key where
-  InternedMap :: (Ord val, Ord key, Num key, Bounded key) => !(Map.Map val key) -> !key -> InternedMap val key
+  InternedMap
+      :: (Ord val, Ord key, Num key, Bounded key)
+      => !(Map.Map val key)
+      -> !key -- ^ the next available key
+      -> InternedMap val key
 
 empty :: (Ord val, Ord key, Num key, Bounded key) => InternedMap val key
 empty = InternedMap Map.empty 0
