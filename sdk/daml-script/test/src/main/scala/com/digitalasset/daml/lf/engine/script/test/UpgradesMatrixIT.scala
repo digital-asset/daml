@@ -27,7 +27,8 @@ import scala.concurrent.{ExecutionContext, Await, Future}
 import scala.concurrent.duration._
 import scalaz.OneAnd
 import org.scalatest.Inside.inside
-import org.scalatest.{Assertion, Succeeded}
+import org.scalatest.Assertion
+import io.grpc.{Status, StatusRuntimeException}
 
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
@@ -270,9 +271,12 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
           )
         }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
-        inside(result) { case Left(_) =>
-          // error shouldBe a[EE.Preprocessing] // I dont know what we mean by preprocessing here
-          Succeeded
+        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>
+          statusError shouldBe a[StatusRuntimeException]
+          val status = statusError.asInstanceOf[StatusRuntimeException].getStatus
+          status.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+          status.getDescription should startWith("COMMAND_PREPROCESSING_FAILED")
+          submitError shouldBe a[SubmitError.UnknownError]
         }
       case UpgradesMatrixCases.ExpectPreconditionViolated =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
@@ -283,9 +287,12 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
           error shouldBe a[SubmitError.FailureStatusError]
         }
       case UpgradesMatrixCases.ExpectInternalInterpretationError =>
-        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
-          error shouldBe a[SubmitError.UnknownError]
-        // Probably also assert that the message contains the word internal?
+        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>
+          statusError shouldBe a[StatusRuntimeException]
+          val status = statusError.asInstanceOf[StatusRuntimeException].getStatus
+          status.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+          status.getDescription should startWith("DAML_INTERPRETATION_ERROR")
+          submitError shouldBe a[SubmitError.UnknownError]
         }
     }
   }

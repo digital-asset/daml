@@ -403,6 +403,7 @@ da_scala_test(
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:io_grpc_grpc_api",
     ],
 )
 
