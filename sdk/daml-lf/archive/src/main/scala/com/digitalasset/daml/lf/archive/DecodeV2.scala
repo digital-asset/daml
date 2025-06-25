@@ -174,7 +174,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   ): Work[IndexedSeq[Kind]] = Ret {
     val lfKinds = lfPackage.getInternedKindsList
     (!lfTypes.isEmpty)
-      assertSince(Features.kindInterning, "interned types table")
+    assertSince(Features.kindInterning, "interned types table")
     lfKinds.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, typ) =>
         buf += env.copy(internedKinds = buf).decodeKindForTest(typ)
