@@ -199,9 +199,9 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   * of [[UpgradeTestCases]] class - consult the documentation for the class for
   * more about how the test cases are generated.
   *
-  * It can be parameterized with (n, k) to run only those tests when the test is
-  * the ith test, where i % n = k. We can use this to split tests over multiple
-  * suites that get run in parallel, i.e.
+  * It can be parameterized with (n, k) to split the tests into n pieces, and
+  * only run the ith piece. We can use this to split tests over multiple suites
+  * that get run in parallel, i.e.
   *
   * class MyRunner0 extends UpgradeTest[...](..., nk = Some(4, 0)) { ... }
   * class MyRunner1 extends UpgradeTest[...](..., nk = Some(4, 1)) { ... }
@@ -210,6 +210,10 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   *
   * will run a quarter of the tests with MyRunner0, another quarter over
   * MyRunner1, and so on, all in parallel.
+  *
+  * This gives small improvements for unit tests where the processor is already
+  * pretty well utilized, but gives big improvements for integration tests with
+  * multiple Canton runners.
   */
 abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None)
     extends AsyncFreeSpec
@@ -242,6 +246,7 @@ abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(In
         for (entryPoint <- cases.entryPoints) {
           for (contractOrigin <- cases.contractOrigins) {
             val shouldShow =
+              // If n, k is specified, then only run tests that belong to the kth group
               nk match {
                 case Some((n, k)) => testIdx % n == k
                 case None => true
