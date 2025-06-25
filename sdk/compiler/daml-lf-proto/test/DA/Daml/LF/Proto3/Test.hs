@@ -37,7 +37,7 @@ testVersion :: Version
 testVersion = Version V2 PointDev
 
 ------------------------------------------------------------------------
--- Rount-trip
+-- Round-trip
 ------------------------------------------------------------------------
 
 roundTripPackage :: Package -> Either Error Package
