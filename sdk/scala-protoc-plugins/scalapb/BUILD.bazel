@@ -47,14 +47,21 @@ go_library(
         "protoc-gen-scalapb.go",
     ],
     importpath = "github.com/digital-asset/daml/scala/protoc-gen-scalapb",
+    embedsrcs = [":java-path"],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "java-path",
+    outs = ["java-path.dat"],
+    cmd = "echo $(JAVA) > $@",
+    toolchains = ["@rules_java//toolchains:current_java_runtime"],
 )
 
 go_binary(
     name = "protoc-gen-scalapb",
     data = [
         ":compiler_plugin_distribute.jar",
-        "@bazel_tools//tools/jdk",
     ],
     embed = [":go_default_library"],
     visibility = ["//visibility:public"],
