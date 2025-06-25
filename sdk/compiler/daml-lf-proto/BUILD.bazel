@@ -40,6 +40,7 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "extra",
         "mtl",
         "tasty",
         "tasty-hunit",
@@ -52,7 +53,6 @@ da_haskell_test(
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-ast",
-        # "//compiler/daml-lf-proto-util",
         "//libs-haskell/da-hs-base",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
     ],

@@ -9,6 +9,7 @@ module DA.Daml.LF.Proto3.Test (
 import           Control.Monad.State.Strict
 import           Data.Int
 import qualified Data.NameMap                             as NM
+import           Data.Tuple.Extra
 import qualified Data.Vector                              as V
 
 import           DA.Daml.LF.Proto3.EncodeV2
@@ -45,11 +46,11 @@ roundTripPackage p = (decode . encodePackage) p
     decode :: P.Package -> Either Error Package
     decode = decodePackage
       (packageLfVersion p) --from passed package
-      SelfPackageId --no idea what this is
+      SelfPackageId
 
 
-roundTripTest :: Package -> Assertion
-roundTripTest p =
+roundTripAssert :: Package -> Assertion
+roundTripAssert p =
   either
     (\err -> assertFailure $ "Unexpected error: " ++ show err)
     (\val -> p @=? val)
@@ -62,10 +63,10 @@ rtt_tests = testGroup "Round-trip tests"
     ]
 
 rtt_empty :: TestTree
-rtt_empty = testCase "empty pacakge" $ roundTripTest $ oneModulePackage emptyModule
+rtt_empty = testCase "empty package" $ roundTripAssert $ oneModulePackage emptyModule
 
 rtt_tyLam :: TestTree
-rtt_tyLam = testCase "tylam pacakge" $ roundTripTest $ oneModulePackage tyLamModule
+rtt_tyLam = testCase "tylam package" $ roundTripAssert $ oneModulePackage tyLamModule
 
 rtt_fail1 :: TestTree
 rtt_fail1 = testCase "this fails" $ True @=? False
@@ -96,9 +97,6 @@ enc_pure_tests = testGroup "Encoding tests (non-interning)" $
     [ ("Kind star", KStar, pkstar)
     , ("Kind Nat", KNat, pknat)
     ]
-  where
-    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-    uncurry3 f (a, b, c) = f a b c
 
 
 enc_interning_tests :: TestTree
@@ -206,7 +204,7 @@ emptyModule = Module{..}
     moduleSource :: (Maybe FilePath)
     moduleSource = Nothing
     moduleFeatureFlags :: FeatureFlags
-    moduleFeatureFlags = FeatureFlags --what is this unit-like type?
+    moduleFeatureFlags = FeatureFlags
     moduleSynonyms :: (NM.NameMap DefTypeSyn)
     moduleSynonyms = NM.empty
     moduleDataTypes :: (NM.NameMap DefDataType)
