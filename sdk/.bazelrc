@@ -71,8 +71,8 @@ build --copt -DGRPC_BAZEL_BUILD
 build --java_language_version=17
 build:linux --java_runtime_version=nixpkgs_java_17
 build:linux --tool_java_runtime_version=nixpkgs_java_17
-build:macos --java_runtime_version=nixpkgs_java_17
-build:macos --tool_java_runtime_version=nixpkgs_java_17
+build:darwin --java_runtime_version=nixpkgs_java_17
+build:darwin --tool_java_runtime_version=nixpkgs_java_17
 build:windows --java_runtime_version=17
 build:windows --tool_java_runtime_version=17
 build --tool_java_language_version=17
