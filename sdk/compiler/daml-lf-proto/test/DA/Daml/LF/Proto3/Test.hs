@@ -68,9 +68,6 @@ rtt_empty = testCase "empty package" $ roundTripAssert $ oneModulePackage emptyM
 rtt_tyLam :: TestTree
 rtt_tyLam = testCase "tylam package" $ roundTripAssert $ oneModulePackage tyLamModule
 
-rtt_fail1 :: TestTree
-rtt_fail1 = testCase "this fails" $ True @=? False
-
 
 ------------------------------------------------------------------------
 -- EncodeTests
