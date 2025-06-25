@@ -59,14 +59,9 @@ def _fat_cc_library_impl(ctx):
         env = {"PATH": ""},
     )
 
-    mri_script_content = "\n".join(
-        ["create {}".format(static_lib.path)] +
-        ["addlib {}".format(lib.path) for lib in static_libs] +
-        ["save", "end"],
-    ) + "\n"
-
-    mri_script = ctx.actions.declare_file(ctx.label.name + "_mri")
-    ctx.actions.write(mri_script, mri_script_content)
+    archive_list_content = "\n".join([lib.path for lib in static_libs])
+    archive_list = ctx.actions.declare_file(ctx.label.name + "_archives")
+    ctx.actions.write(archive_list, archive_list_content)
 
     ar = toolchain.ar_executable
 
@@ -83,11 +78,37 @@ def _fat_cc_library_impl(ctx):
                 [f.path for f in static_libs],
         )
     else:
+        command = """\
+set -euo pipefail
+AR=$1
+OUT=$2
+LIBS=$3
+
+DIR=$(mktemp -d)
+trap "rm -rf $DIR" EXIT
+
+OBJS=$DIR/objs.txt
+> $OBJS
+
+while IFS= read -r archive; do
+  XDIR=$DIR/$(basename $archive .a)
+  mkdir -p $XDIR
+
+  $AR x $archive --output $XDIR
+
+  $AR t $archive | while IFS= read -r object; do
+    echo $XDIR/$object >> $OBJS
+  done
+done < $LIBS
+
+$AR rcs $OUT @$OBJS
+        """
         ctx.actions.run_shell(
             mnemonic = "CppLinkFatStaticLib",
             outputs = [static_lib],
-            inputs = [mri_script] + static_libs,
-            command = "{ar} -M < {mri_script}".format(ar = ar, mri_script = mri_script.path),
+            inputs = [archive_list] + static_libs,
+            command = command,
+            arguments = [ar, static_lib.path, archive_list.path],
         )
 
     fat_lib = cc_common.create_library_to_link(
