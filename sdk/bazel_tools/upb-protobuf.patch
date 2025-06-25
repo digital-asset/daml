@@ -1,0 +1,13 @@
+diff --git a/upbc/bootstrap_compiler.bzl b/upbc/bootstrap_compiler.bzl
+index 3a9e645b..8d933a98 100644
+--- a/upbc/bootstrap_compiler.bzl
++++ b/upbc/bootstrap_compiler.bzl
+@@ -20,7 +20,7 @@ _upbc_base = "//upbc:protoc-gen-upb"
+ 
+ # begin:github_only
+ _is_google3 = False
+-_extra_proto_path = "-Iexternal/com_google_protobuf/src "
++_extra_proto_path = "-Iexternal/protobuf~/src "
+ # end:github_only
+ 
+ def _upbc(stage):
