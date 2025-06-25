@@ -30,14 +30,13 @@ load("@io_tweag_rules_nixpkgs//nixpkgs:repositories.bzl", "rules_nixpkgs_depende
 rules_nixpkgs_dependencies()
 
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew", "dev_env_tool")
-load(
-    "@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl",
-    "nixpkgs_cc_configure",
-    "nixpkgs_java_configure",
+load("@rules_nixpkgs_core//:nixpkgs.bzl",
     "nixpkgs_local_repository",
     "nixpkgs_package",
-    "nixpkgs_python_configure",
 )
+load("@rules_nixpkgs_cc//:cc.bzl", "nixpkgs_cc_configure")
+load("@rules_nixpkgs_java//:java.bzl", "nixpkgs_java_configure")
+load("@rules_nixpkgs_python//:python.bzl", "nixpkgs_python_configure")
 load("//bazel_tools:create_workspace.bzl", "create_workspace")
 load("//bazel_tools:os_info.bzl", "os_info")
 
