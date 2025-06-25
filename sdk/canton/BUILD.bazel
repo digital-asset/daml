@@ -1713,16 +1713,10 @@ genrule(
         "FieldMask.hs",
     ]],
     cmd = """
-        for src in \
-            external/com_google_protobuf/src/google/protobuf/any.proto \
-            external/com_google_protobuf/src/google/protobuf/duration.proto \
-            external/com_google_protobuf/src/google/protobuf/empty.proto \
-            external/com_google_protobuf/src/google/protobuf/wrappers.proto \
-            external/com_google_protobuf/src/google/protobuf/struct.proto \
-            external/com_google_protobuf/src/google/protobuf/field_mask.proto \
+        for src in $(execpaths @com_google_protobuf//:well_known_type_protos) \
         ; do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
+                --includeDir $$(echo $$src | sed 's,\\(.*\\)/google/protobuf/.*,\\1,') \
                 --proto google/protobuf/$$(basename $$src) \
                 --out $(@D)
         done
@@ -1755,9 +1749,11 @@ genrule(
         "Google/Rpc/ErrorDetails.hs",
     ],
     cmd = """
+        well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
+        google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
         for src in $(locations :google-rpc-source-protos); do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
+                --includeDir $$google_protobuf_src \
                 --includeDir """ + google_rpc_src + """ \
                 --proto google/rpc/$$(basename $$src) \
                 --out $(@D)
@@ -1808,9 +1804,11 @@ genrule(
     ],
     outs = ["Com/Daml/Ledger/Api/V2/PackageService.hs"],
     cmd = """
+        well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
+        google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
+                --includeDir $$google_protobuf_src \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
@@ -1852,9 +1850,11 @@ genrule(
     ],
     outs = ["Com/Daml/Ledger/Api/V2/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
     cmd = """
+        well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
+        google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
         for src in $(locations :ledger-api-protos-fg-admin); do
             $(location @proto3-suite//:compile-proto-file) \
-                --includeDir """ + google_protobuf_src + """ \
+                --includeDir $$google_protobuf_src \
                 --includeDir """ + google_rpc_src + """ \
                 --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
