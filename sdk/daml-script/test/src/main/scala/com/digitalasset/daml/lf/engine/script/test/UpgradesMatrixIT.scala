@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.engine.{UpgradeTest, UpgradeTestCases, UpgradeTestCasesV2Dev}
+import com.digitalasset.daml.lf.engine.{UpgradesMatrix, UpgradesMatrixCases, UpgradesMatrixCasesV2Dev}
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.GrpcLedgerClient
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{ScriptLedgerClient, SubmitError}
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -27,26 +27,26 @@ import org.scalatest.{Assertion, Succeeded}
 
 // Split the tests across four suites with four Canton runners, which brings
 // down the runtime from ~4000s on a single suite to ~1400s
-class UpgradeTestIntegration0 extends UpgradeTestIntegration(8, 0)
-class UpgradeTestIntegration1 extends UpgradeTestIntegration(8, 1)
-class UpgradeTestIntegration2 extends UpgradeTestIntegration(8, 2)
-class UpgradeTestIntegration3 extends UpgradeTestIntegration(8, 3)
-class UpgradeTestIntegration4 extends UpgradeTestIntegration(8, 4)
-class UpgradeTestIntegration5 extends UpgradeTestIntegration(8, 5)
-class UpgradeTestIntegration6 extends UpgradeTestIntegration(8, 6)
-class UpgradeTestIntegration7 extends UpgradeTestIntegration(8, 7)
+class UpgradesMatrixIntegration0 extends UpgradesMatrixIntegration(8, 0)
+class UpgradesMatrixIntegration1 extends UpgradesMatrixIntegration(8, 1)
+class UpgradesMatrixIntegration2 extends UpgradesMatrixIntegration(8, 2)
+class UpgradesMatrixIntegration3 extends UpgradesMatrixIntegration(8, 3)
+class UpgradesMatrixIntegration4 extends UpgradesMatrixIntegration(8, 4)
+class UpgradesMatrixIntegration5 extends UpgradesMatrixIntegration(8, 5)
+class UpgradesMatrixIntegration6 extends UpgradesMatrixIntegration(8, 6)
+class UpgradesMatrixIntegration7 extends UpgradesMatrixIntegration(8, 7)
 
-/** A test suite to run the UpgradeTest matrix on Canton.
+/** A test suite to run the UpgradesMatrix matrix on Canton.
   *
   * This takes a while (~5000s when running with a single suite), so we have a
-  * different test [[UpgradeTestUnit]] to catch simple engine issues early which
+  * different test [[UpgradesMatrixUnit]] to catch simple engine issues early which
   * takes only ~40s.
   */
-abstract class UpgradeTestIntegration(n: Int, k: Int)
-    extends UpgradeTest[
+abstract class UpgradesMatrixIntegration(n: Int, k: Int)
+    extends UpgradesMatrix[
       ScriptLedgerClient.SubmitFailure,
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
-    ](UpgradeTestCasesV2Dev, Some((n, k)))
+    ](UpgradesMatrixCasesV2Dev, Some((n, k)))
     with CantonFixture {
   def encodeDar(
       mainDalfName: String,
@@ -154,7 +154,7 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     )
       .flatMap(scriptClient.allocateParty(_))
 
-  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] =
+  override def setup(testHelper: cases.TestHelper): Future[UpgradesMatrixCases.SetupData] =
     for {
       alice <- allocateParty("Alice")
       bob <- allocateParty("Bob")
@@ -168,7 +168,7 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
         testHelper.v1TplId,
         testHelper.globalContractArg(alice, bob),
       )
-    } yield UpgradeTestCases.SetupData(
+    } yield UpgradesMatrixCases.SetupData(
       alice = alice,
       bob = bob,
       clientContractId = clientContractId,
@@ -176,17 +176,17 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     )
 
   override def execute(
-      setupData: UpgradeTestCases.SetupData,
+      setupData: UpgradesMatrixCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
-      contractOrigin: UpgradeTestCases.ContractOrigin,
+      contractOrigin: UpgradesMatrixCases.ContractOrigin,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] =
     for {
       disclosures <- contractOrigin match {
-        case UpgradeTestCases.Disclosed =>
+        case UpgradesMatrixCases.Disclosed =>
           scriptClient
             .queryContractId(
               OneAnd(setupData.alice, Set()),
@@ -253,12 +253,12 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
         ScriptLedgerClient.SubmitFailure,
         (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
       ],
-      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
+      expectedOutcome: UpgradesMatrixCases.ExpectedOutcome,
   ): Assertion = {
     expectedOutcome match {
-      case UpgradeTestCases.ExpectSuccess =>
+      case UpgradesMatrixCases.ExpectSuccess =>
         result shouldBe a[Right[_, _]]
-      case UpgradeTestCases.ExpectUpgradeError =>
+      case UpgradesMatrixCases.ExpectUpgradeError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error should (
             be(a[SubmitError.UpgradeError.ValidationFailed]) or
@@ -266,20 +266,20 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
               be(a[SubmitError.UpgradeError.DowngradeFailed])
           )
         }
-      case UpgradeTestCases.ExpectPreprocessingError =>
+      case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(_) =>
           // error shouldBe a[EE.Preprocessing] // I dont know what we mean by preprocessing here
           Succeeded
         }
-      case UpgradeTestCases.ExpectPreconditionViolated =>
+      case UpgradesMatrixCases.ExpectPreconditionViolated =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.TemplatePreconditionViolated]
         }
-      case UpgradeTestCases.ExpectUnhandledException =>
+      case UpgradesMatrixCases.ExpectUnhandledException =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.FailureStatusError]
         }
-      case UpgradeTestCases.ExpectInternalInterpretationError =>
+      case UpgradesMatrixCases.ExpectInternalInterpretationError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.UnknownError]
         // Probably also assert that the message contains the word internal?

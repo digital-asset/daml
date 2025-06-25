@@ -7,185 +7,22 @@ package engine
 import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.DamlLf._
 import com.digitalasset.daml.lf.archive.testing.Encode
-import com.digitalasset.daml.lf.command.{ApiCommand, ApiCommands}
+import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.engine.{Error => EE}
-import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
-import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters}
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-import org.scalatest.Inside.inside
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
-import org.scalatest.{Assertion, ParallelTestExecution}
-import com.digitalasset.daml.lf.transaction.CreationTime
+import org.scalatest.Assertion
 
 import scala.annotation.nowarn
-import scala.collection.immutable
 import scala.concurrent.Future
 import scala.language.implicitConversions
-
-// Split the Upgrade unit tests over three suites, which seems to be the sweet
-// spot (~25s instead of ~35s runtime)
-class UpgradeTestUnit0 extends UpgradeTestUnit(2, 0)
-class UpgradeTestUnit1 extends UpgradeTestUnit(2, 1)
-
-/** A test suite to run the UpgradeTest matrix directly in the engine
-  *
-  * This runs a lot more quickly (~40s on a single suite) than UpgradesMatrixIT
-  * (~5000s) because it does not need to spin up Canton, so we can use this for
-  * sanity checking before running UpgradesMatrixIT.
-  */
-abstract class UpgradeTestUnit(n: Int, k: Int)
-    extends UpgradeTest[Error, (SubmittedTransaction, Transaction.Metadata)](
-      UpgradeTestCasesV2MaxStable,
-      Some((n, k)),
-    )
-    with ParallelTestExecution {
-  def toContractId(s: String): ContractId =
-    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
-
-  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] =
-    Future.successful(
-      UpgradeTestCases.SetupData(
-        alice = Party.assertFromString("Alice"),
-        bob = Party.assertFromString("Bob"),
-        clientContractId = toContractId("client"),
-        globalContractId = toContractId("1"),
-      )
-    )
-
-  def normalize(value: Value, typ: Ast.Type): Value = {
-    Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
-      case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-      case Right(sValue) => sValue.toNormalizedValue(cases.langVersion)
-    }
-  }
-
-  def newEngine() = new Engine(cases.engineConfig)
-
-  override def execute(
-      setupData: UpgradeTestCases.SetupData,
-      testHelper: cases.TestHelper,
-      apiCommands: ImmArray[ApiCommand],
-      contractOrigin: UpgradeTestCases.ContractOrigin,
-  ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
-    val clientContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
-        version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
-        template = testHelper.clientTplId,
-        arg = testHelper.clientContractArg(setupData.alice, setupData.bob),
-      )
-
-    val globalContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
-        version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
-        template = testHelper.v1TplId,
-        arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
-      )
-
-    val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = cases.langVersion,
-      contractId = setupData.globalContractId,
-      packageName = cases.templateDefsPkgName,
-      templateId = testHelper.v1TplId,
-      createArg = normalize(
-        testHelper.globalContractArg(setupData.alice, setupData.bob),
-        Ast.TTyCon(testHelper.v1TplId),
-      ),
-      signatories = immutable.TreeSet(setupData.alice),
-      stakeholders = immutable.TreeSet(setupData.alice),
-      contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
-      createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
-      cantonData = Bytes.assertFromString("00"),
-    )
-
-    val participant = ParticipantId.assertFromString("participant")
-    val submissionSeed = crypto.Hash.hashPrivateKey("command")
-    val submitters = Set(setupData.alice)
-    val readAs = Set.empty[Party]
-
-    val disclosures = contractOrigin match {
-      case UpgradeTestCases.Disclosed => ImmArray(globalContractDisclosure)
-      case _ => ImmArray.empty
-    }
-    val lookupContractById = contractOrigin match {
-      case UpgradeTestCases.Global =>
-        Map(
-          setupData.clientContractId -> clientContract,
-          setupData.globalContractId -> globalContract,
-        )
-      case _ => Map(setupData.clientContractId -> clientContract)
-    }
-    val lookupContractByKey = contractOrigin match {
-      case UpgradeTestCases.Global =>
-        val keyMap = Map(
-          testHelper
-            .globalContractKeyWithMaintainers(setupData)
-            .globalKey -> setupData.globalContractId
-        )
-        ((kwm: GlobalKeyWithMaintainers) => keyMap.get(kwm.globalKey)).unlift
-      case _ => PartialFunction.empty
-    }
-
-    newEngine()
-      .submit(
-        packageMap = cases.packageMap,
-        packagePreference =
-          Set(cases.commonDefsPkgId, cases.templateDefsV2PkgId, cases.clientPkgId),
-        submitters = submitters,
-        readAs = readAs,
-        cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = disclosures,
-        participantId = participant,
-        submissionSeed = submissionSeed,
-        prefetchKeys = Seq.empty,
-      )
-      .consume(
-        pcs = lookupContractById,
-        pkgs = cases.lookupPackage,
-        keys = lookupContractByKey,
-      )
-  }
-
-  override def assertResultMatchesExpectedOutcome(
-      result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
-      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
-  ): Assertion = {
-    expectedOutcome match {
-      case UpgradeTestCases.ExpectSuccess =>
-        result shouldBe a[Right[_, _]]
-      case UpgradeTestCases.ExpectUpgradeError =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.Upgrade]
-        }
-      case UpgradeTestCases.ExpectPreprocessingError =>
-        inside(result) { case Left(error) =>
-          error shouldBe a[EE.Preprocessing]
-        }
-      case UpgradeTestCases.ExpectPreconditionViolated =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.TemplatePreconditionViolated]
-        }
-      case UpgradeTestCases.ExpectUnhandledException =>
-        inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
-          error shouldBe a[IE.FailureStatus]
-        }
-      case UpgradeTestCases.ExpectInternalInterpretationError =>
-        inside(result) { case Left(EE.Interpretation(error, _)) =>
-          error shouldBe a[EE.Interpretation.Internal]
-        }
-    }
-  }
-}
 
 /** A test suite for smart contract upgrades.
   *
@@ -197,17 +34,17 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   *   - compare the execution result to the expected outcome
   *
   * It picks up its list of test scenarios from [[cases]], which is an instance
-  * of [[UpgradeTestCases]] class - consult the documentation for the class for
+  * of [[UpgradesMatrixCases]] class - consult the documentation for the class for
   * more about how the test cases are generated.
   *
   * It can be parameterized with (n, k) to split the tests into n pieces, and
   * only run the ith piece. We can use this to split tests over multiple suites
   * that get run in parallel, i.e.
   *
-  * class MyRunner0 extends UpgradeTest[...](..., nk = Some(4, 0)) { ... }
-  * class MyRunner1 extends UpgradeTest[...](..., nk = Some(4, 1)) { ... }
-  * class MyRunner2 extends UpgradeTest[...](..., nk = Some(4, 2)) { ... }
-  * class MyRunner3 extends UpgradeTest[...](..., nk = Some(4, 3)) { ... }
+  * class MyRunner0 extends UpgradesMatrix[...](..., nk = Some(4, 0)) { ... }
+  * class MyRunner1 extends UpgradesMatrix[...](..., nk = Some(4, 1)) { ... }
+  * class MyRunner2 extends UpgradesMatrix[...](..., nk = Some(4, 2)) { ... }
+  * class MyRunner3 extends UpgradesMatrix[...](..., nk = Some(4, 3)) { ... }
   *
   * will run a quarter of the tests with MyRunner0, another quarter over
   * MyRunner1, and so on, all in parallel.
@@ -216,23 +53,23 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   * pretty well utilized, but gives big improvements for integration tests with
   * multiple Canton runners.
   */
-abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None)
+abstract class UpgradesMatrix[Err, Res](val cases: UpgradesMatrixCases, nk: Option[(Int, Int)] = None)
     extends AsyncFreeSpec
     with Matchers {
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
   def execute(
-      setupData: UpgradeTestCases.SetupData,
+      setupData: UpgradesMatrixCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
-      contractOrigin: UpgradeTestCases.ContractOrigin,
+      contractOrigin: UpgradesMatrixCases.ContractOrigin,
   ): Future[Either[Err, Res]]
 
-  def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData]
+  def setup(testHelper: cases.TestHelper): Future[UpgradesMatrixCases.SetupData]
 
   def assertResultMatchesExpectedOutcome(
       result: Either[Err, Res],
-      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
+      expectedOutcome: UpgradesMatrixCases.ExpectedOutcome,
   ): Assertion
 
   // Use this to run different sets of tests for different suites
@@ -290,11 +127,11 @@ abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(In
   }
 }
 
-// Instances of UpgradeTestCases which provide cases built with LF 2.dev or the
+// Instances of UpgradesMatrixCases which provide cases built with LF 2.dev or the
 // highest stable 2.x version, respectively
-object UpgradeTestCasesV2Dev extends UpgradeTestCases(LanguageVersion.v2_dev)
-object UpgradeTestCasesV2MaxStable
-    extends UpgradeTestCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
+object UpgradesMatrixCasesV2Dev extends UpgradesMatrixCases(LanguageVersion.v2_dev)
+object UpgradesMatrixCasesV2MaxStable
+    extends UpgradesMatrixCases(LanguageVersion.StableVersions(LanguageMajorVersion.V2).max)
 
 /** Pairs of v1/v2 templates are called [[TestCase]]s and are listed in [[testCases]]. A test case is defined by
   * subclassing [[TestCase]] and overriding one definition. For instance, [[ChangedObservers]] overrides
@@ -319,8 +156,8 @@ object UpgradeTestCasesV2MaxStable
   * Finally, some definitions need to be shared between v1 and v2 templates: key and interface definitions, gobal
   * parties. These are defined in [[commonDefsPkg]].
   */
-class UpgradeTestCases(val langVersion: LanguageVersion) {
-  import UpgradeTestCases._
+class UpgradesMatrixCases(val langVersion: LanguageVersion) {
+  import UpgradesMatrixCases._
   private[this] implicit def parserParameters(implicit
       pkgId: PackageId
   ): ParserParameters[this.type] =
@@ -2114,7 +1951,7 @@ class UpgradeTestCases(val langVersion: LanguageVersion) {
   }
 }
 
-object UpgradeTestCases {
+object UpgradesMatrixCases {
   sealed abstract class ExpectedOutcome(val description: String)
   case object ExpectSuccess extends ExpectedOutcome("should succeed")
   case object ExpectPreconditionViolated
