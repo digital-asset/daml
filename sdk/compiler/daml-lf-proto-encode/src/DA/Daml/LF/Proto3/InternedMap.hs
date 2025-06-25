@@ -34,20 +34,6 @@ extend x (InternedMap mp n) =
   then error "Interning table grew too large"
   else (InternedMap (Map.insert x n mp) (n + 1), n)
 
--- API to be exposed
-_internBlind :: val -> InternedMap val key -> (InternedMap val key, key)
-_internBlind = extend
-
--- API to be exposed
-internShare :: val -> InternedMap val key -> (InternedMap val key, key)
-internShare x im@(InternedMap mp _) =
-  case x `Map.lookup` mp of
-    Just n -> (im, n)
-    Nothing -> extend x im
-
-_intern :: val -> InternedMap val key -> (InternedMap val key, key)
-_intern = internShare
-
 internState :: val -> State (InternedMap val key) key
 internState x = do
   im@(InternedMap mp _) <- get
