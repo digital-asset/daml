@@ -749,6 +749,18 @@ jar_jar_repositories()
 # grpc_java_repositories()
 
 http_archive(
+    name = "upb",
+    urls = [
+         "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/42cd08932e364a4cde35033b73f15c30250d7c2e.tar.gz",
+         "https://github.com/protocolbuffers/upb/archive/42cd08932e364a4cde35033b73f15c30250d7c2e.tar.gz"
+    ],
+    sha256 = "5147e0ab6a28421d1e49004f4a205d84f06b924585e15eaa884cfe13289165b7",
+    strip_prefix = "upb-42cd08932e364a4cde35033b73f15c30250d7c2e",
+    patches = ["//bazel_tools:upb-protobuf.patch"],
+    patch_args = ["-p1"],
+)
+
+http_archive(
     name = "com_envoyproxy_protoc_gen_validate",
     urls = [ "https://github.com/envoyproxy/protoc-gen-validate/archive/4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz" ],
     sha256 = "1e490b98005664d149b379a9529a6aa05932b8a11b76b4cd86f3d22d76346f47",
