@@ -44,8 +44,6 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
       (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
     ](UpgradeTestCasesV2Dev, Some((n, k)))
     with CantonFixture {
-  import UpgradeTestCases._
-
   def encodeDar(
       mainDalfName: String,
       mainDalf: Archive,
@@ -153,7 +151,7 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     )
       .flatMap(scriptClient.allocateParty(_))
 
-  override def setup(testHelper: cases.TestHelper): Future[SetupData] =
+  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] =
     for {
       alice <- allocateParty("Alice")
       bob <- allocateParty("Bob")
@@ -167,7 +165,7 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
         testHelper.v1TplId,
         testHelper.globalContractArg(alice, bob),
       )
-    } yield SetupData(
+    } yield UpgradeTestCases.SetupData(
       alice = alice,
       bob = bob,
       clientContractId = clientContractId,
@@ -175,17 +173,17 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
     )
 
   override def execute(
-      setupData: SetupData,
+      setupData: UpgradeTestCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
-      contractOrigin: ContractOrigin,
+      contractOrigin: UpgradeTestCases.ContractOrigin,
   ): Future[Either[
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] =
     for {
       disclosures <- contractOrigin match {
-        case Disclosed =>
+        case UpgradeTestCases.Disclosed =>
           scriptClient
             .queryContractId(
               OneAnd(setupData.alice, Set()),
@@ -252,12 +250,12 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
         ScriptLedgerClient.SubmitFailure,
         (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
       ],
-      expectedOutcome: ExpectedOutcome,
+      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
   ): Assertion = {
     expectedOutcome match {
-      case ExpectSuccess =>
+      case UpgradeTestCases.ExpectSuccess =>
         result shouldBe a[Right[_, _]]
-      case ExpectUpgradeError =>
+      case UpgradeTestCases.ExpectUpgradeError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error should (
             be(a[SubmitError.UpgradeError.ValidationFailed]) or
@@ -265,20 +263,20 @@ abstract class UpgradeTestIntegration(n: Int, k: Int)
               be(a[SubmitError.UpgradeError.DowngradeFailed])
           )
         }
-      case ExpectPreprocessingError =>
+      case UpgradeTestCases.ExpectPreprocessingError =>
         inside(result) { case Left(_) =>
           // error shouldBe a[EE.Preprocessing] // I dont know what we mean by preprocessing here
           Succeeded
         }
-      case ExpectPreconditionViolated =>
+      case UpgradeTestCases.ExpectPreconditionViolated =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.TemplatePreconditionViolated]
         }
-      case ExpectUnhandledException =>
+      case UpgradeTestCases.ExpectUnhandledException =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.FailureStatusError]
         }
-      case ExpectInternalInterpretationError =>
+      case UpgradeTestCases.ExpectInternalInterpretationError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
           error shouldBe a[SubmitError.UnknownError]
         // Probably also assert that the message contains the word internal?

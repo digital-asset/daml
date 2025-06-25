@@ -48,12 +48,11 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
       Some((n, k)),
     )
     with ParallelTestExecution {
-  import UpgradeTestCases._
   def toContractId(s: String): ContractId =
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
 
-  override def setup(testHelper: cases.TestHelper): Future[SetupData] = Future.successful(
-    SetupData(
+  override def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData] = Future.successful(
+    UpgradeTestCases.SetupData(
       alice = Party.assertFromString("Alice"),
       bob = Party.assertFromString("Bob"),
       clientContractId = toContractId("client"),
@@ -71,10 +70,10 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
   def newEngine() = new Engine(cases.engineConfig)
 
   override def execute(
-      setupData: SetupData,
+      setupData: UpgradeTestCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
-      contractOrigin: ContractOrigin,
+      contractOrigin: UpgradeTestCases.ContractOrigin,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientContract: FatContractInstance =
       FatContractInstance.fromThinInstance(
@@ -114,11 +113,11 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
     val readAs = Set.empty[Party]
 
     val disclosures = contractOrigin match {
-      case Disclosed => ImmArray(globalContractDisclosure)
+      case UpgradeTestCases.Disclosed => ImmArray(globalContractDisclosure)
       case _ => ImmArray.empty
     }
     val lookupContractById = contractOrigin match {
-      case Global =>
+      case UpgradeTestCases.Global =>
         Map(
           setupData.clientContractId -> clientContract,
           setupData.globalContractId -> globalContract,
@@ -126,7 +125,7 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
       case _ => Map(setupData.clientContractId -> clientContract)
     }
     val lookupContractByKey = contractOrigin match {
-      case Global =>
+      case UpgradeTestCases.Global =>
         val keyMap = Map(
           testHelper
             .globalContractKeyWithMaintainers(setupData)
@@ -158,28 +157,28 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
 
   override def assertResultMatchesExpectedOutcome(
       result: Either[Error, (SubmittedTransaction, Transaction.Metadata)],
-      expectedOutcome: ExpectedOutcome,
+      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
   ): Assertion = {
     expectedOutcome match {
-      case ExpectSuccess =>
+      case UpgradeTestCases.ExpectSuccess =>
         result shouldBe a[Right[_, _]]
-      case ExpectUpgradeError =>
+      case UpgradeTestCases.ExpectUpgradeError =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
         }
-      case ExpectPreprocessingError =>
+      case UpgradeTestCases.ExpectPreprocessingError =>
         inside(result) { case Left(error) =>
           error shouldBe a[EE.Preprocessing]
         }
-      case ExpectPreconditionViolated =>
+      case UpgradeTestCases.ExpectPreconditionViolated =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.TemplatePreconditionViolated]
         }
-      case ExpectUnhandledException =>
+      case UpgradeTestCases.ExpectUnhandledException =>
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.FailureStatus]
         }
-      case ExpectInternalInterpretationError =>
+      case UpgradeTestCases.ExpectInternalInterpretationError =>
         inside(result) { case Left(EE.Interpretation(error, _)) =>
           error shouldBe a[EE.Interpretation.Internal]
         }
@@ -215,21 +214,20 @@ abstract class UpgradeTestUnit(n: Int, k: Int)
 abstract class UpgradeTest[Err, Res](val cases: UpgradeTestCases, nk: Option[(Int, Int)] = None)
     extends AsyncFreeSpec
     with Matchers {
-  import UpgradeTestCases._
   implicit val logContext: LoggingContext = LoggingContext.ForTesting
 
   def execute(
-      setupData: SetupData,
+      setupData: UpgradeTestCases.SetupData,
       testHelper: cases.TestHelper,
       apiCommands: ImmArray[ApiCommand],
-      contractOrigin: ContractOrigin,
+      contractOrigin: UpgradeTestCases.ContractOrigin,
   ): Future[Either[Err, Res]]
 
-  def setup(testHelper: cases.TestHelper): Future[SetupData]
+  def setup(testHelper: cases.TestHelper): Future[UpgradeTestCases.SetupData]
 
   def assertResultMatchesExpectedOutcome(
       result: Either[Err, Res],
-      expectedOutcome: ExpectedOutcome,
+      expectedOutcome: UpgradeTestCases.ExpectedOutcome,
   ): Assertion
 
   // Use this to run different sets of tests for different suites
