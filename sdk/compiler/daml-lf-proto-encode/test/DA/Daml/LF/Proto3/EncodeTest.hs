@@ -7,10 +7,6 @@ module DA.Daml.LF.Proto3.EncodeTest (
       , module Text.Pretty.Simple         -- for debugging in ghci
 ) where
 
--- TODO: remove me after switching to internedMap
-import qualified Data.List as L
-import qualified Data.Map.Strict as Map
-
 import           Control.Monad.State.Strict
 import           Data.Int
 import qualified Data.Vector                              as V
@@ -116,34 +112,31 @@ type_interning_tests = testGroup "Type tests (interning)"
 runEncodeTypeTest :: Type -> (P.Type, EncodeEnv)
 runEncodeTypeTest k = runState (encodeType' k) (initEncodeEnv testVersion)
 
--- TODO remove after switching to internedMap
-toVec' :: Ord b => Map.Map a b -> V.Vector a
-toVec' it = V.fromList $ map fst $ L.sortOn snd $ Map.toList it
 
 type_interning_unit :: TestTree
 type_interning_unit =
-  let (pt, EncodeEnv{internedTypes}) = runEncodeTypeTest tunit
+  let (pt, EncodeEnv{_internedTypesMap}) = runEncodeTypeTest tunit
   in  testCase "unit" $ do
     pt @?= ptinterned 0
-    (liftT $ toVec' internedTypes V.! 0) @?= ptunit
+    (liftT $ toVec _internedTypesMap V.! 0) @?= ptunit
 
 type_interning_intToBool :: TestTree
 type_interning_intToBool =
-  let (pt, EncodeEnv{internedTypes}) = runEncodeTypeTest $ tarr tint tbool
+  let (pt, EncodeEnv{_internedTypesMap}) = runEncodeTypeTest $ tarr tint tbool
   in  testCase "Int -> Bool" $ do
     pt @?= ptinterned 2
-    (liftT $ toVec' internedTypes V.! 0) @?= ptint
-    (liftT $ toVec' internedTypes V.! 1) @?= ptbool
-    (liftT $ toVec' internedTypes V.! 2) @?= ptarr (ptinterned 0) (ptinterned 1)
+    (liftT $ toVec _internedTypesMap V.! 0) @?= ptint
+    (liftT $ toVec _internedTypesMap V.! 1) @?= ptbool
+    (liftT $ toVec _internedTypesMap V.! 2) @?= ptarr (ptinterned 0) (ptinterned 1)
 
 type_interning_forall :: TestTree
 type_interning_forall =
-  let (pt, EncodeEnv{_internedKindsMap, internedTypes}) = runEncodeTypeTest tyLamTyp
+  let (pt, EncodeEnv{_internedKindsMap, _internedTypesMap}) = runEncodeTypeTest tyLamTyp
   in  testCase "forall (a : * -> *). a -> a" $ do
     pt @?= ptinterned 2
     (liftK $ toVec _internedKindsMap V.! 0) @?= pkarr pkstar pkstar
-    (liftT $ toVec' internedTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
-    (liftT $ toVec' internedTypes V.! 2) @?= ptforall 0 (pkinterned 0) (ptinterned 1)
+    (liftT $ toVec _internedTypesMap V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
+    (liftT $ toVec _internedTypesMap V.! 2) @?= ptforall 0 (pkinterned 0) (ptinterned 1)
 
 ------------------------------------------------------------------------
 -- Utnil
