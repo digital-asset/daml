@@ -130,7 +130,7 @@ dec_tests = testGroup "decoding tests"
   ]
 
 emptyDecodeEnv :: DecodeEnv
-emptyDecodeEnv = DecodeEnv V.empty V.empty V.empty V.empty SelfPackageId
+emptyDecodeEnv = DecodeEnv V.empty V.empty V.empty V.empty SelfPackageId version2_dev
 
 decodeKindAssert :: P.Kind -> Kind -> Assertion
 decodeKindAssert pk k =

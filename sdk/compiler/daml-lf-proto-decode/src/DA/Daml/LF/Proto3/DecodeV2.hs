@@ -20,6 +20,7 @@ import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Int
 import Text.Read
+import Text.Printf
 import           Data.List
 import           DA.Daml.LF.Mangling
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as LF2
@@ -41,6 +42,7 @@ data DecodeEnv = DecodeEnv
     , internedTypes :: !(V.Vector Type)
     , internedKinds :: !(V.Vector Kind)
     , selfPackageRef :: SelfOrImportedPackageId
+    , version        :: LF.Version
     }
 
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
@@ -738,8 +740,10 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
   LF2.KindSumInterned n -> do
-    DecodeEnv{internedKinds} <- ask
-    lookupInterned internedKinds BadKindId n
+    DecodeEnv{internedKinds, version} <- ask
+    if isDevVersion version
+      then lookupInterned internedKinds BadKindId n
+      else error $ printf "kind interning not supported in version %s" (show version)
 
 decodeBuiltin :: LF2.BuiltinType -> Decode BuiltinType
 decodeBuiltin = \case
