@@ -18,7 +18,8 @@ import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => SV, _}
 import com.digitalasset.daml.lf.speedy.Speedy._
-import com.digitalasset.daml.lf.speedy.{SExpr => runTime, SExpr0 => compileTime}
+import com.digitalasset.daml.lf.speedy.{SExpr => runTime}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => compileTime}
 import com.digitalasset.daml.lf.transaction.TransactionErrors.{
   AuthFailureDuringExecution,
   DuplicateContractId,

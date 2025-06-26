@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
-import com.digitalasset.daml.lf.speedy.{SExpr0 => compileTime}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => compileTime}
 import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
@@ -386,7 +386,7 @@ private[lf] object SExpr {
     def modName: ModuleName = ref.qualifiedName.module
     // TODO: move this into the speedy compiler code
     private[this] val eval = compileTime.SEVal(this)
-    def apply(args: compileTime.SExpr*): SExpr0.SEApp = compileTime.SEApp(eval, args.toList)
+    def apply(args: compileTime.SExpr*): compileTime.SEApp = compileTime.SEApp(eval, args.toList)
   }
 
   // references to definitions that come from the archive

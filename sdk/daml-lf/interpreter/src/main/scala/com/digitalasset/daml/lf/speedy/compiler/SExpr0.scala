@@ -3,21 +3,61 @@
 
 package com.digitalasset.daml.lf
 package speedy
+package compiler
 
-/** SExpr1 -- AST for the speedy compiler pipeline. (after closure conversion phase)
+/** SExpr0 -- AST for the speedy compiler pipeline.
   *
   * These are *not* the expression forms which run on the speedy machine. See SExpr.
+  *
+  * These are the expression forms which exist during the speedy compiler pipeline:
+  * The pipeline stages are:
+  *
+  * 1: convert from LF
+  *     - reducing binding forms (update & scenario becoming builtins)
+  *     - convert named variables to de Bruijn levels
+  *     - moving to multi-argument applications and abstractions.
+  *
+  * 2: closure conversion
+  * 3: transform to ANF
+  *
+  * Stage 1 is in PhaseOne.scala
+  * Stage 2 is in ClosureConversion.scala
+  * Stage 3 is in Anf.scala
+  *
+  * During Stage2 (Closure Conversion), we move from SExpr0 to SExpr1,
+  * During Stage3 (ANF transformation), we move from SExpr1 to SExpr.
+  *
+  * Summary of which constructors are contained by: SExp0, SExpr1 and SExpr:
+  *
+  * - In SExpr{0,1,} (everywhere): SEApp(General), SEBuiltin, SELabelClosure,
+  *   SELocation, SEScopeExercise, SETryCatch, SEVal, SEValue,
+  *
+  * - In SExpr0: SEAbs, SEVar
+  *
+  * - In SExpr{0,1}: SECase, SELet
+  *
+  * - In SExpr{1,}: SELocA, SELocF, SELocS, SEMakeClo, SELet1General,
+  *
+  * - In SExpr: SEAppAtomicGeneral, SEAppAtomicSaturatedBuiltin, SECaseAtomic,
+  *   SELet1Builtin, SELet1BuiltinArithmetic
+  *
+  * - In SExpr (runtime only, i.e. rejected by validate): SEDamlException, SEImportValue
   */
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SExpr.{SDefinitionRef, SCasePat}
 
-private[speedy] object SExpr1 {
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+private[speedy] object SExpr0 {
 
   sealed abstract class SExpr extends Product with Serializable
 
-  sealed abstract class SExprAtomic extends SExpr
+  /** Reference to a variable. 'level' is the 0-based de Bruijn LEVEL (not INDEX)
+    * https://en.wikipedia.org/wiki/De_Bruijn_index
+    * This expression form is only allowed prior to closure conversion
+    */
+  final case class SEVarLevel(level: Int) extends SExpr
 
   /** Reference to a value. On first lookup the evaluated expression is
     * stored in 'cached'.
@@ -25,48 +65,21 @@ private[speedy] object SExpr1 {
   final case class SEVal(ref: SDefinitionRef) extends SExpr
 
   /** Reference to a builtin function */
-  final case class SEBuiltin(b: SBuiltinFun) extends SExprAtomic
+  final case class SEBuiltin(b: SBuiltinFun) extends SExpr
 
   /** A pre-computed value, usually primitive literal, e.g. integer, text, boolean etc. */
-  final case class SEValue(v: SValue) extends SExprAtomic
+  final case class SEValue(v: SValue) extends SExpr
 
   object SEValue extends SValueContainer[SEValue]
 
-  /** Function application:
-    *    General case: 'fun' and 'args' are any kind of expression
-    */
-
+  /** Function application (Function and Args are unrestricted expressions) */
   final case class SEApp(fun: SExpr, args: List[SExpr]) extends SExpr
 
-  /** Closure creation. Create a new closure object storing the free variables
-    * in 'body'.
-    */
-  final case class SEMakeClo(fvs: List[SELoc], arity: Int, body: SExpr) extends SExpr
-
-  /** SELoc -- Reference to the runtime location of a variable.
-    *
-    *    This is the closure-converted form of SEVar. There are three sub-forms, with sufffix:
-    *    S/A/F, indicating [S]tack, [A]argument, or [F]ree variable captured by a closure.
-    */
-  sealed abstract class SELoc extends SExprAtomic
-
-  // SELocS -- variable is located on the stack (SELet & binding forms of SECasePat)
-  final case class SELocAbsoluteS(n: Int) extends SELoc
-
-  // SELocS -- variable is located in the args array of the application
-  final case class SELocA(n: Int) extends SELoc
-
-  // SELocF -- variable is located in the free-vars array of the closure being applied
-  final case class SELocF(n: Int) extends SELoc
+  /** Lambda abstraction. Transformed to SEMakeClo during closure conversion */
+  final case class SEAbs(arity: Int, body: SExpr) extends SExpr
 
   /** Pattern match. */
   final case class SECase(scrut: SExpr, alts: List[SCaseAlt]) extends SExpr
-
-  /** A let-expression with a single RHS
-    * This form only exists *during* the ANF transformation, but not when the ANF
-    * transformation is finished.
-    */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals
 
   /** A non-recursive, non-parallel let block.
     * It is used as an intermediary data structure by the compiler to
@@ -79,8 +92,6 @@ private[speedy] object SExpr1 {
     * variable of the machine. When commit is begun the location is stored in 'commitLocation'.
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr
-
-  final case class SEPreventCatch(body: SExpr) extends SExpr
 
   /** This is used only during profiling. When a package is compiled with
     * profiling enabled, the right hand sides of top-level and let bindings,
@@ -98,6 +109,8 @@ private[speedy] object SExpr1 {
 
   /** Exercise scope (begin..end) */
   final case class SEScopeExercise(body: SExpr) extends SExpr
+
+  final case class SEPreventCatch(body: SExpr) extends SExpr
 
   /** Case alternative. If the 'pattern' matches, then the environment is accordingly
     * extended and 'body' is evaluated.

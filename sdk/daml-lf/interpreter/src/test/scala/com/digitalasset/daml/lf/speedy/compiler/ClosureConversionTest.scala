@@ -1,14 +1,16 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
+package compiler
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.speedy.Anf.flattenToAnf
-import com.digitalasset.daml.lf.speedy.ClosureConversion.closureConvert
+import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
+import com.digitalasset.daml.lf.speedy.compiler.ClosureConversion.closureConvert
 import com.digitalasset.daml.lf.speedy.{SExpr => expr}
-import com.digitalasset.daml.lf.speedy.{SExpr0 => source}
-import com.digitalasset.daml.lf.speedy.{SExpr1 => target}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => source}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr1 => target}
 import com.digitalasset.daml.lf.speedy.{SValue => v}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
