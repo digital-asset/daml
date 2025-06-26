@@ -4,7 +4,9 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -20,6 +22,8 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Inside {
 
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
+  val extraPkgId = Ref.PackageId.assertFromString("-extra-")
+  val missingPkgId = Ref.PackageId.assertFromString("-missing-")
 
   val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
 
@@ -30,8 +34,13 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
   )
 
-  "Engine.validatePackages" should {
+  private def darFromPackageMap(
+      mainPkg: (Ref.PackageId, Package),
+      dependentPkgs: (Ref.PackageId, Package)*
+  ): Dar[(Ref.PackageId, Package)] =
+    Dar(mainPkg, dependentPkgs.toList)
 
+  "Engine.validatePackages" should {
     val pkg =
       p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -41,13 +50,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
       """
 
     "accept valid package" in {
-
-      newEngine.validatePackages(Map(pkgId -> pkg)) shouldBe Right(())
-
+      newEngine.validateDar(darFromPackageMap(pkgId -> pkg)) shouldBe Right(())
     }
 
     "reject ill-typed packages" in {
-
       val illTypedPackage =
         p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -57,34 +63,80 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
       """
 
       inside(
-        newEngine.validatePackages(Map(pkgId -> illTypedPackage))
+        newEngine.validateDar(darFromPackageMap(pkgId -> illTypedPackage))
       ) { case Left(_: Error.Package.Validation) =>
       }
-
     }
 
-    "reject non self-consistent sets of packages" in {
-
-      val libraryId = Ref.PackageId.assertFromString("-library-")
-
-      val dependentPackage =
+    "reject non self-consistent sets of packages" should {
+      val extraPkg =
         p"""
-        metadata ( 'pkg' : '1.0.0' )
-        module Mod {
-          val string: Text = '-library-':Mod:Text;
-        }
-      """
-          // TODO: parser should set dependencies properly
-          .copy(directDeps = Set(libraryId))
+           metadata ( 'extra' : '1.0.0' )
+           module Mod {
+             val string: Text = "e";
+           }
+         """
 
-      inside(newEngine.validatePackages(Map(pkgId -> dependentPackage))) {
-        case Left(Error.Package.SelfConsistency(pkgIds, deps)) =>
-          pkgIds shouldBe Set(pkgId)
-          deps shouldBe Set(libraryId)
+      "with missing dependencies only" in {
+        val dependentPackage =
+          p"""
+              metadata ( 'pkg' : '1.0.0' )
+              module Mod {
+                val string: Text = '-missing-':Mod:Text;
+              }
+            """
+            // TODO: parser should set dependencies properly
+            .copy(directDeps = Set(missingPkgId))
+
+        inside(newEngine.validateDar(darFromPackageMap(pkgId -> dependentPackage))) {
+          case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
+            pkgIds shouldBe Set(pkgId)
+            missingDeps shouldBe Set(missingPkgId)
+            extraDeps shouldBe Set.empty
+        }
       }
 
+      "with extra dependencies only" in {
+        val dependentPackage =
+          p"""
+              metadata ( 'pkg' : '1.0.0' )
+              module Mod {
+                val string: Text = "t";
+              }
+            """
+
+        inside(
+          newEngine.validateDar(
+            darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
+          )
+        ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
+          pkgIds shouldBe Set(pkgId, extraPkgId)
+          missingDeps shouldBe Set.empty
+          extraDeps shouldBe Set(extraPkgId)
+        }
+      }
+
+      "with both missing dependencies and extra dependencies" in {
+        val dependentPackage =
+          p"""
+              metadata ( 'pkg' : '1.0.0' )
+              module Mod {
+                val string: Text = '-missing-':Mod:Text;
+              }
+            """
+            // TODO: parser should set dependencies properly
+            .copy(directDeps = Set(missingPkgId))
+
+        inside(
+          newEngine.validateDar(
+            darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
+          )
+        ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
+          pkgIds shouldBe Set(pkgId, extraPkgId)
+          missingDeps shouldBe Set(missingPkgId)
+          extraDeps shouldBe Set(extraPkgId)
+        }
+      }
     }
-
   }
-
 }
