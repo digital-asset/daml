@@ -120,6 +120,26 @@ class DecodeV2Spec
 
   }
 
+  "decodeInternedKind" should {
+
+    "reject nonempty lfkinds on unsupported versions" in {
+      val unit = DamlLf2.Unit.newBuilder().build()
+      val kind = DamlLf2.Kind
+        .newBuilder()
+        .setStar(unit)
+        .build()
+      val pkg = DamlLf2.Package
+        .newBuilder()
+        .addInternedKinds(kind)
+        .build()
+
+      forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>
+        val decoder = new DecodeV2(version.minor)
+        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedKindsForTest(null, pkg))
+      }
+    }
+  }
+
   "uncheckedDecodeType" should {
 
     import DamlLf2.BuiltinType._

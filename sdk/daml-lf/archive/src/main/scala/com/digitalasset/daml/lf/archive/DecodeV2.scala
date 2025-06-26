@@ -161,11 +161,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       case Right(x) => x
     }
 
-  private[archive] def decodeInternedTypesForTest( // test entry point
+  private[archive] def decodeInternedKindsForTest( // test entry point
       env: Env,
       lfPackage: PLF.Package,
-  ): IndexedSeq[Type] = {
-    Work.run(decodeInternedTypes(env, lfPackage))
+  ): IndexedSeq[Kind] = {
+    Work.run(decodeInternedKinds(env, lfPackage))
   }
 
   private def decodeInternedKinds(
@@ -173,13 +173,22 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       lfPackage: PLF.Package,
   ): Work[IndexedSeq[Kind]] = Ret {
     val lfKinds = lfPackage.getInternedKindsList
-    (!lfTypes.isEmpty)
-    assertSince(Features.kindInterning, "interned types table")
+
+    if (!lfKinds.isEmpty)
+      assertSince(LV.Features.kindInterning, "interned kinds table")
+
     lfKinds.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, typ) =>
         buf += env.copy(internedKinds = buf).decodeKindForTest(typ)
       }
       .toIndexedSeq
+  }
+
+  private[archive] def decodeInternedTypesForTest( // test entry point
+      env: Env,
+      lfPackage: PLF.Package,
+  ): IndexedSeq[Type] = {
+    Work.run(decodeInternedTypes(env, lfPackage))
   }
 
   private def decodeInternedTypes(
