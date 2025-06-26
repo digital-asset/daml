@@ -50,11 +50,11 @@ da_haskell_test(
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
-        "//compiler/daml-lf-ast",
-        "//libs-haskell/da-hs-base",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
