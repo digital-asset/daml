@@ -20,7 +20,7 @@ import scala.annotation.tailrec
 
 /** Initial Conversion (Phase of the speedy compiler pipeline)
   *
-  * This compilation phase transforms from LF to SExpr.
+  * This compilation phase transforms from LF to SExpr0.
   * Include among other:
   *  - type erasure
   *  - translation of LF builtin into Speedy builtin
