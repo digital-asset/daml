@@ -30,6 +30,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - template: ../clean-up.yml
       - template: ../compatibility_ts_libs.yml
 
@@ -41,6 +42,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - template: ../clean-up.yml
       - template: ../compatibility.yml
 
@@ -52,6 +54,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - template: ../compatibility-windows.yml
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
@@ -69,6 +72,7 @@ jobs:
     condition: False
     steps:
       - checkout: self
+        clean: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -119,6 +123,7 @@ jobs:
     condition: eq(variables['Build.SourceBranchName'], 'main')
     steps:
       - checkout: self
+        clean: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - template: ../bash-lib.yml
@@ -172,6 +177,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
         persistCredentials: true
       - template: ../bash-lib.yml
         parameters:
@@ -218,6 +224,7 @@ jobs:
       demands: assignment -equals default
     steps:
     - checkout: self
+      clean: true
       persistCredentials: true
     - bash: ci/dev-env-install.sh
     - template: ../bash-lib.yml

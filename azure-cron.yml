@@ -35,6 +35,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - template: ci/bash-lib.yml
@@ -66,6 +67,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - bash: |
           set -euo pipefail
 
@@ -125,6 +127,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - bash: |
           set -euo pipefail
 
@@ -201,6 +204,7 @@ jobs:
       demands: assignment -equals default
     steps:
       - checkout: self
+        clean: true
       - bash: |
           set -euo pipefail
 
