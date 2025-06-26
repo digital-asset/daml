@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf
 package speedy
+package compiler
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Struct}
@@ -11,13 +12,22 @@ import com.digitalasset.daml.lf.language.{LookupError, PackageInterface}
 import com.digitalasset.daml.lf.speedy.Compiler.{ProfilingMode, StackTraceMode, CompilationError}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.SExpr0._
+import com.digitalasset.daml.lf.speedy.compiler.SExpr0._
 import com.digitalasset.daml.lf.speedy.{SExpr => t}
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
 
-private[speedy] object PhaseOne {
+/** Initial Conversion (Phase of the speedy compiler pipeline)
+  *
+  * This compilation phase transforms from LF to SExpr0.
+  * Include among other:
+  *  - type erasure
+  *  - translation of LF builtin into Speedy builtin
+  *  - de Bruijn indexes transformation
+  */
+
+private[compiler] object PhaseOne {
 
   final case class Config(
       profiling: ProfilingMode,
@@ -27,15 +37,15 @@ private[speedy] object PhaseOne {
   private val SUGetTime = SEBuiltin(SBUGetTime)
 
   // corresponds to Daml-LF expression variable.
-  private[speedy] case class VarRef(name: ExprVarName)
+  case class VarRef(name: ExprVarName)
 
   final case class Position(idx: Int)
 
-  private[speedy] object Env {
+  object Env {
     val Empty = Env(0, Map.empty)
   }
 
-  private[speedy] case class Env(
+  case class Env(
       position: Int,
       varIndices: Map[VarRef, Position],
   ) {
@@ -97,7 +107,7 @@ private[lf] final class PhaseOne(
 
   // Entry point for stage1 of speedy compilation pipeline
   @throws[CompilationError]
-  private[speedy] def translateFromLF(env: Env, exp: Expr): SExpr = {
+  def translateFromLF(env: Env, exp: Expr): SExpr = {
     outerCompile(env, exp)
   }
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf
 package speedy
+package compiler
 
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref._
@@ -14,13 +15,14 @@ import com.digitalasset.daml.lf.language.{
   LookupError,
   PackageInterface,
 }
-import com.digitalasset.daml.lf.speedy.Anf.flattenToAnf
-import com.digitalasset.daml.lf.speedy.ClosureConversion.closureConvert
-import com.digitalasset.daml.lf.speedy.PhaseOne.{Env, Position}
+import com.digitalasset.daml.lf.speedy.compiler.ClosureConversion.closureConvert
+import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
+import com.digitalasset.daml.lf.speedy.compiler.PhaseOne.{Env, Position}
 import com.digitalasset.daml.lf.speedy.Profile.LabelModule
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SExpr => t, SExpr0 => s}
+import com.digitalasset.daml.lf.speedy.{SExpr => t}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => s}
 import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import org.slf4j.LoggerFactory

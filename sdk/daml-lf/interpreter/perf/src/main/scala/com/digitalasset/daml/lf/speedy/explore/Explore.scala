@@ -6,7 +6,7 @@ package speedy
 package explore
 
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, PackageInterface}
-import com.digitalasset.daml.lf.speedy.SExpr0._
+import com.digitalasset.daml.lf.speedy.compiler.SExpr0._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.Speedy._

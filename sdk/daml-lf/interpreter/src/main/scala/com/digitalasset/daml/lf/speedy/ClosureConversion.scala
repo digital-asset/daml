@@ -1,7 +1,9 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.speedy
+package com.digitalasset.daml.lf
+package speedy
+package compiler
 
 /** Closure Conversion (Phase of the speedy compiler pipeline)
   *
@@ -11,8 +13,8 @@ package com.digitalasset.daml.lf.speedy
 import com.digitalasset.daml.lf.data.Ref
 
 import com.digitalasset.daml.lf.speedy.SExpr.SCasePat
-import com.digitalasset.daml.lf.speedy.{SExpr0 => source}
-import com.digitalasset.daml.lf.speedy.{SExpr1 => target}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => source}
+import com.digitalasset.daml.lf.speedy.compiler.{SExpr1 => target}
 
 import scala.annotation.tailrec
 
