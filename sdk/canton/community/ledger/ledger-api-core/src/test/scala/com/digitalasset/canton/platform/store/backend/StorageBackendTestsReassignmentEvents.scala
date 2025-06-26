@@ -463,7 +463,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   }
 
   it should "return the correct trace context for assign events" in {
-    TraceContext.withNewTraceContext { aTraceContext =>
+    TraceContext.withNewTraceContext("test") { aTraceContext =>
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
       val dbDtos = Vector(
         dtoAssign(
@@ -498,7 +498,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
   }
 
   it should "return the correct trace context for unassign events" in {
-    TraceContext.withNewTraceContext { aTraceContext =>
+    TraceContext.withNewTraceContext("test") { aTraceContext =>
       val serializableTraceContext = SerializableTraceContext(aTraceContext).toDamlProto.toByteArray
       val dbDtos = Vector(
         dtoUnassign(

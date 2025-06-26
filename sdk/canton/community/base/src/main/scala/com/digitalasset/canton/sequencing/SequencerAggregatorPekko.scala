@@ -130,7 +130,8 @@ class SequencerAggregatorPekko(
 
     // We don't want to force trace contexts to be propagated identically.
     // So lets merge them.
-    implicit val mergedTraceContext: TraceContext = TraceContext.ofBatch(elems.values)(logger)
+    implicit val mergedTraceContext: TraceContext =
+      TraceContext.ofBatch("merge_bucket_batch")(elems.values)(logger)
 
     val mergedSigs = elems.flatMap { case (_, event) => event.signedEvent.signatures }.toSeq
     val mergedSignedEvent = SignedContent

@@ -4,12 +4,12 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.IgnoringUnitTestEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.IgnoringUnitTestEnv
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.Random

@@ -439,7 +439,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, CryptoPrivateStore] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("create_crypto_private_store") { implicit traceContext =>
       val logger = NamedLoggingContext(loggerFactory, traceContext)
       (storage.isActive, reverted) match {
         case (false, false) =>

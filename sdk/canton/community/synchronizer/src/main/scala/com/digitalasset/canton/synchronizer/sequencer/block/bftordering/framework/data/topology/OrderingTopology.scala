@@ -7,8 +7,8 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftKeyId,
   BftNodeId,
@@ -71,7 +71,7 @@ object OrderingTopology {
 
   /** A simple constructor for tests so that we don't have to provide timestamps. */
   @VisibleForTesting
-  def forTesting(
+  private[bftordering] def forTesting(
       nodes: Set[BftNodeId],
       sequencingParameters: SequencingParameters = SequencingParameters.Default,
       activationTime: TopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue),

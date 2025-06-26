@@ -14,10 +14,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   PeerEndpointStatus,
   PeerNetworkStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.BftP2PNetworkOutTest.InMemoryUnitTestP2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory.GenericInMemoryP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
+  ProgrammableUnitTestContext,
+  ProgrammableUnitTestEnv,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
@@ -26,18 +33,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   P2PNetworkRef,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
-  ProgrammableUnitTestContext,
-  ProgrammableUnitTestEnv,
-  fakeIgnoringModule,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
+  BftSequencerBaseTest,
   endpointToTestBftNodeId,
   endpointToTestSequencerId,
+  fakeIgnoringModule,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingMessageBody,

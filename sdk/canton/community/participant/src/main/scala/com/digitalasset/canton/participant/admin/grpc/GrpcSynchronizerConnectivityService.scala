@@ -73,7 +73,7 @@ class GrpcSynchronizerConnectivityService(
     for {
       synchronizerConnectionConfig <- EitherT.fromEither[FutureUnlessShutdown](
         sync.synchronizerConnectionConfigStore
-          .getActive(synchronizerAlias, singleExpected = false)
+          .getActive(synchronizerAlias)
           .leftMap(err =>
             SyncServiceError.SyncServiceAliasResolution
               .Error(synchronizerAlias, err.message)

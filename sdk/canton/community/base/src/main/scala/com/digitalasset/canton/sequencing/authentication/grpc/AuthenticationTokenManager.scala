@@ -165,7 +165,7 @@ class AuthenticationTokenManager(
   private def backgroundRefreshToken(): Unit =
     if (!isClosed) {
       // Create a fresh trace context for each refresh to avoid long-lasting trace IDs from other contexts
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("background_refresh_token") { implicit traceContext =>
         refreshToken(refreshWhenHaveToken = true).discard
       }
     }

@@ -62,6 +62,9 @@ message StaticSynchronizerParameters {
   repeated com.digitalasset.canton.crypto.v30.CryptoKeyFormat required_crypto_key_formats = 5;
   repeated com.digitalasset.canton.crypto.v30.SignatureFormat required_signature_formats = 6;
   int32 protocol_version = 7;
+
+  // Serial of the synchronizer. Must be non-negative.
+  int32 serial = 8;
 }
 
 message Envelope {

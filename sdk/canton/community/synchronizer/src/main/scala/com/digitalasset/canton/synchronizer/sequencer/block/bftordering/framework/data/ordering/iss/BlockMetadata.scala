@@ -26,7 +26,7 @@ object BlockMetadata {
 
   /** A convenience constructor for tests */
   @VisibleForTesting
-  def mk(epochNumber: Long, blockNumber: Long): BlockMetadata =
+  private[bftordering] def mk(epochNumber: Long, blockNumber: Long): BlockMetadata =
     new BlockMetadata(EpochNumber(epochNumber), BlockNumber(blockNumber))
 
   def fromProto(blockMetadata: ProtoBlockMetadata): ParsingResult[BlockMetadata] =

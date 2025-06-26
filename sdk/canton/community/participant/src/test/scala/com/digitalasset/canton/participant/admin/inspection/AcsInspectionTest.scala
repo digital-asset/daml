@@ -7,7 +7,6 @@ import cats.Eval
 import cats.data.OptionT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -16,36 +15,15 @@ import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
-import com.digitalasset.canton.participant.store.{
-  AcsInspection,
-  AcsInspectionError,
-  ActiveContractStore,
-  ContractStore,
-  RequestJournalStore,
-  SyncPersistentState,
-}
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
-import com.digitalasset.canton.protocol.{
-  ContractMetadata,
-  LfContractId,
-  LfLanguageVersion,
-  SerializableContract,
-  SerializableRawContractInstance,
-}
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{
-  BaseTest,
-  LfPartyId,
-  LfTimestamp,
-  LfValue,
-  LfVersioned,
-  ReassignmentCounter,
-}
+import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.CreationTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -74,7 +52,7 @@ final class AcsInspectionTest
       }
     }
 
-    def contract(c: Char) = LfContractId.assertFromString(s"${"0" * 67}$c")
+    def contract(c: Char) = ExampleContractFactory.buildContractId(c.toInt)
     def party(s: String) = LfPartyId.assertFromString(s)
 
     val consistent = AcsInspectionTest.mockSyncPersistentState(contracts =
@@ -152,33 +130,20 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   private val MaxSynchronizerIndex: SynchronizerIndex =
     SynchronizerIndex.of(CantonTimestamp.MaxValue)
 
-  private val MockedSerializableRawContractInstance =
-    SerializableRawContractInstance
-      .create(
-        LfVersioned(
-          LfLanguageVersion.v2_dev,
-          LfValue.ThinContractInstance(
-            packageName = Ref.PackageName.assertFromString("pkg-name"),
-            template = Ref.Identifier.assertFromString("pkg:Mod:Template"),
-            arg = LfValue.ValueNil,
-          ),
-        )
-      )
-      .value
-
   private def mockContract(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
-  ): SerializableContract = {
-    val metadata = ContractMetadata.tryCreate(stakeholders, stakeholders, None)
-    SerializableContract(
-      contractId,
-      MockedSerializableRawContractInstance,
-      metadata,
-      CreationTime.CreatedAt(LfTimestamp.Epoch),
-      TestSalt.generateSalt(3),
+  ): ContractInstance =
+    ExampleContractFactory.build(
+      signatories = stakeholders.take(1),
+      stakeholders = stakeholders,
+      createdAt = LfTimestamp.Epoch,
+      version = LfLanguageVersion.v2_dev,
+      packageName = Ref.PackageName.assertFromString("pkg-name"),
+      templateId = Ref.Identifier.assertFromString("pkg:Mod:Template"),
+      argument = LfValue.ValueNil,
+      overrideContractId = Some(contractId),
     )
-  }
 
   private def mockSyncPersistentState(
       contracts: Map[LfContractId, Set[LfPartyId]],
@@ -239,7 +204,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
   )(implicit
       ec: ExecutionContext
   ): Future[Either[AcsInspectionError, Vector[SerializableContract]]] =
-    TraceContext.withNewTraceContext { implicit tc =>
+    TraceContext.withNewTraceContext("read_visible_active_contracts") { implicit tc =>
       val builder = Vector.newBuilder[SerializableContract]
       state.acsInspection
         .forEachVisibleActiveContract(

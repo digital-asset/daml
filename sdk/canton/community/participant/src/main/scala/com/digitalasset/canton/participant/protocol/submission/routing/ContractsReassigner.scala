@@ -49,7 +49,10 @@ private[routing] class ContractsReassigner(
           contract <- synchronizerState.ephemeral.contractLookup
             .lookup(cid)
             .toRight(s"Cannot find contract with id $cid")
-          stakeholders = Stakeholders(contract.metadata)
+          stakeholders = Stakeholders.tryCreate(
+            stakeholders = contract.stakeholders,
+            signatories = contract.signatories,
+          )
         } yield stakeholders
       ).leftMap[TransactionRoutingError](AutomaticReassignmentForTransactionFailure.Failed(_))
 

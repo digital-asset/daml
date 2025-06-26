@@ -22,7 +22,7 @@ object BftTime {
 
   // The minimum block time granularity is the minimum sequencing time interval between two blocks.
   @VisibleForTesting
-  private[bftordering] val MinimumBlockTimeGranularity: FiniteDuration = 1.millisecond
+  private[output] val MinimumBlockTimeGranularity: FiniteDuration = 1.millisecond
 
   /** The maximum number of requests per block. With a block time granularity of 1 millisecond, at
     * most 1000 requests could be fit into a block but we leave one slot for a topology time tick

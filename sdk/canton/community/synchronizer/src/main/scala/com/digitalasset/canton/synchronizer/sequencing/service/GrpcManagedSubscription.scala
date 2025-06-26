@@ -116,7 +116,7 @@ private[service] class GrpcManagedSubscription[T](
 
   def initialize(): FutureUnlessShutdown[Unit] =
     // TODO(#5705) Redo this when revisiting the subscription pool
-    withNewTraceContext { implicit traceContext =>
+    withNewTraceContext("init_grpc_subscription") { implicit traceContext =>
       synchronizeWithClosing("grpc-managed-subscription-handler") {
         val createSub =
           // wrap in a Try to catch any exception in the creation of the EitherT itself
@@ -148,27 +148,28 @@ private[service] class GrpcManagedSubscription[T](
 
   /** Close the subscription.
     */
-  override def onClosed(): Unit = withNewTraceContext { implicit traceContext =>
-    try {
-      // if a signal hasn't been set, then we'll assume we were just closed
-      val closeSignal = closeSignalRef.get().getOrElse(CompleteSignal)
+  override def onClosed(): Unit = withNewTraceContext("close_grpc_subscription") {
+    implicit traceContext =>
+      try {
+        // if a signal hasn't been set, then we'll assume we were just closed
+        val closeSignal = closeSignalRef.get().getOrElse(CompleteSignal)
 
-      // close subscription if set
-      logger.debug(
-        s"Closing subscription for $member and completing subscription observer with $closeSignal"
-      )
+        // close subscription if set
+        logger.debug(
+          s"Closing subscription for $member and completing subscription observer with $closeSignal"
+        )
 
-      subscriptionRef
-        .get()
-        .fold(logger.debug("Closing but underlying subscription has not been created"))(_.close())
+        subscriptionRef
+          .get()
+          .fold(logger.debug("Closing but underlying subscription has not been created"))(_.close())
 
-      closeSignal match {
-        case NoSignal =>
-          () // don't send anything, likely as the underlying channel is already cancelled
-        case CompleteSignal => observer.onCompleted()
-        case ErrorSignal(cause) => observer.onError(cause)
-      }
-    } finally notifyClosed()
+        closeSignal match {
+          case NoSignal =>
+            () // don't send anything, likely as the underlying channel is already cancelled
+          case CompleteSignal => observer.onCompleted()
+          case ErrorSignal(cause) => observer.onError(cause)
+        }
+      } finally notifyClosed()
   }
 
   override def isCancelled: Boolean = observer.isCancelled

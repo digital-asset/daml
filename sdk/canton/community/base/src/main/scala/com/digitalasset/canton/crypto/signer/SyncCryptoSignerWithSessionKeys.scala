@@ -28,7 +28,6 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -93,7 +92,7 @@ class SyncCryptoSignerWithSessionKeys(
 
   /** The user-configured validity period of a session signing key. */
   private val sessionKeyValidityDuration =
-    PositiveSeconds.fromConfig(sessionSigningKeysConfig.keyValidityDuration)
+    sessionSigningKeysConfig.keyValidityDuration
 
   /** The key specification for the session signing keys. */
   private val sessionKeySpec = sessionSigningKeysConfig.signingKeySpec
@@ -105,7 +104,7 @@ class SyncCryptoSignerWithSessionKeys(
     */
   @VisibleForTesting
   private[crypto] val cutOffDuration =
-    PositiveSeconds.fromConfig(sessionSigningKeysConfig.cutOffDuration)
+    sessionSigningKeysConfig.cutOffDuration
 
   /** The duration a session signing key is retained in memory. It is defined as an AtomicReference
     * only so it can be changed for tests.
@@ -189,7 +188,7 @@ class SyncCryptoSignerWithSessionKeys(
       // If sufficient time has passed and the cut-off threshold has been reached,
       // the current signing key is no longer used, and a different or new key must be used.
       timestamp < validityPeriod
-        .computeCutOffTimestamp(cutOffDuration)
+        .computeCutOffTimestamp(cutOffDuration.asJava)
 
   private def generateNewSessionKey(
       validityPeriod: SignatureDelegationValidityPeriod,
@@ -232,7 +231,7 @@ class SyncCryptoSignerWithSessionKeys(
      * Although not optimal this a better approach than setting the validity period from ts to ts+x in terms
      * of number of keys created.
      */
-    val margin = cutOffDuration.unwrap.dividedBy(2) // cuttoff/2
+    val margin = cutOffDuration.asJava.dividedBy(2) // cuttoff/2
     val validityStart =
       // TODO(#25524): Add unit test to check that this IllegalArgumentException is correctly thrown
       Either

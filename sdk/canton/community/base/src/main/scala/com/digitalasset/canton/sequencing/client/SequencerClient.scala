@@ -1432,7 +1432,8 @@ class RichSequencerClientImpl(
       .from(eventBatch)
       .fold(EitherT.pure[FutureUnlessShutdown, ApplicationHandlerFailure](())) { eventBatchNE =>
         applicationHandlerFailure.get.fold {
-          implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(eventBatch)(logger)
+          implicit val batchTraceContext: TraceContext =
+            TraceContext.ofBatch("process_event_batch")(eventBatch)(logger)
           val lastTimestamp = eventBatchNE.last1.timestamp
           val firstEvent = eventBatchNE.head1
           val firstTimestamp = firstEvent.timestamp
@@ -1793,7 +1794,7 @@ class SequencerClientImplPekko[E: Pretty](
         val batchedReplayedEvents = replayEvents
           .grouped(config.eventInboxSize.unwrap)
           .map { batch =>
-            val batchTraceContext = TraceContext.ofBatch(batch)(logger)
+            val batchTraceContext = TraceContext.ofBatch("replay_sequenced_events")(batch)(logger)
             WithPromise(Traced(batch)(batchTraceContext))()
           }
           .toSeq
@@ -1978,7 +1979,7 @@ class SequencerClientImplPekko[E: Pretty](
               "spansBy returned Lefts and Rights in the same block",
             )
             if (lefts.isEmpty) {
-              val batchTraceContext = TraceContext.ofBatch(rights)(logger)
+              val batchTraceContext = TraceContext.ofBatch("batch_flow")(rights)(logger)
               Seq(Right(Traced(rights)(batchTraceContext)))
             } else lefts.map(left => Left(left))
           }

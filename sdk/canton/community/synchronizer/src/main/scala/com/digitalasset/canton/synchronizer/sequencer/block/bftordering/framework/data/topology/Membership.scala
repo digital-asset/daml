@@ -20,7 +20,7 @@ object Membership {
 
   /** A simple constructor for tests so that we don't have to provide a full ordering topology. */
   @VisibleForTesting
-  def forTesting(
+  private[bftordering] def forTesting(
       myId: BftNodeId,
       otherNodes: Set[BftNodeId] = Set.empty,
       sequencingParameters: SequencingParameters = SequencingParameters.Default,

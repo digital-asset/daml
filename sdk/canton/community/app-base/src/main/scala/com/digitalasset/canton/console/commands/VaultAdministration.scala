@@ -576,7 +576,7 @@ class LocalSecretKeyAdministration(
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
       password: Option[String] = None,
   ): ByteString =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("download_key_pair") { implicit traceContext =>
       val cmd = for {
         cryptoPrivateStore <- crypto.cryptoPrivateStore.toExtended
           .toRight(

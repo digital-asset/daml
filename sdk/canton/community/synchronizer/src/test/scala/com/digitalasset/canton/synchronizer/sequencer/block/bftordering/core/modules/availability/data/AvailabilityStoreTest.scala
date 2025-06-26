@@ -4,15 +4,14 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data
 
 import com.digitalasset.canton.synchronizer.block.BlockFormat
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   OrderingRequest,
   OrderingRequestBatch,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.Traced
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec

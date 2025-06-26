@@ -208,7 +208,7 @@ class StoreBasedSynchronizerOutbox(
 
   private def kickOffFlush(): Unit =
     if (initialized.get()) {
-      TraceContext.withNewTraceContext(implicit tc => flushAsync())
+      TraceContext.withNewTraceContext("flush")(implicit tc => flushAsync())
     }
 
   private def flushAsync(initialize: Boolean = false)(implicit

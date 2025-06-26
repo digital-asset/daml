@@ -281,9 +281,8 @@ class CantonSyncService(
   def activePSIdForLSId(
       id: SynchronizerId
   ): Option[PhysicalSynchronizerId] =
-    // TODO(#26005): review the usage of singleExpected=true
     synchronizerConnectionConfigStore
-      .getActive(id, singleExpected = true)
+      .getActive(id)
       .toOption
       .flatMap(_.configuredPSId.toOption)
 
@@ -335,7 +334,7 @@ class CantonSyncService(
     )(ec)
 
   if (isActive()) {
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("initialize_state") { implicit traceContext =>
       initializeState()
     }
   }
@@ -938,7 +937,7 @@ class CantonSyncService(
         case Some(psid) => KnownPhysicalSynchronizerId(psid).asRight[SyncServiceError]
         case None =>
           synchronizerConnectionConfigStore
-            .getActive(config.synchronizerAlias, singleExpected = true)
+            .getActive(config.synchronizerAlias)
             .map(_.configuredPSId)
             .leftMap(err =>
               SyncServiceError.SyncServiceAliasResolution
@@ -949,8 +948,9 @@ class CantonSyncService(
 
       _ <- synchronizerConnectionConfigStore
         .replace(connectionIdToUpdate, config)
-        .leftMap(e =>
-          SyncServiceError.SyncServiceUnknownSynchronizer.Error(e.alias): SyncServiceError
+        .leftMap(_ =>
+          SyncServiceError.SyncServiceUnknownSynchronizer
+            .Error(config.synchronizerAlias): SyncServiceError
         )
     } yield ()
 

@@ -487,7 +487,9 @@ object TestSubmissionService {
                 allContracts <- contractStore
                   .find(None, None, None, Int.MaxValue)
                   .failOnShutdownToAbortException("resolveKey")
-                contractsWithKey = allContracts.filter(_.metadata.maybeKey.contains(globalKey))
+                contractsWithKey = allContracts.filter(
+                  _.contractKeyWithMaintainers.map(_.globalKey).contains(globalKey)
+                )
                 allContractIds = contractsWithKey.map(_.contractId)
                 // At this stage, the ledger api server would filter out divulged contracts that are invisible to all submitters.
                 activeContractIds <- contractsWithKey.parTraverseFilter { contract =>

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.syntax.functor.*
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.data.ContractReassignment
 import com.digitalasset.canton.ledger.participant.state.LapiCommitSet
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -130,4 +132,24 @@ object CommitSet {
       // TODO(i12904) Handle this case gracefully
       throw new RuntimeException(s"Request $requestId with failed activeness check is approved.")
     }
+
+  def createForAssignment(
+      reassignmentId: ReassignmentId,
+      assignments: NonEmpty[Seq[ContractReassignment]],
+  ): CommitSet =
+    CommitSet(
+      archivals = Map.empty,
+      creations = Map.empty,
+      unassignments = Map.empty,
+      assignments = assignments
+        .map(reassign =>
+          reassign.contract.contractId -> CommitSet.AssignmentCommit(
+            reassignmentId,
+            reassign.contract.metadata,
+            reassign.counter,
+          )
+        )
+        .toMap
+        .forgetNE,
+    )
 }

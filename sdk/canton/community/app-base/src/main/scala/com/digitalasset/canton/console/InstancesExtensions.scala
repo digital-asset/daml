@@ -51,13 +51,13 @@ trait LocalInstancesExtensions[LocalInstanceRef <: LocalInstanceReference] exten
 
   @Help.Summary("Start all")
   def start()(implicit consoleEnvironment: ConsoleEnvironment): Unit =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("start_instances") { implicit traceContext =>
       runOnAllInstances(consoleEnvironment.environment.startNodes(_))
     }
 
   @Help.Summary("Stop all")
   def stop()(implicit consoleEnvironment: ConsoleEnvironment): Unit =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("stop_instances") { implicit traceContext =>
       runOnAllInstances(consoleEnvironment.environment.stopNodes(_))
     }
 

@@ -11,7 +11,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   BftOrderingStores,
   BootstrapTopologyInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.DelegationCryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
   AvailabilityModule,
@@ -45,11 +49,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   P2PNetworkOutModule,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  DelegationCryptoProvider,
-  OrderingTopologyProvider,
-  TopologyActivationTime,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,

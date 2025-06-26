@@ -405,7 +405,7 @@ class TopologyTransactionProcessor(
     LifeCycle.close(serializer)(logger)
 
   private val maxSequencedTimeAtInitializationF =
-    TraceContext.withNewTraceContext(implicit traceContext =>
+    TraceContext.withNewTraceContext("max_sequenced_time")(implicit traceContext =>
       maxTimestampFromStore().map(_.map { case (sequenced, _effective) => sequenced })
     )
 

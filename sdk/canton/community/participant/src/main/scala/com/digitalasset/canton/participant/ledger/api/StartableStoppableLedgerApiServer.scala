@@ -182,7 +182,7 @@ class StartableStoppableLedgerApiServer(
     )
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("close_ledger_api") { implicit traceContext =>
       logger.info("Shutting down ledger API server")
       Seq(
         AsyncCloseable("ledger API server", stop().unwrap, timeouts.shutdownNetwork),

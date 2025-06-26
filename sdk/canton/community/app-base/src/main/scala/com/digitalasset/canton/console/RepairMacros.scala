@@ -71,7 +71,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         protocolVersion: ProtocolVersion,
         targetPath: String,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("download_identity") { implicit traceContext =>
         val targetDir = createAndCheckTargetDirectory(File(targetPath))
         logger.info(s"Downloading identity from node ${node.name} to $targetDir")
         if (!node.is_running) {
@@ -213,7 +213,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         staticSynchronizerParameters: StaticSynchronizerParameters,
         sequencerConnections: SequencerConnections,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("upload_identity") { implicit traceContext =>
         val sourceDir = File(sourcePath)
 
         ErrorUtil.requireArgument(sourceDir.exists, s"Directory $sourceDir does not exist")
@@ -299,7 +299,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         node: LocalParticipantReference,
         targetPath: String,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("download_dars") { implicit traceContext =>
         val darsDir = createAndCheckTargetDirectory(File(targetPath, DARS))
         node.dars.list().filterNot(_.name.startsWith("AdminWorkflow")).foreach { dar =>
           noTracingLogger.info(s"Downloading dar ${dar.name}")
@@ -311,7 +311,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         node: LocalParticipantReference,
         sourcePath: String,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("upload_dars") { implicit traceContext =>
         ErrorUtil.requireState(node.is_running, s"Node ${node.name} is not running")
         val darsDir = File(sourcePath, DARS)
         val files = darsDir.list

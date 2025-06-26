@@ -622,7 +622,7 @@ class SequencerReaderTestV2
 
           delivers = testData.map { case (_, sequenceTs, signingTs) =>
             val storeEvent = TraceContext
-              .withNewTraceContext { eventTraceContext =>
+              .withNewTraceContext("test") { eventTraceContext =>
                 mockDeliverStoreEvent(
                   sender = aliceId,
                   payloadId = PayloadId(ts0.plusSeconds(sequenceTs)),

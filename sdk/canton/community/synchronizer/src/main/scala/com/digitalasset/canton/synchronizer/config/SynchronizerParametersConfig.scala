@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.config
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{CryptoConfig, ProtocolConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -80,6 +81,7 @@ final case class SynchronizerParametersConfig(
   def toStaticSynchronizerParameters(
       cryptoConfig: CryptoConfig = CryptoConfig(),
       protocolVersion: ProtocolVersion,
+      serial: NonNegativeInt,
   ): Either[String, StaticSynchronizerParameters] = {
 
     def selectSchemes[S](
@@ -145,6 +147,7 @@ final case class SynchronizerParametersConfig(
         requiredCryptoKeyFormats = newCryptoKeyFormats,
         requiredSignatureFormats = newSignatureFormats,
         protocolVersion = protocolVersion,
+        serial = serial,
       )
     }
   }

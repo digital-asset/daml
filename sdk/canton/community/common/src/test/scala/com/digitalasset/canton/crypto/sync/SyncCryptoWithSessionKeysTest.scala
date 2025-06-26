@@ -4,7 +4,7 @@
 package com.digitalasset.canton.crypto.sync
 
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.SessionSigningKeysConfig
+import com.digitalasset.canton.config.{PositiveFiniteDuration, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys
 import com.digitalasset.canton.crypto.{
   Signature,
@@ -67,8 +67,8 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       topologySnapshot: TopologySnapshot,
       signature: Signature,
       p: SynchronizerCryptoClient = p1,
-      validityPeriodLength: PositiveSeconds =
-        PositiveSeconds.tryOfSeconds(validityDuration.underlying.toSeconds),
+      validityPeriodLength: PositiveFiniteDuration =
+        PositiveFiniteDuration.ofSeconds(validityDuration.underlying.toSeconds),
   ): SignatureDelegation = {
 
     val cache = sessionKeysCache(p)
@@ -92,7 +92,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
     signature.signedBy shouldBe sessionKeyId
 
     // Verify it has the correct validity period
-    val margin = cutOffDuration(p).unwrap.dividedBy(2)
+    val margin = cutOffDuration(p).asJava.dividedBy(2)
     validityPeriod shouldBe
       SignatureDelegationValidityPeriod(
         topologySnapshot.timestamp.minus(margin),
@@ -188,7 +188,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
       // select a timestamp that is after the cut-off period
       val cutOffTimestamp =
         currentSessionKey.signatureDelegation.validityPeriod
-          .computeCutOffTimestamp(cutOffDuration(p1))
+          .computeCutOffTimestamp(cutOffDuration(p1).asJava)
 
       val afterCutOffSnapshot =
         testingTopology.topologySnapshot(timestampOfSnapshot = cutOffTimestamp)
@@ -326,7 +326,7 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
           testingTopology.topologySnapshot(timestampOfSnapshot =
             CantonTimestamp.Epoch
               .addMicros(validityDuration.unwrap.toMicros)
-              .add(cutOffDuration(p1).duration)
+              .add(cutOffDuration(p1).asJava)
           ),
           hash,
           defaultUsage,

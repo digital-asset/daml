@@ -78,7 +78,7 @@ class InFlightSubmissionTracker(
    */
   private def toPhysical(lsid: SynchronizerId): Either[RuntimeException, PhysicalSynchronizerId] =
     synchronizerConnectionConfigStore
-      .getActive(lsid, singleExpected = false)
+      .getActive(lsid)
       .fold(
         err =>
           new RuntimeException(s"Cannot resolve $lsid to physical instance: ${err.message}").asLeft,

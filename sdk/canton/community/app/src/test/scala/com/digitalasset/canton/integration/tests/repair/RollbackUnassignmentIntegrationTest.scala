@@ -65,14 +65,17 @@ sealed trait RollbackUnassignmentIntegrationTest
     val alice = aliceS.toPartyId(participant1)
     val bob = bobS.toPartyId(participant2)
 
-    val cid = createContract(participant1, alice, bob, synchronizerId = Some(acmeId))
+    val cids = Seq(
+      createContract(participant1, alice, bob, synchronizerId = Some(acmeId)).toLf,
+      createContract(participant1, alice, bob, synchronizerId = Some(acmeId)).toLf,
+    )
 
     val ledgerEnd = participant1.ledger_api.state.end()
 
     val unassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
-        Seq(cid.toLf),
+        cids,
         source = acmeId,
         target = daId,
       )
@@ -102,7 +105,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val contractEntry = participant1.ledger_api.state.acs
       .active_contracts_of_party(party = alice)
 
-    contractEntry.map(_.reassignmentCounter).loneElement shouldBe 2 // increased by two
+    contractEntry.map(_.reassignmentCounter) shouldBe Seq(2, 2) // increased by two
 
     val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(alice),
@@ -140,11 +143,11 @@ sealed trait RollbackUnassignmentIntegrationTest
 
     val (unassigned, _) = participant1.ledger_api.commands.submit_reassign(
       alice,
-      Seq(cid.toLf),
+      cids,
       source = acmeId,
       target = daId,
     )
-    unassigned.events.loneElement.reassignmentCounter shouldBe 3
+    unassigned.events.map(_.reassignmentCounter) shouldBe Seq(3, 3)
 
     val reassignmentId = ReassignmentId.tryCreate(Source(acmeId), unassignmentId)
 

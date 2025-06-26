@@ -153,7 +153,7 @@ class RequestInterceptors(val loggerFactory: NamedLoggerFactory) extends NamedLo
           Future.successful(request)
 
         case None =>
-          implicit val newTraceContext: TraceContext = TraceContext.createNew()
+          implicit val newTraceContext: TraceContext = TraceContext.createNew("request")
           logger.trace(s"No TraceContext in headers, created new for ${request.showShort}")
           logIncomingRequest()
 

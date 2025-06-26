@@ -10,6 +10,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.daml.lf.data.NoCopy
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.context.Context as OpenTelemetryContext
+import io.opentelemetry.sdk.trace.ReadableSpan
 
 import scala.collection.mutable
 import scala.language.implicitConversions
@@ -24,9 +25,25 @@ class TraceContext private[tracing] (val context: OpenTelemetryContext)
   lazy val asW3CTraceContext: Option[W3CTraceContext] =
     W3CTraceContext.fromOpenTelemetryContext(context)
 
-  lazy val traceId: Option[String] = Option(Span.fromContextOrNull(context))
+  private val span: Option[Span] = Option(Span.fromContextOrNull(context))
     .filter(_.getSpanContext.isValid)
+
+  lazy val traceId: Option[String] = span
     .map(_.getSpanContext.getTraceId)
+
+  lazy val spanId: Option[String] = span
+    .map(_.getSpanContext.getSpanId)
+
+  lazy val spanParentId: Option[String] = span
+    .collect {
+      case readableSpan: ReadableSpan if readableSpan.getParentSpanContext.isValid =>
+        readableSpan.getParentSpanContext.getSpanId
+    }
+
+  lazy val spanName: Option[String] = span
+    .collect { case readableSpan: ReadableSpan =>
+      readableSpan.getName
+    }
 
   /** Convert to ledger-api server's telemetry context to facilitate integration
     */
@@ -93,8 +110,8 @@ object TraceContext {
   val todo: TraceContext = empty
 
   /** Run a block with an entirely new TraceContext. */
-  def withNewTraceContext[A](fn: TraceContext => A): A = {
-    val newSpan = NoReportingTracerProvider.tracer.spanBuilder("newSpan").startSpan()
+  def withNewTraceContext[A](name: String)(fn: TraceContext => A): A = {
+    val newSpan = NoReportingTracerProvider.tracer.spanBuilder(name).startSpan()
     val openTelemetryContext = newSpan.storeInContext(OpenTelemetryContext.root())
     val newContext = TraceContext(openTelemetryContext)
     val result = fn(newContext)
@@ -102,10 +119,10 @@ object TraceContext {
     result
   }
 
-  def createNew(): TraceContext = withNewTraceContext(identity)
+  def createNew(name: String): TraceContext = withNewTraceContext(name)(identity)
 
-  def wrapWithNewTraceContext[A](item: A): Traced[A] =
-    withNewTraceContext(implicit traceContext => Traced(item))
+  def wrapWithNewTraceContext[A](name: String)(item: A): Traced[A] =
+    withNewTraceContext(name)(implicit traceContext => Traced(item))
 
   /** Run a block with a TraceContext taken from a Traced wrapper. */
   def withTraceContext[A, B](fn: TraceContext => A => B)(traced: Traced[A]): B =
@@ -123,16 +140,19 @@ object TraceContext {
     * tracing via logs if ever needed. If all non-empty trace contexts in `items` are the same, this
     * trace context will be reused and no log line emitted.
     */
-  def ofBatch(items: IterableOnce[HasTraceContext])(logger: TracedLogger): TraceContext = {
+  def ofBatch(
+      name: String
+  )(items: IterableOnce[HasTraceContext])(logger: TracedLogger): TraceContext = {
     val validTraces = items.iterator.map(_.traceContext).filter(_.traceId.isDefined).toSeq.distinct
 
     NonEmpty.from(validTraces) match {
-      case None => TraceContext.withNewTraceContext(identity) // just generate new trace context
+      case None =>
+        TraceContext.withNewTraceContext(name)(identity) // just generate new trace context
       case Some(validTracesNE) =>
         if (validTracesNE.sizeCompare(1) == 0)
           validTracesNE.head1 // there's only a single trace so stick with that
         else
-          withNewTraceContext { implicit traceContext =>
+          withNewTraceContext(name) { implicit traceContext =>
             // log that we're creating a single traceContext from many trace ids
             val traceIds = validTracesNE.map(_.traceId).collect { case Some(traceId) => traceId }
             logger.debug(s"Created batch from traceIds: [${traceIds.mkString(",")}]")

@@ -2845,7 +2845,7 @@ class TopologyAdministrationGroup(
         synchronizerId: SynchronizerId,
         newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit tc =>
+      TraceContext.withNewTraceContext("set_ledger_time_tolerence") { implicit tc =>
         logger.info(
           s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
         )
@@ -2876,7 +2876,7 @@ class TopologyAdministrationGroup(
         newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit tc =>
+      TraceContext.withNewTraceContext("set_prep_time_tolerance") { implicit tc =>
         if (!force) {
           securely_set_preparation_time_record_time_tolerance(
             synchronizerId,

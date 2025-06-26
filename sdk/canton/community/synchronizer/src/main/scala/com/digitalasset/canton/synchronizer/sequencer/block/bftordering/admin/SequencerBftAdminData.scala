@@ -21,10 +21,10 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   TlsClientCertificate as ProtoTlsClientCertificate,
   TlsPeerEndpoint as ProtoTlsPeerEndpoint,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.P2PEndpointConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PEndpointConfig
 import com.digitalasset.canton.topology.SequencerId
 
 import scala.util.{Failure, Success, Try}

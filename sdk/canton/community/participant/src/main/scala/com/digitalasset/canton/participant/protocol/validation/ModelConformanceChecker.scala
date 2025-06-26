@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.Eval
 import cats.data.EitherT
+import cats.implicits.toTraverseOps
 import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
@@ -260,7 +261,16 @@ class ModelConformanceChecker(
 
     val seed = viewParticipantData.actionDescription.seedOption
     for {
-      viewInputContracts <- validateInputContracts(view, getEngineAbortStatus)
+      viewInputSerializableContracts <- validateInputContracts(view, getEngineAbortStatus)
+
+      viewInputContracts <- EitherT.fromEither[FutureUnlessShutdown](
+        viewInputSerializableContracts.toList
+          .traverse { case (cid, sc) =>
+            ContractInstance(sc).map(c => cid -> c)
+          }
+          .map(_.toMap)
+          .leftMap(e => FailedToConvertContract(e))
+      )
 
       contractLookupAndVerification =
         new ExtendedContractLookup(
@@ -288,7 +298,7 @@ class ModelConformanceChecker(
     } yield ConformanceReInterpretationResult(
       lfTxAndMetadata,
       contractLookupAndVerification,
-      viewInputContracts,
+      viewInputSerializableContracts,
     )
   }
 
@@ -716,6 +726,13 @@ object ModelConformanceChecker {
           }
           .mkShow("\n")
       )
+    )
+  }
+
+  // TODO(#26348) - remove once upstream switched to ContractInstance
+  final case class FailedToConvertContract(error: String) extends Error {
+    override protected def pretty: Pretty[FailedToConvertContract] = prettyOfClass(
+      param("error", _.error.unquoted)
     )
   }
 

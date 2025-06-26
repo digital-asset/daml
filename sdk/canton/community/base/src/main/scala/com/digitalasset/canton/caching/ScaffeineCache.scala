@@ -90,7 +90,7 @@ object ScaffeineCache {
       tracedLogger: TracedLogger,
       allLoader: TraceContext => Iterable[K] => F[Map[K, V]],
   )(implicit F: Functor[F]): Iterable[Traced[K]] => F[Map[Traced[K], V]] = { tracedKeys =>
-    val traceContext = TraceContext.ofBatch(tracedKeys)(tracedLogger)
+    val traceContext = TraceContext.ofBatch("cache_batch_load")(tracedKeys)(tracedLogger)
     val keys = tracedKeys.map(_.unwrap)
     F.map(allLoader(traceContext)(keys))(_.map { case (key, value) =>
       Traced(key)(traceContext) -> value

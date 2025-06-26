@@ -74,7 +74,7 @@ trait SequencerStateManagerStoreTest
         }).failOnShutdown
       }
 
-      "reconstruct the aggregation state" in withNewTraceContext { implicit traceContext =>
+      "reconstruct the aggregation state" in withNewTraceContext("test") { implicit traceContext =>
         val store = mk()
         val aggregationId1 = AggregationId(TestHash.digest(1))
         val aggregationId2 = AggregationId(TestHash.digest(2))

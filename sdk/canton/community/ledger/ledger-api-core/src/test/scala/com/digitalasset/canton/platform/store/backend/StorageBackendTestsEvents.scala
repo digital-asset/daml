@@ -422,7 +422,7 @@ private[backend] trait StorageBackendTestsEvents
 
   it should "return the correct trace context for create events" in {
     val traceContexts = (1 to 3)
-      .flatMap(_ => List(TraceContext.empty, TraceContext.withNewTraceContext(identity)))
+      .flatMap(_ => List(TraceContext.empty, TraceContext.withNewTraceContext("test")(identity)))
       .map(SerializableTraceContext(_).toDamlProto.toByteArray)
     val dbDtos = Vector(
       dtoCreate(

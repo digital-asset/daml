@@ -5,12 +5,11 @@ package com.digitalasset.canton.crypto
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.config.CantonRequireTypes.String68
-import com.digitalasset.canton.config.DefaultProcessingTimeouts
+import com.digitalasset.canton.config.{DefaultProcessingTimeouts, PositiveFiniteDuration}
 import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.{BaseTest, Generators}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -71,7 +70,7 @@ object GeneratorsCrypto {
   implicit val signatureDelegationArb: Arbitrary[SignatureDelegation] = Arbitrary(
     for {
       periodFrom <- Arbitrary.arbitrary[CantonTimestamp]
-      periodDuration <- Gen.choose(1, 86400L).map(PositiveSeconds.tryOfSeconds)
+      periodDuration <- Gen.choose(1, 86400L).map(PositiveFiniteDuration.ofSeconds)
       period = SignatureDelegationValidityPeriod(periodFrom, periodDuration)
 
       signingKeySpec <- Arbitrary

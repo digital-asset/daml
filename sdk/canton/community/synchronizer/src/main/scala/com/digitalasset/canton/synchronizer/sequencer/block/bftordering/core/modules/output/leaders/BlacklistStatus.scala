@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.sequencer.admin.v30
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistStatus.HowEpochWent
 
 sealed trait BlacklistStatus {

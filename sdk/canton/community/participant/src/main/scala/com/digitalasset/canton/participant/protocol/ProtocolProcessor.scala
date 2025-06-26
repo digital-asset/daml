@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.{CommitSetUpdate, SequencedUpdate}
+import com.digitalasset.canton.ledger.participant.state.{CommitSetSequencedUpdate, SequencedUpdate}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   PromiseUnlessShutdownFactory,
@@ -707,7 +707,7 @@ abstract class ProtocolProcessor[
               _.leftMap(_ =>
                 steps.embedRequestError(
                   UnableToGetDynamicSynchronizerParameters(
-                    snapshot.synchronizerId,
+                    snapshot.psid,
                     snapshot.ipsSnapshot.timestamp,
                   )
                 )
@@ -1548,7 +1548,15 @@ abstract class ProtocolProcessor[
         synchronizerParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
+      _ <- EitherT(
+        contractsToBeStored
+          .traverse(c =>
+            ContractInstance(c).leftMap(err =>
+              steps.embedResultError(FailedToConstructInstance(err))
+            )
+          )
+          .traverse(ephemeral.contractStore.storeContracts)
+      )
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
@@ -1557,7 +1565,7 @@ abstract class ProtocolProcessor[
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
           eventWithCommitSetO = eventO.map {
-            case commitSetUpdate: CommitSetUpdate =>
+            case commitSetUpdate: CommitSetSequencedUpdate =>
               commitSetUpdate.withCommitSet(commitSet)
 
             case u: SequencedUpdate => u
@@ -1900,6 +1908,13 @@ object ProtocolProcessor {
       extends ResultProcessingError {
     override protected def pretty: Pretty[ContractStoreError] = prettyOfParam(
       _.error.toChain.toList
+    )
+  }
+
+  // TODO(#26348) - only needed until ContractInstance is constructed upstream
+  final case class FailedToConstructInstance(error: String) extends ResultProcessingError {
+    override protected def pretty: Pretty[FailedToConstructInstance] = prettyOfClass(
+      param("error", _.error.unquoted)
     )
   }
 

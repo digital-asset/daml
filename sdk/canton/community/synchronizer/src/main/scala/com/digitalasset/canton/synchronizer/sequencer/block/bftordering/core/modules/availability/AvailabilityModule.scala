@@ -11,17 +11,15 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
-  BftBlockOrdererConfig,
-  FingerprintKeyId,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -60,7 +58,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.BftNodeShuffler
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -114,11 +112,11 @@ final class AvailabilityModule[E <: Env[E]](
   private var activeMembership = initialMembership
   private var activeCryptoProvider = initialCryptoProvider
   @VisibleForTesting
-  private[bftordering] def getActiveMembership = activeMembership
+  private[availability] def getActiveMembership = activeMembership
   @VisibleForTesting
-  private[bftordering] def getActiveCryptoProvider = activeCryptoProvider
+  private[availability] def getActiveCryptoProvider = activeCryptoProvider
   @VisibleForTesting
-  private[bftordering] def getMessageAuthorizer = messageAuthorizer
+  private[availability] def getMessageAuthorizer = messageAuthorizer
 
   private var waitingForBatchSince: Option[Instant] = None
 
@@ -1496,7 +1494,7 @@ object AvailabilityModule {
     orderingTopology.hasWeakQuorum(votes)
 
   @VisibleForTesting
-  private[bftordering] val DisseminateAheadMultiplier = 2
+  private[availability] val DisseminateAheadMultiplier = 2
 
   private[bftordering] def quorum(numberOfNodes: Int): Int =
     OrderingTopology.weakQuorumSize(numberOfNodes)

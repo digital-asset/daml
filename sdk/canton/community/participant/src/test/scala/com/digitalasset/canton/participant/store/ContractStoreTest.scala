@@ -5,20 +5,11 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
-  asSerializable,
-  contractInstance,
-  packageId,
-}
-import com.digitalasset.canton.protocol.{
-  ContractMetadata,
-  ExampleTransactionFactory,
-  SerializableContract,
-}
+import com.digitalasset.canton.protocol.ExampleContractFactory
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageId
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
-import com.digitalasset.daml.lf.transaction.CreationTime
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
@@ -29,46 +20,33 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
   protected val david: LfPartyId = LfPartyId.assertFromString("david")
 
   def contractStore(mk: () => ContractStore): Unit = {
-    val contractId = ExampleTransactionFactory.suffixedId(0, 0)
-    val contractId2 = ExampleTransactionFactory.suffixedId(2, 0)
-    val contractId3 = ExampleTransactionFactory.suffixedId(3, 0)
-    val contractId4 = ExampleTransactionFactory.suffixedId(4, 0)
-    val contractId5 = ExampleTransactionFactory.suffixedId(5, 0)
-    val contract = asSerializable(contractId, contractInstance = contractInstance())
+
+    val contract = ExampleContractFactory.build()
+    val contractId = contract.contractId
     val storedContract = contract
 
     val let2 = CantonTimestamp.Epoch.plusSeconds(5)
     val pkgId2 = Ref.PackageId.assertFromString("different_id")
-    val contract2 = asSerializable(
-      contractId2,
-      contractInstance = contractInstance(
-        templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template"))
-      ),
-      ledgerTime = let2,
+    val contract2 = ExampleContractFactory.build(
+      templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template")),
+      createdAt = let2.underlying,
     )
+    val contractId2 = contract2.contractId
+
     val templateName3 = QualifiedName.assertFromString("Foo:Bar")
     val templateId3 = Ref.Identifier(packageId, templateName3)
     val contract3 =
-      asSerializable(
-        contractId3,
-        contractInstance = contractInstance(templateId = templateId3),
-        ledgerTime = let2,
+      ExampleContractFactory.build(
+        templateId = templateId3,
+        createdAt = let2.underlying,
       )
-    val contract4 =
-      asSerializable(
-        contractId4,
-        contractInstance = contractInstance(
-          templateId = Ref.Identifier(pkgId2, templateName3)
-        ),
-      )
+    val contractId3 = contract3.contractId
 
-    val contract5 =
-      asSerializable(
-        contractId5,
-        contractInstance = contractInstance(
-          templateId = Ref.Identifier(pkgId2, templateName3)
-        ),
-      )
+    val contract4 = ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
+    val contractId4 = contract4.contractId
+
+    val contract5 = ExampleContractFactory.build(templateId = Ref.Identifier(pkgId2, templateName3))
+    val contractId5 = contract5.contractId
 
     "store and retrieve a created contract" in {
       val store = mk()
@@ -92,22 +70,22 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
           LfPartyId.assertFromString(s"alicealicealicealicealicealice::$x")
         }
         .toSet
-      val metadata = ContractMetadata.tryCreate(Set.empty, manySignatories, None)
-      metadata.toByteArray(testedProtocolVersion).length should be > 32768
-      val largeContract: SerializableContract =
-        asSerializable(
-          contractId,
-          contractInstance = contractInstance(),
-          metadata = metadata,
+
+      val largeContract =
+        ExampleContractFactory.build(
+          signatories = manySignatories,
+          stakeholders = manySignatories,
         )
+
+      largeContract.encode().value.size() should be > 32768
 
       val storedLargeContractUpdated = largeContract
 
       for {
         _ <- store.storeContract(largeContract).failOnShutdown
         _ <- store.storeContract(largeContract).failOnShutdown
-        c <- store.lookupE(contractId)
-        inst <- store.lookupContractE(contractId)
+        c <- store.lookupE(largeContract.contractId)
+        inst <- store.lookupContractE(largeContract.contractId)
       } yield {
         c shouldEqual storedLargeContractUpdated
         inst shouldEqual largeContract
@@ -199,19 +177,17 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
     "find contracts by filters" in {
       val store = mk()
 
+      val contract2b = ExampleContractFactory.build(
+        templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template")),
+        createdAt = LfTimestamp.Epoch,
+      )
+
       for {
         _ <- store.storeContract(contract).failOnShutdown
         _ <- store.storeContract(contract2).failOnShutdown
         _ <- store.storeContract(contract3).failOnShutdown
         _ <- store.storeContract(contract4).failOnShutdown
-        _ <- store
-          .storeContract(
-            contract2.copy(
-              contractId = contractId5,
-              ledgerCreateTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
-            )
-          )
-          .failOnShutdown
+        _ <- store.storeContract(contract2b).failOnShutdown
 
         resId <- store.find(exactId = Some(contractId.coid), None, None, 100)
         resPkg <- store
@@ -221,9 +197,8 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         resTemplatePkg <- store
           .find(
             exactId = None,
-            filterPackage = Some(contract4.contractInstance.unversioned.template.packageId),
-            filterTemplate =
-              Some(contract4.contractInstance.unversioned.template.qualifiedName.toString()),
+            filterPackage = Some(contract4.templateId.packageId),
+            filterTemplate = Some(contract4.templateId.qualifiedName.toString()),
             100,
           )
         resTemplate <- store.find(None, None, Some(templateName3.toString), 100)
@@ -264,9 +239,9 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4)).failOnShutdown
       } yield {
         res shouldBe Map(
-          contractId -> contract.metadata.stakeholders,
-          contractId2 -> contract2.metadata.stakeholders,
-          contractId4 -> contract4.metadata.stakeholders,
+          contractId -> contract.stakeholders,
+          contractId2 -> contract2.stakeholders,
+          contractId4 -> contract4.stakeholders,
         )
       }
     }

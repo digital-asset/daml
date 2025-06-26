@@ -4,16 +4,22 @@
 package com.digitalasset.canton.admin.api.client.data.crypto
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 final case class RequiredSigningSpecs(
     algorithms: NonEmpty[Set[SigningAlgorithmSpec]],
     keys: NonEmpty[Set[SigningKeySpec]],
-)
+) extends PrettyPrinting {
+  override val pretty: Pretty[this.type] = prettyOfClass(
+    param("algorithms", _.algorithms),
+    param("keys", _.keys),
+  )
+}
 
 /** Schemes for signature keys. */
-sealed trait SigningKeySpec extends Product with Serializable {
+sealed trait SigningKeySpec extends Product with Serializable with PrettyPrinting {
   def name: String
-  override def toString: String = name
+  override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object SigningKeySpec {
@@ -35,9 +41,9 @@ object SigningKeySpec {
 }
 
 /** Algorithm schemes for signing. */
-sealed trait SigningAlgorithmSpec extends Product with Serializable {
+sealed trait SigningAlgorithmSpec extends Product with Serializable with PrettyPrinting {
   def name: String
-  override def toString: String = name
+  override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object SigningAlgorithmSpec {

@@ -10,6 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -426,7 +427,8 @@ trait BaseTest
   lazy val DamlTestLfDevFilesPath: String = BaseTest.DamlTestLfDevFilesPath
 
   implicit class RichSynchronizerId(val id: SynchronizerId) {
-    def toPhysical: PhysicalSynchronizerId = PhysicalSynchronizerId(id, testedProtocolVersion)
+    def toPhysical: PhysicalSynchronizerId =
+      PhysicalSynchronizerId(id, testedProtocolVersion, NonNegativeInt.zero)
   }
 
   implicit def toSynchronizerId(id: PhysicalSynchronizerId): SynchronizerId = id.logical
@@ -436,7 +438,8 @@ trait BaseTest
 
 object BaseTest {
   implicit class RichSynchronizerIdO(val id: SynchronizerId) {
-    def toPhysical: PhysicalSynchronizerId = PhysicalSynchronizerId(id, testedProtocolVersion)
+    def toPhysical: PhysicalSynchronizerId =
+      PhysicalSynchronizerId(id, testedProtocolVersion, NonNegativeInt.zero)
   }
 
   /** Keeps evaluating `testCode` until it fails or a timeout occurs.
@@ -531,6 +534,7 @@ object BaseTest {
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
     protocolVersion = protocolVersion,
+    serial = NonNegativeInt.zero,
   )
 
   lazy val testedProtocolVersion: ProtocolVersion = ProtocolVersion.forSynchronizer

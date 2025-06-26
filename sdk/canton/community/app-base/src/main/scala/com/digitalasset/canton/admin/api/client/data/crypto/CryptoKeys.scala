@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.admin.api.client.data.crypto
 
-sealed trait CryptoKeyFormat extends Product with Serializable {
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+
+sealed trait CryptoKeyFormat extends Product with Serializable with PrettyPrinting {
   def name: String
-  override def toString: String = name
+  override val pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object CryptoKeyFormat {

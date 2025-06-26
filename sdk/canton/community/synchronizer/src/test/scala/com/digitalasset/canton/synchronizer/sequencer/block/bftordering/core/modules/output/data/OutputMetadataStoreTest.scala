@@ -4,7 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.{
   OutputBlockMetadata,
   OutputEpochMetadata,
@@ -20,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future

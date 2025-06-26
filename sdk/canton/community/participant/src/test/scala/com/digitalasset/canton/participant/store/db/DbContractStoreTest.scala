@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDb
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbStorageIdempotency, DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.ExecutionContext
@@ -42,7 +41,6 @@ trait DbContractStoreTest extends AsyncWordSpec with BaseTest with ContractStore
     behave like contractStore(() =>
       createDbContractStoreForTesting(
         storage,
-        testedProtocolVersion,
         loggerFactory,
       )
     )
@@ -52,12 +50,10 @@ object DbContractStoreTest {
 
   def createDbContractStoreForTesting(
       storage: DbStorageIdempotency,
-      protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DbContractStore =
     new DbContractStore(
       storage = storage,
-      protocolVersion = ReleaseProtocolVersion(protocolVersion),
       cacheConfig = CachingConfigs.testing.contractStore,
       dbQueryBatcherConfig = BatchAggregatorConfig.defaultsForTesting,
       insertBatchAggregatorConfig = BatchAggregatorConfig.defaultsForTesting,

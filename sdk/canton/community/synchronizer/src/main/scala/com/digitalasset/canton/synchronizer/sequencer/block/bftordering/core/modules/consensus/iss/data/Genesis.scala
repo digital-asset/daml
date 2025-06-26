@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
   OrderingTopologyProvider,
   TopologyActivationTime,
 }

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology
 
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.version.ProtocolVersion
 import magnolify.scalacheck.auto.*
@@ -32,5 +33,6 @@ final class GeneratorsTopology(protocolVersion: ProtocolVersion) {
 
   implicit val physicalSynchronizerIdArb: Arbitrary[PhysicalSynchronizerId] = Arbitrary(for {
     synchronizerId <- synchronizerIdArb.arbitrary
-  } yield PhysicalSynchronizerId(synchronizerId, protocolVersion))
+    serial <- Arbitrary.arbitrary[NonNegativeInt]
+  } yield PhysicalSynchronizerId(synchronizerId, protocolVersion, serial))
 }

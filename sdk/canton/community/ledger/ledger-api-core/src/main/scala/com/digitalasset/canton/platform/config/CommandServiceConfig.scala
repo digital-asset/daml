@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.config
 
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 
 import java.time.Duration
 
@@ -15,11 +16,16 @@ import java.time.Duration
   * @param maxCommandsInFlight
   *   Maximum number of submitted commands waiting to be completed in parallel. Commands submitted
   *   after this limit is reached will be rejected.
+  * @param contractPrefetchingDepth
+  *   Levels of pre-fetching before interpretation. This allows the engine to preload all referenced
+  *   contract ids before interpretation to avoid single contract lookups that have to be done in
+  *   the database.
   */
 final case class CommandServiceConfig(
     defaultTrackingTimeout: NonNegativeFiniteDuration =
       CommandServiceConfig.DefaultDefaultTrackingTimeout,
     maxCommandsInFlight: Int = CommandServiceConfig.DefaultMaxCommandsInFlight,
+    contractPrefetchingDepth: PositiveInt = CommandServiceConfig.DefaultContractPrefetchingDepth,
 )
 
 object CommandServiceConfig {
@@ -28,4 +34,6 @@ object CommandServiceConfig {
   )
   val DefaultMaxCommandsInFlight: Int = 256
   lazy val Default: CommandServiceConfig = CommandServiceConfig()
+  lazy val DefaultContractPrefetchingDepth: PositiveInt = PositiveInt.tryCreate(3)
+
 }

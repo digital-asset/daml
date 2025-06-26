@@ -9,6 +9,7 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 
 object DefaultTestIdentities {
+  import BaseTest.*
 
   private def createParticipantAndParty(counter: Int): (ParticipantId, PartyId) = {
     val namespace = Namespace(Fingerprint.tryFromString(s"participant$counter-identity"))
@@ -20,8 +21,7 @@ object DefaultTestIdentities {
   val namespace: Namespace = Namespace(Fingerprint.tryFromString("default"))
   val uid: UniqueIdentifier = UniqueIdentifier.tryCreate("da", namespace)
   val synchronizerId: SynchronizerId = SynchronizerId(uid)
-  val physicalSynchronizerId: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(synchronizerId, BaseTest.testedProtocolVersion)
+  val physicalSynchronizerId: PhysicalSynchronizerId = synchronizerId.toPhysical
 
   val daSequencerId: SequencerId = SequencerId(uid)
   val daMediator: MediatorId = MediatorId(uid)

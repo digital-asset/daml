@@ -188,7 +188,6 @@ final class SyncStateInspection(
   def findContractPayloads(
       synchronizerId: SynchronizerId,
       contractIds: Seq[LfContractId],
-      limit: Int,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] = {
@@ -206,7 +205,7 @@ final class SyncStateInspection(
             synchronizerAlias,
           )
 
-        synchronizerAcsInspection.findContractPayloads(neCids, limit)
+        synchronizerAcsInspection.findContractPayloads(neCids)
     }
   }
 
@@ -430,8 +429,7 @@ final class SyncStateInspection(
       contractsWithReassignmentCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
 
       filteredByParty = contractsWithReassignmentCounter.collect {
-        case (contract, reassignmentCounter)
-            if parties.intersect(contract.metadata.stakeholders).nonEmpty =>
+        case (contract, reassignmentCounter) if parties.intersect(contract.stakeholders).nonEmpty =>
           (contract.contractId, reassignmentCounter)
       }
     } yield filteredByParty.toSet

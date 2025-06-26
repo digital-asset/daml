@@ -83,7 +83,8 @@ object DisseminationProgress {
     val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)
     // No need to update the acks in DisseminatedBatchMetadata, if the PoA is still valid
     Option.when(
-      !AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size)
+      batchMetadata.proofOfAvailability.acks.toSet != reviewedAcks ||
+        !AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size)
     )(
       DisseminationProgress(
         orderingTopology,

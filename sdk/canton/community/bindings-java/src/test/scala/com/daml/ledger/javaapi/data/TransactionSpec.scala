@@ -31,12 +31,11 @@ class TransactionSpec
       def lastDescendantNodeId(): Int = descendants().map(_.nodeId).maxOption.getOrElse(nodeId)
     }
 
-    val wrappedTree: Seq[WrappedEvent] = TransactionUtils
-      .buildTree(
-        transaction,
-        (event: Event, children: java.util.List[WrappedEvent]) =>
-          WrappedEvent(event.getNodeId, children.asScala.toList),
+    val wrappedTree: Seq[WrappedEvent] = transaction
+      .toWrappedTree((event: Event, children: java.util.List[WrappedEvent]) =>
+        WrappedEvent(event.getNodeId, children.asScala.toList)
       )
+      .getWrappedRootEvents
       .asScala
       .toSeq
 
@@ -78,12 +77,11 @@ class TransactionSpec
       def lastDescendantNodeId(): Int = descendants().map(_.nodeId).maxOption.getOrElse(nodeId)
     }
 
-    val wrappedTree: Seq[WrappedEvent] = TransactionUtils
-      .buildTree(
-        transaction,
-        (event: Event, children: java.util.List[WrappedEvent]) =>
-          WrappedEvent(event.getNodeId, children.asScala.toList),
+    val wrappedTree: Seq[WrappedEvent] = transaction
+      .toWrappedTree((event: Event, children: java.util.List[WrappedEvent]) =>
+        WrappedEvent(event.getNodeId, children.asScala.toList)
       )
+      .getWrappedRootEvents
       .asScala
       .toSeq
 
@@ -136,12 +134,11 @@ class TransactionSpec
         Seq(this) ++ children ++ children.flatMap(_.descendants())
     }
 
-    val wrappedTree: Seq[WrappedEvent] = TransactionUtils
-      .buildTree(
-        transaction,
-        (event: Event, children: java.util.List[WrappedEvent]) =>
-          WrappedEvent(event.getNodeId, children.asScala.toList),
+    val wrappedTree: Seq[WrappedEvent] = transaction
+      .toWrappedTree((event: Event, children: java.util.List[WrappedEvent]) =>
+        WrappedEvent(event.getNodeId, children.asScala.toList)
       )
+      .getWrappedRootEvents
       .asScala
       .toSeq
 
