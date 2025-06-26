@@ -9,7 +9,9 @@ import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import qualified DA.Daml.LF.Ast.Version as LF
+import DA.Cli.Damlc.Test
+import DA.Daml.Compiler.Dar (getDamlRootFiles)
+import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
 import DA.Daml.Options.Types
@@ -18,15 +20,17 @@ import DA.Daml.Project.Types
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import DA.Test.Util (withResourceCps)
+import DA.Test.Process (callProcessSilent)
+import DA.Test.Util (withResourceCps, withCurrentTempDir)
 import qualified Data.HashSet as HashSet
+import Data.Foldable (for_)
 import Data.List
 import qualified Data.Set as S
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import Development.IDE.Core.Debouncer (noopDebouncer)
 import Development.IDE.Core.FileStore (makeVFSHandle, setBufferModified)
-import Development.IDE.Core.IdeState.Daml (getDamlIdeState)
+import Development.IDE.Core.IdeState.Daml (getDamlIdeState, IdeState)
 import Development.IDE.Core.OfInterest (setFilesOfInterest)
 import Development.IDE.Core.RuleTypes.Daml (RunScripts (..), VirtualResource (..))
 import Development.IDE.Core.Rules.Daml (worldForFile)
@@ -71,50 +75,43 @@ main = withSdkVersions $ do
                 ]
             ]
 
-damlScriptDarPath :: LF.Version -> FilePath
-damlScriptDarPath = \case
-    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml-script-2.dev.dar"
-    (LF.Version LF.V2 _) -> prefix </> "daml-script.dar"
-  where
-    prefix = mainWorkspace </> "daml-script" </> "daml"
-
 withScriptService :: SdkVersioned => LF.Version -> (SS.Handle -> IO ()) -> IO ()
-withScriptService lfVersion action =
-  withTempDir $ \dir -> do
-    withCurrentDirectory dir $ do
+withScriptService lfVersion action = do
+  logger <- Logger.newStderrLogger Logger.Error "script-service"
+  let scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+  -- Spinning up the script service is expensive so we do it once at the beginning.
+  SS.withScriptService lfVersion logger scriptConfig action
 
-      -- Package DB setup, we only need to do this once so we do it at the beginning.
-      scriptDar <- locateRunfiles $ damlScriptDarPath lfVersion
-      writeFileUTF8 "daml.yaml" $
-        unlines
-          [ "sdk-version: " <> sdkVersion,
-            "name: script-service",
-            "version: 0.0.1",
-            "source: .",
-            "dependencies:",
-            "- daml-prim",
-            "- daml-stdlib",
-            "- " <> show scriptDar
-          ]
-      withPackageConfig (ProjectPath ".") $
-        setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) $ options lfVersion
-      logger <- Logger.newStderrLogger Logger.Debug "script-service"
-
-      -- Spinning up the script service is expensive so we do it once at the beginning.
-      SS.withScriptService lfVersion logger scriptConfig $ \scriptService -> do
-        action scriptService
-  where
-    scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
+withPackageDBAndIdeState :: SdkVersioned => LF.Version -> IO SS.Handle -> (IdeState -> IO ()) -> IO ()
+withPackageDBAndIdeState lfVersion getScriptService action = do
+  scriptDar <- locateDamlScriptDar lfVersion
+  withCurrentTempDir $ do
+    -- Package DB setup, we only need to do this once so we do it at the beginning.
+    writeFileUTF8 "daml.yaml" $
+      unlines
+        [ "sdk-version: " <> sdkVersion,
+          "name: script-service",
+          "version: 0.0.1",
+          "source: .",
+          "dependencies:",
+          "- daml-prim",
+          "- daml-stdlib",
+          "- " <> show scriptDar
+        ]
+    let opts = defaultOptions (Just lfVersion)
+    withPackageConfig (ProjectPath ".") $
+      setupPackageDbFromPackageConfig (toNormalizedFilePath' ".") opts
+    withIdeState getScriptService opts action
 
 testScriptService :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptService lfVersion getScriptService =
-          testGroup
-            ("LF " <> LF.renderVersion lfVersion)
+  testGroup ("LF " <> LF.renderVersion lfVersion)
+    [ withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
+        testGroup "single module"
             [ testCase "createCmd + exerciseCmd + createAndExerciseCmd" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import Daml.Script",
                       "template T",
@@ -145,13 +142,13 @@ testScriptService lfVersion getScriptService =
                       "  cid <- submit p (createCmd (T p 42))",
                       "  submit p (archiveCmd cid)"
                     ]
-                expectScriptSuccess rs (vr "testCreate") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testCreate") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n$"
-                expectScriptSuccess rs (vr "testExercise") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testExercise") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$"
-                expectScriptSuccess rs (vr "testCreateAndExercise") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testCreateAndExercise") $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$"
-                expectScriptSuccess rs (vr "testMulti") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testMulti") $ \r ->
                   matchRegex r $
                     T.unlines
                       [ "Active contracts: "
@@ -160,14 +157,13 @@ testScriptService lfVersion getScriptService =
                       , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                       , "    _1 = 23; _2 = 42"
                       ]
-                expectScriptSuccess rs (vr "testArchive") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testArchive") $ \r ->
                   matchRegex r "'p' exercises Archive on #0:0",
               testCase "query" $
                 do
                   rs <-
-                    runScripts
-                      getScriptService
-                      lfVersion
+                    runScriptsInModule
+                      getIdeState
                       [ "module Test where",
                         "import Daml.Script",
                         "import DA.Assert",
@@ -238,16 +234,15 @@ testScriptService lfVersion getScriptService =
                         "  sharedp2 <- query @TShared p2",
                         "  sortOn snd sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
                       ]
-                  expectScriptSuccess rs (vr "testQueryInactive") $ \r ->
+                  expectScriptSuccess rs (vr "Test.daml" "testQueryInactive") $ \r ->
                     matchRegex r "Active contracts:  #0:0, #2:0\n\n"
-                  expectScriptSuccess rs (vr "testQueryVisibility") $ \r ->
+                  expectScriptSuccess rs (vr "Test.daml" "testQueryVisibility") $ \r ->
                     matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0, #4:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
                   rs <-
-                    runScripts
-                      getScriptService
-                      lfVersion
+                    runScriptsInModule
+                      getIdeState
                       [ "module Test where",
                         "import Daml.Script",
                         "template T",
@@ -266,14 +261,13 @@ testScriptService lfVersion getScriptService =
                         "  cid <- submit p (createCmd (T p))",
                         "  pure ()"
                       ]
-                  expectScriptSuccess rs (vr "testAssertFail") $ \r ->
+                  expectScriptSuccess rs (vr "Test.daml" "testAssertFail") $ \r ->
                     matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n$"
                   pure (),
               testCase "time" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import Daml.Script",
                       "import DA.Date",
@@ -309,27 +303,26 @@ testScriptService lfVersion getScriptService =
                       "  passTime (days (-1))",
                       "  submit p $ exerciseCmd cid Archive"
                     ]
-                expectScriptSuccess rs (vr "testTime") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testTime") $ \r ->
                     matchRegex r $
                       T.unlines
                         [ "Return value:"
                         , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                         , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
-                expectScriptSuccess rs (vr "testChoiceTime") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testChoiceTime") $ \r ->
                     matchRegex r $
                       T.unlines
                         [ "Return value:"
                         , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                         , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
-                expectScriptFailure rs (vr "testPassTime") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "testPassTime") $ \r ->
                     matchRegex r "Attempt to fetch or exercise a contract not yet effective",
               testCase "partyManagement" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import DA.Assert",
                       "import DA.Optional",
@@ -368,19 +361,18 @@ testScriptService lfVersion getScriptService =
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"hint\")",
                       "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "partyManagement") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "partyManagement") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-                expectScriptFailure rs (vr "duplicateAllocateByHint") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "duplicateAllocateByHint") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists: alice"
-                expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "partyWithEmptyDisplayName") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-                expectScriptFailure rs (vr "mismatchingNameAndHint") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "mismatchingNameAndHint") $ \r ->
                   matchRegex r "Requested name 'alice' cannot be different from id hint 'hint'",
               testCase "trace" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import Daml.Script"
                     , "template T"
@@ -402,7 +394,7 @@ testScriptService lfVersion getScriptService =
                     , "  submit p (createAndExerciseCmd (T p) Failing)"
                     , "  pure ()"
                     ]
-                expectScriptFailure rs (vr "testTrace") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "testTrace") $ \r ->
                   matchRegex r $ T.concat
                     [ "Trace: \n"
                     , "  \"logClient1\"\n"
@@ -412,9 +404,8 @@ testScriptService lfVersion getScriptService =
                     ],
               testCase "multi-party submissions" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.List"
@@ -441,15 +432,14 @@ testScriptService lfVersion getScriptService =
                     , "  p1 <- allocateParty \"p1\""
                     , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
                     ]
-                expectScriptSuccess rs (vr "testSucceed") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #2:0, #3:0"
-                expectScriptFailure rs (vr "testFail") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "testFail") $ \r ->
                   matchRegex r "missing authorization from 'p1-[a-z0-9]+'",
               testCase "submitTree" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.Foldable"
@@ -478,13 +468,12 @@ testScriptService lfVersion getScriptService =
                     , "  fromAnyTemplate c2.argument === Some (T p 2)"
                     , "  fromAnyTemplate c3.argument === Some (T p 3)"
                     ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "test") $ \r ->
                   matchRegex r "Active contracts:",
               testCase "exceptions" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Exception"
                     , "import DA.Assert"
@@ -545,12 +534,12 @@ testScriptService lfVersion getScriptService =
                     , "  p <- allocateParty \"p\""
                     , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
-                expectScriptSuccess rs (vr "testActive") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testActive") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
-                expectScriptFailure rs (vr "unhandledOffLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
-                expectScriptFailure rs (vr "unhandledOnLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
+                expectScriptFailure rs (vr "Test.daml" "unhandledOffLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
+                expectScriptFailure rs (vr "Test.daml" "unhandledOnLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
               testCase "user management" $ do
-                rs <- runScripts getScriptService lfVersion
+                rs <- runScriptsInModule getIdeState
                   [ "module Test where"
                   , "import DA.Assert"
                   , "import Daml.Script"
@@ -628,12 +617,12 @@ testScriptService lfVersion getScriptService =
                   , "  expectUserNotFound (grantUserRights nonexistent [])"
                   , "  pure ()"
                   ]
-                expectScriptSuccess rs (vr "testUserManagement") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testUserManagement") $ \r ->
                     matchRegex r "Active contracts: \n"
-                expectScriptSuccess rs (vr "testUserRightManagement") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "testUserRightManagement") $ \r ->
                     matchRegex r "Active contracts: \n",
               testCase "implicit party allocation" $ do
-                rs <- runScripts getScriptService lfVersion
+                rs <- runScriptsInModule getIdeState
                   [ "module Test where"
                   , "import DA.Assert"
                   , "import DA.Optional"
@@ -658,13 +647,13 @@ testScriptService lfVersion getScriptService =
                   , "  submit x $ createCmd (T x unallocated)"
                   , "  pure ()"
                   ]
-                expectScriptFailure rs (vr "submitterNotAllocated") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "submitterNotAllocated") $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
-                expectScriptFailure rs (vr "observerNotAllocated") $ \r ->
+                expectScriptFailure rs (vr "Test.daml" "observerNotAllocated") $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
               -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
               testCase "rollback archive" $ do
-                rs <- runScripts getScriptService lfVersion
+                rs <- runScriptsInModule getIdeState
                   [ "module Test where"
                   , "import Daml.Script"
                   , "import DA.Exception"
@@ -696,21 +685,138 @@ testScriptService lfVersion getScriptService =
                   , "  submit a do"
                   , "    exerciseCmd c Catch"
                   ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs (vr "Test.daml" "test") $ \r ->
                    matchRegex r "Active contracts:  #0:0\n"
             ]
-  where
-    vr n = VRScript (toNormalizedFilePath' "Test.daml") n
+    , testGroup "multi packages"
+        [ testCase "upgrade to acquired interface" $ do
+            scriptDar <- locateDamlScriptDar lfVersion
+            rs <- runScriptsInAllPackages getScriptService lfVersion (ProjectPath "v2")
+              [ ( ProjectPath "interface"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack sdkVersion
+                      , "name: interface"
+                      , "version: 1.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      ]
+                    ),
+                    ( "Interface.daml"
+                    , [ "module Interface where"
+                      , "data IView = IView { i : Int } deriving Eq"
+                      , "interface I where"
+                      , "  viewtype IView"
+                      ]
+                    )
+                  ]
+                )
+              , ( ProjectPath "v1"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack sdkVersion
+                      , "name: main"
+                      , "version: 1.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      , "- " <> T.pack (show scriptDar)
+                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      ]
+                    ),
+                    ( "Main.daml"
+                    , [ "module Main where"
+                      , "import Interface"
+                      , "import Daml.Script"
+                      , "template T with"
+                      , "    p : Party"
+                      , "    i : Int"
+                      , "  where signatory p"
+                      , "test1 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (T p 0)"
+                      , "  xs <- queryInterface @I p"
+                      , "  assert $ null xs"
+                      , "test2 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (T p 0)"
+                      , "  let i = coerceContractId @T @I t"
+                      , "  optView <- queryInterfaceContractId @I @IView p i"
+                      , "  assert $ optView == None"
+                      ]
+                    )
+                  ]
+                )
+              , ( ProjectPath "v2"
+                , [ ( "daml.yaml"
+                    , [ "sdk-version: " <> T.pack sdkVersion
+                      , "name: main"
+                      , "version: 2.0.0"
+                      , "source: ."
+                      , "dependencies:"
+                      , "- daml-prim"
+                      , "- daml-stdlib"
+                      , "- " <> T.pack (show scriptDar)
+                      , "- ../interface/.daml/dist/interface-1.0.0.dar"
+                      , "- ../v1/.daml/dist/main-1.0.0.dar"
+                      , "module-prefixes:"
+                      , "  main-1.0.0: V1"
+                      ]
+                    )
+                  , ( "Main.daml"
+                    , [ "module Main where"
+                      , "import Interface"
+                      , "import qualified V1.Main as V1"
+                      , "import Daml.Script"
+                      , "template T with"
+                      , "    p : Party"
+                      , "    i : Int"
+                      , "  where"
+                      , "    signatory p"
+                      , "    interface instance I for T where"
+                      , "      view = IView i"
+                      , "test1 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (V1.T p 0)"
+                      , "  xs <- queryInterface @I p"
+                      , "  let i = coerceContractId @V1.T @I t"
+                      , "  assert $ xs == [(i, Some (IView 0))]"
+                      , "test2 = script do"
+                      , "  p <- allocateParty \"party\""
+                      , "  t <- submit p $ createCmd (V1.T p 0)"
+                      , "  let i = coerceContractId @V1.T @I t"
+                      , "  optView <- queryInterfaceContractId @I @IView p i"
+                      , "  assert $ optView == Some (IView 0)"
+                      ]
+                    )
+                  ]
+                )
+              ]
+            expectScriptSuccess rs (vr "v2/Main.daml" "test1") $ \r ->
+              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            expectScriptSuccess rs (vr "v2/Main.daml" "test2") $ \r ->
+              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            -- scripts in v1 (main-1.0.0.dar)
+            -- TODO the so called filePath of a test in a package is the package name
+            -- in the context of upgrading, it should also contain the package version
+            expectScriptSuccess rs (vr "main" "test1") $ \r ->
+              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            expectScriptSuccess rs (vr "main" "test2") $ \r ->
+              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            
+        ]
+    ]
 
 testScriptServiceWithKeys :: SdkVersioned => LF.Version -> IO SS.Handle -> TestTree
 testScriptServiceWithKeys lfVersion getScriptService =
+  withResourceCps (withPackageDBAndIdeState lfVersion getScriptService) $ \getIdeState ->
           testGroup
             ("LF " <> LF.renderVersion lfVersion)
             [ testCase "exerciseByKeyCmd" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import DA.Assert",
                       "import Daml.Script",
@@ -734,9 +840,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$",
               testCase "fetch and exercising by key shows key in log" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import Daml.Script",
                       "",
@@ -808,9 +913,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     ])),
               testCase "failing transactions" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import Daml.Script",
                       "template MultiSignatory",
@@ -912,9 +1016,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                 pure (),
               testCase "contract keys" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where",
                       "import Daml.Script",
                       "import DA.Assert",
@@ -946,9 +1049,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "Active contracts:  #0:0, #1:0\n\n",
               testCase "queryContractId/Key" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import Daml.Script"
@@ -1006,9 +1108,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "Active contracts:  #0:0, #1:0, #2:0",
               testCase "multi-party query" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.List"
@@ -1044,9 +1145,8 @@ testScriptServiceWithKeys lfVersion getScriptService =
                   matchRegex r "Active contracts:  #0:0, #1:0",
               testCase "local key visibility" $ do
                 rs <-
-                  runScripts
-                    getScriptService
-                    lfVersion
+                  runScriptsInModule
+                    getIdeState
                     [ "module Test where"
                     , "import DA.Assert"
                     , "import DA.Foldable"
@@ -1145,11 +1245,10 @@ expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
     unless (pred err) $
       assertFailure $ "Predicate for " <> show vr <> " failed on " <> show err
 
-options :: LF.Version -> Options
-options lfVersion = defaultOptions (Just lfVersion)
-
-runScripts :: SdkVersioned => IO SS.Handle -> LF.Version -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
-runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \ideState -> do
+runScriptsInModule :: IO IdeState -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScriptsInModule getIdeState fileContent = do 
+  ideState <- getIdeState
+  let file = toNormalizedFilePath' "Test.daml"
   setBufferModified ideState file $ Just $ T.unlines fileContent
   setFilesOfInterest ideState (HashSet.singleton file)
   mbResult <- runActionSync ideState $ use RunScripts file
@@ -1161,26 +1260,79 @@ runScripts getService lfVersion fileContent = bracket getIdeState shutdown $ \id
       world <- runActionSync ideState (worldForFile file)
       let render (vr, r) = (vr,) <$> prettyResult world r
       mapM render xs
+
+runScriptsInAllPackages :: SdkVersioned => IO SS.Handle -> LF.Version -> ProjectPath -> [(ProjectPath, [(FilePath, [T.Text])])] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScriptsInAllPackages getScriptService lfVersion mainProject projects = do
+  damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
+  withCurrentTempDir $ do
+    for_ projects $ writeAndBuildProject lfVersion damlc
+    opts <- withPackageConfig mainProject $ \ PackageConfigFields{..} -> do
+      pure $ (defaultOptions (Just lfVersion)) 
+        { -- TODO optEnableInterfaces should always be true
+          optEnableInterfaces = EnableInterfaces True
+        , optMbPackageName = Just pName
+        , optMbPackageVersion = pVersion
+        }
+    damlFiles <- getDamlRootFiles (unwrapProjectPath mainProject)
+    withIdeState getScriptService opts $ \ideState -> do
+      (result, extResults) <- runAllScripts ideState damlFiles (RunAllOption True)
+      let 
+        extPkgs = [pkg | ExtPackageTestResults pkg _ <- extResults]
+        prettyModuleRes = [ (vr,) <$> prettyResult world res 
+                          | ModuleTestResults world _ _ (Just modRes) <- result
+                          , (vr, res) <- modRes
+                          ]
+        prettyExtRes = [ (vr,) <$> prettyResult world res
+                      | ExtPackageTestResults (LF.ExternalPackage _ pkg) (Just pkgRes) <- extResults
+                      , let world = LF.initWorldSelf extPkgs pkg
+                      , (vr, res) <- pkgRes
+                      ]
+      sequence $ prettyModuleRes ++ prettyExtRes
+
+locateDamlScriptDar :: LF.Version -> IO FilePath
+locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
+    (LF.Version LF.V2 LF.PointDev) -> prefix </> "daml-script-2.dev.dar"
+    (LF.Version LF.V2 _) -> prefix </> "daml-script.dar"
   where
-    prettyResult world (Left err) = case err of
-      SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
-      SS.ScriptError err -> pure $ Left $ renderPlain $
-        prettyScriptError prettyNormal world err
-          $$ text "" -- add a newline at the end
-    prettyResult world (Right r) = pure $ Right $ renderPlain $
-      prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scriptResultActiveContracts r))) r
-        $$ text "" -- add a newline at the end
-    file = toNormalizedFilePath' "Test.daml"
-    getIdeState = do
-      vfs <- makeVFSHandle
-      logger <- Logger.newStderrLogger Logger.Error "script-service"
-      service <- getService
-      getDamlIdeState
-        (options lfVersion)
+    prefix = mainWorkspace </> "daml-script" </> "daml"
+
+writeAndBuildProject :: LF.Version -> FilePath -> (ProjectPath, [(FilePath, [T.Text])]) -> IO ()
+writeAndBuildProject lfVersion damlc (ProjectPath projectPath, projectFiles) = do
+  createDirectory projectPath
+  for_ projectFiles $ \(file, fileContent) ->
+    writeFile (projectPath </> file) $ T.unpack $ T.unlines fileContent
+  callProcessSilent damlc
+    [ "build"
+    , "--project-root"
+    , projectPath
+    , "--target=" <> LF.renderVersion lfVersion
+    ]
+
+withIdeState :: SdkVersioned => IO SS.Handle -> Options -> (IdeState -> IO a) -> IO a
+withIdeState getScriptService opts action = do
+  logger <- Logger.newStderrLogger Logger.Error "script-service"
+  vfs <- makeVFSHandle
+  service <- getScriptService
+  let getIdeState = getDamlIdeState
+        opts
         (StudioAutorunAllScripts True)
         (Just service)
         logger
         noopDebouncer
         (DummyLspEnv $ NotificationHandler $ \_ _ -> pure ())
         vfs
+  bracket getIdeState shutdown action
+
+prettyResult :: LF.World -> Either SS.Error SS.ScriptResult -> IO (Either T.Text T.Text)
+prettyResult world (Left err) = case err of
+  SS.BackendError err -> assertFailure $ "Unexpected result " <> show err
+  SS.ExceptionError err -> assertFailure $ "Unexpected result " <> show err
+  SS.ScriptError err -> pure $ Left $ renderPlain $
+    prettyScriptError prettyNormal world err
+      $$ text "" -- add a newline at the end
+prettyResult world (Right r) = pure $ Right $ renderPlain $
+  prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scriptResultActiveContracts r))) r
+    $$ text "" -- add a newline at the end
+
+vr :: FilePath -> T.Text -> VirtualResource 
+vr path scriptName = VRScript (toNormalizedFilePath' path) scriptName
