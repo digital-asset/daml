@@ -11,6 +11,8 @@ jobs:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
+    - checkout: self
+      clean: true
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
@@ -35,6 +37,8 @@ jobs:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
   steps:
+    - checkout: self
+      clean: true
     - bash: |
         set -euo pipefail
         ci/create-dotnetrc.sh
