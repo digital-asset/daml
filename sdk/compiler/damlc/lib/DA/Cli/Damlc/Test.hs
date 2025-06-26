@@ -8,7 +8,7 @@ module DA.Cli.Damlc.Test (
     execTest
     , UseColor(..)
     , ShowCoverage(..)
-    , RunAllTests(..)
+    , RunAllOption(..)
     , TableOutputPath(..)
     , TransactionsOutputPath(..)
     , CoveragePaths(..)
@@ -16,6 +16,10 @@ module DA.Cli.Damlc.Test (
     , CoverageFilter(..)
     , loadAggregatePrintResults
     -- , Summarize(..)
+    -- Exposed for testing
+    , ExtPackageTestResults(..)
+    , ModuleTestResults(..)
+    , runAllScripts
     ) where
 
 import Control.Exception
@@ -67,7 +71,7 @@ import SdkVersion.Class (SdkVersioned)
 newtype UseColor = UseColor {getUseColor :: Bool}
 newtype ShowCoverage = ShowCoverage {getShowCoverage :: Bool}
 newtype CoverageFilter = CoverageFilter {getCoverageFilter :: Regex}
-newtype RunAllTests = RunAllTests {getRunAllTests :: Bool}
+newtype RunAllOption = RunAllOption {getRunAllTests :: Bool}
 newtype TableOutputPath = TableOutputPath {getTableOutputPath :: Maybe String}
 newtype TransactionsOutputPath = TransactionsOutputPath {getTransactionsOutputPath :: Maybe String}
 data CoveragePaths = CoveragePaths
@@ -80,7 +84,7 @@ newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 execTest
     :: SdkVersioned
     => [NormalizedFilePath]
-    -> RunAllTests
+    -> RunAllOption
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
@@ -91,13 +95,13 @@ execTest
     -> CoveragePaths
     -> [CoverageFilter]
     -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+execTest inFiles runAllOption coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
     let optsWithPkg = case mPkgConfig of
             Just PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }
             Nothing -> opts
     withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
-        testRun h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
+        runAndReport h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
 
@@ -121,12 +125,16 @@ loadAggregatePrintResults resultsIO coverageFilters coverage mbNewTestResults = 
           pure ()
       _ -> pure ()
 
-testRun ::
+type TestResult = (VirtualResource, Either SSC.Error SS.ScriptResult)
+data ModuleTestResults = ModuleTestResults LF.World NormalizedFilePath LF.Module (Maybe [TestResult])
+data ExtPackageTestResults = ExtPackageTestResults LF.ExternalPackage (Maybe [TestResult])
+
+runAndReport ::
        IdeState
     -> [NormalizedFilePath]
     -> PrettyLevel
     -> LF.Version
-    -> RunAllTests
+    -> RunAllOption
     -> ShowCoverage
     -> UseColor
     -> Maybe FilePath
@@ -135,46 +143,18 @@ testRun ::
     -> CoveragePaths
     -> [CoverageFilter]
     -> IO ()
-testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
-    -- make sure none of the files disappear
-    liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
-
-    -- take the transitive closure of all imports and run on all of them
-    -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
-    deps <- runActionSync h $ mapM getDependencies inFiles
-    let files = nubOrd $ concat $ inFiles : catMaybes deps
-
-    -- get all external dependencies
-    extPkgs <- fmap (nubSortOn LF.extPackageId . concat) $ runActionSync h $
-      Shake.forP files $ \file -> getExternalPackages file
-
-    results <- runActionSync h $ do
-        Shake.forP files $ \file -> do
-            world <- worldForFile file
-            mod <- moduleForScript file
-            mbScriptResults <- runScripts file
-            return (world, file, mod, mbScriptResults)
-
-    extResults <-
-        if runAllTests
-        then case headMay inFiles of
-                Nothing -> pure [] -- nothing to test
-                Just file ->
-                    runActionSync h $
-                    forM extPkgs $ \pkg -> do
-                        (_fileDiagnostics, mbResults) <- runScriptsPkg file pkg extPkgs
-                        pure (pkg, mbResults)
-        else pure []
+runAndReport h inFiles lvl lfVersion runAllOption coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+    (results, extResults) <- runAllScripts h inFiles runAllOption
 
     let -- All Packages / Modules mentioned somehow
         allPackages :: [TR.LocalOrExternal]
-        allPackages = [TR.Local mod | (_, _, mod, _) <- results] ++ map TR.External extPkgs
+        allPackages = [TR.Local mod | ModuleTestResults _ _ mod _ <- results] ++ [TR.External pkg | ExtPackageTestResults pkg _ <- extResults]
 
         -- All results: subset of packages / modules that actually got scripts run
         allResults :: [(TR.LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
         allResults =
-            [(TR.Local mod, result) | (_world, _file, mod, Just result) <- results]
-            ++ [(TR.External pkg, result) | (pkg, Just result) <- extResults]
+            [(TR.Local mod, result) | ModuleTestResults _ _ mod (Just result) <- results]
+            ++ [(TR.External pkg, result) | ExtPackageTestResults pkg (Just result) <- extResults]
 
     -- print test summary after all tests have run
     printSummary color (concatMap snd allResults)
@@ -203,7 +183,7 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
 
     whenJust mbJUnitOutput $ \junitOutput -> do
         createDirectoryIfMissing True $ takeDirectory junitOutput
-        res <- forM results $ \(_world, file, _mod, resultM) -> do
+        res <- forM results $ \(ModuleTestResults _ file _ resultM) -> do
             case resultM of
                 Nothing -> fmap (file, ) $ runActionSync h $ failedTestOutput h file
                 Just scriptResults -> do
@@ -213,6 +193,39 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
                                 (const Nothing)
                     pure (file, map (second render) scriptResults)
         writeFile junitOutput $ XML.showTopElement $ toJUnit res
+
+runAllScripts :: IdeState -> [NormalizedFilePath] -> RunAllOption -> IO ([ModuleTestResults], [ExtPackageTestResults])
+runAllScripts h inFiles (RunAllOption runAllOption) = do
+    -- make sure none of the files disappear
+    liftIO $ setFilesOfInterest h (HashSet.fromList inFiles)
+
+    -- take the transitive closure of all imports and run on all of them
+    -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
+    deps <- runActionSync h $ mapM getDependencies inFiles
+    let files = nubOrd $ concat $ inFiles : catMaybes deps
+
+    -- get all external dependencies
+    extPkgs <- fmap (nubSortOn LF.extPackageId . concat) $ runActionSync h $
+      Shake.forP files $ \file -> getExternalPackages file
+
+    results <- runActionSync h $ do
+        Shake.forP files $ \file -> do
+            world <- worldForFile file
+            mod <- moduleForScript file
+            mbScriptResults <- runScripts file
+            return $ ModuleTestResults world file mod mbScriptResults
+
+    extResults <-
+        if runAllOption
+        then case headMay inFiles of
+                Nothing -> pure [] -- nothing to test
+                Just file ->
+                    runActionSync h $
+                    forM extPkgs $ \pkg -> do
+                        (_fileDiagnostics, mbResults) <- runScriptsPkg file pkg extPkgs
+                        pure $ ExtPackageTestResults pkg mbResults
+        else pure []
+    pure (results, extResults)
 
 data NamedPath = NamedPath { np_name :: String, np_path :: FilePath }
     deriving (Show, Eq, Ord)
@@ -247,11 +260,11 @@ outputUnderDir dir paths = do
             _ <- tryWithPath (flip TIO.writeFile content) file
             pure ()
 
-outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
+outputTables :: PrettyLevel -> Maybe String -> TableOutputPath -> [ModuleTestResults] -> IO ()
 outputTables lvl cssSource (TableOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
-            (world, _, _, Just results) <- results
+            ModuleTestResults world _ _ (Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScriptResult result
                 tableView = SS.renderTableView lvl world activeContracts (SS.scriptResultNodes result)
@@ -267,11 +280,11 @@ outputTables lvl cssSource (TableOutputPath (Just path)) results =
         outputs
 outputTables _ _ _ _ = pure ()
 
-outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [(LF.World, NormalizedFilePath, LF.Module, Maybe [(VirtualResource, Either SSC.Error SS.ScriptResult)])] -> IO ()
+outputTransactions :: PrettyLevel -> Maybe String -> TransactionsOutputPath -> [ModuleTestResults] -> IO ()
 outputTransactions lvl cssSource (TransactionsOutputPath (Just path)) results =
     let outputs :: [(NamedPath, T.Text)]
         outputs = do
-            (world, _, _, Just results) <- results
+            ModuleTestResults world _ _ (Just results) <- results
             (vr, Right result) <- results
             let activeContracts = SS.activeContractsFromScriptResult result
                 transView = SS.renderTransactionView lvl world activeContracts result
