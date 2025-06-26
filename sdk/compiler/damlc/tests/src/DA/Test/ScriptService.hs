@@ -1268,9 +1268,7 @@ runScriptsInAllPackages getScriptService lfVersion mainProject projects = do
     for_ projects $ writeAndBuildProject lfVersion damlc
     opts <- withPackageConfig mainProject $ \ PackageConfigFields{..} -> do
       pure $ (defaultOptions (Just lfVersion)) 
-        { -- TODO optEnableInterfaces should always be true
-          optEnableInterfaces = EnableInterfaces True
-        , optMbPackageName = Just pName
+        { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }
     damlFiles <- getDamlRootFiles (unwrapProjectPath mainProject)
