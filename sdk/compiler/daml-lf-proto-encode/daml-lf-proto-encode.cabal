@@ -53,6 +53,7 @@ library
       DA.Daml.LF.Proto3.Archive.Encode
       DA.Daml.LF.Proto3.Encode
       DA.Daml.LF.Proto3.EncodeV2
+      DA.Daml.LF.Proto3.InternedMap
     default-extensions:
       BangPatterns
       DeriveDataTypeable

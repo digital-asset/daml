@@ -83,12 +83,14 @@ class DecodeV2Spec
       version: LV,
       stringTable: ImmArraySeq[String] = ImmArraySeq.empty,
       dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
+      kindTable: ImmArraySeq[Ast.Kind] = ImmArraySeq.empty,
       typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
   ) = {
     new DecodeV2(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
       stringTable,
       dottedNameTable,
+      kindTable,
       typeTable,
       None,
       Some(dummyModuleName),
@@ -111,11 +113,31 @@ class DecodeV2Spec
         .setInterned(32)
         .build()
 
-      forEveryVersion { version =>
+      forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>
         an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
       }
     }
 
+  }
+
+  "decodeInternedKind" should {
+
+    "reject nonempty lfkinds on unsupported versions" in {
+      val unit = DamlLf2.Unit.newBuilder().build()
+      val kind = DamlLf2.Kind
+        .newBuilder()
+        .setStar(unit)
+        .build()
+      val pkg = DamlLf2.Package
+        .newBuilder()
+        .addInternedKinds(kind)
+        .build()
+
+      forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>
+        val decoder = new DecodeV2(version.minor)
+        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedKindsForTest(null, pkg))
+      }
+    }
   }
 
   "uncheckedDecodeType" should {
@@ -532,7 +554,8 @@ class DecodeV2Spec
       )
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
           val result = Try(decoder.decodeExprForTest(proto, "test"))
 
@@ -567,7 +590,8 @@ class DecodeV2Spec
       )
       val stringTable = ImmArraySeq("a")
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         val result = Try(decoder.decodeExprForTest(tryCatchExprProto, "test"))
         if (version >= LV.Features.exceptions)
           result shouldBe Success(tryCatchExprScala)
@@ -837,7 +861,13 @@ class DecodeV2Spec
       forEveryVersion { version =>
         forEvery(testCases) { (protoUpdate, scala) =>
           val decoder =
-            moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
+            moduleDecoder(
+              version,
+              ImmArraySeq("Choice"),
+              interfaceDottedNameTable,
+              ImmArraySeq.empty,
+              typeTable,
+            )
           val proto = DamlLf2.Expr.newBuilder().setUpdate(protoUpdate).build()
           decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(scala)
         }
@@ -875,7 +905,13 @@ class DecodeV2Spec
 
       forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
         val decoder =
-          moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, typeTable)
+          moduleDecoder(
+            version,
+            ImmArraySeq("Choice"),
+            interfaceDottedNameTable,
+            ImmArraySeq.empty,
+            typeTable,
+          )
         val proto = DamlLf2.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
@@ -891,7 +927,13 @@ class DecodeV2Spec
         ImmArraySeq("Mod", "T", "I", "J", "K").map(Ref.DottedName.assertFromString)
 
       (version: LV) =>
-        moduleDecoder(version, interfaceDefStringTable, interfaceDefDottedNameTable, typeTable)
+        moduleDecoder(
+          version,
+          interfaceDefStringTable,
+          interfaceDefDottedNameTable,
+          ImmArraySeq.empty,
+          typeTable,
+        )
     }
 
     s"decode interface definitions correctly" in {
@@ -1269,7 +1311,8 @@ class DecodeV2Spec
         protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
           decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers),

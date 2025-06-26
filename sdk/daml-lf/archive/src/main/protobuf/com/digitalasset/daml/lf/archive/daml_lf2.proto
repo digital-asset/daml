@@ -142,7 +142,8 @@ message Kind {
     // kind of TNat type;
     Unit nat = 3;
     // interned kinds
-    uint32 interned = 4; // *Available in versions >= 2.dev*
+    // this should really be an uint32, change in next breaking change
+    int32 interned = 4; // *Available in versions >= 2.dev*
   }
 }
 
@@ -768,6 +769,7 @@ message Expr {
   oneof Sum {
 
     // *Must be a valid interned identifier*
+    // this should really be an uint32, change in next breaking change
     int32 var_interned_str = 2;
 
     // Defined value ('ExpVal')

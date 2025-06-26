@@ -54,13 +54,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedStrings,
       internedDottedNames,
       IndexedSeq.empty,
+      IndexedSeq.empty,
       Some(dependencyTracker),
       None,
       onlySerializableDataDefs,
     )
 
-    val internedTypes = Work.run(decodeInternedTypes(env0, lfPackage))
-    val env = env0.copy(internedTypes = internedTypes)
+    val internedKinds = Work.run(decodeInternedKinds(env0, lfPackage))
+    val env1 = env0.copy(internedKinds = internedKinds)
+    // val env1 = env0
+    val internedTypes = Work.run(decodeInternedTypes(env1, lfPackage))
+    val env = env1.copy(internedTypes = internedTypes)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -119,12 +123,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedStrings,
       internedDottedNames,
       IndexedSeq.empty,
+      IndexedSeq.empty,
       None,
       None,
       onlySerializableDataDefs = false,
     )
-    val internedTypes = Work.run(decodeInternedTypes(env0, lfSingleModule))
-    val env = env0.copy(internedTypes = internedTypes)
+    val internedKinds = Work.run(decodeInternedKinds(env0, lfSingleModule))
+    val env1 = env0.copy(internedKinds = internedKinds)
+    // val env1 = env0
+    val internedTypes = Work.run(decodeInternedTypes(env1, lfSingleModule))
+    val env = env1.copy(internedTypes = internedTypes)
     env.decodeModule(lfSingleModule.getModules(0))
 
   }
@@ -152,6 +160,29 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       case Left(err) => throw Error.Parsing(err)
       case Right(x) => x
     }
+
+  private[archive] def decodeInternedKindsForTest( // test entry point
+      env: Env,
+      lfPackage: PLF.Package,
+  ): IndexedSeq[Kind] = {
+    Work.run(decodeInternedKinds(env, lfPackage))
+  }
+
+  private def decodeInternedKinds(
+      env: Env,
+      lfPackage: PLF.Package,
+  ): Work[IndexedSeq[Kind]] = Ret {
+    val lfKinds = lfPackage.getInternedKindsList
+
+    if (!lfKinds.isEmpty)
+      assertSince(LV.Features.kindInterning, "interned kinds table")
+
+    lfKinds.iterator.asScala
+      .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, typ) =>
+        buf += env.copy(internedKinds = buf).decodeKindForTest(typ)
+      }
+      .toIndexedSeq
+  }
 
   private[archive] def decodeInternedTypesForTest( // test entry point
       env: Env,
@@ -186,6 +217,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       packageId: PackageId,
       internedStrings: ImmArraySeq[String],
       internedDottedNames: ImmArraySeq[DottedName],
+      internedKinds: collection.IndexedSeq[Kind],
       internedTypes: collection.IndexedSeq[Type],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
@@ -208,6 +240,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeDefInterface(id, lfInterface))
     }
 
+    /** Roger: unfortunate postfix ForTest since NOT only used for testing */
     private[archive] def decodeKindForTest(lfKind: PLF.Kind): Kind = {
       Work.run(decodeKind(lfKind))
     }
@@ -216,6 +249,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeType(lfType)(Ret(_)))
     }
 
+    /** Roger: unfortunate postfix ForTest since NOT only used for testing */
     private[archive] def uncheckedDecodeTypeForTest(lfType: PLF.Type): Type = {
       Work.run(uncheckedDecodeType(lfType))
     }
@@ -649,13 +683,26 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               }
             }
           case PLF.Kind.SumCase.INTERNED =>
-            throw Error.Parsing(s"Unexpected filed result_interned_kind")
+            assertSince(LV.Features.kindInterning, "interned kinds unsupported in this version")
+            Ret(
+              internedKinds.applyOrElse(
+                lfKind.getInterned,
+                (index: Int) => throw Error.Parsing(s"invalid internedKinds table index $index"),
+              )
+            )
           case PLF.Kind.SumCase.SUM_NOT_SET =>
             throw Error.Parsing("Kind.SUM_NOT_SET")
         }
       }
     }
 
+    /** Roger: As far as I understand, [[decodeType()]] is the checked version of
+      * [[uncheckedDecodeType()]] in the sense that [[decodeType()]] allows only
+      * references to interned kinds, meant to be used to parse the ast (after
+      * the interning table was parsed). It is meant to disallow any concrete
+      * types (any non-interned-referencing) types. In the long run, if we want
+      * to only intern trees of depth >= n, we need to weaken this restriction
+      */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
         Work.Delay { () =>
