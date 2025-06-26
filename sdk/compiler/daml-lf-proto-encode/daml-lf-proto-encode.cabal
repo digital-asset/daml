@@ -41,8 +41,6 @@ library
       memory,
       -- @stackage//:mtl
       mtl,
-      -- @stackage//:pretty-show
-      pretty-show,
       -- @stackage//:proto3-suite
       proto3-suite,
       -- @stackage//:text

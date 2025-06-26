@@ -189,6 +189,13 @@ featureCrypto = Feature
     , featureCppFlag = Just "DAML_CRYPTO"
     }
 
+featureKindInterning :: Feature
+featureKindInterning = Feature
+    { featureName = "Kind Interning"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_KINDINTERNING"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"

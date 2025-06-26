@@ -741,7 +741,7 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
     foldr KArrow result <$> traverse decodeKind (V.toList params)
   LF2.KindSumInterned n -> do
     DecodeEnv{internedKinds, version} <- ask
-    if isDevVersion version
+    if version `supports` featureKindInterning
       then lookupInterned internedKinds BadKindId n
       else error $ printf "kind interning not supported in version %s" (show version)
 
