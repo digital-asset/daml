@@ -6,6 +6,8 @@
 module DA.Daml.LF.Proto3.Decode
   ( Error(..)
   , decodePayload
+  , DecodeV2.decodePackage
+  , DecodeV2.decodeSinglePackageModule
   ) where
 
 import Com.Digitalasset.Daml.Lf.Archive.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))

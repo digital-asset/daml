@@ -36,17 +36,15 @@ da_haskell_library(
 da_haskell_test(
     name = "daml-lf-proto-test",
     srcs = [
-        "test/DA/Daml/LF/Proto3/Test.hs",
+        "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
     ],
     hackage_deps = [
         "base",
-        "extra",
         "mtl",
         "tasty",
         "tasty-hunit",
-        "vector",
     ],
-    main_function = "DA.Daml.LF.Proto3.Test.entry",
+    main_function = "DA.Daml.LF.Proto3.EncodeDecodeTest.entry",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
