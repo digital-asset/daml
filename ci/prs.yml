@@ -29,6 +29,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      clean: true
     - bash: |
         set -euo pipefail
 
@@ -60,6 +61,7 @@ jobs:
     is_release: $[ dependencies.check_for_release.outputs['out.is_release'] ]
   steps:
     - checkout: self
+      clean: true
       persistCredentials: true
     - template: bash-lib.yml
       parameters:
@@ -140,6 +142,7 @@ jobs:
   condition: eq(variables['Build.Reason'], 'PullRequest')
   steps:
   - checkout: self
+    clean: true
   - template: bash-lib.yml
     parameters:
       var_name: bash-lib

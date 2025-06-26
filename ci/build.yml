@@ -55,6 +55,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      clean: true
     - bash: |
         echo "The checkout step failed. Displaying Git status to identify unstaged changes:"
         set -euo pipefail
@@ -97,6 +98,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      clean: true
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
@@ -176,6 +178,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      clean: true
     - bash: |
         set -euo pipefail
 
@@ -219,6 +222,7 @@ jobs:
     demands: assignment -equals default
   steps:
     - checkout: self
+      clean: true
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
     - task: DownloadPipelineArtifact@2
@@ -275,6 +279,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      clean: true
     - template: clean-up.yml
     - template: compatibility_ts_libs.yml
     - template: tell-slack-failed.yml
@@ -292,6 +297,7 @@ jobs:
   steps:
     - template: report-start.yml
     - checkout: self
+      clean: true
     - template: clean-up.yml
     - template: compatibility.yml
       parameters:
