@@ -1,0 +1,10 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+module(
+    name = "daml_compatibility",
+    repo_name = "compatibility",
+)
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "protobuf", version = "24.4", repo_name = "com_google_protobuf")
