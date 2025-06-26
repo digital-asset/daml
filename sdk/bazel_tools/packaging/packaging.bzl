@@ -22,25 +22,21 @@ def _package_app_impl(ctx):
     )
 
 def _get_resource_path(r):
-    """Get the path to use for a resource.
-      If the resource has a single file, it'll be copied to
-      the resource root directory. With multiple files the
-      relative directory structure is preserved.
-
-      This mirrors how rules that produce directories work
-      in Buck.
-    """
+    """Return (src, relpath) for each file, preserving relative paths. Pass tarballs as-is."""
     files = r.files.to_list()
-    if len(files) > 1:
-        first_file = files[0].path
-        prefix_end = first_file.index(r.label.package)
-
-        # e.g. package foo/bar,
-        # first file at bazel-out/k8-fastbuild/bleh/foo/bar/baz/quux
-        # return path as bazel-out/k8-fastbuild/bleh/foo/bar.
-        return first_file[0:(prefix_end + len(r.label.package))]
-    else:
+    if len(files) == 1:
         return files[0].path
+
+    results = []
+
+    for f in files:
+        if f.path.endswith(".tar.gz"):
+            results.append(f.path)
+        else:
+            offset = r.label.package.rfind("/") + 1
+            results.append(f.path + ":" + f.short_path[offset:])
+
+    return results
 
 package_app = rule(
     implementation = _package_app_impl,
