@@ -14,8 +14,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Mempool,
   SequencerNode,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.Miscellaneous.dequeueN
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.dequeueN
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 
 import java.time.Instant

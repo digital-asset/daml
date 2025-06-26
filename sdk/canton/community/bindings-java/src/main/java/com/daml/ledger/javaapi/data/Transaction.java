@@ -32,6 +32,57 @@ public final class Transaction {
 
   @NonNull private final Instant recordTime;
 
+  @NonNull private final Map<Integer, @NonNull Node> nodesById;
+
+  // The root nodes of a forest of nodes representing the transaction.
+  @NonNull private final List<@NonNull Node> rootNodes;
+
+  @NonNull private final List<@NonNull Integer> rootNodeIds;
+
+  public static class Node {
+    private final Integer nodeId;
+    private final Integer lastDescendantNodeId;
+    private final List<Node> children;
+
+    public Node(Integer nodeId, Integer lastDescendant) {
+      this.nodeId = nodeId;
+      this.lastDescendantNodeId = lastDescendant;
+      this.children = new ArrayList<>();
+    }
+
+    public Integer getNodeId() {
+      return nodeId;
+    }
+
+    public Integer getLastDescendantNodeId() {
+      return lastDescendantNodeId;
+    }
+
+    public List<Node> getChildren() {
+      return Collections.unmodifiableList(children);
+    }
+  }
+
+  // fills nodes with their children based on the last descendant and returns the root nodes
+  private static List<Node> buildNodeForest(LinkedList<Node> nodes) {
+    List<Node> rootNodes = new ArrayList<>();
+
+    while (!nodes.isEmpty()) {
+      Node root = nodes.pollFirst();
+      rootNodes.add(root);
+      buildNodeTree(root, nodes);
+    }
+
+    return Collections.unmodifiableList(rootNodes);
+  }
+
+  private static void buildNodeTree(Node parent, LinkedList<Node> nodes) {
+    while (!nodes.isEmpty() && nodes.peekFirst().nodeId <= parent.lastDescendantNodeId) {
+      parent.children.add(nodes.peekFirst());
+      buildNodeTree(nodes.pollFirst(), nodes);
+    }
+  }
+
   public Transaction(
       @NonNull String updateId,
       @NonNull String commandId,
@@ -42,6 +93,14 @@ public final class Transaction {
       @NonNull String synchronizerId,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
+
+    // Check if events are sorted by nodeId
+    for (int i = 1; i < events.size(); i++) {
+      if (events.get(i - 1).getNodeId() > events.get(i).getNodeId()) {
+        throw new IllegalArgumentException("Events are not sorted by nodeId at index " + i);
+      }
+    }
+
     this.updateId = updateId;
     this.commandId = commandId;
     this.workflowId = workflowId;
@@ -51,6 +110,24 @@ public final class Transaction {
     this.synchronizerId = synchronizerId;
     this.traceContext = traceContext;
     this.recordTime = recordTime;
+
+    LinkedList<Node> nodes =
+        this.getEvents().stream()
+            .map(
+                event ->
+                    new Node(
+                        event.getNodeId(),
+                        event.toProtoEvent().hasExercised()
+                            ? event.toProtoEvent().getExercised().getLastDescendantNodeId()
+                            : event.getNodeId()))
+            .collect(Collectors.toCollection(LinkedList::new));
+
+    this.nodesById =
+        nodes.stream().collect(Collectors.toUnmodifiableMap(node -> node.nodeId, node -> node));
+
+    this.rootNodes = buildNodeForest(nodes);
+
+    this.rootNodeIds = rootNodes.stream().map(node -> node.nodeId).toList();
   }
 
   @NonNull
@@ -114,35 +191,7 @@ public final class Transaction {
    */
   @NonNull
   public List<Integer> getRootNodeIds() {
-    Map<Integer, Integer> lastDescendantById =
-        getEvents().stream()
-            .collect(
-                Collectors.toMap(
-                    Event::getNodeId,
-                    event ->
-                        event.toProtoEvent().hasExercised()
-                            ? event.toProtoEvent().getExercised().getLastDescendantNodeId()
-                            : event.getNodeId()));
-
-    List<Integer> nodeIds = getEvents().stream().map(Event::getNodeId).sorted().toList();
-
-    List<Integer> rootNodes = new ArrayList<>();
-
-    int index = 0;
-    while (index < nodeIds.size()) {
-      Integer nodeId = nodeIds.get(index);
-      Integer lastDescendant = lastDescendantById.get(nodeId);
-      if (lastDescendant == null) {
-        throw new RuntimeException("Node with id " + nodeId + " not found");
-      }
-
-      rootNodes.add(nodeId);
-      while (index < nodeIds.size() && nodeIds.get(index) <= lastDescendant) {
-        index++;
-      }
-    }
-
-    return rootNodes;
+    return rootNodeIds;
   }
 
   /**
@@ -157,40 +206,23 @@ public final class Transaction {
    * @param exercised the exercised event
    * @return the children's node ids
    */
-  @NonNull
   public List<@NonNull Integer> getChildNodeIds(ExercisedEvent exercised) {
-    Integer nodeId = exercised.getNodeId();
-    Integer lastDescendant = exercised.getLastDescendantNodeId();
-
-    List<Event> candidates =
-        getEvents().stream()
-            .filter(event -> event.getNodeId() > nodeId && event.getNodeId() <= lastDescendant)
-            .sorted(Comparator.comparing(Event::getNodeId))
-            .toList();
-
-    List<Integer> childNodes = new ArrayList<>();
-
-    int index = 0;
-    while (index < candidates.size()) {
-      Event node = candidates.get(index);
-      // first candidate will always be a child since it is not a descendant of another intermediate
-      // node
-      Integer childNodeId = node.getNodeId();
-      Integer childLastDescendant =
-          node.toProtoEvent().hasExercised()
-              ? node.toProtoEvent().getExercised().getLastDescendantNodeId()
-              : childNodeId;
-
-      // add child to children and skip its descendants
-      childNodes.add(childNodeId);
-      index++;
-      while (index < candidates.size()
-          && candidates.get(index).getNodeId() <= childLastDescendant) {
-        index++;
-      }
+    final Integer nodeId = exercised.getNodeId();
+    Node parentNode = nodesById.get(nodeId);
+    if (parentNode == null) {
+      throw new RuntimeException("Node with id " + nodeId + " not found.");
     }
+    return parentNode.children.stream().map(child -> child.nodeId).collect(Collectors.toList());
+  }
 
-    return childNodes;
+  /**
+   * Returns the nodes of the transaction as a forest of nodes. The forest is a list of root nodes
+   * that are connected to their children.
+   *
+   * @return the root nodes of the forest of nodes representing the transaction
+   */
+  public @NonNull List<@NonNull Node> getRootNodes() {
+    return rootNodes;
   }
 
   /**
@@ -231,9 +263,34 @@ public final class Transaction {
   public <WrappedEvent> WrappedTransactionTree<WrappedEvent> toWrappedTree(
       BiFunction<Event, List<WrappedEvent>, WrappedEvent> createWrappedEvent) {
 
-    List<WrappedEvent> wrappedRootEvents = TransactionUtils.buildTree(this, createWrappedEvent);
+    List<WrappedEvent> wrappedRootEvents =
+        this.getRootNodes().stream()
+            .map(
+                rootNode ->
+                    buildWrappedEventTree(rootNode, this.getEventsById(), createWrappedEvent))
+            .toList();
 
     return new WrappedTransactionTree<>(this, wrappedRootEvents);
+  }
+
+  private static <WrappedEvent> WrappedEvent buildWrappedEventTree(
+      Transaction.Node root,
+      Map<Integer, Event> eventsById,
+      BiFunction<Event, List<WrappedEvent>, WrappedEvent> createWrappedEvent) {
+    final Integer nodeId = root.getNodeId();
+
+    final Event event = eventsById.get(nodeId);
+    if (event == null) {
+      throw new RuntimeException("Event with id " + nodeId + " not found");
+    }
+
+    // build children subtrees
+    final List<WrappedEvent> childrenWrapped =
+        root.getChildren().stream()
+            .map(child -> buildWrappedEventTree(child, eventsById, createWrappedEvent))
+            .collect(Collectors.toList());
+
+    return createWrappedEvent.apply(event, childrenWrapped);
   }
 
   public static Transaction fromProto(TransactionOuterClass.Transaction transaction) {

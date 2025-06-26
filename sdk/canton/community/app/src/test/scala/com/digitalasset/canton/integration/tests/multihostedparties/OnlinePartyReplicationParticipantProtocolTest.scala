@@ -95,12 +95,10 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       )
       .withSetup { implicit env =>
         import env.*
-        // Before performing OPR, disable ACS commitments by having a large reconciliation interval
-        // because the target participant does not have the onboarding party's active contracts.
-        // TODO(#23670): Proper ACS commitment checking during/after OPR
+        // More frequent ACS commitments by configuring a smaller reconciliation interval.
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
-          _.update(reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)),
+          _.update(reconciliationInterval = config.PositiveDurationSeconds.ofSeconds(10)),
         )
 
         participants.local.foreach(_.start())

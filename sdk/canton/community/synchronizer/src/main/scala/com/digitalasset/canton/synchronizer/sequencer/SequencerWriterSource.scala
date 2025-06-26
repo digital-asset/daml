@@ -749,7 +749,8 @@ object WritePayloadsFlow {
       if (events.isEmpty)
         FutureUnlessShutdown.pure(Seq.empty[WithKillSwitch[Presequenced[StoreEvent[BytesPayload]]]])
       else {
-        implicit val traceContext: TraceContext = TraceContext.ofBatch(events.map(_.value))(logger)
+        implicit val traceContext: TraceContext =
+          TraceContext.ofBatch("write_payloads_batch")(events.map(_.value))(logger)
         implicit val errorLoggingContext: ErrorLoggingContext =
           ErrorLoggingContext.fromTracedLogger(logger)
         // extract the payloads themselves for storing

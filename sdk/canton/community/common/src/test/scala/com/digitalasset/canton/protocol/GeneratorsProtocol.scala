@@ -45,6 +45,7 @@ final class GeneratorsProtocol(
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
       requiredSignatureFormats <- nonEmptySetGen[SignatureFormat]
+      serial <- Arbitrary.arbitrary[NonNegativeInt]
 
       parameters = StaticSynchronizerParameters(
         RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
@@ -54,6 +55,7 @@ final class GeneratorsProtocol(
         requiredCryptoKeyFormats,
         requiredSignatureFormats,
         protocolVersion,
+        serial,
       )
 
     } yield parameters)

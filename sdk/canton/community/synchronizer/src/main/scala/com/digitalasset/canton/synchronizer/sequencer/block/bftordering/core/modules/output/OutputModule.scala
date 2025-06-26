@@ -16,7 +16,12 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
@@ -35,11 +40,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.LeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.snapshot.SequencerSnapshotAdditionalInfoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  CryptoProvider,
-  OrderingTopologyProvider,
-  TopologyActivationTime,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -149,7 +149,7 @@ class OutputModule[E <: Env[E]](
   // We sequence NewEpochTopology messages because state transfer can process blocks from multiple epochs
   //  resulting in fetching multiple topologies concurrently.
   @VisibleForTesting
-  private[bftordering] val maybeNewEpochTopologyMessagePeanoQueue =
+  private[output] val maybeNewEpochTopologyMessagePeanoQueue =
     new SingleUseCell[PeanoQueue[EpochNumber, NewEpochTopology[E]]]
   private def newEpochTopologyMessagePeanoQueue: PeanoQueue[EpochNumber, NewEpochTopology[E]] =
     maybeNewEpochTopologyMessagePeanoQueue.getOrElse(
@@ -159,7 +159,7 @@ class OutputModule[E <: Env[E]](
     )
 
   @VisibleForTesting
-  private[bftordering] val previousStoredBlock = new PreviousStoredBlock
+  private[output] val previousStoredBlock = new PreviousStoredBlock
   startupState.previousBftTimeForOnboarding.foreach { time =>
     previousStoredBlock.update(
       BlockNumber(startupState.initialHeightToProvide - 1),
@@ -170,7 +170,7 @@ class OutputModule[E <: Env[E]](
   private var currentEpochOrderingTopology: OrderingTopology = startupState.initialOrderingTopology
   private var currentEpochCryptoProvider: CryptoProvider[E] = startupState.initialCryptoProvider
   @VisibleForTesting
-  private[bftordering] var currentEpochCouldAlterOrderingTopology =
+  private[output] var currentEpochCouldAlterOrderingTopology =
     startupState.onboardingEpochCouldAlterOrderingTopology
 
   // Storing metadata is idempotent but we try to avoid unnecessary writes
@@ -849,13 +849,13 @@ object OutputModule {
       initialLeaderSelectionPolicy: LeaderSelectionPolicy[E],
   )
   @VisibleForTesting
-  private[bftordering] final class PreviousStoredBlock {
+  private[output] final class PreviousStoredBlock {
 
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     private var blockNumberAndBftTime: Option[(BlockNumber, CantonTimestamp)] = None
 
     @VisibleForTesting
-    private[bftordering] def getBlockNumberAndBftTime =
+    private[output] def getBlockNumberAndBftTime =
       blockNumberAndBftTime
 
     override def toString: String =

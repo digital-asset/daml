@@ -4,8 +4,13 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModuleTest.TestOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
+  FunctionFutureContext,
+  IgnoringUnitTestEnv,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.FutureContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -14,11 +19,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.output.OutputModuleTest.TestOutputMetadataStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
-  FunctionFutureContext,
-  IgnoringUnitTestEnv,
-}
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.immutable.SortedSet

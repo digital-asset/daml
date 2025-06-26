@@ -8,6 +8,11 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   ModuleControl,
@@ -29,11 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleSystem,
   P2PNetworkRef,
   PureFun,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext

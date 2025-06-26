@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch.{
   blockToLeaderFromSegments,
   computeSegments,
@@ -51,7 +51,7 @@ class EpochState[E <: Env[E]](
     clock: Clock,
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
-    @VisibleForTesting val segmentModuleRefFactory: (
+    @VisibleForTesting private[iss] val segmentModuleRefFactory: (
         SegmentState,
         EpochMetricsAccumulator,
     ) => E#ModuleRefT[ConsensusSegment.Message],

@@ -244,7 +244,7 @@ class ApiRequestLoggerBase(
     if (grpcTraceContext.traceId.isDefined) {
       grpcTraceContext
     } else {
-      TraceContext.withNewTraceContext(identity)
+      TraceContext.withNewTraceContext("logger")(identity)
     }
   }
 

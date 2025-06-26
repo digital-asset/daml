@@ -77,7 +77,7 @@ class AdminWorkflowServices(
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
   if (syncService.isActive() && parameters.adminWorkflow.autoLoadDar) {
-    withNewTraceContext { implicit traceContext =>
+    withNewTraceContext("load_admin_workflows_dar") { implicit traceContext =>
       logger.debug("Loading admin workflows DAR")
       // load the admin workflows daml archive before moving forward
       // We use the pre-packaged dar from the resources/dar folder instead of the compiled one.

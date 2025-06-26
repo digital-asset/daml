@@ -54,7 +54,7 @@ trait DbTest
     new DbStorageIdempotency(s, timeouts, loggerFactory)
   }
 
-  override def beforeAll(): Unit = TraceContext.withNewTraceContext { implicit tc =>
+  override def beforeAll(): Unit = TraceContext.withNewTraceContext("test") { implicit tc =>
     // Non-standard order. Setup needs to be created first, because super can be MyDbTest and therefore super.beforeAll
     // may already access setup.
     try {
@@ -69,7 +69,7 @@ trait DbTest
     }
   }
 
-  override def afterAll(): Unit = TraceContext.withNewTraceContext { implicit tc =>
+  override def afterAll(): Unit = TraceContext.withNewTraceContext("test") { implicit tc =>
     try {
       // Non-standard order.
       // First delete test data.
@@ -90,7 +90,7 @@ trait DbTest
     }
   }
 
-  override def beforeEach(): Unit = TraceContext.withNewTraceContext { implicit tc =>
+  override def beforeEach(): Unit = TraceContext.withNewTraceContext("test") { implicit tc =>
     try {
       cleanup()
       super.beforeEach()

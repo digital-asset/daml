@@ -5,6 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
+  PekkoEnv,
+  PekkoFutureUnlessShutdown,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
   Block,
   Epoch,
@@ -36,10 +40,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PrePrepare,
   Prepare,
   ViewChange,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.{
-  PekkoEnv,
-  PekkoFutureUnlessShutdown,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.TryUtil

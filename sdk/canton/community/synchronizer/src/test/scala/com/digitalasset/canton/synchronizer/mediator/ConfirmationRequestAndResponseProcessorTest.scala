@@ -96,7 +96,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
   protected lazy val factory: ExampleTransactionFactory =
     new ExampleTransactionFactory()(
-      synchronizerId = synchronizerId.logical,
+      psid = synchronizerId,
       mediatorGroup = mediatorGroupRecipient,
     )
   protected lazy val fullInformeeTree: FullInformeeTree =
@@ -771,7 +771,7 @@ class ConfirmationRequestAndResponseProcessorTest
       val otherMediatorGroupIndex = MediatorGroupRecipient(mediatorGroup2.index)
       val factoryOtherMediatorId =
         new ExampleTransactionFactory()(
-          synchronizerId = synchronizerId.logical,
+          psid = synchronizerId,
           mediatorGroup = otherMediatorGroupIndex,
         )
       val fullInformeeTreeOther =

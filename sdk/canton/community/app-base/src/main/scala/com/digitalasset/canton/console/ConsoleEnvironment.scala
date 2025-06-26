@@ -733,13 +733,13 @@ class SimClockCommand(clock: SimClock) {
   def now: Instant = clock.now.toInstant
 
   @Help.Description("Advance time to given time-point")
-  def advanceTo(timestamp: Instant): Unit = TraceContext.withNewTraceContext {
+  def advanceTo(timestamp: Instant): Unit = TraceContext.withNewTraceContext("clock_advance_to") {
     implicit traceContext =>
       clock.advanceTo(CantonTimestamp.assertFromInstant(timestamp))
   }
 
   @Help.Description("Advance time by given time-period")
-  def advance(duration: JDuration): Unit = TraceContext.withNewTraceContext {
+  def advance(duration: JDuration): Unit = TraceContext.withNewTraceContext("clock_advance") {
     implicit traceContext =>
       clock.advance(duration)
   }

@@ -69,20 +69,9 @@ final case class AssignmentValidationResult(
   def reassigningParticipantValidationResult: Seq[ReassignmentValidationError] =
     validationResult.reassigningParticipantValidationResult
 
-  private[reassignment] def commitSet = CommitSet(
-    archivals = Map.empty,
-    creations = Map.empty,
-    unassignments = Map.empty,
-    assignments = contracts.contracts
-      .map { case reassign =>
-        reassign.contract.contractId -> CommitSet.AssignmentCommit(
-          reassignmentId,
-          reassign.contract.metadata,
-          reassign.counter,
-        )
-      }
-      .toMap
-      .forgetNE,
+  private[reassignment] def commitSet = CommitSet.createForAssignment(
+    reassignmentId,
+    contracts.contracts,
   )
 
   private[reassignment] def createReassignmentAccepted(

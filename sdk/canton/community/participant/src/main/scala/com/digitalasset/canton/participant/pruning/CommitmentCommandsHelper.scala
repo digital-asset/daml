@@ -315,7 +315,6 @@ object CommitmentInspectContract extends HasVersionedMessageCompanion[Commitment
                 payloads <- syncStateInspection.findContractPayloads(
                   synchronizer,
                   states.keys.toSeq,
-                  states.keys.size,
                 )
               } yield synchronizer -> payloads
             }

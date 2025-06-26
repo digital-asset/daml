@@ -7,13 +7,11 @@ import com.digitalasset.canton.crypto.HashBuilder
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.block.BlockFormat
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.SupportedVersions
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest.ValidTags
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
-  SupportedVersions,
-  data,
-}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.{

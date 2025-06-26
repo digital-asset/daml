@@ -609,7 +609,7 @@ object DbStorage {
     val baseLogger = loggerFactory.getLogger(classOf[DbStorage])
     val logger = TracedLogger(baseLogger)
 
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("create_db") { implicit traceContext =>
       // Must be called to set proper defaults in case of H2
       val configWithFallbacks: Config = {
         val cfg = DbConfig

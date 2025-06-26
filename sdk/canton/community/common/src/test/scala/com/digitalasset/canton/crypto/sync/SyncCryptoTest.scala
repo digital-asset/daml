@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto.sync
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.KmsConfig.Driver
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
@@ -62,6 +62,7 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
     requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
     requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
     protocolVersion = protocolVersion,
+    serial = NonNegativeInt.zero,
   )
 
   protected lazy val otherSynchronizerId: PhysicalSynchronizerId = PhysicalSynchronizerId(

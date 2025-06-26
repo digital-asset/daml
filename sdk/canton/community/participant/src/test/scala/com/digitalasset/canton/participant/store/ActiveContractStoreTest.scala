@@ -19,8 +19,11 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessC
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{asSerializable, contractInstance}
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
+import com.digitalasset.canton.protocol.{
+  ExampleContractFactory,
+  ExampleTransactionFactory,
+  LfContractId,
+}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
@@ -2092,14 +2095,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest with InUS {
       ): FutureUnlessShutdown[Unit] =
         contracts.parTraverse_ { case (contractId, pkg) =>
           contractStore.storeContract(
-            asSerializable(
-              contractId,
-              contractInstance = contractInstance(
-                templateId = Ref.Identifier(
-                  pkg,
-                  moduleName,
-                )
-              ),
+            ExampleContractFactory.build(
+              overrideContractId = Some(contractId),
+              templateId = Ref.Identifier(pkg, moduleName),
             )
           )
         }

@@ -188,11 +188,8 @@ create or replace view debug.par_contracts as
   select
     lower(encode(contract_id, 'hex')) as contract_id,
     instance,
-    metadata,
-    ledger_create_time,
     package_id,
-    template_id,
-    contract_salt
+    template_id
   from par_contracts;
 
 create or replace view debug.common_node_id as

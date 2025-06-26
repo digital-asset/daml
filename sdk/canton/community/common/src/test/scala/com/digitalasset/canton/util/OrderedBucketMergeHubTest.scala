@@ -52,7 +52,8 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
     )
   }
   private case class Elem(bucket: Bucket, description: String) extends HasTraceContext {
-    override val traceContext: TraceContext = TraceContext.withNewTraceContext(Predef.identity)
+    override val traceContext: TraceContext =
+      TraceContext.withNewTraceContext("test")(Predef.identity)
   }
 
   private def mkHub(

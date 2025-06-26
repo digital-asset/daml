@@ -461,59 +461,53 @@ class AcsCommitmentProcessor private (
     )
 
   override def publish(
-      sequencerTimestamp: CantonTimestamp,
+      toc: RecordTime,
       commitSetO: Option[CommitSet],
   )(implicit
       traceContext: TraceContext
-  ): Unit = {
-    val toc = RecordTime(
-      sequencerTimestamp,
-      RecordTime.lowestTiebreaker,
-    )
+  ): Unit =
     publishInternal(
       toc,
-      () => computeAcsChange(sequencerTimestamp, commitSetO),
+      () => computeAcsChange(toc, commitSetO),
     )
-  }
 
-  private def computeAcsChange(sequencerTimestamp: CantonTimestamp, commitSetO: Option[CommitSet])(
-      implicit traceContext: TraceContext
+  private def computeAcsChange(toc: RecordTime, commitSetO: Option[CommitSet])(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[AcsChange] = {
     // If the commitSetO is not set, then by default the commit set is empty
     val commitSet = commitSetO.getOrElse(CommitSet.empty)
     // Augments the commit set with the updated reassignment counters for archive events,
     // computes the acs change and publishes it
     logger.trace(
-      show"The received commit set contains creations ${commitSet.creations}" +
-        show"assignments ${commitSet.assignments}" +
+      show"The received commit set contains creations ${commitSet.creations} " +
+        show"assignments ${commitSet.assignments} " +
         show"archivals ${commitSet.archivals} unassignments ${commitSet.unassignments}"
     )
 
     val transientArchivals = reassignmentCountersForArchivedTransient(commitSet)
 
-    val acsChangePublish =
-      for {
-        // Retrieves the reassignment counters of the archived contracts from the latest state in the active contract store
-        archivalsWithReassignmentCountersOnly <- activeContractStore
-          .contractsReassignmentCounterSnapshotBefore(
-            commitSet.archivals.keySet -- transientArchivals.keySet,
-            sequencerTimestamp,
-          )
+    for {
+      // Retrieves the reassignment counters of the archived contracts from the latest state in the active contract store
+      archivalsWithReassignmentCountersOnly <- activeContractStore
+        .contractsReassignmentCounterSnapshotBefore(
+          commitSet.archivals.keySet -- transientArchivals.keySet,
+          toc.timestamp,
+        )
 
-      } yield {
-        // Computes the ACS change by decorating the archive events in the commit set with their reassignment counters
-        val acsChange = AcsChange.tryFromCommitSet(
-          commitSet,
-          archivalsWithReassignmentCountersOnly,
-          transientArchivals,
-        )
-        // we only log the full list of changes on trace level
-        logger.trace(
-          s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
-        )
-        acsChange
-      }
-    acsChangePublish
+    } yield {
+      // Computes the ACS change by decorating the archive events in the commit set with their reassignment counters
+      val acsChange = AcsChange.tryFromCommitSet(
+        commitSet,
+        archivalsWithReassignmentCountersOnly,
+        transientArchivals,
+      )
+      // we only log the full list of changes on trace level
+      logger.trace(
+        s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
+      )
+
+      acsChange
+    }
   }
 
   private def publishInternal(toc: RecordTime, acsChangeF: () => FutureUnlessShutdown[AcsChange])(
@@ -2441,6 +2435,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
     def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
       contractStore
         .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
+        .map(
+          _.map(_.serializable)
+        ) // TODO(#26348) - use fat contract downstream
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(

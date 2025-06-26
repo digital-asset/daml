@@ -131,7 +131,8 @@ class BlockSequencerStateManager(
           noTracingLogger.error(msg)
           throw new SequencerUnexpectedStateChange(msg)
         } else {
-          implicit val traceContext: TraceContext = TraceContext.ofBatch(blockEvents.events)(logger)
+          implicit val traceContext: TraceContext =
+            TraceContext.ofBatch("check_block_height")(blockEvents.events)(logger)
           // Set the current block height to the new block's height instead of + 1 of the previous value
           // so that we support starting from an arbitrary block height
 

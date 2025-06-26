@@ -95,7 +95,7 @@ class MediatorEventProcessorTest
           trafficReceipt = None, // not relevant
           protocolVersion = testedProtocolVersion,
         )
-      )(TraceContext.createNew()),
+      )(TraceContext.createNew("test")),
     )
 
   private def mkMediatorRequest(

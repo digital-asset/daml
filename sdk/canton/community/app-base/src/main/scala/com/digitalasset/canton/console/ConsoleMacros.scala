@@ -1208,7 +1208,7 @@ object DebuggingHelpers extends LazyLogging {
     get_active_contracts_helper(
       ref,
       alias =>
-        TraceContext.withNewTraceContext(implicit traceContext =>
+        TraceContext.withNewTraceContext("get_active_contracts")(implicit traceContext =>
           state.findContracts(alias, None, None, None, limit.value)
         ),
     )

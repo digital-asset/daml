@@ -200,7 +200,7 @@ class ReferenceDemoScript(
   }
 
   private val pruningOffset = new AtomicReference[Option[(Long, Instant)]](None)
-  val steps = TraceContext.withNewTraceContext { implicit traceContext =>
+  val steps = TraceContext.withNewTraceContext("init") { implicit traceContext =>
     List[Step](
       Noop, // pres page nr = page * 2 - 1
       Noop,

@@ -145,13 +145,13 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   private val firstSend = new AtomicReference[Option[CantonTimestamp]](None)
   private val lastSend = new AtomicReference[Option[CantonTimestamp]](None)
 
-  private lazy val submissionRequests: List[SubmissionRequest] = withNewTraceContext {
-    implicit traceContext =>
+  private lazy val submissionRequests: List[SubmissionRequest] =
+    withNewTraceContext("load_submissions") { implicit traceContext =>
       logger.debug("Loading recorded submission requests")
       ErrorUtil.withThrowableLogging {
         SequencerClientRecorder.loadSubmissions(recordedPath, logger)
       }
-  }
+    }
 
   // Signals to the tests that this transport is ready to interact with
   replaySendsConfig.publishTransport(this)
@@ -208,7 +208,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       item
     }
 
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("replay_submit") { implicit traceContext =>
       val withExtendedMst = extendMaxSequencingTime(submission)
       val sendET = for {
         // We need a new signature because we've modified the max sequencing time.
@@ -232,7 +232,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   }
 
   override def replay(sendParallelism: Int): Future[SendReplayReport] =
-    withNewTraceContext { implicit traceContext =>
+    withNewTraceContext("replay") { implicit traceContext =>
       logger.info(s"Replaying ${submissionRequests.size} sends")
 
       val submissionReplay = Source(submissionRequests)

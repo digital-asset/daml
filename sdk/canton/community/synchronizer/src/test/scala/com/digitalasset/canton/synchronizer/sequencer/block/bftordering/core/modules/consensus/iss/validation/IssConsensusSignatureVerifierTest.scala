@@ -6,10 +6,15 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.crypto.SignatureCheckError.SignerHasNoValidKeys
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
+  FailingCryptoProvider,
+  ProgrammableUnitTestContext,
+  ProgrammableUnitTestEnv,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -23,11 +28,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Prepare
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
-  FailingCryptoProvider,
-  ProgrammableUnitTestContext,
-  ProgrammableUnitTestEnv,
-}
 import org.scalatest.wordspec.AnyWordSpec
 
 class IssConsensusSignatureVerifierTest extends AnyWordSpec with BftSequencerBaseTest {

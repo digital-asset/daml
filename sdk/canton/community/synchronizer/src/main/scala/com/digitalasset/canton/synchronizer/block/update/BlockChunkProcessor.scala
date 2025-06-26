@@ -231,7 +231,7 @@ final class BlockChunkProcessor(
           sequencingTime = tickSequencingTimestamp,
           deliverToMembers = sequencerRecipients(SequencersOfSynchronizer),
           batch = Batch.empty(protocolVersion),
-          submissionTraceContext = TraceContext.createNew(),
+          submissionTraceContext = TraceContext.createNew("emit_tick"),
           trafficReceiptO = None,
           inFlightAggregation = None,
         )

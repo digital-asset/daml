@@ -67,7 +67,7 @@ class CantonDynamicSynchronizerParameterGetter(
             alias: SynchronizerAlias
         ): FutureUnlessShutdown[Option[NonNegativeFiniteDuration]] =
           synchronizerConnectionConfigStore
-            .getActive(alias, singleExpected = false)
+            .getActive(alias)
             .map(_.configuredPSId) match {
             case Left(err) =>
               logger.info(

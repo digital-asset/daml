@@ -59,12 +59,11 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       .withSetup { implicit env =>
         import env.*
 
-        // TODO(#25433): Figure out AcsCommitmentProcessor running-commitment internal consistency check failure after
-        //  party replication in spite of indexer pausing on target participant. For now disable ACS commitment checks.
+        // More aggressive AcsCommitmentProcessor checking.
         sequencer1.topology.synchronizer_parameters
           .propose_update(
             daId,
-            _.update(reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10).toConfig),
+            _.update(reconciliationInterval = PositiveSeconds.tryOfSeconds(10).toConfig),
           )
 
         participants.all.synchronizers.connect_local(sequencer1, daName)

@@ -19,6 +19,7 @@ import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
+import com.digitalasset.canton.platform.config.CommandServiceConfig
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
   DriverContractMetadata,
@@ -179,6 +180,7 @@ class StoreBackedCommandInterpreterSpec
       authenticateSerializableContract = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
       config = EngineLoggingConfig(),
+      prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
       loggerFactory = loggerFactory,
       dynParamGetter = new TestDynamicSynchronizerParameterGetter(tolerance),
       timeProvider = TimeProvider.UTC,
@@ -387,6 +389,7 @@ class StoreBackedCommandInterpreterSpec
         metrics = LedgerApiServerMetrics.ForTesting,
         authenticateSerializableContract = _ => authenticationResult,
         EngineLoggingConfig(),
+        prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
         loggerFactory = loggerFactory,
         dynParamGetter = new TestDynamicSynchronizerParameterGetter(NonNegativeFiniteDuration.Zero),
         TimeProvider.UTC,

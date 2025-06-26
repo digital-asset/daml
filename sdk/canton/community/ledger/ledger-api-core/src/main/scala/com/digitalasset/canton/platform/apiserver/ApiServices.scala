@@ -267,6 +267,7 @@ object ApiServices {
           authenticateSerializableContract = authenticateSerializableContract,
           metrics = metrics,
           config = engineLoggingConfig,
+          prefetchingRecursionLevel = commandConfig.contractPrefetchingDepth,
           loggerFactory = loggerFactory,
           dynParamGetter = dynParamGetter,
           timeProvider = timeProvider,

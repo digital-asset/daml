@@ -29,9 +29,9 @@ class InMemoryContractStore(
   override protected[store] def logger: TracedLogger = super.logger
 
   /** Invariants:
-    *   - Every [[SerializableContract]] is stored under [[SerializableContract.contractId]].
+    *   - Every [[LfFatContractInst]] is stored under [[LfFatContractInst.contractId]].
     */
-  private[this] val contracts = TrieMap.empty[LfContractId, SerializableContract]
+  private[this] val contracts = TrieMap.empty[LfContractId, ContractInstance]
 
   /** Debug find utility to search pcs
     */
@@ -40,24 +40,24 @@ class InMemoryContractStore(
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[SerializableContract]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[ContractInstance]] = {
     def search(
         needle: String,
-        accessor: SerializableContract => String,
-    ): SerializableContract => Boolean =
+        accessor: ContractInstance => String,
+    ): ContractInstance => Boolean =
       needle match {
         case rs if rs.startsWith("!") => accessor(_) == needle.drop(1)
         case rs if rs.startsWith("^") => accessor(_).startsWith(needle.drop(1))
         case _ => accessor(_).contains(needle)
       }
     val flt1 =
-      filterPackage.map(search(_, _.contractInstance.unversioned.template.packageId))
+      filterPackage.map(search(_, _.templateId.packageId))
     val flt2 = filterTemplate.map(
-      search(_, _.contractInstance.unversioned.template.qualifiedName.qualifiedName)
+      search(_, _.templateId.qualifiedName.qualifiedName)
     )
     val flt3 = filterId.map(search(_, _.contractId.coid))
 
-    def conjunctiveFilter(sc: SerializableContract): Boolean =
+    def conjunctiveFilter(sc: ContractInstance): Boolean =
       flt1.forall(_(sc)) && flt2.forall(_(sc)) && flt3.forall(_(sc))
     FutureUnlessShutdown.pure(
       contracts.values.filter(conjunctiveFilter).take(limit).toList
@@ -65,28 +65,26 @@ class InMemoryContractStore(
   }
 
   def findWithPayload(
-      contractIds: NonEmpty[Seq[LfContractId]],
-      limit: Int,
+      contractIds: NonEmpty[Seq[LfContractId]]
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] =
+  ): FutureUnlessShutdown[Map[LfContractId, ContractInstance]] =
     FutureUnlessShutdown.pure(
       contractIds
         .map(cid => cid -> contracts.get(cid))
         .collect { case (cid, Some(contract)) => cid -> contract }
-        .take(limit)
         .toMap
     )
 
   override def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] = {
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, ContractInstance] = {
     logger.debug(s"Looking up contract: $id")
     OptionT(FutureUnlessShutdown.pure {
       val result = contracts.get(id)
       result.fold(logger.debug(s"Contract $id not found"))(contract =>
         logger.debug(
-          s"Found contract $id of type ${contract.contractInstance.unversioned.template.qualifiedName.qualifiedName}"
+          s"Found contract $id of type ${contract.templateId.qualifiedName.qualifiedName}"
         )
       )
       result
@@ -94,21 +92,21 @@ class InMemoryContractStore(
   }
 
   override def storeContracts(
-      contracts: Seq[SerializableContract]
+      contracts: Seq[ContractInstance]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     contracts.foreach(store)
     FutureUnlessShutdown.unit
   }
 
-  private def store(storedContract: SerializableContract): Unit =
+  private def store(storedContract: ContractInstance): Unit =
     contracts
       .putIfAbsent(storedContract.contractId, storedContract)
-      .discard[Option[SerializableContract]]
+      .discard[Option[ContractInstance]]
 
   override def deleteIgnoringUnknown(
       ids: Iterable[LfContractId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    ids.foreach(id => contracts.remove(id).discard[Option[SerializableContract]])
+    ids.foreach(id => contracts.remove(id).discard[Option[ContractInstance]])
     FutureUnlessShutdown.unit
   }
 
@@ -121,7 +119,7 @@ class InMemoryContractStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
     val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
-      (cid, c.metadata.stakeholders)
+      (cid, c.stakeholders)
     }
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
   }
@@ -130,7 +128,7 @@ class InMemoryContractStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {
     val res = contracts.filter { case (cid, _) => ids.contains(cid) }.map { case (cid, c) =>
-      (cid, c.metadata.signatories)
+      (cid, c.inst.signatories)
     }
     EitherT.cond(res.sizeCompare(ids) == 0, res.toMap, UnknownContracts(ids -- res.keySet))
   }

@@ -204,7 +204,7 @@ object LedgerClient {
     traceContext match {
       case Some(LedgerApiTraceContext(Some(parent), state)) =>
         W3CTraceContext(parent, state).toTraceContext
-      case _ => TraceContext.withNewTraceContext(identity)
+      case _ => TraceContext.withNewTraceContext("ledger_api")(identity)
     }
 
 }

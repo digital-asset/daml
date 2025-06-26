@@ -140,7 +140,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         ) -> Recipients.cc(mediator1.id),
       )
 
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("agg1") { implicit traceContext =>
         logger.debug("Sending aggregation 1 part 1")
         val send1ResultPromise = Promise[UnlessShutdown[SendResult]]()
         p1SequencerClient
@@ -162,7 +162,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         testedProtocolVersion,
       )
       val p3SequencerClient = sequencerClientOf(participant3, daId)
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("agg2") { implicit traceContext =>
         logger.debug("Sending aggregation 2 part 1")
         val send2ResultPromise = Promise[UnlessShutdown[SendResult]]()
         val send2 = p1SequencerClient
@@ -286,7 +286,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
       // participant3 now talks to the newly onboarded sequencer
 
       val p3SequencerClient = sequencerClientOf(participant3, daId)
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("agg1_2") { implicit traceContext =>
         logger.debug("Sending aggregation 1 part 2")
         val send1ResultPromise = Promise[UnlessShutdown[SendResult]]()
         // This should deliver the bogus root hash message to mediator1
@@ -305,7 +305,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
       }
 
       // Now also try to send the second aggregation that was already delivered
-      TraceContext.withNewTraceContext { implicit traceContext =>
+      TraceContext.withNewTraceContext("agg2_2") { implicit traceContext =>
         logger.debug("Sending aggregation 2 part 2")
         val send2ResultPromise = Promise[UnlessShutdown[SendResult]]()
         p3SequencerClient
@@ -391,7 +391,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
           )
 
         val p3SequencerClient = sequencerClientOf(participant3, daId)
-        TraceContext.withNewTraceContext { implicit traceContext =>
+        TraceContext.withNewTraceContext("tombstone") { implicit traceContext =>
           loggerFactory.assertLogsUnordered(
             {
               logger.debug("Sending submission request with tombstone topology timestamp")

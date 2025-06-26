@@ -191,7 +191,7 @@ class DatabaseSequencer(
   protected def resetWatermarkTo: ResetWatermark = SequencerWriter.ResetWatermarkToClockNow
 
   // Only start pruning scheduler after `store` variable above has been initialized to avoid racy NPE
-  withNewTraceContext { implicit traceContext =>
+  withNewTraceContext("db_sequencer_start") { implicit traceContext =>
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
       writer
         .startOrLogError(initialState, resetWatermarkTo)
@@ -225,7 +225,7 @@ class DatabaseSequencer(
       sequencerStore.markLaggingSequencersOffline(cutoffTime)
     }
 
-    def markOffline(): Unit = withNewTraceContext { implicit traceContext =>
+    def markOffline(): Unit = withNewTraceContext("mark_offline") { implicit traceContext =>
       doNotAwait(
         synchronizeWithClosing(functionFullName)(markOfflineF().thereafter { _ =>
           // schedule next marking sequencers as offline regardless of outcome

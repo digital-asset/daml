@@ -29,7 +29,6 @@ import com.digitalasset.canton.topology.{
   ForceFlags,
   ParticipantId,
   PartyId,
-  PhysicalSynchronizerId,
   SynchronizerId,
   SynchronizerTopologyManager,
   TopologyManager,
@@ -47,10 +46,7 @@ class PartyReplicationTopologyWorkflowTest
   private val requestId = Hash.build(TestHash.testHashPurpose, HashAlgorithm.Sha256).add(0).finish()
   private val partyId = PartyId.tryFromProtoPrimitive("onboarding::namespace")
   private val synchronizerId = SynchronizerId.tryFromString("synchronizer::namespace")
-  private val physicalSynchronizerId = PhysicalSynchronizerId(
-    synchronizerId,
-    testedProtocolVersion,
-  )
+  private val physicalSynchronizerId = synchronizerId.toPhysical
   private val sp = ParticipantId("source-participant")
   private val tp = ParticipantId("target-participant")
   private val serial = PositiveInt.tryCreate(17)

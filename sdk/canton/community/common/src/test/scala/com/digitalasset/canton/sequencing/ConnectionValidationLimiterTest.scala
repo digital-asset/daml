@@ -31,7 +31,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
         new ConnectionValidationLimiter(mockValidate, futureSupervisor, loggerFactory)
 
       // Request a burst of validations
-      val fut = (1 to 42).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
+      val fut = (1 to 42).toList.map(_ => validator.maybeValidate()(TraceContext.createNew("test")))
 
       // Complete all validations
       promises.foreach(_.outcome_(()))
@@ -57,7 +57,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
         new ConnectionValidationLimiter(mockValidate, futureSupervisor, loggerFactory)
 
       // Request two validations so one gets scheduled
-      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
+      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew("test")))
 
       // Shutdown the validator
       validator.close()
@@ -83,7 +83,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
         new ConnectionValidationLimiter(mockValidate, futureSupervisor, loggerFactory)
 
       // Request two validations so one gets scheduled
-      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
+      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew("test")))
 
       // Shutdown the first validation
       promises(0).shutdown_()
@@ -109,7 +109,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
         new ConnectionValidationLimiter(mockValidate, futureSupervisor, loggerFactory)
 
       // Request two validations so one gets scheduled
-      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
+      val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew("test")))
 
       // Fail the first validation
       promises(0).failure(new Exception("boom"))

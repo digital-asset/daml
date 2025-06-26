@@ -153,7 +153,8 @@ final class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecu
       sre.getTrailers shouldEqual serverTrailers
     }
 
-  val requestTraceContext: TraceContext = TraceContext.withNewTraceContext(tc => tc)
+  val requestTraceContext: TraceContext =
+    TraceContext.withNewTraceContext("request_trace")(tc => tc)
 
   private val progressLogger = loggerFactory.getLogger(classOf[Env])
 

@@ -13,7 +13,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   PeerEndpointHealthStatus,
   PeerEndpointStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PMetrics.{
@@ -37,7 +38,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   P2PNetworkRef,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.integration.p2p.grpc.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingMessageBody,
   BftOrderingServiceReceiveRequest,
@@ -50,7 +50,7 @@ import java.time.Instant
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
-private[bftordering] class KnownEndpointsAndNodes {
+private[p2p] class KnownEndpointsAndNodes {
 
   private val networkRefs =
     mutable.Map.empty[
@@ -93,7 +93,7 @@ private[bftordering] class KnownEndpointsAndNodes {
 
 final class P2PNetworkOutModule[E <: Env[E]](
     thisNode: BftNodeId,
-    @VisibleForTesting private[bftordering] val p2pEndpointsStore: P2PEndpointsStore[E],
+    @VisibleForTesting private[p2p] val p2pEndpointsStore: P2PEndpointsStore[E],
     metrics: BftOrderingMetrics,
     override val dependencies: P2PNetworkOutModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,

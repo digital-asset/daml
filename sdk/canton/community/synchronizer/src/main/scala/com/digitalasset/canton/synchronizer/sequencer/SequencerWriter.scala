@@ -412,7 +412,7 @@ class SequencerWriter(
 
   private def setupWriterRecovery(doneF: Future[Unit]): Unit =
     doneF.onComplete { result =>
-      withNewTraceContext { implicit traceContext =>
+      withNewTraceContext("setup_writer_recovery") { implicit traceContext =>
         synchronizeWithClosingSync(functionFullName) { // close will take care of shutting down a running writer if close is invoked
           // close the running writer and reset the reference
           val closed = runningWriterRef
@@ -461,8 +461,8 @@ class SequencerWriter(
     store.goOffline()
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = withNewTraceContext {
-    implicit traceContext =>
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
+    withNewTraceContext("close_sequencer_writer") { implicit traceContext =>
       logger.debug("Shutting down sequencer writer")
       val sequencerFlow = runningWriterRef.get()
       Seq(
@@ -474,7 +474,7 @@ class SequencerWriter(
           timeouts.closing,
         ),
       )
-  }
+    }
 }
 
 object SequencerWriter {

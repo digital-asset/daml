@@ -252,6 +252,10 @@ class BftOrderingMetrics private[metrics] (
               val EpochCompletionWait = "consensus-epoch-completion-wait"
               // Time waited for a new epoch to start
               val EpochStartWait = "consensus-epoch-start-wait"
+              // Time elapsed between sending a PrePrepare and seeing that the block has been ordered
+              val SegmentProposalToCommitLatency = "consensus-segment-proposal-to-commit-latency"
+              // Time elapsed between ordered blocks proposed by a segment
+              val SegmentBlockCommitLatency = "consensus-segment-block-commit-latency"
             }
 
             object output {

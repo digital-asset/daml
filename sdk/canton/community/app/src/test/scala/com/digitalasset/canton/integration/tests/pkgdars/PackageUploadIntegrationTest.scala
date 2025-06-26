@@ -8,7 +8,9 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference, SequencerReference}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -26,6 +28,7 @@ import com.digitalasset.canton.participant.admin.PackageService.{DarDescription,
 import com.digitalasset.canton.participant.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.participant.admin.{PackageServiceTest, PackageTestUtils}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.daml.lf.archive.{DarParser, DarReader}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -33,7 +36,7 @@ import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.Future
-import scala.util.chaining.scalaUtilChainingOps
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success}
 
 trait PackageUploadIntegrationTest
@@ -41,7 +44,7 @@ trait PackageUploadIntegrationTest
     with SharedEnvironment
     with PackageUsableMixin {
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P4_S1M1
+    EnvironmentDefinition.P5_S1M1
 
   private def inStore(store: TopologyStoreId, participant: ParticipantReference) =
     participant.topology.vetted_packages
@@ -473,7 +476,7 @@ trait PackageUploadIntegrationTest
       cantonExamplesMainPkgId = participant4.dars
         .list(filterName = "CantonExamples")
         .loneElement
-        .pipe(_.mainPackageId)
+        .mainPackageId
 
       assertThrowsAndLogsCommandFailures(
         participant4.dars.remove(cantonTestsMainPackageId),
@@ -516,6 +519,68 @@ trait PackageUploadIntegrationTest
         .map(_.packageId) should not contain cantonExamplesMainPkgId
     }
   }
+
+  "Uploading and vetting a dar" must {
+    "make its package dependencies usable immediately" in { implicit env =>
+      import env.*
+
+      participant5.synchronizers.connect_local(sequencer1, alias = daName)
+      participant5.dars.upload(CantonExamplesPath)
+
+      participant5.topology.vetted_packages
+        .propose_delta(
+          participant5.id,
+          adds = Seq(
+            VettedPackage(
+              cantonExamplesMainPkgId,
+              validFromInclusive = Some(CantonTimestamp.now().plusSeconds(60)),
+              validUntilExclusive = None,
+            )
+          ),
+        )
+
+      eventually() {
+        participant5.topology.vetted_packages
+          .list(daId, filterParticipant = participant5.filterString)
+          .loneElement
+          .item
+          .packages
+          .find(vp => vp.packageId == cantonExamplesMainPkgId)
+          .value
+          .validFromInclusive should not be empty
+      }
+
+      // Upload CantonTests that depends on the CantonExamples main package-id
+      participant5.dars.upload(CantonTestsPath)
+
+      eventually() {
+        participant5.topology.vetted_packages
+          .list(daId, filterParticipant = participant5.filterString)
+          .loneElement
+          .item
+          .packages
+          .find(vp => vp.packageId == cantonExamplesMainPkgId)
+          .value
+          .validFromInclusive shouldBe empty
+
+      }
+
+      assertPackageUsable(
+        participant5,
+        participant1,
+        daId,
+        (submitter, observer) =>
+          new Iou(
+            submitter.toProtoPrimitive,
+            observer.toProtoPrimitive,
+            new Amount(BigDecimal(17).bigDecimal, "fake-coin"),
+            List.empty.asJava,
+          ).create().commands().asScala.toSeq,
+      )
+
+    }
+  }
+
 }
 
 class PackageUploadIntegrationTestPostgres extends PackageUploadIntegrationTest {

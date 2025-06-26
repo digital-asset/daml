@@ -5,21 +5,29 @@ package com.digitalasset.canton.participant.protocol.party
 
 import cats.Eval
 import cats.data.EitherT
+import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.HashPurpose
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, ContractReassignment}
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{SerializableContract, TransactionId, UnassignId}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  ReassignmentId,
+  SerializableContract,
+  TransactionId,
+  UnassignId,
+}
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -133,8 +141,12 @@ final class PartyReplicationTargetParticipantProcessor(
           val contractsToAdd = contracts.map(_.contract)
           for {
             _ <- interceptorForTestingOnly.onAcsChunkReceivedForTesting(chunkId, contractsToAdd)
-            _ <- EitherT.right(
-              participantNodePersistentState.value.contractStore.storeContracts(contractsToAdd)
+            _ <- EitherT(
+              contractsToAdd.forgetNE
+                .traverse(ContractInstance.apply)
+                .traverse(
+                  participantNodePersistentState.value.contractStore.storeContracts
+                )
             )
             repairCounter = RepairCounter(chunkId.unwrap)
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
@@ -167,7 +179,7 @@ final class PartyReplicationTargetParticipantProcessor(
               if (chunkConsumedUpToExclusive == chunksConsumedExclusive.get()) {
                 // Create a new trace context and log the old and new trace ids, so that we don't end up with
                 // a conversation that consists of only one trace id from beginning to end.
-                TraceContext.withNewTraceContext { newTraceContext =>
+                TraceContext.withNewTraceContext("request_next_chunks") { newTraceContext =>
                   logger.debug(
                     s"Target participant has received all the chunks requested before ${chunkConsumedUpToExclusive.unwrap}." +
                       s"Requesting ${numberOfChunksToRequestEachTime.unwrap} more chunks from source participant (new tid: ${newTraceContext.traceId})"
@@ -245,21 +257,31 @@ final class PartyReplicationTargetParticipantProcessor(
           case ActiveContractOld(_, contract, reassignmentCounter) =>
             (contract.contractId, reassignmentCounter)
         }
+        val artificialReassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
+          targetSynchronizer = ReassignmentTag.Target(synchronizerId),
+          submitter = None,
+          unassignId = UnassignId(
+            ReassignmentTag.Source(synchronizerId),
+            ReassignmentTag.Target(synchronizerId),
+            timestamp, // artificial unassign has same timestamp as
+            contractIdCounters,
+          ),
+          isReassigningParticipant = false,
+        )
+        val commitSet = CommitSet.createForAssignment(
+          ReassignmentId(
+            artificialReassignmentInfo.sourceSynchronizer,
+            artificialReassignmentInfo.unassignId,
+          ),
+          contracts.map { case ActiveContractOld(_, contract, reassignmentCounter) =>
+            ContractReassignment(contract, reassignmentCounter)
+          },
+        )
         Update.RepairReassignmentAccepted(
           workflowId = None,
           updateId = uniqueUpdateId,
-          reassignmentInfo = ReassignmentInfo(
-            sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
-            targetSynchronizer = ReassignmentTag.Target(synchronizerId),
-            submitter = None,
-            unassignId = UnassignId(
-              ReassignmentTag.Source(synchronizerId),
-              ReassignmentTag.Target(synchronizerId),
-              timestamp,
-              contractIdCounters,
-            ), // artificial unassign has same timestamp as assign
-            isReassigningParticipant = false,
-          ),
+          reassignmentInfo = artificialReassignmentInfo,
           reassignment = Reassignment.Batch(
             contracts.zipWithIndex.map {
               case (ActiveContractOld(_, contract, reassignmentCounter), idx) =>
@@ -276,6 +298,7 @@ final class PartyReplicationTargetParticipantProcessor(
           repairCounter = repairCounter,
           recordTime = timestamp,
           synchronizerId = synchronizerId,
+          commitSetO = Some(commitSet),
         )
       }
 

@@ -450,7 +450,7 @@ class ParticipantTopologyTerminateProcessingTest
       val parties = List(1, 2, 3, 4, 5, 6, 7, 8).map(i =>
         PartyId(UniqueIdentifier.tryCreate(s"p$i", namespace))
       )
-      val traceContexts = List.fill(8)(TraceContext.createNew())
+      val traceContexts = List.fill(8)(TraceContext.createNew("test"))
       traceContexts.toSet.size shouldBe 8
       val traceContextMap = List(cts, cts2, cts3, cts4, cts5, cts6, cts7, cts8)
         .zip(traceContexts)

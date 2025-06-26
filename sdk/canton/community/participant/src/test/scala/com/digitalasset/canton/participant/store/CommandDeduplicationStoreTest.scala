@@ -32,18 +32,18 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
     CantonTimestamp.ofEpochSecond(1),
     DefaultDamlValues.submissionId(1).some,
   )(
-    TraceContext.withNewTraceContext(Predef.identity)
+    TraceContext.withNewTraceContext("answer1")(Predef.identity)
   )
   private lazy val answer2 = DefiniteAnswerEvent(
     Offset.tryFromLong(2),
     CantonTimestamp.ofEpochSecond(2),
     DefaultDamlValues.submissionId(2).some,
   )(
-    TraceContext.withNewTraceContext(Predef.identity)
+    TraceContext.withNewTraceContext("answer2")(Predef.identity)
   )
   private lazy val answer3 =
     DefiniteAnswerEvent(Offset.tryFromLong(3), CantonTimestamp.ofEpochSecond(3), None)(
-      TraceContext.withNewTraceContext(Predef.identity)
+      TraceContext.withNewTraceContext("answer3")(Predef.identity)
     )
 
   protected def commandDeduplicationStore(mk: () => CommandDeduplicationStore): Unit = {
@@ -103,7 +103,9 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
       "idempotent store of acceptances" in {
         val store = mk()
         val answer1WithDifferentTC =
-          answer1.copy()(traceContext = TraceContext.withNewTraceContext(Predef.identity))
+          answer1.copy()(traceContext =
+            TraceContext.withNewTraceContext("newAnswer")(Predef.identity)
+          )
         for {
           _ <- store.storeDefiniteAnswers(
             Seq(

@@ -147,7 +147,7 @@ class QueueBasedSynchronizerOutbox(
   protected def kickOffFlush(): Unit =
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
-      TraceContext.withNewTraceContext(implicit tc =>
+      TraceContext.withNewTraceContext("flush_outbox")(implicit tc =>
         EitherTUtil.doNotAwait(
           flush().onShutdown(Either.unit),
           "synchronizer outbox flusher",

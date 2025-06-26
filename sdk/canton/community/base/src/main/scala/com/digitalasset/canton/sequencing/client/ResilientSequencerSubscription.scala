@@ -175,7 +175,7 @@ class ResilientSequencerSubscription[HandlerError](
     } else if (isFailed) {
       logger.info(logMessage)
     } else if (!isClosing) {
-      TraceContext.withNewTraceContext { tx =>
+      TraceContext.withNewTraceContext("restart_subscription") { tx =>
         this.failureOccurred(
           LostSequencerSubscription.Warn(sequencerId)(this.errorLoggingContext(tx))
         )
@@ -293,8 +293,8 @@ class ResilientSequencerSubscription[HandlerError](
     val _ = closeReasonPromise.tryComplete(reason)
   }
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = withNewTraceContext {
-    implicit traceContext =>
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
+    withNewTraceContext("close_sequencer_subscription") { implicit traceContext =>
       Seq(
         SyncCloseable(
           "underlying-subscription",
@@ -306,7 +306,7 @@ class ResilientSequencerSubscription[HandlerError](
           closeReasonPromise.tryComplete(Success(SubscriptionCloseReason.Closed)).discard[Boolean],
         ),
       )
-  }
+    }
 }
 
 object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {

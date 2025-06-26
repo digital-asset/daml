@@ -330,6 +330,9 @@ class ConnectedSynchronizer(
     def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
       participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
+        .map(
+          _.map(_.serializable)
+        ) // TODO(#26348) - use fat contract downstream
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(

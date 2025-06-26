@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.InMemoryOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistLeaderSelectionPolicyState
@@ -15,7 +16,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockNumber,
   EpochNumber,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -92,7 +92,7 @@ trait OutputMetadataStore[E <: Env[E]] extends AutoCloseable {
   protected final val lastConsecutiveActionName: String = "get last consecutive block metadata"
 
   @VisibleForTesting
-  def loadNumberOfRecords(implicit
+  private[data] def loadNumberOfRecords(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[OutputMetadataStore.NumberOfRecords]
   protected def loadNumberOfRecordsName: String = s"load number of records"

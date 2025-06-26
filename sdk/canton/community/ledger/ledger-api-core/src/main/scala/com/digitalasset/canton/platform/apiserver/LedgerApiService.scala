@@ -40,20 +40,19 @@ object LedgerApiService {
     ResourceOwner
       .forCloseable(() => apiServices)
       .flatMap(_ =>
-        GrpcServer
-          .owner(
-            address,
-            desiredPort,
-            maxInboundMessageSize,
-            maxInboundMetadataSize,
-            sslContext,
-            interceptors,
-            metrics,
-            servicesExecutor,
-            apiServices.services,
-            loggerFactory,
-            keepAlive = keepAlive,
-          )
+        GrpcServerOwner(
+          address,
+          desiredPort,
+          maxInboundMessageSize,
+          maxInboundMetadataSize,
+          sslContext,
+          interceptors,
+          metrics,
+          servicesExecutor,
+          apiServices.services,
+          loggerFactory,
+          keepAlive = keepAlive,
+        )
           .afterReleased(logger.info("GrpcServer released"))
       )
       .map { server =>

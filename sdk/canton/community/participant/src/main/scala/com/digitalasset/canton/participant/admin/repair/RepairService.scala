@@ -97,7 +97,7 @@ final class RepairService(
     with FlagCloseable
     with HasCloseContext {
 
-  private type MissingContract = SerializableContract
+  private type MissingContract = ContractInstance
   private type MissingAssignment =
     (LfContractId, Source[SynchronizerId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
@@ -333,7 +333,9 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
+                contracts.view
+                  .flatMap(_.map(c => c.contractId -> c.serializable))
+                  .toMap // TODO(#26348) - use fat contract downstream
               }
 
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
@@ -469,7 +471,9 @@ final class RepairService(
               "Unable to lookup contracts in contract store",
             )
               .map { contracts =>
-                contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
+                contracts.view
+                  .flatMap(_.map(c => c.contractId -> c.serializable))
+                  .toMap // TODO(#26348) - use fat contract downstream
               }
 
           toc = repair.tryExactlyOneTimeOfRepair.toToc
@@ -827,10 +831,9 @@ final class RepairService(
           case (contractToAdd, _) =>
             storedContracts.get(contractToAdd.cid) match {
               case None =>
-                EitherT.pure[FutureUnlessShutdown, String](
-                  Some(contractToAdd.contract)
+                EitherT.fromEither[FutureUnlessShutdown](
+                  ContractInstance(contractToAdd.contract).map(c => Some(c))
                 )
-
               case Some(storedContract) =>
                 EitherTUtil
                   .condUnitET[FutureUnlessShutdown](

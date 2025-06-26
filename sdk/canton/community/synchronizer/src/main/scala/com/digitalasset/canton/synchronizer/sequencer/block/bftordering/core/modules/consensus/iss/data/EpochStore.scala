@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.db.DbEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.InMemoryEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
@@ -25,7 +26,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Prepare,
   ViewChange,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -119,7 +119,7 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
     s"load complete blocks from $startEpochNumberInclusive to $endEpochNumberInclusive"
 
   @VisibleForTesting
-  def loadNumberOfRecords(implicit
+  private[data] def loadNumberOfRecords(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[EpochStore.NumberOfRecords]
   protected def loadNumberOfRecordsName: String = s"load number of records"

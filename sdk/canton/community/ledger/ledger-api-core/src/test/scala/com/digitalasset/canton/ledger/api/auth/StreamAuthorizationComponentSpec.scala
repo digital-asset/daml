@@ -29,7 +29,7 @@ import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule.{FullSuppression, LoggerNameContains}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
+import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServerOwner}
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.*
@@ -303,7 +303,7 @@ class StreamAuthorizationComponentSpec
         new UpdateServiceAuthorization(apiTransactionServiceFixture, authorizer)
       )
 
-    def grpcServerOwnerFor(bindableService: BindableService) = GrpcServer.owner(
+    def grpcServerOwnerFor(bindableService: BindableService) = GrpcServerOwner(
       address = None,
       desiredPort = grpcServerPort,
       maxInboundMessageSize = ApiServiceOwner.DefaultMaxInboundMessageSize,

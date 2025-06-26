@@ -455,7 +455,7 @@ object ParallelIndexerSubscription {
             previous.ledgerEnd.lastPublicationTime,
           )
           if (now < next) {
-            implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(
+            implicit val batchTraceContext: TraceContext = TraceContext.ofBatch("seq_map_batch")(
               current.offsetsUpdates.iterator.map(_._2)
             )(logger)
             logger.info(
@@ -564,7 +564,7 @@ object ParallelIndexerSubscription {
       LoggingContextWithTrace.withNewLoggingContext(
         "updateOffsets" -> batch.offsetsUpdates.map(_._1)
       ) { implicit loggingContext =>
-        val batchTraceContext: TraceContext = TraceContext.ofBatch(
+        val batchTraceContext: TraceContext = TraceContext.ofBatch("ingest_batch")(
           batch.offsetsUpdates.iterator.map(_._2)
         )(logger)
         reassignmentOffsetPersistence
@@ -675,7 +675,7 @@ object ParallelIndexerSubscription {
   ): Batch[DB_BATCH] => Future[Batch[DB_BATCH]] = {
     val directExecutionContext = DirectExecutionContext(logger)
     batch => {
-      val batchTraceContext: TraceContext = TraceContext.ofBatch(
+      val batchTraceContext: TraceContext = TraceContext.ofBatch("post_process_batch")(
         batch.offsetsUpdates.iterator.map(_._2)
       )(logger)
       val postPublishData = batch.offsetsUpdates.flatMap { case (offset, update) =>

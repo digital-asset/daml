@@ -11,7 +11,11 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
+import com.digitalasset.canton.config.{
+  CantonConfigValidator,
+  PositiveFiniteDuration,
+  UniformCantonConfigValidation,
+}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.encodeUsageForHash
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
@@ -28,7 +32,6 @@ import com.digitalasset.canton.serialization.{
   ProtoConverter,
 }
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
@@ -369,18 +372,18 @@ object Signature
   * @param fromInclusive
   *   the inclusive timestamp, indicating when a delegation to the session key was created
   * @param periodLength
-  *   the validity duration of the session key delegation in seconds
+  *   the validity duration of the session key delegation
   */
 final case class SignatureDelegationValidityPeriod(
     fromInclusive: CantonTimestamp,
-    periodLength: PositiveSeconds,
+    periodLength: PositiveFiniteDuration,
 ) extends PrettyPrinting
     // we never deserialize this object from a byte string, so we don't need to define a fromByteString method in the companion object
     with HasCryptographicEvidence {
 
   val toExclusive: CantonTimestamp =
     Either
-      .catchOnly[IllegalArgumentException](fromInclusive + periodLength)
+      .catchOnly[IllegalArgumentException](fromInclusive.add(periodLength.asJava))
       .getOrElse(CantonTimestamp.MaxValue)
 
   def covers(timestamp: CantonTimestamp): Boolean =
@@ -402,8 +405,8 @@ final case class SignatureDelegationValidityPeriod(
         DeterministicEncoding.encodeLong(periodLength.duration.toSeconds)
       )
 
-  def computeCutOffTimestamp(cutOffDuration: PositiveSeconds): CantonTimestamp =
-    this.toExclusive.minus(cutOffDuration.duration)
+  def computeCutOffTimestamp(cutOffDuration: Duration): CantonTimestamp =
+    this.toExclusive.minus(cutOffDuration)
 }
 
 /** An extension to the signature to accommodate the necessary information to be able to use session
@@ -555,9 +558,7 @@ object SignatureDelegation {
         )
       // Duration is already validated as positive and non-zero during parsing,
       // so calling Positive.create method here is unnecessary.
-      periodLength = PositiveSeconds.tryCreate(
-        Duration.ofSeconds(validityPeriodDurationSeconds.value.toLong)
-      )
+      periodLength = PositiveFiniteDuration.ofSeconds(validityPeriodDurationSeconds.value.toLong)
       signatureRaw = signatureP.signature
       signatureFormat <- SignatureFormat.fromProtoEnum("format", signatureP.format)
       signatureAlgorithmSpecO <- SigningAlgorithmSpec.fromProtoEnumOption(

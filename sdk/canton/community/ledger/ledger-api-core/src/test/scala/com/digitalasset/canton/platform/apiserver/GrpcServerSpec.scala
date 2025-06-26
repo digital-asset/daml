@@ -285,7 +285,7 @@ object GrpcServerSpec {
   )(implicit ec: ExecutionContext): ResourceOwner[Channel] =
     for {
       executor <- ResourceOwner.forExecutorService(() => Executors.newSingleThreadExecutor())
-      server <- GrpcServer.owner(
+      server <- GrpcServerOwner(
         address = None,
         desiredPort = Port.Dynamic,
         maxInboundMessageSize = maxInboundMessageSize,

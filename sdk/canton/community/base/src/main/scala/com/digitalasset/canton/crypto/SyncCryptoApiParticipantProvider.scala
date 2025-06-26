@@ -489,7 +489,7 @@ object SynchronizerCryptoClient {
 
 /** crypto operations for a (synchronizer,timestamp) */
 class SynchronizerSnapshotSyncCryptoApi(
-    val synchronizerId: PhysicalSynchronizerId,
+    val psid: PhysicalSynchronizerId,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: SynchronizerCrypto,
     val syncCryptoSigner: SyncCryptoSigner,

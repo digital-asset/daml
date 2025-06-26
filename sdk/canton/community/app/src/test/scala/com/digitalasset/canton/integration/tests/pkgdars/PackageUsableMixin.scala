@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton.integration.tests.pkgdars
 
+import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.damltests.java.conflicttest.Many
 import com.digitalasset.canton.integration.BaseIntegrationTest
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import org.scalatest.Assertion
 
 import scala.jdk.CollectionConverters.*
@@ -18,13 +19,16 @@ trait PackageUsableMixin {
       submittingParticipant: ParticipantReference,
       observerParticipant: ParticipantReference,
       synchronizerId: SynchronizerId,
+      cmdBuilder: (PartyId, PartyId) => Seq[Command] = { case (submitter, observer) =>
+        new Many(submitter.toProtoPrimitive, List(observer.toProtoPrimitive).asJava).create
+          .commands()
+          .asScala
+          .toSeq
+      },
   ): Unit = {
     val submitter = submittingParticipant.id.adminParty
     val observer = observerParticipant.id.adminParty
-    val cmd = new Many(
-      submitter.toProtoPrimitive,
-      List(observer.toProtoPrimitive).asJava,
-    ).create.commands.asScala.toSeq
+    val cmd = cmdBuilder(submitter, observer)
 
     submittingParticipant.ledger_api.javaapi.commands.submit(
       Seq(submitter),
@@ -37,11 +41,17 @@ trait PackageUsableMixin {
       submittingParticipant: ParticipantReference,
       observerParticipant: ParticipantReference,
       synchronizerId: SynchronizerId,
+      cmdBuilder: (PartyId, PartyId) => Seq[Command] = { case (submitter, observer) =>
+        new Many(submitter.toProtoPrimitive, List(observer.toProtoPrimitive).asJava).create
+          .commands()
+          .asScala
+          .toSeq
+      },
   ): Assertion =
     eventually() {
       withClue("Submit a command referencing the main package") {
         noException shouldBe thrownBy {
-          submitCommand(submittingParticipant, observerParticipant, synchronizerId)
+          submitCommand(submittingParticipant, observerParticipant, synchronizerId, cmdBuilder)
         }
       }
     }
