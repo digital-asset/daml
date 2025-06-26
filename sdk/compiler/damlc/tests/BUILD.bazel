@@ -29,6 +29,7 @@ da_haskell_test(
     deps = [
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
         "//sdk-version/hs:sdk-version-lib",
     ],
 )
@@ -950,6 +951,7 @@ da_haskell_test(
     name = "script-service",
     srcs = ["src/DA/Test/ScriptService.hs"],
     data = [
+        "//compiler/damlc",
         "//compiler/damlc/pkg-db",
         "//compiler/damlc/stable-packages",
         "//compiler/script-service/server:script_service_jar",
@@ -977,6 +979,7 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
