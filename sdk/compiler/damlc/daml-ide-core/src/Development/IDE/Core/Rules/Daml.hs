@@ -1004,16 +1004,17 @@ runScriptsPkg damlFile extPkg pkgs = do
     liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert damlFile ctxId
     lvl <- getDetailLevel
     results <- forM scripts $ \(modName, script) -> 
-        runScript scriptService pkgName' ctxId modName script
+        runScript scriptService pkgNameAndVersion ctxId modName script
     -- modify result to map back to PackageId
-    let diags = concatMap (toDiagnostics lvl world pkgName' noRange . snd) results
+    let diags = concatMap (toDiagnostics lvl world pkgNameAndVersion noRange . snd) results
     pure (diags, Just results)
   where
     pkg = LF.extPackagePkg extPkg
-    pkgName' =
+    LF.PackageMetadata {packageName, packageVersion} = LF.packageMetadata pkg
+    pkgNameAndVersion =
         toNormalizedFilePath' $
         T.unpack $
-        LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
+        LF.unPackageName packageName <> "-" <> LF.unPackageVersion packageVersion
     world = LF.initWorldSelf pkgs pkg
     scripts =
         [ (modName, sc)

@@ -479,7 +479,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "B.daml:x: ok, 0 active contracts, 2 transactions."
-                 , "a:testA: ok, 0 active contracts, 2 transactions."
+                 , "a-0.0.1:testA: ok, 0 active contracts, 2 transactions."
                  ] `isInfixOf`
              stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
@@ -603,7 +603,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
                  ] `isInfixOf`
              stdout)
           assertBool ("Internal module test coverage is reported correctly: " <> stdout)
@@ -660,7 +660,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Exclude Deps: Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
                  ] `isInfixOf`
              stdout)
           assertBool ("Exclude Deps: Internal module test coverage is reported correctly: " <> stdout)
@@ -713,7 +713,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Exclude Archive: Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
                  ] `isInfixOf`
              stdout)
           assertBool ("Exclude Archive: Internal module test coverage is reported correctly: " <> stdout)
@@ -768,7 +768,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Exclude Archive and Dep: Test coverage is reported correctly: " <> stdout)
             (unlines
                  [ "./Mod2.daml:testMod1: ok, 0 active contracts, 4 transactions."
-                 , "a:testMod1: ok, 0 active contracts, 4 transactions."
+                 , "a-0.0.1:testMod1: ok, 0 active contracts, 4 transactions."
                  ] `isInfixOf`
              stdout)
           assertBool ("Exclude Archive and Dep: Internal module test coverage is reported correctly: " <> stdout)
@@ -855,7 +855,7 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
           assertBool ("Test coverage is reported correctly: " <> stdout)
             (unlines
               [ "B.daml:needleHaystack: ok, 0 active contracts, 0 transactions."
-              , "a:test_needleHaystack: ok, 0 active contracts, 0 transactions."
+              , "a-0.0.1:test_needleHaystack: ok, 0 active contracts, 0 transactions."
               , "Modules internal to this package:"
               , "- Internal templates"
               , "  0 defined"

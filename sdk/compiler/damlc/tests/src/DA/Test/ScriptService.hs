@@ -797,12 +797,9 @@ testScriptService lfVersion getScriptService =
               matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
             expectScriptSuccess rs (vr "v2/Main.daml" "test2") $ \r ->
               matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            -- scripts in v1 (main-1.0.0.dar)
-            -- TODO the so called filePath of a test in a package is the package name
-            -- in the context of upgrading, it should also contain the package version
-            expectScriptSuccess rs (vr "main" "test1") $ \r ->
+            expectScriptSuccess rs (vr "main-1.0.0" "test1") $ \r ->
               matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            expectScriptSuccess rs (vr "main" "test2") $ \r ->
+            expectScriptSuccess rs (vr "main-1.0.0" "test2") $ \r ->
               matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
             
         ]
@@ -1275,7 +1272,7 @@ runScriptsInAllPackages getScriptService lfVersion mainProject projects = do
     withIdeState getScriptService opts $ \ideState -> do
       (result, extResults) <- runAllScripts ideState damlFiles (RunAllOption True)
       let 
-        extPkgs = [pkg | ExtPackageTestResults pkg _ <- extResults]
+        extPkgs = [pkg | ExtPackageTestResults pkg _ <- extResults] 
         prettyModuleRes = [ (vr,) <$> prettyResult world res 
                           | ModuleTestResults world _ _ (Just modRes) <- result
                           , (vr, res) <- modRes
