@@ -19,7 +19,8 @@ sh_binaries(
     name = "tools-windows",
     deps = [
         "@cabal_win//:tools",
-        "@dadew_ghc_lib_deps//:tools",
+        "@dadew_ghc_lib_deps_git//:tools",
+        "@dadew_ghc_lib_deps_msys2//:tools",
         "@dadew_ghc_lib_deps_python//:tools",
         "@ghc_win//:tools",
     ],

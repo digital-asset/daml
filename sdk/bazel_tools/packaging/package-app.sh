@@ -74,9 +74,15 @@ export ORIGIN=$(dirname $(canonicalpath $SRC)) # for rpaths relative to binary
 
 # Copy in resources, if any.
 if [ $# -gt 0 ]; then
-  mkdir -p $WORKDIR/$NAME/resources
-  for res in $*; do
-    if [[ "$res" == *.tar.gz ]]; then
+  mkdir -p "$WORKDIR/$NAME/resources"
+  for res in "$@"; do
+    if [[ "$res" == *:* ]]; then
+      src="${res%%:*}"
+      rel="${res#*:}"
+      dest="$WORKDIR/$NAME/resources/$rel"
+      mkdir -p "$(dirname "$dest")"
+      cp -aL "$src" "$dest"
+    elif [[ "$res" == *.tar.gz ]]; then
       # If a resource is a tarball, e.g., because it originates from another
       # rule we extract it.
       $tar xf "$res" --strip-components=1 -C "$WORKDIR/$NAME/resources"
@@ -171,7 +177,8 @@ exec \$LIB_DIR/$ld_name --library-path "\$LIB_DIR" "\$LIB_DIR/$NAME" "\$@"
 EOF
   chmod a+x "$wrapper"
 elif [[ "$(uname -s)" == "Darwin" ]]; then
-  cp $SRC $WORKDIR/$NAME/$NAME
+  cat $SRC > $WORKDIR/$NAME/$NAME
+  chmod a+x $WORKDIR/$NAME/$NAME
   chmod u+w $WORKDIR/$NAME/$NAME
   function copy_deps() {
     local from_original=$(canonicalpath $1)

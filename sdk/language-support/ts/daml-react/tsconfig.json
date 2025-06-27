@@ -14,6 +14,11 @@
     "outDir": "lib/",
     "module": "CommonJS",
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // those two options are needed to find @mojotech/json-type-validation validation library
+    "baseUrl": "./",
+    "paths": {
+      "*": ["node_modules/*"]
+    }
   }
 }
