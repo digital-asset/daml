@@ -391,8 +391,7 @@ common_ghc_flags = [
     # We default to -c opt but we also want -O1 in -c dbg builds
     # since we use them for profiling.
     "-O1",
-    "-hide-package=ghc-boot-th",
-    "-hide-package=ghc-boot",
+    "-hide-all-packages",
 ]
 
 # Used by Darwin and Linux
