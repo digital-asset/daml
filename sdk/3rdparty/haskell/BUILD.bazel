@@ -18,11 +18,13 @@ genrule(
     PROTO_DIR=$$(echo $${PROTO_FILE%$$PROTO_FILE_NAME})
     well_known_protos="$(locations @com_google_protobuf//:well_known_protos)"
     google_protobuf_src=$$(echo $${well_known_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
+    status_proto="$(location @go_googleapis//google/rpc:status.proto)"
+    googleapis_src=$$(echo $${status_proto} | sed 's,\\(.*\\)/google/rpc/.*,\\1,')
     $(location @proto3-suite//:compile-proto-file) \
       --proto "$$PROTO_FILE_NAME" \
       --includeDir "$$PROTO_DIR" \
       --includeDir "$$google_protobuf_src" \
-      --includeDir "external/go_googleapis" \
+      --includeDir "$$googleapis_src" \
       --out $(RULEDIR)
   """,
     tools = [

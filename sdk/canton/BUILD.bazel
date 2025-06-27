@@ -1718,8 +1718,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-google_rpc_src = "external/go_googleapis"
-
 filegroup(
     name = "google-rpc-source-protos",
     srcs = [
@@ -1734,6 +1732,7 @@ genrule(
     srcs = [
         ":google-rpc-source-protos",
         "@com_google_protobuf//:well_known_type_protos",
+        "@go_googleapis//google/rpc:status.proto",
     ],
     outs = [
         "Google/Rpc/Status.hs",
@@ -1742,10 +1741,12 @@ genrule(
     cmd = """
         well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
         google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
+        status_proto="$(location @go_googleapis//google/rpc:status.proto)"
+        googleapis_src=$$(echo $${status_proto} | sed 's,\\(.*\\)/google/rpc/.*,\\1,')
         for src in $(locations :google-rpc-source-protos); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir $$google_protobuf_src \
-                --includeDir """ + google_rpc_src + """ \
+                --includeDir $$googleapis_src \
                 --proto google/rpc/$$(basename $$src) \
                 --out $(@D)
         done
@@ -1797,10 +1798,12 @@ genrule(
     cmd = """
         well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
         google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
+        status_proto="$(location @go_googleapis//google/rpc:status.proto)"
+        googleapis_src=$$(echo $${status_proto} | sed 's,\\(.*\\)/google/rpc/.*,\\1,')
         for src in $(locations :ledger-api-protos-fg); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir $$google_protobuf_src \
-                --includeDir """ + google_rpc_src + """ \
+                --includeDir $$googleapis_src \
                 --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
                 --proto com/daml/ledger/api/v2/$$(basename $$src) \
@@ -1843,10 +1846,12 @@ genrule(
     cmd = """
         well_known_type_protos="$(locations @com_google_protobuf//:well_known_type_protos)"
         google_protobuf_src=$$(echo $${well_known_type_protos%% *} | sed 's,\\(.*\\)/google/protobuf/.*,\\1,')
+        status_proto="$(location @go_googleapis//google/rpc:status.proto)"
+        googleapis_src=$$(echo $${status_proto} | sed 's,\\(.*\\)/google/rpc/.*,\\1,')
         for src in $(locations :ledger-api-protos-fg-admin); do
             $(location @proto3-suite//:compile-proto-file) \
                 --includeDir $$google_protobuf_src \
-                --includeDir """ + google_rpc_src + """ \
+                --includeDir $$googleapis_src \
                 --includeDir """ + ledger_api_value_proto_source_root + """ \
                 --includeDir """ + ledger_api_proto_source_root + """ \
                 --proto com/daml/ledger/api/v2/admin/$$(basename $$src) \
