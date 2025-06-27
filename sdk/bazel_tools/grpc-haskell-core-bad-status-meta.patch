@@ -1,7 +1,7 @@
-diff --git a/src/Network/GRPC/LowLevel/Client.hs b/src/Network/GRPC/LowLevel/Client.hs
+diff --git a/core/src/Network/GRPC/LowLevel/Client.hs b/core/src/Network/GRPC/LowLevel/Client.hs
 index b617d91..74adbd4 100644
---- a/src/Network/GRPC/LowLevel/Client.hs
-+++ b/src/Network/GRPC/LowLevel/Client.hs
+--- a/core/src/Network/GRPC/LowLevel/Client.hs
++++ b/core/src/Network/GRPC/LowLevel/Client.hs
 @@ -277,8 +277,8 @@ compileNormalRequestResults
  compileNormalRequestResults x =
    case extractStatusInfo x of
@@ -13,10 +13,10 @@ index b617d91..74adbd4 100644
  
  --------------------------------------------------------------------------------
  -- clientReader (client side of server streaming mode)
-diff --git a/src/Network/GRPC/LowLevel/GRPC.hs b/src/Network/GRPC/LowLevel/GRPC.hs
+diff --git a/core/src/Network/GRPC/LowLevel/GRPC.hs b/core/src/Network/GRPC/LowLevel/GRPC.hs
 index 1f1a532..84f5d20 100644
---- a/src/Network/GRPC/LowLevel/GRPC.hs
-+++ b/src/Network/GRPC/LowLevel/GRPC.hs
+--- a/core/src/Network/GRPC/LowLevel/GRPC.hs
++++ b/core/src/Network/GRPC/LowLevel/GRPC.hs
 @@ -64,7 +64,7 @@ data GRPCIOError
      -- reasonable amount of time.
      GRPCIOShutdownFailure
@@ -26,10 +26,10 @@ index 1f1a532..84f5d20 100644
    | GRPCIODecodeError String
    | GRPCIOInternalUnexpectedRecv String -- debugging description
    | GRPCIOHandlerException String
-diff --git a/tests/LowLevelTests.hs b/tests/LowLevelTests.hs
-index 7e82e27..e2708ac 100644
---- a/tests/LowLevelTests.hs
-+++ b/tests/LowLevelTests.hs
+diff --git a/core/tests/LowLevelTests.hs b/core/tests/LowLevelTests.hs
+index 120e00c..b0e3ecb 100644
+--- a/core/tests/LowLevelTests.hs
++++ b/core/tests/LowLevelTests.hs
 @@ -233,7 +233,7 @@ testServerAuthProcessorCancel =
        rm <- clientRegisterMethodNormal c "/foo"
        r <- clientRequest c rm 10 "hi" mempty
@@ -57,9 +57,9 @@ index 7e82e27..e2708ac 100644
 +        Left (GRPCIOBadStatusCode StatusUnavailable _ _) -> True
 +        Left (GRPCIOBadStatusCode StatusDeadlineExceeded "Deadline Exceeded" _) -> True
          Left GRPCIOTimeout -> True
+         Left GRPCIOShutdown -> True
          _ -> False
- 
-@@ -696,7 +696,7 @@ testSlowServer =
+@@ -697,7 +697,7 @@ testSlowServer =
      client c = do
        rm <- clientRegisterMethodNormal c "/foo"
        result <- clientRequest c rm 1 "" mempty
@@ -68,7 +68,7 @@ index 7e82e27..e2708ac 100644
      server s = do
        let rm = head (normalMethods s)
        serverHandleNormalCall s rm mempty $ \_ -> do
-@@ -875,7 +875,7 @@ testClientMaxReceiveMessageLengthChannelArg = do
+@@ -876,7 +876,7 @@ testClientMaxReceiveMessageLengthChannelArg = do
      -- Expect failure when the max recv payload size is set to 3 bytes, and we
      -- are sent 4.
      shouldFail = clientMax 3 $ \case
