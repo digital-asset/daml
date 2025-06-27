@@ -37,7 +37,7 @@ public final class User {
   public static User fromProto(UserManagementServiceOuterClass.User proto) {
     String id = proto.getId();
     String primaryParty = proto.getPrimaryParty();
-    if (primaryParty == null || primaryParty.isEmpty()) {
+    if (primaryParty.isEmpty()) {
       return new User(id);
     } else {
       return new User(id, primaryParty);
