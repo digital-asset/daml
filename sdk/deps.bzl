@@ -184,26 +184,6 @@ def daml_deps():
             integrity = "sha256-q1oDF27hBtPw+pDjgdpHjdrkBZGBU8yiSOaCzQxKImk=",
         )
 
-    if "go_googleapis" not in native.existing_rules():
-        # The Haskell gRPC bindings require access to the status.proto source file.
-        # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
-        http_archive(
-            name = "go_googleapis",
-            # We must use the same version as rules_go
-            # master, as of 2022-12-05
-            urls = [
-                "https://mirror.bazel.build/github.com/googleapis/googleapis/archive/{}.zip".format(go_googleapis_version),
-                "https://github.com/googleapis/googleapis/archive/{}.zip".format(go_googleapis_version),
-            ],
-            sha256 = go_googleapis_sha256,
-            strip_prefix = "googleapis-{}".format(go_googleapis_version),
-            patches = [
-                # The Haskell gRPC bindings require access to the status.proto source file.
-                "//bazel_tools:googleapis-status-proto.patch",
-            ],
-            patch_args = ["-E", "-p1"],
-        )
-
     if "io_bazel_rules_go" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_go",
@@ -299,32 +279,6 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:absl-mingw-compiler-name.patch",
             ],
             patch_args = ["-p1"],
-        )
-
-    if "com_github_grpc_grpc" not in native.existing_rules():
-        http_archive(
-            name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.59.5",
-            urls = ["https://github.com/grpc/grpc/archive/v1.59.5.tar.gz"],
-            sha256 = "ad295f118a84d87096fe3eb416ef446d75d44c988eadccebc650656eb9383b3d",
-        )
-
-    if "com_google_protobuf" not in native.existing_rules():
-        http_archive(
-            name = "com_google_protobuf",
-            sha256 = "a1fa6ffa97c09d1efe0344e4352a6dbc51cebaafbdf20bcb6405147a0158c406",
-            strip_prefix = "protobuf-3.24.4",
-            urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.24.4.tar.gz",
-            ],
-        )
-
-    if "io_grpc_grpc_java" not in native.existing_rules():
-        http_archive(
-            name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.60.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.60.0.tar.gz"],
-            sha256 = "02c9a7f9400d4e29c7e55667851083a9f695935081787079a834da312129bf97",
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
