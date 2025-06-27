@@ -157,7 +157,7 @@ c2hs_suite(
     ],
 )
 """,
-        patch_args = ["-p1"],
+        patch_args = ["-p2"],
         patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
@@ -190,7 +190,7 @@ cc_library(
   ]
 )
 """,
-        patch_args = ["-p1"],
+        patch_args = ["-p2"],
         patches = GRPC_HASKELL_PATCHES,
         sha256 = GRPC_HASKELL_SHA256,
         strip_prefix = "gRPC-haskell-{}/core".format(GRPC_HASKELL_REV),
