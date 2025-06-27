@@ -621,14 +621,6 @@ go_rules_dependencies()
 
 gazelle_dependencies(go_sdk = "go_sdk")
 
-load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
-
-switched_rules_by_language(
-    name = "com_google_googleapis_imports",
-    grpc = True,
-    java = True,
-)
-
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
@@ -740,61 +732,6 @@ yarn_install(
 load("@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl", "jar_jar_repositories")
 
 jar_jar_repositories()
-
-# The following is advertised by rules_proto, but we define our own dependencies
-# in dependencies.yaml. So all we need to do is replicate the binds here
-# https://github.com/stackb/rules_proto/tree/master/java#java_grpc_library
-
-# load("@io_grpc_grpc_java//:repositories.bzl", "grpc_java_repositories")
-# grpc_java_repositories()
-
-http_archive(
-    name = "upb",
-    urls = [
-         "https://storage.googleapis.com/grpc-bazel-mirror/github.com/protocolbuffers/upb/archive/42cd08932e364a4cde35033b73f15c30250d7c2e.tar.gz",
-         "https://github.com/protocolbuffers/upb/archive/42cd08932e364a4cde35033b73f15c30250d7c2e.tar.gz"
-    ],
-    sha256 = "5147e0ab6a28421d1e49004f4a205d84f06b924585e15eaa884cfe13289165b7",
-    strip_prefix = "upb-42cd08932e364a4cde35033b73f15c30250d7c2e",
-    patches = ["//bazel_tools:upb-protobuf.patch"],
-    patch_args = ["-p1"],
-)
-
-http_archive(
-    name = "com_envoyproxy_protoc_gen_validate",
-    urls = [ "https://github.com/envoyproxy/protoc-gen-validate/archive/4694024279bdac52b77e22dc87808bd0fd732b69.tar.gz" ],
-    sha256 = "1e490b98005664d149b379a9529a6aa05932b8a11b76b4cd86f3d22d76346f47",
-    strip_prefix = "protoc-gen-validate-4694024279bdac52b77e22dc87808bd0fd732b69",
-    patches = [
-        "@@com_github_grpc_grpc//third_party:protoc-gen-validate.patch",
-        "//bazel_tools:envoy-proto-validate.patch",
-    ],
-    patch_args = ["-p1"],
-)
-
-http_archive(
-    name = "opencensus_proto",
-    urls = [
-        "https://storage.googleapis.com/grpc-bazel-mirror/github.com/census-instrumentation/opencensus-proto/archive/v0.3.0.tar.gz",
-        "https://github.com/census-instrumentation/opencensus-proto/archive/v0.3.0.tar.gz"
-    ],
-    sha256 = "b7e13f0b4259e80c3070b583c2f39e53153085a6918718b1c710caf7037572b0",
-    strip_prefix = "opencensus-proto-0.3.0/src",
-    patches = [
-        "//bazel_tools:opencensus-proto.patch",
-    ],
-    patch_args = ["-p2"],
-)
-
-# Load the grpc deps last, since it won't try to load already loaded
-# dependencies.
-load("@com_github_grpc_grpc//bazel:grpc_deps.bzl", "grpc_deps")
-
-grpc_deps()
-
-load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
-
-protobuf_deps()
 
 load("@build_bazel_rules_apple//apple:repositories.bzl", "apple_rules_dependencies")
 
