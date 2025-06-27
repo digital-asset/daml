@@ -84,7 +84,7 @@ def _fat_cc_library_impl(ctx):
         )
     else:
         # Note [MRI Script Tilde]
-        # 
+        #
         # The MRI script (`ar -M`) started failing with bzlmod enabled because
         # some of the provided archives had `~` characters in their path due to
         # Bazel bzlmod name mangling. The reason is that ar's MRI script format
@@ -112,7 +112,7 @@ while IFS= read -r line; do
     if [[ "$lib_path" == *"~"* ]]; then
       # Create copy without tilde, see Note [MRI Script Tilde]
       copy_name=$(basename "$lib_path" | tr '~' '_')
-      copy_path="$TEMP_DIR/$copy_name"
+      copy_path=$(mktemp -d -p "$TEMP_DIR")/$copy_name
       cp "$lib_path" "$copy_path"
       echo "addlib $copy_path" >> "$NEW_MRI"
     else
