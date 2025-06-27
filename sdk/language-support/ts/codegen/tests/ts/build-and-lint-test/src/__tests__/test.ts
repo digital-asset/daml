@@ -73,7 +73,7 @@ const SANDBOX_PORT_FILE = "sandbox.port";
 let jsonApiPort: number | undefined = undefined;
 const JSON_API_PORT_FILE = "json-api.port";
 const COMPLETION_FILE = "completion_marker";
-const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
+const httpBaseUrl: () => string = () => `http://127.0.0.1:${jsonApiPort}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 
