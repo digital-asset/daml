@@ -28,10 +28,10 @@ PROTO3SUITE_REV = "0.5.1"
 PROTO3SUITE_SHA256 = "6e6d514867e8efe90fe6a7e5167b86260da00fdb7ef335af694295a1adde57f4"
 SHAKE_VERSION = "0.19.6"
 ZIP_VERSION = "1.7.1"
-GRPC_HASKELL_REV = "4b3b04d0ac9d1db53033fb4f0b6864f25b6e945d"
+GRPC_HASKELL_REV = "ba7197e1a74d8a0048f53a3b9d46b8235de6838f"
 GRPC_HASKELL_SHA256 = ""
 GRPC_HASKELL_PATCHES = [
-    "@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-bad-status-meta.patch",
+    #"@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-bad-status-meta.patch",
 ]
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
