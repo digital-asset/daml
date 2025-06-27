@@ -31,7 +31,7 @@ ZIP_VERSION = "1.7.1"
 GRPC_HASKELL_REV = "ba7197e1a74d8a0048f53a3b9d46b8235de6838f"
 GRPC_HASKELL_SHA256 = ""
 GRPC_HASKELL_PATCHES = [
-    #"@com_github_digital_asset_daml//bazel_tools:grpc-haskell-core-bad-status-meta.patch",
+    "//bazel_tools:grpc-haskell-core-bad-status-meta.patch",
 ]
 XML_CONDUIT_VERSION = "1.9.1.1"
 LSP_TYPES_VERSION = "1.4.0.0"
