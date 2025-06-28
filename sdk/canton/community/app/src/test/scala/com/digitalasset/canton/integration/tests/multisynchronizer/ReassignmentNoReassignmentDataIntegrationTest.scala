@@ -46,7 +46,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
-import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{BaseTest, config}
 import org.scalatest.Assertion
 
@@ -208,7 +207,7 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
       .value
       .reassignmentStore
 
-    val reassignmendId = ReassignmentId.tryCreate(Source(daId), unassignId)
+    val reassignmendId = ReassignmentId.tryCreate(unassignId)
 
     reassignmentStore
       .findReassignmentEntry(reassignmendId)

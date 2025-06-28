@@ -14,9 +14,8 @@ import "scalapb/scalapb.proto";
 // Messages sent by a participant as part of the reassignment protocol
 
 message ReassignmentId {
-  string source_synchronizer_id = 1;
   // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
-  string unassign_id = 2;
+  string unassign_id = 1;
 }
 
 // Messages sent by a participant as part of the reassignment protocol
@@ -60,6 +59,7 @@ message AssignmentCommonData {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
+  string source_physical_synchronizer_id = 8;
   string target_physical_synchronizer_id = 2;
 
   Stakeholders stakeholders = 3; // stakeholders of the contract

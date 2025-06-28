@@ -208,6 +208,53 @@ object SequencerAdminCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
+  final case class InitializeFromSynchronizerPredecessor(
+      topologySnapshot: ByteString,
+      synchronizerParameters: com.digitalasset.canton.protocol.StaticSynchronizerParameters,
+  ) extends GrpcAdminCommand[
+        proto.InitializeSequencerFromPredecessorRequest,
+        proto.InitializeSequencerFromPredecessorResponse,
+        Unit,
+      ] {
+    override type Svc =
+      proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub
+
+    override def createService(
+        channel: ManagedChannel
+    ): proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub =
+      proto.SequencerInitializationServiceGrpc.stub(channel)
+
+    override protected def submitRequest(
+        service: proto.SequencerInitializationServiceGrpc.SequencerInitializationServiceStub,
+        request: proto.InitializeSequencerFromPredecessorRequest,
+    ): Future[proto.InitializeSequencerFromPredecessorResponse] =
+      GrpcStreamingUtils.streamToServer(
+        service.initializeSequencerFromPredecessor,
+        (topologySnapshot: Array[Byte]) =>
+          proto.InitializeSequencerFromPredecessorRequest(
+            topologySnapshot = ByteString.copyFrom(topologySnapshot),
+            synchronizerParameters = Some(synchronizerParameters.toProtoV30),
+          ),
+        request.topologySnapshot,
+      )
+
+    override protected def createRequest()
+        : Either[String, proto.InitializeSequencerFromPredecessorRequest] =
+      Right(
+        proto.InitializeSequencerFromPredecessorRequest(
+          topologySnapshot = topologySnapshot,
+          synchronizerParameters = Some(synchronizerParameters.toProtoV30),
+        )
+      )
+
+    override protected def handleResponse(
+        response: proto.InitializeSequencerFromPredecessorResponse
+    ): Either[String, Unit] =
+      Right(())
+
+    override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+  }
+
   final case class Snapshot(timestamp: CantonTimestamp)
       extends BaseSequencerAdministrationCommand[
         proto.SnapshotRequest,

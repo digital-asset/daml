@@ -4,12 +4,13 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
-import cats.implicits.{catsSyntaxParallelTraverse1, toFoldableOps, toTraverseOps}
+import cats.implicits.{catsSyntaxAlternativeSeparate, catsSyntaxParallelTraverse1, toFoldableOps}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import com.digitalasset.canton.ledger.api.Commands
+import com.digitalasset.canton.ledger.api.PackageReference.*
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SyncService}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -19,6 +20,12 @@ import com.digitalasset.canton.logging.{
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
+}
+import com.digitalasset.canton.platform.PackagePreferenceBackend
+import com.digitalasset.canton.platform.PackagePreferenceBackend.{
+  Candidate,
+  PackageFilterRestriction,
+  SortedPreferences,
 }
 import com.digitalasset.canton.platform.apiserver.execution.TopologyAwareCommandExecutor.{
   OrderablePackageId,
@@ -40,10 +47,9 @@ import com.digitalasset.daml.lf.engine.Error.{Package, Preprocessing}
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 import io.grpc.StatusRuntimeException
 
+import scala.collection.MapView
 import scala.collection.immutable.SortedSet
-import scala.collection.{View, mutable}
 import scala.concurrent.ExecutionContext
-import scala.util.chaining.scalaUtilChainingOps
 
 // TODO(#25385): Consider introducing performance observability metrics
 //               due to the high computational complexity of the algorithm
@@ -347,8 +353,8 @@ private[execution] class TopologyAwareCommandExecutor(
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
   ): FutureUnlessShutdown[(PhysicalSynchronizerId, Set[LfPackageId])] = {
-    val draftTransaction = interpretationResultFromPass1.transaction.transaction
-    val knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)] =
+    val draftTransaction = interpretationResultFromPass1.transaction
+    val packageIndexSnapshot: Map[PackageId, (PackageName, canton.LfPackageVersion)] =
       packageMetadataSnapshot.packageIdVersionMap
 
     val draftPartyPackages: Map[LfPartyId, Set[LfPackageName]] =
@@ -356,8 +362,20 @@ private[execution] class TopologyAwareCommandExecutor(
       Blinding
         .partyPackages(interpretationResultFromPass1.transaction)
         .map { case (party, pkgIds) =>
-          party -> toOrderedPackagePreferences(pkgIds, knownPackagesMap).keySet
+          party -> pkgIds.map(
+            // It is fine to use unsafe here since the package must have been indexed on the participant
+            // if it appeared in the draft transaction
+            _.unsafeToPackageReference(packageIndexSnapshot).packageName
+          )
         }
+
+    val rootPackageNames = draftTransaction.rootNodes.iterator
+      .flatMap(_.packageIds)
+      // It is fine to use unsafe here since the package must have been indexed on the participant
+      // if it appeared in the draft transaction
+      .map(_.unsafeToPackageReference(packageIndexSnapshot))
+      .map(_.packageName)
+      .toSet
 
     for {
       synchronizersPartiesVettingState: Map[
@@ -367,7 +385,7 @@ private[execution] class TopologyAwareCommandExecutor(
         syncService
           .packageMapFor(
             submitters = Option
-              .unless(forExternallySigned)(authorizersOf(interpretationResultFromPass1.transaction))
+              .unless(forExternallySigned)(authorizersOf(draftTransaction))
               .getOrElse(Set.empty),
             informees = draftTransaction.informees,
             vettingValidityTimestamp = CantonTimestamp(vettingValidityTimestamp),
@@ -377,19 +395,22 @@ private[execution] class TopologyAwareCommandExecutor(
 
       perSynchronizerPreferenceSet <- FutureUnlessShutdown.fromTry(
         computePerSynchronizerPackagePreferenceSet(
+          rootPackageNames = rootPackageNames,
           prescribedSynchronizerIdO = interpretationResultFromPass1.optSynchronizerId,
           synchronizersPartiesVettingState = synchronizersPartiesVettingState,
-          knownPackagesMap = knownPackagesMap,
+          packageMetadataSnapshot = packageMetadataSnapshot,
           draftPartyPackages = draftPartyPackages,
           userSpecifiedPreferenceMap = userSpecifiedPreferences,
         ).toTry
       )
 
+      // TODO(#25385): Sort the synchronizers by the version of each package-name preference
+      //               taken in the order of execution from the draft transaction
       synchronizerId <-
         syncService
           .computeHighestRankedSynchronizerFromAdmissible(
             submitterInfo = interpretationResultFromPass1.submitterInfo,
-            transaction = interpretationResultFromPass1.transaction,
+            transaction = draftTransaction,
             transactionMeta = interpretationResultFromPass1.transactionMeta,
             admissibleSynchronizers = perSynchronizerPreferenceSet.keySet,
             disclosedContractIds = interpretationResultFromPass1.processedDisclosedContracts
@@ -407,9 +428,10 @@ private[execution] class TopologyAwareCommandExecutor(
     transaction.rootNodes.iterator.flatMap(_.requiredAuthorizers).toSet
 
   private def computePerSynchronizerPackagePreferenceSet(
+      rootPackageNames: Set[LfPackageName],
       prescribedSynchronizerIdO: Option[SynchronizerId],
       synchronizersPartiesVettingState: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]],
-      knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)],
+      packageMetadataSnapshot: PackageMetadata,
       draftPartyPackages: Map[LfPartyId, Set[LfPackageName]],
       userSpecifiedPreferenceMap: PackagesForName,
   )(implicit
@@ -418,204 +440,78 @@ private[execution] class TopologyAwareCommandExecutor(
     logTrace(
       s"Computing per-synchronizer package preference sets using the draft transaction's party-packages ($draftPartyPackages)"
     )
-
-    val draftPackageNames = draftPartyPackages.values.flatten.toSet
-    val syncsPartiesPackagePreferencesMap
-        : Map[PhysicalSynchronizerId, Map[LfPartyId, PackagesForName]] =
-      synchronizersPartiesVettingState.view.mapValues {
-        _.view
-          .mapValues(toOrderedPackagePreferences(_, knownPackagesMap))
-          .toMap
-      }.toMap
-
-    val syncsPartiesPackageMapAfterDraftIntersection
-        : Map[PhysicalSynchronizerId, Map[LfPartyId, PackagesForName]] =
-      syncsPartiesPackagePreferencesMap.filter {
-        case (syncId, partiesPackageMap: Map[LfPartyId, PackagesForName]) =>
-          draftPartyPackages
-            .forall { case (party, draftPackageNamesForParty: Set[LfPackageName]) =>
-              partiesPackageMap
-                .get(party)
-                .exists(packageMap => draftPackageNamesForParty.subsetOf(packageMap.keySet))
-            }
-            .tap { synchronizerValid =>
-              if (!synchronizerValid)
-                logTrace(
-                  s"Synchronizer $syncId discarded: the draft transaction's party-packages do not satisfy the topology-based package map ($partiesPackageMap)"
-                )
-            }
+    val (discardedSyncs, availableSyncs) = PackagePreferenceBackend
+      .computePerSynchronizerPackageCandidates(
+        synchronizersPartiesVettingState = synchronizersPartiesVettingState,
+        packageMetadataSnapshot = packageMetadataSnapshot,
+        packageFilter = PackageFilterRestriction(
+          supportedPackagesPerPackagename =
+            userSpecifiedPreferenceMap.view.mapValues(_.map(_.pkgId).toSet).toMap,
+          restrictionDescription = "Commands.package_id_selection_preference",
+        ),
+        requirements = draftPartyPackages,
+        logger = logger,
+      )
+      .view
+      .mapValues { (packageNameCandidates: MapView[LfPackageName, Candidate[SortedPreferences]]) =>
+        val unavailablePackageNames = rootPackageNames.diff(packageNameCandidates.keySet)
+        // Discard a synchronizer if there are unavailable package-names pertaining to root nodes from the draft transaction
+        // This can happen if no one vetted any package from a specific package-name
+        if (unavailablePackageNames.nonEmpty) {
+          Left(
+            show"Package-names appeared in the draft transaction root nodes that have no vetted candidates: $unavailablePackageNames"
+          )
+        } else {
+          packageNameCandidates.toSeq.foldM(Set.empty[LfPackageId]) {
+            case (acc, (_pkgName, Right(pkgIdCandidates))) =>
+              Right(acc + pkgIdCandidates.last1.pkgId)
+            case (acc, (pkgName, Left(pkgNameDiscardReason))) if rootPackageNames(pkgName) =>
+              // Discard a synchronizer if there are package-names pertaining to root nodes from the draft transaction that have no preferences
+              // This can happen if a package-name had vetted packages for some party, but it has been discarded due to some restrictions
+              Left(
+                show"Package-name '$pkgName' appearing in a draft transaction root node has been discarded: $pkgNameDiscardReason"
+              )
+            case (acc, (pkgName, Left(pkgNameDiscardReason))) =>
+              logger.debug(
+                show"Dropped requirement to pre-select vetted package for '$pkgName', as there is no candidate due to: $pkgNameDiscardReason"
+              )
+              Right(acc)
+          }
+        }
       }
+      .view
+      .map { case (sync, candidates) => candidates.map(sync -> _).left.map(sync -> _) }
+      .toSeq
+      .separate
 
-    val syncPackageMapAfterDraftIntersection = syncsPartiesPackageMapAfterDraftIntersection.view
-      .flatMap { case (syncId, partyPackagesTopology: Map[LfPartyId, PackagesForName]) =>
-        // At this point we are reducing the party dimension by
-        // intersecting all package-ids for a package-name of a party with the same for other parties
-        val topologyAndDraftTransactionBasedPackageMap: PackagesForName =
-          partyPackagesTopology.view.values.flatten.groupMapReduce(_._1)(_._2)(_ intersect _)
-
-        // If a package preference set intersection for a package name that appears in the draft transaction
-        // for a synchronizer ultimately leads to 0, the synchronizer is discarded
-        preserveOnlyPackageNamesWithCandidates(
-          topologyAndDraftTransactionBasedPackageMap,
-          draftPackageNames,
-          partyPackagesTopology,
+    NonEmpty
+      .from(availableSyncs.toMap)
+      .toRight(
+        buildSelectionFailedError(
+          prescribedSynchronizerIdO,
+          show"Discarded synchronizers:\n${discardedSyncs
+              .map { case (sync, reason) => s"$sync: $reason" }}",
         )
-          .fold(
-            { discardedReason =>
-              logger.debug(s"Discarding synchronizer $syncId due to: $discardedReason")
-              View.empty
-            },
-            packageMapForSync => View(syncId -> packageMapForSync),
-          )
-      }
-
-    val perSynchronizerPreferenceSetE =
-      syncPackageMapAfterDraftIntersection.foldLeft(
-        Right(Map.empty): Either[StatusRuntimeException, Map[PhysicalSynchronizerId, Set[
-          LfPackageId
-        ]]]
-      ) { case (syncCandidatesAccE, (syncId, topologyAndDraftTransactionBasedPackageMap)) =>
-        for {
-          syncCandidatesAcc <- syncCandidatesAccE
-          // TODO(#25385): Consider filtering out synchronizers for which the applied restrictions
-          //               lead to errors instead of failing the entire selection
-          maybeCandidatesForSynchronizer <- pickVersionsWithRestrictions(
-            synchronizerId = syncId,
-            draftTransactionPackages = draftPartyPackages.values.flatten.toSet,
-            topologyPackageMap = topologyAndDraftTransactionBasedPackageMap,
-            userSpecifiedPreferenceMap = userSpecifiedPreferenceMap,
-          )
-        } yield syncCandidatesAcc ++ maybeCandidatesForSynchronizer.toList
-      }
-
-    for {
-      perSynchronizerPreferenceSet <- perSynchronizerPreferenceSetE
-      nonEmptyPreference <- NonEmpty
-        .from(perSynchronizerPreferenceSet)
-        .toRight(buildSelectionFailedError(prescribedSynchronizerIdO))
-    } yield nonEmptyPreference
+      )
   }
 
-  private def preserveOnlyPackageNamesWithCandidates(
-      packagesForName: PackagesForName,
-      draftPackageNames: Set[LfPackageName],
-      partyPackagesTopology: Map[LfPartyId, PackagesForName],
-  ): Either[String, PackagesForName] =
-    packagesForName.toList.foldM(Map.empty: PackagesForName) {
-      case (acc, (pkgName, pkgRefs)) if pkgRefs.nonEmpty =>
-        // Note that we aim to add as many packages as possible to the preference set
-        // to maximize the chance for successful package-name to package-id resolutions
-        // even when the structure of the transaction and the involved packages
-        // changes between the draft interpretation and the second interpretation.
-        Right(acc + (pkgName -> pkgRefs))
-      case (_acc, (pkgName, _emptyPkgRefs)) if draftPackageNames(pkgName) =>
-        val involvedPartiesDebugLines = partyPackagesTopology.view.flatMap {
-          case (party, packagesForName) =>
-            packagesForName
-              .get(pkgName)
-              .toList
-              .flatMap(pkgs => List(show"Party $party vetted: ${pkgs.map(_.pkgId.show).toList}"))
-        }.toList
-
-        Left(
-          show"No commonly-vetted package candidates for '$pkgName' for the involved parties: $involvedPartiesDebugLines"
-        )
-      case (acc, (pkgName, _emptyPkgRefs)) =>
-        // Do not add the package-name to the preference set if it has no candidates
-        // and it is not used in the draft transaction.
-        Right(acc)
-    }
-
-  private def buildSelectionFailedError(prescribedSynchronizerIdO: Option[SynchronizerId])(implicit
+  private def buildSelectionFailedError(
+      prescribedSynchronizerIdO: Option[SynchronizerId],
+      reason: String,
+  )(implicit
       tc: TraceContext
   ): StatusRuntimeException =
     prescribedSynchronizerIdO
       .map { prescribedSynchronizerId =>
         InvalidPrescribedSynchronizerId
-          .Generic(
-            prescribedSynchronizerId,
-            "The prescribed synchronizer does not satisfy the package selection topology requirements",
-          )
+          .Generic(prescribedSynchronizerId, reason)
           .asGrpcError
       }
       .getOrElse(
         CommandExecutionErrors.PackageSelectionFailed
-          .Reject("No synchronizers satisfy the draft transaction topology requirements")
+          .Reject(s"No synchronizers satisfy the draft transaction topology requirements: $reason")
           .asGrpcError
       )
-
-  private def pickVersionsWithRestrictions(
-      synchronizerId: PhysicalSynchronizerId,
-      draftTransactionPackages: Set[LfPackageName],
-      topologyPackageMap: PackagesForName,
-      userSpecifiedPreferenceMap: PackagesForName,
-  )(implicit
-      loggingContextWithTrace: LoggingContextWithTrace
-  ): Either[StatusRuntimeException, Option[(PhysicalSynchronizerId, Set[LfPackageId])]] = {
-    val packageMapAfterDepsVettingRestrictions: PackagesForName =
-      preserveOnlyPackagesWithAllDependenciesVetted(topologyPackageMap)
-
-    val allDraftTxPackageNamesHaveCandidates = !packageMapAfterDepsVettingRestrictions.exists {
-      case (pkgName, candidatesView) => draftTransactionPackages(pkgName) && candidatesView.isEmpty
-    }
-
-    def preferenceSetWithUserPrefs: Either[StatusRuntimeException, List[LfPackageId]] =
-      packageMapAfterDepsVettingRestrictions.toList.flatTraverse { case (packageName, candidates) =>
-        // Discard package-names with no candidates
-        Option
-          .when(candidates.nonEmpty)(
-            mergeWithUserBasedPreferenceAndPickHighest(
-              userSpecifiedPreferenceMap = userSpecifiedPreferenceMap,
-              pkgName = packageName,
-              topologyBasedPreferenceSetForPkgName = SortedSet.from(candidates),
-            )
-          )
-          .tap {
-            case None =>
-              logTrace(
-                s"Discarding package-name $packageName: no candidates after dependency vetting restrictions"
-              )
-            case Some(_) => ()
-          }
-          .map(_.map(List(_)))
-          .getOrElse(Right(List.empty))
-      }
-
-    // If there are package-names referred in the draft transaction without vetted package-id candidates, discard synchronizer
-    if (allDraftTxPackageNamesHaveCandidates)
-      preferenceSetWithUserPrefs.map(candidates => Some(synchronizerId -> candidates.toSet))
-    else {
-      logTrace(
-        s"Synchronizer $synchronizerId discarded: package-name appearing in draft transaction but without candidates after dependency vetting restrictions ($packageMapAfterDepsVettingRestrictions)"
-      )
-      Right(None)
-    }
-  }
-
-  private def preserveOnlyPackagesWithAllDependenciesVetted(
-      topologyPackageMap: PackagesForName
-  )(implicit
-      loggingContextWithTrace: LoggingContextWithTrace
-  ): PackagesForName = {
-    val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
-    val dependencyGraph: Map[PackageId, Set[PackageId]] =
-      packageMetadataSnapshot.packages.view.mapValues(_.directDeps).toMap
-
-    val allVettedPackages = topologyPackageMap.view.values.flatMap(_.map(_.pkgId)).toSet
-
-    val allDepsVettedForCached: mutable.Map[LfPackageId, Boolean] = mutable.Map.empty
-
-    // Note: Keeping it simple without tailrec since the dependency graph depth should be limited
-    def allDepsVettedFor(pkgId: LfPackageId): Boolean = {
-      val dependencies = dependencyGraph(pkgId)
-
-      dependencies.subsetOf(allVettedPackages) &&
-      dependencies.forall(dep => allDepsVettedForCached.getOrElseUpdate(dep, allDepsVettedFor(dep)))
-    }
-
-    // For each package-name from the topology package map, validate that all its dependencies are vetted
-    topologyPackageMap.view.mapValues(_.filter(pkg => allDepsVettedFor(pkg.pkgId))).toMap
-  }
 
   private def toOrderedPackagePreferences(
       pkgIds: Set[LfPackageId],

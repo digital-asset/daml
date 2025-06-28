@@ -204,7 +204,7 @@ create table par_synchronizer_connection_configs(
     synchronizer_alias_and_status varchar generated always as (
       case
         when status = 'A' then synchronizer_alias || '_' || status
-        -- piggy back on the unique constraint for (synchronzier_alias, empty_if_null_physical_synchronizer_id).
+        -- piggy back on the unique constraint for (synchronizer_alias, empty_if_null_physical_synchronizer_id).
         when physical_synchronizer_id is null then synchronizer_alias
         else synchronizer_alias || '_' || physical_synchronizer_id
       end) not null,

@@ -270,13 +270,11 @@ final class PartyReplicationTargetParticipantProcessor(
           isReassigningParticipant = false,
         )
         val commitSet = CommitSet.createForAssignment(
-          ReassignmentId(
-            artificialReassignmentInfo.sourceSynchronizer,
-            artificialReassignmentInfo.unassignId,
-          ),
+          ReassignmentId(artificialReassignmentInfo.unassignId),
           contracts.map { case ActiveContractOld(_, contract, reassignmentCounter) =>
             ContractReassignment(contract, reassignmentCounter)
           },
+          artificialReassignmentInfo.sourceSynchronizer,
         )
         Update.RepairReassignmentAccepted(
           workflowId = None,

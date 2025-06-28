@@ -822,7 +822,7 @@ final class UnassignmentProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val reassignmentId = ReassignmentId(sourceSynchronizer, UnassignId(TestHash.digest(0)))
+      val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
       val rootHash = TestHash.dummyRootHash
       val reassignmentResult =
         ConfirmationResultMessage.create(

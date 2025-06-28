@@ -348,27 +348,23 @@ message PurgeTopologyTransaction {
 // indicates the beginning of a synchronizer upgrade and effectuates a topology freeze,
 // after which only synchronizer upgrade specific topology mappings are accepted.
 // removing this mapping unfreezes the topology state again.
-// authorization: whoever controls the physical synchronizer
-// UNIQUE(physical_synchronizer_id)
+// authorization: whoever controls the synchronizer
+// UNIQUE(successor_physical_synchronizer_id.logical)
 message SynchronizerUpgradeAnnouncement {
-  // the physical synchronizer id
-  // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
-  string physical_synchronizer_id = 1;
   // the physical synchronizer id of the successor synchronizer
-  string successor_physical_synchronizer_id = 2;
+  string successor_physical_synchronizer_id = 1;
   // when the upgrade happens
-  google.protobuf.Timestamp upgrade_time = 3;
+  google.protobuf.Timestamp upgrade_time = 2;
 }
 
 // a sequencer can announce its connections on the successor synchronizer
-// authorization: the owner of the sequencer's namespace
-// UNIQUE(sequencer_id)
+// authorization: whoever controls the sequencer
+// UNIQUE(sequencer_id, synchronizer_id)
 message SequencerConnectionSuccessor {
   // the sequencer id
   string sequencer_id = 1;
-  // to physical synchronizer id
-  // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
-  string physical_synchronizer_id = 2;
+  // to synchronizer id
+  string synchronizer_id = 2;
   // the connection details with which members can connect to the sequencer on the successor synchronizer
   SequencerConnection connection = 3;
 

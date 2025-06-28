@@ -17,8 +17,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * This class contains utilities to decode a <code>CreatedEvent</code> and create a <code>
- * TransactionFilter</code> by provider parties It can only be instantiated with a subtype of <code>
+ * This class contains utilities to decode a <code>CreatedEvent</code> and create an <code>
+ * UpdateFormat</code>, a <code>TransactionFormat</code> or a <code>EventFormat</code> by provided
+ * parties. It can only be instantiated with a subtype of <code>
  * ContractCompanion</code>
  */
 public final class ContractFilter<Ct> {

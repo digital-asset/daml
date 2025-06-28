@@ -494,10 +494,13 @@ private[participant] class ConflictDetector(
             acs.assignContracts(
               assignments
                 .map { case (coid, assignmentCommit) =>
-                  val CommitSet
-                    .AssignmentCommit(reassignmentId, _contractMetadata, reassignmentCounter) =
-                    assignmentCommit
-                  (coid, reassignmentId.sourceSynchronizer, reassignmentCounter, toc)
+                  val CommitSet.AssignmentCommit(
+                    sourceSynchronizerId,
+                    _reassignmentId,
+                    _contractMetadata,
+                    reassignmentCounter,
+                  ) = assignmentCommit
+                  (coid, sourceSynchronizerId, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )

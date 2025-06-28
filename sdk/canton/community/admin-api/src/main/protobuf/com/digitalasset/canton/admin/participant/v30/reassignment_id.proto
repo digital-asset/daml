@@ -6,7 +6,6 @@ syntax = "proto3";
 package com.digitalasset.canton.admin.participant.v30;
 
 message ReassignmentId {
-  string source_synchronizer_id = 1;
   // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
-  string unassign_id = 2;
+  string unassign_id = 1;
 }

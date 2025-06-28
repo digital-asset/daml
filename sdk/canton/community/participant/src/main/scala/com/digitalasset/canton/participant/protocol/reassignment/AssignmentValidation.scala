@@ -61,6 +61,7 @@ private[reassignment] class AssignmentValidation(
     val assignmentRequestTs = parsedRequest.requestTimestamp
 
     val reassignmentId = assignmentRequest.reassignmentId
+    val sourcePSId = assignmentRequest.sourceSynchronizer
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
     val isReassigningParticipant = assignmentRequest.isReassigningParticipant(participantId)
 
@@ -114,6 +115,7 @@ private[reassignment] class AssignmentValidation(
       contracts = assignmentRequest.contracts,
       submitterMetadata = assignmentRequest.submitterMetadata,
       reassignmentId = reassignmentId,
+      sourcePSId = sourcePSId,
       isReassigningParticipant = isReassigningParticipant,
       hostedStakeholders = hostedStakeholders,
       validationResult =
