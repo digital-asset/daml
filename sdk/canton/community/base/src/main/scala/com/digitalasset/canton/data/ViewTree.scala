@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, Stakeholders, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId}
 
@@ -58,7 +58,7 @@ trait FullReassignmentViewTree extends ViewTree {
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.
 
-  def sourceSynchronizer: Source[SynchronizerId]
+  def sourceSynchronizer: Source[PhysicalSynchronizerId]
   def targetSynchronizer: Target[PhysicalSynchronizerId]
 
   // Submissions

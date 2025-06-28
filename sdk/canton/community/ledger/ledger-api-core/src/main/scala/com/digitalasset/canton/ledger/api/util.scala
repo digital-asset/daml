@@ -196,6 +196,15 @@ object PackageReference {
       packageIdVersionMap.get(pkgId).map { case (packageName, packageVersion) =>
         PackageReference(pkgId, packageVersion, packageName)
       }
+
+    def unsafeToPackageReference(
+        packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+    ): PackageReference =
+      toPackageReference(packageIdVersionMap).getOrElse {
+        throw new NoSuchElementException(
+          s"Package id $pkgId not found in packageIdVersionMap"
+        )
+      }
   }
 }
 

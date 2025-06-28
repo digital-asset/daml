@@ -57,7 +57,6 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
 
     synchronizerOwners1.foreach { owner =>
       owner.topology.synchronizer_upgrade.announcement.propose(
-        physicalSynchronizerId = daId,
         successorPhysicalSynchronizerId = successorSynchronizerId,
         upgradeTime = upgradeTime,
       )
@@ -77,7 +76,6 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     import env.*
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.revoke(
-        physicalSynchronizerId = daId,
         successorPhysicalSynchronizerId = successorSynchronizerId,
         upgradeTime = upgradeTime,
       )
@@ -110,7 +108,6 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     // announce the migration to prepare for the sequencer connection announcements
     synchronizerOwners1.foreach(
       _.topology.synchronizer_upgrade.announcement.propose(
-        physicalSynchronizerId = daId,
         successorPhysicalSynchronizerId = successorSynchronizerId,
         upgradeTime = upgradeTime,
       )
@@ -184,7 +181,6 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       // unfrozen successor synchronizer
       synchronizerOwners1.foreach(
         _.topology.synchronizer_upgrade.announcement.revoke(
-          daId,
           successorSynchronizerId,
           upgradeTime = upgradeTime,
         )

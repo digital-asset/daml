@@ -224,11 +224,11 @@ class AssignmentProcessingStepsTest
   }
 
   private lazy val unassignId = UnassignId(TestHash.digest(0))
-  private lazy val reassignmentId = ReassignmentId(sourceSynchronizer, unassignId)
+  private lazy val reassignmentId = ReassignmentId(unassignId)
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    reassignmentId.sourceSynchronizer.map(_.toPhysical),
+    sourceSynchronizer,
     targetSynchronizer,
     identityFactory,
   )
@@ -400,6 +400,7 @@ class AssignmentProcessingStepsTest
         reassignmentId,
         sourceMediator,
         party3,
+        sourceSynchronizer,
         targetSynchronizer,
         contract,
       )
@@ -756,7 +757,7 @@ class AssignmentProcessingStepsTest
           contractInstance = ExampleTransactionFactory.contractInstance(),
           metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
         )
-      val reassignmentId = ReassignmentId(sourceSynchronizer, unassignId)
+      val reassignmentId = ReassignmentId(unassignId)
       val rootHash = mock[RootHash]
       when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
       val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
@@ -768,6 +769,7 @@ class AssignmentProcessingStepsTest
           ContractsReassignmentBatch(contract, initialReassignmentCounter),
           submitterInfo(submitter),
           reassignmentId,
+          sourceSynchronizer,
           isReassigningParticipant = false,
           hostedStakeholders = contract.metadata.stakeholders,
           validationResult = AssignmentValidationResult.ValidationResult(
@@ -904,6 +906,7 @@ class AssignmentProcessingStepsTest
         reassignmentId,
         submitterInfo(submitter),
         ContractsReassignmentBatch(contract, initialReassignmentCounter),
+        sourceSynchronizer,
         targetSynchronizer,
         targetMediator,
         uuid,

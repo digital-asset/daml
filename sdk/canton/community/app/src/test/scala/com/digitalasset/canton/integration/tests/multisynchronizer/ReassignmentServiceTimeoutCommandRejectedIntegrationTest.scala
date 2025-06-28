@@ -185,13 +185,12 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
             .value
 
           val reassignmentId = ReassignmentId(
-            Source(daId),
             UnassignId(
               Source(daId),
               Target(acmeId),
               unassignmentTs,
               Seq(cid -> ReassignmentCounter(0)),
-            ),
+            )
           )
 
           // Entry is deleted upon timeout
