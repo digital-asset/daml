@@ -17,12 +17,7 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{
-  ParticipantId,
-  PhysicalSynchronizerId,
-  SynchronizerId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -433,8 +428,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 
   // Synchronizers
   override def synchronizerId: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
-  override def sourceSynchronizer: Source[SynchronizerId] =
-    commonData.sourceSynchronizerId.map(_.logical)
+  override def sourceSynchronizer: Source[PhysicalSynchronizerId] = commonData.sourceSynchronizerId
   override def targetSynchronizer: Target[PhysicalSynchronizerId] = view.targetSynchronizerId
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = targetSynchronizer.map(_.protocolVersion)

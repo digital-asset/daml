@@ -31,7 +31,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias, config}
 
 import java.util.concurrent.atomic.AtomicLong
@@ -207,8 +206,8 @@ final class AsynchronousReassignmentProtocolIntegrationTest
         acmeId,
       )
 
-    val aliceReassignmentId = ReassignmentId.tryCreate(Source(daId), unassign1)
-    val bobReassignmentId = ReassignmentId.tryCreate(Source(daId), unassign2)
+    val aliceReassignmentId = ReassignmentId.tryCreate(unassign1)
+    val bobReassignmentId = ReassignmentId.tryCreate(unassign2)
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager
       .get(acmeId)

@@ -26,7 +26,6 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentCompleted
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
-import com.digitalasset.canton.util.ReassignmentTag.Source
 
 sealed trait RollbackUnassignmentIntegrationTest
     extends CommunityIntegrationTest
@@ -149,7 +148,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     )
     unassigned.events.map(_.reassignmentCounter) shouldBe Seq(3, 3)
 
-    val reassignmentId = ReassignmentId.tryCreate(Source(acmeId), unassignmentId)
+    val reassignmentId = ReassignmentId.tryCreate(unassignmentId)
 
     val lookup = participant1.underlying.value.sync.syncPersistentStateManager
       .get(daId)

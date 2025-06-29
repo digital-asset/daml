@@ -55,20 +55,27 @@ class ReassignmentCoordination(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
-  def addPendingUnassignment(reassignmentId: ReassignmentId): Unit =
-    pendingUnassignments(reassignmentId.sourceSynchronizer)
+  def addPendingUnassignment(
+      reassignmentId: ReassignmentId,
+      sourcePSId: Source[SynchronizerId],
+  ): Unit =
+    pendingUnassignments(sourcePSId)
       .foreach(_.add(reassignmentId))
 
-  def completeUnassignment(reassignmentId: ReassignmentId): Unit =
-    pendingUnassignments(reassignmentId.sourceSynchronizer)
+  def completeUnassignment(
+      reassignmentId: ReassignmentId,
+      sourcePSId: Source[PhysicalSynchronizerId],
+  ): Unit =
+    pendingUnassignments(sourcePSId.map(_.logical))
       .foreach(_.completePhase7(reassignmentId))
 
   // Todo(i25029): Add the ability to interrupt the wait for unassignment completion in specific cases
   def waitForStartedUnassignmentToCompletePhase7(
-      reassignmentId: ReassignmentId
+      reassignmentId: ReassignmentId,
+      sourcePSId: Source[PhysicalSynchronizerId],
   ): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.outcomeF(
-      pendingUnassignments(reassignmentId.sourceSynchronizer)
+      pendingUnassignments(sourcePSId.map(_.logical))
         .flatMap(_.find(reassignmentId))
         .getOrElse(Future.successful(()))
     )
@@ -274,6 +281,7 @@ class ReassignmentCoordination(
   private[reassignment] def addAssignmentData(
       reassignmentId: ReassignmentId,
       contracts: ContractsReassignmentBatch,
+      source: Source[SynchronizerId],
       target: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
@@ -287,6 +295,7 @@ class ReassignmentCoordination(
         .addAssignmentDataIfAbsent(
           AssignmentData(
             reassignmentId = reassignmentId,
+            sourceSynchronizer = source,
             contracts = contracts,
           )
         )

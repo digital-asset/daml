@@ -230,36 +230,22 @@ object UnassignId {
 }
 
 /** A reassignment is identified by the unassignHash */
-final case class ReassignmentId(
-    // TODO(#25483) This should be physical
-    sourceSynchronizer: Source[SynchronizerId],
-    unassignId: UnassignId,
-) extends PrettyPrinting {
-  def toProtoV30: v30.ReassignmentId =
-    v30.ReassignmentId(
-      sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
-      unassignId = unassignId.toProtoPrimitive,
-    )
+final case class ReassignmentId(unassignId: UnassignId) extends PrettyPrinting {
+  def toProtoV30: v30.ReassignmentId = v30.ReassignmentId(unassignId = unassignId.toProtoPrimitive)
 
   override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
-    param("unassignId", _.unassignId),
-    param("source", _.sourceSynchronizer),
+    param("unassignId", _.unassignId)
   )
 }
 
 object ReassignmentId {
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
     reassignmentIdP match {
-      case v30.ReassignmentId(sourceSynchronizerP, unassignmentIdP) =>
+      case v30.ReassignmentId(unassignmentIdP) =>
         for {
-          sourceSynchronizerId <- SynchronizerId.fromProtoPrimitive(
-            sourceSynchronizerP,
-            "ReassignmentId.source_synchronizer_id",
-          )
           unassignId <- UnassignId.fromProtoPrimitive(unassignmentIdP)
-        } yield ReassignmentId(Source(sourceSynchronizerId), unassignId)
+        } yield ReassignmentId(unassignId)
     }
 
-  def tryCreate(source: Source[SynchronizerId], hex: String): ReassignmentId =
-    ReassignmentId(source, UnassignId.tryFromHexString(hex))
+  def tryCreate(hex: String): ReassignmentId = ReassignmentId(UnassignId.tryFromHexString(hex))
 }

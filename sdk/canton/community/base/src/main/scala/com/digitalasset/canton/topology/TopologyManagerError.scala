@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.ErrorCategory.{
   InvalidGivenCurrentSystemStateOther,
   InvalidGivenCurrentSystemStateResourceExists,
+  InvalidIndependentOfSystemState,
 }
 import com.digitalasset.base.error.{
   Alarm,
@@ -443,6 +444,22 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
+    "This error indicates that operation cannot be performed for this member."
+  )
+  object IncorrectMember
+      extends ErrorCode(
+        id = "TOPOLOGY_INCORRECT_MEMBER",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Failure(memberId: Member, error: String)(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"Member $memberId cannot perform the requested operation: $error."
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation(
     "This error indicates that the topology transaction references members that are currently unknown."
   )
   @Resolution(
@@ -775,17 +792,17 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that a synchronizer migration is ongoing and only mapping related to synchronizer migration are permitted."
+    "This error indicates that a synchronizer upgrade is ongoing and only mappings related to synchronizer upgrade are permitted."
   )
   @Resolution(
-    "Contact the owners of the synchronizer about the ongoing synchronizer migration."
+    "Contact the owners of the synchronizer about the ongoing synchronizer upgrade."
   )
   object OngoingSynchronizerUpgrade
       extends ErrorCode(
         id = "TOPOLOGY_ONGOING_SYNCHRONIZER_UPGRADE",
         InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Reject(synchronizerId: PhysicalSynchronizerId)(implicit
+    final case class Reject(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
@@ -794,6 +811,42 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  @Explanation(
+    "This error indicates that a synchronizer upgrade is not ongoing, which prevents some upgrade operations to be performed"
+  )
+  @Resolution(
+    "Contact the owners of the synchronizer about the ongoing synchronizer upgrade."
+  )
+  object NoOngoingSynchronizerUpgrade
+      extends ErrorCode(
+        id = "TOPOLOGY_NO_ONGOING_SYNCHRONIZER_UPGRADE",
+        InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Failure()(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause = s"The operation cannot be performed because no upgrade is ongoing"
+        )
+        with TopologyManagerError
+  }
+
+  @Explanation("This error indicates that the successor synchronizer id is not valid.")
+  @Resolution(
+    "Change the successor synchronizer id to have a protocol version that is the same as or newer than the current synchronizer's."
+  )
+  object InvalidSynchronizerSuccessor
+      extends ErrorCode(id = "TOPOLOGY_INVALID_SUCCESSOR", InvalidIndependentOfSystemState) {
+    final case class Reject(
+        currentSynchronizerId: PhysicalSynchronizerId,
+        successorSynchronizerId: PhysicalSynchronizerId,
+    )(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause =
+            s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
+        )
+        with TopologyManagerError
+
+  }
   abstract class SynchronizerErrorGroup extends ErrorGroup()
 
   abstract class ParticipantErrorGroup extends ErrorGroup()

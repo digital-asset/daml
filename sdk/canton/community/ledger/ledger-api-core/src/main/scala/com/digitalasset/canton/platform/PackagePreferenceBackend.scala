@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform
 
-import cats.implicits.{catsSyntaxAlternativeSeparate, toFoldableOps, toTraverseOps}
+import cats.implicits.{catsSyntaxAlternativeSeparate, toFoldableOps}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.PackageReference
@@ -14,7 +14,12 @@ import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
 import com.digitalasset.canton.platform.PackagePreferenceBackend.*
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.time.Clock
@@ -58,7 +63,7 @@ class PackagePreferenceBackend(
     *
     * @param packageVettingRequirements
     *   The package vetting requirements for which the package preferences should be computed.
-    * @param packageIdFilter
+    * @param packageFilter
     *   Filters which package IDs are eligible for consideration in the preference computation for
     *   each package-name specified in the provided requirements.
     * @param synchronizerId
@@ -73,7 +78,7 @@ class PackagePreferenceBackend(
     */
   def getPreferredPackages(
       packageVettingRequirements: PackageVettingRequirements,
-      packageIdFilter: PackageIdFilter,
+      packageFilter: PackageFilter,
       synchronizerId: Option[SynchronizerId],
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
@@ -81,7 +86,6 @@ class PackagePreferenceBackend(
   ): FutureUnlessShutdown[Either[String, (Seq[PackageReference], PhysicalSynchronizerId)]] = {
     val routingSynchronizerState = syncService.getRoutingSynchronizerState
     val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
-    val packageIndex = packageMetadataSnapshot.packageIdVersionMap
 
     for {
       _ <- ensurePackageNamesKnown(packageVettingRequirements, packageMetadataSnapshot)
@@ -92,13 +96,19 @@ class PackagePreferenceBackend(
         prescribedSynchronizer = synchronizerId,
         routingSynchronizerState = routingSynchronizerState,
       )
-      synchronizerCandidates = computePerSynchronizerPackagePreferenceSet(
-        synchronizersPartiesVettingState = packageMapForRequest,
-        packageIndex = packageIndex,
-        requiredPackageNames = packageVettingRequirements.allPackageNames,
-        requirements = MapsUtil.transpose(packageVettingRequirements.value),
-        packageIdFilter = packageIdFilter,
-      )
+      synchronizerCandidates = PackagePreferenceBackend
+        .computePerSynchronizerPackageCandidates(
+          synchronizersPartiesVettingState = packageMapForRequest,
+          packageMetadataSnapshot = packageMetadataSnapshot,
+          packageFilter = packageFilter,
+          requirements = MapsUtil.transpose(packageVettingRequirements.value),
+          logger = logger,
+        )
+        .view
+        .mapValues((candidates: MapView[LfPackageName, Candidate[SortedPreferences]]) =>
+          selectRequestedPackages(candidates, packageVettingRequirements.allPackageNames)
+        )
+        .toMap
     } yield findValidCandidate(synchronizerCandidates)
   }
 
@@ -145,8 +155,10 @@ class PackagePreferenceBackend(
       packageVettingRequirements = PackageVettingRequirements(
         value = Map(packageName -> Set(adminParty))
       ),
-      packageIdFilter =
-        PackageIdFilterRestriction(supportedPackageIds, supportedPackageIdsDescription),
+      packageFilter = PackageFilterRestriction(
+        Map(packageName -> supportedPackageIds),
+        supportedPackageIdsDescription,
+      ),
       synchronizerId = None,
       vettingValidAt = Some(CantonTimestamp.MaxValue),
     )
@@ -174,52 +186,82 @@ class PackagePreferenceBackend(
         PackageNamesNotFound.Reject(unknownPackageNames).asGrpcError
       )
   }
+}
 
-  private def computePerSynchronizerPackagePreferenceSet(
+object PackagePreferenceBackend {
+  type SortedPreferences = NonEmpty[SortedSet[PackageReference] /* most preferred last */ ]
+  private type PackageIndex = Map[LfPackageId, (LfPackageName, LfPackageVersion)]
+  // A candidate refers to a value T that:
+  //   - wraps the value in a Right if it is valid for package preferences computation OR
+  //   - wraps the value's discarded reason in a Left
+  type Candidate[T] = Either[String, T]
+
+  sealed trait PackageFilter extends Product with Serializable with PrettyPrinting {
+    def apply(packageName: LfPackageName, packageId: LfPackageId): Boolean
+  }
+
+  case object AllowAllPackageIds extends PackageFilter {
+    def apply(packageName: LfPackageName, packageId: LfPackageId): Boolean = true
+
+    override protected def pretty: Pretty[AllowAllPackageIds.this.type] =
+      Pretty.prettyOfString(_ => "All package-ids supported")
+  }
+
+  final case class PackageFilterRestriction(
+      supportedPackagesPerPackagename: Map[LfPackageName, Set[LfPackageId]],
+      restrictionDescription: String,
+  ) extends PackageFilter {
+    def apply(packageName: LfPackageName, packageId: LfPackageId): Boolean =
+      supportedPackagesPerPackagename.get(packageName).forall(_.contains(packageId))
+
+    override protected def pretty: Pretty[PackageFilterRestriction] =
+      Pretty.prettyOfString(_ => show"$restrictionDescription: $supportedPackagesPerPackagename")
+  }
+
+  def computePerSynchronizerPackageCandidates(
       synchronizersPartiesVettingState: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[
         LfPackageId
       ]]],
-      packageIndex: PackageIndex,
-      requiredPackageNames: Set[LfPackageName],
+      packageMetadataSnapshot: PackageMetadata,
       requirements: Map[LfPartyId, Set[LfPackageName]],
-      packageIdFilter: PackageIdFilter,
+      packageFilter: PackageFilter,
+      logger: TracedLogger,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): Map[PhysicalSynchronizerId, Candidate[Set[PackageReference]]] =
+  ): Map[PhysicalSynchronizerId, MapView[LfPackageName, Candidate[SortedPreferences]]] = {
+    val packageIndex = packageMetadataSnapshot.packageIdVersionMap
     synchronizersPartiesVettingState.view
       .mapValues(
         _.view
           // Resolve to full package references
-          .mapValues(resolveAndOrderPackageReferences(_, packageIndex))
-          .pipe((candidates: MapView[LfPartyId, Map[LfPackageName, NonEmpty[SortedPreferences]]]) =>
-            // Filter out synchronizers for which there is no vetted package satisfying a vetting requirement (party <-> package-name)
-            preserveSatisfyingPartyPackageNameRequirements(candidates, requirements)
+          .mapValues(resolveAndOrderPackageReferences(_, packageIndex, logger))
+          .pipe(
+            (candidates: MapView[LfPartyId, Map[LfPackageName, Candidate[SortedPreferences]]]) =>
+              // Decide candidates for which there is no vetted package satisfying a vetting requirement (party <-> package-name)
+              considerPartyPackageNameRequirements(candidates, requirements)
           )
-          .map {
-            (candidates: MapView[LfPartyId, Map[LfPackageName, NonEmpty[SortedPreferences]]]) =>
+          .view
+          .pipe {
+            (candidates: MapView[LfPartyId, Map[LfPackageName, Candidate[SortedPreferences]]]) =>
               // At this point we are reducing the party dimension by
               // intersecting all package-ids for a package-name of a party with the same for other parties.
-              preserveSatisfyingPartyPackageCandidatesIntersection(candidates)
+              computePartyPackageCandidatesIntersection(candidates)
           }
           // Preserve only the candidate package-ids that are vetted and all their dependencies are vetted
-          .map(preserveDeeplyVetted(packageIndex))
+          .pipe(preserveDeeplyVetted(packageMetadataSnapshot, _))
           // Apply package-id filter restriction to the candidate package-ids
           // Note: the filter can discard packages that are dependencies of other candidates
-          .map(filterPackages(packageIdFilter))
-          .flatMap((candidates: MapView[LfPackageName, Candidate[NonEmpty[SortedPreferences]]]) =>
-            // Select the highest version package for each requested package-name
-            selectRequestedPackages(candidates, requiredPackageNames)
-          )
+          .pipe(filterPackages(packageFilter, _))
       )
       .toMap
+  }
 
   // Preserve for each package-name all the package-ids that are vetted and all their dependencies are vetted
-  private def preserveDeeplyVetted(packageIndex: PackageIndex)(
-      candidatesForPackageName: Map[LfPackageName, Candidate[NonEmpty[SortedPreferences]]]
-  )(implicit
-      loggingContextWithTrace: LoggingContextWithTrace
-  ): MapView[LfPackageName, Candidate[NonEmpty[SortedPreferences]]] = {
-    val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
+  private def preserveDeeplyVetted(
+      packageMetadataSnapshot: PackageMetadata,
+      candidatesForPackageName: Map[LfPackageName, Candidate[SortedPreferences]],
+  ): MapView[LfPackageName, Candidate[SortedPreferences]] = {
+    val packageIndex = packageMetadataSnapshot.packageIdVersionMap
     val dependencyGraph: Map[PackageId, Set[PackageId]] =
       packageMetadataSnapshot.packages.view.mapValues(_.directDeps).toMap
 
@@ -272,27 +314,27 @@ class PackagePreferenceBackend(
       )
   }
 
-  private def filterPackages(packageIdFilter: PackageIdFilter)(
-      candidatePackagesForName: MapView[LfPackageName, Candidate[
-        NonEmpty[SortedPreferences /* most preferred last */ ]
-      ]]
-  ): MapView[LfPackageName, Candidate[NonEmpty[SortedPreferences /* most preferred last */ ]]] =
+  private def filterPackages(
+      packageFilter: PackageFilter,
+      candidatePackagesForName: MapView[LfPackageName, Candidate[SortedPreferences]],
+  ): MapView[LfPackageName, Candidate[SortedPreferences]] =
     candidatePackagesForName.view
       .mapValues(_.flatMap { packageRefs =>
         NonEmpty
-          .from(packageRefs.forgetNE.filter(ref => packageIdFilter(ref.pkgId)))
+          .from(packageRefs.forgetNE.filter(ref => packageFilter(ref.packageName, ref.pkgId)))
           .toRight(
             show"All candidates discarded after applying package-id filter.\nCandidates: ${packageRefs
-                .map(_.pkgId)}\nFilter: $packageIdFilter"
+                .map(_.pkgId)}\nFilter: $packageFilter"
           )
       })
 
   private def resolveAndOrderPackageReferences(
       pkgIds: Set[LfPackageId],
       packageIndex: PackageIndex,
+      logger: TracedLogger,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): Map[LfPackageName, NonEmpty[SortedPreferences /* most preferred last */ ]] =
+  ): Map[LfPackageName, Candidate[SortedPreferences]] =
     pkgIds.view
       .flatMap { pkgId =>
         pkgId
@@ -307,41 +349,82 @@ class PackagePreferenceBackend(
       .groupBy(_.packageName)
       .view
       .map { case (pkgName, pkgRefs) =>
-        pkgName -> NonEmpty
-          .from(SortedSet.from(pkgRefs))
-          // The groupBy in this chain ensures non-empty pkgRefs
-          .getOrElse(
-            sys.error(
-              "Empty package references. This is likely a programming error. Please contact support"
+        pkgName -> Right(
+          NonEmpty
+            .from(SortedSet.from(pkgRefs))
+            // The groupBy in this chain ensures non-empty pkgRefs
+            .getOrElse(
+              sys.error(
+                "Empty package references. This is likely a programming error. Please contact support"
+              )
             )
-          )
+        )
       }
       .toMap
 
-  private def preserveSatisfyingPartyPackageCandidatesIntersection(
-      candidatesPerParty: MapView[LfPartyId, Map[LfPackageName, NonEmpty[SortedPreferences]]]
-  ): Map[LfPackageName, Candidate[NonEmpty[SortedPreferences]]] =
+  private def computePartyPackageCandidatesIntersection(
+      candidatesPerParty: MapView[LfPartyId, Map[LfPackageName, Candidate[SortedPreferences]]]
+  ): Map[LfPackageName, Candidate[SortedPreferences]] =
     candidatesPerParty.view
       .flatMap { case (party, pkgNameCandidates) => pkgNameCandidates.view.map(party -> _) }
-      .foldLeft(Map.empty[LfPackageName, Candidate[NonEmpty[SortedPreferences]]]) {
-        case (acc, (party, (pkgName, pkgReferences))) =>
+      .foldLeft(Map.empty[LfPackageName, Candidate[SortedPreferences]]) {
+        case (acc, (party, (pkgName, newCandidates))) =>
           acc.updatedWith(pkgName) {
-            case None => Some(Right(pkgReferences))
-            case Some(existing) =>
-              Some(existing.flatMap { existingPkgRefs =>
-                NonEmpty
-                  .from(existingPkgRefs.forgetNE.intersect(pkgReferences.forgetNE))
-                  .toRight(
-                    show"No package candidates for '$pkgName' after intersection with candidates from party $party.\nCurrent candidates: $existingPkgRefs.\nCandidates for party $party: $pkgReferences"
-                  )
-              })
+            case None => Some(newCandidates)
+            case Some(existingCandidates) =>
+              Some(
+                for {
+                  existingPkgRefs <- existingCandidates
+                  pkgRefs <- newCandidates
+                  newPkgRefs <- NonEmpty
+                    .from(existingPkgRefs.forgetNE.intersect(pkgRefs.forgetNE))
+                    .toRight(
+                      show"No package candidates for '$pkgName' after considering candidates for party $party.\nCurrent candidates: $existingPkgRefs.\nCandidates for party $party: $pkgRefs"
+                    )
+                } yield newPkgRefs
+              )
           }
       }
 
+  private def considerPartyPackageNameRequirements(
+      candidatesPerPartyView: MapView[LfPartyId, Map[LfPackageName, Candidate[SortedPreferences]]],
+      requirements: Map[LfPartyId, Set[LfPackageName]],
+  ): MapView[LfPartyId, Map[LfPackageName, Candidate[SortedPreferences]]] = {
+    val candidatesPerParty = candidatesPerPartyView.toMap
+
+    requirements.view
+      .foldLeft(candidatesPerParty) { case (acc, (party, requiredPackageNames)) =>
+        acc.updatedWith(party) {
+          // If all the required package-names are present in the candidates for the party,
+          // all good
+          case Some(availablePackageNames)
+              if requiredPackageNames.subsetOf(availablePackageNames.keySet) =>
+            Some(availablePackageNames)
+          // If there are required package-names that are not present in the available candidates,
+          // back-fill the candidates for the party with an error reason for each missing package-name
+          case other: Option[Map[LfPackageName, Candidate[SortedPreferences]]] =>
+            val availablePackageNames: Set[LfPackageName] = other.map(_.keySet).getOrElse(Set.empty)
+            val unavailablePackageNames = requiredPackageNames.diff(availablePackageNames)
+            Some(
+              unavailablePackageNames.foldLeft(other.getOrElse(Map.empty)) {
+                case (acc, missingRequiredPackageName) =>
+                  acc.updated(
+                    missingRequiredPackageName,
+                    Left(
+                      show"Party $party has no vetted packages for '$missingRequiredPackageName'"
+                    ),
+                  )
+              }
+            )
+        }
+      }
+      .view
+  }
+
+  // Select the highest version package for each requested package-name
+  // or discard the preference set if there is a requirement not satisfied
   private def selectRequestedPackages(
-      candidates: MapView[LfPackageName, Candidate[
-        NonEmpty[SortedPreferences /* most preferred last */ ]
-      ]],
+      candidates: MapView[LfPackageName, Candidate[SortedPreferences]],
       requiredPackageNames: Set[LfPackageName],
   ): Candidate[Set[PackageReference]] =
     requiredPackageNames.toList
@@ -349,57 +432,10 @@ class PackagePreferenceBackend(
         for {
           preferencesForNameE <- candidates
             .get(requestedPackageName)
-            .toRight(show"No package candidates for '$requestedPackageName''")
+            .toRight(
+              show"No party has vetted a package and its dependencies on all its hosting participants for '$requestedPackageName'."
+            )
           preferencesForName <- preferencesForNameE
         } yield acc + preferencesForName.last1
       }
-
-  private def preserveSatisfyingPartyPackageNameRequirements(
-      candidatesPerParty: MapView[LfPartyId, Map[LfPackageName, NonEmpty[SortedPreferences]]],
-      requirements: Map[LfPartyId, Set[LfPackageName]],
-  ): Candidate[MapView[LfPartyId, Map[LfPackageName, NonEmpty[SortedPreferences]]]] =
-    requirements.toSeq
-      .traverse { case (party, requiredPackageNames) =>
-        candidatesPerParty
-          .get(party)
-          .toRight(show"Party $party has no vetted package candidates")
-          .flatMap { packagesForName =>
-            val requiredWithoutCandidates = requiredPackageNames.diff(packagesForName.keySet)
-            Either.cond(
-              requiredWithoutCandidates.isEmpty,
-              (),
-              show"Party $party requires package-names with no vetted candidates: $requiredWithoutCandidates",
-            )
-          }
-      }
-      .map(_ => candidatesPerParty)
-}
-
-object PackagePreferenceBackend {
-  private type SortedPreferences = SortedSet[PackageReference]
-  private type PackageIndex = Map[LfPackageId, (LfPackageName, LfPackageVersion)]
-  // A candidate refers to a value T that:
-  //   - wraps the value in a Right if it is valid for package preferences computation OR
-  //   - wraps the value's discarded reason in a Left
-  private type Candidate[T] = Either[String, T]
-
-  sealed trait PackageIdFilter extends Product with Serializable with PrettyPrinting {
-    def apply(pkgId: LfPackageId): Boolean
-  }
-
-  case object AllowAllPackageIds extends PackageIdFilter {
-    def apply(pkgId: LfPackageId): Boolean = true
-
-    override protected def pretty: Pretty[AllowAllPackageIds.this.type] =
-      Pretty.prettyOfString(_ => "All package-ids supported")
-  }
-
-  final case class PackageIdFilterRestriction(
-      supportedPackageIds: Set[LfPackageId],
-      restrictionDescription: String,
-  ) extends PackageIdFilter {
-    def apply(pkgId: LfPackageId): Boolean = supportedPackageIds(pkgId)
-    override protected def pretty: Pretty[PackageIdFilterRestriction] =
-      Pretty.prettyOfString(_ => show"$restrictionDescription: $supportedPackageIds")
-  }
 }

@@ -177,7 +177,6 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPartyId}
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
@@ -1118,8 +1117,7 @@ object LedgerApiCommands {
       def source: String = head.source
       def target: String = head.target
       def unassignId: String = head.unassignId
-      def reassignmentId: ReassignmentId =
-        ReassignmentId.tryCreate(Source(SynchronizerId.tryFromString(source)), unassignId)
+      def reassignmentId: ReassignmentId = ReassignmentId.tryCreate(unassignId)
     }
 
     final case class EmptyReassignmentWrapper(

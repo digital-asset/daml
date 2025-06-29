@@ -36,7 +36,6 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ReassignmentTag.Source
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -84,7 +83,7 @@ class SyncEphemeralState(
     TrieMap.empty[RootHash, PendingReassignmentSubmission]
 
   val reassignmentSynchronizer: ReassignmentSynchronizer =
-    new ReassignmentSynchronizer(Source(synchronizerId), loggerFactory, timeouts)
+    new ReassignmentSynchronizer(loggerFactory, timeouts)
 
   val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)
 

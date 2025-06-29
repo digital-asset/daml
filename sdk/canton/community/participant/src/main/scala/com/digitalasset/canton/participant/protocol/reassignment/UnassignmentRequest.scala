@@ -40,13 +40,12 @@ final case class UnassignmentRequest(
   private val sourceProtocolVersion = sourceSynchronizer.map(_.protocolVersion)
 
   def mkReassignmentId(unassignmentTs: CantonTimestamp) = ReassignmentId(
-    sourceSynchronizer.map(_.logical),
     UnassignId(
       sourceSynchronizer.map(_.logical),
       targetSynchronizer.map(_.logical),
       unassignmentTs,
       contracts.contractIdCounters,
-    ),
+    )
   )
 
   def toFullUnassignmentTree(

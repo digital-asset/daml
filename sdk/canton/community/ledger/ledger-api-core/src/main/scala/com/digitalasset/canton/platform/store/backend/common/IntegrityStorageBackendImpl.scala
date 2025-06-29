@@ -11,6 +11,7 @@ import com.digitalasset.canton.platform.store.backend.IntegrityStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.`SimpleSql ops`
 import com.digitalasset.canton.topology.SynchronizerId
+import com.google.common.annotations.VisibleForTesting
 
 import java.sql.Connection
 
@@ -107,6 +108,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         EventSequentialIdsRow(min.getOrElse(0L), max.getOrElse(0L), count)
       }
 
+  @VisibleForTesting
   override def verifyIntegrity(
       failForEmptyDB: Boolean = true
   )(connection: Connection): Unit = try {
@@ -316,6 +318,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       }
   }
 
+  @VisibleForTesting
   override def numberOfAcceptedTransactionsFor(
       synchronizerId: SynchronizerId
   )(connection: Connection): Int =
@@ -334,6 +337,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   /** ONLY FOR TESTING This is causing wiping of all LAPI event data. This should not be used during
     * working indexer.
     */
+  @VisibleForTesting
   override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard

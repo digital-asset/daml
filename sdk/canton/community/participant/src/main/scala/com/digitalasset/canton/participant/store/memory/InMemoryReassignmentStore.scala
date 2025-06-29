@@ -245,6 +245,7 @@ class InMemoryReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val newEntry = ReassignmentEntry(
       assignmentData.reassignmentId,
+      assignmentData.sourceSynchronizer,
       assignmentData.contracts.contracts.map(_.contract),
       None,
       None,
@@ -287,14 +288,7 @@ class InMemoryReassignmentStore(
       .to(LazyList)
       .filter(filter)
       .flatMap(_.unassignmentDataO)
-      .sortBy(t => (t.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
-        // Explicitly use the standard ordering on two-tuples here
-        // As Scala does not seem to infer the right implicits to use here
-        Ordering.Tuple2(
-          CantonTimestamp.orderCantonTimestamp.toOrdering,
-          SynchronizerId.orderSynchronizerId.toOrdering,
-        )
-      )
+      .sortBy(t => (t.unassignmentTs, t.sourceSynchronizer.unwrap))
       .take(limit)
   }
 
@@ -328,7 +322,6 @@ class InMemoryReassignmentStore(
         case entry if filter(entry) =>
           IncompleteReassignmentData
             .tryCreate(
-              entry.sourceSynchronizer,
               entry.reassignmentId.unassignId,
               entry.unassignmentRequest,
               entry.reassignmentGlobalOffset,
@@ -397,7 +390,7 @@ class InMemoryReassignmentStore(
             ) &&
             completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
-          .collect { case (reassignmentId, ReassignmentEntry(_, _, Some(request), _, _, _)) =>
+          .collect { case (reassignmentId, ReassignmentEntry(_, _, _, Some(request), _, _, _)) =>
             request.contracts.contractIds.map(_ -> reassignmentId)
           }
           .flatten

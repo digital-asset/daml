@@ -652,6 +652,35 @@ object TopologyAdminCommands {
 
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
+
+    final case class LogicalUpgradeState(
+        observer: StreamObserver[LogicalUpgradeStateResponse]
+    ) extends BaseCommand[
+          v30.LogicalUpgradeStateRequest,
+          CancellableContext,
+          CancellableContext,
+        ] {
+      override protected def createRequest(): Either[String, v30.LogicalUpgradeStateRequest] =
+        Right(
+          v30.LogicalUpgradeStateRequest()
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.LogicalUpgradeStateRequest,
+      ): Future[CancellableContext] = {
+        val context = Context.current().withCancellation()
+        context.run(() => service.logicalUpgradeState(request, observer))
+        Future.successful(context)
+      }
+
+      override protected def handleResponse(
+          response: CancellableContext
+      ): Either[String, CancellableContext] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
   }
 
   object Aggregation {

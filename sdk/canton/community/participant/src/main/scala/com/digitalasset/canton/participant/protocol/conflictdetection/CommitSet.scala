@@ -18,8 +18,8 @@ import com.digitalasset.canton.protocol.{
   RequestId,
   SerializableContract,
 }
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
@@ -84,11 +84,13 @@ object CommitSet {
     )
   }
   final case class AssignmentCommit(
+      sourceSynchronizerId: Source[SynchronizerId],
       reassignmentId: ReassignmentId,
       contractMetadata: ContractMetadata,
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[AssignmentCommit] = prettyOfClass(
+      param("source", _.sourceSynchronizerId),
       param("reassignmentId", _.reassignmentId),
       param("contractMetadata", _.contractMetadata),
       param("reassignmentCounter", _.reassignmentCounter),
@@ -136,6 +138,7 @@ object CommitSet {
   def createForAssignment(
       reassignmentId: ReassignmentId,
       assignments: NonEmpty[Seq[ContractReassignment]],
+      sourceSynchronizerId: Source[SynchronizerId],
   ): CommitSet =
     CommitSet(
       archivals = Map.empty,
@@ -144,6 +147,7 @@ object CommitSet {
       assignments = assignments
         .map(reassign =>
           reassign.contract.contractId -> CommitSet.AssignmentCommit(
+            sourceSynchronizerId,
             reassignmentId,
             reassign.contract.metadata,
             reassign.counter,

@@ -610,13 +610,12 @@ final class RepairService(
     */
   def rollbackUnassignment(
       reassignmentId: ReassignmentId,
+      source: Source[SynchronizerId],
       target: Target[SynchronizerId],
   )(implicit context: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] =
     withRepairIndexer { repairIndexer =>
       (for {
-        sourceRepairRequest <- reassignmentId.sourceSynchronizer.traverse(
-          initRepairRequestAndVerifyPreconditions(_)
-        )
+        sourceRepairRequest <- source.traverse(initRepairRequestAndVerifyPreconditions(_))
         targetRepairRequest <- target.traverse(initRepairRequestAndVerifyPreconditions(_))
         reassignmentData <-
           targetRepairRequest.unwrap.synchronizer.persistentState.reassignmentStore
