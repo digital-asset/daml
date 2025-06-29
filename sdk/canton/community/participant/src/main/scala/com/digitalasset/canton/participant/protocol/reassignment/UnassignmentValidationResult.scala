@@ -44,6 +44,7 @@ final case class UnassignmentValidationResult(
 ) extends ReassignmentValidationResult {
   val rootHash = fullTree.rootHash
   val submitterMetadata = fullTree.submitterMetadata
+  val sourceSynchronizer = fullTree.sourceSynchronizer
   val targetSynchronizer = fullTree.targetSynchronizer
   val stakeholders = fullTree.stakeholders.all
   val targetTimeProof = fullTree.targetTimeProof
@@ -113,7 +114,7 @@ final case class UnassignmentValidationResult(
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
       reassignmentInfo = ReassignmentInfo(
-        sourceSynchronizer = reassignmentId.sourceSynchronizer,
+        sourceSynchronizer = sourceSynchronizer.map(_.logical),
         targetSynchronizer = targetSynchronizer.map(_.logical),
         submitter = Option(submitterMetadata.submitter),
         unassignId = reassignmentId.unassignId,
@@ -132,7 +133,7 @@ final case class UnassignmentValidationResult(
           )
         }),
       recordTime = recordTime,
-      synchronizerId = reassignmentId.sourceSynchronizer.unwrap,
+      synchronizerId = sourceSynchronizer.unwrap.logical,
     )
 }
 

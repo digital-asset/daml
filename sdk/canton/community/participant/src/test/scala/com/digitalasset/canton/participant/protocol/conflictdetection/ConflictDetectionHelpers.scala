@@ -30,7 +30,7 @@ import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -73,13 +73,14 @@ private[protocol] trait ConflictDetectionHelpers {
         loggerFactory,
       ),
   )(
-      entries: (ReassignmentId, MediatorGroupRecipient)*
+      entries: (ReassignmentId, Source[PhysicalSynchronizerId], MediatorGroupRecipient)*
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReassignmentCache] =
     MonadUtil
-      .sequentialTraverse(entries) { case (reassignmentId, sourceMediator) =>
+      .sequentialTraverse(entries) { case (reassignmentId, sourceSynchronizer, sourceMediator) =>
         val unassignmentData = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
           reassignmentId,
           sourceMediator,
+          sourceSynchronizerId = sourceSynchronizer,
           targetSynchronizerId = ReassignmentStoreTest.targetSynchronizerId,
         )
 
@@ -197,7 +198,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
       unassign: Map[LfContractId, (PhysicalSynchronizerId, ReassignmentCounter)] = Map.empty,
-      assign: Map[LfContractId, ReassignmentId] = Map.empty,
+      assign: Map[LfContractId, (Source[PhysicalSynchronizerId], ReassignmentId)] = Map.empty,
   ): CommitSet =
     CommitSet(
       archivals = arch
@@ -220,12 +221,13 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           reassignmentCounter,
         )
       },
-      assignments = assign.fmap(id =>
+      assignments = assign.fmap { case (sourcePSId, id) =>
         CommitSet.AssignmentCommit(
+          sourcePSId.map(_.logical),
           id,
           ContractMetadata.empty,
           initialReassignmentCounter,
         )
-      ),
+      },
     )
 }

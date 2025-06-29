@@ -834,18 +834,22 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
 
   override def findEffectiveStateChanges(
       fromEffectiveInclusive: CantonTimestamp,
+      filterTypes: Option[Seq[TopologyMapping.Code]],
       onlyAtEffective: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[EffectiveStateChange]] = {
     val effectiveOperator = if (onlyAtEffective) "=" else ">="
+
     val subQuery =
       sql""" AND (
                valid_from #$effectiveOperator $fromEffectiveInclusive
                OR valid_until #$effectiveOperator $fromEffectiveInclusive
              )
              AND (valid_until IS NULL OR valid_from != valid_until)
-             AND is_proposal = false """
+             AND is_proposal = false """ ++
+        typeFilter(filterTypes.fold(Set.empty[TopologyMapping.Code])(_.toSet))
+
     queryForTransactions(
       subQuery = subQuery,
       operation = "findPositiveTransactionsForEffectiveStateChanges",
