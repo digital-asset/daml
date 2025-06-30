@@ -83,9 +83,11 @@ class GrpcLedgerClient(
       dontReturnResults: Boolean,
   ): api.Identifier = {
     identifier.pkg match {
-      case PackageRef.Name(name) => 
+      case PackageRef.Name(name) =>
         if (!dontReturnResults)
-          throw new IllegalArgumentException("Passed a name reference, but dontReturnResults = false")
+          throw new IllegalArgumentException(
+            "Passed a name reference, but dontReturnResults = false"
+          )
         else
           api.Identifier(
             "#" + name,
@@ -98,7 +100,9 @@ class GrpcLedgerClient(
           .lookupPackage(pkgId)
           .toOption
           .filter(pkgSig => pkgSig.supportsUpgrades(pkgId) && !explicitPackageId)
-          .fold(converted)(pkgSig => converted.copy(packageId = "#" + pkgSig.metadata.name.toString))
+          .fold(converted)(pkgSig =>
+            converted.copy(packageId = "#" + pkgSig.metadata.name.toString)
+          )
     }
   }
 
