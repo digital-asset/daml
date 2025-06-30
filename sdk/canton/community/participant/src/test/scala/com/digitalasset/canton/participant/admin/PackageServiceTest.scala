@@ -277,6 +277,7 @@ class PackageServiceTest
         } yield succeed
     }
 
+    // FIXME: happy path
     "validate DAR and packages from bytes" in withEnvUS { env =>
       import env.*
 
@@ -326,6 +327,7 @@ class PackageServiceTest
       }).unwrap.map(_.failOnShutdown)
     }
 
+    // FIXME: failure path
     "validateDar validates the package" in withEnv { env =>
       import env.*
 

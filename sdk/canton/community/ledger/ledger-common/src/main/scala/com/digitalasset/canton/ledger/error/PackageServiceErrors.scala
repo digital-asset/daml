@@ -224,8 +224,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           languageVersion,
           allowedLanguageVersions,
         )
-      case Error.Package.SelfConsistency(mainPackageIds, transitiveDependencies, missingDependencies, extraDependencies) =>
-        SelfConsistency.Error(mainPackageIds, transitiveDependencies, missingDependencies, extraDependencies)
+      case Error.Package.SelfConsistency(mainPackageId, transitiveDependencies, missingDependencies, extraDependencies) =>
+        SelfConsistency.Error(mainPackageId, transitiveDependencies, missingDependencies, extraDependencies)
     }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
