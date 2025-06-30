@@ -53,14 +53,6 @@ object PhysicalSynchronizerId {
       (psid.logical.toLengthLimitedString.unwrap, psid.protocolVersion, psid.serial)
     )
 
-  implicit val physicalSynchronizerIdOrderingO: Ordering[Option[PhysicalSynchronizerId]] =
-    Ordering.by(psidO =>
-      (
-        psidO.isDefined, // false < true and we want None < Some(id)
-        psidO,
-      )
-    )
-
   def fromString(raw: String): Either[String, PhysicalSynchronizerId] = {
     val elements = raw.split(primaryDelimiter)
     val elementsCount = elements.sizeIs

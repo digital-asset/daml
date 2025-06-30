@@ -18,6 +18,7 @@ service SequencerInitializationService {
   // if the synchronizer_id matches the synchronizer that the sequencer has been initialized for, otherwise it should fail.
   rpc InitializeSequencerFromGenesisState(stream InitializeSequencerFromGenesisStateRequest) returns (InitializeSequencerFromGenesisStateResponse);
   rpc InitializeSequencerFromOnboardingState(stream InitializeSequencerFromOnboardingStateRequest) returns (InitializeSequencerFromOnboardingStateResponse);
+  rpc InitializeSequencerFromPredecessor(stream InitializeSequencerFromPredecessorRequest) returns (InitializeSequencerFromPredecessorResponse);
 }
 
 // Includes sufficient detail for:
@@ -34,6 +35,16 @@ message InitializeSequencerFromGenesisStateResponse {
   // Indicate if the initialized sequencer is replicated
   bool replicated = 1;
 }
+
+// Includes sufficient detail for:
+//  - topology and additional bootstrap information
+message InitializeSequencerFromPredecessorRequest {
+  bytes topology_snapshot = 1;
+
+  com.digitalasset.canton.protocol.v30.StaticSynchronizerParameters synchronizer_parameters = 2;
+}
+
+message InitializeSequencerFromPredecessorResponse {}
 
 message InitializeSequencerFromOnboardingStateRequest {
   bytes onboarding_state = 1;

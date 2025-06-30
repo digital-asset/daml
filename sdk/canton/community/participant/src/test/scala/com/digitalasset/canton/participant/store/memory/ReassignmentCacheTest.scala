@@ -37,6 +37,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     mkUnassignmentDataForSynchronizer(
       reassignment10,
       mediator1,
+      sourceSynchronizerId = sourceSynchronizer1,
       targetSynchronizerId = targetSynchronizerId,
     )
   private val ts = CantonTimestamp.Epoch

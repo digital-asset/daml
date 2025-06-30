@@ -161,7 +161,8 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       private[metrics] val grpcLatency: Item = Item(
         prefix :+ "grpc-latency",
         summary = "Latency of a gRPC message send",
-        description = "Records the rate and latency of a gRPC message send.",
+        description =
+          "Records the rate of gRPC message sands and their latency (up to receiving them on the other side).",
         qualification = MetricQualification.Latency,
       )
     }

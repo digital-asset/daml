@@ -610,9 +610,13 @@ final class GrpcParticipantRepairService(
           .map(Target(_))
           .leftMap(_.message)
       )
-      reassignmentId = protocol.ReassignmentId(sourceSynchronizerId, unassignId)
+      reassignmentId = protocol.ReassignmentId(unassignId)
 
-      _ <- sync.repairService.rollbackUnassignment(reassignmentId, targetSynchronizerId)
+      _ <- sync.repairService.rollbackUnassignment(
+        reassignmentId,
+        sourceSynchronizerId,
+        targetSynchronizerId,
+      )
 
     } yield RollbackUnassignmentResponse()
 

@@ -28,6 +28,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
+import scala.math.Ordering.Implicits.*
 
 object TopologyMappingChecks {
   type PendingChangesLookup = Map[MappingHash, GenericSignedTopologyTransaction]
@@ -192,6 +193,14 @@ class ValidatingTopologyMappingChecks(
             )
           )
 
+      case (
+            Code.SynchronizerUpgradeAnnouncement,
+            None | Some(Code.SynchronizerUpgradeAnnouncement),
+          ) =>
+        toValidate
+          .select[TopologyChangeOp.Replace, SynchronizerUpgradeAnnouncement]
+          .map(checkSynchronizerUpgradeAnnouncement)
+
       case _otherwise => None
     }
 
@@ -234,7 +243,7 @@ class ValidatingTopologyMappingChecks(
           EitherTUtil.condUnitET[FutureUnlessShutdown](
             mappingsAllowedDuringSynchronizerUpgrade.contains(toValidate.mapping.code),
             TopologyTransactionRejection.OngoingSynchronizerUpgrade(
-              announcement.head1.mapping.synchronizerId
+              announcement.head1.mapping.successorSynchronizerId.logical
             ): TopologyTransactionRejection,
           )
       }
@@ -852,6 +861,24 @@ class ValidatingTopologyMappingChecks(
 
     checkNoClashWithDecentralizedNamespaces()
   }
+
+  private def checkSynchronizerUpgradeAnnouncement(
+      toValidate: SignedTopologyTransaction[
+        TopologyChangeOp.Replace,
+        SynchronizerUpgradeAnnouncement,
+      ]
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+    store.storeId.forSynchronizer match {
+      case Some(psid) =>
+        EitherTUtil.condUnitET(
+          psid < toValidate.mapping.successorSynchronizerId,
+          TopologyTransactionRejection.InvalidSynchronizerSuccessor(
+            psid,
+            toValidate.mapping.successorSynchronizerId,
+          ),
+        )
+      case None => EitherTUtil.unitUS
+    }
 
   /** Checks whether the given PTP is considered an explicit admin party allocation. This is true if
     * all following conditions are met:

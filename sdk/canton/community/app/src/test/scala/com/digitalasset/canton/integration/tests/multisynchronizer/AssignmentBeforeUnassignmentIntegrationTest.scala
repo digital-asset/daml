@@ -33,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.util.ReassignmentTag.Source
 
 import scala.concurrent.Promise
 
@@ -187,7 +186,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
       .value
       .reassignmentStore
 
-    val reassignmentId = ReassignmentId.tryCreate(Source(daId), unassign1)
+    val reassignmentId = ReassignmentId.tryCreate(unassign1)
 
     reassignmentStoreP2.findReassignmentEntry(reassignmentId).futureValueUS shouldBe Left(
       UnknownReassignmentId(reassignmentId)

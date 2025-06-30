@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -159,11 +158,11 @@ class AssignmentValidationTest
       )
     )
 
-    val reassignmentId = ReassignmentId(sourceSynchronizer, UnassignId(TestHash.digest(0)))
+    val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,
-      reassignmentId.sourceSynchronizer.map(_.toPhysical),
+      sourceSynchronizer,
       targetSynchronizer,
       identityFactory,
     )
@@ -417,6 +416,7 @@ class AssignmentValidationTest
         reassignmentId,
         submitterInfo(submitter),
         ContractsReassignmentBatch(contract, reassignmentCounter),
+        sourceSynchronizer,
         targetSynchronizer,
         targetMediator,
         uuid,
