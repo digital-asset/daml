@@ -47,7 +47,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
       ReassignmentCommandsBatch.create(Seq(assign)) shouldBe Right(
         ReassignmentCommandsBatch.Assignments(
           target = assign.targetSynchronizer,
-          reassignmentId = ReassignmentId(assign.sourceSynchronizer, assign.unassignId),
+          reassignmentId = ReassignmentId(assign.unassignId),
         )
       )
     }

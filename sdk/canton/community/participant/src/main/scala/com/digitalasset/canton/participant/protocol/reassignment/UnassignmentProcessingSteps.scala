@@ -437,7 +437,10 @@ class UnassignmentProcessingSteps(
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
 
     if (isReassigningParticipant) {
-      reassignmentCoordination.addPendingUnassignment(parsedRequest.reassignmentId)
+      reassignmentCoordination.addPendingUnassignment(
+        parsedRequest.reassignmentId,
+        fullTree.sourceSynchronizer.map(_.logical),
+      )
     }
 
     for {
@@ -542,7 +545,8 @@ class UnassignmentProcessingSteps(
           createRejectionEvent(RejectionArgs(pendingRequestData, reason))
         )
         _ = reassignmentCoordination.completeUnassignment(
-          unassignmentValidationResult.reassignmentId
+          unassignmentValidationResult.reassignmentId,
+          unassignmentValidationResult.sourceSynchronizer,
         )
       } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
 
@@ -576,7 +580,8 @@ class UnassignmentProcessingSteps(
                 .addUnassignmentRequest(unassignmentData)
                 .map { _ =>
                   reassignmentCoordination.completeUnassignment(
-                    unassignmentValidationResult.reassignmentId
+                    unassignmentValidationResult.reassignmentId,
+                    unassignmentValidationResult.sourceSynchronizer,
                   )
                 }
             }
@@ -612,7 +617,10 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT.rightT(
-      reassignmentCoordination.completeUnassignment(parsedRequest.reassignmentId)
+      reassignmentCoordination.completeUnassignment(
+        parsedRequest.reassignmentId,
+        parsedRequest.fullViewTree.sourceSynchronizer,
+      )
     )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(

@@ -17,9 +17,9 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
+import com.digitalasset.canton.topology.transaction.{TopologyMapping, *}
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   ParticipantId,
@@ -859,8 +859,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
       }
 
       "compute correctly effective state changes" when {
-//        import DefaultTestIdentities.*
-
         def assertResult(
             actual: Seq[EffectiveStateChange],
             expected: Seq[EffectiveStateChange],
@@ -969,9 +967,21 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 fromEffectiveInclusive = ts1,
                 onlyAtEffective = true,
               )
-              atTs2Result <- store.findEffectiveStateChanges(
+
+              atTs2ResultWithoutMappingFilter <- store.findEffectiveStateChanges(
                 fromEffectiveInclusive = ts2,
                 onlyAtEffective = true,
+              )
+              atTs2ResultWithMappingFilter <- store.findEffectiveStateChanges(
+                fromEffectiveInclusive = ts2,
+                onlyAtEffective = true,
+                filterTypes = Some(Seq(TopologyMapping.Code.PartyToParticipant)),
+              )
+              // no OTK
+              atTs2ResultWithMappingEmptyFilter <- store.findEffectiveStateChanges(
+                fromEffectiveInclusive = ts2,
+                onlyAtEffective = true,
+                filterTypes = Some(Seq(TopologyMapping.Code.OwnerToKeyMapping)),
               )
               atTs3Result <- store.findEffectiveStateChanges(
                 fromEffectiveInclusive = ts3,
@@ -1009,7 +1019,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 ),
               )
               assertResult(atTs1Result, Seq.empty)
-              assertResult(atTs2Result, Seq(resultTs2))
+
+              assertResult(atTs2ResultWithoutMappingFilter, Seq(resultTs2))
+              assertResult(atTs2ResultWithMappingFilter, Seq(resultTs2))
+              assertResult(atTs2ResultWithMappingEmptyFilter, Seq())
+
               assertResult(atTs3Result, Seq.empty)
               assertResult(fromTs1Result, Seq(resultTs2))
               assertResult(fromTs2Result, Seq(resultTs2))

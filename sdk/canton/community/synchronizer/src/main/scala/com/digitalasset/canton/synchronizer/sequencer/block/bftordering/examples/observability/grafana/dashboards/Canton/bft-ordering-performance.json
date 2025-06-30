@@ -419,6 +419,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "description": "Latency between sending a message and receiving it on the other side",
           "fieldConfig": {
             "defaults": {
               "color": {

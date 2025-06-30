@@ -1887,21 +1887,15 @@ object PurgeTopologyTransaction extends TopologyMappingCompanion {
 
 // Indicates the beginning of synchronizer upgrade. Only topology transactions related to synchronizer upgrades are permitted
 // after this transaction has become effective. Removing this mapping effectively unfreezes the topology state again.
-final case class SynchronizerUpgradeAnnouncement private (
-    synchronizerId: PhysicalSynchronizerId,
+final case class SynchronizerUpgradeAnnouncement(
     successorSynchronizerId: PhysicalSynchronizerId,
     upgradeTime: CantonTimestamp,
 ) extends TopologyMapping {
-  require(
-    synchronizerId < successorSynchronizerId,
-    "The id of the successor must be greater than the current one",
-  )
 
   override def companion: SynchronizerUpgradeAnnouncement.type = SynchronizerUpgradeAnnouncement
 
   def toProto: v30.SynchronizerUpgradeAnnouncement =
     v30.SynchronizerUpgradeAnnouncement(
-      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       successorPhysicalSynchronizerId = successorSynchronizerId.toProtoPrimitive,
       upgradeTime = Some(upgradeTime.toProtoTimestamp),
     )
@@ -1913,62 +1907,32 @@ final case class SynchronizerUpgradeAnnouncement private (
       )
     )
 
-  override def namespace: Namespace = synchronizerId.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
+  override def namespace: Namespace = successorSynchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(successorSynchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
-    synchronizerId.logical
+    successorSynchronizerId.logical
   )
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
+  ): RequiredAuth = RequiredNamespaces(Set(successorSynchronizerId.namespace))
 
-  override def uniqueKey: MappingHash = SynchronizerUpgradeAnnouncement.uniqueKey(synchronizerId)
+  override def uniqueKey: MappingHash =
+    SynchronizerUpgradeAnnouncement.uniqueKey(successorSynchronizerId.logical)
 }
 
 object SynchronizerUpgradeAnnouncement extends TopologyMappingCompanion {
 
-  def uniqueKey(synchronizerId: PhysicalSynchronizerId): MappingHash =
+  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.SynchronizerUpgradeAnnouncement
-
-  def create(
-      synchronizerId: PhysicalSynchronizerId,
-      successorSynchronizerId: PhysicalSynchronizerId,
-      upgradeTime: CantonTimestamp,
-  ): Either[String, SynchronizerUpgradeAnnouncement] = Either
-    .cond(
-      synchronizerId < successorSynchronizerId,
-      (),
-      s"Invalid synchronizer upgrade announcement: id of the successor ($successorSynchronizerId) is not greater than $synchronizerId",
-    )
-    .map(_ =>
-      SynchronizerUpgradeAnnouncement(
-        synchronizerId = synchronizerId,
-        successorSynchronizerId = successorSynchronizerId,
-        upgradeTime = upgradeTime,
-      )
-    )
-
-  def tryCreate(
-      synchronizerId: PhysicalSynchronizerId,
-      successorSynchronizerId: PhysicalSynchronizerId,
-      upgradeTime: CantonTimestamp,
-  ): SynchronizerUpgradeAnnouncement =
-    create(synchronizerId, successorSynchronizerId, upgradeTime).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
 
   def fromProtoV30(
       value: v30.SynchronizerUpgradeAnnouncement
   ): ParsingResult[SynchronizerUpgradeAnnouncement] =
     for {
-      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
-        value.physicalSynchronizerId,
-        "physical_synchronizer_id",
-      )
       successorSynchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
         value.successorPhysicalSynchronizerId,
         "successor_physical_synchronizer_id",
@@ -1979,7 +1943,7 @@ object SynchronizerUpgradeAnnouncement extends TopologyMappingCompanion {
           "upgradeTime",
           value.upgradeTime,
         )
-    } yield SynchronizerUpgradeAnnouncement(synchronizerId, successorSynchronizerId, upgradeTime)
+    } yield SynchronizerUpgradeAnnouncement(successorSynchronizerId, upgradeTime)
 }
 
 final case class GrpcConnection(
@@ -2022,7 +1986,7 @@ object GrpcConnection {
 
 final case class SequencerConnectionSuccessor(
     sequencerId: SequencerId,
-    physicalSynchronizerId: PhysicalSynchronizerId,
+    synchronizerId: SynchronizerId,
     connection: GrpcConnection,
 ) extends TopologyMapping {
   override def companion: TopologyMappingCompanion = SequencerConnectionSuccessor
@@ -2035,21 +1999,20 @@ final case class SequencerConnectionSuccessor(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(namespace))
 
-  override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
-    physicalSynchronizerId.logical
-  )
+  override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
 
-  def toGrpcSequencerConnection(alias: SequencerAlias) = GrpcSequencerConnection(
-    endpoints = connection.endpoints,
-    transportSecurity = connection.transportSecurity,
-    customTrustCertificates = connection.customTrustCertificates,
-    sequencerAlias = alias,
-    sequencerId = Some(sequencerId),
-  )
+  def toGrpcSequencerConnection(alias: SequencerAlias): GrpcSequencerConnection =
+    GrpcSequencerConnection(
+      endpoints = connection.endpoints,
+      transportSecurity = connection.transportSecurity,
+      customTrustCertificates = connection.customTrustCertificates,
+      sequencerAlias = alias,
+      sequencerId = Some(sequencerId),
+    )
 
   def toProto: v30.SequencerConnectionSuccessor = v30.SequencerConnectionSuccessor(
     sequencerId = sequencerId.toProtoPrimitive,
-    physicalSynchronizerId = physicalSynchronizerId.toProtoPrimitive,
+    synchronizerId = synchronizerId.toProtoPrimitive,
     connection = Some(connection.toProtoV30),
   )
 
@@ -2059,22 +2022,25 @@ final case class SequencerConnectionSuccessor(
     )
   )
 
-  override def uniqueKey: MappingHash = SequencerConnectionSuccessor.uniqueKey(sequencerId)
+  override def uniqueKey: MappingHash =
+    SequencerConnectionSuccessor.uniqueKey(sequencerId, synchronizerId)
 }
 
 object SequencerConnectionSuccessor extends TopologyMappingCompanion {
   override def code: Code = Code.SequencerConnectionSuccessor
-  def uniqueKey(sequencerId: SequencerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(sequencerId.uid.toProtoPrimitive))
+  def uniqueKey(sequencerId: SequencerId, synchronizerId: SynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(
+      _.add(sequencerId.uid.toProtoPrimitive).add(synchronizerId.toProtoPrimitive)
+    )
 
   def fromProtoV30(
       value: v30.SequencerConnectionSuccessor
   ): ParsingResult[SequencerConnectionSuccessor] =
     for {
       sequencerId <- SequencerId.fromProtoPrimitive(value.sequencerId, "sequencer_id")
-      currentSynchronizer <- PhysicalSynchronizerId.fromProtoPrimitive(
-        value.physicalSynchronizerId,
-        "physical_synchronizer_id",
+      currentSynchronizer <- SynchronizerId.fromProtoPrimitive(
+        value.synchronizerId,
+        "synchronizer_id",
       )
       connection <- ProtoConverter.parseRequired(
         GrpcConnection.fromProtoV30,

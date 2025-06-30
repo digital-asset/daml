@@ -61,6 +61,8 @@ sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializab
   def isAuthorizedStore: Boolean = false
   def isSynchronizerStore: Boolean = false
   def isTemporaryStore: Boolean = false
+
+  def forSynchronizer: Option[PhysicalSynchronizerId] = None
 }
 
 object TopologyStoreId {
@@ -77,6 +79,8 @@ object TopologyStoreId {
       prettyOfParam(_.psid)
 
     override def isSynchronizerStore: Boolean = true
+
+    override def forSynchronizer: Option[PhysicalSynchronizerId] = Some(psid)
   }
 
   // authorized transactions (the topology managers store)
@@ -546,6 +550,8 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     *   produce at most one result per mapping unique key. If onlyAtEffective is false, this defines
     *   the inclusive lower bound for effective time: lookup up all state changes for all effective
     *   times bigger than or equal to this.
+    * @param filterTypes
+    *   If defined, restrict the query to specific mappings.
     * @param onlyAtEffective
     *   Controls whether fromEffectiveInclusive defines a single effective time, or an inclusive
     *   lower bound for the query.
@@ -555,6 +561,7 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
     */
   def findEffectiveStateChanges(
       fromEffectiveInclusive: CantonTimestamp,
+      filterTypes: Option[Seq[TopologyMapping.Code]] = None,
       onlyAtEffective: Boolean,
   )(implicit
       traceContext: TraceContext

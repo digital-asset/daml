@@ -37,9 +37,14 @@ service TopologyManagerReadService {
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
   rpc ListAll(ListAllRequest) returns (ListAllResponse);
   rpc ExportTopologySnapshot(ExportTopologySnapshotRequest) returns (stream ExportTopologySnapshotResponse);
+
   // Fetch the genesis topology state.
   // The returned bytestring can be used directly to initialize a sequencer.
   rpc GenesisState(GenesisStateRequest) returns (stream GenesisStateResponse);
+
+  // Fetch the topology state
+  // The returned bytestring can be used directly to initialize a successor sequencer
+  rpc LogicalUpgradeState(LogicalUpgradeStateRequest) returns (stream LogicalUpgradeStateResponse);
 }
 
 message BaseQuery {
@@ -309,6 +314,13 @@ message GenesisStateRequest {
 }
 
 message GenesisStateResponse {
+  // versioned stored topology transactions
+  bytes chunk = 1;
+}
+
+message LogicalUpgradeStateRequest {}
+
+message LogicalUpgradeStateResponse {
   // versioned stored topology transactions
   bytes chunk = 1;
 }

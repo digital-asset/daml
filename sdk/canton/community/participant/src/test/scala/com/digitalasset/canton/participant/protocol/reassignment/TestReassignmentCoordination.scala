@@ -46,7 +46,6 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
-  import BaseTest.*
 
   private val pendingUnassignments: TrieMap[Source[SynchronizerId], ReassignmentSynchronizer] =
     TrieMap.empty[Source[SynchronizerId], ReassignmentSynchronizer]
@@ -95,7 +94,7 @@ private[reassignment] object TestReassignmentCoordination {
       pendingUnassignments.getOrElse(
         id, {
           val reassignmentSynchronizer =
-            new ReassignmentSynchronizer(id.map(_.toPhysical), loggerFactory, new ProcessingTimeout)
+            new ReassignmentSynchronizer(loggerFactory, new ProcessingTimeout)
           pendingUnassignments.put(id, reassignmentSynchronizer)
           reassignmentSynchronizer
         },

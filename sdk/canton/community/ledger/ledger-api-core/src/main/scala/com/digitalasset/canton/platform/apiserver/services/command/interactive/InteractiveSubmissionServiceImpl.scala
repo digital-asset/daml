@@ -309,7 +309,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     packagePreferenceService
       .getPreferredPackages(
         packageVettingRequirements = packageVettingRequirements,
-        packageIdFilter = PackagePreferenceBackend.AllowAllPackageIds,
+        packageFilter = PackagePreferenceBackend.AllowAllPackageIds,
         synchronizerId = synchronizerId,
         vettingValidAt = vettingValidAt,
       )
