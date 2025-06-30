@@ -6,10 +6,6 @@
 # work well.
 common --lockfile_mode=off
 
-# TODO: remove this flag.
-# Temporarily set to work around visibility issues between grpc deps and protobuf.
-build --check_visibility=false
-
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
 build:darwin --remote_cache=https://bazel-cache.da-ext.net/202506bzlmod/macos
