@@ -23,7 +23,10 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   * @param allowedLanguageVersions The range of language versions the
   *     engine is allowed to load.  The engine will crash if it asked
   *     to load a language version that is not included in this range.
-  * @param transactionTraceMaxLenght Specified the maximum length of
+  * @param strictDarValidation When true, return an error code should extra packages
+  *     be detected during Dar validation. Otherwise, only log the extra packages
+  *     that have been detected.
+  * @param transactionTraceMaxLength Specified the maximum length of
   *     the stack trace reported in case of interpretation error.
   * @param stackTraceMode The flag enables the runtime support for
   *     stack trace.
@@ -44,6 +47,8 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
     packageValidation: Boolean = true,
+    // TODO: ???: we should use a default of true
+    strictDarValidation: Boolean = false,
     transactionTraceMaxLength: Int = 10,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,

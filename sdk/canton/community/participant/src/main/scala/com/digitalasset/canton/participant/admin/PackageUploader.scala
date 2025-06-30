@@ -52,6 +52,7 @@ class PackageUploader(
     packageStore: DamlPackageStore,
     engine: Engine,
     enableUpgradeValidation: Boolean,
+    enableStrictDarValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     packageMetadataView: MutablePackageMetadataView,
     packageUpgradeValidator: PackageUpgradeValidator,
@@ -234,7 +235,10 @@ class PackageUploader(
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
           )
-      )
+      ).recover {
+        case err @ PackageServiceErrors.Validation.SelfConsistency.Error(_, _, missingDeps, extraDeps) if !enableStrictDarValidation && missingDeps.isEmpty && extraDeps.nonEmpty =>
+          err.logError()
+      }
       packages = dar.main +: dar.all
       _ <-
         if (enableUpgradeValidation) {
@@ -268,6 +272,7 @@ object PackageUploader {
       clock: Clock,
       engine: Engine,
       enableUpgradeValidation: Boolean,
+      enableStrictDarValidation: Boolean,
       futureSupervisor: FutureSupervisor,
       packageDependencyResolver: PackageDependencyResolver,
       packageMetadataView: MutablePackageMetadataView,
@@ -287,6 +292,7 @@ object PackageUploader {
       packageStore,
       engine,
       enableUpgradeValidation,
+      enableStrictDarValidation,
       futureSupervisor,
       packageMetadataView,
       packageUpgradeValidator,

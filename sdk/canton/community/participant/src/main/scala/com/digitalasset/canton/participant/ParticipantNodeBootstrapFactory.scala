@@ -43,6 +43,7 @@ trait ParticipantNodeBootstrapFactory {
     enableLfDev = arguments.parameterConfig.alphaVersionSupport,
     enableLfBeta = arguments.parameterConfig.betaVersionSupport,
     enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
+    enableStrictDarValidation = arguments.parameterConfig.engine.enableStrictDarValidation,
     profileDir = arguments.config.features.profileDir,
     iterationsBetweenInterruptions =
       arguments.parameterConfig.engine.iterationsBetweenInterruptions,

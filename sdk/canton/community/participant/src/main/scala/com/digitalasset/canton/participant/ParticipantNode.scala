@@ -557,6 +557,7 @@ class ParticipantNodeBootstrap(
               engine = engine,
               packageDependencyResolver = packageDependencyResolver,
               enableUpgradeValidation = !parameters.disableUpgradeValidation,
+              enableStrictDarValidation = engine.config.strictDarValidation,
               futureSupervisor = futureSupervisor,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,

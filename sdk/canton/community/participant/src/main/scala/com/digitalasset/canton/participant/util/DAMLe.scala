@@ -53,6 +53,7 @@ object DAMLe {
       enableLfDev: Boolean,
       enableLfBeta: Boolean,
       enableStackTraces: Boolean,
+      enableStrictDarValidation: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
         10000, // 10000 is the default value in the engine configuration,
@@ -64,6 +65,7 @@ object DAMLe {
           LanguageVersion.v2_1,
           maxVersion(enableLfDev, enableLfBeta),
         ),
+        strictDarValidation = enableStrictDarValidation,
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
         stackTraceMode = enableStackTraces,

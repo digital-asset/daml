@@ -63,12 +63,14 @@ object Error {
     }
 
     final case class SelfConsistency(
-        packageIds: Set[Ref.PackageId],
+        mainPackageId: Ref.PackageId,
+        transitiveDependencies: Set[Ref.PackageId],
         missingDependencies: Set[Ref.PackageId],
         extraDependencies: Set[Ref.PackageId],
     ) extends Error {
       def message: String =
-        s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
+        s"For package $mainPackageId, the set of package dependencies ${transitiveDependencies
+            .mkString("{'", "', '", "'}")} is not self consistent, " +
           (if (missingDependencies.nonEmpty)
              s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")} "
            else "") +

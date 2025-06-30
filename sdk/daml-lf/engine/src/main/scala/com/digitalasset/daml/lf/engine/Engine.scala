@@ -679,7 +679,7 @@ class Engine(val config: EngineConfig) {
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),
-        Error.Package.SelfConsistency(darManifest.keySet, missingDeps, extraDeps),
+        Error.Package.SelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
       )
       pkgInterface = PackageInterface(darManifest)
       _ <- {

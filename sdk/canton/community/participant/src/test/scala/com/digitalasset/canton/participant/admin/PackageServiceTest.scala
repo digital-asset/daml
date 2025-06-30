@@ -112,6 +112,7 @@ class PackageServiceTest
         engine = engine,
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
+        enableStrictDarValidation = false,
         futureSupervisor = FutureSupervisor.Noop,
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,

@@ -10,6 +10,10 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
   *
   * @param enableEngineStackTraces
   *   If true, DAMLe stack traces will be enabled
+  * @param enableStrictDarValidation
+  *   When true, return an error code should extra packages
+  *   be detected during Dar validation. Otherwise, only log the extra packages
+  *   that have been detected.
   * @param iterationsBetweenInterruptions
   *   Number of engine iterations between forced interruptions (outside needs of information).
   * @param submissionPhaseLogging
@@ -25,6 +29,8 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
   */
 final case class CantonEngineConfig(
     enableEngineStackTraces: Boolean = false,
+    // TODO: ???: we should use a default of true
+    enableStrictDarValidation: Boolean = false,
     iterationsBetweenInterruptions: Long =
       10000, // 10000 is the default value in the engine configuration
     submissionPhaseLogging: EngineLoggingConfig = EngineLoggingConfig(enabled = true),

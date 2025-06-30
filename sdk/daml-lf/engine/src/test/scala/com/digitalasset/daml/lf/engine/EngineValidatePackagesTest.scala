@@ -8,6 +8,7 @@ import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import org.scalatest.Inside
@@ -21,14 +22,51 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with Inside {
 
+  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
+
   val pkgId = Ref.PackageId.assertFromString("-pkg-")
   val extraPkgId = Ref.PackageId.assertFromString("-extra-")
   val missingPkgId = Ref.PackageId.assertFromString("-missing-")
-
-  val langVersion = LanguageVersion.defaultOrLatestStable(majorLanguageVersion)
+  val utilityPkgId = Ref.PackageId.assertFromString("-utility-")
+  val altUtilityPkgId = Ref.PackageId.assertFromString("-alt-utility-")
+  val (stablePkgId, stablePkg) = StablePackages(majorLanguageVersion).packagesMap.head
 
   implicit val parserParameters: parser.ParserParameters[this.type] =
     parser.ParserParameters(pkgId, langVersion)
+
+  val fakeDamlPrimPkg =
+    p"""
+      metadata ( 'daml-prim' : '1.0.0' )
+      module Mod {
+        val string: Text = "fake-daml-prim";
+      }
+    """
+  val fakeDamlStdlibPkg =
+    p"""
+      metadata ( 'daml-stdlib' : '1.0.0' )
+      module Mod {
+        val string: Text = "fake-daml-stdlib";
+      }
+    """
+
+  val utilityPkgChoices = Seq(
+    ("no utility packages", Set.empty, Seq.empty),
+    ("daml-prim utility package", Set(utilityPkgId), Seq(utilityPkgId -> fakeDamlPrimPkg)),
+    (
+      "daml-stdlib utility package",
+      Set(altUtilityPkgId),
+      Seq(altUtilityPkgId -> fakeDamlStdlibPkg),
+    ),
+    (
+      "daml-prim and daml-stdlib utility package",
+      Set(utilityPkgId, altUtilityPkgId),
+      Seq(utilityPkgId -> fakeDamlPrimPkg, altUtilityPkgId -> fakeDamlStdlibPkg),
+    ),
+  )
+  val stablePkgChoices = Seq(
+    ("no stable packages", Set.empty, Seq.empty),
+    ("stable package", Set(stablePkgId), Seq(stablePkgId -> stablePkg)),
+  )
 
   private def newEngine = new Engine(
     EngineConfig(LanguageVersion.AllVersions(majorLanguageVersion))
@@ -45,15 +83,26 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
       p"""
         metadata ( 'pkg' : '1.0.0' )
         module Mod {
-          val string: Text = "t";
+          val string: Text = "pkg";
         }
       """
 
-    "accept valid package" in {
-      newEngine.validateDar(darFromPackageMap(pkgId -> pkg)) shouldBe Right(())
+    "accept valid package" should {
+      utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
+        stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
+          s"with $utilityLabel and $stableLabel" in {
+            newEngine.validateDar(
+              darFromPackageMap(
+                pkgId -> pkg.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                utilityDependencies ++ stableDependencies: _*
+              )
+            ) shouldBe Right(())
+          }
+        }
+      }
     }
 
-    "reject ill-typed packages" in {
+    "reject ill-typed packages" should {
       val illTypedPackage =
         p"""
         metadata ( 'pkg' : '1.0.0' )
@@ -62,9 +111,20 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
         }
       """
 
-      inside(
-        newEngine.validateDar(darFromPackageMap(pkgId -> illTypedPackage))
-      ) { case Left(_: Error.Package.Validation) =>
+      utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
+        stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
+          s"with $utilityLabel and $stableLabel" in {
+            inside(
+              newEngine.validateDar(
+                darFromPackageMap(
+                  pkgId -> illTypedPackage.copy(directDeps = utilityDirectDeps ++ stableDirectDeps),
+                  utilityDependencies ++ stableDependencies: _*
+                )
+              )
+            ) { case Left(_: Error.Package.Validation) =>
+            }
+          }
+        }
       }
     }
 
@@ -77,7 +137,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
            }
          """
 
-      "with missing dependencies only" in {
+      "with missing dependencies only" should {
         val dependentPackage =
           p"""
               metadata ( 'pkg' : '1.0.0' )
@@ -85,18 +145,39 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 val string: Text = '-missing-':Mod:Text;
               }
             """
-            // TODO: parser should set dependencies properly
-            .copy(directDeps = Set(missingPkgId))
 
-        inside(newEngine.validateDar(darFromPackageMap(pkgId -> dependentPackage))) {
-          case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-            pkgIds shouldBe Set(pkgId)
-            missingDeps shouldBe Set(missingPkgId)
-            extraDeps shouldBe Set.empty
+        utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
+          stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
+            s"with $utilityLabel and $stableLabel" in {
+              inside(
+                newEngine.validateDar(
+                  darFromPackageMap(
+                    pkgId -> dependentPackage.copy(directDeps =
+                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    ),
+                    utilityDependencies ++ stableDependencies: _*
+                  )
+                )
+              ) {
+                case Left(
+                      Error.Package.SelfConsistency(
+                        mainPkgId,
+                        transitiveDeps,
+                        missingDeps,
+                        extraDeps,
+                      )
+                    ) =>
+                  mainPkgId shouldBe pkgId
+                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
+                  missingDeps shouldBe Set(missingPkgId)
+                  extraDeps shouldBe Set.empty
+              }
+            }
+          }
         }
       }
 
-      "with extra dependencies only" in {
+      "with extra dependencies only" should {
         val dependentPackage =
           p"""
               metadata ( 'pkg' : '1.0.0' )
@@ -105,18 +186,38 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
               }
             """
 
-        inside(
-          newEngine.validateDar(
-            darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
-          )
-        ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-          pkgIds shouldBe Set(pkgId, extraPkgId)
-          missingDeps shouldBe Set.empty
-          extraDeps shouldBe Set(extraPkgId)
+        utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
+          stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
+            s"with $utilityLabel and $stableLabel" in {
+              inside(
+                newEngine.validateDar(
+                  darFromPackageMap(
+                    pkgId -> dependentPackage.copy(directDeps =
+                      utilityDirectDeps ++ stableDirectDeps
+                    ),
+                    Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
+                  )
+                )
+              ) {
+                case Left(
+                      Error.Package.SelfConsistency(
+                        mainPkgId,
+                        transitiveDeps,
+                        missingDeps,
+                        extraDeps,
+                      )
+                    ) =>
+                  mainPkgId shouldBe pkgId
+                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
+                  missingDeps shouldBe Set.empty
+                  extraDeps shouldBe Set(extraPkgId)
+              }
+            }
+          }
         }
       }
 
-      "with both missing dependencies and extra dependencies" in {
+      "with both missing dependencies and extra dependencies" should {
         val dependentPackage =
           p"""
               metadata ( 'pkg' : '1.0.0' )
@@ -124,17 +225,35 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 val string: Text = '-missing-':Mod:Text;
               }
             """
-            // TODO: parser should set dependencies properly
-            .copy(directDeps = Set(missingPkgId))
 
-        inside(
-          newEngine.validateDar(
-            darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
-          )
-        ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-          pkgIds shouldBe Set(pkgId, extraPkgId)
-          missingDeps shouldBe Set(missingPkgId)
-          extraDeps shouldBe Set(extraPkgId)
+        utilityPkgChoices.foreach { case (utilityLabel, utilityDirectDeps, utilityDependencies) =>
+          stablePkgChoices.foreach { case (stableLabel, stableDirectDeps, stableDependencies) =>
+            s"with $utilityLabel and $stableLabel" in {
+              inside(
+                newEngine.validateDar(
+                  darFromPackageMap(
+                    pkgId -> dependentPackage.copy(directDeps =
+                      Set(missingPkgId) ++ utilityDirectDeps ++ stableDirectDeps
+                    ),
+                    Seq(extraPkgId -> extraPkg) ++ utilityDependencies ++ stableDependencies: _*
+                  )
+                )
+              ) {
+                case Left(
+                      Error.Package.SelfConsistency(
+                        mainPkgId,
+                        transitiveDeps,
+                        missingDeps,
+                        extraDeps,
+                      )
+                    ) =>
+                  mainPkgId shouldBe pkgId
+                  transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
+                  missingDeps shouldBe Set(missingPkgId)
+                  extraDeps shouldBe Set(extraPkgId)
+              }
+            }
+          }
         }
       }
     }
