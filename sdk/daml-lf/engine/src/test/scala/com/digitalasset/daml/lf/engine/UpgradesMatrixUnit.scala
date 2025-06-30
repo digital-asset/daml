@@ -23,14 +23,14 @@ import com.digitalasset.daml.lf.engine.UpgradesMatrix
 import scala.collection.immutable
 import scala.concurrent.Future
 
-// Split the Upgrade unit tests over three suites, which seems to be the sweet
+// Split the Upgrade unit tests over two suites, which seems to be the sweet
 // spot (~25s instead of ~35s runtime)
 class UpgradesMatrixUnit0 extends UpgradesMatrixUnit(2, 0)
 class UpgradesMatrixUnit1 extends UpgradesMatrixUnit(2, 1)
 
 /** A test suite to run the UpgradesMatrix matrix directly in the engine
   *
-  * This runs a lot more quickly (~40s on a single suite) than UpgradesMatrixIT
+  * This runs a lot more quickly (~35s on a single suite) than UpgradesMatrixIT
   * (~5000s) because it does not need to spin up Canton, so we can use this for
   * sanity checking before running UpgradesMatrixIT.
   */

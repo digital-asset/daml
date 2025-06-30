@@ -78,16 +78,28 @@ class GrpcLedgerClient(
 
   // Omits the package id on an identifier if contract upgrades are enabled unless explicitPackageId is true
   private def toApiIdentifierUpgrades(
-      identifier: Identifier,
+      identifier: TypeConRef,
       explicitPackageId: Boolean,
+      dontReturnResults: Boolean,
   ): api.Identifier = {
-    val converted = toApiIdentifier(identifier)
-
-    compiledPackages.pkgInterface
-      .lookupPackage(identifier.packageId)
-      .toOption
-      .filter(pkgSig => pkgSig.supportsUpgrades(identifier.packageId) && !explicitPackageId)
-      .fold(converted)(pkgSig => converted.copy(packageId = "#" + pkgSig.metadata.name.toString))
+    identifier.pkg match {
+      case PackageRef.Name(name) => 
+        if (!dontReturnResults)
+          throw new IllegalArgumentException("Passed a name reference, but dontReturnResults = false")
+        else
+          api.Identifier(
+            "#" + name,
+            identifier.qualifiedName.module.toString(),
+            identifier.qualifiedName.name.toString(),
+          )
+      case PackageRef.Id(pkgId) =>
+        val converted = toApiIdentifier(identifier.assertToTypeConId)
+        compiledPackages.pkgInterface
+          .lookupPackage(pkgId)
+          .toOption
+          .filter(pkgSig => pkgSig.supportsUpgrades(pkgId) && !explicitPackageId)
+          .fold(converted)(pkgSig => converted.copy(packageId = "#" + pkgSig.metadata.name.toString))
+    }
   }
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
@@ -101,7 +113,7 @@ class GrpcLedgerClient(
         CumulativeFilter(
           IdentifierFilter.TemplateFilter(
             TemplateFilter(
-              Some(toApiIdentifierUpgrades(templateId, false)),
+              Some(toApiIdentifierUpgrades(templateId.toRef, false, false)),
               includeCreatedEventBlob = true,
             )
           )
@@ -438,12 +450,15 @@ class GrpcLedgerClient(
 
   // Note that CreateAndExerciseCommand gives two results, so we duplicate the package id
   private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
-    cmd.command match {
-      case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
-        List(tmplRef.assertToTypeConId.packageId, tmplRef.assertToTypeConId.packageId)
-      case cmd =>
-        List(cmd.typeRef.assertToTypeConId.packageId)
-    }
+    if (cmd.dontReturnResults)
+      List()
+    else
+      cmd.command match {
+        case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
+          List(tmplRef.assertToTypeConId.packageId, tmplRef.assertToTypeConId.packageId)
+        case cmd =>
+          List(cmd.typeRef.assertToTypeConId.packageId)
+      }
 
   private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
     cmd.command match {
@@ -452,7 +467,7 @@ class GrpcLedgerClient(
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(
           CreateCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId, cmd.dontReturnResults)),
             Some(arg),
           )
         )
@@ -463,7 +478,7 @@ class GrpcLedgerClient(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
           ExerciseCommand(
-            Some(toApiIdentifierUpgrades(typeRef.assertToTypeConId, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(typeRef, cmd.explicitPackageId, cmd.dontReturnResults)),
             contractId.coid,
             choice,
             Some(arg),
@@ -475,7 +490,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withExerciseByKey(
           ExerciseByKeyCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId, cmd.dontReturnResults)),
             Some(key),
             choice,
             Some(argument),
@@ -487,7 +502,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef, cmd.explicitPackageId, cmd.dontReturnResults)),
             Some(template),
             choice,
             Some(argument),
@@ -499,7 +514,7 @@ class GrpcLedgerClient(
     for {
       contractKey <- lfValueToApiValue(true, key.key.toUnnormalizedValue)
     } yield PrefetchContractKey(
-      templateId = Some(toApiIdentifierUpgrades(key.templateId, false)),
+      templateId = Some(toApiIdentifierUpgrades(key.templateId.toRef, false, false)),
       contractKey = Some(contractKey),
     )
   }

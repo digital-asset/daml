@@ -85,21 +85,21 @@ abstract class UpgradesMatrix[Err, Res](
       for (catchBehavior <- cases.catchBehaviors) {
         for (entryPoint <- cases.entryPoints) {
           for (contractOrigin <- cases.contractOrigins) {
-            val shouldShow =
-              // If n, k is specified, then only run tests that belong to the kth group
-              nk match {
-                case Some((n, k)) => testIdx % n == k
-                case None => true
-              }
-            if (shouldShow)
-              testHelper
-                .makeApiCommands(
-                  operation,
-                  catchBehavior,
-                  entryPoint,
-                  contractOrigin,
-                )
-                .foreach { getApiCommands =>
+            testHelper
+              .makeApiCommands(
+                operation,
+                catchBehavior,
+                entryPoint,
+                contractOrigin,
+              )
+              .foreach { getApiCommands =>
+                val shouldShow =
+                  // If n, k is specified, then only run tests that belong to the kth group
+                  nk match {
+                    case Some((n, k)) => testIdx % n == k
+                    case None => true
+                  }
+                if (shouldShow) {
                   val title =
                     List(
                       testCase.templateName,
@@ -121,7 +121,8 @@ abstract class UpgradesMatrix[Err, Res](
                     )
                   }
                 }
-            testIdx += 1
+                testIdx += 1
+              }
           }
         }
       }

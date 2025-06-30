@@ -212,31 +212,8 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
             }
         case _ => Future.successful(List())
       }
-      tplRef = testHelper.tplRef
-      // GrpcLedgerClient doesn't support Name refs, so we replace with pkgId and use the explicitPackageId flag instead
-      commands = apiCommands.toList.map {
-        case n @ ApiCommand.Create(`tplRef`, _) =>
-          ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = testHelper.v1TplId.toRef),
-            false,
-          )
-        case n @ ApiCommand.Exercise(`tplRef`, _, _, _) =>
-          ScriptLedgerClient.CommandWithMeta(
-            n.copy(typeRef = testHelper.v1TplId.toRef),
-            false,
-          )
-        case n @ ApiCommand.ExerciseByKey(`tplRef`, _, _, _) =>
-          ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = testHelper.v1TplId.toRef),
-            false,
-          )
-        case n @ ApiCommand.CreateAndExercise(`tplRef`, _, _, _) =>
-          ScriptLedgerClient.CommandWithMeta(
-            n.copy(templateRef = testHelper.v1TplId.toRef),
-            false,
-          )
-        case n => ScriptLedgerClient.CommandWithMeta(n, true)
-      }
+      // We set dontReturnResults = true, so that GrpcLedgerClient can use Name refs without coercing commands' results
+      commands = apiCommands.toList.map { n => ScriptLedgerClient.CommandWithMeta(n, true, true) }
       result <- scriptClient.submit(
         actAs = OneAnd(setupData.alice, Set()),
         readAs = Set(),

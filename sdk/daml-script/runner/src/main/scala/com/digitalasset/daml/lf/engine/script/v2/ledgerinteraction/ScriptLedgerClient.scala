@@ -73,7 +73,7 @@ object ScriptLedgerClient {
     final case object Try extends SubmissionErrorBehaviour
   }
 
-  final case class CommandWithMeta(command: ApiCommand, explicitPackageId: Boolean)
+  final case class CommandWithMeta(command: ApiCommand, explicitPackageId: Boolean, dontReturnResults: Boolean = false)
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
