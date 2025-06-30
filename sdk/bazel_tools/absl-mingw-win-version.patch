@@ -1,5 +1,5 @@
---- a/absl/synchronization/BUILD.bazel
-+++ b/absl/synchronization/BUILD.bazel
+--- absl/synchronization/BUILD.bazel
++++ absl/synchronization/BUILD.bazel
 @@ -112,7 +112,7 @@
          "mutex.h",
          "notification.h",

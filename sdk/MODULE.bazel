@@ -10,3 +10,14 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "protobuf", version = "26.0.bcr.1", repo_name = "com_google_protobuf")
 bazel_dep(name = "grpc", version = "1.62.1.bcr.2", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a", repo_name = "go_googleapis")
+
+archive_override(
+    module_name = "abseil-cpp",
+    urls = ["https://github.com/abseil/abseil-cpp/releases/download/20240116.0/abseil-cpp-20240116.0.tar.gz"],
+    integrity = "sha256-M4QgRIsUDw39Gh6jw85xs7wXIHHyT02aV9WbRQN9pEA=",
+    strip_prefix = "abseil-cpp-20240116.0",
+    patches = [
+        "//bazel_tools:absl-mingw-win-version.patch",
+        "//bazel_tools:absl-mingw-compiler-name.patch",
+    ],
+)

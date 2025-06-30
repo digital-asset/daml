@@ -1,5 +1,5 @@
---- a/absl/BUILD.bazel
-+++ b/absl/BUILD.bazel
+--- absl/BUILD.bazel
++++ absl/BUILD.bazel
 @@ -53,6 +53,14 @@
  )
  
