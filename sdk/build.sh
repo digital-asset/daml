@@ -158,7 +158,7 @@ $bazel query 'deps(//...)' >/dev/null
 # Disabled on darwin since it sometimes seem to hang and this only
 # tests our dev setup rather than our code so issues are not critical.
 if [[ "$(uname)" != "Darwin" ]]; then
-  da-ghci --data yes //compiler/damlc:damlc -e ':main --help'
+  da-ghci --data yes //compiler/damlc:damlc -e ':run Main.main --help'
 fi
 
 # Test that hls at least builds, we don’t run it since it
