@@ -19,67 +19,67 @@ library
     default-language: Haskell2010
     hs-source-dirs: src
     build-depends:
-      -- @stackage//:aeson
+      -- @@stackage//:aeson
       aeson,
-      -- @stackage//:aeson-pretty
+      -- @@stackage//:aeson-pretty
       aeson-pretty,
-      -- @stackage//:ansi-terminal
+      -- @@stackage//:ansi-terminal
       ansi-terminal,
-      -- @stackage//:async
+      -- @@stackage//:async
       async,
-      -- @stackage//:base
+      -- @@stackage//:base
       base,
-      -- @stackage//:binary
+      -- @@stackage//:binary
       binary,
-      -- @stackage//:blaze-html
+      -- @@stackage//:blaze-html
       blaze-html,
-      -- @stackage//:bytestring
+      -- @@stackage//:bytestring
       bytestring,
-      -- @stackage//:conduit
+      -- @@stackage//:conduit
       conduit,
-      -- @stackage//:containers
+      -- @@stackage//:containers
       containers,
-      -- @stackage//:deepseq
+      -- @@stackage//:deepseq
       deepseq,
-      -- @stackage//:directory
+      -- @@stackage//:directory
       directory,
-      -- @stackage//:extra
+      -- @@stackage//:extra
       extra,
-      -- @stackage//:filepath
+      -- @@stackage//:filepath
       filepath,
-      -- @stackage//:hashable
+      -- @@stackage//:hashable
       hashable,
-      -- @stackage//:lens
+      -- @@stackage//:lens
       lens,
-      -- @stackage//:network
+      -- @@stackage//:network
       network,
-      -- @stackage//:optparse-applicative
+      -- @@stackage//:optparse-applicative
       optparse-applicative,
-      -- @stackage//:pretty
+      -- @@stackage//:pretty
       pretty,
-      -- @stackage//:process
+      -- @@stackage//:process
       process,
-      -- @stackage//:safe
+      -- @@stackage//:safe
       safe,
-      -- @stackage//:safe-exceptions
+      -- @@stackage//:safe-exceptions
       safe-exceptions,
-      -- @stackage//:tar-conduit
+      -- @@stackage//:tar-conduit
       tar-conduit,
-      -- @stackage//:tasty
+      -- @@stackage//:tasty
       tasty,
-      -- @stackage//:tasty-quickcheck
+      -- @@stackage//:tasty-quickcheck
       tasty-quickcheck,
-      -- @stackage//:text
+      -- @@stackage//:text
       text,
-      -- @stackage//:time
+      -- @@stackage//:time
       time,
-      -- @stackage//:unix
+      -- @@stackage//:unix
       unix,
-      -- @stackage//:unix-compat
+      -- @@stackage//:unix-compat
       unix-compat,
-      -- @stackage//:unordered-containers
+      -- @@stackage//:unordered-containers
       unordered-containers,
-      -- @stackage//:vector
+      -- @@stackage//:vector
       vector,
     exposed-modules:
       Control.Lens.Ast
