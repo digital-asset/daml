@@ -322,26 +322,26 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
 
       "return error when trying to have multiple active configs for a synchronizer alias" in {
         val c1 = config
-        val synchronizerId2 = synchronizerId.copy(serial = NonNegativeInt.one)
-        val c2 = config.copy(synchronizerId = Some(synchronizerId2))
+        val psid_1 = psid.copy(serial = NonNegativeInt.one)
+        val c2 = config.copy(synchronizerId = Some(psid_1))
 
         c1.synchronizerId should not be c2.synchronizerId
 
         for {
           sut <- mk
           _ <- sut
-            .put(c1, Active, KnownPhysicalSynchronizerId(synchronizerId), None)
+            .put(c1, Active, KnownPhysicalSynchronizerId(psid), None)
             .valueOrFail("first store of config")
 
           putError <- sut
-            .put(c2, Active, KnownPhysicalSynchronizerId(synchronizerId2), None)
+            .put(c2, Active, KnownPhysicalSynchronizerId(psid_1), None)
             .value
 
           _ = putError.left.value shouldBe AtMostOnePhysicalActive(
             daAlias,
             Set(
-              KnownPhysicalSynchronizerId(synchronizerId),
-              KnownPhysicalSynchronizerId(synchronizerId2),
+              KnownPhysicalSynchronizerId(psid),
+              KnownPhysicalSynchronizerId(psid_1),
             ),
           )
 
@@ -352,7 +352,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
           _ = putError.left.value shouldBe AtMostOnePhysicalActive(
             daAlias,
             Set(
-              KnownPhysicalSynchronizerId(synchronizerId),
+              KnownPhysicalSynchronizerId(psid),
               UnknownPhysicalSynchronizerId,
             ),
           )

@@ -34,7 +34,7 @@ object ReassignmentCommandsBatch {
         Right(
           Assignments(
             target = assign.targetSynchronizer,
-            reassignmentId = ReassignmentId(assign.sourceSynchronizer, assign.unassignId),
+            reassignmentId = ReassignmentId(assign.unassignId),
           )
         )
       case (head: Unassign) +: tail =>

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import cats.data.EitherT
 import cats.implicits.catsSyntaxParallelTraverse_
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -155,8 +156,7 @@ object ReassignmentStore {
             offsets = eventsForSynchronizer.flatMap { case (reassignmentEvent, globalOffset) =>
               reassignmentGlobalOffset(reassignmentEvent.reassignment, globalOffset).map {
                 ReassignmentId(
-                  reassignmentEvent.reassignmentInfo.sourceSynchronizer,
-                  reassignmentEvent.reassignmentInfo.unassignId,
+                  reassignmentEvent.reassignmentInfo.unassignId
                 ) -> _
               }
             }
@@ -265,6 +265,7 @@ object ReassignmentStore {
   /** The data for a reassignment and possible when the reassignment was completed. */
   final case class ReassignmentEntry(
       reassignmentId: ReassignmentId,
+      sourceSynchronizer: Source[SynchronizerId],
       contracts: NonEmpty[Seq[SerializableContract]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
@@ -273,7 +274,6 @@ object ReassignmentStore {
   ) {
     def unassignmentDataO: Option[UnassignmentData] =
       unassignmentRequest.map(UnassignmentData(reassignmentId, _, unassignmentTs))
-    def sourceSynchronizer: Source[SynchronizerId] = reassignmentId.sourceSynchronizer
     def unassignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.unassignment)
     def assignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.assignment)
 
@@ -289,6 +289,7 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         reassignmentData.reassignmentId,
+        reassignmentData.sourceSynchronizer.map(_.logical),
         reassignmentData.contracts.contracts.map(_.contract),
         Some(reassignmentData.unassignmentRequest),
         reassignmentGlobalOffset,
@@ -304,6 +305,7 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         assignmentData.reassignmentId,
+        assignmentData.sourceSynchronizer,
         assignmentData.contracts.contracts.map(_.contract),
         None,
         reassignmentGlobalOffset,

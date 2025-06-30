@@ -260,7 +260,7 @@ private[apiserver] final class ApiPartyManagementService private (
             request.identityProviderId,
             "identity_provider_id",
           )
-          synchronizerIdO <- optionalSynchronizerId(request.synchronizerId, "synchronzier_id")
+          synchronizerIdO <- optionalSynchronizerId(request.synchronizerId, "synchronizer_id")
           userId <- optionalUserId(request.userId, "user_id")
 
         } yield (partyIdHintO, annotations, identityProviderId, synchronizerIdO, userId)

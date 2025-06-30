@@ -552,15 +552,14 @@ object ReassignmentProcessingSteps {
   ) extends ParsedRequest[ReassignmentSubmitterMetadata] {
     override def rootHash: RootHash = fullViewTree.rootHash
 
-    val reassignmentId = {
-      val unassignId = UnassignId(
-        fullViewTree.sourceSynchronizer,
+    val reassignmentId = ReassignmentId(
+      UnassignId(
+        fullViewTree.sourceSynchronizer.map(_.logical),
         fullViewTree.targetSynchronizer.map(_.logical),
         requestTimestamp,
         fullViewTree.contracts.contractIdCounters,
       )
-      ReassignmentId(fullViewTree.sourceSynchronizer, unassignId)
-    }
+    )
   }
 
   trait PendingReassignment extends PendingRequestData with Product with Serializable {
