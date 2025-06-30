@@ -49,7 +49,7 @@ def _fat_cc_library_impl(ctx):
     link_args.add_all(["-lc++", "-lc++abi"] if is_darwin else ["-lstdc++"])
     link_args.add_all(["-framework", "CoreFoundation"] if is_darwin else [])
     # On Windows we have some extra deps.
-    link_args.add_all(["-lws2_32"] if is_windows else [])
+    link_args.add_all(["-lws2_32", "-ldbghelp", "-lbcrypt", "-lcrypt32"] if is_windows else [])
     link_args.use_param_file("@%s")
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
