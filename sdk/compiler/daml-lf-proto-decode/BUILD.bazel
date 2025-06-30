@@ -1,14 +1,13 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "daml-lf-proto-decode",
     srcs = [
         "src/DA/Daml/LF/Proto3/Archive/Decode.hs",
         "src/DA/Daml/LF/Proto3/Decode.hs",
-        "src/DA/Daml/LF/Proto3/DecodeV2.hs",
     ],
     hackage_deps = [
         "base",
@@ -27,8 +26,60 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-decode:daml-lf-proto-decode-internal",
         "//compiler/daml-lf-proto-util",
         "//compiler/damlc/stable-packages:stable-packages-list",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-lf-proto-decode-internal",
+    srcs = [
+        "src/DA/Daml/LF/Proto3/DecodeV2.hs",
+    ],
+    hackage_deps = [
+        "base",
+        "containers",
+        "lens",
+        "cryptonite",
+        "memory",
+        "bytestring",
+        "mtl",
+        "proto3-suite",
+        "proto3-wire",
+        "text",
+        "vector",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-util",
+        "//compiler/damlc/stable-packages:stable-packages-list",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "daml-lf-proto-decode-test",
+    srcs = [
+        "test/DA/Daml/LF/Proto3/DecodeTest.hs",
+    ],
+    hackage_deps = [
+        "base",
+        "tasty",
+        "tasty-hunit",
+        "vector",
+    ],
+    main_function = "DA.Daml.LF.Proto3.DecodeTest.entry",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-decode:daml-lf-proto-decode-internal",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
