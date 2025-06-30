@@ -100,7 +100,7 @@ def _fat_cc_library_impl(ctx):
         command = """
 set -euo pipefail
 
-TEMP_DIR=$(mktemp -d)
+TEMP_DIR=$(mktemp -d -p .)
 trap 'rm -rf "$TEMP_DIR"' EXIT
 
 AR="$1"
