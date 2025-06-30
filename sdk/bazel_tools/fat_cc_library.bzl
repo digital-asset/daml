@@ -40,21 +40,23 @@ def _fat_cc_library_impl(ctx):
         feature_configuration = feature_configuration,
         action_name = ACTION_NAMES.c_compile,
     )
+    link_args = ctx.actions.args()
+    link_args.add_all(["-o", dyn_lib, "-shared"])
+    link_args.add_all(ctx.attr.whole_archive_flag)
+    link_args.add_all(static_libs)
+    link_args.add_all(ctx.attr.no_whole_archive_flag)
+    # Some libs seems to depend on libstdc++ implicitely
+    link_args.add_all(["-lc++", "-lc++abi"] if is_darwin else ["-lstdc++"])
+    link_args.add_all(["-framework", "CoreFoundation"] if is_darwin else [])
+    # On Windows we have some extra deps.
+    link_args.add_all(["-lws2_32"] if is_windows else [])
+    link_args.use_param_file("@%s")
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
         outputs = [dyn_lib],
         executable = compiler,
         tools = toolchain.all_files.to_list(),
-        arguments =
-            ["-o", dyn_lib.path, "-shared"] +
-            ctx.attr.whole_archive_flag +
-            [f.path for f in static_libs] +
-            ctx.attr.no_whole_archive_flag +
-            # Some libs seems to depend on libstdc++ implicitely
-            (["-lc++", "-lc++abi"] if is_darwin else ["-lstdc++"]) +
-            (["-framework", "CoreFoundation"] if is_darwin else []) +
-            # On Windows we have some extra deps.
-            (["-lws2_32"] if is_windows else []),
+        arguments = [link_args],
         inputs = static_libs,
         env = {"PATH": ""},
     )
