@@ -82,7 +82,7 @@ object PackageServiceTest {
 
 }
 
-class PackageServiceTest
+abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     extends AsyncWordSpec
     with BaseTest
     with HasActorSystem
@@ -112,7 +112,7 @@ class PackageServiceTest
         engine = engine,
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
-        enableStrictDarValidation = true,
+        enableStrictDarValidation = enableStrictDarValidation,
         futureSupervisor = FutureSupervisor.Noop,
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,
@@ -509,3 +509,7 @@ class PackageServiceTest
       os.toByteString
     }.success.value
 }
+
+class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTest(enableStrictDarValidation = false)
+
+class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(enableStrictDarValidation = true)
