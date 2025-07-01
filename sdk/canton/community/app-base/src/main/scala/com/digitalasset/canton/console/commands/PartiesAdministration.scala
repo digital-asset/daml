@@ -547,6 +547,41 @@ class ParticipantPartiesAdministrationGroup(
       )
   }
 
+  @Help.Summary("Find highest ledger offset by timestamp.")
+  @Help.Description(
+    """This command attempts to find the highest ledger offset among all events belonging
+      |to a synchronizer that have a record time before or at the given timestamp.
+      |
+      |Returns the highest ledger offset, or an error.
+      |
+      |Possible failure causes:
+      |- The requested timestamp is too far in the past for which no events exist anymore.
+      |- There are no events for the given synchronizer.
+      |- Not all events have been processed fully and/or published to the Ledger API DB
+      |  until the requested timestamp.
+      |
+      |Depending on the failure cause, this command can be tried to get a ledger offset.
+      |For example, if not all events have been processed fully and/or published to the
+      |Ledger API DB, a retry makes sense.
+      |
+      |The arguments are:
+      |- synchronizerId: Restricts the query to a particular synchronizer.
+      |- timestamp: A point in time.
+      |- force: Defaults to false. If true, returns the highest currently known ledger offset
+      |  with a record time before or at the given timestamp.
+      |"""
+  )
+  def find_highest_offset_by_timestamp(
+      synchronizerId: SynchronizerId,
+      timestamp: Instant,
+      force: Boolean = false,
+  ): NonNegativeLong = consoleEnvironment.run {
+    reference.adminCommand(
+      ParticipantAdminCommands.PartyManagement
+        .GetHighestOffsetByTimestamp(synchronizerId, timestamp, force)
+    )
+  }
+
   @Help.Summary("Export active contracts for the given set of parties to a file.")
   @Help.Description(
     """This command exports the current Active Contract Set (ACS) of a given set of parties to a

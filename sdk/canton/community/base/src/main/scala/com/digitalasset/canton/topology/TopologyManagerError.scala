@@ -21,6 +21,7 @@ import com.digitalasset.base.error.{
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.TopologyManagementErrorGroup.TopologyManagerErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -444,22 +445,6 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that operation cannot be performed for this member."
-  )
-  object IncorrectMember
-      extends ErrorCode(
-        id = "TOPOLOGY_INCORRECT_MEMBER",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Failure(memberId: Member, error: String)(implicit
-        override val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"Member $memberId cannot perform the requested operation: $error."
-        )
-        with TopologyManagerError
-  }
-
-  @Explanation(
     "This error indicates that the topology transaction references members that are currently unknown."
   )
   @Resolution(
@@ -843,6 +828,26 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         extends CantonError.Impl(
           cause =
             s"The declared successor $successorSynchronizerId of synchronizer $currentSynchronizerId is not valid."
+        )
+        with TopologyManagerError
+
+  }
+  @Explanation(
+    "This error indicates that the synchronizer upgrade announcement specified an invalid upgrade time."
+  )
+  @Resolution(
+    "Resubmit the synchronizer announcement with an upgrade time sufficiently in the future."
+  )
+  object InvalidUpgradeTime
+      extends ErrorCode(id = "TOPOLOGY_INVALID_UPGRADE_TIME", InvalidGivenCurrentSystemStateOther) {
+    final case class Reject(
+        synchronizerId: SynchronizerId,
+        effective: EffectiveTime,
+        upgradeTime: CantonTimestamp,
+    )(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause =
+            s"The upgrade time $upgradeTime must be after the effective ${effective.value} of the synchronizer upgrade announcement for synchronizer $synchronizerId."
         )
         with TopologyManagerError
 

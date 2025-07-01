@@ -73,7 +73,6 @@ private[interactive] sealed trait EnrichedTransactionData {
   private[codec] def transaction: SubmittedTransaction
   private[codec] def globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]]
   private[codec] def inputContracts: Map[ContractId, ExternalInputContract]
-  // TODO(#25483) Should that be physical?
   private[codec] def synchronizerId: SynchronizerId
   private[codec] def mediatorGroup: Int
   private[codec] def transactionUUID: UUID

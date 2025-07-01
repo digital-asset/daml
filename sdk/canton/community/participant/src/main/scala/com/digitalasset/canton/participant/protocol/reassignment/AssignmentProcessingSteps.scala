@@ -83,6 +83,11 @@ private[reassignment] class AssignmentProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Assignment
   override val requestType = ProcessingSteps.RequestType.Assignment
 
+  override def reassignmentId(
+      fullViewTree: FullAssignmentTree,
+      requestTimestamp: CantonTimestamp,
+  ): ReassignmentId = fullViewTree.reassignmentId
+
   override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     state.pendingAssignmentSubmissions
 

@@ -790,7 +790,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
 
             val creationTime = CreationTime.CreatedAt(ledgerCreateTime.toLf)
             val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-              synchronizerId = daId,
+              psid = daId,
               mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
               transactionUuid = new UUID(1L, 1L),
               viewPosition = ViewPosition(List.empty),

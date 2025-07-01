@@ -207,7 +207,6 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       )
@@ -217,7 +216,6 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       // A promise blocks OnPR temporarily until the transactions have been run concurrently to OnPR.
       val promiseWhenConcurrentTransactionsSubmitted = PromiseUnlessShutdown.unsupervised[Unit]()
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
-        daId,
         alice,
         partyToTargetParticipantEffectiveAt,
         noOpProgressAndCompletionCallback,
@@ -240,7 +238,6 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         },
         targetParticipant.underlying.value.sync.participantNodePersistentState,
         connectedSynchronizer,
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       )

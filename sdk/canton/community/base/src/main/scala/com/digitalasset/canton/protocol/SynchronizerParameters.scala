@@ -26,7 +26,6 @@ import com.digitalasset.canton.time.{
   RemoteClock,
   SimClock,
 }
-import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.version.*
@@ -848,8 +847,6 @@ final case class DynamicSynchronizerParametersWithValidity(
     parameters: DynamicSynchronizerParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
-    // TODO(#25483) This should be physical
-    synchronizerId: SynchronizerId,
 ) {
   def map[T](f: DynamicSynchronizerParameters => T): SynchronizerParameters.WithValidity[T] =
     SynchronizerParameters.WithValidity(validFrom, validUntil, f(parameters))

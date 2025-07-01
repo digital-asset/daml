@@ -560,7 +560,7 @@ final class PartyReplicator(
             ).map(partiesAlreadyHostedByTargetParticipant =>
               (
                 PartyReplicationSourceParticipantProcessor(
-                  synchronizerId,
+                  connectedSynchronizer.psid,
                   partyId,
                   effectiveAt,
                   partiesAlreadyHostedByTargetParticipant,
@@ -568,7 +568,6 @@ final class PartyReplicator(
                   updateProgress(requestId, traceContext),
                   markComplete(requestId, traceContext),
                   recordError(requestId, traceContext),
-                  connectedSynchronizer.staticSynchronizerParameters.protocolVersion,
                   timeouts,
                   loggerFactory,
                 ): SequencerChannelProtocolProcessor,
@@ -580,7 +579,6 @@ final class PartyReplicator(
             EitherT.rightT[FutureUnlessShutdown, String](
               (
                 PartyReplicationTargetParticipantProcessor(
-                  synchronizerId,
                   partyId,
                   effectiveAt,
                   updateProgress(requestId, traceContext),
@@ -589,7 +587,6 @@ final class PartyReplicator(
                   (_, _) => EitherTUtil.unitUS,
                   syncService.participantNodePersistentState,
                   connectedSynchronizer,
-                  connectedSynchronizer.staticSynchronizerParameters.protocolVersion,
                   timeouts,
                   loggerFactory,
                 ): SequencerChannelProtocolProcessor,

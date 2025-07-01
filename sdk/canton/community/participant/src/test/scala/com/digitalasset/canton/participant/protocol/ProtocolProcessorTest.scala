@@ -212,7 +212,6 @@ class ProtocolProcessorTest
       .initialValues(NonNegativeFiniteDuration.Zero, testedProtocolVersion),
     CantonTimestamp.MinValue,
     None,
-    psid,
   )
 
   private val sessionKeyMapTest = NonEmpty(

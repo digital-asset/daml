@@ -193,6 +193,20 @@ class LedgerApiStore(
       )
     )
 
+  def lastSynchronizerOffsetBeforeOrAtRecordTime(
+      synchronizerId: SynchronizerId,
+      beforeOrAtRecordTimeInclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext,
+      ec: ExecutionContext,
+  ): FutureUnlessShutdown[Option[SynchronizerOffset]] =
+    executeSqlUS(metrics.index.db.lastSynchronizerOffsetBeforeOrAtRecordTime)(
+      eventStorageBackend.lastSynchronizerOffsetBeforeOrAtRecordTime(
+        synchronizerId,
+        beforeOrAtRecordTimeInclusive.underlying,
+      )
+    )
+
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

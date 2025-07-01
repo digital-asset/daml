@@ -110,6 +110,11 @@ trait ReassignmentProcessingSteps[
   override type FullView <: FullReassignmentViewTree
   override type ParsedRequestType = ParsedReassignmentRequest[FullView]
 
+  protected def reassignmentId(
+      fullViewTree: FullView,
+      requestTimestamp: CantonTimestamp,
+  ): ReassignmentId
+
   override def embedNoMediatorError(error: NoMediatorError): ReassignmentProcessorError =
     GenericStepsError(error)
 
@@ -259,6 +264,7 @@ trait ReassignmentProcessingSteps[
         mediator,
         snapshot,
         synchronizerParameters,
+        reassignmentId(viewTree, ts),
       )
     )
   }
@@ -549,17 +555,9 @@ object ReassignmentProcessingSteps {
       override val mediator: MediatorGroupRecipient,
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
       override val synchronizerParameters: DynamicSynchronizerParametersWithValidity,
+      reassignmentId: ReassignmentId,
   ) extends ParsedRequest[ReassignmentSubmitterMetadata] {
     override def rootHash: RootHash = fullViewTree.rootHash
-
-    val reassignmentId = ReassignmentId(
-      UnassignId(
-        fullViewTree.sourceSynchronizer.map(_.logical),
-        fullViewTree.targetSynchronizer.map(_.logical),
-        requestTimestamp,
-        fullViewTree.contracts.contractIdCounters,
-      )
-    )
   }
 
   trait PendingReassignment extends PendingRequestData with Product with Serializable {
@@ -607,9 +605,17 @@ object ReassignmentProcessingSteps {
 
   final case class ContractError(message: String) extends ReassignmentProcessorError
 
-  // TODO(#26219): should be physical
-  final case class UnknownSynchronizer(synchronizerId: SynchronizerId, context: String)
-      extends ReassignmentProcessorError {
+  final case class UnknownPhysicalSynchronizer(
+      physicalSynchronizerId: PhysicalSynchronizerId,
+      context: String,
+  ) extends ReassignmentProcessorError {
+    override def message: String = s"Unknown synchronizer $physicalSynchronizerId when $context"
+  }
+
+  final case class UnknownSynchronizer(
+      synchronizerId: SynchronizerId,
+      context: String,
+  ) extends ReassignmentProcessorError {
     override def message: String = s"Unknown synchronizer $synchronizerId when $context"
   }
 

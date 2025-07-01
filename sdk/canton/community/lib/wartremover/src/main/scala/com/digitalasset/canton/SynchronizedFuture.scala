@@ -5,8 +5,6 @@ package com.digitalasset.canton
 
 import org.wartremover.{WartTraverser, WartUniverse}
 
-import scala.annotation.StaticAnnotation
-
 /** When a `synchronized` block returns a [[scala.concurrent.Future]], then the synchronization
   * typically does not extend to the computations performed inside the future. This often hides a
   * concurrency bug that is hard to spot during review because the computation's code is lexically
@@ -95,8 +93,3 @@ object SynchronizedFuture extends WartTraverser {
     }
   }
 }
-
-/** Annotated type constructors will be treated like a [[scala.concurrent.Future]] when looking at
-  * the return types of synchronized blocks.
-  */
-final class DoNotReturnFromSynchronizedLikeFuture extends StaticAnnotation

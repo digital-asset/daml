@@ -125,7 +125,6 @@ class ConfirmationRequestAndResponseProcessorTest
       initialSynchronizerParameters,
       CantonTimestamp.Epoch,
       None,
-      synchronizerId.logical,
     )
 
   protected val confirmationResponseTimeout: NonNegativeFiniteDuration =

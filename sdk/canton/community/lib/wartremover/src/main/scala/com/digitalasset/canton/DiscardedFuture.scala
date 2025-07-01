@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import org.wartremover.{WartTraverser, WartUniverse}
 
-import scala.annotation.{StaticAnnotation, tailrec}
+import scala.annotation.tailrec
 import scala.collection.IterableOnceOps
 
 /** Flags statements that return a [[scala.concurrent.Future]]. Typically, we should not discard
@@ -118,8 +118,3 @@ object DiscardedFuture extends WartTraverser {
     }
   }
 }
-
-/** Annotated type constructors will be treated like a [[scala.concurrent.Future]] when looking for
-  * discarded futures.
-  */
-final class DoNotDiscardLikeFuture extends StaticAnnotation

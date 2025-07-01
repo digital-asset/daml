@@ -336,6 +336,7 @@ final class UnassignmentProcessingStepsTest
     sourceMediator,
     cryptoSnapshot,
     cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
+    ReassignmentId(UnassignId(TestHash.digest(0))),
   )
 
   "UnassignmentRequest.validated" should {
@@ -837,7 +838,6 @@ final class UnassignmentProcessingStepsTest
         DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
         CantonTimestamp.MinValue,
         None,
-        targetSynchronizer.unwrap,
       )
 
       for {

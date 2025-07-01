@@ -51,14 +51,9 @@ import scala.annotation.unused
 import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
-trait ReassignmentStoreTest extends FailOnShutdown {
-  this: AsyncWordSpec & BaseTest =>
-
+trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseTest {
   import ReassignmentStoreTest.*
   import CantonTimestamp.{Epoch, ofEpochSecond}
-
-  @unused
-  private implicit val _ec: ExecutionContext = ec
 
   private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 

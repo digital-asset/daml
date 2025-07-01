@@ -64,8 +64,6 @@ class CantonOrderingTopologyProviderTest
                   ),
                 validFrom = aTimestamp,
                 validUntil = None,
-                synchronizerId =
-                  SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
               )
             ).withLeft[String]
           )

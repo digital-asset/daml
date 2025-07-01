@@ -20,8 +20,8 @@ object TryFailed extends WartTraverser {
   def apply(u: WartUniverse): u.Traverser = {
     import u.universe.*
 
-    val tryTypeSymbol = typeOf[scala.util.Try[?]].typeSymbol
-    val successTypeSymbol = typeOf[scala.util.Success[?]].typeSymbol
+    val tryTypeSymbol = typeOf[scala.util.Try[Any]].typeSymbol
+    val successTypeSymbol = typeOf[scala.util.Success[Any]].typeSymbol
     val failedMethodName = TermName("failed")
 
     new Traverser {

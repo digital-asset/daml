@@ -3,12 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
 import com.daml.ledger.javaapi.data.Command
-import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
+import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
@@ -16,12 +14,8 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
 }
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-  TestConsoleEnvironment,
-}
+import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
@@ -29,17 +23,16 @@ import java.time.Instant
 import java.util.Collections
 
 sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment {
+    extends UseSilentSynchronizerInTest
+    with HasTempDirectory {
 
-  private val acsFilename = s"${getClass.getSimpleName}.gz"
+  private val acsSnapshot = tempDirectory.toTempFile(s"${getClass.getSimpleName}.gz")
+  private val acsSnapshotPath: String = acsSnapshot.toString
 
-  private val mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val waitTimeMs =
-    (mediatorReactionTimeout + confirmationResponseTimeout + config.NonNegativeFiniteDuration
-      .ofMillis(500)).duration.toMillis
-  private val reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)
+  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to one year.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M2.withSetup { implicit env =>
@@ -51,16 +44,11 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
 
       participants.all.dars.upload(CantonTestsPath)
 
-      sequencers.all.foreach(
-        _.topology.synchronizer_parameters.propose_update(
-          synchronizerId = daId,
-          _.update(
-            mediatorReactionTimeout = mediatorReactionTimeout,
-            confirmationResponseTimeout = confirmationResponseTimeout,
-            reconciliationInterval = reconciliationInterval,
-          ),
-        )
-      )
+      sequencers.all.foreach { s =>
+        adjustTimeouts(s)
+        s.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
+      }
     }
 
   "Migrations are grouped by ledger time and can be correlated through the workflow ID" in {
@@ -85,7 +73,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
         PositiveInt.one,
         Set(
           (participant1, PP.Submission),
-          (participant2, PP.Submission),
+          (participant2, PP.Observation),
         ),
       )
 
@@ -98,31 +86,25 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
         .loneElement
         .context
 
-      sequencer1.topology.synchronizer_parameters.propose_update(
-        sequencer1.synchronizer_id,
-        _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-      )
-      sequencer2.topology.synchronizer_parameters.propose_update(
-        sequencer2.synchronizer_id,
-        _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-      )
-
-      eventually() {
-        val ints = participant1.topology.synchronizer_parameters
-          .list(store = daId)
-          .map { change =>
-            change.item.participantSynchronizerLimits.confirmationRequestsMaxRate
-          }
-        ints.head.unwrap shouldBe 0
-      }
-
-      Threading.sleep(waitTimeMs)
+      silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
       replicate(
         party = alice,
         source = participant1,
         target = participant2,
         onboardingTx.validFrom,
+      )
+
+      resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+      PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
+        participant1,
+        alice,
+        PositiveInt.one,
+        Set(
+          (participant1, PP.Submission),
+          (participant2, PP.Submission),
+        ),
       )
 
       // Check that the transactions generated for the migration are actually grouped as
@@ -151,15 +133,6 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
 
       }
 
-      sequencer1.topology.synchronizer_parameters.propose_update(
-        sequencer1.synchronizer_id,
-        _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(10000)),
-      )
-      sequencer2.topology.synchronizer_parameters.propose_update(
-        sequencer2.synchronizer_id,
-        _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(10000)),
-      )
-
   }
 
   "The workflow ID prefix must be configurable" in { implicit env =>
@@ -183,7 +156,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       PositiveInt.one,
       Set(
         (participant1, PP.Submission),
-        (participant3, PP.Submission),
+        (participant3, PP.Observation),
       ),
     )
 
@@ -196,25 +169,7 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       .loneElement
       .context
 
-    sequencer1.topology.synchronizer_parameters.propose_update(
-      sequencer1.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-    )
-    sequencer2.topology.synchronizer_parameters.propose_update(
-      sequencer2.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-    )
-
-    eventually() {
-      val ints = participant1.topology.synchronizer_parameters
-        .list(store = daId)
-        .map { change =>
-          change.item.participantSynchronizerLimits.confirmationRequestsMaxRate
-        }
-      ints.head.unwrap shouldBe 0
-    }
-
-    Threading.sleep(2500)
+    silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
 
     replicate(
       party = bob,
@@ -222,6 +177,18 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       target = participant3,
       onboardingTx.validFrom,
       workflowIdPrefix = workflowIdPrefix,
+    )
+
+    resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
+      participant1,
+      bob,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Submission),
+      ),
     )
 
     // Check that the workflow ID prefix is set as specified
@@ -241,22 +208,21 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
       workflowIdPrefix: String = "",
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
-    try {
-      repair.party_replication.step1_hold_and_store_acs(
-        party,
-        daId,
-        source,
-        target.id,
-        acsFilename,
-        topologyTransactionEffectiveTime,
-      )
-      repair.party_replication.step2_import_acs(party, daId, target, acsFilename, workflowIdPrefix)
-    } finally {
-      val acsExport = File(acsFilename)
-      if (acsExport.exists) {
-        acsExport.delete()
-      }
-    }
+    repair.party_replication.step1_hold_and_store_acs(
+      party,
+      daId,
+      source,
+      target.id,
+      acsSnapshotPath,
+      topologyTransactionEffectiveTime,
+    )
+    repair.party_replication.step2_import_acs(
+      party,
+      daId,
+      target,
+      acsSnapshotPath,
+      workflowIdPrefix,
+    )
   }
 
   private def ious(party: PartyId, n: Int): Seq[Command] = {

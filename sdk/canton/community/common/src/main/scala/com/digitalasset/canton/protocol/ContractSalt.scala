@@ -7,7 +7,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.DeterministicEncoding
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 import java.util.UUID
 
@@ -29,7 +29,7 @@ object ContractSalt {
     *   The hmac operations to derive the blinded hash.
     * @param transactionUuid
     *   The UUID of the transaction that creates the contract.
-    * @param synchronizerId
+    * @param psid
     *   The synchronizer on which the contract is created.
     * @param mediatorId
     *   The mediator that handles the transaction that creates the contract
@@ -43,7 +43,7 @@ object ContractSalt {
     */
   def create(hmacOps: HmacOps)(
       transactionUuid: UUID,
-      synchronizerId: SynchronizerId,
+      psid: PhysicalSynchronizerId,
       mediator: MediatorGroupRecipient,
       actionSalt: Salt,
       createIndex: Int,
@@ -53,7 +53,7 @@ object ContractSalt {
       .encodeInt(createIndex)
       .concat(viewPosition.encodeDeterministically)
       .concat(DeterministicEncoding.encodeString(transactionUuid.toString))
-      .concat(DeterministicEncoding.encodeString(synchronizerId.toProtoPrimitive))
+      .concat(DeterministicEncoding.encodeString(psid.toProtoPrimitive))
       .concat(DeterministicEncoding.encodeString(mediator.toProtoPrimitive))
 
     val salt = Salt.tryDeriveSalt(actionSalt, bytestring, hmacOps)

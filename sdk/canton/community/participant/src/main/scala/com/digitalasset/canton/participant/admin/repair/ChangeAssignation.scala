@@ -41,10 +41,10 @@ private final class ChangeAssignation(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceSynchronizerId = repairSource.map(_.synchronizer.id)
+  private val sourceSynchronizerId = repairSource.map(_.synchronizer.psid.logical)
   private val sourceSynchronizerAlias = repairSource.map(_.synchronizer.alias)
   private val sourcePersistentState = repairSource.map(_.synchronizer.persistentState)
-  private val targetSynchronizerId = repairTarget.map(_.synchronizer.id)
+  private val targetSynchronizerId = repairTarget.map(_.synchronizer.psid.logical)
   private val targetPersistentState = repairTarget.map(_.synchronizer.persistentState)
 
   import com.digitalasset.canton.util.MonadUtil

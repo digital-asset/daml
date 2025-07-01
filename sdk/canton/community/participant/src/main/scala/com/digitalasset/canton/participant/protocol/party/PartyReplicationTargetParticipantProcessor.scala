@@ -29,10 +29,9 @@ import com.digitalasset.canton.protocol.{
   UnassignId,
 }
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
 
@@ -83,7 +82,6 @@ trait InterceptReceivedAcsChunkForTesting {
   *   party replication protocol is a different protocol from the canton protocol.
   */
 final class PartyReplicationTargetParticipantProcessor(
-    synchronizerId: SynchronizerId,
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     onProgress: NonNegativeInt => Unit,
@@ -92,7 +90,6 @@ final class PartyReplicationTargetParticipantProcessor(
     interceptorForTestingOnly: InterceptReceivedAcsChunkForTesting,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     connectedSynchronizer: ConnectedSynchronizer,
-    protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
@@ -103,6 +100,8 @@ final class PartyReplicationTargetParticipantProcessor(
   private val numberOfContractsProcessed = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val numberOfChunksToRequestEachTime = PositiveInt.three
 
+  override protected val psid: PhysicalSynchronizerId = connectedSynchronizer.psid
+
   private val pureCrypto =
     connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi
 
@@ -110,7 +109,7 @@ final class PartyReplicationTargetParticipantProcessor(
   private lazy val indexerUpdateIdBaseHash = pureCrypto
     .build(HashPurpose.OnlinePartyReplicationId)
     .add(partyId.toProtoPrimitive)
-    .add(synchronizerId.toProtoPrimitive)
+    .add(psid.toProtoPrimitive)
     .add(partyToParticipantEffectiveAt.toProtoPrimitive)
     .finish()
 
@@ -233,72 +232,71 @@ final class PartyReplicationTargetParticipantProcessor(
       activeContracts: NonEmpty[Seq[ActiveContractOld]],
   )(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): NonEmpty[Seq[Update.RepairReassignmentAccepted]] =
-    activeContracts
-      .groupBy(_.synchronizerId)
-      .toSeq
-      .map { case (synchronizerId, contracts) =>
-        val uniqueUpdateId = {
-          // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
-          val hash = contracts
-            .foldLeft {
-              pureCrypto
-                .build(HashPurpose.OnlinePartyReplicationId)
-                .add(indexerUpdateIdBaseHash.unwrap)
-            } { case (builder, ActiveContractOld(_, contract, reassignmentCounter)) =>
-              builder
-                .add(repairCounter.unwrap)
-                .add(contract.contractId.coid)
-            }
-            .finish()
-          TransactionId(hash).tryAsLedgerTransactionId
+  )(implicit traceContext: TraceContext): Update.RepairReassignmentAccepted = {
+    val uniqueUpdateId = {
+      // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
+      val hash = activeContracts
+        .foldLeft {
+          pureCrypto
+            .build(HashPurpose.OnlinePartyReplicationId)
+            .add(indexerUpdateIdBaseHash.unwrap)
+            .add(repairCounter.unwrap)
+        } { case (builder, ActiveContractOld(_, contract, reassignmentCounter)) =>
+          builder
+            .add(reassignmentCounter.v)
+            .add(contract.contractId.coid)
         }
-        val contractIdCounters = contracts.map {
-          case ActiveContractOld(_, contract, reassignmentCounter) =>
-            (contract.contractId, reassignmentCounter)
+        .finish()
+      TransactionId(hash).tryAsLedgerTransactionId
+    }
+
+    val contractIdCounters = activeContracts.map {
+      case ActiveContractOld(_, contract, reassignmentCounter) =>
+        (contract.contractId, reassignmentCounter)
+    }
+
+    val artificialReassignmentInfo = ReassignmentInfo(
+      sourceSynchronizer = ReassignmentTag.Source(psid.logical),
+      targetSynchronizer = ReassignmentTag.Target(psid.logical),
+      submitter = None,
+      unassignId = UnassignId(
+        ReassignmentTag.Source(psid.logical),
+        ReassignmentTag.Target(psid.logical),
+        timestamp, // artificial unassign has same timestamp as
+        contractIdCounters,
+      ),
+      isReassigningParticipant = false,
+    )
+    val commitSet = CommitSet.createForAssignment(
+      ReassignmentId(artificialReassignmentInfo.unassignId),
+      activeContracts.map { case ActiveContractOld(_, contract, reassignmentCounter) =>
+        ContractReassignment(contract, reassignmentCounter)
+      },
+      artificialReassignmentInfo.sourceSynchronizer,
+    )
+    Update.RepairReassignmentAccepted(
+      workflowId = None,
+      updateId = uniqueUpdateId,
+      reassignmentInfo = artificialReassignmentInfo,
+      reassignment = Reassignment.Batch(
+        activeContracts.zipWithIndex.map {
+          case (ActiveContractOld(_, contract, reassignmentCounter), idx) =>
+            Reassignment.Assign(
+              ledgerEffectiveTime = contract.ledgerCreateTime.time,
+              createNode = contract.toLf,
+              contractMetadata =
+                LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
+              reassignmentCounter = reassignmentCounter.v,
+              nodeId = idx,
+            )
         }
-        val artificialReassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
-          targetSynchronizer = ReassignmentTag.Target(synchronizerId),
-          submitter = None,
-          unassignId = UnassignId(
-            ReassignmentTag.Source(synchronizerId),
-            ReassignmentTag.Target(synchronizerId),
-            timestamp, // artificial unassign has same timestamp as
-            contractIdCounters,
-          ),
-          isReassigningParticipant = false,
-        )
-        val commitSet = CommitSet.createForAssignment(
-          ReassignmentId(artificialReassignmentInfo.unassignId),
-          contracts.map { case ActiveContractOld(_, contract, reassignmentCounter) =>
-            ContractReassignment(contract, reassignmentCounter)
-          },
-          artificialReassignmentInfo.sourceSynchronizer,
-        )
-        Update.RepairReassignmentAccepted(
-          workflowId = None,
-          updateId = uniqueUpdateId,
-          reassignmentInfo = artificialReassignmentInfo,
-          reassignment = Reassignment.Batch(
-            contracts.zipWithIndex.map {
-              case (ActiveContractOld(_, contract, reassignmentCounter), idx) =>
-                Reassignment.Assign(
-                  ledgerEffectiveTime = contract.ledgerCreateTime.time,
-                  createNode = contract.toLf,
-                  contractMetadata =
-                    LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
-                  reassignmentCounter = reassignmentCounter.v,
-                  nodeId = idx,
-                )
-            }
-          ),
-          repairCounter = repairCounter,
-          recordTime = timestamp,
-          synchronizerId = synchronizerId,
-          commitSetO = Some(commitSet),
-        )
-      }
+      ),
+      repairCounter = repairCounter,
+      recordTime = timestamp,
+      synchronizerId = psid.logical,
+      commitSetO = Some(commitSet),
+    )
+  }
 
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext
@@ -307,7 +305,6 @@ final class PartyReplicationTargetParticipantProcessor(
 
 object PartyReplicationTargetParticipantProcessor {
   def apply(
-      synchronizerId: SynchronizerId,
       partyId: PartyId,
       partyToParticipantEffectiveAt: CantonTimestamp,
       onProgress: NonNegativeInt => Unit,
@@ -316,12 +313,10 @@ object PartyReplicationTargetParticipantProcessor {
       interceptorForTestingOnly: InterceptReceivedAcsChunkForTesting,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       connectedSynchronizer: ConnectedSynchronizer,
-      protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
-      synchronizerId,
       partyId,
       partyToParticipantEffectiveAt,
       onProgress,
@@ -330,10 +325,9 @@ object PartyReplicationTargetParticipantProcessor {
       interceptorForTestingOnly,
       participantNodePersistentState,
       connectedSynchronizer,
-      protocolVersion,
       timeouts,
       loggerFactory
-        .append("synchronizerId", synchronizerId.toProtoPrimitive)
+        .append("synchronizerId", connectedSynchronizer.psid.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive),
     )
 }

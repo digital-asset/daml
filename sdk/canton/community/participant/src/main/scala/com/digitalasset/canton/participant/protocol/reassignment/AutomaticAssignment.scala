@@ -155,9 +155,8 @@ private[participant] object AutomaticAssignment {
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Either.unit
                 // Filter out the case that the participant has disconnected from the target synchronizer in the meantime.
-                case UnknownSynchronizer(synchronizer, _)
-                    // TODO(#25483) Check this comparison (logical/physical)
-                    if synchronizer == targetSynchronizer.unwrap.logical =>
+                case UnknownPhysicalSynchronizer(synchronizer, _)
+                    if synchronizer == targetSynchronizer.unwrap =>
                   Either.unit
                 case SynchronizerNotReady(synchronizer, _)
                     if synchronizer == targetSynchronizer.unwrap =>

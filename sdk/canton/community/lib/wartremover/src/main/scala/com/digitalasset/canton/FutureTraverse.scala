@@ -6,8 +6,6 @@ package com.digitalasset.canton
 import cats.{Foldable, Traverse, TraverseFilter}
 import org.wartremover.{WartTraverser, WartUniverse}
 
-import scala.annotation.StaticAnnotation
-
 /** Cats' traverse and sequence methods do not specify the evaluation behaviour and this behaviour
   * has changed between minor versions (e.g., 2.6 and 2.7). When we traverse over containers, we
   * should therefore be explicit whether the traversal is parallel or sequential. This wart flags
@@ -208,10 +206,3 @@ object FutureTraverse extends WartTraverser {
     }
   }
 }
-
-/** Annotated type constructors will be treated like a [[scala.concurrent.Future]] when looking for
-  * traverse-like calls with such an applicative instance.
-  */
-final class DoNotTraverseLikeFuture extends StaticAnnotation
-
-final class AllowTraverseSingleContainer extends StaticAnnotation

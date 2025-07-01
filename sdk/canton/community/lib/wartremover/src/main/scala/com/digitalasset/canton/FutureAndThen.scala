@@ -20,7 +20,7 @@ object FutureAndThen extends WartTraverser {
   def apply(u: WartUniverse): u.Traverser = {
     import u.universe.*
 
-    val futureTypeSymbol = typeOf[scala.concurrent.Future[?]].typeSymbol
+    val futureTypeSymbol = typeOf[scala.concurrent.Future[Any]].typeSymbol
     val andThenMethodName = TermName("andThen")
 
     new Traverser {

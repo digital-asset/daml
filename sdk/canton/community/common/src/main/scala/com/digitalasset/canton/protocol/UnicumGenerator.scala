@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.{Hash, HashOps, HashPurpose, HmacOps, Salt
 import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.DeterministicEncoding
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 
 import java.util.UUID
@@ -108,7 +108,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
 
   /** Creates the [[ContractSalt]] and [[Unicum]] for a create node.
     *
-    * @param synchronizerId
+    * @param psid
     *   the synchronizer on which this transaction is sequenced
     * @param mediator
     *   the mediator that is responsible for handling the request that creates the contract
@@ -136,7 +136,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     *   UnicumGenerator for the construction details and the security properties
     */
   def generateSaltAndUnicum(
-      synchronizerId: SynchronizerId, // TODO(#25483) It should be physical
+      psid: PhysicalSynchronizerId,
       mediator: MediatorGroupRecipient,
       transactionUuid: UUID,
       viewPosition: ViewPosition,
@@ -150,7 +150,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     val contractSalt =
       ContractSalt.create(cryptoOps)(
         transactionUuid,
-        synchronizerId,
+        psid,
         mediator,
         viewParticipantDataSalt,
         createIndex,

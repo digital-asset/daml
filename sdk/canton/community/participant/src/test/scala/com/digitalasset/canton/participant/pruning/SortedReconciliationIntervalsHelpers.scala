@@ -16,7 +16,6 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -26,9 +25,6 @@ trait SortedReconciliationIntervalsHelpers {
   this: BaseTest =>
   protected val defaultParameters = TestSynchronizerParameters.defaultDynamic
   protected val defaultReconciliationInterval = defaultParameters.reconciliationInterval
-  private lazy val defaultSynchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::default")
-  )
 
   protected def mkDynamicSynchronizerParameters(
       validFrom: Long,
@@ -44,7 +40,6 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       Some(fromEpoch(validTo)),
-      defaultSynchronizerId,
     )
 
   protected def mkDynamicSynchronizerParameters(
@@ -60,7 +55,6 @@ trait SortedReconciliationIntervalsHelpers {
       ),
       fromEpoch(validFrom),
       None,
-      defaultSynchronizerId,
     )
 
   protected def mkParameters(
@@ -92,7 +86,6 @@ trait SortedReconciliationIntervalsHelpers {
       defaultParameters.tryUpdate(reconciliationInterval = reconciliationInterval),
       validFrom,
       None,
-      defaultSynchronizerId,
     )
 
   protected def fromEpoch(seconds: Long): CantonTimestamp =

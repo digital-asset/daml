@@ -107,7 +107,18 @@ class SynchronizerTopologyManager(
   // When evaluating transactions against the synchronizer store, we want to validate against
   // the head state. We need to take all previously sequenced transactions into account, because
   // we don't know when the submitted transaction actually gets sequenced.
-  override def timestampForValidation(): CantonTimestamp = CantonTimestamp.MaxValue
+  override def timestampForValidation()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[CantonTimestamp] =
+    store
+      .maxTimestamp(SequencedTime.MaxValue, includeRejected = false)
+      .map(
+        _.map { case (_sequenced, effective) =>
+          // use the immediate successor of the highest effective time, so that
+          // lookups in the store find all the transactions up to that timestamp
+          effective.value.immediateSuccessor
+        }.getOrElse(CantonTimestamp.MaxValue)
+      )
 
   override protected def validateTransactions(
       transactions: Seq[GenericSignedTopologyTransaction],
@@ -116,9 +127,9 @@ class SynchronizerTopologyManager(
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     (Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)], AsyncResult[Unit])
-  ] = {
-    val ts = timestampForValidation()
-    processor
+  ] = for {
+    ts <- timestampForValidation()
+    validationResult <- processor
       .validateAndApplyAuthorization(
         SequencedTime(ts),
         EffectiveTime(ts),
@@ -128,7 +139,9 @@ class SynchronizerTopologyManager(
         // because these transactions would be rejected during the validating after sequencing.
         transactionMayHaveMissingSigningKeySignatures = false,
       )
-      .map { case (txs, asyncResult) => (Seq(txs -> ts), asyncResult) }
+  } yield {
+    val (txs, asyncResult) = validationResult
+    (Seq(txs -> ts), asyncResult)
   }
 }
 
@@ -205,7 +218,10 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
 
   // for the authorized store, we take the next unique timestamp, because transactions
   // are directly persisted into the store.
-  override def timestampForValidation(): CantonTimestamp = clock.uniqueTime()
+  override def timestampForValidation()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[CantonTimestamp] =
+    FutureUnlessShutdown.pure(clock.uniqueTime())
 
   // In the authorized store, we validate transactions individually to allow them to be dispatched correctly regardless
   // of the batch size configured in the outbox
@@ -219,18 +235,23 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
   ] =
     MonadUtil
       .sequentialTraverse(transactions) { transaction =>
-        val ts = timestampForValidation()
-        processor
-          .validateAndApplyAuthorization(
-            SequencedTime(ts),
-            EffectiveTime(ts),
-            Seq(transaction),
-            expectFullAuthorization = expectFullAuthorization,
-            // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
-            // so that we can import legacy OTKs for debugging/investigation purposes
-            transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
-          )
-          .map { case (txs, asyncResult) => ((txs, ts), asyncResult) }
+        for {
+          ts <- timestampForValidation()
+          validationResult <- processor
+            .validateAndApplyAuthorization(
+              SequencedTime(ts),
+              EffectiveTime(ts),
+              Seq(transaction),
+              expectFullAuthorization = expectFullAuthorization,
+              // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+              // so that we can import legacy OTKs for debugging/investigation purposes
+              transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
+            )
+
+        } yield {
+          val (txs, asyncResult) = validationResult
+          ((txs, ts), asyncResult)
+        }
       }
       .map { txs =>
         val (txsAndTimestamp, asyncResults) = txs.unzip
@@ -259,7 +280,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     with NamedLogging
     with FlagCloseable {
 
-  def timestampForValidation(): CantonTimestamp
+  /** The timestamp that will be used for validating the topology transactions before submitting
+    * them for sequencing to a synchronizer or storing it in the local store.
+    */
+  def timestampForValidation()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[CantonTimestamp]
 
   // sequential queue to run all the processing that does operate on the state
   protected val sequentialQueue = new SimpleExecutionQueue(
@@ -644,10 +670,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       returnAllValidKeys: Boolean,
   )(implicit traceContext: TraceContext) =
     for {
+      ts <- EitherT.right[TopologyManagerError](timestampForValidation())
       existing <- EitherT
         .right[TopologyManagerError](
           store.findTransactionsForMapping(
-            EffectiveTime(timestampForValidation()),
+            EffectiveTime(ts),
             NonEmpty(Set, transaction.mapping.uniqueKey),
           )
         )
@@ -658,7 +685,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         loggerFactory,
       )
         .getValidSigningKeysForTransaction(
-          timestampForValidation(),
+          ts,
           transaction,
           existing.headOption.map(_.transaction), // there should be at most one entry
           returnAllValidKeys,

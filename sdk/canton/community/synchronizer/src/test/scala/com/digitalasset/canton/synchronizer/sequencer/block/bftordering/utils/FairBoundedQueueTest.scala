@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue.{
@@ -137,7 +138,7 @@ class FairBoundedQueueTest extends AnyWordSpec with BaseTest {
           /*max queue size = */ 2,
           /*per-node quota = */ 2,
           DropStrategy.DropOldest,
-          DeduplicationStrategy.PerNode,
+          DeduplicationStrategy.PerNode(),
           Seq(
             Enqueue(node1, 1, EnqueueResult.Success),
             Enqueue(node1, 1, EnqueueResult.Duplicate(node1)),
@@ -207,12 +208,14 @@ class FairBoundedQueueTest extends AnyWordSpec with BaseTest {
   }
 }
 
-object FairBoundedQueueTest {
-  private type ItemType = Short
+private object FairBoundedQueueTest {
+  type ItemType = Short
+
+  implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   private val node1 = BftNodeId("node1")
   private val node2 = BftNodeId("node2")
   private val node3 = BftNodeId("node3")
 
-  private final case class Enqueue(nodeId: BftNodeId, item: ItemType, result: EnqueueResult)
+  final case class Enqueue(nodeId: BftNodeId, item: ItemType, result: EnqueueResult)
 }

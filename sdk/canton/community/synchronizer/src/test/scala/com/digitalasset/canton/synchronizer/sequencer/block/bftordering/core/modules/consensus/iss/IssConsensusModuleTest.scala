@@ -884,8 +884,10 @@ class IssConsensusModuleTest
 
         consensus.receive(Consensus.Start)
 
+        // Should not overwrite the initial active topology
+        consensus.getActiveTopologyInfo shouldBe aTopologyInfo // the default from the initial state
+
         val becomes = context.extractBecomes()
-        println(aStartEpoch)
         becomes should matchPattern {
           case Seq(
                 StateTransferBehavior(
@@ -1204,15 +1206,17 @@ private[iss] object IssConsensusModuleTest {
 
   private val anOrderingTopology = OrderingTopology.forTesting(allIds.toSet)
   private val aMembership = Membership(myId, anOrderingTopology, allIds)
-  private val aFakeCryptoProviderInstance: CryptoProvider[ProgrammableUnitTestEnv] =
+  private val aFakeCryptoProviderInstance1: CryptoProvider[ProgrammableUnitTestEnv] =
+    failingCryptoProvider
+  private val aFakeCryptoProviderInstance2: CryptoProvider[ProgrammableUnitTestEnv] =
     failingCryptoProvider
   private val aTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
     myId,
     anOrderingTopology,
-    aFakeCryptoProviderInstance,
+    aFakeCryptoProviderInstance2,
     allIds,
     previousTopology = anOrderingTopology, // not relevant
-    aFakeCryptoProviderInstance,
+    aFakeCryptoProviderInstance1,
     allIds,
   )
 

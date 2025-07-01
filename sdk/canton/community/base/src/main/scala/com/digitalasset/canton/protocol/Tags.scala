@@ -194,7 +194,6 @@ final case class UnassignId(hash: Hash) extends PrettyPrinting {
 }
 
 object UnassignId {
-  // TODO(#25483) The two synchronizer IDs should be physical
   def apply(
       source: Source[SynchronizerId],
       target: Target[SynchronizerId],

@@ -265,6 +265,7 @@ class AssignmentProcessingStepsTest
       targetMediator,
       cryptoSnapshot,
       cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
+      reassignmentId,
     )
   }
 

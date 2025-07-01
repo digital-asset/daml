@@ -112,7 +112,14 @@ final class StateTransferBehavior[E <: Env[E]](
     new FairBoundedQueue(
       config.consensusQueueMaxSize,
       config.consensusQueuePerNodeQuota,
-      DropStrategy.DropNewest, // To ensure continuity of messages (and resort to another catch-up if necessary)
+      DropStrategy.DropNewest, // To ensure continuity of messages (and resort to another catch-up if necessary).
+      maxSizeGauge = Some(metrics.consensus.stateTransfer.postponedMessagesQueueMaxSize),
+      metrics = Some(metrics),
+      sizeGauge = Some(metrics.consensus.stateTransfer.postponedMessagesQueueSize),
+      dropMeter = Some(metrics.consensus.stateTransfer.postponedMessagesQueueDropMeter),
+      orderingStageLatencyLabel = Some(
+        metrics.performance.orderingStageLatency.labels.stage.values.consensus.stateTransfer.PostponedMessagesQueueLatency
+      ),
     )
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(

@@ -3,11 +3,9 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
@@ -16,23 +14,20 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-}
+import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
-import com.digitalasset.canton.{ReassignmentCounter, config}
+import com.digitalasset.canton.{HasTempDirectory, ReassignmentCounter, config}
 
 import scala.jdk.CollectionConverters.*
 
-trait OfflinePartyReplicationRepairMactroIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment
-    with AcsInspection {
+trait OfflinePartyReplicationRepairMacroIntegrationTest
+    extends UseSilentSynchronizerInTest
+    with AcsInspection
+    with HasTempDirectory {
 
   private val aliceName = "Alice"
   private val bobName = "Bob"
@@ -42,14 +37,14 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
   private var bob: PartyId = _
   private var charlie: PartyId = _
 
-  private val mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val waitTimeMs =
-    (mediatorReactionTimeout + confirmationResponseTimeout + config.NonNegativeFiniteDuration
-      .ofMillis(500)).duration.toMillis
+  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to one year.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M1_S2M1
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
 
@@ -97,22 +92,13 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
           synchronizer = acmeName,
         )
 
-        sequencer1.topology.synchronizer_parameters.propose_update(
-          synchronizerId = daId,
-          _.update(
-            mediatorReactionTimeout = mediatorReactionTimeout,
-            confirmationResponseTimeout = confirmationResponseTimeout,
-          ),
-        )
-
+        adjustTimeouts(sequencer1)
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
       }
 
-  private val acsFilename: String = "alize.gz"
-
-  override def afterAll(): Unit =
-    try {
-      File(acsFilename).delete()
-    } finally super.afterAll()
+  private val acsSnapshot = tempDirectory.toTempFile("alize.gz")
+  private val acsSnapshotPath: String = acsSnapshot.toString
 
   "setup our test scenario: create archived and active contracts" in { implicit env =>
     import env.*
@@ -170,6 +156,8 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
   "replicate alice from p1 to p3, step 1" in { implicit env =>
     import env.*
 
+    val simClock = Some(env.environment.simClock.value)
+
     // disable ACS commitments by having a large reconciliation interval
     // do this on all synchronizers with participants connected that perform party migrations
     // TODO(#8583) remove when repair service can be fed with the timestamp of the ACS upload
@@ -196,7 +184,7 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
       PositiveInt.one,
       Set(
         (participant1, PP.Submission),
-        (participant3, PP.Submission),
+        (participant3, PP.Observation),
       ),
     )
 
@@ -209,46 +197,29 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
       .loneElement
       .context
 
-    sequencer1.topology.synchronizer_parameters.propose_update(
-      sequencer1.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-    )
-
-    eventually() {
-      val ints = participant1.topology.synchronizer_parameters
-        .list(store = daId)
-        .map { change =>
-          change.item.participantSynchronizerLimits.confirmationRequestsMaxRate
-        }
-      ints.head.unwrap shouldBe 0
-    }
-
-    Threading.sleep(waitTimeMs)
+    silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
 
     repair.party_replication.step1_hold_and_store_acs(
       alice,
       daId,
       participant1,
       participant3.id,
-      acsFilename,
+      acsSnapshotPath,
       onboardingTx.validFrom,
     )
   }
 
   "replicate alice from p1 to p3, step 2" in { implicit env =>
     import env.*
-    repair.party_replication.step2_import_acs(alice, daId, participant3, acsFilename)
+    repair.party_replication.step2_import_acs(alice, daId, participant3, acsSnapshotPath)
   }
 
   "replicate alice from p1 to p3, step 3" in { implicit env =>
     import env.*
 
-    sequencer1.topology.synchronizer_parameters.propose_update(
-      sequencer1.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(10000)),
-    )
+    val simClock = Some(env.environment.simClock.value)
 
-    Threading.sleep(waitTimeMs)
+    resumeSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant3, simClock)
 
     participant3.parties
       .list(aliceName)
@@ -285,6 +256,16 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
       synchronizer = acmeName,
     )
 
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
+      participant1,
+      alice,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Submission),
+      ),
+    )
+
     participant3.ledger_api.javaapi.commands
       .submit(
         Seq(alice),
@@ -297,7 +278,7 @@ trait OfflinePartyReplicationRepairMactroIntegrationTest
 }
 
 class OfflinePartyReplicationRepairMactroIntegrationTestPostgres
-    extends OfflinePartyReplicationRepairMactroIntegrationTest {
+    extends OfflinePartyReplicationRepairMacroIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](

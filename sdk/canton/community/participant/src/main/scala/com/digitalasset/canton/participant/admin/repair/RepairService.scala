@@ -263,7 +263,7 @@ final class RepairService(
       synchronizerParameters <- OptionT(persistentState.parameterStore.lastParameters)
         .toRight(log(s"No static synchronizer parameters found for $synchronizerAlias"))
     } yield RepairRequest.SynchronizerData(
-      synchronizerId,
+      psid,
       synchronizerAlias,
       topologySnapshot,
       persistentState,
@@ -989,7 +989,7 @@ final class RepairService(
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
       contractMetadata = Map.empty,
-      synchronizerId = repair.synchronizer.id,
+      synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
     )
@@ -1029,7 +1029,7 @@ final class RepairService(
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
       contractMetadata = contractMetadata,
-      synchronizerId = repair.synchronizer.id,
+      synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,
     )
