@@ -6,6 +6,8 @@ package transaction
 
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -68,6 +70,31 @@ class FatContractInstanceSpec extends AnyFreeSpec with Matchers with TableDriven
       )
     fciWithAbsoluteTime.createdAt.time shouldBe Time.Timestamp.Epoch
   }
+
+  "Disallow global key template to to differ from contract" in {
+    val node = mkCreateNode(TransactionBuilder.newV2Cid)
+
+    val keyOpt = GlobalKeyWithMaintainers
+      .build(
+        templateId = Ref.Identifier.assertFromString("-dummyPkg-:NotTemplateModule:dummyName"),
+        value = Value.ValueText("key1"),
+        packageName = node.packageName,
+        maintainers = node.signatories,
+      )
+      .toOption
+
+    val createWithMismatchingKeyTemplate = node.copy(keyOpt = keyOpt)
+
+    a[IllegalArgumentException] shouldBe
+      thrownBy(
+        FatContractInstance.fromCreateNode(
+          createWithMismatchingKeyTemplate,
+          CreationTime.CreatedAt(Time.Timestamp.now()),
+          Bytes.Empty,
+        )
+      )
+  }
+
 }
 
 object FatContractInstanceSpec {
