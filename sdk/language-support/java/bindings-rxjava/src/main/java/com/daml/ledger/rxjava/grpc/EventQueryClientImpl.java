@@ -22,6 +22,8 @@ public class EventQueryClientImpl implements EventQueryClient {
         StubHelper.authenticating(EventQueryServiceGrpc.newFutureStub(channel), accessToken);
   }
 
+  // addAllRequestingParties method will be removed in 3.4
+  @SuppressWarnings("deprecation")
   private Single<GetEventsByContractIdResponse> getEventsByContractId(
       String contractId, Set<String> requestingParties, Optional<String> accessToken) {
     GetEventsByContractIdRequest request =

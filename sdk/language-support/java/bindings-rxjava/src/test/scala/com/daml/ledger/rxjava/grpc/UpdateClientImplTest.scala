@@ -21,9 +21,12 @@ import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
+// TODO remove deprecared methods for universal streams api
+@nowarn("cat=deprecation")
 final class UpdateClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks

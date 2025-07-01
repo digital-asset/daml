@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
 import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
+import scala.annotation.nowarn
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -229,6 +230,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     )
   }
 
+  // TransactionFilter will be removed in 3.4, use EventFormat instead
+  @nowarn("cat=deprecation")
   def fromTransactionTree(
       tree: TransactionTree,
       intendedPackageIds: List[PackageId],

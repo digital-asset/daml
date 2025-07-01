@@ -47,6 +47,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
 import com.google.rpc.status.{Status => GoogleStatus}
+import scala.annotation.nowarn
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -92,6 +93,8 @@ class GrpcLedgerClient(
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
   // See https://github.com/digital-asset/daml/issues/17703
+  // TransactionFilter will be removed in 3.4, use EventFormat instead
+  @nowarn("cat=deprecation")
   private def templateFilter(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -111,6 +114,8 @@ class GrpcLedgerClient(
     TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
   }
 
+  // TransactionFilter will be removed in 3.4, use EventFormat instead
+  @nowarn("cat=deprecation")
   private def interfaceFilter(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
@@ -129,6 +134,7 @@ class GrpcLedgerClient(
   }
 
   // Helper shared by query, queryContractId and queryContractKey
+  @nowarn("cat=deprecation") // use EventFormat instead of TransactionFilter
   private def queryWithKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -202,6 +208,7 @@ class GrpcLedgerClient(
     }
   }
 
+  @nowarn("cat=deprecation") // use EventFormat instead of TransactionFilter
   override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
@@ -287,6 +294,9 @@ class GrpcLedgerClient(
     }
   }
 
+  @nowarn(
+    "cat=deprecation"
+  ) // use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],

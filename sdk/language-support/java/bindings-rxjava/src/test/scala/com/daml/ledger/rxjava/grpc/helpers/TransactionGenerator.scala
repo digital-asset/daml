@@ -24,6 +24,7 @@ import java.util.Collections
 
 import com.daml.ledger.javaapi.data.{Transaction, TransactionTree, Utils}
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
@@ -291,6 +292,7 @@ object TransactionGenerator {
     ),
   )
 
+  @nowarn("cat=deprecation") // use Event.Exercised instead of TreeEvent.Kind.Exercised
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
     offset <- Gen.posNum[Long]
     nodeId <- Gen.posNum[Int]
@@ -388,6 +390,8 @@ object TransactionGenerator {
     ),
   )
 
+  // remove since TransactionTree is deprecated
+  @nowarn("cat=deprecation")
   val transactionTreeGen: Gen[(LedgerItem, TransactionTree)] = for {
     updateId <- nonEmptyId
     commandId <- nonEmptyId
@@ -424,9 +428,11 @@ object TransactionGenerator {
   val ledgerContentGen: Gen[(List[LedgerItem], List[Transaction])] =
     Gen.listOf(transactionGen).map(_.unzip)
 
+  @nowarn("cat=deprecation") // TODO use Transaction instead of TransactionTree
   val ledgerContentTreeGen: Gen[(List[LedgerItem], List[TransactionTree])] =
     Gen.listOf(transactionTreeGen).map(_.unzip)
 
+  @nowarn("cat=deprecation") // TODO use Transaction instead of TransactionTree
   val ledgerContentWithOffsetGen: Gen[(List[LedgerItem], Long, TransactionTree)] = for {
     (arbitraryLedgerContent, _) <- ledgerContentTreeGen
     (queriedLedgerContent, queriedTransaction) <- transactionTreeGen.suchThat(_._1.events.nonEmpty)
@@ -434,6 +440,7 @@ object TransactionGenerator {
     txOffset = queriedTransaction.getOffset
   } yield (ledgerContent, txOffset, queriedTransaction)
 
+  @nowarn("cat=deprecation") // TODO use Transaction instead of TransactionTree
   val ledgerContentWithTransactionIdGen: Gen[(List[LedgerItem], String, TransactionTree)] =
     for {
       (arbitraryLedgerContent, _) <- ledgerContentTreeGen
