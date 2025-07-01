@@ -3,11 +3,11 @@
 
 module CantonExamples where
 
-import Iou()
-import Paint()
-import LockIou()
-import SafePaint()
-import Swap()
-import Divulgence()
-import Cycle()
-import TrailingNone()
+import Iou
+import Paint
+import LockIou
+import SafePaint
+import Swap
+import Divulgence
+import Cycle
+import TrailingNone
