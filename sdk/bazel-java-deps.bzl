@@ -35,7 +35,7 @@ version_specific = {
 #    as long as the version we use is greater than or equal to the version required by ScalaPB,
 #    everything should work.
 #
-# 2. As recomeneded by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
+# 2. As recommended by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
 # grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
 grpc_version = "1.67.1"
 protobuf_version = "3.25.5"
