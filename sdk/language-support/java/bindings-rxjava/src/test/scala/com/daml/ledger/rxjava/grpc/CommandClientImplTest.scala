@@ -30,10 +30,13 @@ import org.scalatest.matchers.should.Matchers
 import java.util.UUID.randomUUID
 import java.util.concurrent.TimeUnit
 import java.util.{Optional, UUID}
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.chaining.scalaUtilChainingOps
 
+// TODO use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
+@nowarn("cat=deprecation")
 class CommandClientImplTest
     extends AnyFlatSpec
     with Matchers

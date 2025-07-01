@@ -26,10 +26,12 @@ public interface UpdateClient {
       Long begin, Optional<Long> end, TransactionFormat transactionFormat, String accessToken);
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<Transaction> getTransactions(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<Transaction> getTransactions(
       Long begin,
       Optional<Long> end,
@@ -38,10 +40,12 @@ public interface UpdateClient {
       String accessToken);
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin,
       Optional<Long> end,
@@ -50,17 +54,21 @@ public interface UpdateClient {
       String accessToken);
 
   // Method will be removed in 3.4
+  @Deprecated
   Single<TransactionTree> getTransactionTreeByOffset(Long offset, Set<String> requestingParties);
 
   // Method will be removed in 3.4
+  @Deprecated
   Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties, String accessToken);
 
   // Method will be removed in 3.4
+  @Deprecated
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties);
 
   // Method will be removed in 3.4
+  @Deprecated
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken);
 

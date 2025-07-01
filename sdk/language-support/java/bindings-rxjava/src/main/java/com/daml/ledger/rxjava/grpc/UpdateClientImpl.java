@@ -46,6 +46,8 @@ public final class UpdateClientImpl implements UpdateClient {
         .concatMapIterable(UpdateClientImpl::toIterable);
   }
 
+  // TransactionFilter will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Flowable<Transaction> getTransactions(
       Long begin,
       Optional<Long> end,
@@ -57,12 +59,16 @@ public final class UpdateClientImpl implements UpdateClient {
     return extractTransactions(request, accessToken);
   }
 
+  // TransactionFilter will be removed in 3.4, remove
+  @Deprecated
   @Override
   public Flowable<Transaction> getTransactions(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose) {
     return getTransactions(begin, end, filter, verbose, Optional.empty());
   }
 
+  // TransactionFilter will be removed in 3.4, remove
+  @Deprecated
   @Override
   public Flowable<Transaction> getTransactions(
       Long begin,
@@ -119,6 +125,8 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactions(begin, end, transactionFormat, Optional.of(accessToken));
   }
 
+  // TransactionTree will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Flowable<TransactionTree> extractTransactionTrees(
       UpdateServiceOuterClass.GetUpdatesRequest request, Optional<String> accessToken) {
     return ClientPublisherFlowable.create(
@@ -130,6 +138,8 @@ public final class UpdateClientImpl implements UpdateClient {
         .concatMapIterable(UpdateClientImpl::toIterable);
   }
 
+  // TransactionTree will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Flowable<TransactionTree> getTransactionsTrees(
       Long begin,
       Optional<Long> end,
@@ -141,12 +151,16 @@ public final class UpdateClientImpl implements UpdateClient {
     return extractTransactionTrees(request, accessToken);
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Flowable<TransactionTree> getTransactionsTrees(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose) {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.empty());
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Flowable<TransactionTree> getTransactionsTrees(
       Long begin,
@@ -157,6 +171,8 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionsTrees(begin, end, filter, verbose, Optional.of(accessToken));
   }
 
+  // TransactionTree will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Single<TransactionTree> extractTransactionTree(
       Future<UpdateServiceOuterClass.GetTransactionTreeResponse> future) {
     return Single.fromFuture(future)
@@ -164,6 +180,8 @@ public final class UpdateClientImpl implements UpdateClient {
         .map(GetTransactionTreeResponse::getTransactionTree);
   }
 
+  // Method will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
@@ -176,18 +194,24 @@ public final class UpdateClientImpl implements UpdateClient {
             .getTransactionTreeByOffset(request));
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties) {
     return getTransactionTreeByOffset(offset, requestingParties, Optional.empty());
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties, String accessToken) {
     return getTransactionTreeByOffset(offset, requestingParties, Optional.of(accessToken));
   }
 
+  // Method will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByIdRequest request =
@@ -200,18 +224,24 @@ public final class UpdateClientImpl implements UpdateClient {
             .getTransactionTreeById(request));
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties) {
     return getTransactionTreeById(transactionId, requestingParties, Optional.empty());
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken) {
     return getTransactionTreeById(transactionId, requestingParties, Optional.of(accessToken));
   }
 
+  // Method will be removed in 3.4
+  @SuppressWarnings("deprecation")
   private Single<Transaction> extractTransaction(
       Future<UpdateServiceOuterClass.GetTransactionResponse> future) {
     return Single.fromFuture(future)
@@ -219,6 +249,8 @@ public final class UpdateClientImpl implements UpdateClient {
         .map(GetTransactionResponse::getTransaction);
   }
 
+  // Method will be removed in 3.4, adapt to use getUpdateByOffset
+  @SuppressWarnings("deprecation")
   private Single<Transaction> getTransactionByOffset(
       Long offset, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
@@ -242,6 +274,8 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionByOffset(offset, requestingParties, Optional.of(accessToken));
   }
 
+  // Method will be removed in 3.4, adapt to use getUpdateById
+  @SuppressWarnings("deprecation")
   private Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
     UpdateServiceOuterClass.GetTransactionByIdRequest request =
