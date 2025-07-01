@@ -635,6 +635,8 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
     stack_snapshot(
         name = "hls",
         extra_deps = {
+            "bzlib-conduit": ["@bzip2//:libbz2"],
+            "digest": ["@com_github_madler_zlib//:libz"],
             "zlib": ["@com_github_madler_zlib//:libz"],
         },
         flags = dicts.add(

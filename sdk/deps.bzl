@@ -175,6 +175,15 @@ def daml_deps():
             sha256 = zlib_sha256,
         )
 
+    if "bzip2" not in native.existing_rules():
+        http_archive(
+            name = "bzip2",
+            build_file = "@com_github_digital_asset_daml//3rdparty/c:bzip2.BUILD",
+            strip_prefix = "bzip2-1.0.8",
+            urls = ["https://mirror.bazel.build/sourceware.org/pub/bzip2/bzip2-1.0.8.tar.gz"],
+            integrity = "sha256-q1oDF27hBtPw+pDjgdpHjdrkBZGBU8yiSOaCzQxKImk=",
+        )
+
     if "go_googleapis" not in native.existing_rules():
         # The Haskell gRPC bindings require access to the status.proto source file.
         # This import of go_googleapis is taken from rules_go and extended with the status.proto patch.
