@@ -100,7 +100,7 @@ object TransactionCoder {
   ): Either[EncodeError, TransactionOuterClass.KeyWithMaintainers] =
     if (version >= TransactionVersion.minVersion) {
       val builder = TransactionOuterClass.KeyWithMaintainers.newBuilder()
-      key.maintainers.foreach(builder.addMaintainers(_))
+      TreeSet.from(key.maintainers).foreach(builder.addMaintainers(_))
       ValueCoder
         .encodeValue(valueVersion = version, v0 = key.value)
         .map(builder.setKey(_).build())

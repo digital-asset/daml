@@ -89,6 +89,10 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     createdAt != CreationTime.Now || (!contractId.isAbsolute && !contractId.isLocal),
     "Creation time 'now' is not allowed for local and absolute contract ids",
   )
+  require(
+    contractKeyWithMaintainers.forall(_.globalKey.templateId == templateId),
+    "template ID of the contract key must match the template ID of the contract",
+  )
 
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl[Time] = {
     copy(
