@@ -789,8 +789,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val relativeCidV2AsHex = relativeCidV2.toBytes.toHexString
         inside {
           evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(relativeCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-          error shouldBe IE.Dev.MalformedContractId(relativeCidV2AsHex)
+        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+          error shouldBe IE.Crypto.MalformedContractId(relativeCidV2AsHex)
         }
       }
 
@@ -799,13 +799,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val localCidV2AsHex = localCidV2.toBytes.toHexString
         inside {
           evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV1AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-          error shouldBe IE.Dev.MalformedContractId(localCidV1AsHex)
+        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+          error shouldBe IE.Crypto.MalformedContractId(localCidV1AsHex)
         }
         inside {
           evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV2AsHex)))
-        } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-          error shouldBe IE.Dev.MalformedContractId(localCidV2AsHex)
+        } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+          error shouldBe IE.Crypto.MalformedContractId(localCidV2AsHex)
         }
       }
 
@@ -815,16 +815,16 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val tooLongHexString = "0" * 256
 
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(invalidHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(invalidHexString)
+          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+            error shouldBe IE.Crypto.MalformedContractId(invalidHexString)
         }
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooShortHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(tooShortHexString)
+          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+            error shouldBe IE.Crypto.MalformedContractId(tooShortHexString)
         }
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooLongHexString)))) {
-          case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(tooLongHexString)
+          case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
+            error shouldBe IE.Crypto.MalformedContractId(tooLongHexString)
         }
       }
     }

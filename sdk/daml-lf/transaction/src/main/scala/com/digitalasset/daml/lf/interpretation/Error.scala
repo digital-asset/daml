@@ -194,6 +194,8 @@ object Error {
     final case class MalformedKey(key: String, cause: String) extends Error
 
     final case class MalformedSignature(signature: String, cause: String) extends Error
+
+    final case class MalformedContractId(value: String) extends Error
   }
 
   // Error that can be thrown by dev or PoC feature only
@@ -280,8 +282,6 @@ object Error {
 
       final case class TransactionInputContracts(limit: Int) extends Error
     }
-
-    final case class MalformedContractId(value: String) extends Error
   }
 
 }
