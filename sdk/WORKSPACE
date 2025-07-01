@@ -213,6 +213,7 @@ nixpkgs_package(
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
+# Nix is not available on Windows, hence these are conditional.
 
 dev_env_tool(
     name = "openssl_dev_env",
