@@ -547,7 +547,7 @@ class IdeLedgerClient(
         case ref => ref
       }
 
-    val ScriptLedgerClient.CommandWithMeta(cmd, explicitPackageId, _) = cmdWithMeta
+    val ScriptLedgerClient.CommandWithMeta(cmd, explicitPackageId) = cmdWithMeta
 
     cmd match {
       case _ if explicitPackageId => cmd

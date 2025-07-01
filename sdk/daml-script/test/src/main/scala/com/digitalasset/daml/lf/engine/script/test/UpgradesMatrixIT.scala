@@ -212,8 +212,7 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
             }
         case _ => Future.successful(List())
       }
-      // We set dontReturnResults = true, so that GrpcLedgerClient can use Name refs without coercing commands' results
-      commands = apiCommands.toList.map { n => ScriptLedgerClient.CommandWithMeta(n, true, true) }
+      commands = apiCommands.toList.map { n => ScriptLedgerClient.CommandWithMeta(n, true) }
       result <- scriptClient.submit(
         actAs = OneAnd(setupData.alice, Set()),
         readAs = Set(),

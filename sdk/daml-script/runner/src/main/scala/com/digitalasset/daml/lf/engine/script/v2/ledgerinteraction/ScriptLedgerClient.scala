@@ -76,7 +76,6 @@ object ScriptLedgerClient {
   final case class CommandWithMeta(
       command: ApiCommand,
       explicitPackageId: Boolean,
-      dontReturnResults: Boolean = false,
   )
 
   def realiseScriptLedgerClient(
