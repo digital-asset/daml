@@ -170,6 +170,7 @@ private[lf] object Pretty {
           case Crypto.MalformedKey(key, cause) =>
             text("Malformed public key for") & text(key) & text(":") /
               text(cause)
+          case Crypto.MalformedContractId(value) => text(s"Malformed contract id \"$value\"")
         }
       case Dev(_, error) =>
         error match {
@@ -253,7 +254,6 @@ private[lf] object Pretty {
               ) & prettyTypeConId(
                 actual
               )
-          case Dev.MalformedContractId(value) => text(s"Malformed contract id \"$value\"")
         }
     }
   }

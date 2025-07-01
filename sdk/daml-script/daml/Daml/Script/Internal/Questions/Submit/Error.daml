@@ -38,6 +38,8 @@ data CryptoErrorType
         keyValue : Text
     | MalformedSignature with
         signatureValue : Text
+    | MalformedContractId with
+        contractIdValue : Text
     deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala

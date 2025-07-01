@@ -588,10 +588,7 @@ private[lf] object SBuiltinFun {
       val value = getSText(args, 0)
       V.ContractId.fromString(value) match {
         case Right(cid) if cid.isAbsolute => Control.Value(SContractId(cid))
-        case _ =>
-          Control.Error(
-            IE.Dev(NameOf.qualifiedNameOfCurrentFunc, IE.Dev.MalformedContractId(value))
-          )
+        case _ => Control.Error(IE.Crypto(IE.Crypto.MalformedContractId(value)))
       }
     }
   }

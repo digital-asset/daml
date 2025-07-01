@@ -278,10 +278,6 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
-                  case Dev.MalformedContractId(value) =>
-                    builder.setMalformedContractId(
-                      proto.ScriptError.MalformedContractId.newBuilder.setValue(value)
-                    )
                 }
               case _: Upgrade =>
                 builder.setUpgradeError(
