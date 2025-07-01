@@ -4,10 +4,10 @@ cc_binary(
     defines = [
         "_FILE_OFFSET_BITS=64",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":bz2",
     ],
-    visibility = ["//visibility:public"],
 )
 
 cc_library(
