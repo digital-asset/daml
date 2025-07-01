@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -32,9 +33,9 @@ import com.digitalasset.canton.protocol.{
   ReassignmentId,
   RootHash,
 }
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
@@ -44,6 +45,7 @@ final case class AssignmentValidationResult(
     contracts: ContractsReassignmentBatch,
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassignmentId: ReassignmentId,
+    sourcePSId: Source[PhysicalSynchronizerId],
     isReassigningParticipant: Boolean,
     hostedStakeholders: Set[LfPartyId],
     validationResult: AssignmentValidationResult.ValidationResult,
@@ -69,20 +71,10 @@ final case class AssignmentValidationResult(
   def reassigningParticipantValidationResult: Seq[ReassignmentValidationError] =
     validationResult.reassigningParticipantValidationResult
 
-  private[reassignment] def commitSet = CommitSet(
-    archivals = Map.empty,
-    creations = Map.empty,
-    unassignments = Map.empty,
-    assignments = contracts.contracts
-      .map { case reassign =>
-        reassign.contract.contractId -> CommitSet.AssignmentCommit(
-          reassignmentId,
-          reassign.contract.metadata,
-          reassign.counter,
-        )
-      }
-      .toMap
-      .forgetNE,
+  private[reassignment] def commitSet = CommitSet.createForAssignment(
+    reassignmentId,
+    contracts.contracts,
+    sourcePSId.map(_.logical),
   )
 
   private[reassignment] def createReassignmentAccepted(
@@ -141,7 +133,7 @@ final case class AssignmentValidationResult(
       workflowId = submitterMetadata.workflowId,
       updateId = updateId,
       reassignmentInfo = ReassignmentInfo(
-        sourceSynchronizer = reassignmentId.sourceSynchronizer,
+        sourceSynchronizer = sourcePSId.map(_.logical),
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
         unassignId = reassignmentId.unassignId,

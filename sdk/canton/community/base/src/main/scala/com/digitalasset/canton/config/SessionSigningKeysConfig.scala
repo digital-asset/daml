@@ -43,9 +43,9 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
   */
 final case class SessionSigningKeysConfig(
     enabled: Boolean,
-    keyValidityDuration: PositiveDurationSeconds = PositiveDurationSeconds.ofMinutes(5),
-    cutOffDuration: PositiveDurationSeconds = PositiveDurationSeconds.ofSeconds(30),
-    keyEvictionPeriod: PositiveDurationSeconds = PositiveDurationSeconds.ofMinutes(10),
+    keyValidityDuration: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(5),
+    cutOffDuration: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(30),
+    keyEvictionPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
     // TODO(#13649): be sure these are supported by all the synchronizers the participant will connect to
     signingAlgorithmSpec: SigningAlgorithmSpec = SigningAlgorithmSpec.Ed25519,
     signingKeySpec: SigningKeySpec = SigningKeySpec.EcCurve25519,

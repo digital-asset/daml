@@ -22,6 +22,7 @@ option java_package = "com.daml.ledger.api.v2";
 // _no_ witness parties, which were included simply because they were
 // children of events which have witnesses.
 message TreeEvent {
+  option deprecated = true;
   oneof kind {
     // The event as it appeared in the context of its original daml transaction on this participant node.
     // In particular, the offset, node_id pair of the daml transaction are preserved.
@@ -33,6 +34,7 @@ message TreeEvent {
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Complete view of an on-ledger transaction.
 message TransactionTree {
+  option deprecated = true;
   // Assigned by the server. Useful for correlating logs.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required

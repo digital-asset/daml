@@ -18,7 +18,7 @@ import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMe
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.{HasToByteString, ProtocolVersion}
@@ -262,7 +262,7 @@ object EncryptedViewMessageFactory {
       for {
         informeeParticipants <- cryptoSnapshot.ipsSnapshot
           .activeParticipantsOfAll(informeeParties)
-          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.synchronizerId.logical))
+          .leftMap(UnableToDetermineParticipant(_, cryptoSnapshot.psid))
         memberEncryptionKeys <- EitherT
           .right[EncryptedViewMessageCreationError](
             cryptoSnapshot.ipsSnapshot
@@ -413,7 +413,7 @@ object EncryptedViewMessageFactory {
         UnableToDetermineKey(
           member,
           error,
-          cryptoSnapshot.synchronizerId.logical,
+          cryptoSnapshot.psid,
         ): EncryptedViewMessageCreationError
       }
 
@@ -435,10 +435,10 @@ object EncryptedViewMessageFactory {
     */
   final case class UnableToDetermineParticipant(
       party: Set[LfPartyId],
-      SynchronizerId: SynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
   ) extends EncryptedViewMessageCreationError {
     override protected def pretty: Pretty[UnableToDetermineParticipant] =
-      prettyOfClass(unnamedParam(_.party), unnamedParam(_.SynchronizerId))
+      prettyOfClass(unnamedParam(_.party), unnamedParam(_.physicalSynchronizerId))
   }
 
   /** Indicates that the public key of an informee participant could not be determined.
@@ -446,7 +446,7 @@ object EncryptedViewMessageFactory {
   final case class UnableToDetermineKey(
       participant: ParticipantId,
       cause: SyncCryptoError,
-      SynchronizerId: SynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
   ) extends EncryptedViewMessageCreationError {
     override protected def pretty: Pretty[UnableToDetermineKey] = prettyOfClass(
       param("participant", _.participant),

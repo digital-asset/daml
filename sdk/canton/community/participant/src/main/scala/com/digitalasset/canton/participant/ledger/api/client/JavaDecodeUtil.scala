@@ -16,8 +16,6 @@ import com.daml.ledger.javaapi.data.{
   Event,
   Identifier,
   Transaction as JavaTransaction,
-  TransactionTree,
-  TreeEvent,
 }
 import com.digitalasset.daml.lf.data.Ref
 
@@ -120,37 +118,6 @@ object JavaDecodeUtil {
       .filter(e => matchesTemplate(e.getTemplateId, e.getPackageName, companion.TEMPLATE_ID))
       .map(_.getContractId)
       .map(new ContractId[T](_))
-
-  private def treeToCreated(transaction: TransactionTree): Seq[JavaCreatedEvent] =
-    transaction.getEventsById.asScala.valuesIterator.collect { case e: JavaCreatedEvent => e }.toSeq
-
-  def decodeAllCreatedTree[TC](
-      companion: ContractCompanion[TC, ?, ?]
-  )(transaction: TransactionTree): Seq[TC] =
-    for {
-      created <- treeToCreated(transaction)
-      a <- decodeCreated(companion)(created).toList
-    } yield a
-
-  def decodeAllArchivedTree[TCid](
-      companion: ContractCompanion[?, TCid, ?]
-  )(transaction: TransactionTree): Seq[TCid] =
-    decodeAllArchivedTreeFromTreeEvents(companion)(transaction.getEventsById.asScala.toMap.map {
-      case (nodeId, event) => (nodeId.toInt, event)
-    })
-
-  def decodeAllArchivedTreeFromTreeEvents[TCid](
-      companion: ContractCompanion[?, TCid, ?]
-  )(eventsById: Map[Int, TreeEvent]): Seq[TCid] =
-    for {
-      event <- eventsById.values.toList
-      archive = event.toProtoTreeEvent.getExercised
-      if archive.getConsuming && matchesTemplate(
-        Identifier.fromProto(archive.getTemplateId),
-        archive.getPackageName,
-        companion.TEMPLATE_ID,
-      )
-    } yield companion.toContractId(new ContractId(archive.getContractId))
 
   def decodeDisclosedContracts(
       transaction: JavaTransaction

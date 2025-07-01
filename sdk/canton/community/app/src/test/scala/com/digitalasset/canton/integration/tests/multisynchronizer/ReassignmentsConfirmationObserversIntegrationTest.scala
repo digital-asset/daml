@@ -42,7 +42,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
-import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias, config}
 
 import scala.collection.concurrent.TrieMap
@@ -223,7 +222,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
         participant1.ledger_api.commands
           .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
           .unassignId
-      val reassignmentId = ReassignmentId.tryCreate(Source(daId), unassignId)
+      val reassignmentId = ReassignmentId.tryCreate(unassignId)
 
       // Check that reassignment store is populated on 3 participants
       eventually() {

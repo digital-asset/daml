@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient.SynchronizerClientBootstrapInfo
 import com.digitalasset.canton.common.sequencer.grpc.GrpcSequencerConnectClient
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   CryptoConfig,
   CryptoProvider,
@@ -137,7 +138,7 @@ trait SequencerConnectServiceIntegrationTest
           Some(cryptoProvider.supportedSignatureFormatsForProtocol(testedProtocolVersion)),
       )
       val expectedSynchronizerParameters = defaultSynchronizerParametersConfig
-        .toStaticSynchronizerParameters(CryptoConfig(), testedProtocolVersion)
+        .toStaticSynchronizerParameters(CryptoConfig(), testedProtocolVersion, NonNegativeInt.zero)
         .value
 
       fetchedSynchronizerParameters shouldBe expectedSynchronizerParameters

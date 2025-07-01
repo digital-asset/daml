@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss
 
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologyActivationTime
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochLength,
@@ -43,7 +43,7 @@ object EpochInfo {
 
   /** A convenience constructor for tests, also so that we don't have to provide timestamps. */
   @VisibleForTesting
-  def mk(
+  private[bftordering] def mk(
       number: Long,
       startBlockNumber: Long,
       length: Long,

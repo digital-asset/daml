@@ -58,6 +58,8 @@ import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Random
 
+import BaseTest.*
+
 /** Provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 object ExampleTransactionFactory {
@@ -438,9 +440,9 @@ class ExampleTransactionFactory(
     val transactionSalt: Salt = TestSalt.generateSalt(0),
     val transactionSeed: SaltSeed = TestSalt.generateSeed(0),
     val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
-    val synchronizerId: SynchronizerId = SynchronizerId(
+    val psid: PhysicalSynchronizerId = SynchronizerId(
       UniqueIdentifier.tryFromProtoPrimitive("example::default")
-    ),
+    ).toPhysical,
     val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
@@ -450,8 +452,6 @@ class ExampleTransactionFactory(
     extends EitherValues {
 
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
-  val psid: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(synchronizerId, protocolVersion)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val random = new Random(0)
 
@@ -566,7 +566,7 @@ class ExampleTransactionFactory(
     val viewParticipantDataSalt = participantDataSalt(viewIndex)
     val (contractSalt, unicum) = unicumGenerator
       .generateSaltAndUnicum(
-        synchronizerId,
+        psid.logical,
         mediatorGroup,
         transactionUuid,
         viewPosition,

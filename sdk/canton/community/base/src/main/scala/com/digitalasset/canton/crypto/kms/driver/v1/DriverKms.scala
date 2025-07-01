@@ -349,7 +349,7 @@ class DriverKms(
     implicit val ec: ExecutionContext = executionContext
 
     TraceContext
-      .withNewTraceContext { implicit traceContext =>
+      .withNewTraceContext("kms_health") { implicit traceContext =>
         synchronizeWithClosingSync(functionFullName) {
           logger.debug(s"Checking health at $now")
 

@@ -29,6 +29,7 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, query, webSocketBody}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsStateService(
@@ -121,6 +122,8 @@ class JsStateService(
 
 }
 
+// TODO(#23504) remove deprecation suppression
+@nowarn("cat=deprecation")
 object JsStateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsStateServiceCodecs.*
@@ -203,6 +206,8 @@ final case class JsGetActiveContractsResponse(
     contractEntry: JsContractEntry,
 )
 
+// TODO(#23504) remove deprecation suppression
+@nowarn("cat=deprecation")
 object JsStateServiceCodecs {
 
   import JsSchema.*

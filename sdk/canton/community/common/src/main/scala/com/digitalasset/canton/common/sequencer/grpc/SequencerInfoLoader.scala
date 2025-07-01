@@ -526,7 +526,7 @@ object SequencerInfoLoader {
                   .map(_.staticSynchronizerParameters.toString)}"
             ),
           )
-          // TODO(#25433) Validate that (LSId, static synchronizer parameters) yield expected PSId
+          // TODO(#25483) Validate that (LSId, static synchronizer parameters) yield expected PSId
           // check that synchronizer id matches expected
           _ <- Either.cond(
             expectedSynchronizerId.forall(

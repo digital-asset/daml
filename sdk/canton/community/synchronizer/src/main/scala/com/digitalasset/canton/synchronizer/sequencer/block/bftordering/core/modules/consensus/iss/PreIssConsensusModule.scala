@@ -8,8 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.RetransmissionsManager
@@ -26,6 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
@@ -110,7 +110,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     }
 
   @VisibleForTesting
-  private[bftordering] def restoreEpochStateFromDB()(implicit
+  private[iss] def restoreEpochStateFromDB()(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): (EpochState[E], EpochStore.Epoch, Map[EpochNumber, Seq[CommitCertificate]]) = {
@@ -185,7 +185,7 @@ object PreIssConsensusModule {
     *   how many epochs from the latest completed epoch (inclusive).
     */
   @VisibleForTesting
-  def loadPreviousEpochCommitCertificates[E <: Env[E]](epochStore: EpochStore[E])(
+  private[iss] def loadPreviousEpochCommitCertificates[E <: Env[E]](epochStore: EpochStore[E])(
       lastCompletedEpoch: EpochNumber,
       numberOfEpochsToLoad: Int,
   )(implicit

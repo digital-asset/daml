@@ -46,13 +46,12 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
-  import BaseTest.*
 
   private val pendingUnassignments: TrieMap[Source[SynchronizerId], ReassignmentSynchronizer] =
     TrieMap.empty[Source[SynchronizerId], ReassignmentSynchronizer]
 
   def apply(
-      synchronizers: Set[Target[SynchronizerId]],
+      synchronizers: Set[Target[PhysicalSynchronizerId]],
       timeProofTimestamp: CantonTimestamp,
       snapshotOverride: Option[SynchronizerSnapshotSyncCryptoApi] = None,
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
@@ -74,7 +73,10 @@ private[reassignment] object TestReassignmentCoordination {
     val reassignmentStores =
       synchronizers
         .map(synchronizer =>
-          synchronizer -> new InMemoryReassignmentStore(synchronizer, loggerFactory)
+          synchronizer.map(_.logical) -> new InMemoryReassignmentStore(
+            synchronizer.map(_.logical),
+            loggerFactory,
+          )
         )
         .toMap
     val assignmentBySubmission = { (_: PhysicalSynchronizerId) => None }
@@ -92,7 +94,7 @@ private[reassignment] object TestReassignmentCoordination {
       pendingUnassignments.getOrElse(
         id, {
           val reassignmentSynchronizer =
-            new ReassignmentSynchronizer(id.map(_.toPhysical), loggerFactory, new ProcessingTimeout)
+            new ReassignmentSynchronizer(loggerFactory, new ProcessingTimeout)
           pendingUnassignments.put(id, reassignmentSynchronizer)
           reassignmentSynchronizer
         },
@@ -147,13 +149,12 @@ private[reassignment] object TestReassignmentCoordination {
   }
 
   private def defaultSyncCryptoApi(
-      synchronizers: Seq[SynchronizerId],
+      synchronizers: Seq[PhysicalSynchronizerId],
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
   ): SyncCryptoApiParticipantProvider =
-    TestingTopology(synchronizers =
-      synchronizers.map(PhysicalSynchronizerId(_, BaseTest.testedProtocolVersion)).toSet
-    ).withReversedTopology(defaultTopology)
+    TestingTopology(synchronizers = synchronizers.toSet)
+      .withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)
       .build(loggerFactory)
       .forOwner(submittingParticipant)

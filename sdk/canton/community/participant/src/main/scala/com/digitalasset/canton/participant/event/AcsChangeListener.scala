@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.event
 
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
@@ -29,10 +28,7 @@ trait AcsChangeListener {
       traceContext: TraceContext
   ): Unit
 
-  def publish(
-      sequencerTimestamp: CantonTimestamp,
-      commitSetO: Option[CommitSet],
-  )(implicit
+  def publish(toc: RecordTime, commitSetO: Option[CommitSet])(implicit
       traceContext: TraceContext
   ): Unit
 

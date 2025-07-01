@@ -15,6 +15,7 @@ import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminate
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.TopologyMapping
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
@@ -55,6 +56,12 @@ class ParticipantTopologyTerminateProcessing(
         effectiveStateChanges <- store.findEffectiveStateChanges(
           fromEffectiveInclusive = effectiveTime.value,
           onlyAtEffective = true,
+          filterTypes = Some(
+            Seq(
+              TopologyMapping.Code.PartyToParticipant,
+              TopologyMapping.Code.SynchronizerTrustCertificate,
+            )
+          ),
         )
         _ = if (effectiveStateChanges.sizeIs > 1)
           logger.error(
@@ -146,6 +153,12 @@ class ParticipantTopologyTerminateProcessing(
       outstandingEffectiveChanges <- store.findEffectiveStateChanges(
         fromEffectiveInclusive = initialRecordTime,
         onlyAtEffective = false,
+        filterTypes = Some(
+          Seq(
+            TopologyMapping.Code.PartyToParticipant,
+            TopologyMapping.Code.SynchronizerTrustCertificate,
+          )
+        ),
       )
       eventFromEffectiveChangeWithInitializationTraceContext =
         (effectiveChange: EffectiveStateChange) =>

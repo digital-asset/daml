@@ -38,7 +38,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftSequencerFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.sequencing.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.tracing.TracingConfig.Propagation

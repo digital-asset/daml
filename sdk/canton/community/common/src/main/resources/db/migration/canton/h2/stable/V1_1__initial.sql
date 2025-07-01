@@ -71,15 +71,8 @@ create table common_crypto_public_keys (
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
     contract_id binary varying not null,
-    -- The contract is serialized using the LF contract proto serializer.
+    -- The contract is a LfFatContractInstance serialized using the LF contract proto serializer.
     instance binary large object not null,
-    contract_salt binary large object not null,
-    -- Metadata: signatories, stakeholders, keys
-    -- Stored as a Protobuf blob as H2 will only support typed arrays in 1.4.201
-    metadata binary large object not null,
-    -- The ledger time when the contract was created.
-    ledger_create_time varchar not null,
-    -- We store metadata of the contract instance for inspection
     package_id varchar not null,
     template_id varchar not null,
     primary key (contract_id));
@@ -205,7 +198,17 @@ create table par_synchronizer_connection_configs(
 
     config binary large object not null, -- the protobuf-serialized versioned synchronizer connection config
     status char(1) default 'A' not null,
-    synchronizer_predecessor binary large object -- the protobuf-serialized versioned predecessor (if existing and applicable)
+    synchronizer_predecessor binary large object, -- the protobuf-serialized versioned predecessor (if existing and applicable)
+    -- since H2 does not support a partial index, use a generated column that causes a conflict if two rows with the same alias have the status 'A' (Active),
+    -- and otherwise don't create a conflict.
+    synchronizer_alias_and_status varchar generated always as (
+      case
+        when status = 'A' then synchronizer_alias || '_' || status
+        -- piggy back on the unique constraint for (synchronizer_alias, empty_if_null_physical_synchronizer_id).
+        when physical_synchronizer_id is null then synchronizer_alias
+        else synchronizer_alias || '_' || physical_synchronizer_id
+      end) not null,
+    unique (synchronizer_alias_and_status)
 );
 
 -- used to register all synchronizers that a participant connects to

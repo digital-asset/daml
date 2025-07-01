@@ -106,7 +106,7 @@ object TransactionTreeFactory {
         .lookupContract(id)
         .toRight(ContractLookupError(id, "Unknown contract"))
         .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
-    } yield contract
+    } yield contract.serializable // TODO(#26348) - use fat contract downstream
 
   /** Supertype for all errors than may arise during the conversion. */
   sealed trait TransactionTreeConversionError extends Product with Serializable with PrettyPrinting

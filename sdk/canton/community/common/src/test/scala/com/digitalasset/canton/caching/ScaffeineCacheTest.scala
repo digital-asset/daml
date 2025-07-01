@@ -133,7 +133,7 @@ class ScaffeineCacheTest extends AsyncWordSpec with BaseTest with FailOnShutdown
       )(logger, "")
       for {
         result1 <- keysCache.get(10)(TraceContext.empty)
-        result2 <- keysCache.get(10)(TraceContext.createNew())
+        result2 <- keysCache.get(10)(TraceContext.createNew("test"))
       } yield {
         result1 shouldBe result2
       }

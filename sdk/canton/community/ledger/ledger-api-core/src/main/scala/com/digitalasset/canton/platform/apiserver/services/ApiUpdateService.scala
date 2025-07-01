@@ -35,8 +35,11 @@ import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.*
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(#23504) remove deprecation warning suppression
+@nowarn("cat=deprecation")
 final class ApiUpdateService(
     updateService: IndexUpdateService,
     metrics: LedgerApiServerMetrics,

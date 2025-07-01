@@ -10,28 +10,26 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+  P2PEndpoint,
+  PlainTextP2PEndpoint,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
   P2PEndpointConfig,
   P2PNetworkConfig,
   P2PServerConfig,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
-  P2PEndpoint,
-  PlainTextP2PEndpoint,
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory.SimulationP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.{
+  P2PNetworkInModule,
+  P2PNetworkOutModule,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
-  BftP2PNetworkIn,
-  BftP2PNetworkOut,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
@@ -77,6 +75,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulati
   NodeSimulationTopologyDataFactory,
   SimulationOrderingTopologyProvider,
   SimulationTopologyHelpers,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
+  BftSequencerBaseTest,
+  endpointToTestBftNodeId,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.time.{Clock, SimClock}
@@ -305,7 +307,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         timeouts,
       )
     val p2pNetworkIn =
-      new BftP2PNetworkIn[SimulationEnv](
+      new P2PNetworkInModule[SimulationEnv](
         metrics,
         availabilityRef,
         consensusRef,
@@ -322,7 +324,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       pruningRef,
     )
     val p2pNetworkOut =
-      new BftP2PNetworkOut[SimulationEnv](
+      new P2PNetworkOutModule[SimulationEnv](
         thisNode,
         new SimulationP2PEndpointsStore(
           config.initialNetwork

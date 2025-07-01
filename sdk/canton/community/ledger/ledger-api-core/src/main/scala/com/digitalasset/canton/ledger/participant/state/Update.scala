@@ -106,8 +106,11 @@ sealed trait RepairUpdate extends SynchronizerIndexUpdate {
 
 trait LapiCommitSet
 
-sealed trait CommitSetUpdate extends SequencedUpdate {
+sealed trait CommitSetUpdate extends SynchronizerIndexUpdate {
   protected def commitSetO: Option[LapiCommitSet]
+}
+
+sealed trait CommitSetSequencedUpdate extends CommitSetUpdate with SequencedUpdate {
 
   /** Expected to be set already when accessed
     * @return
@@ -118,7 +121,11 @@ sealed trait CommitSetUpdate extends SequencedUpdate {
       ErrorUtil.invalidState("CommitSet not specified.")
     )
 
-  def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate
+  def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate
+}
+
+sealed trait CommitSetRepairUpdate extends CommitSetUpdate with RepairUpdate {
+  def repairCommitSetO: Option[LapiCommitSet] = commitSetO
 }
 
 object Update {
@@ -326,8 +333,8 @@ object Update {
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with SequencedUpdate
-      with CommitSetUpdate {
-    override def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate =
+      with CommitSetSequencedUpdate {
+    override def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate =
       this.copy(commitSetO = Some(commitSet))
   }
 
@@ -393,8 +400,8 @@ object Update {
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
-      with CommitSetUpdate {
-    override def withCommitSet(commitSet: LapiCommitSet): CommitSetUpdate =
+      with CommitSetSequencedUpdate {
+    override def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate =
       this.copy(commitSetO = Some(commitSet))
   }
 
@@ -406,9 +413,11 @@ object Update {
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
+      commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
-      with RepairUpdate {
+      with RepairUpdate
+      with CommitSetRepairUpdate {
     override def optCompletionInfo: Option[CompletionInfo] = None
   }
 

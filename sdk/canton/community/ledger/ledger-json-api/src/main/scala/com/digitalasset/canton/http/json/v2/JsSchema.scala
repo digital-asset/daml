@@ -32,6 +32,7 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -142,6 +143,8 @@ object JsSchema {
       deriveRelaxedCodec
 
     implicit val filtersRW: Codec[transaction_filter.Filters] = deriveRelaxedCodec
+    // TODO(#23504) remove
+    @nowarn("cat=deprecation")
     implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
       deriveRelaxedCodec
     implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec

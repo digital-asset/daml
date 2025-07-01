@@ -11,5 +11,5 @@ object BatchTracing {
   def withTracedBatch[A <: HasTraceContext, B](logger: TracedLogger, items: NonEmpty[Seq[A]])(
       fn: TraceContext => NonEmpty[Seq[A]] => B
   ): B =
-    fn(TraceContext.ofBatch(items)(logger))(items)
+    fn(TraceContext.ofBatch("batch")(items)(logger))(items)
 }

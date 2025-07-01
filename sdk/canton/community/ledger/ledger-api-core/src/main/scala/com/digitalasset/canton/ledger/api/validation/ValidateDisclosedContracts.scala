@@ -19,7 +19,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.TransactionCoder
+import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.StatusRuntimeException
 
@@ -102,13 +102,18 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
           ),
         )
-        _ <- authenticateFatContractInstance(fatContractInstance).leftMap { error =>
+        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+        lfFatContractInst <- ((fatContractInstance.createdAt: CreationTime) match {
+          case CreationTime.CreatedAt(time) => Right(time)
+          case CreationTime.Now => Left(invalidArgument("Contract creation time cannot be 'Now'"))
+        }).map(fatContractInstance.updateCreateAt)
+        _ <- authenticateFatContractInstance(lfFatContractInst).leftMap { error =>
           invalidArgument(
             s"Contract authentication failed for attached disclosed contract with id (${disclosedContract.contractId}): $error"
           )
         }
       } yield DisclosedContract(
-        fatContractInstance = fatContractInstance,
+        fatContractInstance = lfFatContractInst,
         synchronizerIdO = synchronizerIdO,
       )
 }

@@ -16,7 +16,7 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 final case class PhysicalSynchronizerId(
     logical: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    serial: NonNegativeInt = NonNegativeInt.zero,
+    serial: NonNegativeInt,
 ) extends HasUniqueIdentifier
     with PrettyPrinting {
   def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
@@ -42,20 +42,15 @@ object PhysicalSynchronizerId {
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): PhysicalSynchronizerId =
-    // TODO(#24733) Wire serial: make default constructor of PhysicalSynchronizerId private
-    PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.protocolVersion)
+    PhysicalSynchronizerId(
+      synchronizerId,
+      staticSynchronizerParameters.protocolVersion,
+      staticSynchronizerParameters.serial,
+    )
 
   implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =
     Ordering.by(psid =>
       (psid.logical.toLengthLimitedString.unwrap, psid.protocolVersion, psid.serial)
-    )
-
-  implicit val physicalSynchronizerIdOrderingO: Ordering[Option[PhysicalSynchronizerId]] =
-    Ordering.by(psidO =>
-      (
-        psidO.isDefined, // false < true and we want None < Some(id)
-        psidO,
-      )
     )
 
   def fromString(raw: String): Either[String, PhysicalSynchronizerId] = {

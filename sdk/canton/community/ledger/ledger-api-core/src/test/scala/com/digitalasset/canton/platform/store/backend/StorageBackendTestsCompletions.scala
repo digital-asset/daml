@@ -27,7 +27,7 @@ private[backend] trait StorageBackendTestsCompletions
   import StorageBackendTestValues.*
 
   it should "correctly find completions by offset range" in {
-    TraceContext.withNewTraceContext { aTraceContext =>
+    TraceContext.withNewTraceContext("test") { aTraceContext =>
       val party = someParty
       val userId = someUserId
       val emptyTraceContext = SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray

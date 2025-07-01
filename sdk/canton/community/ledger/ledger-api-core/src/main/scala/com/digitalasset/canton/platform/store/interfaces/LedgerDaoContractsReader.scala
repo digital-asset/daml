@@ -7,6 +7,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.google.common.annotations.VisibleForTesting
 
@@ -60,8 +61,7 @@ private[platform] trait LedgerDaoContractsReader {
 object LedgerDaoContractsReader {
   import com.digitalasset.daml.lf.value.Value as lfval
   private type ContractId = lfval.ContractId
-  import com.digitalasset.daml.lf.transaction as lftx
-  private type Contract = lftx.FatContractInstance
+  private type Contract = LfFatContractInst
 
   sealed trait ContractState extends Product with Serializable {
     def stakeholders: Set[Party]

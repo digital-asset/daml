@@ -354,13 +354,20 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .decodeFatContractInstance(src.eventBlob)
           .leftMap(_.errorMessage)
           .toResult
+        lfOriginalContract <- Either
+          .cond(
+            originalContract.createdAt == CreationTime.CreatedAt(createTime),
+            originalContract.updateCreateAt(createTime),
+            "Creation time of the original contract does not match the create time of the input contract",
+          )
+          .toResult
         enrichedContract = FatContractInstance.fromCreateNode(
           createNode,
           CreationTime.CreatedAt(createTime),
           originalContract.cantonData,
         )
       } yield ExternalInputContract(
-        originalContract = originalContract,
+        originalContract = lfOriginalContract,
         enrichedContract = enrichedContract,
       )
     }

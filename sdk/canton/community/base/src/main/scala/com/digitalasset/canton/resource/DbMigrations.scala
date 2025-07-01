@@ -123,7 +123,7 @@ trait DbMigrations { this: NamedLogging =>
 
   /** Migrate the database with all pending migrations. */
   def migrateDatabase(): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("migrate_database") { implicit traceContext =>
       withDb() { createdDb =>
         ResourceUtil.withResource(createdDb) { db =>
           val flyway = createFlyway(DbMigrations.createDataSource(db.source))
@@ -143,7 +143,7 @@ trait DbMigrations { this: NamedLogging =>
     * }}}
     */
   def repairFlywayMigration(): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("replay_flyway") { implicit traceContext =>
       withFlyway(repairFlywayMigrationInternal)
     }
 
@@ -242,7 +242,7 @@ trait DbMigrations { this: NamedLogging =>
   private def migrateIfFreshAndCheckPending(
       flyway: Flyway
   ): EitherT[UnlessShutdown, DbMigrations.Error, Unit] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("migrate_if_fresh_check_pending") { implicit traceContext =>
       for {
         _ <- migrateIfFreshInternal(flyway)
         _ <- checkPendingMigrationInternal(flyway).toEitherT[UnlessShutdown]

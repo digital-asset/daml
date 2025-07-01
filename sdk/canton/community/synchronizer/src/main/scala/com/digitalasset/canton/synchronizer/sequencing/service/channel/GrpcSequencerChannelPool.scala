@@ -240,7 +240,7 @@ private[channel] final class GrpcSequencerChannelPool(
 
   override def onClosed(): Unit = blocking {
     synchronized {
-      withNewTraceContext { implicit traceContext =>
+      withNewTraceContext("close_grpc_channel") { implicit traceContext =>
         logger.debug("Closing all channels in pool")
         // Wait for the channels to actually close in case they are already in the process of closing
         // in which case FlagClosable doesn't wait.

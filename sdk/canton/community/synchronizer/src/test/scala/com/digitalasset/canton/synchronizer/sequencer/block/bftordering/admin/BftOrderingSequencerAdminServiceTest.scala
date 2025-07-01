@@ -15,12 +15,11 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   TlsPeerEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.P2PEndpointConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
   P2PEndpoint,
   TlsP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PEndpointConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -30,7 +29,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.fakeIgnoringModule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
+  BftSequencerBaseTest,
+  fakeIgnoringModule,
+}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Promise

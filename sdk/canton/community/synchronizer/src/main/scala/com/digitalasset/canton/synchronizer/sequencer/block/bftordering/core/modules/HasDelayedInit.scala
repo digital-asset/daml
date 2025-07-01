@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules
 
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.collection.BoundedQueue
 import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
@@ -49,5 +49,5 @@ trait HasDelayedInit[M] { self: NamedLogging =>
     }
 
   @VisibleForTesting
-  private[bftordering] def isInitComplete: Boolean = initComplete
+  private[modules] def isInitComplete: Boolean = initComplete
 }

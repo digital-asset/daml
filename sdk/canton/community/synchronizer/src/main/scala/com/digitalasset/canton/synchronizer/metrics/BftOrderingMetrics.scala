@@ -161,7 +161,8 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       private[metrics] val grpcLatency: Item = Item(
         prefix :+ "grpc-latency",
         summary = "Latency of a gRPC message send",
-        description = "Records the rate and latency of a gRPC message send.",
+        description =
+          "Records the rate of gRPC message sands and their latency (up to receiving them on the other side).",
         qualification = MetricQualification.Latency,
       )
     }
@@ -248,8 +249,14 @@ class BftOrderingMetrics private[metrics] (
             object consensus {
               // Time waited for a block proposal from availability
               val BlockProposalWait = "consensus-block-proposal-wait"
-              // Time waited for a new epoch to start
+              // Time waited for a new epoch to complete
               val EpochCompletionWait = "consensus-epoch-completion-wait"
+              // Time waited for a new epoch to start
+              val EpochStartWait = "consensus-epoch-start-wait"
+              // Time elapsed between sending a PrePrepare and seeing that the block has been ordered
+              val SegmentProposalToCommitLatency = "consensus-segment-proposal-to-commit-latency"
+              // Time elapsed between ordered blocks proposed by a segment
+              val SegmentBlockCommitLatency = "consensus-segment-block-commit-latency"
             }
 
             object output {
@@ -618,6 +625,16 @@ class BftOrderingMetrics private[metrics] (
         summary = "Epoch length",
         description = "Length of the current epoch in number of blocks.",
         qualification = MetricQualification.Traffic,
+      ),
+      0,
+    )
+
+    val epochViewChanges: Gauge[Long] = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "epoch-view-changes",
+        summary = "Number of view changes occurred",
+        description = "Number of view changes occurred.",
+        qualification = MetricQualification.Latency,
       ),
       0,
     )

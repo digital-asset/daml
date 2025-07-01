@@ -27,7 +27,7 @@ trait LoggingIntegrationTest extends CommunityIntegrationTest with SharedEnviron
     def traceId(implicit traceContext: TraceContext): String =
       traceContext.traceId.valueOrFail("trace-id not set")
 
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("test") { implicit traceContext =>
       bigTraceId.putIfAbsent(traceId)
       val infoMsg = "first info message"
       logger.info(infoMsg)
@@ -40,7 +40,7 @@ trait LoggingIntegrationTest extends CommunityIntegrationTest with SharedEnviron
 
       val warnMsg2 = "warn message from another trace-context"
 
-      val traceId2 = TraceContext.withNewTraceContext { implicit traceContext =>
+      val traceId2 = TraceContext.withNewTraceContext("test") { implicit traceContext =>
         logger.warn(warnMsg2)
         traceId
       }

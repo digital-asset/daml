@@ -31,6 +31,10 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
+import scala.annotation.nowarn
+
+// TODO(#23504) remove TransactionFilter once all usages are migrated to EventFormat
+@nowarn("cat=deprecation")
 class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "CommandCompletionServiceAuthorization.completionStreamClaims"
@@ -109,7 +113,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -135,7 +139,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(
@@ -160,7 +164,7 @@ class ApiServicesRequiredClaimSpec extends AsyncFlatSpec with BaseTest with Matc
     StateServiceAuthorization.getActiveContractsClaims(
       GetActiveContractsRequest(
         filter = None,
-        verbose = true,
+        verbose = false,
         activeAtOffset = 15,
         eventFormat = Some(
           EventFormat(

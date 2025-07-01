@@ -72,6 +72,8 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
 
   protected def index: IndexService = testServices.index
 
+  protected def sequentialPostProcessor: Update => Unit = _ => ()
+
   override protected def beforeAll(): Unit = {
     super.beforeAll()
     // We use the dispatcher here because the default Scalatest execution context is too slow.
@@ -130,7 +132,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           clock = clock,
           reassignmentOffsetPersistence = NoOpReassignmentOffsetPersistence,
           postProcessor = (_, _) => Future.unit,
-          sequentialPostProcessor = _ => (),
+          sequentialPostProcessor = sequentialPostProcessor,
         ).initialized()
         indexerFutureQueueConsumer <- ResourceOwner.forFuture(() => indexerF(false)(_ => ()))
         indexer <- ResourceOwner.forReleasable(() =>
@@ -170,7 +172,12 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           ),
           queryExecutionContext = executorService,
           commandExecutionContext = executorService,
-          getPackagePreference = _ => _ => _ => FutureUnlessShutdown.pure(None),
+          getPackagePreference = (
+              _: PackageName,
+              _: Set[PackageId],
+              _: String,
+              _: LoggingContextWithTrace,
+          ) => FutureUnlessShutdown.pure(Left("not used")),
         )
       } yield indexService -> indexer
 

@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 6,
+  "id": 8,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -77,8 +77,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -170,8 +169,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -421,6 +419,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "description": "Latency between sending a message and receiving it on the other side",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2016,6 +2015,305 @@
         {
           "datasource": {
             "type": "prometheus",
+            "uid": "$DS"
+          },
+          "description": "Block commit time at the consensus (PBFT) level.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "decimals": 2,
+              "mappings": [
+                {
+                  "options": {
+                    "match": "null",
+                    "result": {
+                      "text": "N/A"
+                    }
+                  },
+                  "type": "special"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 2
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 4
+          },
+          "hideTimeOverride": true,
+          "id": 39,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "pluginVersion": "10.4.0",
+          "targets": [
+            {
+              "datasource": {
+                "uid": "$DS"
+              },
+              "editorMode": "code",
+              "exemplar": false,
+              "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_consensus_commit_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+              "format": "time_series",
+              "instant": false,
+              "interval": "30s",
+              "intervalFactor": 1,
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Consensus Block Latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Time elapsed between sending a PrePrepare and seeing that the block has been ordered",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 12
+          },
+          "id": 46,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"consensus-segment-proposal-to-commit-latency\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Consensus segment block proposal to commit latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "description": "Time elapsed between ordered blocks proposed by a segment",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 20
+          },
+          "id": 88,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"consensus-segment-block-commit-latency\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Consensus segment block ordering latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
             "uid": "prometheus"
           },
           "description": "Time between a proposal request to the availability module needed to continue a segment and a PrePrepare being built",
@@ -2076,9 +2374,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 20
+            "y": 28
           },
-          "id": 46,
+          "id": 87,
           "options": {
             "legend": {
               "calcs": [],
@@ -2170,7 +2468,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 28
+            "y": 36
           },
           "id": 83,
           "options": {
@@ -2198,7 +2496,7 @@
               "refId": "A"
             }
           ],
-          "title": "Wait for new epoch",
+          "title": "Wait for epoch completion",
           "type": "timeseries"
         },
         {
@@ -2206,6 +2504,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
+          "description": "Time between the epoch completion and the start of the next epoch",
           "fieldConfig": {
             "defaults": {
               "color": {
@@ -2263,7 +2562,99 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 36
+            "y": 44
+          },
+          "id": 86,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"consensus-epoch-start-wait\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Wait for epoch start",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 52
           },
           "id": 80,
           "options": {
@@ -2339,8 +2730,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2356,7 +2746,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 44
+            "y": 60
           },
           "id": 81,
           "options": {
@@ -2432,8 +2822,7 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green",
-                    "value": null
+                    "color": "green"
                   },
                   {
                     "color": "red",
@@ -2449,7 +2838,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 52
+            "y": 68
           },
           "id": 63,
           "options": {
@@ -2477,7 +2866,7 @@
               "refId": "A"
             }
           ],
-          "title": "Start epoch",
+          "title": "Start epoch (DB)",
           "type": "timeseries"
         },
         {
@@ -2541,7 +2930,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 60
+            "y": 76
           },
           "id": 47,
           "options": {
@@ -2569,7 +2958,7 @@
               "refId": "A"
             }
           ],
-          "title": "Complete epoch",
+          "title": "Complete epoch (DB)",
           "type": "timeseries"
         },
         {
@@ -2633,7 +3022,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 68
+            "y": 84
           },
           "id": 76,
           "options": {
@@ -2725,7 +3114,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 76
+            "y": 92
           },
           "id": 68,
           "options": {
@@ -2817,7 +3206,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 84
+            "y": 100
           },
           "id": 66,
           "options": {
@@ -2909,7 +3298,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 92
+            "y": 108
           },
           "id": 64,
           "options": {
@@ -3001,7 +3390,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 100
+            "y": 116
           },
           "id": 50,
           "options": {
@@ -3085,6 +3474,98 @@
                   }
                 ]
               },
+              "unit": "none"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 24,
+            "x": 0,
+            "y": 124
+          },
+          "id": 51,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "daml_sequencer_bftordering_consensus_epoch_view_changes",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "View changes occurred",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green"
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
               "unit": "s"
             },
             "overrides": []
@@ -3093,9 +3574,9 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 108
+            "y": 132
           },
-          "id": 51,
+          "id": 84,
           "options": {
             "legend": {
               "calcs": [],
@@ -3185,7 +3666,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 116
+            "y": 140
           },
           "id": 77,
           "options": {
@@ -3277,7 +3758,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 124
+            "y": 148
           },
           "id": 72,
           "options": {
@@ -3369,7 +3850,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 132
+            "y": 156
           },
           "id": 52,
           "options": {
@@ -3660,7 +4141,7 @@
             "x": 0,
             "y": 21
           },
-          "id": 39,
+          "id": 85,
           "options": {
             "legend": {
               "calcs": [],

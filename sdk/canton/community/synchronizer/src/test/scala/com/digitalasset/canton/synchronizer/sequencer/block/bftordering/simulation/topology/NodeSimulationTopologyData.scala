@@ -6,8 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{SigningKeyPair, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.TopologySettings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.NodeSimulationTopologyData.SigningKeyPairWithLifetime
 

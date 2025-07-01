@@ -262,7 +262,7 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   def loadConfig(config: Config): Either[CantonConfigError, CantonConfig]
 
   private def startupConfigFileMonitoring(environment: Environment): Unit =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("config_file_monitoring") { implicit traceContext =>
       def modificationTimestamp(): Long =
         Config.configFiles.map(_.lastModified()).foldLeft(0L) { case (acc, item) =>
           Math.max(acc, item)

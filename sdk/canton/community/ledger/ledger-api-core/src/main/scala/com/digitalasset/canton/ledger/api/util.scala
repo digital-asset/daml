@@ -3,16 +3,20 @@
 
 package com.digitalasset.canton.ledger.api
 
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
+  TRANSACTION_SHAPE_ACS_DELTA,
+  TRANSACTION_SHAPE_LEDGER_EFFECTS,
+}
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.logging.*
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import scalaz.@@
 import scalaz.syntax.tag.*
 
@@ -41,6 +45,14 @@ sealed trait TransactionShape
 object TransactionShape {
   case object LedgerEffects extends TransactionShape
   case object AcsDelta extends TransactionShape
+
+  def toProto(
+      transactionShape: TransactionShape
+  ): com.daml.ledger.api.v2.transaction_filter.TransactionShape =
+    transactionShape match {
+      case TransactionShape.LedgerEffects => TRANSACTION_SHAPE_LEDGER_EFFECTS
+      case TransactionShape.AcsDelta => TRANSACTION_SHAPE_ACS_DELTA
+    }
 }
 
 final case class EventFormat(
@@ -140,7 +152,7 @@ object Commands {
 }
 
 final case class DisclosedContract(
-    fatContractInstance: FatContractInstance,
+    fatContractInstance: LfFatContractInst,
     synchronizerIdO: Option[SynchronizerId],
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DisclosedContract] = {
@@ -157,10 +169,14 @@ final case class DisclosedContract(
 // TODO(#25385): Deduplicate with logic from TopologyAwareCommandExecutor
 // Wrapper used for ordering package ids by version
 final case class PackageReference(
-    pkdId: LfPackageId,
+    pkgId: LfPackageId,
     version: LfPackageVersion,
     packageName: LfPackageName,
-)
+) extends PrettyPrinting {
+
+  override protected def pretty: Pretty[PackageReference] =
+    prettyOfString(_ => show"pkg:$packageName:$version/$pkgId")
+}
 
 object PackageReference {
   implicit val packageReferenceOrdering: Ordering[PackageReference] =
@@ -171,7 +187,25 @@ object PackageReference {
         )
       } else
         Ordering[(LfPackageVersion, LfPackageId)]
-          .compare(x.version -> x.pkdId, y.version -> y.pkdId)
+          .compare(x.version -> x.pkgId, y.version -> y.pkgId)
+
+  implicit class PackageReferenceOps(val pkgId: LfPackageId) extends AnyVal {
+    def toPackageReference(
+        packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+    ): Option[PackageReference] =
+      packageIdVersionMap.get(pkgId).map { case (packageName, packageVersion) =>
+        PackageReference(pkgId, packageVersion, packageName)
+      }
+
+    def unsafeToPackageReference(
+        packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+    ): PackageReference =
+      toPackageReference(packageIdVersionMap).getOrElse {
+        throw new NoSuchElementException(
+          s"Package id $pkgId not found in packageIdVersionMap"
+        )
+      }
+  }
 }
 
 object Logging {

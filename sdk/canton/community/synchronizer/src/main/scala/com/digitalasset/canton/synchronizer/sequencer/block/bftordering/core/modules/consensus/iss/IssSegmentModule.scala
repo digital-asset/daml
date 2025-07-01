@@ -9,6 +9,8 @@ import com.digitalasset.canton.crypto.SyncCryptoError
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.{
   BlockCompletionTimeout,
@@ -18,8 +20,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -109,6 +109,10 @@ class IssSegmentModule[E <: Env[E]](
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var waitingForProposalSince: Option[Instant] = None
+
+  private val runningBlocks = mutable.Map[BlockNumber, Instant]()
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var lastProposedBlockCommitInstant = Option.empty[Instant]
 
   override protected def receiveInternal(consensusMessage: ConsensusSegment.Message)(implicit
       context: E#ActorContextT[ConsensusSegment.Message],
@@ -300,6 +304,8 @@ class IssSegmentModule[E <: Env[E]](
         val orderedBlock = blockStored.orderedBlock
         val blockNumber = orderedBlock.metadata.blockNumber
         val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
+
+        emitSegmentBlockCommitLatency(blockNumber)
 
         logger.debug(
           s"$messageType: DB stored block w/ ${orderedBlock.metadata}, view number $viewNumber and batches $orderedBatchIds"
@@ -521,6 +527,11 @@ class IssSegmentModule[E <: Env[E]](
           logger.debug(
             s"Sending PBFT message to $nodes: $pbftMessage"
           )
+          pbftMessage.message match {
+            case PrePrepare(BlockMetadata(_, blockNumber), _, _, _, _) =>
+              runningBlocks.put(blockNumber, Instant.now()).discard
+            case _ =>
+          }
           p2pNetworkOut.asyncSend(
             P2PNetworkOut.Multicast(
               P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(pbftMessage),
@@ -680,8 +691,24 @@ class IssSegmentModule[E <: Env[E]](
   private def resetWaitingForProposal(): Unit =
     waitingForProposalSince = None
 
+  private def emitSegmentBlockCommitLatency(blockNumber: BlockNumber): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.consensus.SegmentProposalToCommitLatency,
+      runningBlocks.get(blockNumber),
+      cleanup = () =>
+        runningBlocks.remove(blockNumber).foreach { _ =>
+          emitOrderingStageLatency(
+            labels.stage.values.consensus.SegmentBlockCommitLatency,
+            lastProposedBlockCommitInstant,
+            cleanup = () => lastProposedBlockCommitInstant = Some(Instant.now()),
+          )
+        },
+    )
+  }
+
   @VisibleForTesting
-  private[bftordering] def generateFutureId(): FutureId = {
+  private[iss] def generateFutureId(): FutureId = {
     val id = nextFutureId
     waitingForFutureIds.add(id).discard
     nextFutureId = FutureId(nextFutureId + 1)
@@ -689,7 +716,7 @@ class IssSegmentModule[E <: Env[E]](
   }
 
   @VisibleForTesting
-  private[bftordering] def allFuturesHaveFinished: Boolean = waitingForFutureIds.isEmpty
+  private[iss] def allFuturesHaveFinished: Boolean = waitingForFutureIds.isEmpty
 
   private def closeSegment(
       epochNumber: EpochNumber,

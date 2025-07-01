@@ -105,7 +105,6 @@ import com.google.protobuf.ByteString
 import monocle.PLens
 
 import java.util.concurrent.ConcurrentHashMap
-import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
@@ -116,7 +115,6 @@ import scala.util.{Failure, Success}
   * @param participantId
   *   The participant id hosting the transaction processor.
   */
-@nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
     psid: PhysicalSynchronizerId,
     participantId: ParticipantId,
@@ -147,9 +145,7 @@ class TransactionProcessingSteps(
   override type SubmissionSendError = TransactionProcessor.SubmissionErrors.SequencerRequest.Error
   override type PendingSubmissions = Unit
   override type PendingSubmissionId = Unit
-  override type PendingSubmissionData = Nothing
-
-  override type SubmissionResultArgs = Unit
+  override type PendingSubmissionData = Unit
 
   override type ParsedRequestType = ParsedTransactionRequest
 
@@ -181,11 +177,15 @@ class TransactionProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncEphemeralStateLookup,
+      ephemeralState: SyncEphemeralState,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionSubmissionError, Submission] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    TransactionSubmissionError,
+    (Submission, PendingSubmissionData),
+  ] = {
     val SubmissionParam(
       submitterInfo,
       transactionMeta,
@@ -205,7 +205,7 @@ class TransactionProcessingSteps(
       disclosedContracts,
     )
 
-    EitherT.rightT[FutureUnlessShutdown, TransactionSubmissionError](tracked)
+    EitherT.rightT[FutureUnlessShutdown, TransactionSubmissionError]((tracked, ()))
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
@@ -507,13 +507,6 @@ class TransactionProcessingSteps(
       )
     }
   }
-
-  override def updatePendingSubmissions(
-      pendingSubmissionMap: Unit,
-      submissionParam: SubmissionParam,
-      pendingSubmissionId: PendingSubmissionId,
-  ): EitherT[Future, SubmissionSendError, SubmissionResultArgs] =
-    EitherT.pure(())
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[?]],
@@ -1078,7 +1071,7 @@ class TransactionProcessingSteps(
 
   override def postProcessSubmissionRejectedCommand(
       error: TransactionError,
-      pendingSubmission: Nothing,
+      pendingSubmission: Unit,
   )(implicit
       traceContext: TraceContext
   ): Unit = ()
@@ -1481,7 +1474,7 @@ class TransactionProcessingSteps(
     } yield res
   }
 
-  override def postProcessResult(verdict: Verdict, pendingSubmission: Nothing)(implicit
+  override def postProcessResult(verdict: Verdict, pendingSubmission: Unit)(implicit
       traceContext: TraceContext
   ): Unit = ()
 

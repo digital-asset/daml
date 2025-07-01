@@ -5,15 +5,15 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
+  PekkoEnv,
+  PekkoFutureUnlessShutdown,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.BatchId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.{
-  PekkoEnv,
-  PekkoFutureUnlessShutdown,
-}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
@@ -63,13 +63,13 @@ abstract class GenericInMemoryAvailabilityStore[E <: Env[E]](
     }
 
   @VisibleForTesting
-  def isEmpty: Boolean = allKnownBatchesById.isEmpty
+  private[data] def isEmpty: Boolean = allKnownBatchesById.isEmpty
 
   @VisibleForTesting
-  def size: Int = allKnownBatchesById.size
+  private[data] def size: Int = allKnownBatchesById.size
 
   @VisibleForTesting
-  def keys: Iterable[BatchId] = allKnownBatchesById.keys
+  private[data] def keys: Iterable[BatchId] = allKnownBatchesById.keys
 
   override def loadNumberOfRecords(implicit
       traceContext: TraceContext

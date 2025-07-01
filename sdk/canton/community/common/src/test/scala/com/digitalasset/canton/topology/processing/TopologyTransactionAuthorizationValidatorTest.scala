@@ -1295,7 +1295,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           expectFullAuthorization: Boolean,
           signingKeys: SigningPublicKey*
       ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] =
-        TraceContext.withNewTraceContext { freshTraceContext =>
+        TraceContext.withNewTraceContext("test") { freshTraceContext =>
           validate(
             validator,
             ts(1),

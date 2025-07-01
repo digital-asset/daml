@@ -6,8 +6,10 @@ package com.digitalasset.canton.ledger.api.util
 import com.daml.ledger.api.v2.event.ExercisedEvent
 import com.daml.ledger.api.v2.transaction.TransactionTree
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 
+//TODO(#23504) remove when transaction trees are removed
+@nowarn("cat=deprecation")
 object TransactionTreeOps {
 
   implicit class TransactionTreeOps(val tree: TransactionTree) extends AnyVal {

@@ -36,7 +36,7 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -46,7 +46,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -80,8 +80,6 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
-  override type SubmissionResultArgs = PendingReassignmentSubmission
-
   override type RequestType = ProcessingSteps.RequestType.Assignment
   override val requestType = ProcessingSteps.RequestType.Assignment
 
@@ -103,11 +101,15 @@ private[reassignment] class AssignmentProcessingSteps(
   override def createSubmission(
       submissionParam: SubmissionParam,
       mediator: MediatorGroupRecipient,
-      ephemeralState: SyncEphemeralStateLookup,
+      ephemeralState: SyncEphemeralState,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
+  ): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentProcessorError,
+    (Submission, PendingSubmissionData),
+  ] = {
 
     val SubmissionParam(
       submitterMetadata,
@@ -139,6 +141,7 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
+      sourceSynchronizer = unassignmentData.sourceSynchronizer
       targetSynchronizer = unassignmentData.targetSynchronizer
       _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
@@ -166,6 +169,7 @@ private[reassignment] class AssignmentProcessingSteps(
           reassignmentId,
           submitterMetadata,
           unassignmentData.contracts,
+          sourceSynchronizer,
           targetSynchronizer,
           mediator,
           assignmentUuid,
@@ -213,8 +217,7 @@ private[reassignment] class AssignmentProcessingSteps(
         .leftMap[ReassignmentProcessorError](
           EncryptionError(contractIds, _)
         )
-    } yield {
-      val rootHashMessage =
+      rootHashMessage =
         RootHashMessage(
           rootHash,
           synchronizerId.unwrap,
@@ -223,7 +226,7 @@ private[reassignment] class AssignmentProcessingSteps(
           EmptyRootHashMessagePayload,
         )
       // Each member gets a message sent to itself and to the mediator
-      val rootHashRecipients =
+      rootHashRecipients =
         Recipients.recipientGroups(
           checked(
             NonEmptyUtil.fromUnsafe(
@@ -233,30 +236,28 @@ private[reassignment] class AssignmentProcessingSteps(
             )
           )
         )
-      val messages = Seq[(ProtocolMessage, Recipients)](
+      messages = Seq[(ProtocolMessage, Recipients)](
         mediatorMessage -> Recipients.cc(mediator),
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash)
-    }
-  }
-
-  override def updatePendingSubmissions(
-      pendingSubmissionMap: PendingSubmissions,
-      submissionParam: SubmissionParam,
-      submissionId: PendingSubmissionId,
-  ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
-    performPendingSubmissionMapUpdate(
-      pendingSubmissionMap,
-      ReassignmentRef(submissionParam.reassignmentId),
-      submissionParam.submitterLf,
-      submissionId,
+      pendingSubmission <-
+        performPendingSubmissionMapUpdate(
+          pendingSubmissions(ephemeralState),
+          ReassignmentRef(submissionParam.reassignmentId),
+          submissionParam.submitterLf,
+          rootHash,
+          _ => reassignmentId,
+        )
+    } yield (
+      ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash),
+      pendingSubmission,
     )
+  }
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[_]],
-      pendingSubmission: SubmissionResultArgs,
+      pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
     SubmissionResult(pendingSubmission.reassignmentCompletion.future)
 
@@ -342,13 +343,14 @@ private[reassignment] class AssignmentProcessingSteps(
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
     val reassignmentId = parsedRequest.fullViewTree.reassignmentId
+    val sourceSynchronizer = parsedRequest.fullViewTree.sourceSynchronizer
     val isReassigningParticipant =
       parsedRequest.fullViewTree.isReassigningParticipant(participantId)
 
     for {
       reassignmentDataE <- EitherT.right[ReassignmentProcessorError](
         reassignmentCoordination
-          .waitForStartedUnassignmentToCompletePhase7(reassignmentId)
+          .waitForStartedUnassignmentToCompletePhase7(reassignmentId, sourceSynchronizer)
           .flatMap(_ => reassignmentLookup.lookup(reassignmentId).value)
       )
 
@@ -481,6 +483,7 @@ private[reassignment] class AssignmentProcessingSteps(
                 reassignmentCoordination.addAssignmentData(
                   assignmentValidationResult.reassignmentId,
                   contracts = assignmentValidationResult.contracts,
+                  source = assignmentValidationResult.sourcePSId.map(_.logical),
                   target = synchronizerId.map(_.logical),
                 )
               } else EitherTUtil.unitUS
@@ -572,6 +575,7 @@ object AssignmentProcessingSteps {
       reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
       contracts: ContractsReassignmentBatch,
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
       targetMediator: MediatorGroupRecipient,
       assignmentUuid: UUID,
@@ -585,6 +589,7 @@ object AssignmentProcessingSteps {
     val commonData = AssignmentCommonData
       .create(pureCrypto)(
         commonDataSalt,
+        sourceSynchronizer,
         targetSynchronizer,
         targetMediator,
         stakeholders = stakeholders,

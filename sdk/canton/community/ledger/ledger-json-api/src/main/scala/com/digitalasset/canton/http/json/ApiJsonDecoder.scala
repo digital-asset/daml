@@ -7,6 +7,7 @@ import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.ErrorMessages.cannotResolveTemplateId
+import com.digitalasset.canton.http.json.v1.PackageService
 import com.digitalasset.canton.http.util.FutureUtil.either
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.http.{
@@ -22,7 +23,6 @@ import com.digitalasset.canton.http.{
   HasTemplateId,
   LfType,
   LfValue,
-  PackageService,
 }
 import com.digitalasset.daml.lf.data.Ref
 import scalaz.EitherT.eitherT

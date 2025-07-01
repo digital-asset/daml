@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.event
 
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -45,6 +46,9 @@ object RecordTime {
     TimeOfChange.withMinAsNoneRepairCounter(toc) { case (ts, rc) =>
       RecordTime(ts, rc.unwrap)
     }
+
+  def fromSynchronizerIndex(synchronizerIndex: SynchronizerIndex): RecordTime =
+    fromTimeOfChange(TimeOfChange.fromSynchronizerIndex(synchronizerIndex))
 
   def apply(timestamp: EffectiveTime, tieBreaker: Long): RecordTime =
     RecordTime(timestamp.value, tieBreaker)

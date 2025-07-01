@@ -182,7 +182,7 @@ class StartableStoppableLedgerApiServer(
     )
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("close_ledger_api") { implicit traceContext =>
       logger.info("Shutting down ledger API server")
       Seq(
         AsyncCloseable("ledger API server", stop().unwrap, timeouts.shutdownNetwork),
@@ -277,13 +277,20 @@ class StartableStoppableLedgerApiServer(
         ),
         queryExecutionContext = queryExecutionContext,
         commandExecutionContext = executionContext,
-        getPackagePreference = loggingContext =>
-          packageName =>
-            candidatePackageIds =>
-              packagePreferenceBackend
-                .getPreferredPackageVersionForParticipant(packageName, candidatePackageIds)(
-                  loggingContext
-                ),
+        getPackagePreference = (
+            packageName,
+            candidatePackageIds,
+            candidatePackageIdsRestrictionDescription,
+            loggingContext,
+        ) =>
+          packagePreferenceBackend
+            .getPreferredPackageVersionForParticipant(
+              packageName,
+              candidatePackageIds,
+              candidatePackageIdsRestrictionDescription,
+            )(
+              loggingContext
+            ),
       )
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(

@@ -1043,12 +1043,11 @@ trait TopologyManagementIntegrationTest
     "query migration announcements" in { implicit env =>
       import env.*
 
-      val upgradeTime = CantonTimestamp.now()
+      val upgradeTime = CantonTimestamp.now().plusSeconds(60)
 
       val announcementMapping = synchronizerOwners1
         .map { owner =>
           owner.topology.synchronizer_upgrade.announcement.propose(
-            daId,
             PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
             upgradeTime,
           )
@@ -1069,7 +1068,6 @@ trait TopologyManagementIntegrationTest
       }
       synchronizerOwners1.foreach(
         _.topology.synchronizer_upgrade.announcement.revoke(
-          daId,
           PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
           upgradeTime,
         )

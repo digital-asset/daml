@@ -11,7 +11,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   BftOrderingStores,
   BootstrapTopologyInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.DelegationCryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
+  OrderingTopologyProvider,
+  TopologyActivationTime,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
   AvailabilityModule,
@@ -39,17 +43,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   EpochChecker,
   OutputModule,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.{
+  P2PNetworkInModule,
+  P2PNetworkOutModule,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.{
-  BftP2PNetworkIn,
-  BftP2PNetworkOut,
-}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  DelegationCryptoProvider,
-  OrderingTopologyProvider,
-  TopologyActivationTime,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -175,7 +174,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
           )
         },
         p2pNetworkIn = (availabilityRef, consensusRef) =>
-          new BftP2PNetworkIn(
+          new P2PNetworkInModule(
             metrics,
             availabilityRef,
             consensusRef,
@@ -200,7 +199,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             outputRef,
             pruningRef,
           )
-          new BftP2PNetworkOut(
+          new P2PNetworkOutModule(
             bootstrapTopologyInfo.thisNode,
             stores.p2pEndpointsStore,
             metrics,

@@ -104,9 +104,10 @@ class CantonErrorTest extends BaseTestWordSpec {
               .value should fullyMatch regex "\\{location=CantonErrorTest\\.scala:.*\\}"
             entry.mdc.get("error-code").value shouldBe errorCodeStr
             entry.mdc.get("trace-id").value shouldBe traceId
+            entry.mdc.get("span-id").value shouldBe traceContext.spanId.value
             entry.mdc.get("test").value shouldBe "CantonErrorTest"
           }
-          entry.mdc should have size 5
+          entry.mdc should have size 6
 
           entry.throwable shouldBe Some(TestAlarmErrorCode.exception)
         },

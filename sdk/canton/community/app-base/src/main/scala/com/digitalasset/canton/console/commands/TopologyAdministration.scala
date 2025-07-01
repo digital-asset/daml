@@ -46,6 +46,7 @@ import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30.{
   ExportTopologySnapshotResponse,
   GenesisStateResponse,
+  LogicalUpgradeStateResponse,
 }
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -546,7 +547,7 @@ class TopologyAdministrationGroup(
       "Download the genesis state for a sequencer. This method should be used when performing a major synchronizer upgrade."
     )
     @Help.Description(
-      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrades. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a major synchronizer upgrade. The validFrom and validUntil are set to SignedTopologyTransaction.InitialTopologySequencingTime.
         |filterSynchronizerStore: Must be specified if the genesis state is requested from a participant node.
         |timestamp: If not specified, the max effective time of the latest topology transaction is used. Otherwise, the given timestamp is used.
         """
@@ -569,6 +570,33 @@ class TopologyAdministrationGroup(
           )
 
         processResult(call, responseObserver.resultBytes, timeout, "Downloading the genesis state")
+      }
+
+    @Help.Summary(
+      "Download the upgrade state for a sequencer. This method should be used when performing a logical synchronizer upgrade."
+    )
+    @Help.Description(
+      """Download the topology snapshot which includes the entire history of topology transactions to initialize a sequencer for a logical synchronizer upgrade.
+         A logical synchronizer upgrade must be ongoing for this call to succeed.
+        """
+    )
+    def logical_upgrade_state(
+        timeout: NonNegativeDuration = timeouts.unbounded
+    ): ByteString =
+      consoleEnvironment.run {
+        val responseObserver = new ByteStringStreamObserver[LogicalUpgradeStateResponse](_.chunk)
+
+        def call: ConsoleCommandResult[Context.CancellableContext] =
+          adminCommand(
+            TopologyAdminCommands.Read.LogicalUpgradeState(responseObserver)
+          )
+
+        processResult(
+          call,
+          responseObserver.resultBytes,
+          timeout,
+          "Downloading the genesis state for logical upgrade",
+        )
       }
 
     @Help.Summary("Find the latest transaction for a given mapping hash")
@@ -2845,7 +2873,7 @@ class TopologyAdministrationGroup(
         synchronizerId: SynchronizerId,
         newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit tc =>
+      TraceContext.withNewTraceContext("set_ledger_time_tolerence") { implicit tc =>
         logger.info(
           s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
         )
@@ -2876,7 +2904,7 @@ class TopologyAdministrationGroup(
         newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
     ): Unit =
-      TraceContext.withNewTraceContext { implicit tc =>
+      TraceContext.withNewTraceContext("set_prep_time_tolerance") { implicit tc =>
         if (!force) {
           securely_set_preparation_time_record_time_tolerance(
             synchronizerId,
@@ -3072,7 +3100,6 @@ class TopologyAdministrationGroup(
          synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
       )
       def propose(
-          physicalSynchronizerId: PhysicalSynchronizerId,
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
           upgradeTime: CantonTimestamp,
           store: Option[TopologyStoreId] = None,
@@ -3084,13 +3111,10 @@ class TopologyAdministrationGroup(
           ),
       ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
 
-        val mapping = SynchronizerUpgradeAnnouncement
-          .create(
-            physicalSynchronizerId,
-            successorPhysicalSynchronizerId,
-            upgradeTime,
-          )
-          .valueOr(consoleEnvironment.raiseError)
+        val mapping = SynchronizerUpgradeAnnouncement(
+          successorPhysicalSynchronizerId,
+          upgradeTime,
+        )
 
         consoleEnvironment.run {
           adminCommand(
@@ -3101,7 +3125,7 @@ class TopologyAdministrationGroup(
               change = TopologyChangeOp.Replace,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChanges = ForceFlags.none,
-              store = store.getOrElse(physicalSynchronizerId),
+              store = store.getOrElse(successorPhysicalSynchronizerId.logical),
               waitToBecomeEffective = synchronize,
             )
           )
@@ -3132,7 +3156,6 @@ class TopologyAdministrationGroup(
          synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
       )
       def revoke(
-          physicalSynchronizerId: PhysicalSynchronizerId,
           successorPhysicalSynchronizerId: PhysicalSynchronizerId,
           upgradeTime: CantonTimestamp,
           store: Option[TopologyStoreId] = None,
@@ -3143,13 +3166,10 @@ class TopologyAdministrationGroup(
             consoleEnvironment.commandTimeouts.unbounded
           ),
       ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] = {
-        val mapping = SynchronizerUpgradeAnnouncement
-          .create(
-            physicalSynchronizerId,
-            successorPhysicalSynchronizerId,
-            upgradeTime,
-          )
-          .valueOr(consoleEnvironment.raiseError)
+        val mapping = SynchronizerUpgradeAnnouncement(
+          successorPhysicalSynchronizerId,
+          upgradeTime,
+        )
 
         consoleEnvironment.run {
           adminCommand(
@@ -3160,7 +3180,7 @@ class TopologyAdministrationGroup(
               change = TopologyChangeOp.Remove,
               mustFullyAuthorize = mustFullyAuthorize,
               forceChanges = ForceFlags.none,
-              store = store.getOrElse(physicalSynchronizerId),
+              store = store.getOrElse(successorPhysicalSynchronizerId.logical),
               waitToBecomeEffective = synchronize,
             )
           )
@@ -3198,7 +3218,7 @@ class TopologyAdministrationGroup(
       def propose_successor(
           sequencerId: SequencerId,
           endpoints: NonEmpty[Seq[URI]],
-          synchronizerId: PhysicalSynchronizerId,
+          synchronizerId: SynchronizerId,
           customTrustCertificates: Option[ByteString] = None,
           store: Option[TopologyStoreId] = None,
           mustFullyAuthorize: Boolean = false,

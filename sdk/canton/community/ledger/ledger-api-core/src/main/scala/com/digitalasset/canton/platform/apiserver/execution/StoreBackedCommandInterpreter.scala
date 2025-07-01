@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -40,7 +41,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
@@ -77,6 +77,7 @@ final class StoreBackedCommandInterpreter(
     metrics: LedgerApiServerMetrics,
     authenticateSerializableContract: SerializableContract => Either[String, Unit],
     config: EngineLoggingConfig,
+    prefetchingRecursionLevel: PositiveInt,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicSynchronizerParameterGetter,
     timeProvider: TimeProvider,
@@ -226,6 +227,31 @@ final class StoreBackedCommandInterpreter(
         )
       })),
     )
+
+  /** recursively prefetch contract ids up to a certain level */
+  private def recursiveLoad(
+      depth: Int,
+      loaded: Set[ContractId],
+      fresh: Set[ContractId],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Set[ContractId]] = if (fresh.isEmpty || depth <= 0) {
+    Future.successful(loaded)
+  } else {
+    Future
+      .sequence(fresh.map(contractStore.lookupContractState))
+      .map(_.foldLeft(Set.empty[ContractId]) {
+        case (acc, ContractState.NotFound) => acc
+        case (acc, ContractState.Archived) => acc
+        case (acc, ContractState.Active(ci)) =>
+          ci.collectCids(acc)
+      })
+      .flatMap { found =>
+        val newLoaded = loaded ++ fresh
+        val nextFresh = found.diff(newLoaded)
+        recursiveLoad(depth - 1, newLoaded, nextFresh)
+      }
+  }
 
   private def consume[A](
       actAs: Set[Ref.Party],
@@ -378,20 +404,35 @@ final class StoreBackedCommandInterpreter(
           // - the read through lookup will ask the contract reader
           // - the contract reader will ask the batchLoader
           // - the batch loader will put independent requests together into db batches and respond
-          val loadContractsF = Future.sequence(coids.map(contractStore.lookupContractState))
+          val disclosedCids = disclosedContracts.keySet
+          val initialCids = coids.toSet.diff(disclosedCids)
+          import com.digitalasset.canton.util.FutureInstances.*
+          // load all contracts
+          val initialLoadCidF =
+            initialCids.toSeq
+              .parTraverse(contractStore.lookupContractState)
+              .map(_.foldLeft(Set.empty[ContractId]) {
+                case (acc, ContractState.Active(ci)) => ci.collectCids(acc)
+                case (acc, _) => acc
+              })
           // prefetch the contract keys via the mutable state cache / batch aggregator
-          // then prefetch the found contracts in the same way
-          val loadKeysF = {
-            import com.digitalasset.canton.util.FutureInstances.*
+          val initialLoadKeyF =
             keys
               .parTraverse(key => contractStore.lookupContractKey(Set.empty, key))
-              .flatMap(contractIds =>
-                contractIds.flattenOption
-                  .parTraverse_(contractId => contractStore.lookupContractState(contractId))
+              .map(_.flattenOption)
+          // then prefetch the found referenced or key contracts recursively
+          val loadContractsF = initialLoadCidF.flatMap { referencedCids =>
+            initialLoadKeyF.flatMap { keyCids =>
+              recursiveLoad(
+                prefetchingRecursionLevel.value - 1,
+                disclosedCids ++ initialCids,
+                referencedCids ++ keyCids,
               )
+            }
           }
+
           FutureUnlessShutdown
-            .outcomeF(loadContractsF.zip(loadKeysF))
+            .outcomeF(loadContractsF)
             .flatMap(_ => resolveStep(resume()))
       }
 
@@ -525,11 +566,6 @@ final class StoreBackedCommandInterpreter(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
           )
-        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-        ledgerTime <- (originalContract.createdAt: CreationTime) match {
-          case CreationTime.CreatedAt(time) => Right(time)
-          case CreationTime.Now => Left("Failed to recompute contract creation time")
-        }
         contract <- SerializableContract(
           contractId = originalContract.contractId,
           contractInstance = ThinContract(
@@ -538,7 +574,7 @@ final class StoreBackedCommandInterpreter(
             Versioned(originalContract.version, originalContract.createArg),
           ),
           metadata = recomputedMetadata,
-          ledgerTime = CantonTimestamp(ledgerTime),
+          ledgerTime = CantonTimestamp(originalContract.createdAt.time),
           contractSalt = salt,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
       } yield contract

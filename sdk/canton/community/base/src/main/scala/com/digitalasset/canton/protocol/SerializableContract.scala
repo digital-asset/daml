@@ -16,7 +16,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{admin, crypto, protocol}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
@@ -98,16 +98,6 @@ case class SerializableContract(
     version = rawContractInstance.contractInstance.version,
   )
 
-  // Will succeed providing the contract has been authenticated
-  def tryFatContractInstance: FatContractInstance =
-    FatContractInstance.fromCreateNode(
-      toLf,
-      ledgerCreateTime,
-      DriverContractMetadata(contractSalt).toLfBytes(
-        CantonContractIdVersion.tryCantonContractIdVersion(contractId)
-      ),
-    )
-
 }
 
 object SerializableContract
@@ -142,46 +132,8 @@ object SerializableContract
         )
       )
 
-  def fromFatContract(
-      fat: FatContractInstance
-  ): Either[String, SerializableContract] = {
-    val driverContractMetadataBytes = fat.cantonData.toByteArray
-    for {
-      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-      ledgerTime <- (fat.createdAt: CreationTime) match {
-        case CreationTime.Now => Left("Invalid createdAt timestamp")
-        case CreationTime.CreatedAt(ts) => Right(CantonTimestamp(ts))
-      }
-      _disclosedContractIdVersion <- CantonContractIdVersion
-        .extractCantonContractIdVersion(fat.contractId)
-        .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-      salt <- {
-        if (driverContractMetadataBytes.isEmpty)
-          Left[String, Salt](
-            value = "Missing driver contract metadata in provided disclosed contract"
-          )
-        else
-          DriverContractMetadata
-            .fromLfBytes(driverContractMetadataBytes)
-            .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
-            .map(_.salt)
-      }
-      contractInstance = fat.toCreateNode.versionedCoinst
-      cantonContractMetadata <- ContractMetadata.create(
-        signatories = fat.signatories,
-        stakeholders = fat.stakeholders,
-        maybeKeyWithMaintainersVersioned =
-          fat.contractKeyWithMaintainers.map(Versioned(fat.version, _)),
-      )
-      contract <- SerializableContract(
-        contractId = fat.contractId,
-        contractInstance = contractInstance,
-        metadata = cantonContractMetadata,
-        ledgerTime = ledgerTime,
-        contractSalt = salt,
-      ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
-    } yield contract
-  }
+  def fromFatContract(fat: LfFatContractInst): Either[String, SerializableContract] =
+    ContractInstance(fat).map(_.serializable)
 
   def fromProtoV30(
       serializableContractInstanceP: protocol.v30.SerializableContract

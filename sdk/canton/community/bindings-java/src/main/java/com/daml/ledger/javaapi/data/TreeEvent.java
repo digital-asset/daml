@@ -14,6 +14,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * @see ExercisedEvent
  * @see TransactionTree; Interface will be removed in 3.4.0
  */
+// TODO(#23504) remove
+@Deprecated
 public interface TreeEvent {
 
   @NonNull

@@ -5,7 +5,7 @@ import ch.qos.logback.classic.Logger
 
 val logger = TracedLogger(LoggerFactory.getLogger("com.digitalasset.canton").asInstanceOf[Logger])
 
-TraceContext.withNewTraceContext { implicit traceContext =>
+TraceContext.withNewTraceContext("test") { implicit traceContext =>
   logger.debug("some logging debug event")
   logger.error("some logging error")
   logger.debug("some more logging debug event")

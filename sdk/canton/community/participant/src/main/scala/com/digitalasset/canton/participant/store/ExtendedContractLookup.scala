@@ -8,10 +8,10 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.protocol.{
+  ContractInstance,
   ContractMetadata,
   LfContractId,
   LfGlobalKey,
-  SerializableContract,
 }
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
   *   if `contracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
-    private val contracts: Map[LfContractId, SerializableContract],
+    private val contracts: Map[LfContractId, ContractInstance],
     private val keys: Map[LfGlobalKey, Option[LfContractId]],
     private val authenticator: ContractAuthenticator,
 )(protected implicit val ec: ExecutionContext)
@@ -43,14 +43,17 @@ class ExtendedContractLookup(
   ): OptionT[FutureUnlessShutdown, String] =
     lookup(coid).transform {
       case Some(contract) =>
-        authenticator.verifyMetadata(contract, metadata).left.toOption
+        authenticator
+          .verifyMetadata(contract.serializable, metadata)
+          .left
+          .toOption
       case None =>
         Some(s"Failed to find contract $coid")
     }
 
   override def lookup(
       id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, SerializableContract] =
+  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, ContractInstance] =
     OptionT.fromOption[FutureUnlessShutdown](contracts.get(id))
 
   override def lookupKey(key: LfGlobalKey)(implicit

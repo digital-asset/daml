@@ -105,7 +105,6 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -282,9 +281,8 @@ class CantonSyncService(
   def activePSIdForLSId(
       id: SynchronizerId
   ): Option[PhysicalSynchronizerId] =
-    // TODO(#26005): review the usage of singleExpected=true
     synchronizerConnectionConfigStore
-      .getActive(id, singleExpected = true)
+      .getActive(id)
       .toOption
       .flatMap(_.configuredPSId.toOption)
 
@@ -336,7 +334,7 @@ class CantonSyncService(
     )(ec)
 
   if (isActive()) {
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("initialize_state") { implicit traceContext =>
       initializeState()
     }
   }
@@ -435,7 +433,7 @@ class CantonSyncService(
       transactionMeta: TransactionMeta,
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
-      processedDisclosedContracts: ImmArray[FatContractInstance],
+      processedDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
@@ -556,7 +554,7 @@ class CantonSyncService(
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
-      explicitlyDisclosedContracts: ImmArray[FatContractInstance],
+      explicitlyDisclosedContracts: ImmArray[LfFatContractInst],
   )(implicit
       traceContext: TraceContext
   ): Future[Either[SubmissionResult, FutureUnlessShutdown[_]]] = {
@@ -939,7 +937,7 @@ class CantonSyncService(
         case Some(psid) => KnownPhysicalSynchronizerId(psid).asRight[SyncServiceError]
         case None =>
           synchronizerConnectionConfigStore
-            .getActive(config.synchronizerAlias, singleExpected = true)
+            .getActive(config.synchronizerAlias)
             .map(_.configuredPSId)
             .leftMap(err =>
               SyncServiceError.SyncServiceAliasResolution
@@ -950,8 +948,9 @@ class CantonSyncService(
 
       _ <- synchronizerConnectionConfigStore
         .replace(connectionIdToUpdate, config)
-        .leftMap(e =>
-          SyncServiceError.SyncServiceUnknownSynchronizer.Error(e.alias): SyncServiceError
+        .leftMap(_ =>
+          SyncServiceError.SyncServiceUnknownSynchronizer
+            .Error(config.synchronizerAlias): SyncServiceError
         )
     } yield ()
 

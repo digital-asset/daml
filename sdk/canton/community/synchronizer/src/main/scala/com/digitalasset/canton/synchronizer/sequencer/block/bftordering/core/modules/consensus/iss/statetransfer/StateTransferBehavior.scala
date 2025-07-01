@@ -8,9 +8,11 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue.EnqueueResult
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.{
+  CryptoProvider,
+  DelegationCryptoProvider,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -20,10 +22,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   StateTransferType,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
-  CryptoProvider,
-  DelegationCryptoProvider,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochLength,
@@ -44,6 +42,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   PureFun,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue.EnqueueResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
@@ -108,7 +108,7 @@ final class StateTransferBehavior[E <: Env[E]](
   private var cancelledSegments = 0
 
   @VisibleForTesting
-  private[bftordering] val postponedConsensusMessages: FairBoundedQueue[Consensus.Message[E]] =
+  private[iss] val postponedConsensusMessages: FairBoundedQueue[Consensus.Message[E]] =
     new FairBoundedQueue(
       config.consensusQueueMaxSize,
       config.consensusQueuePerNodeQuota,
@@ -137,7 +137,7 @@ final class StateTransferBehavior[E <: Env[E]](
   private var latestCompletedEpoch = initialState.latestCompletedEpoch
 
   @VisibleForTesting
-  private[bftordering] var maybeLastReceivedEpochTopology: Option[Consensus.NewEpochTopology[E]] =
+  private[iss] var maybeLastReceivedEpochTopology: Option[Consensus.NewEpochTopology[E]] =
     None
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
@@ -309,7 +309,7 @@ final class StateTransferBehavior[E <: Env[E]](
   }
 
   @VisibleForTesting
-  private[bftordering] def handleStateTransferMessageResult(
+  private[iss] def handleStateTransferMessageResult(
       result: StateTransferMessageResult,
       messageType: => String,
   )(implicit
@@ -519,7 +519,7 @@ object StateTransferBehavior {
   )
 
   @VisibleForTesting
-  private[bftordering] def unapply(
+  private[iss] def unapply(
       behavior: StateTransferBehavior[?]
   ): Option[
     (

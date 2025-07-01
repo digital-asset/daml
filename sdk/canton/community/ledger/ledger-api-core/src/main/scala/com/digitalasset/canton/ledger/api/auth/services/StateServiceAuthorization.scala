@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class StateServiceAuthorization(
@@ -51,6 +52,8 @@ final class StateServiceAuthorization(
 }
 
 object StateServiceAuthorization {
+  // TODO(#23504) remove checking filter when it is removed from GetActiveContractsRequest
+  @nowarn("cat=deprecation")
   def getActiveContractsClaims(
       request: GetActiveContractsRequest
   ): List[RequiredClaim[GetActiveContractsRequest]] =

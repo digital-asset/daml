@@ -1,6 +1,6 @@
-# BFT ordering service
+# BFT block orderer
 
-A sequencer driver that implements BFT ordering based on [ISS].
+A block orderer that implements BFT ordering based on [ISS].
 
 Documentation can be found in the [docs](docs) folder and design documents in the [design](docs/design) subfolder.
 

@@ -25,9 +25,10 @@ import com.digitalasset.canton.crypto.store.memory.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.CantonCryptoProvider.hashForMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
@@ -109,7 +110,7 @@ final case class SimulationCryptoProvider(
   ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     SimulationFuture("signMessage") { () =>
       Try {
-        innerSign(CryptoProvider.hashForMessage(message, message.from, authenticatedMessageType))
+        innerSign(hashForMessage(message, message.from, authenticatedMessageType))
           .map(SignedMessage(message, _))
       }
     }

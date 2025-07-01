@@ -27,7 +27,7 @@ class SequencerClientRecorder(
   private val submissionRecorder = new MessageRecorder(timeouts, loggerFactory)
   private val eventRecorder = new MessageRecorder(timeouts, loggerFactory)
 
-  withNewTraceContext { implicit traceContext =>
+  withNewTraceContext("sequencer_client_recorder") { implicit traceContext =>
     logger.debug(s"Starting recording of sequencer interactions to [$path]")
     path.getParent.toFile.mkdirs()
 

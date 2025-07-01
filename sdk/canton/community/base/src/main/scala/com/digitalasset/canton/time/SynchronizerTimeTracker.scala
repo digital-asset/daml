@@ -420,41 +420,42 @@ class SynchronizerTimeTracker(
     * sequencer pruning to keep a relatively recent acknowledgment point for the member even if
     * they're not doing anything.
     */
-  private def ensureMinObservationDuration(): Unit = withNewTraceContext { implicit traceContext =>
-    val minObservationDuration = config.minObservationDuration.asJava
-    def performUpdate(expectedUpdateBy: CantonTimestamp): Unit =
-      synchronizeWithClosingSync(functionFullName) {
-        val lastObserved = timestampRef.get().latest.map(_.receivedAt)
+  private def ensureMinObservationDuration(): Unit = withNewTraceContext("min_observation") {
+    implicit traceContext =>
+      val minObservationDuration = config.minObservationDuration.asJava
+      def performUpdate(expectedUpdateBy: CantonTimestamp): Unit =
+        synchronizeWithClosingSync(functionFullName) {
+          val lastObserved = timestampRef.get().latest.map(_.receivedAt)
 
-        // did we see an event within the observation window
-        if (lastObserved.exists(_ >= expectedUpdateBy.minus(minObservationDuration))) {
-          // we did
-          scheduleNextUpdate()
-        } else {
-          // we didn't so ask for a time
-          logger.debug(
-            s"The minimum observation duration $minObservationDuration has elapsed since last observing the synchronizer time (${lastObserved.map(_.toString).getOrElse("never")}) so will request a proof of time"
-          )
-          FutureUtil.doNotAwait(
-            // fetchTime shouldn't fail (if anything it will never complete due to infinite retries or closing)
-            // but ensure schedule is called regardless
-            fetchTime()
-              .thereafter(_ => scheduleNextUpdate())
-              .onShutdown(logger.debug("Stopped fetch time due to shutdown")),
-            "Failed to fetch a time to ensure the minimum observation duration",
-          )
-        }
-      }.onShutdown(())
+          // did we see an event within the observation window
+          if (lastObserved.exists(_ >= expectedUpdateBy.minus(minObservationDuration))) {
+            // we did
+            scheduleNextUpdate()
+          } else {
+            // we didn't so ask for a time
+            logger.debug(
+              s"The minimum observation duration $minObservationDuration has elapsed since last observing the synchronizer time (${lastObserved.map(_.toString).getOrElse("never")}) so will request a proof of time"
+            )
+            FutureUtil.doNotAwait(
+              // fetchTime shouldn't fail (if anything it will never complete due to infinite retries or closing)
+              // but ensure schedule is called regardless
+              fetchTime()
+                .thereafter(_ => scheduleNextUpdate())
+                .onShutdown(logger.debug("Stopped fetch time due to shutdown")),
+              "Failed to fetch a time to ensure the minimum observation duration",
+            )
+          }
+        }.onShutdown(())
 
-    def scheduleNextUpdate(): Unit =
-      synchronizeWithClosingSync(functionFullName) {
-        val latestTimestamp = timestampRef.get().latest.fold(clock.now)(_.receivedAt)
-        val expectUpdateBy = latestTimestamp.add(minObservationDuration).immediateSuccessor
+      def scheduleNextUpdate(): Unit =
+        synchronizeWithClosingSync(functionFullName) {
+          val latestTimestamp = timestampRef.get().latest.fold(clock.now)(_.receivedAt)
+          val expectUpdateBy = latestTimestamp.add(minObservationDuration).immediateSuccessor
 
-        val _ = clock.scheduleAt(performUpdate, expectUpdateBy)
-      }.onShutdown(())
+          val _ = clock.scheduleAt(performUpdate, expectUpdateBy)
+        }.onShutdown(())
 
-    scheduleNextUpdate()
+      scheduleNextUpdate()
   }
 
 }

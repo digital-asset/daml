@@ -168,7 +168,7 @@ abstract class JobScheduler(
 
   private class SchedulerRunnable(job: TraceContext => FutureUnlessShutdown[ScheduledRunResult])
       extends Runnable {
-    override def run(): Unit = TraceContext.withNewTraceContext {
+    override def run(): Unit = TraceContext.withNewTraceContext("run_scheduler_job") {
       implicit traceContext: TraceContext =>
         val future =
           runIfActive(

@@ -49,18 +49,25 @@ class AcsInspection(
       .flatMap(_.traverse { acs =>
         contractStore
           .find(exactId, filterPackage, filterTemplate, limit)
-          .map(_.map(sc => (acs.snapshot.contains(sc.contractId), sc)))
+          .map(
+            _.map(sc => (acs.snapshot.contains(sc.contractId), sc.serializable))
+          ) // TODO(#26348) - use fat contract downstream
       })
       .map(_.getOrElse(Nil))
 
   def findContractPayloads(
-      contractIds: NonEmpty[Seq[LfContractId]],
-      limit: Int,
+      contractIds: NonEmpty[Seq[LfContractId]]
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      ec: ExecutionContext,
   ): FutureUnlessShutdown[
     Map[LfContractId, SerializableContract]
-  ] = contractStore.findWithPayload(contractIds, limit)
+  ] =
+    contractStore.findWithPayload(contractIds).map { contracts =>
+      contracts.view.map { case (cid, contract) =>
+        cid -> contract.serializable
+      }.toMap
+    }
 
   def hasActiveContracts(partyId: PartyId)(implicit
       traceContext: TraceContext,
@@ -283,9 +290,12 @@ class AcsInspection(
 
       stakeholdersE = contractsWithReassignmentCounter
         .traverse_ { case (contract, reassignmentCounter) =>
-          if (parties.exists(contract.metadata.stakeholders)) {
-            allStakeholders ++= contract.metadata.stakeholders
-            f(contract, reassignmentCounter)
+          if (parties.exists(contract.stakeholders)) {
+            allStakeholders ++= contract.stakeholders
+            f(
+              contract.serializable,
+              reassignmentCounter,
+            ) // TODO(#26348) - use fat contract downstream
           } else
             Either.unit
         }

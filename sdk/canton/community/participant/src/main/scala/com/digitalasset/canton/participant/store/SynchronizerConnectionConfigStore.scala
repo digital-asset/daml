@@ -106,7 +106,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       config: SynchronizerConnectionConfig,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit]
+  ): EitherT[FutureUnlessShutdown, Error, Unit]
 
   def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
@@ -135,42 +135,30 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
     * [[SynchronizerConnectionConfigStore.Error]] if the alias is unknown or if no connection is
     * active. If several active configs are found, return the one with the highest
     * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
-    *
-    * @param singleExpected
-    *   If true, fails if more than one active connection exist.
     */
   def getActive(
-      alias: SynchronizerAlias,
-      singleExpected: Boolean,
+      alias: SynchronizerAlias
   ): Either[SynchronizerConnectionConfigStore.Error, StoredSynchronizerConnectionConfig] =
     getAllFor(alias).map(_.filter(_.status.isActive)).map(NonEmpty.from).flatMap {
       case None => NoActiveSynchronizer(alias).asLeft
       case Some(configs) =>
         if (configs.sizeIs == 1)
           configs.head1.asRight
-        else {
-          if (singleExpected)
-            AtMostOnePhysicalActive(alias, configs.map(_.configuredPSId).toSet).asLeft
-          else
-            configs.maxBy1(_.configuredPSId).asRight
-        }
+        else
+          AtMostOnePhysicalActive(alias, configs.map(_.configuredPSId).toSet).asLeft
     }
 
   /** Retrieves the active connection for `id`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the id is unknown or if no connection is
     * active. If several active configs are found, return the one with the highest
     * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
-    *
-    * @param singleExpected
-    *   If true, fails if more than one active connection exist.
     */
   def getActive(
-      id: SynchronizerId,
-      singleExpected: Boolean,
+      id: SynchronizerId
   ): Either[SynchronizerConnectionConfigStore.Error, StoredSynchronizerConnectionConfig] =
     for {
       alias <- aliasResolution.aliasForSynchronizerId(id).toRight(UnknownId(id))
-      config <- getActive(alias, singleExpected = singleExpected)
+      config <- getActive(alias)
     } yield config
 
   /** Retrieves all configured synchronizers connection configs

@@ -18,8 +18,11 @@ import org.scalatest.*
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+// TODO(#23504) remove TransactionTree related methods when TransactionTree is removed from the API
+@nowarn("cat=deprecation")
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     extends OptionValues
     with Inside

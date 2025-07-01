@@ -28,6 +28,7 @@ import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 private[platform] trait LedgerDaoUpdateReader {
@@ -39,11 +40,15 @@ private[platform] trait LedgerDaoUpdateReader {
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdatesResponse), NotUsed]
 
+  // TODO(#23504) remove when getTransactionById is removed
+  @nowarn("cat=deprecation")
   def lookupTransactionById(
       updateId: UpdateId,
       internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
 
+  // TODO(#23504) remove when getTransactionByOffset is removed
+  @nowarn("cat=deprecation")
   def lookupTransactionByOffset(
       offset: Offset,
       internalTransactionFormat: InternalTransactionFormat,
@@ -54,6 +59,8 @@ private[platform] trait LedgerDaoUpdateReader {
       internalUpdateFormat: InternalUpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]]
 
+  // TODO(#23504) remove when getTransactionById is removed
+  @nowarn("cat=deprecation")
   def getTransactionTrees(
       startInclusive: Offset,
       endInclusive: Offset,
@@ -63,12 +70,16 @@ private[platform] trait LedgerDaoUpdateReader {
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
 
+  // TODO(#23504) remove when getTransactionById is removed
+  @nowarn("cat=deprecation")
   def lookupTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
+  // TODO(#23504) remove when getTransactionById is removed
+  @nowarn("cat=deprecation")
   def lookupTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Party],

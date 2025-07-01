@@ -42,7 +42,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, ReassignmentCounter}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -63,14 +63,14 @@ trait ReassignmentStoreTest extends FailOnShutdown {
   private implicit def toOffset(i: Long): Offset = Offset.tryFromLong(i)
 
   protected def reassignmentStore(mk: IndexedSynchronizer => ReassignmentStore): Unit = {
-    val unassignmentData = mkUnassignmentData(reassignment10.sourceSynchronizer, Epoch, mediator1)
+    val unassignmentData = mkUnassignmentData(sourceSynchronizer1, Epoch, mediator1)
     val unassignmentData2 =
-      mkUnassignmentData(reassignment11.sourceSynchronizer, ofEpochSecond(1), mediator1)
+      mkUnassignmentData(sourceSynchronizer1, ofEpochSecond(1), mediator1)
     val unassignmentData3 =
-      mkUnassignmentData(reassignment20.sourceSynchronizer, ofEpochSecond(1), mediator1)
+      mkUnassignmentData(sourceSynchronizer2, ofEpochSecond(1), mediator1)
 
     def unassignmentDataFor(
-        sourceSynchronizer: Source[SynchronizerId],
+        sourceSynchronizer: Source[PhysicalSynchronizerId],
         unassignmentTs: CantonTimestamp,
         contract: SerializableContract,
     ): UnassignmentData = mkUnassignmentData(
@@ -81,7 +81,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
     )
 
     val ts = CantonTimestamp.ofEpochSecond(3)
-    def unassignId(i: Int) = UnassignId(TestHash.digest(i))
 
     "lookup" should {
       "find previously stored reassignments" in {
@@ -219,6 +218,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       val data = unassignmentData
       val assignmentData = AssignmentData(
         data.reassignmentId,
+        data.sourceSynchronizer,
         data.contracts,
       )
 
@@ -281,6 +281,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
             data.reassignmentId,
             data.sourceMediator,
             data.unassignmentRequest.submitter,
+            data.sourceSynchronizer,
             targetSynchronizer,
             contract,
           )
@@ -310,6 +311,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           entry1 shouldBe Right(
             ReassignmentEntry(
               data.reassignmentId,
+              data.sourceSynchronizer,
               NonEmpty.mk(Seq, contract),
               None,
               None,
@@ -354,7 +356,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
         val data = (1L until 13).flatMap { i =>
           val reassignmentData =
-            unassignmentDataFor(reassignmentId.sourceSynchronizer, ofEpochSecond(i), contract)
+            unassignmentDataFor(unassignmentData.sourceSynchronizer, ofEpochSecond(i), contract)
 
           val mod = 4
 
@@ -582,7 +584,6 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       ): Assertion = {
         val expectedIncomplete = expectedReassignmentEntries.map { expectedReassignmentEntry =>
           IncompleteReassignmentData.tryCreate(
-            expectedReassignmentEntry.sourceSynchronizer,
             expectedReassignmentEntry.reassignmentId.unassignId,
             expectedReassignmentEntry.unassignmentRequest,
             expectedReassignmentEntry.reassignmentGlobalOffset,
@@ -715,6 +716,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
         val unassignmentOffset = 20L
         val assignmentData = AssignmentData(
           unassignmentData.reassignmentId,
+          unassignmentData.sourceSynchronizer,
           unassignmentData.contracts,
         )
 
@@ -821,11 +823,8 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
         val contracts = Seq(aliceContract, bobContract, aliceContract, bobContract)
         val reassignmentsData = contracts.zipWithIndex.map { case (contract, idx) =>
-          val reassignmentId =
-            ReassignmentId(sourceSynchronizer1, unassignId(idx))
-
           unassignmentDataFor(
-            reassignmentId.sourceSynchronizer,
+            sourceSynchronizer1,
             ofEpochSecond(idx.toLong),
             contract,
           )
@@ -1171,11 +1170,11 @@ trait ReassignmentStoreTest extends FailOnShutdown {
         val store = mk(indexedTargetSynchronizer)
 
         val unassignmentData10 =
-          mkUnassignmentData(reassignment10.sourceSynchronizer, Epoch, mediator1)
+          mkUnassignmentData(sourceSynchronizer1, Epoch, mediator1)
         val unassignmentData11 =
-          mkUnassignmentData(reassignment11.sourceSynchronizer, ofEpochSecond(1), mediator1)
+          mkUnassignmentData(sourceSynchronizer1, ofEpochSecond(1), mediator1)
         val unassignmentData12 =
-          mkUnassignmentData(reassignment20.sourceSynchronizer, ofEpochSecond(1), mediator2)
+          mkUnassignmentData(sourceSynchronizer2, ofEpochSecond(1), mediator2)
 
         for {
 
@@ -1322,19 +1321,19 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
         val aliceReassignment =
           mkUnassignmentData(
-            reassignment10.sourceSynchronizer,
+            sourceSynchronizer1,
             Epoch,
             mediator1,
             LfPartyId.assertFromString("alice"),
           )
         val bobReassignment = mkUnassignmentData(
-          reassignment11.sourceSynchronizer,
+          sourceSynchronizer1,
           ofEpochSecond(1),
           mediator1,
           LfPartyId.assertFromString("bob"),
         )
         val eveReassignment = mkUnassignmentData(
-          reassignment20.sourceSynchronizer,
+          sourceSynchronizer2,
           ofEpochSecond(1),
           mediator2,
           LfPartyId.assertFromString("eve"),
@@ -1418,7 +1417,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2")
   ).toPhysical
   val sourceSynchronizer2 = Source(
-    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2")).toPhysical
   )
   val targetSynchronizer2 = Target(
     SynchronizerId(UniqueIdentifier.tryCreate("synchronizer2", "SYNCHRONIZER2"))
@@ -1435,11 +1434,9 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     SynchronizerId(UniqueIdentifier.tryCreate("target", "SYNCHRONIZER"))
   )
 
-  val reassignment10 =
-    ReassignmentId(sourceSynchronizer1.map(_.logical), UnassignId(TestHash.digest(0)))
-  val reassignment11 =
-    ReassignmentId(sourceSynchronizer1.map(_.logical), UnassignId(TestHash.digest(1)))
-  val reassignment20 = ReassignmentId(sourceSynchronizer2, UnassignId(TestHash.digest(1)))
+  val reassignment10 = ReassignmentId(UnassignId(TestHash.digest(0)))
+  val reassignment11 = ReassignmentId(UnassignId(TestHash.digest(1)))
+  val reassignment20 = ReassignmentId(UnassignId(TestHash.digest(2)))
 
   val loggerFactoryNotUsed = NamedLoggerFactory.unnamedKey("test", "NotUsed-ReassignmentStoreTest")
   val ec: ExecutionContext = DirectExecutionContext(
@@ -1470,18 +1467,19 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
+      sourceSynchronizerId: Source[PhysicalSynchronizerId],
       targetSynchronizerId: Target[SynchronizerId],
       contract: SerializableContract = contract,
       unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
 
     val identityFactory = TestingTopology()
-      .withSynchronizers(reassignmentId.sourceSynchronizer.unwrap.toPhysical)
+      .withSynchronizers(sourceSynchronizerId.unwrap)
       .build(loggerFactoryNotUsed)
 
     val helpers = ReassignmentDataHelpers(
       contract,
-      reassignmentId.sourceSynchronizer.map(_.toPhysical),
+      sourceSynchronizerId,
       targetSynchronizerId.map(_.toPhysical),
       identityFactory,
     )
@@ -1496,18 +1494,26 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   }
 
   private def mkUnassignmentData(
-      sourceSynchronizer: Source[SynchronizerId],
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
       unassignmentTs: CantonTimestamp,
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       contract: SerializableContract = contract,
   ): UnassignmentData = {
     val reassignmentId =
-      ReassignmentId(sourceSynchronizer, UnassignId(sourceSynchronizer, unassignmentTs))
+      ReassignmentId(
+        UnassignId(
+          sourceSynchronizer.map(_.logical),
+          targetSynchronizer,
+          unassignmentTs,
+          Seq(contract.contractId -> ReassignmentCounter(0)),
+        )
+      )
     mkUnassignmentDataForSynchronizer(
       reassignmentId,
       sourceMediator,
       submitter,
+      sourceSynchronizer,
       targetSynchronizerId,
       contract,
       unassignmentTs = unassignmentTs,

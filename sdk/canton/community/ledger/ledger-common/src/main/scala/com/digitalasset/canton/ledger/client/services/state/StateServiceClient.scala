@@ -16,7 +16,7 @@ import com.daml.ledger.api.v2.state_service.{
   GetLedgerEndRequest,
   GetLedgerEndResponse,
 }
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, TransactionFilter}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
@@ -31,6 +31,11 @@ class StateServiceClient(service: StateServiceStub)(implicit
 ) {
 
   /** Returns a stream of GetActiveContractsResponse messages. */
+  // TODO(#26401) remove when TransactionFilter is removed
+  @deprecated(
+    "Use getActiveContractsSource with EventFormat instead",
+    "3.4.0",
+  )
   def getActiveContractsSource(
       filter: TransactionFilter,
       validAtOffset: Long,
@@ -48,7 +53,29 @@ class StateServiceClient(service: StateServiceStub)(implicit
         LedgerClient.stubWithTracing(service, token).getActiveContracts,
       )
 
+  /** Returns a stream of GetActiveContractsResponse messages. */
+  def getActiveContractsSource(
+      eventFormat: EventFormat,
+      validAtOffset: Long,
+      token: Option[String],
+  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
+    ClientAdapter
+      .serverStreaming(
+        GetActiveContractsRequest(
+          filter = None,
+          verbose = false,
+          activeAtOffset = validAtOffset,
+          eventFormat = Some(eventFormat),
+        ),
+        LedgerClient.stubWithTracing(service, token).getActiveContracts,
+      )
+
   /** Returns the resulting active contract set */
+  // TODO(#26401) remove when TransactionFilter is removed
+  @deprecated(
+    "Use getActiveContracts with EventFormat instead",
+    "3.4.0",
+  )
   def getActiveContracts(
       filter: TransactionFilter,
       validAtOffset: Long,
@@ -60,6 +87,24 @@ class StateServiceClient(service: StateServiceStub)(implicit
   ): Future[Seq[ActiveContract]] =
     for {
       contracts <- getActiveContractsSource(filter, validAtOffset, verbose, token).runWith(Sink.seq)
+      active = contracts
+        .map(_.contractEntry)
+        .collect { case ContractEntry.ActiveContract(value) =>
+          value
+        }
+    } yield active
+
+  /** Returns the resulting active contract set */
+  def getActiveContracts(
+      eventFormat: EventFormat,
+      validAtOffset: Long,
+      token: Option[String],
+  )(implicit
+      materializer: Materializer,
+      traceContext: TraceContext,
+  ): Future[Seq[ActiveContract]] =
+    for {
+      contracts <- getActiveContractsSource(eventFormat, validAtOffset, token).runWith(Sink.seq)
       active = contracts
         .map(_.contractEntry)
         .collect { case ContractEntry.ActiveContract(value) =>

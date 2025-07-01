@@ -16,6 +16,11 @@ import org.apache.pekko.stream.scaladsl.Source
 class UpdateServiceClient(service: UpdateServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
+  // TODO(#26401) use EventFormat instead of TransactionFilter
+  @deprecated(
+    "Use getUpdatesSource with EventFormat instead",
+    "3.4.0",
+  )
   def getUpdatesSource(
       begin: Long,
       filter: TransactionFilter,

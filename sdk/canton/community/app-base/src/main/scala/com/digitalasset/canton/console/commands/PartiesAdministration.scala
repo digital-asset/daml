@@ -655,7 +655,7 @@ object TopologySynchronisation {
       partyAssignment: Set[(PartyId, T)],
       timeout: NonNegativeDuration,
   )(implicit env: ConsoleEnvironment): Unit =
-    TraceContext.withNewTraceContext { _ =>
+    TraceContext.withNewTraceContext("await_topology") { _ =>
       ConsoleMacros.utils.retry_until_true(timeout) {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)

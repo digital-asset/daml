@@ -463,7 +463,7 @@ class RemoteClock(
 
   private def getCurrentRemoteTime: CantonTimestamp =
     // Use a fresh trace context for each separate time update request and its retries.
-    TraceContext.withNewTraceContext { implicit traceContext =>
+    TraceContext.withNewTraceContext("get_current_remote_time") { implicit traceContext =>
       val fut = Pause(
         logger,
         this,

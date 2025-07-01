@@ -22,7 +22,7 @@ class PeriodicAction(
 ) extends NamedLogging
     with FlagCloseable {
 
-  TraceContext.withNewTraceContext(setupNextCheck()(_))
+  TraceContext.withNewTraceContext(description)(setupNextCheck()(_))
 
   private def runCheck()(implicit traceContext: TraceContext): Unit =
     synchronizeWithClosing(s"run-$description")(check(traceContext))

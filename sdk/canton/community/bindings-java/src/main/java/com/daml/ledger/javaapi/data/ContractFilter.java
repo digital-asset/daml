@@ -17,8 +17,9 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * This class contains utilities to decode a <code>CreatedEvent</code> and create a <code>
- * TransactionFilter</code> by provider parties It can only be instantiated with a subtype of <code>
+ * This class contains utilities to decode a <code>CreatedEvent</code> and create an <code>
+ * UpdateFormat</code>, a <code>TransactionFormat</code> or a <code>EventFormat</code> by provided
+ * parties. It can only be instantiated with a subtype of <code>
  * ContractCompanion</code>
  */
 public final class ContractFilter<Ct> {
@@ -111,10 +112,14 @@ public final class ContractFilter<Ct> {
   }
 
   /** Method will be removed in 3.4.0 */
+  // TODO(#23504) remove
+  @Deprecated
   public TransactionFilter transactionFilter(Optional<Set<String>> parties) {
     return transactionFilter(filter, parties);
   }
 
+  // TODO(#23504) remove
+  @Deprecated
   private static TransactionFilter transactionFilter(
       Filter filter, Optional<Set<String>> partiesO) {
     Map<String, Filter> partyToFilters =

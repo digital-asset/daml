@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import com.digitalasset.canton.protocol.SerializableContract
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.canton.protocol.{LfFatContractInst, SerializableContract}
 
 object ContractAuthenticators {
   type AuthenticateSerializableContract = SerializableContract => Either[String, Unit]
-  type AuthenticateFatContractInstance = FatContractInstance => Either[String, Unit]
+  type AuthenticateFatContractInstance = LfFatContractInst => Either[String, Unit]
 }

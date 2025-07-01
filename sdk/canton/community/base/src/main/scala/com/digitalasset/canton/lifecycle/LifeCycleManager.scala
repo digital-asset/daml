@@ -584,7 +584,7 @@ object LifeCycleManager {
         traceContext: TraceContext
     ): A = {
       val closeTraceContext =
-        if (traceContext == TraceContext.empty) TraceContext.createNew() else traceContext
+        if (traceContext == TraceContext.empty) TraceContext.createNew("close") else traceContext
       f(closeTraceContext)
     }
 

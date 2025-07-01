@@ -10,8 +10,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector.BootstrapKind
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.InitialState
@@ -32,7 +32,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   HasDelayedInit,
   shortType,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochLength,
@@ -62,6 +61,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.FairBoundedQueue
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -137,13 +137,14 @@ final class IssConsensusModule[E <: Env[E]](
 
   private var latestCompletedEpoch: EpochStore.Epoch = initialState.latestCompletedEpoch
   @VisibleForTesting
-  private[bftordering] def getLatestCompletedEpoch: EpochStore.Epoch = latestCompletedEpoch
+  private[iss] def getLatestCompletedEpoch: EpochStore.Epoch = latestCompletedEpoch
 
   private var epochState = initialState.epochState
   @VisibleForTesting
-  private[bftordering] def getEpochState: EpochState[E] = epochState
+  private[iss] def getEpochState: EpochState[E] = epochState
 
   private var consensusWaitingForEpochCompletionSince: Option[Instant] = None
+  private var consensusWaitingForEpochStartSince: Option[Instant] = None
 
   // TODO(#16761) resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit = ()
@@ -285,6 +286,7 @@ final class IssConsensusModule[E <: Env[E]](
             s"Received NewEpochTopology event for epoch $newEpochNumber, but the epoch has already started; ignoring it"
           )
         } else if (currentEpochNumber == newEpochNumber - 1) {
+          emitEpochStartLatency()
           startNewEpochUnlessOffboarded(
             currentEpochInfo,
             newEpochInfo,
@@ -463,7 +465,8 @@ final class IssConsensusModule[E <: Env[E]](
 
         epochState.epochCompletionStatus match {
           case EpochState.Complete(commitCertificates) =>
-            emitNewEpochWaitLatency()
+            emitEpochCompletionWaitLatency()
+            consensusWaitingForEpochStartSince = Some(Instant.now())
             storeEpochCompletion(commitCertificates).discard
           case _ => ()
         }
@@ -531,6 +534,7 @@ final class IssConsensusModule[E <: Env[E]](
 
       newEpochTopology match {
         case Some(Consensus.NewEpochTopology(newEpochNumber, newMembership, cryptoProvider)) =>
+          emitEpochStartLatency()
           val currentEpochInfo = epochState.epoch.info
           val newEpochInfo = currentEpochInfo.next(
             epochLength,
@@ -830,7 +834,7 @@ final class IssConsensusModule[E <: Env[E]](
     epochSnapshot
   }
 
-  private def emitNewEpochWaitLatency(): Unit = {
+  private def emitEpochCompletionWaitLatency(): Unit = {
     import metrics.performance.orderingStageLatency.*
     emitOrderingStageLatency(
       labels.stage.values.consensus.EpochCompletionWait,
@@ -841,6 +845,18 @@ final class IssConsensusModule[E <: Env[E]](
 
   private def resetConsensusWaitingForEpochCompletion(): Unit =
     consensusWaitingForEpochCompletionSince = None
+
+  private def emitEpochStartLatency(): Unit = {
+    import metrics.performance.orderingStageLatency.*
+    emitOrderingStageLatency(
+      labels.stage.values.consensus.EpochStartWait,
+      consensusWaitingForEpochStartSince,
+      cleanup = () => resetConsensusWaitingForEpochStart(),
+    )
+  }
+
+  private def resetConsensusWaitingForEpochStart(): Unit =
+    consensusWaitingForEpochStartSince = None
 }
 
 object IssConsensusModule {
@@ -947,7 +963,7 @@ object IssConsensusModule {
     }
 
   @VisibleForTesting
-  private[bftordering] def unapply(issConsensusModule: IssConsensusModule[?]): Option[
+  private[iss] def unapply(issConsensusModule: IssConsensusModule[?]): Option[
     (
         EpochLength,
         Option[SequencerSnapshotAdditionalInfo],

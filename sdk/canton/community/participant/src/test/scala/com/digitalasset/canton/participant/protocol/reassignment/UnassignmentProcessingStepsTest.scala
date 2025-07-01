@@ -198,7 +198,10 @@ final class UnassignmentProcessingStepsTest
   private lazy val unassignmentRequest = UnassignmentRequest(
     submitterMetadata = submitterMetadata(party1),
     reassigningParticipants = Set(submittingParticipant),
-    ContractsReassignmentBatch(contract, initialReassignmentCounter),
+    ContractsReassignmentBatch(
+      contract.serializable,
+      initialReassignmentCounter,
+    ),
     sourceSynchronizer,
     sourceMediator,
     targetSynchronizer,
@@ -309,12 +312,9 @@ final class UnassignmentProcessingStepsTest
       targetSynchronizer = targetSynchronizer,
     )
 
-  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-    metadata = ContractMetadata.tryCreate(
-      signatories = Set(submitter),
-      stakeholders = Set(submitter, party1),
-      maybeKeyWithMaintainersVersioned = None,
-    )
+  private lazy val contract = ExampleContractFactory.build(
+    signatories = Set(submitter),
+    stakeholders = Set(submitter, party1),
   )
   private lazy val contractId = contract.contractId
 
@@ -353,14 +353,32 @@ final class UnassignmentProcessingStepsTest
         stakeholdersOverride: Option[Stakeholders] = None,
     ): Either[ReassignmentValidationError, UnassignmentRequestValidated] = {
       val updatedContract = stakeholdersOverride.fold(contract)(stakeholders =>
-        contract.copy(metadata = ContractMetadata(stakeholders))
+        ExampleContractFactory.build(
+          signatories = stakeholders.signatories,
+          stakeholders = stakeholders.all,
+          overrideContractId = Some(contract.contractId),
+        )
       )
+      mkUnassignmentResultForContract(
+        sourceTopologySnapshot,
+        targetTopologySnapshot,
+        updatedContract,
+      )
+    }
 
+    def mkUnassignmentResultForContract(
+        sourceTopologySnapshot: TopologySnapshot,
+        targetTopologySnapshot: TopologySnapshot,
+        updatedContract: ContractInstance,
+    ): Either[ReassignmentValidationError, UnassignmentRequestValidated] =
       UnassignmentRequest
         .validated(
           submittingParticipant,
           timeProof,
-          ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
+          ContractsReassignmentBatch(
+            updatedContract.serializable,
+            initialReassignmentCounter,
+          ),
           submitterMetadata(submitter),
           sourceSynchronizer,
           sourceMediator,
@@ -371,7 +389,6 @@ final class UnassignmentProcessingStepsTest
         .value
         .failOnShutdown
         .futureValue
-    }
 
     "fail if submitter is not a stakeholder" in {
       val stakeholders = Stakeholders.tryCreate(Set(party1, party2), Set(party2))
@@ -408,7 +425,7 @@ final class UnassignmentProcessingStepsTest
         )
       )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set(submitter))
       mkUnassignmentResult(
         testingTopology,
         ipsNoSubmissionOnTarget,
@@ -471,7 +488,8 @@ final class UnassignmentProcessingStepsTest
           packagesOverride = Some(Map.empty), // The package is not known on the target synchronizer
         )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set())
+      val stakeholders =
+        Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set(submitter))
       val result = mkUnassignmentResult(
         sourceTopologySnapshot = sourceSynchronizerTopology,
         targetTopologySnapshot = targetSynchronizerTopology,
@@ -481,8 +499,8 @@ final class UnassignmentProcessingStepsTest
       val expectedError = PackageIdUnknownOrUnvetted(
         Set(contractId),
         unknownTo = List(
-          PackageUnknownTo(ExampleTransactionFactory.packageId, submittingParticipant),
           PackageUnknownTo(ExampleTransactionFactory.packageId, participant1),
+          PackageUnknownTo(ExampleTransactionFactory.packageId, submittingParticipant),
         ),
       )
 
@@ -515,7 +533,7 @@ final class UnassignmentProcessingStepsTest
 
       // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target synchronizer
       val stakeholders =
-        Stakeholders.tryCreate(Set(submitter, party1, adminSubmitter, admin1), Set())
+        Stakeholders.tryCreate(Set(submitter, party1, adminSubmitter, admin1), Set(submitter))
 
       val result =
         mkUnassignmentResult(
@@ -549,7 +567,10 @@ final class UnassignmentProcessingStepsTest
           UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
             reassigningParticipants = Set(submittingParticipant, participant1),
-            contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
+            contracts = ContractsReassignmentBatch(
+              contract.serializable,
+              initialReassignmentCounter,
+            ),
             sourceSynchronizer = sourceSynchronizer,
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
@@ -586,7 +607,10 @@ final class UnassignmentProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             reassigningParticipants =
               Set(submittingParticipant, participant1, participant3, participant4),
-            contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
+            contracts = ContractsReassignmentBatch(
+              contract.serializable,
+              initialReassignmentCounter,
+            ),
             sourceSynchronizer = sourceSynchronizer,
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
@@ -597,27 +621,25 @@ final class UnassignmentProcessingStepsTest
     }
 
     "allow admin parties as stakeholders" in {
-      val stakeholders = Set(submitter, adminSubmitter, admin1)
-      val updatedContract = contract.copy(metadata =
-        ContractMetadata.tryCreate(
-          signatories = Set(),
-          stakeholders = stakeholders,
-          None,
-        )
-      )
 
-      val unassignmentResult = mkUnassignmentResult(
-        testingTopology,
-        testingTopology,
-        stakeholdersOverride = Some(Stakeholders(updatedContract.metadata)),
-      ).value
+      val updatedContract =
+        ExampleContractFactory.build(
+          signatories = Set(submitter),
+          stakeholders = Set(submitter, adminSubmitter, admin1),
+        )
+
+      val unassignmentResult =
+        mkUnassignmentResultForContract(testingTopology, testingTopology, updatedContract).value
 
       val expectedUnassignmentResult = UnassignmentRequestValidated(
         UnassignmentRequest(
           submitterMetadata = submitterMetadata(submitter),
           // Because admin1 is a stakeholder, participant1 is reassigning
           reassigningParticipants = Set(submittingParticipant, participant1),
-          contracts = ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
+          contracts = ContractsReassignmentBatch(
+            updatedContract.serializable,
+            initialReassignmentCounter,
+          ),
           sourceSynchronizer = sourceSynchronizer,
           sourceMediator = sourceMediator,
           targetSynchronizer = targetSynchronizer,
@@ -662,13 +684,10 @@ final class UnassignmentProcessingStepsTest
 
     "check that the target synchronizer is not equal to the source synchronizer" in {
       val state = mkState
-      val contract = ExampleTransactionFactory.asSerializable(
-        contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(),
-      )
+      val contract = ExampleContractFactory.build()
       val submissionParam = UnassignmentProcessingSteps.SubmissionParam(
         submitterMetadata = submitterMetadata(party1),
-        Seq(contractId),
+        Seq(contract.contractId),
         Target(sourceSynchronizer.unwrap),
       )
 
@@ -732,7 +751,10 @@ final class UnassignmentProcessingStepsTest
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
         reassigningParticipants = Set(submittingParticipant),
-        ContractsReassignmentBatch(contract, initialReassignmentCounter),
+        ContractsReassignmentBatch(
+          contract.serializable,
+          initialReassignmentCounter,
+        ),
         sourceSynchronizer,
         sourceMediator,
         targetSynchronizer,
@@ -800,7 +822,7 @@ final class UnassignmentProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
       val state = mkState
-      val reassignmentId = ReassignmentId(sourceSynchronizer, UnassignId(TestHash.digest(0)))
+      val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
       val rootHash = TestHash.dummyRootHash
       val reassignmentResult =
         ConfirmationResultMessage.create(

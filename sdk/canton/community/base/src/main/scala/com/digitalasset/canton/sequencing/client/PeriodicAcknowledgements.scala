@@ -91,7 +91,7 @@ class PeriodicAcknowledgements(
   }
 
   private def scheduleNextUpdate(): Unit =
-    withNewTraceContext { implicit traceContext =>
+    withNewTraceContext("schedule_next_periodic_ack") { implicit traceContext =>
       synchronizeWithClosingSync(functionFullName)(
         clock
           .scheduleAfter(
@@ -112,7 +112,7 @@ class PeriodicAcknowledgements(
   def flush(): Future[Unit] = doFlush()
 
   // perform one update immediate and then schedule the next
-  withNewTraceContext { implicit traceContext =>
+  withNewTraceContext("flush_ack") { implicit traceContext =>
     update()
   }
   scheduleNextUpdate()
