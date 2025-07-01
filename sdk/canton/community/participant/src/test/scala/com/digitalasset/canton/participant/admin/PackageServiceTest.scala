@@ -112,7 +112,7 @@ class PackageServiceTest
         engine = engine,
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
-        enableStrictDarValidation = false,
+        enableStrictDarValidation = true,
         futureSupervisor = FutureSupervisor.Noop,
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,
@@ -277,7 +277,7 @@ class PackageServiceTest
         } yield succeed
     }
 
-    // FIXME: happy path
+    // FIXME: happy path?
     "validate DAR and packages from bytes" in withEnvUS { env =>
       import env.*
 
@@ -327,7 +327,7 @@ class PackageServiceTest
       }).unwrap.map(_.failOnShutdown)
     }
 
-    // FIXME: failure path
+    // FIXME: failure path?
     "validateDar validates the package" in withEnv { env =>
       import env.*
 
