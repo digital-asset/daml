@@ -385,8 +385,8 @@ message ScriptError {
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
-    CryptoError crypto_error = 48;
-    // next is 49;
+    CryptoError crypto_error = 47;
+    // next is 48;
   }
 }
 
