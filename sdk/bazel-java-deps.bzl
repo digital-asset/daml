@@ -321,6 +321,8 @@ def install_java_deps():
         artifacts = [
             "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
             "io.gatling:gatling-app:3.5.1",
+            "io.netty:netty.common:4.1.110.Final",
+            "io.netty:netty.transport:4.1.110.Final",
         ],
         repositories = [
             "https://repo1.maven.org/maven2",
