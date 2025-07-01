@@ -839,6 +839,11 @@ MalformedSignature :: Text -> CryptoErrorType
 
 signatureValue :: CryptoErrorType -> Text
 
+@url https://docs.daml.com/daml-script/api/Daml-Script-Internal-Questions-Submit-Error.html#constr-daml-script-internal-questions-submit-error-malformedcontractid-56895
+MalformedContractId :: Text -> CryptoErrorType
+
+contractIdValue :: CryptoErrorType -> Text
+
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal-Questions-Submit-Error.html#type-daml-script-internal-questions-submit-error-deverrortype-71788
 data DevErrorType
