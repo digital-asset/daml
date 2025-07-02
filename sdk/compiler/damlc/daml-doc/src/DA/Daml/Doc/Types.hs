@@ -16,8 +16,12 @@ import Data.String
 import qualified Data.HashMap.Strict as HMS
 
 -- | Doc text type, presumably Markdown format.
-newtype DocText = DocText { unDocText :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+-- Split by lines
+newtype DocText = DocText { unDocText :: [Text] }
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
+
+instance IsString DocText where
+    fromString = DocText . T.lines . T.pack
 
 -- | Field name, starting with lowercase
 newtype Fieldname = Fieldname { unFieldname :: Text }
@@ -59,6 +63,12 @@ data Type = TypeApp !(Maybe Reference) !Typename [Type] -- ^ Type application
 newtype Context = Context [Type]
   deriving (Eq, Ord, Show, Generic)
 
+-- | Warnings or deprecations for module or declarations
+data WarnOrDeprecatedData
+    = WarnData [T.Text]
+    | DeprecatedData [T.Text]
+  deriving (Eq, Ord, Show, Generic)
+
 getTypeAppAnchor :: Type -> Maybe Anchor
 getTypeAppAnchor = \case
     TypeApp refM _ _ -> referenceAnchor <$> refM
@@ -97,6 +107,7 @@ data ModuleDoc = ModuleDoc
   { md_anchor     :: Maybe Anchor
   , md_name       :: Modulename
   , md_descr      :: Maybe DocText
+  , md_warn       :: Maybe WarnOrDeprecatedData
   , md_templates  :: [TemplateDoc]
   , md_interfaces :: [InterfaceDoc]
   , md_adts       :: [ADTDoc]
@@ -114,7 +125,8 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor    :: Maybe Anchor
   , td_name      :: Typename
-  , td_descr     :: Maybe DocText
+  , td_descr     :: [DocText]
+  , td_warns     :: [WarnOrDeprecatedData]
   , td_signatory :: Maybe [String]
   , td_payload   :: [FieldDoc]
   , td_choices   :: [ChoiceDoc]
@@ -127,7 +139,8 @@ data InterfaceDoc = InterfaceDoc
   , if_name :: Typename
   , if_choices :: [ChoiceDoc]
   , if_methods :: [MethodDoc]
-  , if_descr :: Maybe DocText
+  , if_descr :: [DocText]
+  , if_warns :: [WarnOrDeprecatedData]
   , if_interfaceInstances :: [InterfaceInstanceDoc]
   , if_viewtype :: Maybe InterfaceViewtypeDoc
   }
@@ -145,7 +158,8 @@ data InterfaceInstanceDoc = InterfaceInstanceDoc
 data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
   , cl_name :: Typename
-  , cl_descr :: Maybe DocText
+  , cl_descr :: [DocText]
+  , cl_warns :: [WarnOrDeprecatedData]
   , cl_super :: Context
   , cl_args :: [Text]
   , cl_methods :: [ClassMethodDoc]
@@ -191,14 +205,16 @@ data ClassMethodDoc = ClassMethodDoc
         -- 'cm_localContext' is that the former has the containing
         -- typeclass in the context, but the latter does not.
     , cm_type :: Type
-    , cm_descr :: Maybe DocText
+    , cm_descr :: [DocText]
+    , cm_warns :: [WarnOrDeprecatedData]
     } deriving (Eq, Show, Generic)
 
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
   { ad_anchor :: Maybe Anchor
   , ad_name   :: Typename
-  , ad_descr  :: Maybe DocText
+  , ad_descr  :: [DocText]
+  , ad_warns  :: [WarnOrDeprecatedData]
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
   , ad_instances :: Maybe [InstanceDoc] -- relevant instances
@@ -206,7 +222,8 @@ data ADTDoc = ADTDoc
   | TypeSynDoc
   { ad_anchor :: Maybe Anchor
   , ad_name   :: Typename
-  , ad_descr  :: Maybe DocText
+  , ad_descr  :: [DocText]
+  , ad_warns  :: [WarnOrDeprecatedData]
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
   , ad_instances :: Maybe [InstanceDoc] -- relevant instances
@@ -218,12 +235,12 @@ data ADTDoc = ADTDoc
 data ADTConstr =
     PrefixC { ac_anchor :: Maybe Anchor
             , ac_name :: Typename
-            , ac_descr :: Maybe DocText
+            , ac_descr :: [DocText]
             , ac_args :: [Type]   -- use retained var.names
             }
   | RecordC { ac_anchor :: Maybe Anchor
             , ac_name :: Typename
-            , ac_descr :: Maybe DocText
+            , ac_descr :: [DocText]
             , ac_fields :: [FieldDoc]
             }
   deriving (Eq, Show, Generic)
@@ -235,7 +252,8 @@ data ADTConstr =
 data ChoiceDoc = ChoiceDoc
   { cd_anchor     :: Maybe Anchor
   , cd_name       :: Typename
-  , cd_descr      :: Maybe DocText
+  , cd_descr      :: [DocText]
+  , cd_warns      :: [WarnOrDeprecatedData]
   , cd_controller :: Maybe [String]
   , cd_fields     :: [FieldDoc]
   , cd_type       :: Type
@@ -245,7 +263,8 @@ data ChoiceDoc = ChoiceDoc
 data MethodDoc = MethodDoc
   { mtd_name :: Typename
   , mtd_type :: Type
-  , mtd_descr :: Maybe DocText
+  , mtd_descr :: [DocText]
+  , mtd_warns :: [WarnOrDeprecatedData]
   }
   deriving (Eq, Show, Generic)
 
@@ -267,7 +286,8 @@ data FunctionDoc = FunctionDoc
   , fct_name  :: Fieldname
   , fct_context :: Context
   , fct_type  :: Type
-  , fct_descr :: Maybe DocText
+  , fct_descr :: [DocText]
+  , fct_warns :: [WarnOrDeprecatedData]
   } deriving (Eq, Show, Generic)
 
 -- | Documentation on a typeclass instance.
@@ -276,7 +296,8 @@ data InstanceDoc = InstanceDoc
     , id_module :: Modulename
     , id_context :: Context
     , id_isOrphan :: Bool
-    , id_descr :: Maybe DocText
+    , id_descr :: [DocText]
+    , id_warns :: [WarnOrDeprecatedData]
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------
@@ -292,6 +313,12 @@ instance ToJSON Type where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON Type where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON WarnOrDeprecatedData where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON WarnOrDeprecatedData where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON Context where

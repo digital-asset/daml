@@ -35,7 +35,7 @@ docToText :: HsDocString -> DocText
 docToText = docToText' . T.pack . unpackHDS
 
 docToText' :: T.Text -> DocText
-docToText' = DocText . T.strip . T.unlines . go . T.lines
+docToText' = DocText . go . T.lines
   where
     -- For a haddock comment of the form
     --

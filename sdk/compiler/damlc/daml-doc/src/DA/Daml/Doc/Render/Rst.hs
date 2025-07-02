@@ -30,7 +30,9 @@ renderRst env = \case
     RenderList items -> spaced (map (bullet . renderRst env) items)
     RenderRecordFields fields -> renderRstFields env fields
     RenderParagraph text -> [renderRstText env text]
-    RenderDocs docText -> docTextToRst docText
+    RenderDocs docText -> textToRst $ unDocText docText
+    RenderWarnOrDeprecated (WarnData txt) -> ".. warning::" : indent (textToRst txt)
+    RenderWarnOrDeprecated (DeprecatedData txt) -> ".. warning::" : indent (textToRst $ "DEPRECATED:" : txt)
     RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
     RenderIndex moduleNames ->
         [ T.concat
@@ -75,7 +77,7 @@ renderRstText env = \case
                     -- We use :ref: to get automatic cross-referencing
                     -- across all pages. This is a Sphinx extension.
     RenderDocsInline docText ->
-        T.unwords (docTextToRst docText)
+        T.unwords (textToRst $ unDocText docText)
 
 -- Utilities
 
@@ -131,8 +133,8 @@ renderRstFields env fields = concat
         ]
 
 -- TODO (MK) Handle doctest blocks. Currently the parse as nested blockquotes.
-docTextToRst :: DocText -> [T.Text]
-docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
+textToRst :: [T.Text] -> [T.Text]
+textToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . T.unlines
   where
     opts = []
     exts = []

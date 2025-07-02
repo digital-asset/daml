@@ -11,7 +11,7 @@ import DA.Daml.Doc.Anchor
 import qualified Data.Text as T
 import Data.List.Extra
 import Data.Either
-import Data.Maybe (fromMaybe, isNothing)
+import Data.Maybe (fromMaybe, isNothing, maybeToList)
 import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
@@ -31,6 +31,7 @@ applyMove
       { md_name = name
       , md_anchor = Just (moduleAnchor name)
       , md_descr = Nothing
+      , md_warn = Nothing
       , md_templates = []
       , md_interfaces = []
       , md_adts = []
@@ -52,11 +53,12 @@ applyMove
     performRenames :: ModuleDoc -> [ModuleDoc]
     performRenames md@ModuleDoc{..} =
       let md' = renameModule md
-          isMoveComponent :: (a -> Maybe DocText) -> (a -> Maybe DocText -> a) -> a -> Either (Modulename, a) a
+          isMoveComponent :: (a -> [DocText]) -> (a -> [DocText] -> a) -> a -> Either (Modulename, a) a
           isMoveComponent getDesc setDesc c
-            | Just (new, desc) <- isMove (getDesc c) = Left (new, setDesc c desc)
-            | otherwise = Right c
-          moveComponents :: [a] -> (a -> Maybe DocText) -> (a -> Maybe DocText -> a) -> (ModuleDoc -> [a] -> ModuleDoc) -> ([ModuleDoc], [a])
+            = fromMaybe (Right c) $ do
+                (newMod, newDesc) <- isMove $ getDesc c
+                pure $ Left (newMod, setDesc c newDesc)
+          moveComponents :: [a] -> (a -> [DocText]) -> (a -> [DocText] -> a) -> (ModuleDoc -> [a] -> ModuleDoc) -> ([ModuleDoc], [a])
           moveComponents cs getDesc setDesc writeComponents =
             let (movedComponents, stillComponents) = partitionEithers $ map (isMoveComponent getDesc setDesc) cs
                 newMods = flip map movedComponents $ \(new, c) -> writeComponents (defModule new) [c]
@@ -84,7 +86,7 @@ applyMove
     -- description.
     renameModule :: ModuleDoc -> ModuleDoc
     renameModule md@ModuleDoc{..}
-        | Just (new, _) <- isMove md_descr = md
+        | Just (new, _) <- isMove (maybeToList md_descr) = md
             { md_name = new
             , md_anchor = Just (moduleAnchor new)
                 -- Update the module anchor
@@ -102,6 +104,8 @@ applyMove
             -- The renamed module's description was dropped,
             -- so in this line we always prefers the original
             -- module description.
+        , md_warn = md_warn m1 <|> md_warn m2
+            -- Same as for md_descr
         , md_adts = md_adts m1 ++ md_adts m2
         , md_functions = md_functions m1 ++ md_functions m2
         , md_templates = md_templates m1 ++ md_templates m2
@@ -117,7 +121,7 @@ applyHide :: [ModuleDoc] -> [ModuleDoc]
 applyHide = concatMap onModule
     where
         onModule md@ModuleDoc{..}
-            | isHide md_descr = []
+            | isHide (maybeToList md_descr) = []
             | otherwise = pure md
                     {md_templates = concatMap onTemplate md_templates
                     ,md_adts = concatMap onADT md_adts
@@ -139,19 +143,18 @@ applyHide = concatMap onModule
             | ADTDoc{..} <- x, all (isHide . ac_descr) ad_constrs = pure x{ad_constrs = []}
             | otherwise = [x]
 
--- Returns first line words and rest of lines
-getAnn :: Maybe DocText -> ([T.Text], [T.Text])
-getAnn mDoc = fromMaybe ([], []) $ do
-  doc <- mDoc
-  (firstLine, rest) <- uncons $ T.lines $ unDocText doc
-  pure (T.words firstLine, rest)
+isHide :: [DocText] -> Bool
+isHide x = fromMaybe False $ do
+  firstDoc <- unDocText . fst <$> uncons x
+  firstLine <- fst <$> uncons firstDoc
+  pure $ ["HIDE"] `isPrefixOf` T.words firstLine
 
-isHide :: Maybe DocText -> Bool
-isHide x = ["HIDE"] `isPrefixOf` fst (getAnn x)
-
-isMove :: Maybe DocText -> Maybe (Modulename, Maybe DocText)
-isMove x = case getAnn x of
-    ("MOVE":y:restFirst, restLines) ->
-      let rest = T.unlines $ ([T.unwords restFirst | not (null restFirst)]) ++ restLines
-       in Just (Modulename y, if T.null rest then Nothing else Just $ DocText rest)
+isMove :: [DocText] -> Maybe (Modulename, [DocText])
+isMove docs = do
+  (firstDoc, restDocs) <- uncons docs
+  (firstLine, restLines) <- uncons $ unDocText firstDoc
+  case T.words firstLine of
+    ("MOVE":modName:restLine) ->
+      let firstDocLines = [T.unwords restLine | not $ null restLine] ++ restLines
+       in Just (Modulename modName, [DocText firstDocLines | not $ null firstDocLines] ++ restDocs)
     _ -> Nothing

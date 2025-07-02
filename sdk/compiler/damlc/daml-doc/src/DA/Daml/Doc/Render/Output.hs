@@ -23,6 +23,7 @@ class RenderDoc t where
 
 instance RenderDoc Anchor where renderDoc = RenderAnchor
 instance RenderDoc DocText where renderDoc = RenderDocs
+instance RenderDoc WarnOrDeprecatedData where renderDoc = RenderWarnOrDeprecated
 instance RenderDoc t => RenderDoc (Maybe t) where
     renderDoc = maybe mempty renderDoc
 instance RenderDoc t => RenderDoc [t] where
@@ -39,6 +40,7 @@ instance RenderDoc ModuleDoc where
     renderDoc ModuleDoc{..} = mconcat
         [ renderDoc md_anchor
         , RenderModuleHeader (unModulename md_name)
+        , renderDoc md_warn
         , renderDoc md_descr
         , section "Templates" md_templates
         , section "Interfaces" md_interfaces
@@ -73,7 +75,8 @@ instance RenderDoc TemplateDoc where
             , maybeAnchorLink td_anchor (unTypename td_name)
             ]
         , RenderBlock $ mconcat
-            [ renderDoc td_descr
+            [ renderDoc td_warns
+            , renderDoc td_descr
             , maybe mempty (\sig -> RenderParagraph $ RenderPlain "Signatory: " <> strsWithCommas sig) td_signatory
             , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
@@ -93,7 +96,8 @@ instance RenderDoc InterfaceDoc where
             , [maybeAnchorLink if_anchor (unTypename if_name)]
             ]
         , RenderBlock $ mconcat
-            [ renderDoc if_descr
+            [ renderDoc if_warns
+            , renderDoc if_descr
             , renderDoc if_viewtype
             , RenderList (map renderDoc if_choices)
             , RenderList (map renderDoc if_methods)
@@ -125,6 +129,7 @@ instance RenderDoc InterfaceInstanceDoc where
 instance RenderDoc MethodDoc where
     renderDoc MethodDoc {..} = mconcat
       [ RenderParagraph $ renderUnwords [ RenderStrong ("Method " <> unTypename mtd_name <> " :") , renderType mtd_type ]
+      , renderDoc mtd_warns
       , renderDoc mtd_descr
       ]
 
@@ -135,6 +140,7 @@ instance RenderDoc ChoiceDoc where
             [ [RenderStrong "Choice"]
             , [maybeAnchorLink cd_anchor (unTypename cd_name)]
             ]
+        , renderDoc cd_warns
         , renderDoc cd_descr
         , maybe mempty (\ctr -> RenderParagraph $ RenderPlain "Controller: " <> strsWithCommas ctr) cd_controller
         , RenderParagraph $ renderUnwords [RenderPlain "Returns:", renderType cd_type]
@@ -152,7 +158,8 @@ instance RenderDoc ClassDoc where
             , [RenderStrong "where"]
             ]
         , RenderBlock $ mconcat
-            [ renderDoc cl_descr
+            [ renderDoc cl_warns
+            , renderDoc cl_descr
             , renderDoc cl_methods
             , renderDoc cl_instances
             ]
@@ -173,6 +180,7 @@ instance RenderDoc ClassMethodDoc where
                     -- otherwise use globalContext
                 , [renderType cm_type]
                 ]
+            , renderDoc cm_warns
             , renderDoc cm_descr
             ]
         ]
@@ -189,6 +197,7 @@ instance RenderDoc ADTDoc where
                 [ RenderPlain "="
                 , renderType ad_rhs
                 ]
+            , renderDoc ad_warns
             , renderDoc ad_descr
             , renderDoc ad_instances
             ]
@@ -201,7 +210,8 @@ instance RenderDoc ADTDoc where
             : maybeAnchorLink ad_anchor (unTypename ad_name)
             : map RenderPlain ad_args
         , RenderBlock $ mconcat
-            [ renderDoc ad_descr
+            [ renderDoc ad_warns
+            , renderDoc ad_descr
             , renderDoc ad_constrs
             , renderDoc ad_instances
             ]
@@ -238,6 +248,7 @@ instance RenderDoc FunctionDoc where
                 , renderContext fct_context
                 , [renderType fct_type]
                 ]
+            , renderDoc fct_warns
             , renderDoc fct_descr
             ]
         ]

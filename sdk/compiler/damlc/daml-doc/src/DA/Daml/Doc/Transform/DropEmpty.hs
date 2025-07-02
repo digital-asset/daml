@@ -28,38 +28,38 @@ isModuleEmpty ModuleDoc{..} =
 
 isTemplateEmpty :: TemplateDoc -> Bool
 isTemplateEmpty TemplateDoc{..} =
-    isNothing td_descr
+    null td_descr
     && all isFieldEmpty td_payload
     && all isChoiceEmpty td_choices
 
 isChoiceEmpty :: ChoiceDoc -> Bool
 isChoiceEmpty ChoiceDoc{..} =
-    isNothing cd_descr
+    null cd_descr
     && all isFieldEmpty cd_fields
 
 isClassEmpty :: ClassDoc -> Bool
 isClassEmpty ClassDoc{..} =
-    isNothing cl_descr
+    null cl_descr
     && all isClassMethodEmpty cl_methods
 
 isClassMethodEmpty :: ClassMethodDoc -> Bool
 isClassMethodEmpty ClassMethodDoc{..} =
-    isNothing cm_descr
+    null cm_descr
 
 isADTEmpty :: ADTDoc -> Bool
 isADTEmpty = \case
     ADTDoc{..} ->
-        isNothing ad_descr
+        null ad_descr
         && all isADTConstrEmpty ad_constrs
     TypeSynDoc{..} ->
-        isNothing ad_descr
+        null ad_descr
 
 isADTConstrEmpty :: ADTConstr -> Bool
 isADTConstrEmpty = \case
     PrefixC{..} ->
-        isNothing ac_descr
+        null ac_descr
     RecordC{..} ->
-        isNothing ac_descr
+        null ac_descr
         && all isFieldEmpty ac_fields
 
 isFieldEmpty :: FieldDoc -> Bool
@@ -68,5 +68,5 @@ isFieldEmpty FieldDoc{..} =
 
 isFunctionEmpty :: FunctionDoc -> Bool
 isFunctionEmpty FunctionDoc{..} =
-    isNothing fct_descr
+    null fct_descr
 
