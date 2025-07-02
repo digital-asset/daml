@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2.command_service.{
@@ -17,8 +17,9 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.fetchcontracts.Offset
-import com.digitalasset.canton.http.LedgerClientJwt.Grpc
+import com.digitalasset.canton.http.json.v1.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{ContractId, Party}
 import com.digitalasset.canton.ledger.api.PartyDetails as apiPartyDetails
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
@@ -41,6 +42,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.*
 import scalaz.{-\/, OneAnd, \/}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext as EC, Future}
 
 final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends NamedLogging {
@@ -63,6 +65,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
             .requireHandling(submitErrors)
         }
 
+  // TODO(#23504) remove this method once the deprecated submitAndWaitForTransactionTree is removed
+  @deprecated("Use submitAndWaitForTransaction instead", "3.4.0")
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
   )(implicit ec: EC, traceContext: TraceContext): SubmitAndWaitForTransactionTree =
@@ -76,6 +80,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       }
 
   // TODO(#13364) test this function with a token or do not pass the token to getActiveContractsSource if it is not needed
+  // TODO(#23504) use EventFormat instead of TransactionFilter once TransactionFilter is removed
+  @nowarn("cat=deprecation")
   def getActiveContracts(client: DamlLedgerClient)(implicit
       traceContext: TraceContext
   ): GetActiveContracts =
@@ -92,6 +98,8 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         }
       }
 
+  // TODO(#23504) use EventFormat instead of TransactionFilter once TransactionFilter is removed
+  @nowarn("cat=deprecation")
   def getCreatesAndArchivesSince(
       client: DamlLedgerClient
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
@@ -305,6 +313,8 @@ object LedgerClientJwt {
       SubmitAndWaitForTransactionResponse,
     ]
 
+  // TODO(#23504) remove this method once the deprecated SubmitAndWaitForTransactionTreeResponse is removed
+  @deprecated("Use SubmitAndWaitForTransaction instead", "3.4.0")
   type SubmitAndWaitForTransactionTree =
     (
         Jwt,
@@ -314,6 +324,8 @@ object LedgerClientJwt {
       SubmitAndWaitForTransactionTreeResponse,
     ]
 
+  // TODO(#23504) use EventFormat instead of TransactionFilter once TransactionFilter is removed
+  @nowarn("cat=deprecation")
   type GetActiveContracts =
     (
         Jwt,
@@ -328,6 +340,8 @@ object LedgerClientJwt {
   type GetLedgerEnd =
     Jwt => LoggingContextOf[InstanceUUID] => Source[Long, NotUsed]
 
+  // TODO(#23504) use EventFormat instead of TransactionFilter once TransactionFilter is removed
+  @nowarn("cat=deprecation")
   type GetCreatesAndArchivesSince =
     (
         Jwt,

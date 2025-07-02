@@ -77,7 +77,7 @@ import scala.math.Ordering.Implicits.*
   * @param synchronizerConnectionStatus
   *   helper to determine whether the synchronizer is active or in another state
   */
-// TODO(#24716) This class should be revisited to check physical <> logical
+// TODO(#26490) This class should be revisited to check physical <> logical
 class PruningProcessor(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     syncPersistentStateManager: SyncPersistentStateManager,

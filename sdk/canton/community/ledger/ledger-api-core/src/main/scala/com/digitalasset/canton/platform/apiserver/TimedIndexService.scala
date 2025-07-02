@@ -30,8 +30,11 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+// TODO(#23504) remove deprecation warning suppression
+@nowarn("cat=deprecation")
 final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMetrics)
     extends IndexService {
 

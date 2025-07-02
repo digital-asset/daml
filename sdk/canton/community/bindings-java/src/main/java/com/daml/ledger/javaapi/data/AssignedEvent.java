@@ -14,7 +14,7 @@ public final class AssignedEvent implements ReassignmentEvent {
 
   private final @NonNull String target;
 
-  private final @NonNull String unassignId;
+  private final @NonNull String reassignmentId;
 
   private final @NonNull String submitter;
 
@@ -25,13 +25,13 @@ public final class AssignedEvent implements ReassignmentEvent {
   public AssignedEvent(
       @NonNull String source,
       @NonNull String target,
-      @NonNull String unassignId,
+      @NonNull String reassignmentId,
       @NonNull String submitter,
       long reassignmentCounter,
       @NonNull CreatedEvent createdEvent) {
     this.source = source;
     this.target = target;
-    this.unassignId = unassignId;
+    this.reassignmentId = reassignmentId;
     this.submitter = submitter;
     this.reassignmentCounter = reassignmentCounter;
     this.createdEvent = createdEvent;
@@ -47,8 +47,8 @@ public final class AssignedEvent implements ReassignmentEvent {
   }
 
   @NonNull
-  public String getUnassignId() {
-    return unassignId;
+  public String getReassignmentId() {
+    return reassignmentId;
   }
 
   @NonNull
@@ -72,7 +72,7 @@ public final class AssignedEvent implements ReassignmentEvent {
     AssignedEvent that = (AssignedEvent) o;
     return Objects.equals(source, that.source)
         && Objects.equals(target, that.target)
-        && Objects.equals(unassignId, that.unassignId)
+        && Objects.equals(reassignmentId, that.reassignmentId)
         && Objects.equals(submitter, that.submitter)
         && Objects.equals(reassignmentCounter, that.reassignmentCounter)
         && Objects.equals(createdEvent, that.createdEvent);
@@ -80,7 +80,8 @@ public final class AssignedEvent implements ReassignmentEvent {
 
   @Override
   public int hashCode() {
-    return Objects.hash(source, target, unassignId, submitter, reassignmentCounter, createdEvent);
+    return Objects.hash(
+        source, target, reassignmentId, submitter, reassignmentCounter, createdEvent);
   }
 
   @Override
@@ -90,8 +91,8 @@ public final class AssignedEvent implements ReassignmentEvent {
         + source
         + ", target="
         + target
-        + ", unassignId='"
-        + unassignId
+        + ", reassignmentId='"
+        + reassignmentId
         + '\''
         + ", submitter="
         + submitter
@@ -106,7 +107,7 @@ public final class AssignedEvent implements ReassignmentEvent {
     return ReassignmentOuterClass.AssignedEvent.newBuilder()
         .setSource(this.source)
         .setTarget(this.target)
-        .setUnassignId(this.unassignId)
+        .setReassignmentId(this.reassignmentId)
         .setSubmitter(this.submitter)
         .setReassignmentCounter(this.reassignmentCounter)
         .setCreatedEvent(this.getCreatedEvent().toProto())
@@ -117,7 +118,7 @@ public final class AssignedEvent implements ReassignmentEvent {
     return new AssignedEvent(
         assignedEvent.getSource(),
         assignedEvent.getTarget(),
-        assignedEvent.getUnassignId(),
+        assignedEvent.getReassignmentId(),
         assignedEvent.getSubmitter(),
         assignedEvent.getReassignmentCounter(),
         CreatedEvent.fromProto(assignedEvent.getCreatedEvent()));

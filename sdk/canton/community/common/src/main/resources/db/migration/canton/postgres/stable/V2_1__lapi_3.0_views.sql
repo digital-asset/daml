@@ -146,7 +146,7 @@ create or replace view debug.lapi_events_assign as
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_string(source_synchronizer_id) as source_synchronizer_id,
     debug.resolve_lapi_interned_string(target_synchronizer_id) as target_synchronizer_id,
-    unassign_id,
+    reassignment_id,
     reassignment_counter,
     create_argument,
     debug.resolve_lapi_interned_strings(create_signatories) as create_signatories,
@@ -268,7 +268,7 @@ create or replace view debug.lapi_events_unassign as
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_string(source_synchronizer_id) as source_synchronizer_id,
     debug.resolve_lapi_interned_string(target_synchronizer_id) as target_synchronizer_id,
-    unassign_id,
+    reassignment_id,
     reassignment_counter,
     assignment_exclusivity,
     trace_context,
@@ -407,12 +407,12 @@ create or replace view debug.lapi_pe_non_consuming_id_filter_informee as
     debug.resolve_lapi_interned_string(party_id) as party_id
   from lapi_pe_non_consuming_id_filter_informee;
 
-create or replace view debug.lapi_pe_unassign_id_filter_stakeholder as
+create or replace view debug.lapi_pe_reassignment_id_filter_stakeholder as
   select
     event_sequential_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(party_id) as party_id
-  from lapi_pe_unassign_id_filter_stakeholder;
+  from lapi_pe_reassignment_id_filter_stakeholder;
 
 create or replace view debug.lapi_string_interning as
   select

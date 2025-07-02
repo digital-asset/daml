@@ -17,6 +17,8 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
 import org.apache.pekko.stream.{FanOutShape2, Graph}
 
+import scala.annotation.nowarn
+
 import util.{
   AbsoluteBookmark,
   BeginBookmark,
@@ -152,6 +154,8 @@ object AcsTxStreams extends NoTracing {
     (ContractStreamStep.Txn(partitionInsertsDeletes(tx.events), offset), offset)
   }
 
+  // TODO(#23504) use EventFormat
+  @nowarn("cat=deprecation")
   def transactionFilter[Pkg](
       parties: PartySet,
       contractTypeIds: List[ContractTypeId.Definite[Pkg]],

@@ -59,7 +59,7 @@ object IncompleteReassignmentData {
   }
 
   private def create(
-      unassignId: UnassignId,
+      reassignmentId: ReassignmentId,
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
@@ -73,7 +73,7 @@ object IncompleteReassignmentData {
 
     reassignmentEventGlobalOffsetE.map { reassignmentEventGlobalOffset =>
       IncompleteReassignmentData(
-        ReassignmentId(unassignId),
+        reassignmentId,
         unassignmentRequest.map(_.reassigningParticipants),
         reassignmentEventGlobalOffset,
         queryOffset,
@@ -82,13 +82,13 @@ object IncompleteReassignmentData {
   }
 
   def tryCreate(
-      unassignId: UnassignId,
+      reassignmentId: ReassignmentId,
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
   ): IncompleteReassignmentData =
     create(
-      unassignId,
+      reassignmentId,
       unassignmentRequest,
       reassignmentGlobalOffset,
       queryOffset,

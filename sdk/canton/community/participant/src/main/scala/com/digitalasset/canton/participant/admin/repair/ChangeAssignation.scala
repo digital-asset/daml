@@ -422,7 +422,7 @@ private final class ChangeAssignation(
       traceContext: TraceContext
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
-      val unassignId = UnassignId(
+      val reassignmentId = ReassignmentId(
         sourceSynchronizerId,
         targetSynchronizerId,
         unassignmentTs,
@@ -435,7 +435,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = unassignId,
+          reassignmentId = reassignmentId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>
@@ -459,7 +459,7 @@ private final class ChangeAssignation(
       implicit traceContext: TraceContext
   ): Seq[RepairUpdate] =
     changes.payload.batches.map { case batch =>
-      val unassignId = UnassignId(
+      val reassignmentId = ReassignmentId(
         sourceSynchronizerId,
         targetSynchronizerId,
         unassignmentTs,
@@ -472,7 +472,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = unassignId,
+          reassignmentId = reassignmentId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>

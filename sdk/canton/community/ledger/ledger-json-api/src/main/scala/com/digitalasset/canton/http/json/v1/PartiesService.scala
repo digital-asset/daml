@@ -1,15 +1,15 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.*
 import com.digitalasset.canton.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
-import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{AllocatePartyRequest, Party, PartyDetails, PartySet}
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -20,6 +20,8 @@ import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, OneAnd, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
+
+import LedgerClientJwt.Grpc
 
 class PartiesService(
     listAllParties: LedgerClientJwt.ListKnownParties,

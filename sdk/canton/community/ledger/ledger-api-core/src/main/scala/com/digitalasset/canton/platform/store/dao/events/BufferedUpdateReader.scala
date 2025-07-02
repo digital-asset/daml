@@ -40,8 +40,11 @@ import com.digitalasset.canton.{data, platform}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(#23504) remove TransactionTrees, getTransactionById and getTransactionByOffset related methods
+@nowarn("cat=deprecation")
 private[events] class BufferedUpdateReader(
     delegate: LedgerDaoUpdateReader,
     bufferedUpdatesReader: BufferedStreamsReader[InternalUpdateFormat, GetUpdatesResponse],
@@ -185,6 +188,8 @@ private[events] class BufferedUpdateReader(
     delegate.getActiveContracts(activeAt, filter, eventProjectionProperties)
 }
 
+// TODO(#23504) remove TransactionTrees, getTransactionById and getTransactionByOffset related methods
+@nowarn("cat=deprecation")
 private[platform] object BufferedUpdateReader {
   def apply(
       delegate: LedgerDaoUpdateReader,

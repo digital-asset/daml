@@ -27,6 +27,7 @@ import io.scalaland.chimney.dsl.*
 import ujson.StringRenderer
 import ujson.circe.CirceJson
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
@@ -376,6 +377,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       .transform
   }
 
+  // TODO(#23504) remove when TransactionTreeEvent is removed
+  @nowarn("cat=deprecation")
   object TransactionTreeEvent
       extends ProtocolConverter[lapi.transaction.TreeEvent.Kind, JsTreeEvent.TreeEvent] {
 
@@ -406,6 +409,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     }
   }
 
+  // TODO(#23504) remove when TransactionTree is removed
+  @nowarn("cat=deprecation")
   object TransactionTree
       extends ProtocolConverter[lapi.transaction.TransactionTree, JsTransactionTree] {
     def toJson(
@@ -438,6 +443,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .transform
   }
 
+  // TODO(#23504) remove when SubmitAndWaitForTransactionTreeResponse is removed
+  @nowarn("cat=deprecation")
   object SubmitAndWaitTransactionTreeResponse
       extends ProtocolConverter[
         lapi.command_service.SubmitAndWaitForTransactionTreeResponse,
@@ -1034,6 +1041,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdateResponse(_))
   }
 
+  // TODO(#23504) remove when GetUpdateTreesResponse is removed
+  @nowarn("cat=deprecation")
   object GetUpdateTreesResponse
       extends ProtocolConverter[
         lapi.update_service.GetUpdateTreesResponse,
@@ -1076,6 +1085,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 
+  // TODO(#23504) remove when GetTransactionTreeResponse is removed
+  @nowarn("cat=deprecation")
   object GetTransactionTreeResponse
       extends ProtocolConverter[
         lapi.update_service.GetTransactionTreeResponse,
@@ -1097,6 +1108,8 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   }
 
+  // TODO(#23504) remove when GetTransactionResponse is removed
+  @nowarn("cat=deprecation")
   object GetTransactionResponse
       extends ProtocolConverter[
         lapi.update_service.GetTransactionResponse,

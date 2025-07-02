@@ -44,10 +44,13 @@ import org.scalatest.matchers.should.Matchers
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
 import scala.util.Try
 
+// TODO(#23504) remove suppressions when deprecated methods are removed
+@nowarn("cat=deprecation")
 class StreamAuthorizationComponentSpec
     extends AsyncFlatSpec
     with BaseTest

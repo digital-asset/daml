@@ -322,7 +322,7 @@ class InMemoryReassignmentStore(
         case entry if filter(entry) =>
           IncompleteReassignmentData
             .tryCreate(
-              entry.reassignmentId.unassignId,
+              entry.reassignmentId,
               entry.unassignmentRequest,
               entry.reassignmentGlobalOffset,
               validAt,

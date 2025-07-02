@@ -8,6 +8,8 @@ import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
 import com.daml.tracing.SpanAttribute
 
+import scala.annotation.nowarn
+
 /** Extracts identifiers from Protobuf messages to correlate traces.
   */
 object TraceIdentifiers {
@@ -31,6 +33,8 @@ object TraceIdentifiers {
 
   /** Extract identifiers from a transaction tree message.
     */
+  // TODO(#23504) remove this method once TransactionTrees are removed from the API
+  @nowarn("cat=deprecation")
   def fromTransactionTree(transactionTree: TransactionTree): Map[SpanAttribute, String] = {
     val attributes = Map.newBuilder[SpanAttribute, String]
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =

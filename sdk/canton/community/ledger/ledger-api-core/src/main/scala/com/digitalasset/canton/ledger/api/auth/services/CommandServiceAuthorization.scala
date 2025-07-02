@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
 import scalapb.lenses.Lens
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 /** Note: the command service internally uses calls to the CommandSubmissionService and
@@ -58,6 +59,8 @@ final class CommandServiceAuthorization(
     )(request)
   }
 
+  // TODO(#23504) remove this method once SubmitAndWaitForTransactionTreeResponse is removed from the API
+  @nowarn("cat=deprecation")
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {

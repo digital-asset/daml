@@ -68,7 +68,7 @@ import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, che
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class UnassignmentProcessingSteps(
+private[reassignment] class UnassignmentProcessingSteps(
     val synchronizerId: Source[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
@@ -93,12 +93,10 @@ class UnassignmentProcessingSteps(
       fullViewTree: FullUnassignmentTree,
       requestTimestamp: CantonTimestamp,
   ): ReassignmentId = ReassignmentId(
-    UnassignId(
-      fullViewTree.sourceSynchronizer.map(_.logical),
-      fullViewTree.targetSynchronizer.map(_.logical),
-      requestTimestamp,
-      fullViewTree.contracts.contractIdCounters,
-    )
+    fullViewTree.sourceSynchronizer.map(_.logical),
+    fullViewTree.targetSynchronizer.map(_.logical),
+    requestTimestamp,
+    fullViewTree.contracts.contractIdCounters,
   )
 
   override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
@@ -409,7 +407,7 @@ class UnassignmentProcessingSteps(
     * parallel with the request tracker, so time progresses on the target synchronizer and
     * eventually reaches the timestamp.
     */
-  // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
+  // TODO(i26479): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(
       synchronizerId: Target[PhysicalSynchronizerId],
       timestamp: CantonTimestamp,
@@ -443,7 +441,6 @@ class UnassignmentProcessingSteps(
   ] = {
     val fullTree: FullUnassignmentTree = parsedRequest.fullViewTree
     val requestCounter = parsedRequest.rc
-    val sourceSnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
@@ -465,7 +462,6 @@ class UnassignmentProcessingSteps(
         else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
 
       unassignmentValidationResult <- unassignmentValidation.perform(
-        sourceSnapshot,
         targetTopologyO,
         activenessF,
       )(parsedRequest)
@@ -475,7 +471,7 @@ class UnassignmentProcessingSteps(
         createConfirmationResponses(
           parsedRequest.requestId,
           parsedRequest.malformedPayloads,
-          sourceSnapshot.unwrap,
+          parsedRequest.snapshot.ipsSnapshot,
           protocolVersion.unwrap,
           fullTree.confirmingParties,
           unassignmentValidationResult,
@@ -489,11 +485,12 @@ class UnassignmentProcessingSteps(
       )
 
       val engineAbortStatusF =
-        unassignmentValidationResult.contractAuthenticationResultF.value.map {
-          case Left(ReassignmentValidationError.ReinterpretationAborted(_, reason)) =>
-            EngineAbortStatus.aborted(reason)
-          case _ => EngineAbortStatus.notAborted
-        }
+        unassignmentValidationResult.commonValidationResult.contractAuthenticationResultF.value
+          .map {
+            case Left(ReassignmentValidationError.ReinterpretationAborted(_, reason)) =>
+              EngineAbortStatus.aborted(reason)
+            case _ => EngineAbortStatus.notAborted
+          }
 
       val entry = PendingUnassignment(
         parsedRequest.requestId,
@@ -570,9 +567,38 @@ class UnassignmentProcessingSteps(
       validationError.getOrElse(reason)
 
     for {
-      rejectionO <- EitherT.right(
+      rejectionFromPhase3 <- EitherT.right(
         checkPhase7Validations(unassignmentValidationResult)
       )
+
+      // Additional validation requested during security audit as DIA-003-013.
+      // Activeness of the mediator already gets checked in Phase 3,
+      // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
+      resultTs = event.event.content.timestamp
+      topologySnapshotAtTs <-
+        reassignmentCoordination.awaitTimestampAndGetTaggedCryptoSnapshot(
+          synchronizerId,
+          staticSynchronizerParameters = staticSynchronizerParameters,
+          timestamp = resultTs,
+        )
+
+      mediatorCheckResultO <- EitherT.right(
+        ReassignmentValidation
+          .ensureMediatorActive(
+            topologySnapshotAtTs.map(_.ipsSnapshot),
+            mediator = pendingRequestData.mediator,
+            reassignmentId = unassignmentValidationResult.reassignmentId,
+          )
+          .value
+          .map(
+            _.swap.toOption.map(error =>
+              LocalRejectError.MalformedRejects.MalformedRequest
+                .Reject(s"${error.message}. Rolling back.")
+            )
+          )
+      )
+
+      rejectionO = mediatorCheckResultO.orElse(rejectionFromPhase3)
 
       commit <- (verdict, rejectionO) match {
         case (_: Verdict.Approve, Some(rejection)) =>
@@ -668,7 +694,7 @@ class UnassignmentProcessingSteps(
       validationResult: ReassignmentValidationResult,
   ): Option[LocalRejectError] = {
     import com.digitalasset.canton.ReassignmentCounter
-    val activenessResult = validationResult.activenessResult
+    val activenessResult = validationResult.commonValidationResult.activenessResult
 
     def counterIsCorrect(
         contractId: LfContractId,

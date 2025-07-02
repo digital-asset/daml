@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.ledger.api.client.CommandResult
 import com.digitalasset.canton.tracing.TraceContext
 
+import scala.annotation.nowarn
 import scala.util.chaining.scalaUtilChainingOps
 
 /** Admin service that connects to the ledger and process events
@@ -19,6 +20,8 @@ import scala.util.chaining.scalaUtilChainingOps
 trait AdminWorkflowService extends NamedLogging with AutoCloseable {
 
   /** The filters for this service */
+  // TODO(#26455) use EventFilter instead of TransactionFilter
+  @nowarn("cat=deprecation")
   private[admin] def filters: TransactionFilter
 
   /** Processing the transaction must not block; shutdown problems occur otherwise. Long-running

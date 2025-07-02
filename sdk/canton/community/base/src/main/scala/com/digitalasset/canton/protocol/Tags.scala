@@ -185,22 +185,27 @@ object RequestId {
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
-final case class UnassignId(hash: Hash) extends PrettyPrinting {
-  def toHexString: String = hash.toHexString
-  def toProtoPrimitive: String = toHexString
+final case class ReassignmentId private (private val id: String) extends PrettyPrinting {
+  def toProtoV30: v30.ReassignmentId = v30.ReassignmentId(id = toProtoPrimitive)
 
   @VisibleForTesting
-  override protected def pretty: Pretty[UnassignId] = prettyOfClass(unnamedParam(_.hash))
+  override protected def pretty: Pretty[ReassignmentId] =
+    prettyOfClass(unnamedParam(_.id.doubleQuoted))
+
+  def toProtoPrimitive: String = id
 }
 
-object UnassignId {
+object ReassignmentId {
+  val isHex = "0123456789abcdefABCDEF".toSet
+
+  // TODO(#25483) The two synchronizer IDs should be physical
   def apply(
       source: Source[SynchronizerId],
       target: Target[SynchronizerId],
       unassignmentTs: CantonTimestamp,
       contractIdCounters: Iterable[(LfContractId, ReassignmentCounter)],
-  ): UnassignId = {
-    val builder = Hash.build(HashPurpose.UnassignId, HashAlgorithm.Sha256)
+  ): ReassignmentId = {
+    val builder = Hash.build(HashPurpose.ReassignmentId, HashAlgorithm.Sha256)
     builder.add(source.unwrap.toProtoPrimitive)
     builder.add(target.unwrap.toProtoPrimitive)
     builder.add(unassignmentTs.toProtoPrimitive)
@@ -208,43 +213,28 @@ object UnassignId {
       builder.add(contractId.coid)
       builder.add(reassignmentCounter.toProtoPrimitive)
     }
-    UnassignId(builder.finish())
+    ReassignmentId(builder.finish().toHexString)
   }
 
-  def fromHexString(hex: String): Either[DeserializationError, UnassignId] =
-    Hash.fromHexString(hex).map(UnassignId(_))
-
-  def tryFromHexString(hex: String): UnassignId =
-    fromHexString(hex).valueOr(err =>
-      throw new IllegalArgumentException(s"Invalid UnassignId: $err")
-    )
-
-  def fromProtoPrimitive(hex: String): ParsingResult[UnassignId] =
-    fromHexString(hex).leftMap(ProtoDeserializationError.CryptoDeserializationError(_))
-
-  implicit val getResultUnassignId: GetResult[UnassignId] =
-    GetResult(r => UnassignId.tryFromHexString(r.nextString()))
-
-  implicit val setResultUnassignId: SetParameter[UnassignId] = (v, pp) => pp >> v.toHexString
-}
-
-/** A reassignment is identified by the unassignHash */
-final case class ReassignmentId(unassignId: UnassignId) extends PrettyPrinting {
-  def toProtoV30: v30.ReassignmentId = v30.ReassignmentId(unassignId = unassignId.toProtoPrimitive)
-
-  override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
-    param("unassignId", _.unassignId)
-  )
-}
-
-object ReassignmentId {
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
-    reassignmentIdP match {
-      case v30.ReassignmentId(unassignmentIdP) =>
-        for {
-          unassignId <- UnassignId.fromProtoPrimitive(unassignmentIdP)
-        } yield ReassignmentId(unassignId)
-    }
+    fromProtoPrimitive(reassignmentIdP.id)
 
-  def tryCreate(hex: String): ReassignmentId = ReassignmentId(UnassignId.tryFromHexString(hex))
+  def fromProtoPrimitive(str: String): ParsingResult[ReassignmentId] =
+    fromString(str).leftMap(ProtoDeserializationError.StringConversionError(_))
+
+  def tryCreate(str: String): ReassignmentId =
+    fromString(str).valueOr(err => throw new IllegalArgumentException(err))
+
+  // Provides basic checking that the string is a valid reassignment id.
+  // Our reassignment ids are always built from a hex string.
+  // Validation of whether a particular reassignment id matches the corresponding reassignment data
+  // is done separately, by comparing the value created from `apply` with the data it comes with.
+  private def fromString(str: String): Either[String, ReassignmentId] =
+    if (str.forall(isHex)) Right(ReassignmentId(str))
+    else Left(s"invalid ReassignmentId: $str")
+
+  implicit val getResultReassignmentId: GetResult[ReassignmentId] =
+    GetResult(r => tryCreate(r.nextString()))
+  implicit val setResultReassignmentId: SetParameter[ReassignmentId] = (v, pp) =>
+    pp >> v.toProtoPrimitive
 }

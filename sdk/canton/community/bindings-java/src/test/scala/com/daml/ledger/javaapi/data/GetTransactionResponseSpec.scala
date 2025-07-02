@@ -8,6 +8,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.annotation.nowarn
+
+// TODO(#23504) remove
+@nowarn("cat=deprecation")
 class GetTransactionResponseSpec
     extends AnyFlatSpec
     with Matchers

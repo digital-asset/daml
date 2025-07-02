@@ -9,12 +9,16 @@ import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, Templa
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
+import scala.annotation.nowarn
+
 object EventQueryServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
   import FieldValidator.*
   import ValidationErrors.*
 
+  // TODO(#23504) remove requireParties when `requestingParties` are removed from the API
+  @nowarn("cat=deprecation")
   def validateEventsByContractId(
       req: GetEventsByContractIdRequest
   )(implicit

@@ -249,7 +249,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       clue(s"assignment on $synchronizer1") {
         participant2.ledger_api.commands.submit_assign(
           owner,
-          unassigned.unassignId,
+          unassigned.reassignmentId,
           synchronizerId1,
           synchronizerId2,
           submissionId = "assignment-synchronizer2-synchronizer1",

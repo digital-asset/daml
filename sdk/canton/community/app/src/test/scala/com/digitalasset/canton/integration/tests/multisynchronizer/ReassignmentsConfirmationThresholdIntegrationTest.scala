@@ -297,12 +297,12 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
       val bobIou = participant1.ledger_api.javaapi.state.acs.await(Iou.COMPANION)(bob)
 
-      val unassignId =
+      val reassignmentId =
         participant1.ledger_api.commands
           .submit_unassign(bob, Seq(bobIou.id.toLf), daId, acmeId)
-          .unassignId
+          .reassignmentId
 
-      participant1.ledger_api.commands.submit_assign(bob, unassignId, daId, acmeId)
+      participant1.ledger_api.commands.submit_assign(bob, reassignmentId, daId, acmeId)
 
       // Only P1 is a reassigning participant
       daConfirmations shouldBe Map(participant1.id -> 1)
@@ -386,12 +386,12 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
         val aliceIou = participant1.ledger_api.javaapi.state.acs
           .await(Iou.COMPANION)(alice, synchronizerFilter = Some(daId))
 
-        val unassignId =
+        val reassignmentId =
           participant1.ledger_api.commands
             .submit_unassign(alice, Seq(aliceIou.id.toLf), daId, acmeId)
-            .unassignId
+            .reassignmentId
 
-        participant1.ledger_api.commands.submit_assign(alice, unassignId, daId, acmeId)
+        participant1.ledger_api.commands.submit_assign(alice, reassignmentId, daId, acmeId)
 
         programmableSequencers(daName).resetPolicy()
         programmableSequencers(acmeName).resetPolicy()
@@ -463,9 +463,9 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
       val expiredDecisionTimeout = parameters.decisionTimeout.plusSeconds(1)
       val progressTimeP = Promise[Unit]()
 
-      val unassignId = participant1.ledger_api.commands
+      val reassignmentId = participant1.ledger_api.commands
         .submit_unassign(alice, Seq(aliceIou.id.toLf), daId, acmeId)
-        .unassignId
+        .reassignmentId
 
       // Assignment will not go through because we need two confirmations
       val failingAssignmentConfirmationCounter = new AtomicLong(0)
@@ -481,7 +481,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
         {
           val failingAssignmentF = Future {
             failingAssignment(
-              unassignId = unassignId,
+              reassignmentId = reassignmentId,
               source = daId,
               target = acmeId,
               submittingParty = alice,
@@ -501,7 +501,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
           // Unassignment should now go through
           programmableSequencers(acmeName).resetPolicy()
-          participant1.ledger_api.commands.submit_assign(alice, unassignId, daId, acmeId)
+          participant1.ledger_api.commands.submit_assign(alice, reassignmentId, daId, acmeId)
         },
         reassignmentFailureLogAssertions,
       )

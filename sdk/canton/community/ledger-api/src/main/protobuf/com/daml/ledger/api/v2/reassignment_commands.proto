@@ -78,7 +78,7 @@ message AssignCommand {
   // The ID from the unassigned event to be completed by this assignment.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string unassign_id = 1;
+  string reassignment_id = 1;
 
   // The ID of the source synchronizer
   // Must be a valid synchronizer id

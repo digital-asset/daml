@@ -151,7 +151,7 @@ object GeneratorsCrypto {
     key <- Arbitrary.arbitrary[ByteString]
     keySpec <- Arbitrary.arbitrary[EncryptionKeySpec]
     format = CryptoKeyFormat.Symbolic
-  } yield new EncryptionPublicKey(format, key, keySpec)())
+  } yield EncryptionPublicKey.create(format, key, keySpec).value)
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(

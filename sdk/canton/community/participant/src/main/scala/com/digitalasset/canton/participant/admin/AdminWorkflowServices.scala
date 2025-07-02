@@ -49,6 +49,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Flow
 
 import java.io.InputStream
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Manages our admin workflow applications (ping, party management). Currently, each is an
@@ -278,6 +279,8 @@ class AdminWorkflowServices(
     )
   }
 
+  // TODO(#26455) remove suppression of deprecation warnings
+  @nowarn("cat=deprecation")
   private def createService[S <: AdminWorkflowService](
       userId: String,
       resubscribeIfPruned: Boolean,

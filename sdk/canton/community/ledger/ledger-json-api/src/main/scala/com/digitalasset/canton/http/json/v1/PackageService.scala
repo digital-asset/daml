@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
@@ -10,8 +10,6 @@ import com.digitalasset.canton.http.ContractTypeId.ResolvedOf
 import com.digitalasset.canton.http.util.IdentifierConverters
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.http.{Choice, ContractTypeId, ContractTypeRef}
-import com.digitalasset.canton.ledger.service.LedgerReader.{PackageStore, Signatures}
-import com.digitalasset.canton.ledger.service.{LedgerReader, TemplateIds}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -26,6 +24,8 @@ import scalaz.{EitherT, Show, \/, \/-}
 import java.time.*
 import scala.collection.MapView
 import scala.concurrent.{ExecutionContext, Future}
+
+import LedgerReader.{PackageStore, Signatures}
 
 class PackageService(
     reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,

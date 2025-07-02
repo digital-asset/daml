@@ -60,20 +60,13 @@ message CreatedEvent {
   Identifier template_id = 4;
 
   // The key of the created contract.
-  // This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+  // This will be set if and only if ``template_id`` defines a contract key.
   // Optional
   Value contract_key = 5;
 
   // The arguments that have been used to create the contract.
-  // Set either:
   //
-  // - if there was a party, which is in the ``witness_parties`` of this event,
-  //   and for which a ``CumulativeFilter`` exists with the ``template_id`` of this event
-  //   among the ``template_filters``,
-  // - or if there was a party, which is in the ``witness_parties`` of this event,
-  //   and for which a wildcard filter exists (``Filters`` with a ``CumulativeFilter`` of ``WildcardFilter``).
-  //
-  // Optional
+  // Required
   Record create_arguments = 6;
 
   // Opaque representation of contract create event payload intended for forwarding

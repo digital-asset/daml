@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.protocol.UnassignId
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -93,13 +93,13 @@ object Reassignment {
   *   The synchronizer ID to which the contract is assigned.
   * @param submitter
   *   Submitter of the command, unless the operation is performed offline.
-  * @param unassignId
+  * @param reassignmentId
   *   The ID of the unassign event. This should be used for the assign command.
   */
 final case class ReassignmentInfo(
     sourceSynchronizer: Source[SynchronizerId],
     targetSynchronizer: Target[SynchronizerId],
     submitter: Option[Ref.Party],
-    unassignId: UnassignId,
+    reassignmentId: ReassignmentId,
     isReassigningParticipant: Boolean,
 )

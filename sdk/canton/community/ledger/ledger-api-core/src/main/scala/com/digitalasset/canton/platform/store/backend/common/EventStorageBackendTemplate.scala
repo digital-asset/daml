@@ -475,7 +475,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       int("source_synchronizer_id") ~
       int("target_synchronizer_id") ~
-      str("unassign_id") ~
+      str("reassignment_id") ~
       int("submitter").? ~
       long("reassignment_counter") ~
       str("update_id") ~
@@ -508,7 +508,7 @@ object EventStorageBackendTemplate {
           offset ~
           sourceSynchronizerId ~
           targetSynchronizerId ~
-          unassignId ~
+          reassignmentId ~
           submitter ~
           reassignmentCounter ~
           updateId ~
@@ -546,7 +546,7 @@ object EventStorageBackendTemplate {
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
-            unassignId = unassignId,
+            reassignmentId = reassignmentId,
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
             rawCreatedEvent = RawCreatedEvent(
@@ -585,7 +585,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       int("source_synchronizer_id") ~
       int("target_synchronizer_id") ~
-      str("unassign_id") ~
+      str("reassignment_id") ~
       int("submitter").? ~
       long("reassignment_counter") ~
       str("update_id") ~
@@ -609,7 +609,7 @@ object EventStorageBackendTemplate {
           offset ~
           sourceSynchronizerId ~
           targetSynchronizerId ~
-          unassignId ~
+          reassignmentId ~
           submitter ~
           reassignmentCounter ~
           updateId ~
@@ -638,7 +638,7 @@ object EventStorageBackendTemplate {
               stringInterning.synchronizerId.unsafe.externalize(sourceSynchronizerId),
             targetSynchronizerId =
               stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
-            unassignId = unassignId,
+            reassignmentId = reassignmentId,
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
             contractId = contractId,
@@ -1148,7 +1148,7 @@ abstract class EventStorageBackendTemplate(
     }
     pruneWithLogging("Pruning id filter unassign stakeholder table") {
       SQL"""
-          DELETE FROM lapi_pe_unassign_id_filter_stakeholder id_filter
+          DELETE FROM lapi_pe_reassignment_id_filter_stakeholder id_filter
           WHERE EXISTS (
             SELECT * from lapi_events_unassign unassign
             WHERE
@@ -1468,7 +1468,7 @@ abstract class EventStorageBackendTemplate(
       limit: Int,
   )(connection: Connection): Vector[Long] =
     UpdateStreamingQueries.fetchEventIds(
-      tableName = "lapi_pe_unassign_id_filter_stakeholder",
+      tableName = "lapi_pe_reassignment_id_filter_stakeholder",
       witnessO = stakeholderO,
       templateIdO = templateId,
       startExclusive = startExclusive,

@@ -112,7 +112,7 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_synchronizer_id integer not null,
     target_synchronizer_id integer not null,
-    unassign_id varchar collate "C" not null,
+    reassignment_id varchar collate "C" not null,
     reassignment_counter bigint not null,
 
     -- * assigned specific
@@ -339,7 +339,7 @@ CREATE TABLE lapi_events_unassign (
     -- * common reassignment
     source_synchronizer_id integer not null,
     target_synchronizer_id integer not null,
-    unassign_id varchar collate "C" not null,
+    reassignment_id varchar collate "C" not null,
     reassignment_counter bigint not null,
 
     -- * unassigned specific
@@ -607,16 +607,16 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ps_idx  ON lapi_pe_non_con
 CREATE INDEX lapi_pe_non_consuming_id_filter_informee_ts_idx  ON lapi_pe_non_consuming_id_filter_informee USING btree (template_id, event_sequential_id);
 CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx   ON lapi_pe_non_consuming_id_filter_informee USING btree (event_sequential_id);
 
-CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
+CREATE TABLE lapi_pe_reassignment_id_filter_stakeholder (
     event_sequential_id bigint not null,
     template_id integer not null,
     party_id integer not null
 );
 
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ps_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (party_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_pts_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (party_id, template_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ts_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (template_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx ON lapi_pe_unassign_id_filter_stakeholder USING btree (event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ps_idx ON lapi_pe_reassignment_id_filter_stakeholder USING btree (party_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_pts_idx ON lapi_pe_reassignment_id_filter_stakeholder USING btree (party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ts_idx ON lapi_pe_reassignment_id_filter_stakeholder USING btree (template_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_s_idx ON lapi_pe_reassignment_id_filter_stakeholder USING btree (event_sequential_id);
 
 CREATE TABLE lapi_string_interning (
     internal_id integer primary key not null,

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
@@ -24,18 +24,33 @@ import com.digitalasset.canton.fetchcontracts.util.{
 }
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.NotFound
-import com.digitalasset.canton.http.LedgerClientJwt.Terminates
-import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overload
 import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.{
   ActiveContract,
+  ContractId,
+  ContractLocator,
   ContractTypeId,
+  ContractTypeRef,
+  EndpointsCompanion,
+  EnrichedContractId,
+  EnrichedContractKey,
+  ErrorResponse,
+  FetchRequest,
   GetActiveContractsRequest,
   JwtPayload,
   Offset,
+  OkResponse,
+  Party,
+  PartySet,
+  ResolvedContractRef,
+  ResolvedQuery,
+  StartingOffset,
+  SyncResponse,
+  UnknownTemplateIds,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -50,9 +65,11 @@ import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json.JsValue
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-import util.ApiValueToLfValueConverter
+import LedgerClientJwt.Terminates
+import PackageService.ResolveContractTypeId.Overload
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,
@@ -394,6 +411,8 @@ class ContractsService(
       }
   }
 
+  // TODO(#23504) replace TransactionFilter with EventFormat if json v1 is not removed
+  @nowarn("cat=deprecation")
   def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
       txnFilter: TransactionFilter,
@@ -419,6 +438,8 @@ class ContractsService(
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset` and ending at
     * `terminates`.
     */
+  // TODO(#23504) use EventFormat instead of TransactionFilter
+  @nowarn("cat=deprecation")
   def insertDeleteStepSource(
       jwt: Jwt,
       txnFilter: TransactionFilter,
@@ -568,6 +589,8 @@ object ContractsService {
 
   type SearchResult[A] = SyncResponse[Source[A, NotUsed]]
 
+  // TODO(#23504) use EventFormat instead of TransactionFilter
+  @nowarn("cat=deprecation")
   def buildTransactionFilter(
       parties: PartySet,
       resolvedQuery: ResolvedQuery,

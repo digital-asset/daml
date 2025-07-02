@@ -8,6 +8,10 @@ import com.daml.tracing.SpanAttribute
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+// TODO(#23504) remove tests for TransactionTrees when TransactionTree is removed
+@nowarn("cat=deprecation")
 class TraceIdentifiersTest extends AnyWordSpec {
   val expected = Map(
     (SpanAttribute.TransactionId, "transaction-id"),

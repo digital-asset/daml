@@ -228,7 +228,7 @@ create table par_reassignments (
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
 
-    unassign_id varchar not null,
+    reassignment_id varchar not null,
 
     unassignment_request binary large object,
     unassignment_global_offset bigint,
@@ -237,7 +237,7 @@ create table par_reassignments (
     -- defined if reassignment was completed
     -- UTC timestamp in microseconds relative to EPOCH
     assignment_timestamp bigint,
-    primary key (target_synchronizer_idx, source_synchronizer_idx, unassign_id)
+    primary key (target_synchronizer_idx, source_synchronizer_idx, reassignment_id)
 );
 
 -- stores all requests for the request journal

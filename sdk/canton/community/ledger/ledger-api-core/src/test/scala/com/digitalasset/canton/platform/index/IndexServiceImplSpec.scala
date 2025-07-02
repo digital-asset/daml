@@ -76,7 +76,6 @@ class IndexServiceImplSpec
             verbose = true,
           )
         ),
-        alwaysPopulateArguments = false,
         interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
       )
     memoFunc() shouldBe None
@@ -99,13 +98,11 @@ class IndexServiceImplSpec
     val memoFuncTransactions = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForTransactions(eventFormat),
-      alwaysPopulateArguments = false,
       interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
     )
     val memoFuncReassignments = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForReassignments(eventFormat),
-      alwaysPopulateArguments = false,
       interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
     )
     memoFuncTransactions() shouldBe None // no template implementing iface1
@@ -118,10 +115,9 @@ class IndexServiceImplSpec
         TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
         EventProjectionProperties(
           verbose = true,
-          templateWildcardWitnesses = Some(Set.empty),
           templateWildcardCreatedEventBlobParties = Some(Set.empty),
           witnessTemplateProjections =
-            Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
+            Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false))),
         )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
       ) // filter gets complicated, filters template1 for iface1, projects iface1
 
@@ -143,11 +139,10 @@ class IndexServiceImplSpec
       ),
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
-        templateWildcardWitnesses = Some(Set.empty),
         witnessTemplateProjections = Map(
           Some(party.toString) -> Map(
-            template1 -> Projection(Set(iface1), false, false),
-            template2 -> Projection(Set(iface1), false, false),
+            template1 -> Projection(Set(iface1), false),
+            template2 -> Projection(Set(iface1), false),
           )
         ),
         templateWildcardCreatedEventBlobParties = Some(Set.empty),
@@ -157,44 +152,6 @@ class IndexServiceImplSpec
     memoFuncTransactions() shouldBe Some(internalUpdateFormatForTransactions(internalEventFormat1))
     memoFuncReassignments() shouldBe Some(
       internalUpdateFormatForReassignments(internalEventFormat1)
-    )
-  }
-
-  it should "populate all contract arguments correctly" in new Scope {
-    currentPackageMetadata = packageMetadata_iface1_template1
-    // subscribing to iface1
-    val memoFunc = memoizedInternalUpdateFormat(
-      getPackageMetadataSnapshot = getPackageMetadata,
-      updateFormat = updateFormatForTransactions(
-        EventFormat(
-          filtersByParty = Map(
-            party -> CumulativeFilter(
-              templateFilters = Set(),
-              interfaceFilters = Set(iface1Filter),
-              templateWildcardFilter = None,
-            )
-          ),
-          filtersForAnyParty = None,
-          verbose = true,
-        )
-      ),
-      alwaysPopulateArguments = true,
-      interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
-    )
-    memoFunc() shouldBe Some(
-      internalUpdateFormatForTransactions(
-        InternalEventFormat(
-          templatePartiesFilter =
-            TemplatePartiesFilter(Map(template1 -> Some(Set(party))), Some(Set())),
-          eventProjectionProperties = EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(Set(party)),
-            witnessTemplateProjections =
-              Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
-            templateWildcardCreatedEventBlobParties = Some(Set.empty),
-          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
-        )
-      )
     )
   }
 

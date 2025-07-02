@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
 import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
 import com.digitalasset.canton.topology.ParticipantId
@@ -22,13 +23,17 @@ import scala.concurrent.ExecutionContext
 private[reassignment] class UnassignmentValidation(
     participantId: ParticipantId,
     contractAuthenticator: ContractAuthenticator,
-) {
+)(implicit val ec: ExecutionContext)
+    extends ReassignmentValidation[
+      FullUnassignmentTree,
+      UnassignmentValidationResult.CommonValidationResult,
+      UnassignmentValidationResult.ReassigningParticipantValidationResult,
+    ] {
 
   /** @param targetTopology
     *   Defined if and only if the participant is reassigning
     */
   def perform(
-      sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
       activenessF: FutureUnlessShutdown[ActivenessResult],
   )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
@@ -36,16 +41,23 @@ private[reassignment] class UnassignmentValidation(
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
+    val sourceTopology = Source(parsedRequest.snapshot.ipsSnapshot)
 
     for {
-
-      validationResult <- EitherT.right(
-        performValidation(
-          sourceTopology,
-          targetTopology,
+      commonValidationResult <- EitherT.right(
+        performCommonValidations(
+          parsedRequest,
           activenessF,
-        )(parsedRequest)
+        )
       )
+
+      // `targetTopology` is defined only for reassigning participants
+      reassigningParticipantValidationResult <- targetTopology match {
+        case Some(targetTopology) =>
+          performValidationForReassigningParticipants(parsedRequest, targetTopology)
+        case None =>
+          EitherT.right(FutureUnlessShutdown.pure(ReassigningParticipantValidationResult(Nil)))
+      }
 
       hostedStakeholders <- EitherT.right(
         sourceTopology.unwrap
@@ -69,37 +81,34 @@ private[reassignment] class UnassignmentValidation(
       reassignmentId = parsedRequest.reassignmentId,
       hostedStakeholders = hostedStakeholders,
       assignmentExclusivity = assignmentExclusivity,
-      validationResult = validationResult,
       unassignmentTs = parsedRequest.requestTimestamp,
+      commonValidationResult = commonValidationResult,
+      reassigningParticipantValidationResult = reassigningParticipantValidationResult,
     )
   }
 
-  private def performValidation(
-      sourceTopology: Source[TopologySnapshot],
-      targetTopology: Option[Target[TopologySnapshot]],
+  override def performCommonValidations(
+      parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
       activenessF: FutureUnlessShutdown[ActivenessResult],
-  )(parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree])(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[UnassignmentValidationResult.ValidationResult] = {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[UnassignmentValidationResult.CommonValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
-    val recipients = parsedRequest.recipients
-
-    val metadataResultET = new ReassignmentValidation(contractAuthenticator).checkMetadata(fullTree)
+    val sourceTopologySnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
+    val metadataResultET = ReassignmentValidation.checkMetadata(contractAuthenticator, fullTree)
 
     for {
       activenessResult <- activenessF
       authenticationErrorO <- AuthenticationValidator.verifyViewSignature(parsedRequest)
 
-      // Now that the contract and metadata are validated, this is safe to use
+      // The metadata is validated in the `metadataResultET`, this is why we can use it here.
       expectedStakeholders = fullTree.contracts.stakeholders
-      packageIds = fullTree.contracts.packageIds
 
       submitterCheckResult <-
         ReassignmentValidation
           .checkSubmitter(
             ReassignmentRef(fullTree.contracts.contractIds.toSet),
-            topologySnapshot = sourceTopology,
+            topologySnapshot = sourceTopologySnapshot,
             submitter = fullTree.submitter,
             participantId = fullTree.submitterMetadata.submittingParticipant,
             stakeholders = expectedStakeholders.all,
@@ -107,26 +116,37 @@ private[reassignment] class UnassignmentValidation(
           .value
           .map(_.swap.toOption)
 
-      reassigningParticipantCheckResult <- targetTopology match {
-        case Some(targetTopology) =>
-          new UnassignmentValidationReassigningParticipant(
-            sourceTopology,
-            targetTopology,
-          )(fullTree, recipients)
-            .check(expectedStakeholders, packageIds)
-            .value
-            .map(_.swap.toSeq)
-        case None =>
-          FutureUnlessShutdown.pure(Seq.empty)
-      }
-
-    } yield UnassignmentValidationResult.ValidationResult(
+    } yield UnassignmentValidationResult.CommonValidationResult(
       activenessResult = activenessResult,
       participantSignatureVerificationResult = authenticationErrorO,
       contractAuthenticationResultF = metadataResultET,
       submitterCheckResult = submitterCheckResult,
-      reassigningParticipantValidationResult = reassigningParticipantCheckResult,
     )
   }
+  override type ReassigningParticipantValidationData = Target[TopologySnapshot]
 
+  override def performValidationForReassigningParticipants(
+      parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree],
+      targetTopology: Target[TopologySnapshot],
+  )(implicit traceContext: TraceContext): EitherT[
+    FutureUnlessShutdown,
+    ReassignmentProcessorError,
+    ReassigningParticipantValidationResult,
+  ] = {
+    val sourceTopology = Source(parsedRequest.snapshot.ipsSnapshot)
+    val fullTree = parsedRequest.fullViewTree
+    val expectedStakeholders = fullTree.contracts.stakeholders
+    val packageIds = fullTree.contracts.packageIds
+
+    EitherT.right(
+      new UnassignmentValidationReassigningParticipant(
+        sourceTopology,
+        targetTopology,
+      )(fullTree)
+        .check(expectedStakeholders, packageIds)
+        .value
+        .map(_.swap.toSeq)
+        .map(ReassigningParticipantValidationResult(_))
+    )
+  }
 }

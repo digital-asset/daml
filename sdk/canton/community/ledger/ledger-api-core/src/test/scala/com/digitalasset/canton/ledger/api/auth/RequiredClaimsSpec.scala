@@ -19,6 +19,10 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
+import scala.annotation.nowarn
+
+// TODO(#23504) remove TransactionFilter related when TransactionFilter is removed
+@nowarn("cat=deprecation")
 class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "submissionClaims"

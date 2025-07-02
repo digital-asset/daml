@@ -6,17 +6,17 @@ package com.digitalasset.canton.http.endpoints
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
-import com.digitalasset.canton.http.ContractsService.SearchResult
 import com.digitalasset.canton.http.Endpoints.{ET, IntoEndpointsError}
 import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.json.*
+import com.digitalasset.canton.http.json.v1.ContractsService.SearchResult
+import com.digitalasset.canton.http.json.v1.{ContractsService, RouteSetup}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.JwtParties.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.{
   ActiveContract,
-  ContractsService,
   FetchRequest,
   GetActiveContractsRequest,
   JwtPayload,

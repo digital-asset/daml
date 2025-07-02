@@ -488,7 +488,7 @@ object EventStorageBackend {
   final case class RawUnassignEvent(
       sourceSynchronizerId: String,
       targetSynchronizerId: String,
-      unassignId: String,
+      reassignmentId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
       contractId: ContractId,
@@ -502,7 +502,7 @@ object EventStorageBackend {
   final case class RawAssignEvent(
       sourceSynchronizerId: String,
       targetSynchronizerId: String,
-      unassignId: String,
+      reassignmentId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,

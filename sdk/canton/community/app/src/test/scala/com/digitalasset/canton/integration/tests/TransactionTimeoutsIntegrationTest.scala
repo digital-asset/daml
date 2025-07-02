@@ -49,7 +49,9 @@ abstract class TransactionTimeoutsIntegrationTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
       .addConfigTransforms(
-        ConfigTransforms.useStaticTime
+        ConfigTransforms.useStaticTime,
+        // TODO(i26481): Enable new connection pool
+        ConfigTransforms.disableConnectionPool,
       )
       .withSetup { implicit env =>
         import env.*

@@ -129,7 +129,7 @@ val paintOfferReassignmentId = participant3.ledger_api.commands.submit_unassign(
   Seq(paintOffer.id.toLf),      // Contract to be reassigned
   paintId,                      // Source synchronizer
   iouId                         // Target synchronizer
-).unassignId
+).reassignmentId
 // architecture-handbook-entry-end: unassignment
 
 // architecture-handbook-entry-begin: assignment

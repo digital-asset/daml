@@ -1,13 +1,12 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.service
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.typesig.PackageSignature
-
-import PackageSignature.TypeDecl.Template
+import com.digitalasset.daml.lf.typesig.PackageSignature.TypeDecl.Template
 
 object TemplateIds {
   def getTemplateIds(packages: Set[PackageSignature]): Set[Identifier] =

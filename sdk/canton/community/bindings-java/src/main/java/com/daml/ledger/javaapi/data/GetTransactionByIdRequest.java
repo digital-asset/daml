@@ -16,6 +16,8 @@ import java.util.stream.Collectors;
  * Helper wrapper of a grpc message used in GetTransactionById and GetTransactionTreeById calls.
  * Class will be removed in 3.4.0.
  */
+// TODO(#23504) remove
+@Deprecated
 public final class GetTransactionByIdRequest {
 
   @NonNull private final String updateId;

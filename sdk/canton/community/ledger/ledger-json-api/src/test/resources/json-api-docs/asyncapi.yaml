@@ -965,7 +965,7 @@ components:
           description: |-
             The value of the interface's view method on this event.
             Set if it was requested in the ``InterfaceFilter`` and it could be
-            sucessfully computed.
+            successfully computed.
             Optional
     JsEmpty:
       title: JsEmpty
@@ -987,7 +987,7 @@ components:
       required:
       - source
       - target
-      - unassignId
+      - reassignmentId
       - submitter
       - reassignmentCounter
       - createdEvent
@@ -1004,11 +1004,10 @@ components:
             Must be a valid synchronizer id.
             Required
           type: string
-        unassignId:
+        reassignmentId:
           description: |-
             The ID from the unassigned event.
             For correlation capabilities.
-            For one contract the (unassign_id, source synchronizer) pair is unique.
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string
@@ -1059,7 +1058,7 @@ components:
         on the source synchronizer
       type: object
       required:
-      - unassignId
+      - reassignmentId
       - contractId
       - source
       - target
@@ -1069,10 +1068,9 @@ components:
       - offset
       - nodeId
       properties:
-        unassignId:
+        reassignmentId:
           description: |-
             The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
-            For one contract the (unassign_id, source synchronizer) pair is unique.
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string
@@ -1406,7 +1404,7 @@ components:
       required:
       - source
       - target
-      - unassignId
+      - reassignmentId
       - submitter
       - reassignmentCounter
       - createdEvent
@@ -1415,7 +1413,7 @@ components:
           type: string
         target:
           type: string
-        unassignId:
+        reassignmentId:
           type: string
         submitter:
           type: string

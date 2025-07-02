@@ -486,9 +486,9 @@ class GrpcVaultService(
       )
       keyPair <- (publicKey, privateKey) match {
         case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
-          FutureUnlessShutdown.pure(new SigningKeyPair(pub, pkey))
+          FutureUnlessShutdown.pure(SigningKeyPair.create(pub, pkey))
         case (pub: EncryptionPublicKey, pkey: EncryptionPrivateKey) =>
-          FutureUnlessShutdown.pure(new EncryptionKeyPair(pub, pkey))
+          FutureUnlessShutdown.pure(EncryptionKeyPair.create(pub, pkey))
         case _ =>
           FutureUnlessShutdown.failed(
             Status.INVALID_ARGUMENT

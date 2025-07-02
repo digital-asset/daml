@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationError.PackageIdUnknownOrUnvetted
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
-import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -40,12 +40,10 @@ final case class UnassignmentRequest(
   private val sourceProtocolVersion = sourceSynchronizer.map(_.protocolVersion)
 
   def mkReassignmentId(unassignmentTs: CantonTimestamp) = ReassignmentId(
-    UnassignId(
-      sourceSynchronizer.map(_.logical),
-      targetSynchronizer.map(_.logical),
-      unassignmentTs,
-      contracts.contractIdCounters,
-    )
+    sourceSynchronizer.map(_.logical),
+    targetSynchronizer.map(_.logical),
+    unassignmentTs,
+    contracts.contractIdCounters,
   )
 
   def toFullUnassignmentTree(

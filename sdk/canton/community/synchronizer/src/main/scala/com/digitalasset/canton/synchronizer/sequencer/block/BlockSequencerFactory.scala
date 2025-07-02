@@ -14,11 +14,8 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, Unles
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.traffic.EventCostCalculator
+import com.digitalasset.canton.synchronizer.block.BlockSequencerStateManager
 import com.digitalasset.canton.synchronizer.block.data.SequencerBlockStore
-import com.digitalasset.canton.synchronizer.block.{
-  BlockSequencerStateManager,
-  UninitializedBlockHeight,
-}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.TestingInterceptor
@@ -189,19 +186,14 @@ abstract class BlockSequencerFactory(
       tracer: trace.Tracer,
       actorMaterializer: Materializer,
   ): FutureUnlessShutdown[Sequencer] = {
-    val initialBlockHeight = {
-      val last = nodeParameters.processingTimeouts.unbounded
+    val initialBlockHeight =
+      nodeParameters.processingTimeouts.unbounded
         .awaitUS(s"Reading the $name store head to get the initial block height")(
           store.readHead
         )
         .map(
-          _.latestBlock.height
+          _.map(_.latestBlock.height + 1)
         )
-      last.map {
-        case result if result == UninitializedBlockHeight => None
-        case result => Some(result + 1)
-      }
-    }
 
     initialBlockHeight match {
       case UnlessShutdown.Outcome(result) =>
@@ -241,6 +233,7 @@ abstract class BlockSequencerFactory(
           synchronizerSyncCryptoApi.psid,
           store,
           trafficConsumedStore,
+          minimumSequencingTime,
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
           synchronizerLoggerFactory,

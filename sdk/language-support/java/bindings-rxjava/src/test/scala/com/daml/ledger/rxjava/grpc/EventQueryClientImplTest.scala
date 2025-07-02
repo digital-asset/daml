@@ -12,9 +12,12 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import java.util.concurrent.TimeUnit
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
+// TODO check EventFormat instead of requestingParties
+@nowarn("cat=deprecation")
 class EventQueryClientImplTest
     extends AnyFlatSpec
     with Matchers

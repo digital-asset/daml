@@ -15,6 +15,7 @@ import org.scalatest.Inspectors.forAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.reflect.ClassTag
 import scala.util.Using
@@ -31,6 +32,8 @@ import scala.util.control.NonFatal
   * Test generates multiple samples, unfortunately no seed is used so every time examples will be
   * different. (Introduction of a seed would complicate the code a lot)
   */
+// TODO(#23504) remove suppression of deprecation warnings
+@nowarn("cat=deprecation")
 class OpenapiTypesTest extends AnyWordSpec with Matchers {
   // this can be increased locally
   // with 100 examples tests take 5 minutes on my machine

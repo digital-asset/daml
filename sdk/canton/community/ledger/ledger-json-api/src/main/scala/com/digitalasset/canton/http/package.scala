@@ -85,7 +85,10 @@ package http {
   import com.daml.ledger.api.v2.commands.Commands
   import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
   import com.digitalasset.canton.fetchcontracts.`fc ErrorOps`
+  import com.digitalasset.canton.http.json.v1.PackageService
   import com.digitalasset.canton.topology.SynchronizerId
+
+  import scala.annotation.nowarn
 
   sealed trait SubmissionIdTag
 
@@ -393,6 +396,8 @@ package http {
 
   object Contract {
 
+    // TODO(#23504) remove when TransactionTree is removed from the API
+    @nowarn("cat=deprecation")
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav2.value.Value]] = {
@@ -400,6 +405,8 @@ package http {
       fromTreeEvents(events)
     }
 
+    // TODO(#23504) remove when TreeEvent is removed from the API
+    @nowarn("cat=deprecation")
     private[this] def fromTreeEvents(
         events: Vector[lav2.transaction.TreeEvent]
     ): Error \/ Vector[Contract[lav2.value.Value]] = {

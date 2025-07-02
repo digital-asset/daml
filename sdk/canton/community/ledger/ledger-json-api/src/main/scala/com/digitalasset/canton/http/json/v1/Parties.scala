@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.endpoints
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
@@ -12,7 +12,6 @@ import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.{
   AllocatePartyRequest,
   OkResponse,
-  PartiesService,
   Party,
   PartyDetails,
   SyncResponse,
@@ -49,7 +48,7 @@ private[http] final class Parties(partiesService: PartiesService)(implicit ec: E
     } yield OkResponse(res)
 }
 
-private[endpoints] object Parties {
+private[v1] object Parties {
   private def partiesResponse(
       parties: List[PartyDetails],
       unknownParties: List[Party],

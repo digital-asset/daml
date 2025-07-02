@@ -119,7 +119,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
 
     participant1.ledger_api.commands
       .submit_unassign(bobId, Seq(cid.id.toLf), daId, acmeId)
-      .unassignId
+      .reassignmentId
 
     participant1.topology.party_to_participant_mappings.propose_delta(
       bobId,
@@ -167,7 +167,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
 
     participant1.ledger_api.commands
       .submit_unassign(alexId, Seq(cid.id.toLf), daId, acmeId)
-      .unassignId
+      .reassignmentId
 
     assertThrowsAndLogsCommandFailures(
       PartyToParticipantDeclarative.forParty(Set(participant1, participant2), acmeId)(

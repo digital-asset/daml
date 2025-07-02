@@ -35,7 +35,7 @@ object AssignmentValidationError extends LocalRejectionGroup {
       timeout: Target[CantonTimestamp],
   ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot assign `$reassignmentId`: only submitter can initiate before exclusivity timeout $timeout"
+      s"Cannot assign `$reassignmentId`: only $submitter can initiate before exclusivity timeout $timeout. Current timestamp is $currentTimestamp."
   }
 
   final case class InconsistentReassignmentCounters(

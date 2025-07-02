@@ -361,6 +361,8 @@ class ParticipantTab(
     }
 
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
+    // TODO(#26401) use UpdateFormat instead of TransactionFilter
+    @nowarn("cat=deprecation")
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
       endInclusive = None,

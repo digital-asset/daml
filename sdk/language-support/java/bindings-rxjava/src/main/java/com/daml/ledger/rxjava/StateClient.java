@@ -12,10 +12,12 @@ import java.util.Set;
 public interface StateClient {
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<GetActiveContractsResponse> getActiveContracts(
       TransactionFilter filter, boolean verbose, Long activeAtOffset);
 
   // Method will be removed in 3.4
+  @Deprecated
   Flowable<GetActiveContractsResponse> getActiveContracts(
       TransactionFilter filter, boolean verbose, Long activeAtOffset, String accessToken);
 

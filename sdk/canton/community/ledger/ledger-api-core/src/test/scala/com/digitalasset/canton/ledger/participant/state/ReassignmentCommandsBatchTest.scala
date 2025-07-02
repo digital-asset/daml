@@ -4,8 +4,7 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.TestHash
-import com.digitalasset.canton.protocol.{ExampleTransactionFactory, ReassignmentId, UnassignId}
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, ReassignmentId}
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import org.scalatest.matchers.should.Matchers
@@ -25,7 +24,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
   private val assign = ReassignmentCommand.Assign(
     Source(synchronizerId(1)),
     Target(synchronizerId(2)),
-    UnassignId(TestHash.digest(0)),
+    ReassignmentId.tryCreate("0"),
   )
 
   "ReassignmentCommandsBatch.create" when {
@@ -47,7 +46,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
       ReassignmentCommandsBatch.create(Seq(assign)) shouldBe Right(
         ReassignmentCommandsBatch.Assignments(
           target = assign.targetSynchronizer,
-          reassignmentId = ReassignmentId(assign.unassignId),
+          reassignmentId = assign.reassignmentId,
         )
       )
     }
@@ -92,7 +91,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
       ReassignmentCommandsBatch.create(
         Seq(
           assign,
-          assign.copy(unassignId = UnassignId(TestHash.digest((1)))),
+          assign.copy(reassignmentId = ReassignmentId.tryCreate("1")),
         )
       ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignWithOtherCommands)
     }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalSequencerReference}
 import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.{BaseTest, config}
+import monocle.macros.syntax.lens.*
 
 sealed trait ReassignmentSubmissionIntegrationTest
     extends CommunityIntegrationTest
@@ -54,25 +55,24 @@ sealed trait ReassignmentSubmissionIntegrationTest
     EnvironmentDefinition.P2_S1M1_S1M1
       // We want to trigger time out
       .addConfigTransforms(ConfigTransforms.useStaticTime)
+      .addConfigTransform(
+        ConfigTransforms.updateAllParticipantConfigs_(
+          // Make sure that unassignment picks a recent target synchronizer topology snapshot
+          // TODO(#25110): Remove this configuration once the correct snapshot is used in computing
+          //               the vetting checks for the target synchronizer
+          _.focus(_.parameters.reassignmentTimeProofFreshnessProportion)
+            .replace(NonNegativeInt.zero)
+        )
+      )
       .withSetup { implicit env =>
         import env.*
-
-        // Disable automatic assignment so that we really control it
-        def disableAutomaticAssignment(
-            sequencer: LocalSequencerReference
-        ): Unit =
-          sequencer.topology.synchronizer_parameters
-            .propose_update(
-              sequencer.synchronizer_id,
-              _.update(assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero),
-            )
-
-        disableAutomaticAssignment(sequencer1)
-        disableAutomaticAssignment(sequencer2)
 
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
+
+        disableAutomaticAssignment(sequencer1)
+        disableAutomaticAssignment(sequencer2)
 
         PartiesAllocator(participants.all.toSet)(
           Seq("dso" -> participant1, "signatory" -> participant1, "observer1" -> participant2),
@@ -192,7 +192,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
       acmeId,
     )
 
-    unassigned.unassignId shouldBe assigned.unassignId
+    unassigned.reassignmentId shouldBe assigned.reassignmentId
 
     unassigned.events.size shouldBe 2
     assigned.events.size shouldBe 2
@@ -213,6 +213,23 @@ sealed trait ReassignmentSubmissionIntegrationTest
         _.message should include(NoCommands.error)
       ),
     )
+  }
+
+  // Disable automatic assignment so that we really control it
+  private def disableAutomaticAssignment(
+      sequencer: LocalSequencerReference
+  ): Unit = {
+    sequencer.topology.synchronizer_parameters
+      .propose_update(
+        sequencer.synchronizer_id,
+        _.update(assignmentExclusivityTimeout = config.NonNegativeFiniteDuration.Zero),
+      )
+
+    eventually() {
+      sequencer.topology.synchronizer_parameters
+        .get_dynamic_synchronizer_parameters(sequencer.synchronizer_id)
+        .assignmentExclusivityTimeout shouldBe config.NonNegativeFiniteDuration.Zero
+    }
   }
 }
 

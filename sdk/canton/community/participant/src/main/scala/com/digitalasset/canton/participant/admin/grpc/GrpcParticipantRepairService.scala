@@ -593,10 +593,10 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val res = for {
-      unassignId <- EitherT.fromEither[FutureUnlessShutdown](
-        protocol.UnassignId
-          .fromProtoPrimitive(request.unassignId)
-          .leftMap(err => ValueConversionError("unassign_id", err.message).message)
+      reassignmentId <- EitherT.fromEither[FutureUnlessShutdown](
+        protocol.ReassignmentId
+          .fromProtoPrimitive(request.reassignmentId)
+          .leftMap(err => ValueConversionError("reassignment_id", err.message).message)
       )
       sourceSynchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
         SynchronizerId
@@ -610,7 +610,6 @@ final class GrpcParticipantRepairService(
           .map(Target(_))
           .leftMap(_.message)
       )
-      reassignmentId = protocol.ReassignmentId(unassignId)
 
       _ <- sync.repairService.rollbackUnassignment(
         reassignmentId,

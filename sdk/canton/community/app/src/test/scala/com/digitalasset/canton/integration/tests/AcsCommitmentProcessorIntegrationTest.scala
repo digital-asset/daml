@@ -41,6 +41,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisabledUs
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
 import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, SubmissionRequest}
@@ -975,7 +976,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           val reassignmentStoreP1Acme = reassignmentStore(participant1, acmeId)
           val incompleteUnassignment = eventually() {
             reassignmentStoreP1Acme
-              .lookup(unassignedWrapper.reassignmentId)
+              .lookup(ReassignmentId.tryCreate(unassignedWrapper.reassignmentId))
               .value
               .futureValueUS
               .value
@@ -983,7 +984,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
           participant1.ledger_api.commands.submit_assign(
             participant1.id.adminParty,
-            unassignedWrapper.unassignId,
+            unassignedWrapper.reassignmentId,
             daId,
             acmeId,
           )

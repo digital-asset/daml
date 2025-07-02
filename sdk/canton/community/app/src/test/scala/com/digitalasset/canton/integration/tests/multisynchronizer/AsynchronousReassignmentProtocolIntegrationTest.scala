@@ -179,11 +179,11 @@ final class AsynchronousReassignmentProtocolIntegrationTest
         daId,
         acmeId,
       )
-      .unassignId
+      .reassignmentId
 
     val unassign2 = participant1.ledger_api.commands
       .submit_unassign(bobId, Seq(LfContractId.assertFromString(iou2.id.contractId)), daId, acmeId)
-      .unassignId
+      .reassignmentId
 
     val until: Promise[Unit] = Promise[Unit]()
     programmableSequencers(acmeName).setPolicy_("delay confirmation response from alice")(

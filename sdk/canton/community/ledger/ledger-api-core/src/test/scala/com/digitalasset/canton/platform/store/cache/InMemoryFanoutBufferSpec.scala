@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.cache
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -17,7 +16,7 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   UnorderedException,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.protocol.UnassignId
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -579,7 +578,7 @@ class InMemoryFanoutBufferSpec
         sourceSynchronizer = ReassignmentTag.Source(someSynchronizerId),
         targetSynchronizer = ReassignmentTag.Target(someSynchronizerId),
         submitter = None,
-        unassignId = UnassignId(TestHash.digest(1)),
+        reassignmentId = ReassignmentId.tryCreate("1"),
         isReassigningParticipant = false,
       ),
       reassignment = null,

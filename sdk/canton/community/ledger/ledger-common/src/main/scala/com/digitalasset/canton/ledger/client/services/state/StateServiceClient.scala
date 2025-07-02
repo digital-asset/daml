@@ -31,7 +31,11 @@ class StateServiceClient(service: StateServiceStub)(implicit
 ) {
 
   /** Returns a stream of GetActiveContractsResponse messages. */
-  // TODO(#23504) remove when TransactionFilter is removed
+  // TODO(#26401) remove when TransactionFilter is removed
+  @deprecated(
+    "Use getActiveContractsSource with EventFormat instead",
+    "3.4.0",
+  )
   def getActiveContractsSource(
       filter: TransactionFilter,
       validAtOffset: Long,
@@ -67,7 +71,11 @@ class StateServiceClient(service: StateServiceStub)(implicit
       )
 
   /** Returns the resulting active contract set */
-  // TODO(#23504) remove when TransactionFilter is removed
+  // TODO(#26401) remove when TransactionFilter is removed
+  @deprecated(
+    "Use getActiveContracts with EventFormat instead",
+    "3.4.0",
+  )
   def getActiveContracts(
       filter: TransactionFilter,
       validAtOffset: Long,

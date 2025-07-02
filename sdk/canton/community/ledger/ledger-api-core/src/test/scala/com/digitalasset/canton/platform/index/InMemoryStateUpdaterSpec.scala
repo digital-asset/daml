@@ -7,7 +7,6 @@ import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
@@ -43,7 +42,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
-import com.digitalasset.canton.protocol.UnassignId
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
@@ -442,7 +441,7 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId1),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
-          unassignId = UnassignId(TestHash.digest(155555)),
+          reassignmentId = ReassignmentId.tryCreate("155555"),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -468,7 +467,7 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId2),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
-          unassignId = UnassignId(TestHash.digest(1555551)),
+          reassignmentId = ReassignmentId.tryCreate("1555551"),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -930,7 +929,7 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party1),
-        unassignId = UnassignId(TestHash.digest(155555)),
+        reassignmentId = ReassignmentId.tryCreate("155555"),
         isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Batch(
@@ -959,7 +958,7 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party2),
-        unassignId = UnassignId(TestHash.digest(1555551)),
+        reassignmentId = ReassignmentId.tryCreate("1555551"),
         isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Batch(

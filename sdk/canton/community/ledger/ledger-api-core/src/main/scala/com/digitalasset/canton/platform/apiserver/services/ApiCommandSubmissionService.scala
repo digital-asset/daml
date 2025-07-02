@@ -173,7 +173,7 @@ final class ApiCommandSubmissionService(
                     ReassignmentCommand.Assign(
                       sourceSynchronizer = assignCommand.sourceSynchronizerId,
                       targetSynchronizer = assignCommand.targetSynchronizerId,
-                      unassignId = assignCommand.unassignId,
+                      reassignmentId = assignCommand.reassignmentId,
                     )
                   case Right(unassignCommand) =>
                     ReassignmentCommand.Unassign(

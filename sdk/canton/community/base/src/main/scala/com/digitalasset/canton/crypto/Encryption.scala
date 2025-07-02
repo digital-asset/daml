@@ -533,7 +533,7 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
     } yield new SymmetricKey(format, keyP.key, scheme)
 }
 
-final case class EncryptionKeyPair(
+final case class EncryptionKeyPair private (
     publicKey: EncryptionPublicKey,
     privateKey: EncryptionPrivateKey,
 ) extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey] {
@@ -564,6 +564,11 @@ object EncryptionKeyPair {
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
+  def create(
+      publicKey: EncryptionPublicKey,
+      privateKey: EncryptionPrivateKey,
+  ): EncryptionKeyPair = new EncryptionKeyPair(publicKey, privateKey)
+
   def fromProtoV30(
       encryptionKeyPairP: v30.EncryptionKeyPair
   ): ParsingResult[EncryptionKeyPair] =
@@ -578,10 +583,10 @@ object EncryptionKeyPair {
         "private_key",
         encryptionKeyPairP.privateKey,
       )
-    } yield new EncryptionKeyPair(publicKey, privateKey)
+    } yield EncryptionKeyPair.create(publicKey, privateKey)
 }
 
-final case class EncryptionPublicKey private[crypto] (
+final case class EncryptionPublicKey private (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: EncryptionKeySpec,
@@ -646,6 +651,10 @@ final case class EncryptionPublicKey private[crypto] (
 
       case _ => None
     }
+
+  @VisibleForTesting
+  private[crypto] def replaceFormat(format: CryptoKeyFormat): EncryptionPublicKey =
+    this.copy(format = format)(migrated)
 }
 
 object EncryptionPublicKey

@@ -106,7 +106,6 @@ class ReassignmentCoordination(
     * already been reached before the call. [[scala.Left$]] if the `synchronizer` is unknown or the
     * participant is not connected to the synchronizer.
     */
-  // TODO(#25483) This makes no sense: if the static parameters are provided, the synchronizer ID has to be physical
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       synchronizerId: T[PhysicalSynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
@@ -218,13 +217,14 @@ class ReassignmentCoordination(
         _.traverseSingleton((_, syncCrypto) => syncCrypto.snapshot(timestamp))
       )
 
-  private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
-      targetSynchronizerId: Target[PhysicalSynchronizerId],
-      staticSynchronizerParameters: Target[StaticSynchronizerParameters],
+  private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot[T[X] <: ReassignmentTag[X]
+    : SameReassignmentType: SingletonTraverse](
+      targetSynchronizerId: T[PhysicalSynchronizerId],
+      staticSynchronizerParameters: T[StaticSynchronizerParameters],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Target[
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, T[
     SynchronizerSnapshotSyncCryptoApi
   ]] =
     for {

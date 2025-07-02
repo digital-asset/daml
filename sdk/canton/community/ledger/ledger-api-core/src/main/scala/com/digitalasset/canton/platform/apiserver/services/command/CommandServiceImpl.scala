@@ -49,6 +49,7 @@ import io.grpc.{Context, Deadline, Status}
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
@@ -179,6 +180,8 @@ private[apiserver] final class CommandServiceImpl private[services] (
           }
     }
 
+  // TODO(#23504) remove
+  @nowarn("cat=deprecation")
   def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionTreeResponse] =
@@ -380,6 +383,8 @@ private[apiserver] object CommandServiceImpl {
       loggerFactory = loggerFactory,
     )
 
+  // TODO(#23504) remove getTransactionTreeById
+  @nowarn("cat=deprecation")
   final class UpdateServices(
       val getTransactionTreeById: GetTransactionByIdRequest => Future[GetTransactionTreeResponse],
       val getUpdateById: GetUpdateByIdRequest => Future[GetUpdateResponse],

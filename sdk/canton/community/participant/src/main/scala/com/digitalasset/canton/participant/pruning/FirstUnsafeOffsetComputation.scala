@@ -99,7 +99,7 @@ class FirstUnsafeOffsetComputation(
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
       )
       allActiveSynchronizers <- EitherT.fromEither[FutureUnlessShutdown](allActiveSynchronizersE)
-      // TODO(#25483) Do we need the synchronizer id in the tuple knowing it is in the persistent state?
+      // TODO(#26490) Do we need the synchronizer id in the tuple knowing it is in the persistent state?
       affectedSynchronizerOffsets <- EitherT
         .right[LedgerPruningError](allActiveSynchronizers.parFilterA {
           case (synchronizerId, _persistent) =>

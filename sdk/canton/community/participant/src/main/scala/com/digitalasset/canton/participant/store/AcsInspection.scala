@@ -191,7 +191,7 @@ class AcsInspection(
           .toSeq
           .grouped(
             BatchSize.value
-          ) // TODO(#14818): Batching should be done by the caller not here))
+          )
 
         AcsSnapshot(groupedSnapshot, toc)
       }

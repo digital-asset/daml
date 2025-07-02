@@ -65,10 +65,9 @@ message ReassignmentEvent {
 // Records that a contract has been unassigned, and it becomes unusable on the source synchronizer
 message UnassignedEvent {
   // The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
-  // For one contract the (unassign_id, source synchronizer) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string unassign_id = 1;
+  string reassignment_id = 1;
 
   // The ID of the reassigned contract.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -144,10 +143,9 @@ message AssignedEvent {
 
   // The ID from the unassigned event.
   // For correlation capabilities.
-  // For one contract the (unassign_id, source synchronizer) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string unassign_id = 3;
+  string reassignment_id = 3;
 
   // Party on whose behalf the assign command was executed.
   // Empty if the assignment happened offline via the repair service.

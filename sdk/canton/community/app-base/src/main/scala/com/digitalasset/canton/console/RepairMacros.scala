@@ -344,15 +344,6 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       }
   }
 
-  /** Party replication commands!
-    *
-    * The following group contains a set of party replication commands. These commands can be used
-    * to replicate a party from one node to another. The commands come with some limitations /
-    * caveats / capabilities:
-    *
-    *   - If the party is not managed by the source participant, then the appropriate topology state
-    *     needs to be manually prepared before running any of the steps.
-    */
   @Help.Summary(
     "Commands useful to replicate parties from one participant to another",
     FeatureFlag.Repair,

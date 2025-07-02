@@ -555,7 +555,7 @@ object UpdateToDbDto {
           reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
         target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
-        unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toHexString,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
         reassignment_counter = unassign.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
         trace_context = serializedTraceContext,
@@ -612,7 +612,7 @@ object UpdateToDbDto {
           reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
         target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
-        unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toHexString,
+        reassignment_id = reassignmentAccepted.reassignmentInfo.reassignmentId.toProtoPrimitive,
         reassignment_counter = assign.reassignmentCounter,
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,

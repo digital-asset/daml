@@ -41,6 +41,10 @@ trait SimpleFunctionalNodesTest
           topologyTransactionRegistrationTimeout
         )*
       )
+      .addConfigTransforms(
+        // TODO(i26481): Enable new connection pool
+        ConfigTransforms.disableConnectionPool
+      )
 
   "Connect participant-x" in { implicit env =>
     import env.*

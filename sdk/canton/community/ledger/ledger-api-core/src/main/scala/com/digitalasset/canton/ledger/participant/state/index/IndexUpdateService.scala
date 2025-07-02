@@ -18,11 +18,14 @@ import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 /** Serves as a backend to implement
   * [[com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService]]
   */
+// TODO(#23504) remove deprecation warning suppression
+@nowarn("cat=deprecation")
 trait IndexUpdateService extends LedgerEndService {
   def updates(
       begin: Option[Offset],
@@ -37,6 +40,7 @@ trait IndexUpdateService extends LedgerEndService {
       eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed]
 
+  // TODO(#23504) cleanup
   def getTransactionById(
       updateId: UpdateId,
       transactionFormat: TransactionFormat,
@@ -48,6 +52,7 @@ trait IndexUpdateService extends LedgerEndService {
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
+  // TODO(#23504) cleanup
   def getTransactionByOffset(
       offset: Offset,
       transactionFormat: TransactionFormat,

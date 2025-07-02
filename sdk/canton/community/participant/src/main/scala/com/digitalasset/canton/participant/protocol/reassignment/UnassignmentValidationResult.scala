@@ -20,15 +20,11 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   FieldConversionError,
   ReassignmentProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentValidationResult.ValidationResult
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.google.common.annotations.VisibleForTesting
-
-import scala.concurrent.ExecutionContext
 
 final case class UnassignmentValidationResult(
     // TODO(i25233): Right now we write the full tree as part of the unassignment data in the reassignment store.
@@ -39,8 +35,9 @@ final case class UnassignmentValidationResult(
     assignmentExclusivity: Option[
       Target[CantonTimestamp]
     ], // Defined iff the participant is reassigning
-    validationResult: ValidationResult,
     unassignmentTs: CantonTimestamp,
+    commonValidationResult: UnassignmentValidationResult.CommonValidationResult,
+    reassigningParticipantValidationResult: UnassignmentValidationResult.ReassigningParticipantValidationResult,
 ) extends ReassignmentValidationResult {
   val rootHash = fullTree.rootHash
   val submitterMetadata = fullTree.submitterMetadata
@@ -50,23 +47,10 @@ final case class UnassignmentValidationResult(
   val targetTimeProof = fullTree.targetTimeProof
 
   def isReassigningParticipant: Boolean = assignmentExclusivity.isDefined
-  override def isUnassignment: Boolean = true
 
-  @VisibleForTesting
-  def isSuccessfulF(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
-    validationResult.isSuccessful
+  override def activenessResultIsSuccessful: Boolean =
+    commonValidationResult.activenessResult.isSuccessful
 
-  def activenessResult: ActivenessResult = validationResult.activenessResult
-  def participantSignatureVerificationResult: Option[AuthenticationError] =
-    validationResult.participantSignatureVerificationResult
-  def contractAuthenticationResultF
-      : EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
-    validationResult.contractAuthenticationResultF
-
-  override def submitterCheckResult: Option[ReassignmentValidationError] =
-    validationResult.submitterCheckResult
-  def reassigningParticipantValidationResult: Seq[ReassignmentValidationError] =
-    validationResult.reassigningParticipantValidationResult
   def contracts = fullTree.contracts
 
   def commitSet = CommitSet(
@@ -117,7 +101,7 @@ final case class UnassignmentValidationResult(
         sourceSynchronizer = sourceSynchronizer.map(_.logical),
         targetSynchronizer = targetSynchronizer.map(_.logical),
         submitter = Option(submitterMetadata.submitter),
-        unassignId = reassignmentId.unassignId,
+        reassignmentId = reassignmentId,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment =
@@ -138,7 +122,7 @@ final case class UnassignmentValidationResult(
 }
 
 object UnassignmentValidationResult {
-  final case class ValidationResult(
+  final case class CommonValidationResult(
       activenessResult: ActivenessResult,
       participantSignatureVerificationResult: Option[AuthenticationError],
       contractAuthenticationResultF: EitherT[
@@ -147,12 +131,9 @@ object UnassignmentValidationResult {
         Unit,
       ],
       submitterCheckResult: Option[ReassignmentValidationError],
-      reassigningParticipantValidationResult: Seq[ReassignmentValidationError],
-  ) {
-    def isSuccessful(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
-      for {
-        modelConformanceCheck <- contractAuthenticationResultF.value
-      } yield activenessResult.isSuccessful && participantSignatureVerificationResult.isEmpty
-        && reassigningParticipantValidationResult.isEmpty && modelConformanceCheck.isRight
-  }
+  ) extends ReassignmentValidationResult.CommonValidationResult
+
+  final case class ReassigningParticipantValidationResult(
+      errors: Seq[ReassignmentValidationError]
+  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult
 }

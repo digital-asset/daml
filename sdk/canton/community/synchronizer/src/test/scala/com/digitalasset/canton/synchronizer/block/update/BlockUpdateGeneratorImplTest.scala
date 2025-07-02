@@ -17,6 +17,7 @@ import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGeneratorImp
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.topology.DefaultTestIdentities.{physicalSynchronizerId, sequencerId}
@@ -60,7 +61,7 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = CantonTimestamp.MinValue,
+            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -102,7 +103,7 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = CantonTimestamp.MinValue,
+            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,

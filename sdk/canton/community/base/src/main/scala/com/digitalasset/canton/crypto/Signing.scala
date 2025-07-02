@@ -1138,7 +1138,7 @@ final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: Signing
   )
 
   @VisibleForTesting
-  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningKeyPair =
+  private[canton] def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningKeyPair =
     this.copy(
       publicKey = publicKey.replaceUsage(usage),
       privateKey = privateKey.replaceUsage(usage),
@@ -1177,8 +1177,13 @@ object SigningKeyPair {
             new IllegalStateException(s"Failed to create private signing key: $err")
           )
         )
-    } yield SigningKeyPair(publicKey, privateKey)
+    } yield SigningKeyPair.create(publicKey, privateKey)
   }
+
+  def create(
+      publicKey: SigningPublicKey,
+      privateKey: SigningPrivateKey,
+  ): SigningKeyPair = new SigningKeyPair(publicKey, privateKey)
 
   def fromProtoV30(
       signingKeyPairP: v30.SigningKeyPair
@@ -1194,15 +1199,15 @@ object SigningKeyPair {
         "private_key",
         signingKeyPairP.privateKey,
       )
-    } yield SigningKeyPair(publicKey, privateKey)
+    } yield SigningKeyPair.create(publicKey, privateKey)
 }
 
-final case class SigningPublicKey private[crypto] (
+final case class SigningPublicKey private (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
     usage: NonEmpty[Set[SigningKeyUsage]],
-    override protected val dataForFingerprintO: Option[ByteString] = None,
+    override protected val dataForFingerprintO: Option[ByteString],
 )(
     override val migrated: Boolean = false
 ) extends PublicKey
@@ -1307,8 +1312,12 @@ final case class SigningPublicKey private[crypto] (
     }
 
   @VisibleForTesting
-  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPublicKey =
+  private[crypto] def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPublicKey =
     this.copy(usage = usage)(migrated)
+
+  @VisibleForTesting
+  private[crypto] def replaceFormat(format: CryptoKeyFormat): SigningPublicKey =
+    this.copy(format = format)(migrated)
 }
 
 object SigningPublicKey
@@ -1374,7 +1383,8 @@ object SigningPublicKey
         )
       keyAfterMigration = keyAfterMigrationO match {
         case None => keyBeforeMigration
-        case Some(migratedKey) if migratedKey.id == keyBeforeMigration.id => migratedKey
+        case Some(migratedKey) if migratedKey.id == keyBeforeMigration.id =>
+          migratedKey
         case Some(migratedKey) =>
           throw new IllegalStateException(
             s"Key ID changed: ${keyBeforeMigration.id} -> ${migratedKey.id}"

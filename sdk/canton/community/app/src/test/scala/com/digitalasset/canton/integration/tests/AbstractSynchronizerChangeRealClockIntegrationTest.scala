@@ -118,7 +118,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     clue(s"running assignment on ${paintOfferUnassignedEvent.contractId}") {
       P4.ledger_api.commands.submit_assign(
         painter,
-        paintOfferUnassignedEvent.unassignId,
+        paintOfferUnassignedEvent.reassignmentId,
         paintSynchronizerId,
         iouSynchronizerId,
       )
@@ -174,7 +174,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
 
     P4.ledger_api.commands.submit_assign(
       painter,
-      paintHouseUnassigned.unassignId,
+      paintHouseUnassigned.reassignmentId,
       iouSynchronizerId,
       paintSynchronizerId,
     )

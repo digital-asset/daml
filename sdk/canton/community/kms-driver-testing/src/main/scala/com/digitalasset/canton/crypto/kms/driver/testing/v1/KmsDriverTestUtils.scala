@@ -4,7 +4,6 @@
 package com.digitalasset.canton.crypto.kms.driver.testing.v1
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto
 import com.digitalasset.canton.crypto.kms.driver.api.v1.{
   EncryptionAlgoSpec,
   EncryptionKeySpec,
@@ -23,6 +22,7 @@ import com.digitalasset.canton.crypto.{
   SymmetricKeyScheme,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.{FutureHelpers, crypto}
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
@@ -30,7 +30,7 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import java.security.Security
 
-object KmsDriverTestUtils {
+object KmsDriverTestUtils extends FutureHelpers {
 
   implicit val transformerEncryptionAlgoSpec
       : Transformer[EncryptionAlgoSpec, crypto.EncryptionAlgorithmSpec] = {
@@ -57,14 +57,14 @@ object KmsDriverTestUtils {
     val supportedCryptoSigningAlgoSpecs =
       NonEmpty
         .from(supportedDriverSigningAlgoSpecs.map(_.transformInto[crypto.SigningAlgorithmSpec]))
-        .getOrElse(sys.error("no supported signing algo specs"))
+        .valueOrFail("no supported signing algo specs")
 
     val supportedCryptoEncryptionAlgoSpecs =
       NonEmpty
         .from(
           supportedDriverEncryptionAlgoSpecs.map(_.transformInto[crypto.EncryptionAlgorithmSpec])
         )
-        .getOrElse(sys.error("no supported encryption algo specs"))
+        .valueOrFail("no supported encryption algo specs")
 
     new JcePureCrypto(
       defaultSymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm,
@@ -85,18 +85,22 @@ object KmsDriverTestUtils {
     val key = ByteString.copyFrom(publicKey.key)
     val spec = publicKey.spec match {
       case spec: SigningKeySpec => spec.transformInto[crypto.SigningKeySpec]
-      case _: EncryptionKeySpec => sys.error("public key is not a signing public key")
+      case _: EncryptionKeySpec => fail("public key is not a signing public key")
     }
-    SigningPublicKey(CryptoKeyFormat.DerX509Spki, key, spec, usage)()
+    SigningPublicKey
+      .create(CryptoKeyFormat.DerX509Spki, key, spec, usage)
+      .valueOrFail("create signing public key")
   }
 
   def encryptionPublicKey(publicKey: PublicKey): EncryptionPublicKey = {
     val key = ByteString.copyFrom(publicKey.key)
     val spec = publicKey.spec match {
       case spec: EncryptionKeySpec => spec.transformInto[crypto.EncryptionKeySpec]
-      case _: SigningKeySpec => sys.error("public key is not an encryption public key")
+      case _: SigningKeySpec => fail("public key is not an encryption public key")
     }
-    EncryptionPublicKey(CryptoKeyFormat.DerX509Spki, key, spec)()
+    EncryptionPublicKey
+      .create(CryptoKeyFormat.DerX509Spki, key, spec)
+      .valueOrFail("create encryption public key")
   }
 
 }

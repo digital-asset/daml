@@ -106,7 +106,7 @@ messages:
     message:
       comments: Assign a contract
       fieldComments:
-        unassign_id: |-
+        reassignment_id: |-
           The ID from the unassigned event to be completed by this assignment.
           Must be a valid LedgerString (as described in ``value.proto``).
           Required
@@ -127,12 +127,6 @@ messages:
           Required
           The offset of this event refers to the offset of the assignment,
           while the node_id is the index of within the batch.
-        unassign_id: |-
-          The ID from the unassigned event.
-          For correlation capabilities.
-          For one contract the (unassign_id, source synchronizer) pair is unique.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Required
         source: |-
           The ID of the source synchronizer.
           Must be a valid synchronizer id.
@@ -141,6 +135,11 @@ messages:
           Each corresponding assigned and unassigned event has the same reassignment_counter. This strictly increases
           with each unassign command for the same contract. Creation of the contract corresponds to reassignment_counter
           equals zero.
+          Required
+        reassignment_id: |-
+          The ID from the unassigned event.
+          For correlation capabilities.
+          Must be a valid LedgerString (as described in ``value.proto``).
           Required
         target: |-
           The ID of the target synchronizer.
@@ -1199,6 +1198,12 @@ messages:
         package_references: |-
           The package references of the preferred packages.
           Must contain one package reference for each requested package-name.
+
+          If you build command submissions whose content depends on the returned
+          preferred packages, then we recommend submitting the preferred package-ids
+          in the ``package_id_selection_preference`` of the command submission to
+          avoid race conditions with concurrent changes of the on-ledger package vetting state.
+
           Required
         synchronizer_id: |-
           The synchronizer for which the package preferences are computed.
@@ -1490,7 +1495,7 @@ messages:
         view_value: |-
           The value of the interface's view method on this event.
           Set if it was requested in the ``InterfaceFilter`` and it could be
-          sucessfully computed.
+          successfully computed.
           Optional
   ListIdentityProviderConfigsRequest:
     message:
@@ -2421,11 +2426,6 @@ messages:
           Node IDs are not necessarily equal across participants,
           as these may see different projections/parts of reassignments.
           Required, must be valid node ID (non-negative integer)
-        unassign_id: |-
-          The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
-          For one contract the (unassign_id, source synchronizer) pair is unique.
-          Must be a valid LedgerString (as described in ``value.proto``).
-          Required
         offset: |-
           The offset of origin.
           Offsets are managed by the participant nodes.
@@ -2451,6 +2451,10 @@ messages:
           Before this time (measured on the target synchronizer), only the submitter of the unassignment can initiate the assignment
           Defined for reassigning participants.
           Optional
+        reassignment_id: |-
+          The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
+          Must be a valid LedgerString (as described in ``value.proto``).
+          Required
         target: |-
           The ID of the target synchronizer
           Must be a valid synchronizer id

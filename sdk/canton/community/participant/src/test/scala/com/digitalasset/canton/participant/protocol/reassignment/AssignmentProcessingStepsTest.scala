@@ -28,6 +28,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.ContractDataMismatch
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.{
   ContractIdAuthenticationFailure,
@@ -223,8 +224,7 @@ class AssignmentProcessingStepsTest
     }).failOnShutdown
   }
 
-  private lazy val unassignId = UnassignId(TestHash.digest(0))
-  private lazy val reassignmentId = ReassignmentId(unassignId)
+  private lazy val reassignmentId = reassignment10
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
@@ -556,7 +556,7 @@ class AssignmentProcessingStepsTest
           ._1
           .responses should matchPattern { case Seq(ConfirmationResponse(_, LocalApprove(), _)) =>
         }
-        result.pendingData.assignmentValidationResult.isSuccessfulF.futureValueUS shouldBe true
+        result.pendingData.assignmentValidationResult.isSuccessful.futureValueUS shouldBe true
         succeed
       }
     }
@@ -598,7 +598,7 @@ class AssignmentProcessingStepsTest
           }
           val assignmentValidationResult = result.pendingData.assignmentValidationResult
           val modelConformanceError =
-            assignmentValidationResult.contractAuthenticationResultF.value.futureValueUS
+            assignmentValidationResult.commonValidationResult.contractAuthenticationResultF.value.futureValueUS
 
           modelConformanceError.left.value match {
             case ContractIdAuthenticationFailure(ref, reason, contractId) =>
@@ -608,7 +608,7 @@ class AssignmentProcessingStepsTest
             case other => fail(s"Did not expect $other")
           }
 
-          assignmentValidationResult.reassigningParticipantValidationResult should contain(
+          assignmentValidationResult.reassigningParticipantValidationResult.errors should contain(
             ContractDataMismatch(reassignmentId)
           )
         }
@@ -734,7 +734,7 @@ class AssignmentProcessingStepsTest
             )("construction of pending data and response failed").failOnShutdown
 
           metadataCheck =
-            result.pendingData.assignmentValidationResult.contractAuthenticationResultF.futureValueUS
+            result.pendingData.assignmentValidationResult.commonValidationResult.contractAuthenticationResultF.futureValueUS
         } yield {
           metadataCheck.left.value shouldBe expectedError
           result.confirmationResponsesF.futureValueUS.value
@@ -750,48 +750,48 @@ class AssignmentProcessingStepsTest
   }
 
   "get commit set and contracts to be stored and event" should {
-    "succeed without errors" in {
-      val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-      val contract =
-        ExampleTransactionFactory.asSerializable(
-          contractId,
-          contractInstance = ExampleTransactionFactory.contractInstance(),
-          metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
-        )
-      val reassignmentId = ReassignmentId(unassignId)
-      val rootHash = mock[RootHash]
-      when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
-      val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
-        RequestId(CantonTimestamp.Epoch),
-        RequestCounter(1),
-        SequencerCounter(1),
-        assignmentValidationResult = AssignmentValidationResult(
-          rootHash,
-          ContractsReassignmentBatch(contract, initialReassignmentCounter),
-          submitterInfo(submitter),
-          reassignmentId,
-          sourceSynchronizer,
-          isReassigningParticipant = false,
-          hostedStakeholders = contract.metadata.stakeholders,
-          validationResult = AssignmentValidationResult.ValidationResult(
-            activenessResult = mkActivenessResult(),
-            participantSignatureVerificationResult = None,
-            contractAuthenticationResultF = EitherT.rightT(()),
-            submitterCheckResult = None,
-            reassigningParticipantValidationResult = Seq.empty,
-          ),
-        ),
-        MediatorGroupRecipient(MediatorGroupIndex.one),
-        locallyRejectedF = FutureUnlessShutdown.pure(false),
-        abortEngine = _ => (),
-        engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
+    val contract =
+      ExampleTransactionFactory.asSerializable(
+        contractId,
+        contractInstance = ExampleTransactionFactory.contractInstance(),
+        metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
       )
+    val rootHash = mock[RootHash]
+    when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
+    val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
+      RequestId(CantonTimestamp.Epoch),
+      RequestCounter(1),
+      SequencerCounter(1),
+      assignmentValidationResult = AssignmentValidationResult(
+        rootHash,
+        ContractsReassignmentBatch(contract, initialReassignmentCounter),
+        submitterInfo(submitter),
+        reassignmentId,
+        sourceSynchronizer,
+        isReassigningParticipant = false,
+        hostedStakeholders = contract.metadata.stakeholders,
+        commonValidationResult = AssignmentValidationResult.CommonValidationResult(
+          activenessResult = mkActivenessResult(),
+          participantSignatureVerificationResult = None,
+          contractAuthenticationResultF = EitherT.rightT(()),
+          submitterCheckResult = None,
+        ),
+        reassigningParticipantValidationResult =
+          ReassigningParticipantValidationResult(errors = Seq.empty),
+      ),
+      MediatorGroupRecipient(MediatorGroupIndex.zero),
+      locallyRejectedF = FutureUnlessShutdown.pure(false),
+      abortEngine = _ => (),
+      engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+    )
 
+    "succeed without errors" in {
       for {
         deps <- statefulDependencies
         (_persistentState, state) = deps
 
-        _result <- valueOrFail(
+        result <- valueOrFail(
           assignmentProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(
@@ -809,7 +809,45 @@ class AssignmentProcessingStepsTest
             )
             .failOnShutdown
         )("get commit set and contracts to be stored and event failed")
-      } yield succeed
+      } yield result.commitSet.nonEmpty shouldBe true
+    }
+
+    "fail with mediator is not active anymore" in {
+      for {
+        deps <- statefulDependencies
+        (_persistentState, state) = deps
+        result <-
+          loggerFactory.assertLoggedWarningsAndErrorsSeq(
+            valueOrFail(
+              assignmentProcessingSteps
+                .getCommitSetAndContractsToBeStoredAndEvent(
+                  NoOpeningErrors(
+                    SignedContent(
+                      mock[Deliver[DefaultOpenEnvelope]],
+                      Signature.noSignature,
+                      None,
+                      testedProtocolVersion,
+                    )
+                  ),
+                  Verdict.Approve(testedProtocolVersion),
+                  // request used MediatorGroupIndex.zero
+                  pendingRequestData
+                    .copy(mediator = MediatorGroupRecipient(MediatorGroupIndex.one)),
+                  state.pendingAssignmentSubmissions,
+                  crypto.pureCrypto,
+                )
+                .failOnShutdown
+            )("get commit set and contracts to be stored and event failed"),
+            LogEntry.assertLogSeq(
+              Seq(
+                (
+                  _.shouldBeCantonErrorCode(LocalRejectError.MalformedRejects.MalformedRequest),
+                  "mediator is not active anymore",
+                )
+              )
+            ),
+          )
+      } yield result.commitSet.nonEmpty shouldBe false
     }
   }
 
