@@ -54,7 +54,7 @@ public class IouMain {
 
     client
         .getStateClient()
-        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true, ledgerEnd)
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), ledgerEnd)
         .blockingForEach(
             response -> {
               response.activeContracts.forEach(
