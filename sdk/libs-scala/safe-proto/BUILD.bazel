@@ -29,6 +29,5 @@ da_scala_test_suite(
     deps = [
         ":safe-proto",
         "@maven//:com_google_protobuf_protobuf_java",
-        # "@maven//:org_scalatest_scalatest_wordspec_2_13",
     ],
 )
