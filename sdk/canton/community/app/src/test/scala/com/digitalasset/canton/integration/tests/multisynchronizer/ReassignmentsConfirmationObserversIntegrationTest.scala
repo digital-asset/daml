@@ -170,8 +170,8 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       }
 
   "Observers on a contract" should {
-    def lookupReassignment(participant: LocalParticipantReference, reassignmentId: ReassignmentId)(
-        implicit env: TestConsoleEnvironment
+    def lookupReassignment(participant: LocalParticipantReference, reassignmentId: String)(implicit
+        env: TestConsoleEnvironment
     ): Either[ReassignmentStore.ReassignmentLookupError, UnassignmentData] = {
       import env.*
 
@@ -179,7 +179,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
         .get(acmeId)
         .value
         .reassignmentStore
-        .lookup(reassignmentId)
+        .lookup(ReassignmentId.tryCreate(reassignmentId))
         .value
         .failOnShutdown
         .futureValue
@@ -218,11 +218,10 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       )
 
       // Unassignment
-      val unassignId =
+      val reassignmentId =
         participant1.ledger_api.commands
           .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
-          .unassignId
-      val reassignmentId = ReassignmentId.tryCreate(unassignId)
+          .reassignmentId
 
       // Check that reassignment store is populated on 3 participants
       eventually() {
@@ -231,7 +230,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
         lookupReassignment(participant3, reassignmentId).value shouldBe a[UnassignmentData]
       }
 
-      participant1.ledger_api.commands.submit_assign(signatory, unassignId, daId, acmeId)
+      participant1.ledger_api.commands.submit_assign(signatory, reassignmentId, daId, acmeId)
 
       // no confirmation sent by p2, hosting observer2
       // no confirmation sent by p3, hosting signatory with observing permissions
@@ -271,12 +270,12 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
 
-      val unassignId =
+      val reassignmentId =
         participant1.ledger_api.commands
           .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
-          .unassignId
+          .reassignmentId
 
-      participant1.ledger_api.commands.submit_assign(signatory, unassignId, daId, acmeId)
+      participant1.ledger_api.commands.submit_assign(signatory, reassignmentId, daId, acmeId)
     }
   }
 

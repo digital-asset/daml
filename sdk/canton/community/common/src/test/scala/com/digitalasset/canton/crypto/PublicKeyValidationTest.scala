@@ -16,10 +16,10 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       newFormat: CryptoKeyFormat,
   ): PublicKey =
     publicKey match {
-      case EncryptionPublicKey(_format, key, scheme) =>
-        new EncryptionPublicKey(newFormat, key, scheme)()
-      case SigningPublicKey(_format, key, scheme, usage, dataForFingerprint) =>
-        new SigningPublicKey(newFormat, key, scheme, usage, dataForFingerprint)()
+      case epk: EncryptionPublicKey =>
+        epk.replaceFormat(newFormat)
+      case spk: SigningPublicKey =>
+        spk.replaceFormat(newFormat)
       case _ => fail(s"unsupported key type")
     }
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.pruning
 
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds, StorageConfig}
+import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.*
@@ -143,7 +143,7 @@ sealed trait ReassignmentPruningIntegrationTest
   }
 
   // unassigns the given iou from origin to target
-  // returns the unassignmentId, the unassignment offset on participant1 and the unassignment offset on participant2
+  // returns the reassignmentId, the unassignment offset on participant1 and the unassignment offset on participant2
   private def unassignIou(
       origin: SynchronizerId,
       target: SynchronizerId,
@@ -163,7 +163,7 @@ sealed trait ReassignmentPruningIntegrationTest
         target,
       )
     val unassignOffsetP2 = unassignment.reassignment.offset
-    val unassignmentId = unassignment.unassignId
+    val reassignmentId = unassignment.reassignmentId
 
     val unassignOffsetP1 = participant1.ledger_api.updates
       .reassignments(
@@ -176,19 +176,19 @@ sealed trait ReassignmentPruningIntegrationTest
         wrapper.reassignment.offset
       }
       .value
-    (unassignmentId, unassignOffsetP1, unassignOffsetP2)
+    (reassignmentId, unassignOffsetP1, unassignOffsetP2)
   }
 
   // assigns the given iou from origin to target
   // returns the assignment offset on participant1 and the assignment offset on participant2
-  private def assignIou(origin: SynchronizerId, target: SynchronizerId, unassignmentId: String)(
+  private def assignIou(origin: SynchronizerId, target: SynchronizerId, reassignmentId: String)(
       implicit env: TestConsoleEnvironment
   ): (Long, Long) = {
     import env.*
 
     val ledgerEndP2BeforeAssign =
       participant2.ledger_api.state.end()
-    val res = participant1.ledger_api.commands.submit_assign(alice, unassignmentId, origin, target)
+    val res = participant1.ledger_api.commands.submit_assign(alice, reassignmentId, origin, target)
     val assignOffsetP1 = res.reassignment.offset
 
     val assignOffsetP2 = participant2.ledger_api.updates
@@ -217,7 +217,7 @@ sealed trait ReassignmentPruningIntegrationTest
 
       // Prepare reassignment of the Iou from daId to acmeId
       // First unassign the Iou from daId to acmeId
-      val (unassignmentId, unassignOffsetP1, unassignOffsetP2) =
+      val (reassignmentId, unassignOffsetP1, unassignOffsetP2) =
         unassignIou(daId, acmeId, contractId)
 
       // save the offsets to test acs snapshots
@@ -255,7 +255,7 @@ sealed trait ReassignmentPruningIntegrationTest
       ensureOffsetUnsafeToPrune(unassignOffsetP2, clock, participant2)
 
       // Complete the unassignment by submitting the assign from daId to acmeId
-      val (assignOffsetP1, assignOffsetP2) = assignIou(daId, acmeId, unassignmentId)
+      val (assignOffsetP1, assignOffsetP2) = assignIou(daId, acmeId, reassignmentId)
 
       // save the offsets to test acs snapshots later
       offsetP1AfterAssign = participant1.ledger_api.state.end()
@@ -353,17 +353,3 @@ class ReassignmentPruningIntegrationTestPostgres extends ReassignmentPruningInte
 //    )
 //  )
 //}
-
-final class ReassignmentPruningIntegrationTestInMemory extends ReassignmentPruningIntegrationTest {
-  registerPlugin(
-    new UseCommunityReferenceBlockSequencer[StorageConfig.Memory](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
-}

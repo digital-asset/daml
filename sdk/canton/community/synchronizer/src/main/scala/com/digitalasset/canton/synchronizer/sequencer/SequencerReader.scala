@@ -265,21 +265,22 @@ class SequencerReader(
         registeredTopologyClientMember.memberId,
         loggerFactoryForMember,
       )
+      val initialReadState = ReadState(
+        member,
+        registeredMember.memberId,
+        // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
+        // so if we want to grab the event exactly at timestampInclusive, we do -1 here
+        nextReadTimestamp = readFromTimestampInclusive
+          .map(_.immediatePredecessor)
+          .getOrElse(
+            memberOnboardingTxSequencingTime
+          ),
+        nextPreviousEventTimestamp = previousEventTimestamp,
+        latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestamp.some,
+      )
       reader.from(
         event => requestedTimestampInclusive.exists(event.unvalidatedEvent.timestamp < _),
-        ReadState(
-          member,
-          registeredMember.memberId,
-          // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
-          // so if we want to grab the event exactly at timestampInclusive, we do -1 here
-          nextReadTimestamp = readFromTimestampInclusive
-            .map(_.immediatePredecessor)
-            .getOrElse(
-              memberOnboardingTxSequencingTime
-            ),
-          nextPreviousEventTimestamp = previousEventTimestamp,
-          latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestamp.some,
-        ),
+        initialReadState,
       )
     })
 

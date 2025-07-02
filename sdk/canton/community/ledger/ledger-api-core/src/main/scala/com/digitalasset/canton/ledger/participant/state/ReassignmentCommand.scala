@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.protocol.UnassignId
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.value.Value
@@ -23,6 +23,6 @@ object ReassignmentCommand {
   final case class Assign(
       sourceSynchronizer: Source[SynchronizerId],
       targetSynchronizer: Target[SynchronizerId],
-      unassignId: UnassignId,
+      reassignmentId: ReassignmentId,
   ) extends ReassignmentCommand
 }

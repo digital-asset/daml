@@ -101,10 +101,10 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
       val contract = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
       val cid = contract.id.toLf
 
-      val unassignId =
+      val reassignmentId =
         participant1.ledger_api.commands
           .submit_unassign(signatory, Seq(cid), daId, acmeId)
-          .unassignId
+          .reassignmentId
 
       // Check unassignment
       assertNotInLedgerAcsSync(
@@ -125,7 +125,7 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
       // Submit assignments
       val assignmentCompletion1F = Future {
         failingAssignment(
-          unassignId = unassignId,
+          reassignmentId = reassignmentId,
           source = daId,
           target = acmeId,
           submittingParty = signatory.toLf,
@@ -135,7 +135,7 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
 
       val assignmentCompletion2F = submission1Phase3Done.future.map { _ =>
         failingAssignment(
-          unassignId = unassignId,
+          reassignmentId = reassignmentId,
           source = daId,
           target = acmeId,
           submittingParty = observer.toLf,
@@ -230,10 +230,10 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
         val cid = contract.id.toLf
 
         // unassignment contract
-        val unassignId =
+        val reassignmentId =
           participant1.ledger_api.commands
             .submit_unassign(signatory, Seq(cid), daId, acmeId)
-            .unassignId
+            .reassignmentId
 
         eventually() {
           // make sure the unassignment is completed on P2
@@ -271,7 +271,7 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
         // Submit assignments
         val assignmentCompletion1F = Future {
           failingAssignment(
-            unassignId = unassignId,
+            reassignmentId = reassignmentId,
             source = daId,
             target = acmeId,
             submittingParty = signatory.toLf,
@@ -282,7 +282,7 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
         // P2 submission should not be sent before P1's
         val assignmentCompletion2F = submission1Done.future.map { _ =>
           failingAssignment(
-            unassignId = unassignId,
+            reassignmentId = reassignmentId,
             source = daId,
             target = acmeId,
             submittingParty = observer.toLf,

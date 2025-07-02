@@ -270,7 +270,7 @@ class ActiveContractsIntegrationTest
       env: TestConsoleEnvironment
   ): (AssignedWrapper, Completion) =
     assign(
-      unassignId = out.unassignId,
+      reassignmentId = out.reassignmentId,
       source = SynchronizerId.tryFromString(out.source),
       target = SynchronizerId.tryFromString(out.target),
       submittingParty = submitter.toLf,
@@ -855,11 +855,11 @@ class ActiveContractsIntegrationTest
         resultFilter = _.isUnassignment,
       )
       .collect { case unassigned: UnassignedWrapper =>
-        (unassigned.source, unassigned.unassignId)
+        (unassigned.source, unassigned.reassignmentId)
       }
       .loneElement
 
-    unassignedUniqueId shouldBe (out.source, out.unassignId)
+    unassignedUniqueId shouldBe (out.source, out.reassignmentId)
   }
 }
 

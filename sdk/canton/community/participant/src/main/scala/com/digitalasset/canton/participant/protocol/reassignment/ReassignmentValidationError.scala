@@ -11,7 +11,8 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
   SubmissionValidationError,
 }
-import com.digitalasset.canton.protocol.{LfContractId, Stakeholders}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, Stakeholders}
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.daml.lf.engine
@@ -37,6 +38,14 @@ object ReassignmentValidationError {
       extends ReassignmentValidationError {
     override def message: String =
       s"For `$reassignmentRef`: reinterpretation failed for reason `$reason`"
+  }
+
+  final case class MediatorInactive(
+      reassignmentId: ReassignmentId,
+      mediator: MediatorGroupRecipient,
+  ) extends ReassignmentValidationError {
+    override def message: String =
+      s"For `$reassignmentId`: $mediator has been deactivated while processing the request"
   }
 
   final case class StakeholdersMismatch(

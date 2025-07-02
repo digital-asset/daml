@@ -1,11 +1,10 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
-import com.digitalasset.canton.http.admin.GetPackageResponse
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.ProtobufByteStrings
 import org.apache.pekko.NotUsed
@@ -29,7 +28,7 @@ class PackageManagementService(
   def getPackage(jwt: Jwt, packageId: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[GetPackageResponse] =
-    getPackageFn(jwt, packageId)(lc).map(admin.GetPackageResponse.fromLedgerApi)
+    getPackageFn(jwt, packageId)(lc).map(GetPackageResponse.fromLedgerApi)
 
   def uploadDarFile(
       jwt: Jwt,

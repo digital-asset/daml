@@ -1,14 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
-import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.ClientUtil.uniqueCommandId
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.IdentifierConverters.refApiIdentifier
@@ -17,14 +16,18 @@ import com.digitalasset.canton.http.util.{Commands, Transactions}
 import com.digitalasset.canton.http.{
   ActiveContract,
   Choice,
+  CommandMeta,
+  CompletionOffset,
   Contract,
   ContractTypeId,
   CreateAndExerciseCommand,
   CreateCommand,
+  CreateCommandResponse,
   ExerciseCommand,
   ExerciseResponse,
   JwtWritePayload,
   Offset,
+  ResolvedContractRef,
 }
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
@@ -38,9 +41,14 @@ import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, \/, \/-}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+import LedgerClientJwt.Grpc
+
+// TODO(#23504) remove when TransactionTrees are removed from the API
+@nowarn("cat=deprecation")
 class CommandService(
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
@@ -307,6 +315,8 @@ class CommandService(
       .traverse(ActiveContract.fromLedgerApi(ActiveContract.ExtractAs.Template, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
 
+  // TODO(#23504) remove when SubmitAndWaitForTransactionTreeResponse is removed from the API
+  @nowarn("cat=deprecation")
   private def contracts(
       response: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ List[Contract[lav2.value.Value]] =
@@ -319,6 +329,8 @@ class CommandService(
       )
       .flatMap(contracts)
 
+  // TODO(#23504) remove when TransactionTree is removed from the API
+  @nowarn("cat=deprecation")
   private def contracts(
       tx: lav2.transaction.TransactionTree
   ): Error \/ List[Contract[lav2.value.Value]] =
@@ -327,6 +339,8 @@ class CommandService(
       .leftMap(e => InternalError(Some(Symbol("contracts")), e.shows))
       .map(_.toList)
 
+  // TODO(#23504) remove when TransactionTree is removed from the API
+  @nowarn("cat=deprecation")
   private def exerciseResult(
       a: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ lav2.value.Value = {
@@ -344,6 +358,8 @@ class CommandService(
     )
   }
 
+  // TODO(#23504) remove when TransactionTree is removed from the API
+  @nowarn("cat=deprecation")
   private def firstExercisedEvent(
       tx: lav2.transaction.TransactionTree
   ): Option[lav2.event.ExercisedEvent] = {

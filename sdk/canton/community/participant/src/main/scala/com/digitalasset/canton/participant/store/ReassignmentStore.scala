@@ -144,7 +144,7 @@ object ReassignmentStore {
         .parTraverse_ { case (targetSynchronizer, eventsForSynchronizer) =>
           lazy val updates = eventsForSynchronizer
             .map { case (event, offset) =>
-              s"${event.reassignmentInfo.sourceSynchronizer} ${event.reassignmentInfo.unassignId} (${event.reassignment}): $offset"
+              s"${event.reassignmentInfo.sourceSynchronizer} ${event.reassignmentInfo.reassignmentId} (${event.reassignment}): $offset"
             }
             .mkString(", ")
 
@@ -155,9 +155,7 @@ object ReassignmentStore {
               )
             offsets = eventsForSynchronizer.flatMap { case (reassignmentEvent, globalOffset) =>
               reassignmentGlobalOffset(reassignmentEvent.reassignment, globalOffset).map {
-                ReassignmentId(
-                  reassignmentEvent.reassignmentInfo.unassignId
-                ) -> _
+                reassignmentEvent.reassignmentInfo.reassignmentId -> _
               }
             }
             _ = tracedLogger.debug(s"Updated global offsets for reassignments: $updates")

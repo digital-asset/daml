@@ -32,7 +32,8 @@ final case class SequencerNodeParameterConfig(
     override val caching: CachingConfigs = CachingConfigs(),
     override val watchdog: Option[WatchdogConfig] = None,
     unsafeEnableOnlinePartyReplication: Boolean = false,
-    minimumSequencingTime: CantonTimestamp = CantonTimestamp.MinValue,
+    minimumSequencingTime: CantonTimestamp =
+      SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation
@@ -43,4 +44,6 @@ object SequencerNodeParameterConfig {
     import CantonConfigValidatorInstances.*
     CantonConfigValidatorDerivation[SequencerNodeParameterConfig]
   }
+
+  val DefaultMinimumSequencingTime: CantonTimestamp = CantonTimestamp.Epoch
 }

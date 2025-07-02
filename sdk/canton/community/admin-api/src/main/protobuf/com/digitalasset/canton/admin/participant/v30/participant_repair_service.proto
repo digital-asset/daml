@@ -233,10 +233,9 @@ message UnignoreEventsResponse {}
 
 message RollbackUnassignmentRequest {
   // The ID of the unassignment.
-  // For one contract the (unassign_id, source synchronizer_id) pair is unique.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  string unassign_id = 1;
+  string reassignment_id = 1;
 
   // The ID of the source synchronizer
   // Must be a valid synchronizer id

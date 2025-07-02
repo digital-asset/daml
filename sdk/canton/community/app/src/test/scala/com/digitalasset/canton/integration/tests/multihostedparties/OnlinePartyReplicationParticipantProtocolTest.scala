@@ -291,7 +291,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
             acmeId,
             timeout = None, // don't wait for response from TP
           )
-          .unassignId
+          .reassignmentId
       }
 
       // Create a few contracts to buffer and flush without timeout as the TP will not

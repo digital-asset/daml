@@ -608,7 +608,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
 
           P4.ledger_api.commands.submit_assign(
             painter,
-            unassignedEvent.unassignId,
+            unassignedEvent.reassignmentId,
             paintSynchronizerId,
             iouSynchronizerId,
           )
@@ -871,7 +871,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           def assign(participant: ParticipantReference, party: PartyId): Unit =
             participant.ledger_api.commands.submit_assign(
               party,
-              paintOfferUnassignedEvent.unassignId,
+              paintOfferUnassignedEvent.reassignmentId,
               sourceId,
               targetId,
               timeout = None, // not waiting for other participants to observe the assign
@@ -881,7 +881,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           eventually() {
             P5.ledger_api.state.acs
               .incomplete_unassigned_of_party(painter)
-              .map(_.unassignId) should contain(paintOfferUnassignedEvent.unassignId)
+              .map(_.reassignmentId) should contain(paintOfferUnassignedEvent.reassignmentId)
           }
 
           logger.info(s"Racy assignments of $paintOfferUnassignedEvent occur")

@@ -4,22 +4,15 @@
 package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.jwt.{Jwt, JwtDecoder}
+import com.daml.jwt.JwtDecoder
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
-import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
+import com.digitalasset.canton.http.json.v1.V1Routes
 import com.digitalasset.canton.http.json.v2.V2Routes
-import com.digitalasset.canton.http.json.{
-  ApiJsonDecoder,
-  ApiJsonEncoder,
-  ApiValueToJsValueConverter,
-  JsValueToApiValueConverter,
-}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.UserId
@@ -32,10 +25,7 @@ import com.digitalasset.canton.ledger.client.services.admin.{
   IdentityProviderConfigClient,
   UserManagementClient,
 }
-import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
-import com.digitalasset.canton.ledger.service.LedgerReader
-import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
@@ -72,11 +62,7 @@ class HttpService(
 ) extends ResourceOwner[ServerBinding]
     with NamedLogging
     with NoTracing {
-  import HttpService.doLoad
-
   private type ET[A] = EitherT[Future, HttpService.Error, A]
-
-  private val directEc = DirectExecutionContext(noTracingLogger)
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
   def acquire()(implicit context: ResourceContext): Resource[ServerBinding] =
@@ -110,53 +96,6 @@ class HttpService(
       val bindingEt: EitherT[Future, HttpService.Error, ServerBinding] =
         for {
           _ <- eitherT(Future.successful(\/-(ledgerClient)))
-          packageCache = LedgerReader.LoadCache.freshCache()
-
-          packageService = new PackageService(
-            reloadPackageStoreIfChanged =
-              doLoad(ledgerClient.packageService, LedgerReader(loggerFactory), packageCache),
-            loggerFactory = loggerFactory,
-          )
-
-          ledgerClientJwt = LedgerClientJwt(loggerFactory)
-
-          commandService = new CommandService(
-            ledgerClientJwt.submitAndWaitForTransaction(ledgerClient),
-            ledgerClientJwt.submitAndWaitForTransactionTree(ledgerClient),
-            loggerFactory,
-          )
-
-          contractsService = new ContractsService(
-            packageService.resolveContractTypeId,
-            packageService.allTemplateIds,
-            ledgerClientJwt.getByContractId(ledgerClient),
-            ledgerClientJwt.getActiveContracts(ledgerClient),
-            ledgerClientJwt.getCreatesAndArchivesSince(ledgerClient),
-            ledgerClientJwt.getLedgerEnd(ledgerClient),
-            loggerFactory,
-          )
-
-          partiesService = new PartiesService(
-            ledgerClientJwt.listKnownParties(ledgerClient),
-            ledgerClientJwt.getParties(ledgerClient),
-            ledgerClientJwt.allocateParty(ledgerClient),
-          )
-
-          packageManagementService = new PackageManagementService(
-            ledgerClientJwt.listPackages(ledgerClient),
-            ledgerClientJwt.getPackage(ledgerClient),
-            { case (jwt, byteString) =>
-              implicit lc =>
-                ledgerClientJwt
-                  .uploadDar(ledgerClient)(directEc, traceContext)(
-                    jwt,
-                    byteString,
-                  )(lc)
-                  .flatMap(_ => packageService.reload(jwt))
-                  .map(_ => ())
-            },
-          )
-
           ledgerHealthService = HealthGrpc.stub(channel)
 
           healthService = new HealthService(() => ledgerHealthService.check(HealthCheckRequest()))
@@ -166,8 +105,6 @@ class HttpService(
             () => healthService.ready().map(_.checks.forall(_.result)),
           )
 
-          (encoder, decoder) = HttpService.buildJsonCodecs(packageService)
-
           v2Routes = V2Routes(
             ledgerClient,
             metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
@@ -176,45 +113,29 @@ class HttpService(
             loggerFactory,
           )
 
-          jsonEndpoints = new Endpoints(
+          v1Routes = V1Routes(
+            ledgerClient,
             httpsConfiguration.isEmpty,
             HttpService.decodeJwt,
-            commandService,
-            contractsService,
-            partiesService,
-            packageManagementService,
-            healthService,
-            v2Routes,
-            encoder,
-            decoder,
             debugLoggingOfHttpBodies,
             resolveUser,
             ledgerClient.userManagementClient,
             loggerFactory,
-          )
-
-          websocketService = new WebSocketService(
-            contractsService,
-            packageService.resolveContractTypeId,
-            decoder,
             websocketConfig,
-            loggerFactory,
           )
 
-          websocketEndpoints = new WebsocketEndpoints(
-            HttpService.decodeJwt,
-            websocketService,
-            resolveUser,
+          jsonEndpoints = new Endpoints(
+            healthService,
+            v2Routes,
+            v1Routes,
+            debugLoggingOfHttpBodies,
             loggerFactory,
           )
 
           rateDurationSizeMetrics = HttpMetricsInterceptor.rateDurationSizeMetrics(metrics.http)
 
           defaultEndpoints =
-            rateDurationSizeMetrics apply concat(
-              jsonEndpoints.all: Route,
-              websocketEndpoints.transactionWebSocket,
-            )
+            rateDurationSizeMetrics apply jsonEndpoints.all
 
           allEndpoints: Route = concat(
             defaultEndpoints,
@@ -301,50 +222,6 @@ object HttpService extends NoTracing {
   // Decode JWT without any validation
   private val decodeJwt: EndpointsCompanion.ValidateJwt =
     jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
-
-  def doLoad(
-      packageClient: PackageClient,
-      ledgerReader: LedgerReader,
-      loadCache: LedgerReader.LoadCache,
-  )(jwt: Jwt)(ids: Set[String])(implicit
-      ec: ExecutionContext,
-      lc: LoggingContextOf[InstanceUUID],
-  ): Future[PackageService.ServerError \/ Option[PackageStore]] =
-    ledgerReader
-      .loadPackageStoreUpdates(
-        packageClient,
-        loadCache,
-        some(jwt.value),
-      )(ids)
-      .map(_.leftMap(e => PackageService.ServerError(e)))
-
-  def buildJsonCodecs(
-      packageService: PackageService
-  )(implicit ec: ExecutionContext): (ApiJsonEncoder, ApiJsonDecoder) = {
-
-    val lfTypeLookup = LedgerReader.damlLfTypeLookup(() => packageService.packageStore) _
-    val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-
-    val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
-      ApiValueToLfValueConverter.apiValueToLfValue
-    )
-
-    val encoder = new ApiJsonEncoder(
-      apiValueToJsValueConverter.apiRecordToJsObject,
-      apiValueToJsValueConverter.apiValueToJsValue,
-    )
-
-    val decoder = new ApiJsonDecoder(
-      packageService.resolveContractTypeId,
-      packageService.resolveTemplateRecordType,
-      packageService.resolveChoiceArgType,
-      packageService.resolveKeyType,
-      jsValueToApiValueConverter.jsValueToApiValue,
-      jsValueToApiValueConverter.jsValueToLfValue,
-    )
-
-    (encoder, decoder)
-  }
 
   private[http] def createPortFile(
       file: Path,

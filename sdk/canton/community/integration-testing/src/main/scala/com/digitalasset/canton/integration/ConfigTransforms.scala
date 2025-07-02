@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration
 
 import cats.syntax.option.*
+import com.digitalasset.canton.BaseTest.testedProtocolVersion
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.StartupMemoryCheckConfig.ReportingLevel
@@ -126,6 +127,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
+      ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
     )
 
   lazy val dontWarnOnDeprecatedPV: Seq[ConfigTransform] = Seq(
@@ -828,17 +830,16 @@ object ConfigTransforms {
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 
-  /** Use the new sequencer connection pool instead of the former transports if the condition
-    * evaluates to true
+  def disableConnectionPool: ConfigTransform = setConnectionPool(false)
+
+  /** Use the new sequencer connection pool if 'value' is true. Otherwise use the former transports.
     */
-  def enableConnectionPoolIf(condition: => Boolean): ConfigTransform =
-    if (condition)
-      updateAllSequencerConfigs { case (_name, config) =>
-        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
-      }.compose(updateAllMediatorConfigs { case (_name, config) =>
-        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
-      }).compose(updateAllParticipantConfigs { case (_name, config) =>
-        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
-      })
-    else identity
+  private def setConnectionPool(value: Boolean): ConfigTransform =
+    updateAllSequencerConfigs { case (_name, config) =>
+      config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
+    }.compose(updateAllMediatorConfigs { case (_name, config) =>
+      config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
+    }).compose(updateAllParticipantConfigs { case (_name, config) =>
+      config.focus(_.sequencerClient.useNewConnectionPool).replace(value)
+    })
 }

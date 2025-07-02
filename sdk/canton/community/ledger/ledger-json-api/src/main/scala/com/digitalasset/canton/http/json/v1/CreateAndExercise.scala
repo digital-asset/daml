@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.endpoints
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
@@ -17,9 +17,7 @@ import com.digitalasset.canton.http.util.JwtParties.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.{
   CommandMeta,
-  CommandService,
   ContractLocator,
-  ContractsService,
   CreateAndExerciseCommand,
   CreateCommand,
   CreateCommandResponse,
@@ -47,9 +45,10 @@ private[http] final class CreateAndExercise(
     contractsService: ContractsService,
 )(implicit ec: ExecutionContext) {
   import CreateAndExercise.*
-  import routeSetup.*, RouteSetup.*
+  import RouteSetup.*
   import com.digitalasset.canton.http.json.JsonProtocol.*
   import com.digitalasset.canton.http.util.ErrorOps.*
+  import routeSetup.*
 
   def create(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],

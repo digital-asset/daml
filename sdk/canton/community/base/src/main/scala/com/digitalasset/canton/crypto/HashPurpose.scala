@@ -105,5 +105,5 @@ object HashPurpose {
   val BftSignedRetransmissionMessage = HashPurpose(54, "BftSignedRetransmissionMessage")
   val MultiTopologyTransaction = HashPurpose(55, "MultiTopologyTransaction")
   val SessionKeyDelegation = HashPurpose(56, "SessionKeyDelegation")
-  val UnassignId = HashPurpose(57, "UnassignId")
+  val ReassignmentId = HashPurpose(57, "ReassignmentId")
 }

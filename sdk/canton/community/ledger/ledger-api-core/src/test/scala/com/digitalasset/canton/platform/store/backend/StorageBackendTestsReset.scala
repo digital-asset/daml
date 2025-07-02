@@ -120,7 +120,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       )
     )
 
-    def unassignIds = executeSql(
+    def reassignmentIds = executeSql(
       backend.event.fetchUnassignEventIdsForStakeholder(
         stakeholderO = Some(someParty),
         templateId = None,
@@ -140,7 +140,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     assignEvents should not be empty
     unassignEvents should not be empty
     assignIds should not be empty
-    unassignIds should not be empty
+    reassignmentIds should not be empty
 
     // Reset
     executeSql(backend.reset.resetAll)
@@ -159,7 +159,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     assignEvents shouldBe empty
     unassignEvents shouldBe empty
     assignIds shouldBe empty
-    unassignIds shouldBe empty
+    reassignmentIds shouldBe empty
   }
 
   // Some queries are protected to never return data beyond the current ledger end.

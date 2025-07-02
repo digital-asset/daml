@@ -13,7 +13,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
 
   private final long offset;
 
-  private final @NonNull String unassignId;
+  private final @NonNull String reassignmentId;
 
   private final @NonNull String contractId;
 
@@ -37,7 +37,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
 
   public UnassignedEvent(
       long offset,
-      @NonNull String unassignId,
+      @NonNull String reassignmentId,
       @NonNull String contractId,
       @NonNull Identifier templateId,
       @NonNull String packageName,
@@ -49,7 +49,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
       @NonNull List<@NonNull String> witnessParties,
       int nodeId) {
     this.offset = offset;
-    this.unassignId = unassignId;
+    this.reassignmentId = reassignmentId;
     this.contractId = contractId;
     this.templateId = templateId;
     this.packageName = packageName;
@@ -67,8 +67,8 @@ public final class UnassignedEvent implements ReassignmentEvent {
   }
 
   @NonNull
-  public String getUnassignId() {
-    return unassignId;
+  public String getReassignmentId() {
+    return reassignmentId;
   }
 
   @NonNull
@@ -124,7 +124,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
     if (o == null || getClass() != o.getClass()) return false;
     UnassignedEvent that = (UnassignedEvent) o;
     return Objects.equals(offset, that.offset)
-        && Objects.equals(unassignId, that.unassignId)
+        && Objects.equals(reassignmentId, that.reassignmentId)
         && Objects.equals(contractId, that.contractId)
         && Objects.equals(packageName, that.packageName)
         && Objects.equals(templateId, that.templateId)
@@ -141,7 +141,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
   public int hashCode() {
     return Objects.hash(
         offset,
-        unassignId,
+        reassignmentId,
         contractId,
         templateId,
         packageName,
@@ -159,8 +159,8 @@ public final class UnassignedEvent implements ReassignmentEvent {
     return "UnassignedEvent{"
         + "offset="
         + offset
-        + ", unassignId='"
-        + unassignId
+        + ", reassignmentId='"
+        + reassignmentId
         + '\''
         + ", contractId='"
         + contractId
@@ -189,7 +189,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
   public ReassignmentOuterClass.UnassignedEvent toProto() {
     return ReassignmentOuterClass.UnassignedEvent.newBuilder()
         .setOffset(this.offset)
-        .setUnassignId(this.unassignId)
+        .setReassignmentId(this.reassignmentId)
         .setContractId(this.contractId)
         .setTemplateId(this.getTemplateId().toProto())
         .setPackageName(this.packageName)
@@ -206,7 +206,7 @@ public final class UnassignedEvent implements ReassignmentEvent {
   public static UnassignedEvent fromProto(ReassignmentOuterClass.UnassignedEvent unassignedEvent) {
     return new UnassignedEvent(
         unassignedEvent.getOffset(),
-        unassignedEvent.getUnassignId(),
+        unassignedEvent.getReassignmentId(),
         unassignedEvent.getContractId(),
         Identifier.fromProto(unassignedEvent.getTemplateId()),
         unassignedEvent.getPackageName(),

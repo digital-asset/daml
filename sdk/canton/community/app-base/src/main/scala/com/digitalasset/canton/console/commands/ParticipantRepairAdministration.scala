@@ -467,12 +467,12 @@ class ParticipantRepairAdministration(
   @Help.Description(
     """This is a last resort command to recover from an unassignment that cannot be completed on the target synchronizer.
         Arguments:
-        - unassignId - set of contract ids that should change assignation to the new synchronizer
+        - reassignmentId - set of contract ids that should change assignation to the new synchronizer
         - source - the source synchronizer id
         - target - alias of the target synchronizer"""
   )
   def rollback_unassignment(
-      unassignId: String,
+      reassignmentId: String,
       source: SynchronizerId,
       target: SynchronizerId,
   ): Unit =
@@ -480,7 +480,7 @@ class ParticipantRepairAdministration(
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement
-            .RollbackUnassignment(unassignId = unassignId, source = source, target = target)
+            .RollbackUnassignment(reassignmentId = reassignmentId, source = source, target = target)
         )
       }
     }

@@ -128,9 +128,9 @@ abstract class RepairServiceIntegrationTest
 
           val assigned =
             assignedEvents
-              .find(_.unassignId == unassigned.unassignId)
+              .find(_.reassignmentId == unassigned.reassignmentId)
               .valueOrFail(
-                s"Unable to find an assigned event for unassign ID ${unassigned.unassignId}"
+                s"Unable to find an assigned event for unassign ID ${unassigned.reassignmentId}"
               )
 
           assigned.source shouldBe daId.logical.toProtoPrimitive

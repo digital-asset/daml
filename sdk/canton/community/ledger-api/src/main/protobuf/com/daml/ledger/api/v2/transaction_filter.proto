@@ -99,6 +99,7 @@ message TemplateFilter {
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Used both for filtering create and archive events as well as for filtering transaction trees.
 message TransactionFilter {
+  option deprecated = true;
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the transaction-shape being filtered:
   //

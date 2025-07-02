@@ -55,6 +55,7 @@ import scalaz.Tag
 import java.time.{Duration, Instant}
 import java.util.UUID
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.*
 import scala.concurrent.duration.{DurationLong, FiniteDuration}
@@ -174,6 +175,8 @@ class PingService(
 
 }
 
+// TODO(#26455) remove suppression of deprecation warnings
+@nowarn("cat=deprecation")
 object PingService {
 
   trait SyncServiceHandle {

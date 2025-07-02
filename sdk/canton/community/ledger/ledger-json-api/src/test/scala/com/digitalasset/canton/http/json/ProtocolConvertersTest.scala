@@ -17,9 +17,12 @@ import magnolify.scalacheck.semiauto.ArbitraryDerivation
 import org.scalacheck.Arbitrary
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 
+// TODO(#23504) remove
+@nowarn("cat=deprecation")
 class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   import StdGenerators.*
   import Arbitraries.*
@@ -64,6 +67,8 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   )
 }
 
+// TODO(#23504) remove suppression of deprecation warnings
+@nowarn("cat=deprecation")
 object Arbitraries {
   import StdGenerators.*
   import magnolify.scalacheck.auto.*

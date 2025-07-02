@@ -231,7 +231,7 @@ private[backend] object AppendOnlySchema {
         "target_synchronizer_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.target_synchronizer_id)
         ),
-        "unassign_id" -> fieldStrategy.string(_ => _.unassign_id),
+        "reassignment_id" -> fieldStrategy.string(_ => _.reassignment_id),
         "reassignment_counter" -> fieldStrategy.bigint(_ => _.reassignment_counter),
         "assignment_exclusivity" -> fieldStrategy.bigintOptional(_ => _.assignment_exclusivity),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
@@ -265,7 +265,7 @@ private[backend] object AppendOnlySchema {
         "target_synchronizer_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.target_synchronizer_id)
         ),
-        "unassign_id" -> fieldStrategy.string(_ => _.unassign_id),
+        "reassignment_id" -> fieldStrategy.string(_ => _.reassignment_id),
         "reassignment_counter" -> fieldStrategy.bigint(_ => _.reassignment_counter),
         "create_argument" -> fieldStrategy.bytea(_ => _.create_argument),
         "create_signatories" -> fieldStrategy.intArray(stringInterning =>
@@ -420,7 +420,7 @@ private[backend] object AppendOnlySchema {
       )
 
     val idFilterUnassignStakeholderTable: Table[DbDto.IdFilterUnassignStakeholder] =
-      fieldStrategy.insert("lapi_pe_unassign_id_filter_stakeholder")(
+      fieldStrategy.insert("lapi_pe_reassignment_id_filter_stakeholder")(
         "event_sequential_id" -> fieldStrategy.bigint(_ => _.event_sequential_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dto => stringInterning.templateId.unsafe.internalize(dto.template_id)

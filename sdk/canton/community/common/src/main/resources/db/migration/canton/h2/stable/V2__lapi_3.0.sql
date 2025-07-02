@@ -308,7 +308,7 @@ CREATE TABLE lapi_events_unassign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    unassign_id VARCHAR NOT NULL,
+    reassignment_id VARCHAR NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * unassigned specific
@@ -356,7 +356,7 @@ CREATE TABLE lapi_events_assign (
     -- * common reassignment
     source_synchronizer_id INTEGER NOT NULL,
     target_synchronizer_id INTEGER NOT NULL,
-    unassign_id VARCHAR NOT NULL,
+    reassignment_id VARCHAR NOT NULL,
     reassignment_counter BIGINT NOT NULL,
 
     -- * assigned specific
@@ -449,15 +449,15 @@ CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ps_idx  ON lapi_pe_consumin
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_ts_idx  ON lapi_pe_consuming_id_filter_stakeholder(template_id, event_sequential_id);
 CREATE INDEX lapi_pe_consuming_id_filter_stakeholder_s_idx   ON lapi_pe_consuming_id_filter_stakeholder(event_sequential_id);
 
-CREATE TABLE lapi_pe_unassign_id_filter_stakeholder (
+CREATE TABLE lapi_pe_reassignment_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,
    template_id INTEGER NOT NULL,
    party_id INTEGER NOT NULL
 );
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_pts_idx ON lapi_pe_unassign_id_filter_stakeholder(party_id, template_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ps_idx  ON lapi_pe_unassign_id_filter_stakeholder(party_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_ts_idx  ON lapi_pe_unassign_id_filter_stakeholder(template_id, event_sequential_id);
-CREATE INDEX lapi_pe_unassign_id_filter_stakeholder_s_idx   ON lapi_pe_unassign_id_filter_stakeholder(event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_pts_idx ON lapi_pe_reassignment_id_filter_stakeholder(party_id, template_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ps_idx  ON lapi_pe_reassignment_id_filter_stakeholder(party_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_ts_idx  ON lapi_pe_reassignment_id_filter_stakeholder(template_id, event_sequential_id);
+CREATE INDEX lapi_pe_reassignment_id_filter_stakeholder_s_idx   ON lapi_pe_reassignment_id_filter_stakeholder(event_sequential_id);
 
 CREATE TABLE lapi_pe_assign_id_filter_stakeholder (
    event_sequential_id BIGINT NOT NULL,

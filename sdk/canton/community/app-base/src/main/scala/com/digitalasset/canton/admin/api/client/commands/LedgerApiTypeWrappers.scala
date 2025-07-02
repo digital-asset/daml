@@ -80,7 +80,7 @@ object LedgerApiTypeWrappers {
 
     def reassignmentCounter: Long = event.reassignmentCounter
     def contractId: String = createdEvent.contractId
-    def unassignId: String = event.unassignId
+    def reassignmentId: String = event.reassignmentId
     def assignmentExclusivity: Option[Timestamp] = event.assignmentExclusivity
 
     def source: SynchronizerId = SynchronizerId.tryFromString(event.source)

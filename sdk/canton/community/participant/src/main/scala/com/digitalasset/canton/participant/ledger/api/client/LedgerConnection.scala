@@ -63,6 +63,8 @@ object LedgerConnection {
     LedgerClient.withoutToken(builder.build(), clientConfig, loggerFactory)
   }
 
+  // TODO(#26401) return eventFormat
+  @deprecated("Use eventFormat instead", since = "3.4.0")
   def transactionFilterByParty(filter: Map[PartyId, Seq[Identifier]]): TransactionFilter =
     TransactionFilter(
       filter.map {

@@ -31,12 +31,7 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
   DbContracts,
   ReassignmentEntryRaw,
 }
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  ReassignmentId,
-  SerializableContract,
-  UnassignId,
-}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -165,7 +160,7 @@ class DbReassignmentStore(
     r =>
       ReassignmentEntryRaw(
         sourceSynchronizerIndex = GetResult[Int].apply(r),
-        unassignId = GetResult[UnassignId].apply(r),
+        reassignmentId = GetResult[ReassignmentId].apply(r),
         unassignmentTs = GetResult[CantonTimestamp].apply(r),
         contracts = GetResult[DbContracts].apply(r).contracts,
         unassignmentRequest = getResultFullUnassignmentTreeO.apply(r),
@@ -201,33 +196,31 @@ class DbReassignmentStore(
 
     logger.debug(s"Add unassignment request in the store: ${unassignmentData.reassignmentId}")
 
-    val unassignId = unassignmentData.reassignmentId.unassignId
-
     def insert(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       // TODO(i23636): remove the 'contract' columns
       // once we remove the computation of incomplete reassignments from the reassignmentStore
       storage.profile match {
         case _: Profile.Postgres =>
-          sqlu"""insert into par_reassignments as r(target_synchronizer_idx, source_synchronizer_idx, unassign_id, unassignment_timestamp, unassignment_request, contracts)
+          sqlu"""insert into par_reassignments as r(target_synchronizer_idx, source_synchronizer_idx, reassignment_id, unassignment_timestamp, unassignment_request, contracts)
         values (
           $indexedTargetSynchronizer,
           $indexedSourceSynchronizer,
-          $unassignId,
+          ${unassignmentData.reassignmentId},
           ${unassignmentData.unassignmentTs},
           ${unassignmentData.unassignmentRequest},
           ${DbContracts(unassignmentData.contracts.contracts.map(_.contract))}
         )
-        on conflict (target_synchronizer_idx, source_synchronizer_idx, unassign_id) do update set unassignment_request = ${unassignmentData.unassignmentRequest}
-        where r.target_synchronizer_idx=$indexedTargetSynchronizer and r.source_synchronizer_idx=$indexedSourceSynchronizer and r.unassign_id=$unassignId and r.unassignment_request IS NULL;
+        on conflict (target_synchronizer_idx, source_synchronizer_idx, reassignment_id) do update set unassignment_request = ${unassignmentData.unassignmentRequest}
+        where r.target_synchronizer_idx=$indexedTargetSynchronizer and r.source_synchronizer_idx=$indexedSourceSynchronizer and r.reassignment_id=${unassignmentData.reassignmentId} and r.unassignment_request IS NULL;
       """
         case _: Profile.H2 =>
           sqlu"""MERGE INTO par_reassignments using dual
-                 on (target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=$indexedSourceSynchronizer and unassign_id=$unassignId)
+                 on (target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=$indexedSourceSynchronizer and reassignment_id=${unassignmentData.reassignmentId})
                  when matched and unassignment_request IS NULL then
                    update set unassignment_request = ${unassignmentData.unassignmentRequest}
                  when not matched then
-                   insert (target_synchronizer_idx, source_synchronizer_idx, unassign_id, unassignment_timestamp, unassignment_request, contracts)
-                   values ($indexedTargetSynchronizer, $indexedSourceSynchronizer, $unassignId, ${unassignmentData.unassignmentTs}, ${unassignmentData.unassignmentRequest}, ${DbContracts(
+                   insert (target_synchronizer_idx, source_synchronizer_idx, reassignment_id, unassignment_timestamp, unassignment_request, contracts)
+                   values ($indexedTargetSynchronizer, $indexedSourceSynchronizer, ${unassignmentData.reassignmentId}, ${unassignmentData.unassignmentTs}, ${unassignmentData.unassignmentRequest}, ${DbContracts(
               unassignmentData.contracts.contracts.map(_.contract)
             )});
   """
@@ -258,12 +251,12 @@ class DbReassignmentStore(
     logger.debug(s"Add assignment data in the store: ${assignmentData.reassignmentId}")
     def insert(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       sqlu"""
-      insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassign_id, unassignment_timestamp,
+      insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, reassignment_id, unassignment_timestamp,
         unassignment_request, unassignment_global_offset, assignment_global_offset, contracts)
         values (
           $indexedTargetSynchronizer,
           $indexedSourceSynchronizer,
-          ${assignmentData.reassignmentId.unassignId},
+          ${assignmentData.reassignmentId},
           ${assignmentData.unassignmentDecisionTime},
           NULL, -- unassignmentRequest
           NULL, -- unassignment_global_offset
@@ -314,12 +307,14 @@ class DbReassignmentStore(
     }
   }
 
-  private def entryExists(unassignId: UnassignId): DbAction.ReadOnly[Option[ReassignmentEntryRaw]] =
+  private def entryExists(
+      reassignmentId: ReassignmentId
+  ): DbAction.ReadOnly[Option[ReassignmentEntryRaw]] =
     sql"""
-     select source_synchronizer_idx, unassign_id, unassignment_timestamp, contracts, unassignment_request,
+     select source_synchronizer_idx, reassignment_id, unassignment_timestamp, contracts, unassignment_request,
      unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
-     where target_synchronizer_idx=$indexedTargetSynchronizer and unassign_id=$unassignId
+     where target_synchronizer_idx=$indexedTargetSynchronizer and reassignment_id=$reassignmentId
     """.as[ReassignmentEntryRaw].headOption
 
   def addReassignmentsOffsets(offsets: Map[ReassignmentId, ReassignmentGlobalOffset])(implicit
@@ -345,20 +340,20 @@ class DbReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     import DbStorage.Implicits.BuilderChain.*
 
-    def select(ids: Seq[UnassignId]) = {
+    def select(ids: Seq[ReassignmentId]) = {
       val reassignmentIdsFilter = ids
-        .map { case unassignId => sql"unassign_id=$unassignId" }
+        .map { case reassignmentId => sql"reassignment_id=$reassignmentId" }
         .intercalate(sql" or ")
         .toActionBuilder
 
       val query =
-        sql"""select source_synchronizer_idx, unassign_id, unassignment_global_offset, assignment_global_offset
+        sql"""select source_synchronizer_idx, reassignment_id, unassignment_global_offset, assignment_global_offset
            from par_reassignments
            where
               target_synchronizer_idx=$indexedTargetSynchronizer and (""" ++ reassignmentIdsFilter ++ sql")"
 
       storage.query(
-        query.as[(Int, UnassignId, Option[Offset], Option[Offset])],
+        query.as[(Int, ReassignmentId, Option[Offset], Option[Offset])],
         functionFullName,
       )
     }
@@ -366,20 +361,20 @@ class DbReassignmentStore(
     val updateQuery =
       """update par_reassignments
        set unassignment_global_offset = ?, assignment_global_offset = ?
-       where target_synchronizer_idx = ? and source_synchronizer_idx = ? and unassign_id = ?
+       where target_synchronizer_idx = ? and source_synchronizer_idx = ? and reassignment_id = ?
     """
 
     lazy val task = for {
-      selected <- EitherT.right(select(offsets.map(_._1.unassignId)))
+      selected <- EitherT.right(select(offsets.map(_._1)))
       retrievedItems = selected.map {
-        case (sourceSynchronizerIndex, unassignId, unassignmentOffset, assignmentOffset) =>
-          unassignId -> (unassignmentOffset, assignmentOffset, sourceSynchronizerIndex)
+        case (sourceSynchronizerIndex, reassignmentId, unassignmentOffset, assignmentOffset) =>
+          reassignmentId -> (unassignmentOffset, assignmentOffset, sourceSynchronizerIndex)
       }.toMap
 
       mergedGlobalOffsets <- EitherT.fromEither[FutureUnlessShutdown](offsets.forgetNE.traverse {
         case (reassignmentId, newOffsets) =>
           retrievedItems
-            .get(reassignmentId.unassignId)
+            .get(reassignmentId)
             .toRight(UnknownReassignmentId(reassignmentId))
             .map { case (offsetOutO, offsetInO, sourceSynchronizerIndex) =>
               sourceSynchronizerIndex -> ReassignmentGlobalOffset
@@ -392,20 +387,20 @@ class DbReassignmentStore(
                   _.merge(newOffsets)
                 )
                 .leftMap(ReassignmentGlobalOffsetsMerge(reassignmentId, _))
-                .map((sourceSynchronizerIndex, reassignmentId.unassignId, _))
+                .map((sourceSynchronizerIndex, reassignmentId, _))
             }
       })
 
       batchUpdate = DbStorage.bulkOperation_(updateQuery, mergedGlobalOffsets, storage.profile) {
         pp => mergedGlobalOffsetWithId =>
-          val (sourceSynchronizerIndex, unassignId, mergedGlobalOffset) =
+          val (sourceSynchronizerIndex, reassignmentId, mergedGlobalOffset) =
             mergedGlobalOffsetWithId
 
           pp >> mergedGlobalOffset.unassignment
           pp >> mergedGlobalOffset.assignment
           pp >> indexedTargetSynchronizer
           pp >> sourceSynchronizerIndex
-          pp >> unassignId
+          pp >> reassignmentId
       }
 
       _ <- EitherT.right[ReassignmentStoreError](
@@ -426,7 +421,7 @@ class DbReassignmentStore(
         update par_reassignments
           set assignment_timestamp=$ts
         where
-          target_synchronizer_idx=$indexedTargetSynchronizer and unassign_id=${reassignmentId.unassignId}
+          target_synchronizer_idx=$indexedTargetSynchronizer and reassignment_id=$reassignmentId
           and (assignment_timestamp is NULL or assignment_timestamp = $ts)
       """
 
@@ -465,7 +460,7 @@ class DbReassignmentStore(
     for {
       _ <- storage.update_(
         sqlu"""delete from par_reassignments
-                where target_synchronizer_idx=$indexedTargetSynchronizer and unassign_id=${reassignmentId.unassignId}""",
+                where target_synchronizer_idx=$indexedTargetSynchronizer and reassignment_id=$reassignmentId""",
         functionFullName,
       )
     } yield ()
@@ -495,7 +490,7 @@ class DbReassignmentStore(
       else sql" "
 
     val base: SQLActionBuilder = sql"""
-     select source_synchronizer_idx, unassign_id, unassignment_timestamp, contracts, unassignment_request,
+     select source_synchronizer_idx, reassignment_id, unassignment_timestamp, contracts, unassignment_request,
      unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where
@@ -574,14 +569,14 @@ class DbReassignmentStore(
               storage.limitSql(numberOfItems = DbReassignmentStore.dbQueryLimit, skipItems = start)
 
             val base: SQLActionBuilder =
-              sql"""select unassign_id, unassignment_request, contracts, unassignment_global_offset, assignment_global_offset
+              sql"""select reassignment_id, unassignment_request, contracts, unassignment_global_offset, assignment_global_offset
               from par_reassignments
               where target_synchronizer_idx=$indexedTargetSynchronizer"""
 
             (base ++ incomplete ++ sourceSynchronizerFilter ++ limitSql)
               .as[
                 (
-                    UnassignId,
+                    ReassignmentId,
                     Option[FullUnassignmentTree],
                     DbContracts,
                     Option[ReassignmentGlobalOffset],
@@ -593,13 +588,13 @@ class DbReassignmentStore(
 
       incompletes = res.map {
         case (
-              unassignId,
+              reassignmentId,
               unassignmentRequest,
               contract,
               reassignmentGlobalOffset,
             ) =>
           InternalIncompleteReassignmentData(
-            ReassignmentId(unassignId),
+            reassignmentId,
             unassignmentRequest,
             reassignmentGlobalOffset,
             contract.contracts,
@@ -685,18 +680,18 @@ class DbReassignmentStore(
       queryResult <- storage
         .query(
           sql"""
-                  select min(coalesce(assignment_global_offset, unassignment_global_offset)), unassign_id
+                  select min(coalesce(assignment_global_offset, unassignment_global_offset)), reassignment_id
                   from par_reassignments
                   where target_synchronizer_idx=$indexedTargetSynchronizer and ((unassignment_global_offset is null) != (assignment_global_offset is null))
-                  group by source_synchronizer_idx, unassign_id
+                  group by source_synchronizer_idx, reassignment_id
                   """
-            .as[(Offset, UnassignId)],
+            .as[(Offset, ReassignmentId)],
           functionFullName,
         )
     } yield queryResult
       .minByOption(_._1)
-      .map { case (offset, unassignId) =>
-        (offset, ReassignmentId(unassignId), targetSynchronizerId)
+      .map { case (offset, reassignmentId) =>
+        (offset, reassignmentId, targetSynchronizerId)
       }
 
   override def findContractReassignmentId(
@@ -744,18 +739,18 @@ class DbReassignmentStore(
           .toActionBuilder
 
       query =
-        sql"select unassign_id, unassignment_request from par_reassignments where 1=1 and (" ++ filter ++ sql")"
+        sql"select reassignment_id, unassignment_request from par_reassignments where 1=1 and (" ++ filter ++ sql")"
 
       res <- storage
         .query(
-          query.as[(UnassignId, FullUnassignmentTree)],
+          query.as[(ReassignmentId, FullUnassignmentTree)],
           functionFullName,
         )
         .map(
           _.collect {
-            case (unassignId, unassignmentRequest)
+            case (reassignmentId, unassignmentRequest)
                 if contractIds.exists(unassignmentRequest.contracts.contractIds.contains(_)) =>
-              unassignmentRequest.contracts.contractIds.map(_ -> ReassignmentId(unassignId))
+              unassignmentRequest.contracts.contractIds.map(_ -> reassignmentId)
           }.flatten
             .groupMap { case (cid, _) => cid } { case (_, reassignmentId) => reassignmentId }
         )
@@ -767,7 +762,7 @@ class DbReassignmentStore(
   ): EitherT[FutureUnlessShutdown, UnknownReassignmentId, ReassignmentEntry] =
     for {
       entryRaw <- EitherT(
-        storage.query(entryExists(reassignmentId.unassignId), functionFullName).map {
+        storage.query(entryExists(reassignmentId), functionFullName).map {
           case None => Left(UnknownReassignmentId(reassignmentId))
           case Some(entry) => Right(entry)
         }
@@ -782,16 +777,13 @@ class DbReassignmentStore(
   override def listInFlightReassignmentIds()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ReassignmentId]] =
-    for {
-      ids <- storage.query(
-        sql"""SELECT unassign_id
-             FROM par_reassignments
-             WHERE target_synchronizer_idx = $indexedTargetSynchronizer AND assignment_timestamp IS NULL"""
-          .as[UnassignId],
-        functionFullName,
-      )
-    } yield ids.map(ReassignmentId(_))
-
+    storage.query(
+      sql"""SELECT reassignment_id
+           FROM par_reassignments
+           WHERE target_synchronizer_idx = $indexedTargetSynchronizer AND assignment_timestamp IS NULL"""
+        .as[ReassignmentId],
+      functionFullName,
+    )
 }
 
 object DbReassignmentStore {
@@ -801,7 +793,7 @@ object DbReassignmentStore {
     */
   private final case class ReassignmentEntryRaw(
       sourceSynchronizerIndex: Int,
-      unassignId: UnassignId,
+      reassignmentId: ReassignmentId,
       unassignmentTs: CantonTimestamp,
       contracts: NonEmpty[Seq[SerializableContract]],
       unassignmentRequest: Option[FullUnassignmentTree],
@@ -811,7 +803,7 @@ object DbReassignmentStore {
 
     def toReassignmentEntry(synchronizerId: SynchronizerId): ReassignmentEntry =
       ReassignmentEntry(
-        ReassignmentId(unassignId),
+        reassignmentId,
         Source(synchronizerId),
         contracts,
         unassignmentRequest,

@@ -3,9 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.examples
 
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.CommunityIntegrationTest
-import com.digitalasset.canton.integration.plugins.{UseCommunityReferenceBlockSequencer, UseH2}
+import com.digitalasset.canton.integration.plugins.UseBftSequencer
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.{
   ensureSystemProperties,
   simpleTopology,
@@ -23,7 +22,6 @@ sealed abstract class SimplePingExampleIntegrationTest
   }
 }
 
-final class SimplePingExampleReferenceIntegrationTestH2 extends SimplePingExampleIntegrationTest {
-  registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+final class SimplePingExampleBftSequencerIntegrationTest extends SimplePingExampleIntegrationTest {
+  registerPlugin(new UseBftSequencer(loggerFactory, shouldGenerateEndpointsOnly = true))
 }

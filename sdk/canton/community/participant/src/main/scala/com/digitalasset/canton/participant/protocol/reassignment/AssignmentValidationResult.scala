@@ -36,9 +36,8 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.google.common.annotations.VisibleForTesting
 
-import scala.concurrent.ExecutionContext
+import AssignmentValidationResult.*
 
 final case class AssignmentValidationResult(
     rootHash: RootHash,
@@ -48,28 +47,25 @@ final case class AssignmentValidationResult(
     sourcePSId: Source[PhysicalSynchronizerId],
     isReassigningParticipant: Boolean,
     hostedStakeholders: Set[LfPartyId],
-    validationResult: AssignmentValidationResult.ValidationResult,
+    commonValidationResult: CommonValidationResult,
+    reassigningParticipantValidationResult: ReassigningParticipantValidationResult,
 ) extends ReassignmentValidationResult {
 
-  override def isUnassignment: Boolean = false
+  override def activenessResultIsSuccessful: Boolean = {
 
-  override def activenessResultIsSuccessful: Boolean =
-    validationResult.activenessResultIsSuccessful(reassignmentId)
+    // The activeness check is performed at request time and may flag the reassignmentId as inactive
+    // if the unassignment is still in progress. Once the unassignment is complete, its data becomes
+    // available in the reassignment cache. If the activeness check flags the reassignmentId as inactive
+    // but the reassignment cache indicates it is known and the assignment is not yet completed,
+    // the activeness check can be considered valid.
+    val isReassignmentActive: Boolean =
+      !reassigningParticipantValidationResult.isUnassignmentDataNotFound &&
+        !reassigningParticipantValidationResult.isAssignmentCompleted &&
+        commonValidationResult.activenessResult.inactiveReassignments.contains(reassignmentId)
+        && commonValidationResult.activenessResult.contracts.isSuccessful
 
-  @VisibleForTesting
-  def isSuccessfulF(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
-    validationResult.isSuccessful(reassignmentId)
-
-  def activenessResult: ActivenessResult = validationResult.activenessResult
-  def participantSignatureVerificationResult: Option[AuthenticationError] =
-    validationResult.participantSignatureVerificationResult
-  def contractAuthenticationResultF
-      : EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
-    validationResult.contractAuthenticationResultF
-  def submitterCheckResult: Option[ReassignmentValidationError] =
-    validationResult.submitterCheckResult
-  def reassigningParticipantValidationResult: Seq[ReassignmentValidationError] =
-    validationResult.reassigningParticipantValidationResult
+    commonValidationResult.activenessResult.isSuccessful || isReassignmentActive
+  }
 
   private[reassignment] def commitSet = CommitSet.createForAssignment(
     reassignmentId,
@@ -136,7 +132,7 @@ final case class AssignmentValidationResult(
         sourceSynchronizer = sourcePSId.map(_.logical),
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
-        unassignId = reassignmentId.unassignId,
+        reassignmentId = reassignmentId,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment = reassignment,
@@ -147,7 +143,7 @@ final case class AssignmentValidationResult(
 }
 
 object AssignmentValidationResult {
-  final case class ValidationResult(
+  final case class CommonValidationResult(
       activenessResult: ActivenessResult,
       participantSignatureVerificationResult: Option[AuthenticationError],
       contractAuthenticationResultF: EitherT[
@@ -156,49 +152,20 @@ object AssignmentValidationResult {
         Unit,
       ],
       submitterCheckResult: Option[ReassignmentValidationError],
-      reassigningParticipantValidationResult: Seq[ReassignmentValidationError],
-  ) {
-    def isSuccessful(
-        reassignmentId: ReassignmentId
-    )(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
-      for {
-        modelConformanceCheck <- contractAuthenticationResultF.value
-      } yield activenessResultIsSuccessful(
-        reassignmentId
-      ) && participantSignatureVerificationResult.isEmpty && reassigningParticipantValidationResult.isEmpty && modelConformanceCheck.isRight
+  ) extends ReassignmentValidationResult.CommonValidationResult
 
-    private[reassignment] def addValidationErrors(
-        validationErrors: Seq[ReassignmentValidationError]
-    ): ValidationResult =
-      copy(reassigningParticipantValidationResult =
-        validationErrors ++ this.reassigningParticipantValidationResult
-      )
+  final case class ReassigningParticipantValidationResult(
+      errors: Seq[ReassignmentValidationError]
+  ) extends ReassignmentValidationResult.ReassigningParticipantValidationResult {
 
-    def isUnassignmentDataNotFound: Boolean = reassigningParticipantValidationResult.exists {
+    def isUnassignmentDataNotFound: Boolean = errors.exists {
       case AssignmentValidationError.UnassignmentDataNotFound(_) => true
       case _ => false
     }
 
-    private def isAssignmentCompleted: Boolean = reassigningParticipantValidationResult.exists {
+    def isAssignmentCompleted: Boolean = errors.exists {
       case AssignmentValidationError.AssignmentCompleted(_) => true
       case _ => false
-    }
-
-    private[reassignment] def activenessResultIsSuccessful(
-        reassignmentId: ReassignmentId
-    ): Boolean = {
-
-      // The activeness check is performed at request time and may flag the reassignmentId as inactive
-      // if the unassignment is still in progress. Once the unassignment is complete, its data becomes
-      // available in the reassignment cache. If the activeness check flags the reassignmentId as inactive
-      // but the reassignment cache indicates it is known and the assignment is not yet completed,
-      // the activeness check can be considered valid.
-      val isReassignmentActive: Boolean =
-        !isUnassignmentDataNotFound && !isAssignmentCompleted && activenessResult.inactiveReassignments
-          .contains(reassignmentId)
-          && activenessResult.contracts.isSuccessful
-
-      activenessResult.isSuccessful || isReassignmentActive
     }
   }
 }

@@ -22,7 +22,6 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
-  ConfigTransforms,
   EnvironmentDefinition,
   SharedEnvironment,
   TestConsoleEnvironment,
@@ -36,7 +35,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendPolicy,
 }
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
@@ -74,9 +72,6 @@ abstract class SubmissionRequestAmplificationIntegrationTest
           )
         )
       }
-      .addConfigTransform(
-        ConfigTransforms.enableConnectionPoolIf(testedProtocolVersion >= ProtocolVersion.dev)
-      )
 
   "reconfigure mediators to use amplification" in { implicit env =>
     import env.*

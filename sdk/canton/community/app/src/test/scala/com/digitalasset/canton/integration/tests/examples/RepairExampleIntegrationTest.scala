@@ -27,6 +27,7 @@ sealed abstract class RepairExampleIntegrationTest
   }
 }
 
+// TODO(#26093) port to DB or BFT Sequencer
 final class RepairExampleReferenceIntegrationTestH2 extends RepairExampleIntegrationTest {
   registerPlugin(new UseH2(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))

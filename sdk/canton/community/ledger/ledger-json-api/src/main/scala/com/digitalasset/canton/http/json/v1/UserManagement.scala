@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.endpoints
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.{Jwt, StandardJWTPayload}
 import com.digitalasset.canton.http.Endpoints.ET
@@ -56,10 +56,10 @@ final class UserManagement(
       jwt: Jwt,
       createUserRequest: CreateUserRequest,
   )(implicit traceContext: TraceContext): ET[SyncResponse[spray.json.JsObject]] = {
-    import scalaz.std.option.*
-    import scalaz.syntax.traverse.*
-    import scalaz.syntax.std.either.*
     import com.digitalasset.daml.lf.data.Ref
+    import scalaz.std.option.*
+    import scalaz.syntax.std.either.*
+    import scalaz.syntax.traverse.*
     val input =
       for {
         username <- UserId.fromString(createUserRequest.userId).disjunction

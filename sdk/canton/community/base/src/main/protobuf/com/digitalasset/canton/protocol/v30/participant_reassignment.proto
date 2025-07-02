@@ -15,7 +15,7 @@ import "scalapb/scalapb.proto";
 
 message ReassignmentId {
   // identifies the reassignment batch, built from a hash of source, target, contract ids, contract counters and timestamp.
-  string unassign_id = 1;
+  string id = 1;
 }
 
 // Messages sent by a participant as part of the reassignment protocol

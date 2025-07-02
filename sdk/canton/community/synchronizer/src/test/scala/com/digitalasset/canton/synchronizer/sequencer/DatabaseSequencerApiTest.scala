@@ -5,11 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer as CantonSequencer
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerStore
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
@@ -54,7 +54,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       DefaultProcessingTimeouts.testing,
       storage,
       sequencerStore,
-      minimumSequencingTime = CantonTimestamp.MinValue,
+      minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
       clock,
       sequencerId,
       crypto,

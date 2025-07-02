@@ -109,7 +109,7 @@ trait HasReassignmentCommandsHelpers {
   }
 
   protected def assign(
-      unassignId: String,
+      reassignmentId: String,
       source: SynchronizerId,
       target: SynchronizerId,
       submittingParty: LfPartyId,
@@ -123,11 +123,11 @@ trait HasReassignmentCommandsHelpers {
     val ledgerEnd = participant.ledger_api.state.end()
 
     logger.debug(
-      s"Submitting assignment of $unassignId on behalf of $submittingParty (source=$source, target=$target)"
+      s"Submitting assignment of $reassignmentId on behalf of $submittingParty (source=$source, target=$target)"
     )
     participant.ledger_api.commands.submit_assign_async(
       submitter = submittingParty,
-      unassignId = unassignId,
+      reassignmentId = reassignmentId,
       source = source,
       target = target,
       commandId = commandId,
@@ -161,7 +161,7 @@ trait HasReassignmentCommandsHelpers {
   }
 
   protected def failingAssignment(
-      unassignId: String,
+      reassignmentId: String,
       source: SynchronizerId,
       target: SynchronizerId,
       submittingParty: PartyId,
@@ -173,7 +173,7 @@ trait HasReassignmentCommandsHelpers {
       cmd = getAssignmentCmd(
         source = source,
         target = target,
-        unassignmentId = unassignId,
+        reassignmentId = reassignmentId,
       ),
       userId = userId,
       workflowId = Some(workflowId),
@@ -224,11 +224,11 @@ trait HasReassignmentCommandsHelpers {
   protected def getAssignmentCmd(
       source: SynchronizerId,
       target: SynchronizerId,
-      unassignmentId: String,
+      reassignmentId: String,
   ): proto.reassignment_commands.ReassignmentCommand.Command.AssignCommand =
     proto.reassignment_commands.ReassignmentCommand.Command.AssignCommand(
       proto.reassignment_commands.AssignCommand(
-        unassignId = unassignmentId,
+        reassignmentId = reassignmentId,
         source = source.toProtoPrimitive,
         target = target.toProtoPrimitive,
       )

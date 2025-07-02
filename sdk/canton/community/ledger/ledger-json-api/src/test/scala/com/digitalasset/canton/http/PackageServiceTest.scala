@@ -9,7 +9,8 @@ import com.digitalasset.canton.http.Generators.{
   genHttpTemplateIdPkgId,
   nonEmptySetOf,
 }
-import com.digitalasset.canton.http.PackageService.TemplateIdMap
+import com.digitalasset.canton.http.json.v1.PackageService
+import com.digitalasset.canton.http.json.v1.PackageService.TemplateIdMap
 import com.digitalasset.daml.lf.data.Ref
 import org.scalacheck.Shrink
 import org.scalatest.freespec.AnyFreeSpec

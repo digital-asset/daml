@@ -26,6 +26,7 @@ import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.store.{InMemorySequencerStore, SequencerStore}
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
@@ -133,7 +134,7 @@ class SequencerTest
         DefaultProcessingTimeouts.testing,
         storage,
         sequencerStore,
-        minimumSequencingTime = CantonTimestamp.MinValue,
+        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
         clock,
         topologyClientMember,
         crypto,

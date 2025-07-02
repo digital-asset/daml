@@ -15,12 +15,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   ActivenessChangeDetail,
   ReassignmentType,
 }
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  ReassignmentId,
-  SerializableContract,
-  UnassignId,
-}
+import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -550,7 +545,7 @@ final case class ContractAssigned(
   def toProtoV30: v30.ContractState.Assigned = v30.ContractState.Assigned(
     reassignmentCounterTarget.v,
     reassignmentId match {
-      case Some(rid) => Some(v30.ContractState.ReassignmentId(rid.unassignId.toProtoPrimitive))
+      case Some(rid) => Some(v30.ContractState.ReassignmentId(rid.toProtoPrimitive))
       case None => None: Option[v30.ContractState.ReassignmentId]
     },
   )
@@ -576,8 +571,8 @@ object ContractAssigned
     val reassignmentIdE = assigned.reassignmentId match {
       case Some(reassignmentId) =>
         for {
-          unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
-        } yield Some(ReassignmentId(unassignId))
+          reassignmentId <- ReassignmentId.fromProtoPrimitive(reassignmentId.id)
+        } yield Some(reassignmentId)
       case None => Right(None: Option[ReassignmentId])
     }
 
@@ -609,7 +604,7 @@ final case class ContractUnassigned(
     targetSynchronizerId.toProtoPrimitive,
     reassignmentCounterSrc.v,
     reassignmentId match {
-      case Some(rid) => Some(v30.ContractState.ReassignmentId(rid.unassignId.toProtoPrimitive))
+      case Some(rid) => Some(v30.ContractState.ReassignmentId(rid.toProtoPrimitive))
       case None => None: Option[v30.ContractState.ReassignmentId]
     },
   )
@@ -637,8 +632,8 @@ object ContractUnassigned extends HasVersionedMessageCompanion[ContractUnassigne
       reassignmentIdE = unassigned.reassignmentId match {
         case Some(reassignmentId) =>
           for {
-            unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
-          } yield Some(ReassignmentId(unassignId))
+            reassignmentId <- ReassignmentId.fromProtoPrimitive(reassignmentId.id)
+          } yield Some(reassignmentId)
         case None => Right(None: Option[ReassignmentId])
       }
 

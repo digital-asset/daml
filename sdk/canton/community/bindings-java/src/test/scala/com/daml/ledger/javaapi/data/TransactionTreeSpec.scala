@@ -9,8 +9,11 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
+// TODO(#23504) remove class as TransactionTree is deprecated and the equivalent TrasnsactionSpec already exists
+@nowarn("cat=deprecation")
 class TransactionTreeSpec
     extends AnyFlatSpec
     with Matchers

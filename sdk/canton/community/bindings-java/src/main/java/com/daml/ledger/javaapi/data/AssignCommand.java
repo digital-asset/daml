@@ -10,21 +10,22 @@ import java.util.Objects;
 
 public final class AssignCommand extends ReassignmentCommand {
 
-  private final @NonNull String unassignId;
+  private final @NonNull String reassignmentId;
 
   private final @NonNull String source;
 
   private final @NonNull String target;
 
-  public AssignCommand(@NonNull String unassignId, @NonNull String source, @NonNull String target) {
-    this.unassignId = unassignId;
+  public AssignCommand(
+      @NonNull String reassignmentId, @NonNull String source, @NonNull String target) {
+    this.reassignmentId = reassignmentId;
     this.source = source;
     this.target = target;
   }
 
   @NonNull
-  public String getUnassignId() {
-    return unassignId;
+  public String getReassignmentId() {
+    return reassignmentId;
   }
 
   @NonNull
@@ -42,21 +43,21 @@ public final class AssignCommand extends ReassignmentCommand {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     AssignCommand that = (AssignCommand) o;
-    return Objects.equals(unassignId, that.unassignId)
+    return Objects.equals(reassignmentId, that.reassignmentId)
         && Objects.equals(source, that.source)
         && Objects.equals(target, that.target);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(unassignId, source, target);
+    return Objects.hash(reassignmentId, source, target);
   }
 
   @Override
   public String toString() {
     return "AssignCommand{"
-        + "unassignId='"
-        + unassignId
+        + "reassignmentId='"
+        + reassignmentId
         + '\''
         + ", source="
         + source
@@ -67,7 +68,7 @@ public final class AssignCommand extends ReassignmentCommand {
 
   public ReassignmentCommandOuterClass.AssignCommand toProto() {
     return ReassignmentCommandOuterClass.AssignCommand.newBuilder()
-        .setUnassignId(this.unassignId)
+        .setReassignmentId(this.reassignmentId)
         .setSource(this.source)
         .setTarget(this.target)
         .build();
@@ -75,6 +76,6 @@ public final class AssignCommand extends ReassignmentCommand {
 
   public static AssignCommand fromProto(ReassignmentCommandOuterClass.AssignCommand assignCommand) {
     return new AssignCommand(
-        assignCommand.getUnassignId(), assignCommand.getSource(), assignCommand.getTarget());
+        assignCommand.getReassignmentId(), assignCommand.getSource(), assignCommand.getTarget());
   }
 }

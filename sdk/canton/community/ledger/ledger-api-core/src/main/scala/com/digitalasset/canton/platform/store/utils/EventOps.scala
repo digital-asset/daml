@@ -12,6 +12,8 @@ import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{
 }
 import com.daml.ledger.api.v2.value.Identifier
 
+import scala.annotation.nowarn
+
 object EventOps {
 
   implicit class EventOps(val event: Event) extends AnyVal {
@@ -95,6 +97,8 @@ object EventOps {
       }
   }
 
+  // TODO(#23504) remove when TreeEvent is removed
+  @nowarn("cat=deprecation")
   implicit final class TreeEventOps(val event: TreeEvent) extends AnyVal {
     def nodeId: Int = event.kind.fold(_.nodeId, _.nodeId)
     def witnessParties: Seq[String] = event.kind.fold(_.witnessParties, _.witnessParties)

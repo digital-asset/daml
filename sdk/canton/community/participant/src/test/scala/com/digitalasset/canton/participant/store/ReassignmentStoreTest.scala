@@ -33,7 +33,6 @@ import com.digitalasset.canton.protocol.{
   LfContractId,
   ReassignmentId,
   SerializableContract,
-  UnassignId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.IndexedSynchronizer
@@ -579,7 +578,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
       ): Assertion = {
         val expectedIncomplete = expectedReassignmentEntries.map { expectedReassignmentEntry =>
           IncompleteReassignmentData.tryCreate(
-            expectedReassignmentEntry.reassignmentId.unassignId,
+            expectedReassignmentEntry.reassignmentId,
             expectedReassignmentEntry.unassignmentRequest,
             expectedReassignmentEntry.reassignmentGlobalOffset,
             queryOffset,
@@ -1429,9 +1428,9 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     SynchronizerId(UniqueIdentifier.tryCreate("target", "SYNCHRONIZER"))
   )
 
-  val reassignment10 = ReassignmentId(UnassignId(TestHash.digest(0)))
-  val reassignment11 = ReassignmentId(UnassignId(TestHash.digest(1)))
-  val reassignment20 = ReassignmentId(UnassignId(TestHash.digest(2)))
+  val reassignment10 = ReassignmentId.tryCreate("10")
+  val reassignment11 = ReassignmentId.tryCreate("11")
+  val reassignment20 = ReassignmentId.tryCreate("20")
 
   val loggerFactoryNotUsed = NamedLoggerFactory.unnamedKey("test", "NotUsed-ReassignmentStoreTest")
   val ec: ExecutionContext = DirectExecutionContext(
@@ -1497,12 +1496,10 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   ): UnassignmentData = {
     val reassignmentId =
       ReassignmentId(
-        UnassignId(
-          sourceSynchronizer.map(_.logical),
-          targetSynchronizer,
-          unassignmentTs,
-          Seq(contract.contractId -> ReassignmentCounter(0)),
-        )
+        sourceSynchronizer.map(_.logical),
+        targetSynchronizer,
+        unassignmentTs,
+        Seq(contract.contractId -> ReassignmentCounter(0)),
       )
     mkUnassignmentDataForSynchronizer(
       reassignmentId,

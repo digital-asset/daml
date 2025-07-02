@@ -18,8 +18,11 @@ import org.scalatest.*
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+// TODO(#23504) remove TransactionTree related methods when TransactionTree is removed from the API
+@nowarn("cat=deprecation")
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     extends OptionValues
     with Inside
@@ -36,8 +39,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           updateId = "WRONG",
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -53,8 +55,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset = Offset.tryFromLong(12345678L),
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -70,8 +71,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.updateId,
           Set("WRONG"),
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(Set("WRONG")),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
       resultByOffset <- ledgerDao.updateReader
@@ -79,8 +79,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset,
           Set("WRONG"),
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(Set("WRONG")),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -97,8 +96,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.updateId,
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
       resultByOffset <- ledgerDao.updateReader
@@ -106,8 +104,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset,
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -147,8 +144,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           exercise.updateId,
           exercise.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(exercise.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
       resultByOffset <- ledgerDao.updateReader
@@ -156,8 +152,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset,
           exercise.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(exercise.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -198,8 +193,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.updateId,
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
       resultByOffset <- ledgerDao.updateReader
@@ -207,8 +201,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset,
           tx.actAs.toSet,
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(tx.actAs.toSet),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -273,8 +266,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           tx.updateId,
           Set(alice),
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(Set(alice)),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         ) // only two children are visible to Alice
       resultByOffset <- ledgerDao.updateReader
@@ -282,8 +274,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           offset,
           Set(alice),
           EventProjectionProperties(
-            verbose = true,
-            templateWildcardWitnesses = Some(Set(alice)),
+            verbose = true
           )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
     } yield {
@@ -307,8 +298,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Some(Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -327,8 +317,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = Some(Set(alice, bob, charlie)),
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -339,8 +328,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to,
             requestingParties = None,
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = None,
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -372,8 +360,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(alice)),
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -384,8 +371,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(bob)),
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -396,8 +382,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             endInclusive = to.value.lastOffset,
             requestingParties = Some(Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(Set(charlie)),
+              verbose = true
             )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
@@ -434,8 +419,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
               tx.updateId,
               as,
               EventProjectionProperties(
-                verbose = true,
-                templateWildcardWitnesses = Some(as.map(_.toString)),
+                verbose = true
               )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             )
         )

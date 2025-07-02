@@ -192,7 +192,7 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
       else
         3 // p1, p2, p3
 
-    val unassignId =
+    val reassignmentId =
       participant2.ledger_api.commands
         .submit_unassign(
           bob,
@@ -200,14 +200,14 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
           daId,
           acmeId,
         )
-        .unassignId
+        .reassignmentId
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager
       .get(acmeId)
       .value
       .reassignmentStore
 
-    val reassignmendId = ReassignmentId.tryCreate(unassignId)
+    val reassignmendId = ReassignmentId.tryCreate(reassignmentId)
 
     reassignmentStore
       .findReassignmentEntry(reassignmendId)
@@ -250,7 +250,7 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
 
     val assignmentCompletion1F = Future {
       failingAssignment(
-        unassignId = unassignId,
+        reassignmentId = reassignmentId,
         source = daId,
         target = acmeId,
         submittingParty = bob.toLf,

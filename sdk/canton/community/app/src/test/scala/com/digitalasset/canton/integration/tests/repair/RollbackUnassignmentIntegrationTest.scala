@@ -10,7 +10,6 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
-import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -25,7 +24,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentCompleted
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
-import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
+import com.digitalasset.canton.protocol.ReassignmentId
 
 sealed trait RollbackUnassignmentIntegrationTest
     extends CommunityIntegrationTest
@@ -71,14 +70,14 @@ sealed trait RollbackUnassignmentIntegrationTest
 
     val ledgerEnd = participant1.ledger_api.state.end()
 
-    val unassignmentId = participant1.ledger_api.commands
+    val reassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
         cids,
         source = acmeId,
         target = daId,
       )
-      .unassignId
+      .reassignmentId
 
     participant2.ledger_api.updates
       .reassignments(
@@ -89,14 +88,14 @@ sealed trait RollbackUnassignmentIntegrationTest
       )
       .loneElement match {
       case unassigned: UnassignedWrapper =>
-        unassigned.unassignId shouldBe unassignmentId
+        unassigned.reassignmentId shouldBe reassignmentId
       case _ => fail("should not happen")
     }
 
     participant1.synchronizers.disconnect_all()
     participant2.synchronizers.disconnect_all()
-    participant1.repair.rollback_unassignment(unassignmentId, acmeId, daId)
-    participant2.repair.rollback_unassignment(unassignmentId, acmeId, daId)
+    participant1.repair.rollback_unassignment(reassignmentId, acmeId, daId)
+    participant2.repair.rollback_unassignment(reassignmentId, acmeId, daId)
 
     participant1.synchronizers.reconnect_all()
     participant2.synchronizers.reconnect_all()
@@ -137,8 +136,8 @@ sealed trait RollbackUnassignmentIntegrationTest
     unassigned1.target shouldBe unassigned2.source
     unassigned1.source shouldBe unassigned2.target
 
-    // check that we have the correct unassignmentId when we publish the event.
-    assigned1.unassignId shouldBe unassignmentId
+    // check that we have the correct reassignmentId when we publish the event.
+    assigned1.reassignmentId shouldBe reassignmentId
 
     val (unassigned, _) = participant1.ledger_api.commands.submit_reassign(
       alice,
@@ -148,13 +147,11 @@ sealed trait RollbackUnassignmentIntegrationTest
     )
     unassigned.events.map(_.reassignmentCounter) shouldBe Seq(3, 3)
 
-    val reassignmentId = ReassignmentId.tryCreate(unassignmentId)
-
     val lookup = participant1.underlying.value.sync.syncPersistentStateManager
       .get(daId)
       .value
       .reassignmentStore
-      .lookup(reassignmentId)
+      .lookup(ReassignmentId.tryCreate(reassignmentId))
       .value
       .failOnShutdown
       .futureValue
@@ -166,11 +163,11 @@ sealed trait RollbackUnassignmentIntegrationTest
   "cannot rollback an unknown reassignment" in { implicit env =>
     import env.*
 
-    val unassignId = UnassignId(TestHash.digest(42)).toHexString
+    val reassignmentId = ReassignmentId.tryCreate("42").toProtoPrimitive
     participant2.synchronizers.disconnect_all()
 
     loggerFactory.assertThrowsAndLogs[CommandFailure](
-      participant2.repair.rollback_unassignment(unassignId, acmeId, daId),
+      participant2.repair.rollback_unassignment(reassignmentId, acmeId, daId),
       _.commandFailureMessage should include("unknown reassignment id"),
     )
   }
@@ -180,7 +177,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val alice = aliceS.toPartyId(participant1)
     val cid = createContract(participant1, alice, alice, synchronizerId = Some(acmeId))
 
-    val unassignmentId = participant1.ledger_api.commands
+    val reassignmentId = participant1.ledger_api.commands
       .submit_reassign(
         alice,
         Seq(cid.toLf),
@@ -188,12 +185,12 @@ sealed trait RollbackUnassignmentIntegrationTest
         target = daId,
       )
       ._1
-      .unassignId
+      .reassignmentId
 
     participant1.synchronizers.disconnect_all()
 
     loggerFactory.assertThrowsAndLogs[CommandFailure](
-      participant1.repair.rollback_unassignment(unassignmentId, acmeId, daId),
+      participant1.repair.rollback_unassignment(reassignmentId, acmeId, daId),
       _.commandFailureMessage should include("reassignment already completed"),
     )
   }
@@ -206,19 +203,19 @@ sealed trait RollbackUnassignmentIntegrationTest
     val alice = aliceS.toPartyId(participant1)
     val cid = createContract(participant1, alice, alice, synchronizerId = Some(acmeId))
 
-    val unassignmentId = participant1.ledger_api.commands
+    val reassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
         Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )
-      .unassignId
+      .reassignmentId
 
     participant1.synchronizers.disconnect_all()
-    participant1.repair.rollback_unassignment(unassignmentId, acmeId, daId)
+    participant1.repair.rollback_unassignment(reassignmentId, acmeId, daId)
     loggerFactory.assertThrowsAndLogs[CommandFailure](
-      participant1.repair.rollback_unassignment(unassignmentId, acmeId, daId),
+      participant1.repair.rollback_unassignment(reassignmentId, acmeId, daId),
       _.commandFailureMessage should include(s"reassignment already completed"),
     )
   }

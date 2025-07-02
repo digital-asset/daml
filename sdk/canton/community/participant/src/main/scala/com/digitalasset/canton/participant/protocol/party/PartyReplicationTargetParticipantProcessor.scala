@@ -26,7 +26,6 @@ import com.digitalasset.canton.protocol.{
   ReassignmentId,
   SerializableContract,
   TransactionId,
-  UnassignId,
 }
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
@@ -259,7 +258,7 @@ final class PartyReplicationTargetParticipantProcessor(
       sourceSynchronizer = ReassignmentTag.Source(psid.logical),
       targetSynchronizer = ReassignmentTag.Target(psid.logical),
       submitter = None,
-      unassignId = UnassignId(
+      reassignmentId = ReassignmentId(
         ReassignmentTag.Source(psid.logical),
         ReassignmentTag.Target(psid.logical),
         timestamp, // artificial unassign has same timestamp as
@@ -268,7 +267,7 @@ final class PartyReplicationTargetParticipantProcessor(
       isReassigningParticipant = false,
     )
     val commitSet = CommitSet.createForAssignment(
-      ReassignmentId(artificialReassignmentInfo.unassignId),
+      artificialReassignmentInfo.reassignmentId,
       activeContracts.map { case ActiveContractOld(_, contract, reassignmentCounter) =>
         ContractReassignment(contract, reassignmentCounter)
       },

@@ -1,13 +1,14 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.service
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.ledger.api.v2.package_service.GetPackageResponse
 import com.daml.logging.LoggingContextOf
 import com.daml.scalautil.TraverseFMSyntax.*
 import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
+import com.digitalasset.canton.ledger.service.Grpc
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.daml.lf.archive

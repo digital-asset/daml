@@ -77,7 +77,7 @@ class PruningDtoQueries {
     SQL"SELECT event_sequential_id, party_id FROM lapi_pe_assign_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
       .asVectorOf(idFilterParser(FilterAssign.apply))(c)
   def filterUnassign(implicit c: Connection): Seq[FilterUnassign] =
-    SQL"SELECT event_sequential_id, party_id FROM lapi_pe_unassign_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
+    SQL"SELECT event_sequential_id, party_id FROM lapi_pe_reassignment_id_filter_stakeholder ORDER BY event_sequential_id, party_id"
       .asVectorOf(idFilterParser(FilterUnassign.apply))(c)
 
   def txMeta(implicit c: Connection): Seq[TxMeta] =

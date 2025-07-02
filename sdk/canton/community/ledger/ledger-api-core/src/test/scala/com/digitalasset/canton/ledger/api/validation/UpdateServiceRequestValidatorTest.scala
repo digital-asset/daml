@@ -24,6 +24,10 @@ import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+// TODO(#23504) remove suppressions when deprecated methods are removed
+@nowarn("cat=deprecation")
 class UpdateServiceRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils

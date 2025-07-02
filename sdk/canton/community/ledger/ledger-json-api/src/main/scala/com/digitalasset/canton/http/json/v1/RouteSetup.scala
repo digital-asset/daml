@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.endpoints
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
@@ -62,7 +62,7 @@ private[http] final class RouteSetup(
   import encoder.implicits.*
   import com.digitalasset.canton.http.util.ErrorOps.*
 
-  private[endpoints] def handleCommand[T[_]](req: HttpRequest)(
+  private[v1] def handleCommand[T[_]](req: HttpRequest)(
       fn: (
           Jwt,
           JwtWritePayload,
@@ -213,7 +213,7 @@ object RouteSetup {
     }
 
   // avoid case class to avoid using the wrong unapply in isForwardedForHttps
-  private[endpoints] final class Forwarded(override val value: String)
+  private[v1] final class Forwarded(override val value: String)
       extends ModeledCustomHeader[Forwarded] {
     override def companion = Forwarded
     override def renderInRequests = true
@@ -223,7 +223,7 @@ object RouteSetup {
       Forwarded.re findFirstMatchIn value map (_.group(1).toLowerCase)
   }
 
-  private[endpoints] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
+  private[v1] object Forwarded extends ModeledCustomHeaderCompanion[Forwarded] {
     override val name = "Forwarded"
     override def parse(value: String) = Try(new Forwarded(value))
     private val re = raw"""(?i)proto\s*=\s*"?(https?)""".r

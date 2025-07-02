@@ -120,7 +120,7 @@ class AssignmentValidationTest
 
   private val activenessF = FutureUnlessShutdown.pure(mkActivenessResult())
 
-  private val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
+  private val reassignmentId = ReassignmentId.tryCreate("00")
 
   val engineController =
     EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory)
@@ -186,14 +186,13 @@ class AssignmentValidationTest
     "succeed without errors in the basic case (no reassignment data) on a non reassigning Participant" in {
       val res = assignmentValidation(otherParticipant)
         .perform(
-          Target(cryptoSnapshot),
           unassignmentDataE = Left(UnknownReassignmentId(reassignmentId)),
           activenessF = activenessF,
         )(mkParsedRequest(assignmentRequest))
         .futureValueUS
         .value
 
-      res.isSuccessfulF.futureValueUS shouldBe true
+      res.isSuccessful.futureValueUS shouldBe true
 
     }
 
@@ -203,16 +202,15 @@ class AssignmentValidationTest
       ): AssignmentValidationResult =
         assignmentValidation(participantId)
           .perform(
-            Target(cryptoSnapshot),
             unassignmentDataE = Right(unassignmentData),
             activenessF = activenessF,
           )(mkParsedRequest(assignmentRequest))
           .futureValueUS
           .value
 
-      validate(submittingParticipant).isSuccessfulF.futureValueUS shouldBe true
+      validate(submittingParticipant).isSuccessful.futureValueUS shouldBe true
 
-      validate(otherParticipant).isSuccessfulF.futureValueUS shouldBe true
+      validate(otherParticipant).isSuccessful.futureValueUS shouldBe true
     }
 
     "complain about inconsistent reassignment counters" in {
@@ -226,7 +224,6 @@ class AssignmentValidationTest
 
       val result = assignmentValidation()
         .perform(
-          Target(cryptoSnapshot),
           unassignmentDataE = Right(unassignmentData),
           activenessF = activenessF,
         )(mkParsedRequest(assignmentTreeWrongCounter))
@@ -234,8 +231,8 @@ class AssignmentValidationTest
         .futureValueUS
         .value
 
-      result.isSuccessfulF.futureValueUS shouldBe false
-      result.reassigningParticipantValidationResult should contain(
+      result.isSuccessful.futureValueUS shouldBe false
+      result.reassigningParticipantValidationResult.errors should contain(
         InconsistentReassignmentCounters(
           reassignmentId,
           wrongCounters,
@@ -258,7 +255,6 @@ class AssignmentValidationTest
 
         assignmentValidation()
           .perform(
-            Target(cryptoSnapshot),
             unassignmentDataE = Right(unassignmentData),
             activenessF = activenessF,
           )(mkParsedRequest(assignmentRequest))
@@ -282,7 +278,7 @@ class AssignmentValidationTest
       // The data differs from the one stored locally in ReassignmentData
       validate(
         unauthenticatedContractId
-      ).value.reassigningParticipantValidationResult.head shouldBe a[
+      ).value.reassigningParticipantValidationResult.errors.head shouldBe a[
         ContractDataMismatch
       ]
     }
@@ -297,7 +293,6 @@ class AssignmentValidationTest
 
         assignmentValidation()
           .perform(
-            Target(cryptoSnapshot),
             unassignmentDataE = Right(unassignmentData),
             activenessF = activenessF,
           )(mkParsedRequest(assignmentTree))
@@ -306,14 +301,14 @@ class AssignmentValidationTest
       }
 
       // Happy path / control
-      validate(reassigningParticipants).value.isSuccessfulF.futureValueUS shouldBe true
+      validate(reassigningParticipants).value.isSuccessful.futureValueUS shouldBe true
 
       // Additional observing participant
       val additionalObservingParticipant = reassigningParticipants + otherParticipant
 
       validate(
         additionalObservingParticipant
-      ).value.reassigningParticipantValidationResult shouldBe Seq(
+      ).value.reassigningParticipantValidationResult.errors shouldBe Seq(
         ReassigningParticipantsMismatch(
           ReassignmentRef(unassignmentData.reassignmentId),
           expected = reassigningParticipants,
@@ -326,7 +321,7 @@ class AssignmentValidationTest
 
       validate(
         additionalConfirmingParticipant
-      ).value.reassigningParticipantValidationResult shouldBe Seq(
+      ).value.reassigningParticipantValidationResult.errors shouldBe Seq(
         ReassigningParticipantsMismatch(
           ReassignmentRef(unassignmentData.reassignmentId),
           expected = reassigningParticipants,
@@ -335,7 +330,7 @@ class AssignmentValidationTest
       )
 
       // Empty reassigning participants means it's not a reassigning participant.
-      validate(Set.empty).value.reassigningParticipantValidationResult shouldBe Nil
+      validate(Set.empty).value.reassigningParticipantValidationResult.errors shouldBe Nil
     }
 
     "detect non-stakeholder submitter" in {
@@ -348,7 +343,6 @@ class AssignmentValidationTest
 
         assignmentValidation()
           .perform(
-            Target(cryptoSnapshot),
             unassignmentDataE = Right(unassignmentData),
             activenessF = activenessF,
           )(mkParsedRequest(assignmentRequest))
@@ -357,9 +351,9 @@ class AssignmentValidationTest
       }
 
       // Happy path / control
-      validate(signatory).value.isSuccessfulF.futureValueUS shouldBe true
+      validate(signatory).value.isSuccessful.futureValueUS shouldBe true
 
-      validate(otherParty).value.submitterCheckResult shouldBe Some(
+      validate(otherParty).value.commonValidationResult.submitterCheckResult shouldBe Some(
         SubmitterMustBeStakeholder(
           ReassignmentIdRef(unassignmentData.reassignmentId),
           submittingParty = otherParty,
@@ -367,7 +361,9 @@ class AssignmentValidationTest
         )
       )
 
-      validate(otherParty).value.reassigningParticipantValidationResult.loneElement shouldBe a[
+      validate(
+        otherParty
+      ).value.reassigningParticipantValidationResult.errors.loneElement shouldBe a[
         NonInitiatorSubmitsBeforeExclusivityTimeout
       ]
 

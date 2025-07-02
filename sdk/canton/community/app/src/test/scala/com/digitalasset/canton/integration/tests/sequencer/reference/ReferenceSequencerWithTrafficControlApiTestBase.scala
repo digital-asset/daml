@@ -35,7 +35,10 @@ import com.digitalasset.canton.sequencing.traffic.{
 import com.digitalasset.canton.store.db.DbTest
 import com.digitalasset.canton.synchronizer.metrics.{SequencerHistograms, SequencerMetrics}
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory
-import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameters
+import com.digitalasset.canton.synchronizer.sequencer.config.{
+  SequencerNodeParameterConfig,
+  SequencerNodeParameters,
+}
 import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStoreTest
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
@@ -377,7 +380,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         ),
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
-        minimumSequencingTime = CantonTimestamp.MinValue,
+        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS

@@ -58,6 +58,7 @@ import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.sql.Connection
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -369,6 +370,8 @@ class UpdatesStreamReader(
       }
   }
 
+  // TODO(#26401) check if deserializeLfValuesTree can be replaced by deserializeLfValues or return Events
+  @nowarn("cat=deprecation")
   private def doStreamTxsLedgerEffects(
       queryRange: EventsRange,
       internalEventFormat: InternalEventFormat,
@@ -604,6 +607,8 @@ class UpdatesStreamReader(
       .mapConcat(identity)
   }
 
+  // TODO(#26401) check if it can be replaced by deserializeLfValues or return Events
+  @nowarn("cat=deprecation")
   private def deserializeLfValuesTree(
       rawEvents: Vector[Entry[RawTreeEvent]],
       eventProjectionProperties: EventProjectionProperties,

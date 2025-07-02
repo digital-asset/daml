@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http.endpoints
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
@@ -10,7 +10,7 @@ import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT, rightT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.ProtobufByteStrings
-import com.digitalasset.canton.http.{OkResponse, PackageManagementService, SyncResponse, admin}
+import com.digitalasset.canton.http.{OkResponse, SyncResponse}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.http.scaladsl.model.*
 import scalaz.EitherT
@@ -21,7 +21,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageManagementService)(
     implicit ec: ExecutionContext
 ) {
-  import routeSetup.*, RouteSetup.*
+  import RouteSetup.*
+  import routeSetup.*
 
   def uploadDarFile(httpRequest: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -51,7 +52,7 @@ class PackagesAndDars(routeSetup: RouteSetup, packageManagementService: PackageM
   def downloadPackage(jwt: Jwt, packageId: String)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Future[HttpResponse] = {
-    val pkgResp: Future[admin.GetPackageResponse] =
+    val pkgResp: Future[GetPackageResponse] =
       packageManagementService.getPackage(jwt, packageId)
     pkgResp.map { x =>
       HttpResponse(

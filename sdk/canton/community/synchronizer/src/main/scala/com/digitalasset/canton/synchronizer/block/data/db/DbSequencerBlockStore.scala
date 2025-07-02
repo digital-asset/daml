@@ -53,7 +53,7 @@ class DbSequencerBlockStore(
 
   override def readHead(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[BlockEphemeralState] =
+  ): FutureUnlessShutdown[Option[BlockEphemeralState]] =
     storage.query(
       for {
         watermark <- safeWaterMarkDBIO
@@ -62,8 +62,8 @@ class DbSequencerBlockStore(
           case None => DBIO.successful(None)
         }
         state <- blockInfoO match {
-          case None => DBIO.successful(BlockEphemeralState.empty)
-          case Some(blockInfo) => readAtBlock(blockInfo)
+          case None => DBIO.successful(None)
+          case Some(blockInfo) => readAtBlock(blockInfo).map(Some(_))
         }
       } yield state,
       functionFullName,

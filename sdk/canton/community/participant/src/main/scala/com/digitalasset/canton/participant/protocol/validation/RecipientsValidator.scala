@@ -155,7 +155,7 @@ class RecipientsValidator[I](
     }
   }
 
-  def retainInputsWithValidRecipientsInternal(
+  private def retainInputsWithValidRecipientsInternal(
       requestId: RequestId,
       inputs: Seq[I],
       snapshot: PartyTopologySnapshotClient,

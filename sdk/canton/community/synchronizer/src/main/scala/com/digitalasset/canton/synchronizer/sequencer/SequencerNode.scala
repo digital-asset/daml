@@ -674,6 +674,7 @@ class SequencerNodeBootstrap(
           topologyStateForInitializationService =
             new StoreBasedTopologyStateForInitializationService(
               synchronizerTopologyStore,
+              config.parameters.minimumSequencingTime,
               synchronizerLoggerFactory,
             )
 

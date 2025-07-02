@@ -409,7 +409,7 @@ final class LfValueTranslation(
         LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
       ),
       contractKey = apiContractData.contractKey,
-      createArguments = apiContractData.createArguments,
+      createArguments = Some(apiContractData.createArguments),
       createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
       interfaceViews = apiContractData.interfaceViews,
       witnessParties = rawCreatedEvent.witnessParties.toList,
@@ -434,12 +434,11 @@ final class LfValueTranslation(
     val renderResult =
       eventProjectionProperties.render(witnesses, templateId)
     val verbose = eventProjectionProperties.verbose
-    def asyncContractArguments = condFuture(renderResult.contractArguments)(
+    def asyncContractArguments =
       enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId, _))
         .map(toContractArgumentApi(verbose))
-    )
     @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-    def asyncContractKey = condFuture(renderResult.contractArguments && key.isDefined)(
+    def asyncContractKey = condFuture(key.isDefined)(
       enrichAsync(verbose, key.get.unversioned, enricher.enrichContractKey(templateId, _))
         .map(toContractKeyApi(verbose))
     )
@@ -622,7 +621,7 @@ final class LfValueTranslation(
 object LfValueTranslation {
 
   final case class ApiContractData(
-      createArguments: Option[ApiRecord],
+      createArguments: ApiRecord,
       createdEventBlob: Option[ByteString],
       contractKey: Option[ApiValue],
       interfaceViews: Seq[InterfaceView],

@@ -32,8 +32,11 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
+// TODO(#23504) remove deprecated methods
+@nowarn("cat=deprecation")
 class JsUpdateService(
     ledgerClient: LedgerClient,
     protocolConverters: ProtocolConverters,
@@ -215,6 +218,8 @@ class JsUpdateService(
 
 }
 
+// TODO(#23504) remove deprecated methods
+@nowarn("cat=deprecation")
 object JsUpdateService extends DocumentationEndpoints {
   import Endpoints.*
   import JsUpdateServiceCodecs.*
@@ -347,6 +352,8 @@ final case class JsGetUpdateTreesResponse(
     update: JsUpdateTree.Update
 )
 
+// TODO(#23504) remove suppression of deprecation warnings
+@nowarn("cat=deprecation")
 object JsUpdateServiceCodecs {
   import JsSchema.config
   import JsSchema.JsServicesCommonCodecs.*

@@ -17,6 +17,7 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class UpdateServiceAuthorization(
@@ -38,6 +39,8 @@ final class UpdateServiceAuthorization(
       getUpdatesClaims(request)*
     )(request, responseObserver)
 
+  // TODO(#23504) remove when TransactionTrees are removed from the API
+  @nowarn("cat=deprecation")
   override def getUpdateTrees(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdateTreesResponse],
@@ -46,6 +49,8 @@ final class UpdateServiceAuthorization(
       getUpdatesClaims(request)*
     )(request, responseObserver)
 
+  // TODO(#23504) remove when TransactionTrees are removed from the API
+  @nowarn("cat=deprecation")
   override def getTransactionTreeByOffset(
       request: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] =
@@ -53,6 +58,8 @@ final class UpdateServiceAuthorization(
       RequiredClaims.readAsForAllParties[GetTransactionByOffsetRequest](request.requestingParties)*
     )(request)
 
+  // TODO(#23504) remove when TransactionTrees are removed from the API
+  @nowarn("cat=deprecation")
   override def getTransactionTreeById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionTreeResponse] =
@@ -60,6 +67,8 @@ final class UpdateServiceAuthorization(
       RequiredClaims.readAsForAllParties[GetTransactionByIdRequest](request.requestingParties)*
     )(request)
 
+  // TODO(#23504) remove when getTransactionByOffset is removed from the API
+  @nowarn("cat=deprecation")
   override def getTransactionByOffset(
       request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] =
@@ -67,6 +76,8 @@ final class UpdateServiceAuthorization(
       getTransactionByOffsetClaims(request)*
     )(request)
 
+  // TODO(#23504) remove when getTransactionById is removed from the API
+  @nowarn("cat=deprecation")
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] =
@@ -95,11 +106,15 @@ final class UpdateServiceAuthorization(
 
 object UpdateServiceAuthorization {
 
+  // TODO(#23504) remove checking filter when it is removed from GetUpdatesRequest
+  @nowarn("cat=deprecation")
   def getUpdatesClaims(request: GetUpdatesRequest): List[RequiredClaim[GetUpdatesRequest]] =
     request.updateFormat.toList.flatMap(
       RequiredClaims.updateFormatClaims[GetUpdatesRequest]
     ) ::: request.filter.toList.flatMap(RequiredClaims.transactionFilterClaims[GetUpdatesRequest])
 
+  // TODO(#23504) remove when getTransactionByOffset is removed from the API
+  @nowarn("cat=deprecation")
   def getTransactionByOffsetClaims(
       request: GetTransactionByOffsetRequest
   ): List[RequiredClaim[GetTransactionByOffsetRequest]] =
@@ -110,6 +125,8 @@ object UpdateServiceAuthorization {
       request.requestingParties
     )
 
+  // TODO(#23504) remove when getTransactionById is removed from the API
+  @nowarn("cat=deprecation")
   def getTransactionByIdClaims(
       request: GetTransactionByIdRequest
   ): List[RequiredClaim[GetTransactionByIdRequest]] =

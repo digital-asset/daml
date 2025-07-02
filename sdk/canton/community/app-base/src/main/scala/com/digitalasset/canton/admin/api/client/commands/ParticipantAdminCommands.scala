@@ -1038,7 +1038,7 @@ object ParticipantAdminCommands {
     }
 
     final case class RollbackUnassignment(
-        unassignId: String,
+        reassignmentId: String,
         source: SynchronizerId,
         target: SynchronizerId,
     ) extends GrpcAdminCommand[
@@ -1054,7 +1054,7 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, v30.RollbackUnassignmentRequest] =
         Right(
           v30.RollbackUnassignmentRequest(
-            unassignId = unassignId,
+            reassignmentId = reassignmentId,
             sourceSynchronizerId = source.toProtoPrimitive,
             targetSynchronizerId = target.toProtoPrimitive,
           )

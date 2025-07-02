@@ -173,7 +173,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.util.BinaryFileUtil
@@ -1013,7 +1013,7 @@ object LedgerApiCommands {
 
       // Fields shared by AssignedEvent and UnassignedEvent that must be invariant with a batch.
       private type ValidatableEvent = {
-        val source: String; val target: String; val unassignId: String
+        val source: String; val target: String; val reassignmentId: String
       }
 
       import scala.language.reflectiveCalls
@@ -1026,7 +1026,7 @@ object LedgerApiCommands {
           getEvent(hd) match {
             case Some(e) =>
               if (
-                e.unassignId != first.unassignId ||
+                e.reassignmentId != first.reassignmentId ||
                 e.source != first.source ||
                 e.target != first.target
               ) throw new IllegalStateException(s"Invalid event batch elements: $first vs $e")
@@ -1103,7 +1103,7 @@ object LedgerApiCommands {
       override def synchronizerId = target
       def source: String = head.source
       def target: String = head.target
-      def unassignId: String = head.unassignId
+      def reassignmentId: String = head.reassignmentId
     }
 
     final case class UnassignedWrapper(
@@ -1116,8 +1116,7 @@ object LedgerApiCommands {
       override def synchronizerId = source
       def source: String = head.source
       def target: String = head.target
-      def unassignId: String = head.unassignId
-      def reassignmentId: ReassignmentId = ReassignmentId.tryCreate(unassignId)
+      def reassignmentId: String = head.reassignmentId
     }
 
     final case class EmptyReassignmentWrapper(
@@ -1352,7 +1351,7 @@ object LedgerApiCommands {
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
-        unassignId: String,
+        reassignmentId: String,
         source: SynchronizerId,
         target: SynchronizerId,
     ) extends BaseCommand[SubmitReassignmentRequest, SubmitReassignmentResponse, Unit] {
@@ -1368,7 +1367,7 @@ object LedgerApiCommands {
                 ReassignmentCommand(
                   ReassignmentCommand.Command.AssignCommand(
                     AssignCommand(
-                      unassignId = unassignId,
+                      reassignmentId = reassignmentId,
                       source = source.toProtoPrimitive,
                       target = target.toProtoPrimitive,
                     )
@@ -1709,7 +1708,7 @@ object LedgerApiCommands {
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
-        unassignId: String,
+        reassignmentId: String,
         source: SynchronizerId,
         target: SynchronizerId,
         eventFormat: Option[EventFormat],
@@ -1731,7 +1730,7 @@ object LedgerApiCommands {
                   ReassignmentCommand(
                     ReassignmentCommand.Command.AssignCommand(
                       AssignCommand(
-                        unassignId = unassignId,
+                        reassignmentId = reassignmentId,
                         source = source.toProtoPrimitive,
                         target = target.toProtoPrimitive,
                       )

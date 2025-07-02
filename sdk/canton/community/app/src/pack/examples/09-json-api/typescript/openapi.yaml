@@ -1874,11 +1874,11 @@ components:
       description: Assign a contract
       type: object
       required:
-      - unassignId
+      - reassignmentId
       - source
       - target
       properties:
-        unassignId:
+        reassignmentId:
           description: |-
             The ID from the unassigned event to be completed by this assignment.
             Must be a valid LedgerString (as described in ``value.proto``).
@@ -3220,6 +3220,12 @@ components:
           description: |-
             The package references of the preferred packages.
             Must contain one package reference for each requested package-name.
+
+            If you build command submissions whose content depends on the returned
+            preferred packages, then we recommend submitting the preferred package-ids
+            in the ``package_id_selection_preference`` of the command submission to
+            avoid race conditions with concurrent changes of the on-ledger package vetting state.
+
             Required
           type: array
           items:
@@ -3628,7 +3634,7 @@ components:
       required:
       - source
       - target
-      - unassignId
+      - reassignmentId
       - submitter
       - reassignmentCounter
       - createdEvent
@@ -3645,11 +3651,10 @@ components:
             Must be a valid synchronizer id.
             Required
           type: string
-        unassignId:
+        reassignmentId:
           description: |-
             The ID from the unassigned event.
             For correlation capabilities.
-            For one contract the (unassign_id, source synchronizer) pair is unique.
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string
@@ -3680,7 +3685,7 @@ components:
       required:
       - source
       - target
-      - unassignId
+      - reassignmentId
       - submitter
       - reassignmentCounter
       - createdEvent
@@ -3689,7 +3694,7 @@ components:
           type: string
         target:
           type: string
-        unassignId:
+        reassignmentId:
           type: string
         submitter:
           type: string
@@ -4082,7 +4087,7 @@ components:
           description: |-
             The value of the interface's view method on this event.
             Set if it was requested in the ``InterfaceFilter`` and it could be
-            sucessfully computed.
+            successfully computed.
             Optional
     JsPrepareSubmissionRequest:
       title: JsPrepareSubmissionRequest
@@ -5558,7 +5563,7 @@ components:
         on the source synchronizer
       type: object
       required:
-      - unassignId
+      - reassignmentId
       - contractId
       - source
       - target
@@ -5568,10 +5573,9 @@ components:
       - offset
       - nodeId
       properties:
-        unassignId:
+        reassignmentId:
           description: |-
             The ID of the unassignment. This needs to be used as an input for a assign ReassignmentCommand.
-            For one contract the (unassign_id, source synchronizer) pair is unique.
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string

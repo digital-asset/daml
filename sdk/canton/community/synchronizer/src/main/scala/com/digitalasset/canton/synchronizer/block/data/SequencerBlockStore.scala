@@ -46,8 +46,13 @@ trait SequencerBlockStore extends AutoCloseable {
     * deterministically derive the following counters and timestamps.
     *
     * The state excludes updates of unfinalized blocks added with [[partialBlockUpdate]].
+    *
+    * @return
+    *   `None` if no block has been written yet, `Some` otherwise.
     */
-  def readHead(implicit traceContext: TraceContext): FutureUnlessShutdown[BlockEphemeralState]
+  def readHead(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[BlockEphemeralState]]
 
   /** The block information for the block that contains the requested timestamp. */
   def findBlockContainingTimestamp(

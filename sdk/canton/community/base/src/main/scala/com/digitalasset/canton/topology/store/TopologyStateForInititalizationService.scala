@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.processing.SequencedTime
@@ -23,6 +24,7 @@ trait TopologyStateForInitializationService {
 
 final class StoreBasedTopologyStateForInitializationService(
     synchronizerTopologyStore: TopologyStore[SynchronizerStore],
+    minimumSequencingTime: CantonTimestamp,
     val loggerFactory: NamedLoggerFactory,
 ) extends TopologyStateForInitializationService
     with NamedLogging {
@@ -79,10 +81,16 @@ final class StoreBasedTopologyStateForInitializationService(
     effectiveFromF.flatMap { effectiveFromO =>
       effectiveFromO
         .map { effectiveFrom =>
-          logger.debug(s"Fetching initial topology state for $member at $effectiveFrom")
-          // This is not a mistake: all transactions with `sequenced <= validFrom` need to come from this onboarding snapshot
-          // because the member only receives transactions once its onboarding transaction becomes effective.
-          val referenceSequencedTime = SequencedTime(effectiveFrom.value)
+          // This is not a mistake: all transactions with
+          // `sequenced <= max(validFrom, minimumSequencingTime.immediatePredecessor)` need to come from this onboarding
+          // snapshot, because the member only receives transactions that are sequenced:
+          // * after the onboarding transaction has become effective
+          // * with minimum sequencing time or later
+          val referenceSequencedTime =
+            SequencedTime(effectiveFrom.value.max(minimumSequencingTime.immediatePredecessor))
+          logger.debug(
+            s"Fetching initial topology state at ${referenceSequencedTime.value} for $member active at $effectiveFrom"
+          )
           synchronizerTopologyStore.findEssentialStateAtSequencedTime(
             referenceSequencedTime,
             // we need to include rejected transactions, because they might have an impact on the TopologyTimestampPlusEpsilonTracker

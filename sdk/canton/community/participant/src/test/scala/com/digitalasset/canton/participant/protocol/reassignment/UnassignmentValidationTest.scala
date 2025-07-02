@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage, TestHash}
+import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullUnassignmentTree,
@@ -120,7 +120,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     "succeed without errors" in {
       val validation = performValidation().futureValueUS.value
 
-      validation.isSuccessfulF.futureValueUS shouldBe true
+      validation.isSuccessful.futureValueUS shouldBe true
     }
 
     "fail when wrong metadata is given" in {
@@ -140,7 +140,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         val updatedContract = contract.copy(metadata = metadata)
         performValidation(
           updatedContract
-        ).futureValueUS.value.contractAuthenticationResultF.futureValueUS
+        ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS
       }
 
       val incorrectStakeholders = testMetadata(
@@ -204,7 +204,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
           FullUnassignmentTree(
             UnassignmentViewTree(commonData, view, Source(testedProtocolVersion), pureCrypto)
           )
-        ).futureValueUS.value.contractAuthenticationResultF.futureValueUS
+        ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS
       }
 
       val incorrectMetadata = ContractMetadata.tryCreate(
@@ -226,7 +226,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     "detect non-stakeholder submitter" in {
       def unassignmentValidation(submitter: LfPartyId) = {
         val validation = performValidation(submitter = submitter)
-        validation.futureValueUS.value.submitterCheckResult
+        validation.futureValueUS.value.commonValidationResult.submitterCheckResult
       }
 
       assert(!stakeholders.all.contains(nonStakeholder))
@@ -247,7 +247,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       def unassignmentValidation(reassigningParticipants: Set[ParticipantId]) =
         performValidation(
           reassigningParticipantsOverride = reassigningParticipants
-        ).futureValueUS.value.reassigningParticipantValidationResult
+        ).futureValueUS.value.reassigningParticipantValidationResult.errors
 
       // Happy path / control
       unassignmentValidation(reassigningParticipants = reassigningParticipants) shouldBe Seq()
@@ -307,7 +307,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     .forOwnerAndSynchronizer(confirmingParticipant, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
-  private val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
+  private val reassignmentId = ReassignmentId.tryCreate("00")
 
   private def mkParsedRequest(
       view: FullUnassignmentTree,
@@ -350,7 +350,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       new UnassignmentValidation(confirmingParticipant, contractAuthenticator)
 
     unassignmentValidation.perform(
-      sourceTopology = Source(identityFactory.topologySnapshot()),
       targetTopology = Some(Target(identityFactory.topologySnapshot())),
       activenessF = FutureUnlessShutdown.pure(mkActivenessResult()),
     )(parsedRequest = parsed)

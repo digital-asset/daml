@@ -475,7 +475,7 @@ final class BftBlockOrderer(
   }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
-    val isStorageActive = sharedLocalStorage.isActive
+    val isStorageActive = localStorage.isActive
     val description = if (isStorageActive) None else Some("BFT orderer can't connect to database")
     Future.successful(
       SequencerDriverHealthStatus(

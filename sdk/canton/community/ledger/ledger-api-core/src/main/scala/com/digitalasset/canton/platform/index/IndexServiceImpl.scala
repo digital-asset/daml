@@ -75,6 +75,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -144,7 +145,6 @@ private[index] class IndexServiceImpl(
                 memoizedInternalUpdateFormat(
                   getPackageMetadataSnapshot = getPackageMetadataSnapshot,
                   updateFormat = updateFormat,
-                  alwaysPopulateArguments = false,
                   interfaceViewPackageUpgrade,
                 )
               (startInclusive, endInclusive) =>
@@ -213,6 +213,8 @@ private[index] class IndexServiceImpl(
         elem
       }
 
+  // TODO(#23504) remove when TransactionTrees are removed
+  @nowarn("cat=deprecation")
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -244,7 +246,6 @@ private[index] class IndexServiceImpl(
                 memoizedTransactionFilterProjection(
                   getPackageMetadataSnapshot,
                   eventFormat,
-                  alwaysPopulateArguments = true,
                   interfaceViewPackageUpgrade,
                 )
               (startInclusive, endInclusive) =>
@@ -352,7 +353,6 @@ private[index] class IndexServiceImpl(
             eventFormatProjection(
               eventFormat,
               currentPackageMetadata,
-              alwaysPopulateArguments = false,
               interfaceViewPackageUpgrade,
             ).toList
           ).flatMapConcat { case InternalEventFormat(templateFilter, eventProjectionProperties) =>
@@ -377,6 +377,8 @@ private[index] class IndexServiceImpl(
   ): Future[Option[FatContract]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
+  // TODO(#23504) remove when getTransactionById is removed
+  @nowarn("cat=deprecation")
   override def getTransactionById(
       updateId: UpdateId,
       transactionFormat: TransactionFormat,
@@ -391,7 +393,6 @@ private[index] class IndexServiceImpl(
           val internalTransactionFormatO = eventFormatProjection(
             eventFormat = transactionFormat.eventFormat,
             metadata = currentPackageMetadata,
-            alwaysPopulateArguments = false,
             interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
@@ -409,6 +410,8 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  // TODO(#23504) remove when TransactionTrees are removed
+  @nowarn("cat=deprecation")
   override def getTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Ref.Party],
@@ -421,14 +424,15 @@ private[index] class IndexServiceImpl(
         updateId.unwrap,
         requestingParties,
         EventProjectionProperties(
-          verbose = true,
-          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+          verbose = true
         )(
           interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
         ),
       )
   }
 
+  // TODO(#23504) remove when getTransactionByOffset is removed
+  @nowarn("cat=deprecation")
   override def getTransactionByOffset(
       offset: Offset,
       transactionFormat: TransactionFormat,
@@ -443,7 +447,6 @@ private[index] class IndexServiceImpl(
           val internalTransactionFormatO = eventFormatProjection(
             eventFormat = transactionFormat.eventFormat,
             metadata = currentPackageMetadata,
-            alwaysPopulateArguments = false,
             interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
@@ -476,7 +479,6 @@ private[index] class IndexServiceImpl(
           val internalUpdateFormatO = memoizedInternalUpdateFormat(
             getPackageMetadataSnapshot = getPackageMetadataSnapshot,
             updateFormat = updateFormat,
-            alwaysPopulateArguments = false,
             interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           ).apply()
 
@@ -489,6 +491,8 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  // TODO(#23504) remove when TransactionTrees are removed
+  @nowarn("cat=deprecation")
   override def getTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Ref.Party],
@@ -501,8 +505,7 @@ private[index] class IndexServiceImpl(
         offset,
         requestingParties,
         EventProjectionProperties(
-          verbose = true,
-          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+          verbose = true
         )(
           interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
         ),
@@ -525,7 +528,6 @@ private[index] class IndexServiceImpl(
             internalEventFormatO = eventFormatProjection(
               eventFormat,
               currentPackageMetadata,
-              alwaysPopulateArguments = false,
               interfaceViewPackageUpgrade,
             ),
           ),
@@ -914,7 +916,6 @@ object IndexServiceImpl {
   private[index] def memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
       updateFormat: UpdateFormat,
-      alwaysPopulateArguments: Boolean, // TODO(#23504) remove the field since it will always be false after removing transaction trees
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit
       contextualizedErrorLogger: ErrorLoggingContext
@@ -930,7 +931,6 @@ object IndexServiceImpl {
           eventFormatProjection(
             eventFormat = transactionFormat.eventFormat,
             metadata = metadata,
-            alwaysPopulateArguments = alwaysPopulateArguments,
             interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
@@ -943,7 +943,6 @@ object IndexServiceImpl {
           eventFormatProjection(
             eventFormat = eventFormat,
             metadata = metadata,
-            alwaysPopulateArguments = alwaysPopulateArguments,
             interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           )
         )
@@ -972,7 +971,6 @@ object IndexServiceImpl {
   private[index] def memoizedTransactionFilterProjection(
       getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
       eventFormat: EventFormat,
-      alwaysPopulateArguments: Boolean,
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit
       contextualizedErrorLogger: ErrorLoggingContext
@@ -986,7 +984,6 @@ object IndexServiceImpl {
         filters = eventFormatProjection(
           eventFormat,
           metadata,
-          alwaysPopulateArguments,
           interfaceViewPackageUpgrade,
         ).map(internalEventFormat =>
           (internalEventFormat.templatePartiesFilter, internalEventFormat.eventProjectionProperties)
@@ -998,7 +995,6 @@ object IndexServiceImpl {
   private def eventFormatProjection(
       eventFormat: EventFormat,
       metadata: PackageMetadata,
-      alwaysPopulateArguments: Boolean,
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit contextualizedErrorLogger: ErrorLoggingContext): Option[InternalEventFormat] = {
     val templateFilter: Map[Identifier, Option[Set[Party]]] =
@@ -1015,7 +1011,6 @@ object IndexServiceImpl {
         interfaceImplementedBy =
           interfaceId => interfacesImplementedByWithUpgrades(metadata, interfaceId),
         resolveTypeConRef = metadata.resolveTypeConRef,
-        alwaysPopulateArguments = alwaysPopulateArguments,
         interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
       )
       Some(
@@ -1251,6 +1246,8 @@ object IndexServiceImpl {
   ): GetUpdatesResponse =
     GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
+  // TODO(#23504) remove when TransactionTrees are removed
+  @nowarn("cat=deprecation")
   private def updateTreesResponse(
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdateTreesResponse =

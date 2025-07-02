@@ -165,7 +165,7 @@ abstract class UpdateServiceIntegrationTest
       )
 
       val assignedEvent = assign(
-        unassignId = unassignedEvent.unassignId,
+        reassignmentId = unassignedEvent.reassignmentId,
         source = daId,
         target = acmeId,
         submittingParty = submittingParty.toLf,

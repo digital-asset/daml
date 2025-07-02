@@ -1,12 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.http
+package com.digitalasset.canton.http.json.v1
 
 import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.foldable1
+import com.digitalasset.canton.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin, Txn}
 import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
@@ -16,10 +17,11 @@ import com.digitalasset.canton.fetchcontracts.util.{
 }
 import com.digitalasset.canton.http.ContractTypeId.RequiredPkg
 import com.digitalasset.canton.http.EndpointsCompanion.*
-import com.digitalasset.canton.http.LedgerClientJwt.Terminates
 import com.digitalasset.canton.http.ResolvedQuery.Unsupported
+import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
 import com.digitalasset.canton.http.json.{ApiJsonDecoder, JsonProtocol, SprayJson}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.ApiValueToLfValueConverter.apiValueToLfValue
 import com.digitalasset.canton.http.util.FlowUtil.allowOnlyFirstInput
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
@@ -27,11 +29,24 @@ import com.digitalasset.canton.http.util.Logging.{
   extendWithRequestIdLogCtx,
 }
 import com.digitalasset.canton.http.{
+  ActiveContract,
+  ArchivedContract,
+  AsyncWarningsWrapper,
+  ContractId,
   ContractKeyStreamRequest,
+  ContractTypeId,
+  ContractTypeRef,
   JwtPayload,
+  LfValue,
+  Offset,
+  PartySet,
   ResolvedQuery,
+  SearchForeverQuery,
   SearchForeverRequest,
   StartingOffset,
+  UnknownTemplateIds,
+  WebsocketConfig,
+  util,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
@@ -40,6 +55,7 @@ import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMess
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
 import scalaz.EitherT.{either, eitherT, rightT}
+import scalaz.Liskov.<~<
 import scalaz.std.list.*
 import scalaz.std.map.*
 import scalaz.std.option.*
@@ -54,11 +70,8 @@ import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny
 
 import scala.concurrent.{ExecutionContext, Future}
 
-import util.ApiValueToLfValueConverter.apiValueToLfValue
-import ContractStreamStep.{Acs, LiveBegin, Txn}
-import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
-import query.ValuePredicate.LfV
-import Liskov.<~<
+import LedgerClientJwt.Terminates
+import ValuePredicate.LfV
 
 object WebSocketService extends NoTracing {
   import com.digitalasset.canton.http.util.ErrorOps.*
@@ -447,9 +460,9 @@ object WebSocketService extends NoTracing {
           )
         )
 
-      import scalaz.syntax.foldable1.*
       import Offset.`Offset ordering`
       import scalaz.std.option.optionOrder
+      import scalaz.syntax.foldable1.*
 
       // This is called after `adjustRequest` already filled in the blank offsets
       override def liveStartingOffset(
@@ -955,7 +968,7 @@ class WebSocketService(
   private def removePhantomArchives_[A, B](
       initialState: Set[ContractId]
   ): Flow[StepAndErrors[A, B], StepAndErrors[A, B], NotUsed] = {
-    import ContractStreamStep.{LiveBegin, Txn, Acs}
+    import ContractStreamStep.{Acs, LiveBegin, Txn}
     Flow[StepAndErrors[A, B]]
       .scan((Tag unsubst initialState, Option.empty[StepAndErrors[A, B]])) {
         case ((s0, _), a0 @ StepAndErrors(_, Txn(idstep, _), _)) =>
