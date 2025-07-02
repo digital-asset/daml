@@ -50,6 +50,10 @@ def _fat_cc_library_impl(ctx):
     link_args.add_all(["-framework", "CoreFoundation"] if is_darwin else [])
     # On Windows we have some extra deps.
     link_args.add_all(["-lws2_32", "-ldbghelp", "-lbcrypt", "-lcrypt32"] if is_windows else [])
+    # Avoid errors of the form
+    #   mingw//bin/ld.exe: error: export ordinal too large: 91376
+    #   collect2.exe: error: ld returned 1 exit status
+    link_args.add_all(["-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections","-Wl,--exclude-libs,ALL"] if is_windows else [])
     link_args.use_param_file("@%s")
     ctx.actions.run(
         mnemonic = "CppLinkFatDynLib",
