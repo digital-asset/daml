@@ -50,11 +50,6 @@ trait DataLayerHelpers {
 
   // TransactionFilter will be removed in 3.4, use EventFormat instead
   @nowarn("cat=deprecation")
-  val filterNothing: TransactionFilter =
-    new TransactionFilter(Map[String, Filter]().asJava, None.toJava)
-
-  // TransactionFilter will be removed in 3.4, use EventFormat instead
-  @nowarn("cat=deprecation")
   def filterFor(party: String): TransactionFilter =
     new TransactionFilter(
       Map(

@@ -93,18 +93,20 @@ public class StateClientImpl implements StateClient {
         .map(GetActiveContractsResponse::fromProto);
   }
 
-  // TransactionFilter will be removed in 3.4, use the corresponding method with eventFormat
-  @SuppressWarnings("deprecation")
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,
       boolean verbose,
       Long activeAtOffset,
       Optional<String> accessToken) {
-    TransactionFilter filter = contractFilter.transactionFilter(Optional.of(parties));
+    EventFormat eventFormat =
+        EventFormat.fromProto(
+            contractFilter.eventFormat(Optional.of(parties)).toProto().toBuilder()
+                .setVerbose(verbose)
+                .build());
 
     Flowable<GetActiveContractsResponse> responses =
-        getActiveContracts(filter, verbose, activeAtOffset, accessToken);
+        getActiveContracts(eventFormat, activeAtOffset, accessToken);
     return responses.map(
         response -> {
           List<Ct> activeContracts =

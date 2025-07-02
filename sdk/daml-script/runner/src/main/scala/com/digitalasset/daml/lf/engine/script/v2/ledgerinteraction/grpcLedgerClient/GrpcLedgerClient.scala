@@ -17,9 +17,9 @@ import com.daml.ledger.api.v2.event.InterfaceView
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v2.testing.time_service.{GetTimeRequest, SetTimeRequest, TimeServiceGrpc}
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
+  EventFormat,
   Filters,
   InterfaceFilter,
   TemplateFilter,
@@ -93,12 +93,11 @@ class GrpcLedgerClient(
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
   // See https://github.com/digital-asset/daml/issues/17703
-  // TransactionFilter will be removed in 3.4, use EventFormat instead
-  @nowarn("cat=deprecation")
-  private def templateFilter(
+  private def templateFormat(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
-  ): TransactionFilter = {
+      verbose: Boolean,
+  ): EventFormat = {
     val filters = Filters(
       Seq(
         CumulativeFilter(
@@ -111,15 +110,18 @@ class GrpcLedgerClient(
         )
       )
     )
-    TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
+    EventFormat(
+      filtersByParty = parties.toList.map(p => (p, filters)).toMap,
+      filtersForAnyParty = None,
+      verbose = verbose,
+    )
   }
 
-  // TransactionFilter will be removed in 3.4, use EventFormat instead
-  @nowarn("cat=deprecation")
-  private def interfaceFilter(
+  private def interfaceFormat(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
-  ): TransactionFilter = {
+      verbose: Boolean,
+  ): EventFormat = {
     val filters =
       Filters(
         Seq(
@@ -130,11 +132,14 @@ class GrpcLedgerClient(
           )
         )
       )
-    TransactionFilter(parties.toList.map(p => (p, filters)).toMap)
+    EventFormat(
+      filtersByParty = parties.toList.map(p => (p, filters)).toMap,
+      filtersForAnyParty = None,
+      verbose = verbose,
+    )
   }
 
   // Helper shared by query, queryContractId and queryContractKey
-  @nowarn("cat=deprecation") // use EventFormat instead of TransactionFilter
   private def queryWithKey(
       parties: OneAnd[Set, Ref.Party],
       templateId: Identifier,
@@ -142,11 +147,15 @@ class GrpcLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
-    val filter = templateFilter(parties, templateId)
+    val format = templateFormat(parties, templateId, verbose = false)
     val acsResponse =
       grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
         grpcClient.stateService
-          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
+          .getActiveContracts(
+            eventFormat = format,
+            validAtOffset = offset,
+            token = None,
+          )
       }
     acsResponse.map(activeContracts =>
       activeContracts.toVector.map(activeContract => {
@@ -208,7 +217,6 @@ class GrpcLedgerClient(
     }
   }
 
-  @nowarn("cat=deprecation") // use EventFormat instead of TransactionFilter
   override def queryInterface(
       parties: OneAnd[Set, Ref.Party],
       interfaceId: Identifier,
@@ -217,11 +225,15 @@ class GrpcLedgerClient(
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Seq[(ContractId, Option[Value])]] = {
-    val filter = interfaceFilter(parties, interfaceId)
+    val format = interfaceFormat(parties, interfaceId, verbose = false)
     val acsResponse =
       grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
         grpcClient.stateService
-          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
+          .getActiveContracts(
+            eventFormat = format,
+            validAtOffset = offset,
+            token = None,
+          )
       }
     acsResponse.map(activeContracts =>
       activeContracts.toVector.flatMap(activeContract => {

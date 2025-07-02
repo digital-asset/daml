@@ -14,12 +14,9 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
 
-// TODO use EventFormat instead of requestingParties
-@nowarn("cat=deprecation")
 class StateClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks
@@ -80,26 +77,14 @@ class StateClientImplTest
         .blockingIterable()
         .asScala
         .size
-      acsImpl.getLastRequest.value.getFilter.filtersByParty shouldBe filterNothing.getPartyToFilters.asScala
+      acsImpl.getLastRequest.value.getEventFormat.filtersByParty shouldBe eventsForNothing(
+        true
+      ).getPartyToFilters.asScala
       acsImpl.getLastRequest.value.eventFormat.map(_.verbose) shouldBe Some(verbose)
     }
   }
 
   behavior of "[1.3] StateClientImpl.getActiveContracts"
-
-  "StateClientImpl.getActiveContracts using transaction filter" should "fail with insufficient authorization" in {
-    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
-      (acsClient, _) =>
-        expectUnauthenticated {
-          acsClient
-            .getActiveContracts(filterFor(someParty), false, 0L, emptyToken)
-            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-            .blockingIterable()
-            .asScala
-            .size
-        }
-    }
-  }
 
   "StateClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
@@ -112,18 +97,6 @@ class StateClientImplTest
             .asScala
             .size
         }
-    }
-  }
-
-  "StateClientImpl.getActiveContracts using transaction filter" should "succeed with sufficient authorization" in {
-    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
-      (acsClient, _) =>
-        acsClient
-          .getActiveContracts(filterFor(someParty), false, 0L, somePartyReadToken)
-          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
-          .blockingIterable()
-          .asScala
-          .size shouldEqual 0
     }
   }
 

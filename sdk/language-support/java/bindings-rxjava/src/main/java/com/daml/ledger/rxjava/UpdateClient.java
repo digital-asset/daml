@@ -81,4 +81,14 @@ public interface UpdateClient {
 
   Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, String accessToken);
+
+  Single<Transaction> getTransactionByOffset(Long offset, TransactionFormat transactionFormat);
+
+  Single<Transaction> getTransactionByOffset(
+      Long offset, TransactionFormat transactionFormat, String accessToken);
+
+  Single<Transaction> getTransactionById(String transactionId, TransactionFormat transactionFormat);
+
+  Single<Transaction> getTransactionById(
+      String transactionId, TransactionFormat transactionFormat, String accessToken);
 }

@@ -14,6 +14,7 @@ import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -194,7 +195,7 @@ public final class UpdateClientImpl implements UpdateClient {
             .getTransactionTreeByOffset(request));
   }
 
-  // Method will be removed in 3.4
+  // Method will be removed in 3.4, use getTransactionByOffset
   @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeByOffset(
@@ -202,7 +203,7 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionTreeByOffset(offset, requestingParties, Optional.empty());
   }
 
-  // Method will be removed in 3.4
+  // Method will be removed in 3.4, use getTransactionByOffset
   @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeByOffset(
@@ -224,7 +225,7 @@ public final class UpdateClientImpl implements UpdateClient {
             .getTransactionTreeById(request));
   }
 
-  // Method will be removed in 3.4
+  // Method will be removed in 3.4, use getTransactionById instead
   @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeById(
@@ -232,7 +233,7 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionTreeById(transactionId, requestingParties, Optional.empty());
   }
 
-  // Method will be removed in 3.4
+  // Method will be removed in 3.4, use getTransactionById instead
   @Deprecated
   @Override
   public Single<TransactionTree> getTransactionTreeById(
@@ -240,62 +241,104 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionTreeById(transactionId, requestingParties, Optional.of(accessToken));
   }
 
-  // Method will be removed in 3.4
-  @SuppressWarnings("deprecation")
-  private Single<Transaction> extractTransaction(
-      Future<UpdateServiceOuterClass.GetTransactionResponse> future) {
+  private Single<Transaction> extractTransactionFromUpdate(
+      Future<UpdateServiceOuterClass.GetUpdateResponse> future) {
     return Single.fromFuture(future)
-        .map(GetTransactionResponse::fromProto)
-        .map(GetTransactionResponse::getTransaction);
+        .map(UpdateServiceOuterClass.GetUpdateResponse::getTransaction)
+        .map(Transaction::fromProto);
   }
 
-  // Method will be removed in 3.4, adapt to use getUpdateByOffset
-  @SuppressWarnings("deprecation")
+  private TransactionFormat getTransactionFormat(Set<String> requestingParties) {
+    Map<String, Filter> partyFilters =
+        requestingParties.stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    party -> party,
+                    party ->
+                        new CumulativeFilter(
+                            Map.of(),
+                            Map.of(),
+                            Optional.of(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB))));
+    EventFormat eventFormat = new EventFormat(partyFilters, Optional.empty(), true);
+
+    return new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA);
+  }
+
   private Single<Transaction> getTransactionByOffset(
-      Long offset, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
-        UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
+      Long offset, TransactionFormat transactionFormat, Optional<String> accessToken) {
+    UpdateServiceOuterClass.GetUpdateByOffsetRequest request =
+        UpdateServiceOuterClass.GetUpdateByOffsetRequest.newBuilder()
             .setOffset(offset)
-            .addAllRequestingParties(requestingParties)
+            .setUpdateFormat(
+                new UpdateFormat(Optional.of(transactionFormat), Optional.empty(), Optional.empty())
+                    .toProto())
             .build();
-    return extractTransaction(
-        StubHelper.authenticating(this.serviceFutureStub, accessToken)
-            .getTransactionByOffset(request));
+    return extractTransactionFromUpdate(
+        StubHelper.authenticating(this.serviceFutureStub, accessToken).getUpdateByOffset(request));
   }
 
   @Override
   public Single<Transaction> getTransactionByOffset(Long offset, Set<String> requestingParties) {
-    return getTransactionByOffset(offset, requestingParties, Optional.empty());
+    return getTransactionByOffset(
+        offset, getTransactionFormat(requestingParties), Optional.empty());
   }
 
   @Override
   public Single<Transaction> getTransactionByOffset(
       Long offset, Set<String> requestingParties, String accessToken) {
-    return getTransactionByOffset(offset, requestingParties, Optional.of(accessToken));
+    return getTransactionByOffset(
+        offset, getTransactionFormat(requestingParties), Optional.of(accessToken));
   }
 
-  // Method will be removed in 3.4, adapt to use getUpdateById
-  @SuppressWarnings("deprecation")
+  @Override
+  public Single<Transaction> getTransactionByOffset(
+      Long offset, TransactionFormat transactionFormat) {
+    return getTransactionByOffset(offset, transactionFormat, Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> getTransactionByOffset(
+      Long offset, TransactionFormat transactionFormat, String accessToken) {
+    return getTransactionByOffset(offset, transactionFormat, Optional.of(accessToken));
+  }
+
   private Single<Transaction> getTransactionById(
-      String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByIdRequest request =
-        UpdateServiceOuterClass.GetTransactionByIdRequest.newBuilder()
+      String transactionId, TransactionFormat transactionFormat, Optional<String> accessToken) {
+
+    UpdateServiceOuterClass.GetUpdateByIdRequest request =
+        UpdateServiceOuterClass.GetUpdateByIdRequest.newBuilder()
             .setUpdateId(transactionId)
-            .addAllRequestingParties(requestingParties)
+            .setUpdateFormat(
+                new UpdateFormat(Optional.of(transactionFormat), Optional.empty(), Optional.empty())
+                    .toProto())
             .build();
-    return extractTransaction(
-        StubHelper.authenticating(this.serviceFutureStub, accessToken).getTransactionById(request));
+    return extractTransactionFromUpdate(
+        StubHelper.authenticating(this.serviceFutureStub, accessToken).getUpdateById(request));
   }
 
   @Override
   public Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties) {
-    return getTransactionById(transactionId, requestingParties, Optional.empty());
+    return getTransactionById(
+        transactionId, getTransactionFormat(requestingParties), Optional.empty());
   }
 
   @Override
   public Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, String accessToken) {
-    return getTransactionById(transactionId, requestingParties, Optional.of(accessToken));
+    return getTransactionById(
+        transactionId, getTransactionFormat(requestingParties), Optional.of(accessToken));
+  }
+
+  @Override
+  public Single<Transaction> getTransactionById(
+      String transactionId, TransactionFormat transactionFormat) {
+    return getTransactionById(transactionId, transactionFormat, Optional.empty());
+  }
+
+  @Override
+  public Single<Transaction> getTransactionById(
+      String transactionId, TransactionFormat transactionFormat, String accessToken) {
+    return getTransactionById(transactionId, transactionFormat, Optional.of(accessToken));
   }
 }
