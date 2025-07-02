@@ -31,7 +31,7 @@ import           Data.Text.Encoding (encodeUtf8)
 import           Network.Connection (TLSSettings(..))
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
-import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
+import           Network.HTTP.Simple (setRequestBearerAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
 import           Network.HTTP.Types.Status
 import           Path
 import           System.Environment
@@ -66,7 +66,8 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
     manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (5 * 60 * 1000 * 1000) }
 
     parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
-    let baseRequest = setRequestMethod "PUT" $ setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword) parsedUrlRequest
+    let bearerToken = Base64.encode $ encodeUtf8 (mucUser <> ":" <> mucPassword)
+        baseRequest = setRequestMethod "PUT" $ setRequestBearerAuth bearerToken parsedUrlRequest
 
     decodedSigningKey <- decodeSigningKey mucSigningKey
     -- Security Note: Using the withSystemTempDirectory function to always cleanup the private key data from the filesystems.
