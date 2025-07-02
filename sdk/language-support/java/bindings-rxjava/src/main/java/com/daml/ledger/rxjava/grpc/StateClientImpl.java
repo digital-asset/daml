@@ -96,9 +96,14 @@ public class StateClientImpl implements StateClient {
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,
+      boolean verbose,
       Long activeAtOffset,
       Optional<String> accessToken) {
-    EventFormat eventFormat = contractFilter.eventFormat(Optional.of(parties));
+    EventFormat eventFormat =
+        EventFormat.fromProto(
+            contractFilter.eventFormat(Optional.of(parties)).toProto().toBuilder()
+                .setVerbose(verbose)
+                .build());
 
     Flowable<GetActiveContractsResponse> responses =
         getActiveContracts(eventFormat, activeAtOffset, accessToken);
@@ -114,17 +119,22 @@ public class StateClientImpl implements StateClient {
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, Long activeAtOffset) {
-    return getActiveContracts(contractFilter, parties, activeAtOffset, Optional.empty());
+      ContractFilter<Ct> contractFilter,
+      Set<String> parties,
+      boolean verbose,
+      Long activeAtOffset) {
+    return getActiveContracts(contractFilter, parties, verbose, activeAtOffset, Optional.empty());
   }
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,
+      boolean verbose,
       Long activeAtOffset,
       String accessToken) {
-    return getActiveContracts(contractFilter, parties, activeAtOffset, Optional.of(accessToken));
+    return getActiveContracts(
+        contractFilter, parties, verbose, activeAtOffset, Optional.of(accessToken));
   }
 
   private Single<Long> getLedgerEnd(Optional<String> accessToken) {

@@ -32,20 +32,24 @@ public interface StateClient {
    *
    * @param contractFilter Utilities for specified type of contract. It can be instantiated with
    *     <code>ContractTypeCompanion</code>
-   * @param parties Set of parties to be included in the event format.
+   * @param parties Set of parties to be included in the transaction filter.
+   * @param verbose If enabled, values served over the API will contain more information than
+   *     strictly necessary to interpret the data.
    * @param activeAtOffset The offset at which the snapshot of the active contracts will be
    *     computed.
    * @return Flowable of active contracts of type <code>Ct</code>
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, Long activeAtOffset);
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, Long activeAtOffset);
 
   /**
    * Get active Contracts
    *
    * @param contractFilter Utilities for specified type of contract. It can be instantiated with
    *     <code>ContractTypeCompanion</code>
-   * @param parties Set of parties to be included in the event format.
+   * @param parties Set of parties to be included in the transaction filter.
+   * @param verbose If enabled, values served over the API will contain more information than
+   *     strictly necessary to interpret the data.
    * @param activeAtOffset The offset at which the snapshot of the active contracts will be
    *     computed.
    * @param accessToken Access token for authentication.
@@ -54,6 +58,7 @@ public interface StateClient {
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,
+      boolean verbose,
       Long activeAtOffset,
       String accessToken);
 
