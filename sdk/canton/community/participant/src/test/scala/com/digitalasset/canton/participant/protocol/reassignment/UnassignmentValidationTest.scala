@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{Signature, SigningKeyUsage, TestHash}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullUnassignmentTree,
@@ -307,6 +307,8 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     .forOwnerAndSynchronizer(confirmingParticipant, sourceSynchronizer.unwrap)
     .currentSnapshotApproximation
 
+  private val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
+
   private def mkParsedRequest(
       view: FullUnassignmentTree,
       recipients: Recipients,
@@ -325,6 +327,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     sourceMediator,
     cryptoSnapshot,
     cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
+    reassignmentId,
   )
 
   private def validateUnassignmentTree(

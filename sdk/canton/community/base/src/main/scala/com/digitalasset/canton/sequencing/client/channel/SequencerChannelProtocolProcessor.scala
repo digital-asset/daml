@@ -9,6 +9,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{LoggerUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -43,7 +44,8 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
         )
       )
 
-  protected def protocolVersion: ProtocolVersion
+  protected def psid: PhysicalSynchronizerId
+  protected def protocolVersion: ProtocolVersion = psid.protocolVersion
 
   // Whether the processor has at some point been connected to the channel, i.e. remains true after hasCompleted is set.
   private[channel] val hasConnected = new AtomicBoolean(false)

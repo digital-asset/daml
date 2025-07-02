@@ -6,7 +6,7 @@ package com.digitalasset.canton
 import cats.data.{EitherT, OptionT}
 import org.wartremover.WartUniverse
 
-import scala.annotation.{StaticAnnotation, tailrec}
+import scala.annotation.tailrec
 import scala.concurrent.Future
 
 object FutureLikeTester {
@@ -61,11 +61,3 @@ object FutureLikeTester {
     go
   }
 }
-
-/** Annotation for computation transformer type constructors (e.g., a monad transformer) so that if
-  * it will be treated future-like when applied to a future-like computation type.
-  *
-  * @param transformedTypeArgumentPosition
-  *   The type argument position for the computation type that is transformed
-  */
-final case class FutureTransformer(transformedTypeArgumentPosition: Int) extends StaticAnnotation

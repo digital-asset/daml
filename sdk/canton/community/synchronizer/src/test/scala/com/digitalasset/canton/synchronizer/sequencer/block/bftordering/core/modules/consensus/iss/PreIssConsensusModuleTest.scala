@@ -8,7 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.synchronizer.metrics.{BftOrderingMetrics, SequencerMetrics}
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.DefaultEpochLength
@@ -73,6 +73,10 @@ class PreIssConsensusModuleTest
 
   "PreIssConsensusModule" should {
     "set up the epoch store and state correctly" in {
+      implicit val metricsContext: MetricsContext = MetricsContext.Empty
+      implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
+      val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+
       Table(
         (
           "latest completed epoch",
@@ -84,9 +88,6 @@ class PreIssConsensusModuleTest
         (anEpoch, anEpoch, anEpoch.info),
         (anEpoch.copy(lastBlockCommits = someLastBlockCommits), anEpoch, anEpoch.info),
       ).forEvery { (latestCompletedEpoch, latestEpoch, expectedEpochInfoInState) =>
-        implicit val metricsContext: MetricsContext = MetricsContext.Empty
-        implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
-
         val epochStore = mock[EpochStore[IgnoringUnitTestEnv]]
         when(epochStore.latestEpoch(includeInProgress = false)).thenReturn(() =>
           latestCompletedEpoch
@@ -123,7 +124,7 @@ class PreIssConsensusModuleTest
               clock,
               completedBlocks = Seq.empty,
               fail(_),
-              mock[BftOrderingMetrics],
+              metrics,
               loggerFactory,
             ),
             mock[EpochMetricsAccumulator],

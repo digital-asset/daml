@@ -12,7 +12,6 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.synchronizer.mediator.Mediator.{Safe, SafeUntil}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -28,10 +27,6 @@ class MediatorTest extends AnyWordSpec with BaseTest {
   private val origin = CantonTimestamp.now()
   private def relTime(offset: Long): CantonTimestamp = origin.plusSeconds(offset)
 
-  private lazy val synchronizerId = SynchronizerId(
-    UniqueIdentifier.tryFromProtoPrimitive("synchronizer::default")
-  )
-
   "Mediator.checkPruningStatus" should {
     "deal with current synchronizer parameters" in {
       val parameters =
@@ -39,7 +34,6 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           CantonTimestamp.Epoch,
           None,
-          synchronizerId,
         )
 
       val cleanTimestamp = CantonTimestamp.now()
@@ -59,7 +53,6 @@ class MediatorTest extends AnyWordSpec with BaseTest {
             defaultParameters,
             validFrom,
             validUntil,
-            synchronizerId,
           )
 
         // Capping happen
@@ -83,7 +76,6 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           origin,
           None,
-          synchronizerId,
         )
 
       Mediator.checkPruningStatus(
@@ -100,7 +92,6 @@ class MediatorTest extends AnyWordSpec with BaseTest {
           defaultParameters,
           origin,
           Some(dpChangeTs),
-          synchronizerId,
         )
 
       {
@@ -140,20 +131,17 @@ class MediatorTest extends AnyWordSpec with BaseTest {
         defaultParameters,
         origin,
         Some(dpChangeTs1),
-        synchronizerId,
       ),
       // This one prevents pruning for some time
       DynamicSynchronizerParametersWithValidity(
         parametersWith(hugeTimeout),
         dpChangeTs1,
         Some(dpChangeTs2),
-        synchronizerId,
       ),
       DynamicSynchronizerParametersWithValidity(
         defaultParameters,
         dpChangeTs2,
         None,
-        synchronizerId,
       ),
     )
 

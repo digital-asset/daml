@@ -89,6 +89,18 @@ class UnassignmentProcessingSteps(
   override type RequestType = ProcessingSteps.RequestType.Unassignment
   override val requestType: RequestType = ProcessingSteps.RequestType.Unassignment
 
+  override def reassignmentId(
+      fullViewTree: FullUnassignmentTree,
+      requestTimestamp: CantonTimestamp,
+  ): ReassignmentId = ReassignmentId(
+    UnassignId(
+      fullViewTree.sourceSynchronizer.map(_.logical),
+      fullViewTree.targetSynchronizer.map(_.logical),
+      requestTimestamp,
+      fullViewTree.contracts.contractIdCounters,
+    )
+  )
+
   override def pendingSubmissions(state: SyncEphemeralState): PendingSubmissions =
     state.pendingUnassignmentSubmissions
 

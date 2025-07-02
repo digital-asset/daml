@@ -50,7 +50,7 @@ import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config, protocol}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
@@ -136,7 +136,7 @@ class ActiveContractsIntegrationTest
     )
 
   private def create(
-      synchronizerId: SynchronizerId,
+      psid: PhysicalSynchronizerId,
       signatory: PartyId,
       observer: PartyId,
   )(implicit
@@ -144,7 +144,7 @@ class ActiveContractsIntegrationTest
   ): ContractData = {
     import env.*
     val (contract, createUpdate, _) =
-      IouSyntax.createIouComplete(participant1, Some(synchronizerId))(signatory, observer)
+      IouSyntax.createIouComplete(participant1, Some(psid))(signatory, observer)
 
     val createdEvent = createUpdate.events.head.getCreated
 
@@ -153,7 +153,7 @@ class ActiveContractsIntegrationTest
   }
 
   private def createViaRepair(
-      synchronizerId: SynchronizerId,
+      psid: PhysicalSynchronizerId,
       signatory: PartyId,
       observer: PartyId,
   )(implicit
@@ -196,7 +196,7 @@ class ActiveContractsIntegrationTest
 
     val ledgerCreateTime = env.environment.clock.now
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      synchronizerId = synchronizerId,
+      psid = psid,
       mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
       transactionUuid = new UUID(1L, 1L),
       viewPosition = ViewPosition(List.empty),
@@ -223,7 +223,7 @@ class ActiveContractsIntegrationTest
     )
 
     val repairContract = RepairContract(
-      synchronizerId,
+      psid,
       contract = SerializableContract(
         contractId = contractId,
         contractInstance = createNode.versionedCoinst,
@@ -243,7 +243,7 @@ class ActiveContractsIntegrationTest
     participant1.synchronizers.disconnect_all()
 
     participant1.repair.add(
-      synchronizerId,
+      psid,
       testedProtocolVersion,
       Seq(repairContract),
     )

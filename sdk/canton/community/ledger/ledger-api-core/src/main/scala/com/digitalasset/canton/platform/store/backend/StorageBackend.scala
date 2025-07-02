@@ -365,6 +365,12 @@ trait EventStorageBackend {
       beforeOrAtPublicationTimeInclusive: Timestamp
   )(connection: Connection): Option[SynchronizerOffset]
 
+  // Note: Added for offline party replication as CN is using it.
+  def lastSynchronizerOffsetBeforeOrAtRecordTime(
+      synchronizerId: SynchronizerId,
+      beforeOrAtRecordTimeInclusive: Timestamp,
+  )(connection: Connection): Option[SynchronizerOffset]
+
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId]

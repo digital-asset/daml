@@ -32,6 +32,7 @@ import com.digitalasset.canton.sequencing.protocol.channel.{
   SequencerChannelSessionKey,
   SequencerChannelSessionKeyAck,
 }
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -93,8 +94,8 @@ sealed trait SequencerChannelProtocolIntegrationTest
       }
 
       val channelId = SequencerChannelId("empty channel")
-      val testProcessor1 = new TestProcessor()
-      val testProcessor2 = new TestProcessor()
+      val testProcessor1 = new TestProcessor(daId)
+      val testProcessor2 = new TestProcessor(daId)
 
       val recorder1 =
         new TestRecorder(participant1, daId, staticSynchronizerParameters1)
@@ -171,7 +172,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
       val responsesReceivedP2 = mutable.Buffer[String]()
 
       val channelId = SequencerChannelId("exchange messages channel")
-      val testProcessor1 = new TestProcessor {
+      val testProcessor1 = new TestProcessor(daId) {
         override def handlePayload(payload: ByteString)(implicit
             traceContext: TraceContext
         ): EitherT[FutureUnlessShutdown, String, Unit] = {
@@ -181,7 +182,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
           sendTestPayload(s"responding to \"$str\"", response)
         }
       }
-      val testProcessor2 = new TestProcessor {
+      val testProcessor2 = new TestProcessor(daId) {
         override def handlePayload(payload: ByteString)(implicit
             traceContext: TraceContext
         ): EitherT[FutureUnlessShutdown, String, Unit] = {
@@ -271,7 +272,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
         .getOrElse(fail("Cannot find client"))
 
       val channelId = SequencerChannelId("canceled channel")
-      val testProcessor1 = new TestProcessor()
+      val testProcessor1 = new TestProcessor(daId)
       val recorder1 = new TestRecorder(participant1, daId, staticSynchronizerParameters1)
 
       channelClient.connectToSequencerChannel(
@@ -326,7 +327,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
         .getSequencerChannelClient(daId)
         .getOrElse(fail("Cannot find client"))
 
-      val testProcessor = new TestProcessor()
+      val testProcessor = new TestProcessor(daId)
       val timestamp =
         (new TestRecorder(participant1, daId, staticSynchronizerParameters1)).timestamp
 
@@ -364,8 +365,8 @@ sealed trait SequencerChannelProtocolIntegrationTest
   }
 
   private class TestProcessor(
+      protected val psid: PhysicalSynchronizerId,
       initialPayloads: Seq[ByteString] = Seq.empty,
-      protected val protocolVersion: ProtocolVersion = testedProtocolVersion,
   )(implicit val executionContext: ExecutionContext)
       extends SequencerChannelProtocolProcessor {
     override def onConnected()(implicit

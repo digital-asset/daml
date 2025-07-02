@@ -536,6 +536,42 @@ object ParticipantAdminCommands {
       ): Either[String, AddPartyStatus] = AddPartyStatus.fromProtoV30(response).leftMap(_.toString)
     }
 
+    final case class GetHighestOffsetByTimestamp(
+        synchronizerId: SynchronizerId,
+        timestamp: Instant,
+        force: Boolean,
+    ) extends GrpcAdminCommand[
+          v30.GetHighestOffsetByTimestampRequest,
+          v30.GetHighestOffsetByTimestampResponse,
+          NonNegativeLong,
+        ] {
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest()
+          : Either[String, v30.GetHighestOffsetByTimestampRequest] =
+        Right(
+          v30.GetHighestOffsetByTimestampRequest(
+            synchronizerId.toProtoPrimitive,
+            Some(Timestamp(timestamp)),
+            force,
+          )
+        )
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.GetHighestOffsetByTimestampRequest,
+      ): Future[v30.GetHighestOffsetByTimestampResponse] =
+        service.getHighestOffsetByTimestamp(request)
+
+      override protected def handleResponse(
+          response: v30.GetHighestOffsetByTimestampResponse
+      ): Either[String, NonNegativeLong] =
+        NonNegativeLong.create(response.ledgerOffset).leftMap(_.toString)
+    }
+
     final case class ExportAcs(
         parties: Set[PartyId],
         filterSynchronizerId: Option[SynchronizerId],

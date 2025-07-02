@@ -87,7 +87,16 @@ class SegmentState(
       // Drop newest to preserve continuity of messages
       DropStrategy.DropNewest,
       // We need to deduplicate to protect against nodes spamming with others' messages
-      DeduplicationStrategy.PerNode,
+      DeduplicationStrategy.PerNode(
+        Some(metrics.consensus.postponedViewMessagesQueueDuplicatesMeter)
+      ),
+      maxSizeGauge = Some(metrics.consensus.postponedViewMessagesQueueMaxSize),
+      metrics = Some(metrics),
+      sizeGauge = Some(metrics.consensus.postponedViewMessagesQueueSize),
+      dropMeter = Some(metrics.consensus.postponedViewMessagesQueueDropMeter),
+      orderingStageLatencyLabel = Some(
+        metrics.performance.orderingStageLatency.labels.stage.values.consensus.PostponedViewMessagesQueueLatency
+      ),
     )
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
   private var discardedViewMessagesCount = 0

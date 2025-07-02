@@ -834,18 +834,6 @@ class GrpcTopologyManagerReadService(
 
     val res: EitherT[FutureUnlessShutdown, RpcError, Unit] =
       for {
-        _ <- member match {
-          case _: SequencerId =>
-            EitherT.rightT[FutureUnlessShutdown, RpcError](())
-
-          case _ =>
-            EitherT
-              .leftT[FutureUnlessShutdown, Unit](
-                TopologyManagerError.IncorrectMember
-                  .Failure(member, "only sequencer nodes can export state for logical upgrades")
-              )
-              .leftWiden[RpcError]
-        }
         synchronizerTopologyStore <- collectSynchronizerStore(None)
 
         topologyClient <- EitherT.fromEither[FutureUnlessShutdown](
@@ -854,23 +842,29 @@ class GrpcTopologyManagerReadService(
           )
         )
 
-        upgradeTime <- EitherT[FutureUnlessShutdown, RpcError, CantonTimestamp](
-          topologyClient.currentSnapshotApproximation
-            .isSynchronizerUpgradeOngoing()
-            .map(_.map { case (_, upgradeTime) => upgradeTime })
-            .map(_.toRight(TopologyManagerError.NoOngoingSynchronizerUpgrade.Failure()))
+        topologySnapshot = topologyClient.currentSnapshotApproximation
+        _ <- EitherT.fromOptionF(
+          fopt = topologySnapshot.isSynchronizerUpgradeOngoing(),
+          ifNone = TopologyManagerError.NoOngoingSynchronizerUpgrade.Failure(),
         )
 
-        // TODO(#26403) Ensure snapshot is correct and contain only relevant mappings
         topologySnapshot <- EitherT.right[RpcError](
           synchronizerTopologyStore.findEssentialStateAtSequencedTime(
-            SequencedTime(upgradeTime),
+            SequencedTime(topologySnapshot.timestamp),
             includeRejected = false,
           )
         )
+        nonLogicalUpgradeMappings = topologySnapshot.filter { stored =>
+          val isNonLSU =
+            !TopologyMapping.Code.logicalSynchronizerUpgradeMappings.contains(stored.mapping.code)
+          val isFullyAuthorizedOrNotExpiredProposal =
+            !stored.transaction.isProposal || stored.validUntil.isEmpty
+
+          isNonLSU && isFullyAuthorizedOrNotExpiredProposal
+        }
 
       } yield {
-        topologySnapshot.toByteString(ProtocolVersion.latest).writeTo(out)
+        nonLogicalUpgradeMappings.toByteString(ProtocolVersion.latest).writeTo(out)
       }
     CantonGrpcUtil.mapErrNewEUS(res)
   }

@@ -147,7 +147,6 @@ class StoreBasedTopologySnapshot(
             mapping.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
-            mapping.synchronizerId,
           )
         }
       } yield synchronizerParameters
@@ -199,7 +198,6 @@ class StoreBasedTopologySnapshot(
             dps.parameters,
             storedTx.validFrom.value,
             storedTx.validUntil.map(_.value),
-            dps.synchronizerId,
           )
         }
     }

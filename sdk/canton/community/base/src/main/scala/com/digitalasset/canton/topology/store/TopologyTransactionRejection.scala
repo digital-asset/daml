@@ -268,4 +268,16 @@ object TopologyTransactionRejection {
       )
   }
 
+  final case class InvalidUpgradeTime(
+      synchronizerId: SynchronizerId,
+      effective: EffectiveTime,
+      upgradeTime: CantonTimestamp,
+  ) extends TopologyTransactionRejection {
+    override def asString: String =
+      s"The upgrade time $upgradeTime must be after the effective ${effective.value} of the synchronizer upgrade announcement for synchronizer $synchronizerId."
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.InvalidUpgradeTime.Reject(synchronizerId, effective, upgradeTime)
+  }
+
 }

@@ -199,7 +199,7 @@ class ValidatingTopologyMappingChecks(
           ) =>
         toValidate
           .select[TopologyChangeOp.Replace, SynchronizerUpgradeAnnouncement]
-          .map(checkSynchronizerUpgradeAnnouncement)
+          .map(checkSynchronizerUpgradeAnnouncement(effective, _))
 
       case _otherwise => None
     }
@@ -214,7 +214,7 @@ class ValidatingTopologyMappingChecks(
   }
 
   private val mappingsAllowedDuringSynchronizerUpgrade =
-    Set[Code](Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor)
+    TopologyMapping.Code.logicalSynchronizerUpgradeMappings
 
   /** Check that the topology state is not frozen if this store is a synchronizer store. All other
     * stores are not subject to freezing the topology state.
@@ -863,14 +863,15 @@ class ValidatingTopologyMappingChecks(
   }
 
   private def checkSynchronizerUpgradeAnnouncement(
+      effective: EffectiveTime,
       toValidate: SignedTopologyTransaction[
         TopologyChangeOp.Replace,
         SynchronizerUpgradeAnnouncement,
-      ]
-  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
-    store.storeId.forSynchronizer match {
+      ],
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] = for {
+    _ <- store.storeId.forSynchronizer match {
       case Some(psid) =>
-        EitherTUtil.condUnitET(
+        EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
           psid < toValidate.mapping.successorSynchronizerId,
           TopologyTransactionRejection.InvalidSynchronizerSuccessor(
             psid,
@@ -879,6 +880,16 @@ class ValidatingTopologyMappingChecks(
         )
       case None => EitherTUtil.unitUS
     }
+    _ <- EitherTUtil.condUnitET[FutureUnlessShutdown][TopologyTransactionRejection](
+      toValidate.mapping.upgradeTime > effective.value,
+      TopologyTransactionRejection.InvalidUpgradeTime(
+        toValidate.mapping.successorSynchronizerId.logical,
+        effective = effective,
+        upgradeTime = toValidate.mapping.upgradeTime,
+      ),
+    )
+
+  } yield ()
 
   /** Checks whether the given PTP is considered an explicit admin party allocation. This is true if
     * all following conditions are met:

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.event
 
 import cats.implicits.catsSyntaxOptionId
 import com.daml.nameof.NameOf.functionFullName
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
@@ -31,8 +30,8 @@ import scala.util.{Failure, Success}
   * [[RecordOrderPublisher]] for documentation.
   */
 sealed trait PublishesOnlinePartyReplicationEvents {
-  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]])(
-      implicit traceContext: TraceContext
+  def schedulePublishAddContracts(buildEventAtRecordTime: CantonTimestamp => Update)(implicit
+      traceContext: TraceContext
   ): UnlessShutdown[Unit]
 
   def publishBufferedEvents()(implicit traceContext: TraceContext): UnlessShutdown[Unit]
@@ -292,7 +291,7 @@ class RecordOrderPublisher(
     * [[publishBufferedEvents]] calls.
     */
   def schedulePublishAddContracts(
-      buildEventAtRecordTime: CantonTimestamp => NonEmpty[Seq[Update]]
+      buildEventAtRecordTime: CantonTimestamp => Update
   )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
     scheduleBufferingEventTaskImmediately { timestamp =>
       logger.debug(s"Publish add contracts at $timestamp")
@@ -302,12 +301,10 @@ class RecordOrderPublisher(
             "Buffering of LedgerApiIndexer events should be started before adding contracts"
           )
         case Some(buffer) =>
-          val events = buffer.markEventsWithRecordTime(buildEventAtRecordTime)
-          MonadUtil
-            .sequentialTraverse_(events) { event =>
-              logger.debug(s"Publishing contract add $event")
-              publishLedgerApiIndexerEvent(event)
-            }
+          val event = buffer.markEventsWithRecordTime(buildEventAtRecordTime)
+
+          logger.debug(s"Publishing contract add $event")
+          publishLedgerApiIndexerEvent(event)
       }
     }
 

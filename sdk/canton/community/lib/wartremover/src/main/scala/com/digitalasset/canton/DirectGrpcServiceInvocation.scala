@@ -6,7 +6,7 @@ package com.digitalasset.canton
 import io.grpc.stub.AbstractStub
 import org.wartremover.{WartTraverser, WartUniverse}
 
-import scala.annotation.{StaticAnnotation, tailrec}
+import scala.annotation.tailrec
 
 /** This wart warns when methods for a gRPC service stub are called directly. Instead, the wrapper
   * methods from `CantonGrpcUtil` and others should be used. This ensures in particular the
@@ -126,8 +126,3 @@ object DirectGrpcServiceInvocation extends WartTraverser {
     }
   }
 }
-
-/** Annotation for methods and constructors. Implementations of such method (and any overrides) are
-  * not checked. Neither are the arguments to calls of such a method.
-  */
-final class GrpcServiceInvocationMethod extends StaticAnnotation

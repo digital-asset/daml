@@ -181,7 +181,7 @@ object TopologyMapping {
     case object SequencerConnectionSuccessor
         extends Code("scs", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCER_CONNECTION_SUCCESSOR)
 
-    lazy val all: Seq[Code] = Seq(
+    val all: Seq[Code] = Seq(
       NamespaceDelegation,
       DecentralizedNamespaceDefinition,
       OwnerToKeyMapping,
@@ -199,6 +199,9 @@ object TopologyMapping {
       SynchronizerUpgradeAnnouncement,
       SequencerConnectionSuccessor,
     )
+
+    val logicalSynchronizerUpgradeMappings: Set[Code] =
+      Set[Code](Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor)
 
     def fromString(code: String): ParsingResult[Code] =
       all

@@ -34,11 +34,19 @@ service PartyManagementService {
   // successfully.
   rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
 
-  // Export the ACS for the given parties from the participant
+  // Export the ACS for the given parties from the participant.
   rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
 
-  // Export the ACS for the given parties at a timestamp (that is the effective time of a topology transaction)
+  // Export the ACS for the given parties at a timestamp (that is the effective time of a topology transaction).
   rpc ExportAcsAtTimestamp(ExportAcsAtTimestampRequest) returns (stream ExportAcsAtTimestampResponse);
+
+  // For a given timestamp, find the highest ledger offset among all events that have record time <= timestamp.
+  //
+  // Returns a ledger offset, or an error otherwise. Depending on the error cause, a retry may make sense.
+  // Retryable errors are defined as: OUT_OF_RANGE/INVALID_TIMESTAMP_PARTY_MANAGEMENT_ERROR.
+  // Further, a returned offset is guaranteed to be "clean", meaning all events have been processed fully and
+  // published to the Ledger API DB until the requested timestamp.
+  rpc GetHighestOffsetByTimestamp(GetHighestOffsetByTimestampRequest) returns (GetHighestOffsetByTimestampResponse);
 }
 
 message AddPartyAsyncRequest {
@@ -227,4 +235,30 @@ message ExportAcsAtTimestampResponse {
   // This field will be populated in each streamed response.
   // Required
   bytes chunk = 1;
+}
+
+// Requests the highest ledger offset among all events belonging to the synchronizer (`synchronizer_id`)
+// that have a record time before or at the given `timestamp`.
+//
+// This endpoint features a `force` message field. This is intended for disaster recovery scenarios only.
+message GetHighestOffsetByTimestampRequest {
+  // The identifier of the synchronizer.
+  // Required
+  string synchronizer_id = 1;
+
+  // The requested timestamp for which a ledger offset should be found.
+  // Required
+  google.protobuf.Timestamp timestamp = 2;
+
+  // If true, return the highest known ledger offset with a record time before or at the specified `timestamp`
+  // even if higher offsets with a record time before or at `timestamp` can be created in the future.
+  // Required, defaults to false.
+  bool force = 3;
+}
+
+message GetHighestOffsetByTimestampResponse {
+  // The highest ledger offset among events that have their record time before or at the requested timestamp.
+  // An error when no such offset (yet) exists.
+  // Required
+  int64 ledger_offset = 1;
 }

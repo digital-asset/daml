@@ -16,10 +16,9 @@ import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
@@ -44,7 +43,7 @@ import scala.util.chaining.scalaUtilChainingOps
   *     message,
   *   - and sends only deserializable payloads.
   *
-  * @param synchronizerId
+  * @param psid
   *   The synchronizer id of the synchronizer to replicate active contracts within.
   * @param partyId
   *   The party id of the party to replicate active contracts for.
@@ -67,7 +66,7 @@ import scala.util.chaining.scalaUtilChainingOps
   *   party replication protocol is a different protocol from the canton protocol.
   */
 final class PartyReplicationSourceParticipantProcessor private (
-    synchronizerId: SynchronizerId,
+    val psid: PhysicalSynchronizerId,
     partyId: PartyId,
     activeAfter: CantonTimestamp,
     // TODO(#23097): Revisit mechanism to consider "other parties" once we support support multiple concurrent OnPRs
@@ -77,7 +76,6 @@ final class PartyReplicationSourceParticipantProcessor private (
     onProgress: NonNegativeInt => Unit,
     onComplete: NonNegativeInt => Unit,
     onError: String => Unit,
-    protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
@@ -165,14 +163,14 @@ final class PartyReplicationSourceParticipantProcessor private (
     )(
       acsInspection
         .forEachVisibleActiveContract(
-          synchronizerId,
+          psid.logical,
           Set(partyId.toLf),
           Some(TimeOfChange(activeAfter.immediateSuccessor)),
         ) { case (contract, reassignmentCounter) =>
           val stakeholdersHostedByTargetParticipant =
             contract.metadata.stakeholders.intersect(otherPartiesHostedByTargetParticipant)
           if (stakeholdersHostedByTargetParticipant.isEmpty) {
-            contracts += ActiveContractOld.create(synchronizerId, contract, reassignmentCounter)(
+            contracts += ActiveContractOld.create(psid.logical, contract, reassignmentCounter)(
               protocolVersion
             )
           } else {
@@ -241,7 +239,7 @@ final class PartyReplicationSourceParticipantProcessor private (
 
 object PartyReplicationSourceParticipantProcessor {
   def apply(
-      synchronizerId: SynchronizerId,
+      psid: PhysicalSynchronizerId,
       partyId: PartyId,
       activeAt: CantonTimestamp,
       partiesHostedByTargetParticipant: Set[LfPartyId],
@@ -249,12 +247,11 @@ object PartyReplicationSourceParticipantProcessor {
       onProgress: NonNegativeInt => Unit,
       onComplete: NonNegativeInt => Unit,
       onError: String => Unit,
-      protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PartyReplicationSourceParticipantProcessor =
     new PartyReplicationSourceParticipantProcessor(
-      synchronizerId,
+      psid,
       partyId,
       activeAt,
       partiesHostedByTargetParticipant,
@@ -262,10 +259,9 @@ object PartyReplicationSourceParticipantProcessor {
       onProgress,
       onComplete,
       onError,
-      protocolVersion,
       timeouts,
       loggerFactory
-        .append("synchronizerId", synchronizerId.toProtoPrimitive)
+        .append("synchronizerId", psid.toProtoPrimitive)
         .append("partyId", partyId.toProtoPrimitive),
     )
 }

@@ -534,7 +534,7 @@ class TransactionTreeFactoryImpl(
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      synchronizerId.logical,
+      synchronizerId,
       state.mediator,
       state.transactionUUID,
       viewPosition,

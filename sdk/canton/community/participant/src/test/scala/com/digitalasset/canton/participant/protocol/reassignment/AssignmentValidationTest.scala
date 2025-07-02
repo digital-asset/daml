@@ -120,6 +120,8 @@ class AssignmentValidationTest
 
   private val activenessF = FutureUnlessShutdown.pure(mkActivenessResult())
 
+  private val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
+
   val engineController =
     EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory)
 
@@ -146,6 +148,7 @@ class AssignmentValidationTest
       targetMediator,
       cryptoSnapshot,
       cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
+      reassignmentId,
     )
   }
 
@@ -157,8 +160,6 @@ class AssignmentValidationTest
         None,
       )
     )
-
-    val reassignmentId = ReassignmentId(UnassignId(TestHash.digest(0)))
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,

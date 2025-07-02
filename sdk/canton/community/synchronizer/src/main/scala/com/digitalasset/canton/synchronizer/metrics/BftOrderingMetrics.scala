@@ -257,6 +257,16 @@ class BftOrderingMetrics private[metrics] (
               val SegmentProposalToCommitLatency = "consensus-segment-proposal-to-commit-latency"
               // Time elapsed between ordered blocks proposed by a segment
               val SegmentBlockCommitLatency = "consensus-segment-block-commit-latency"
+
+              // Time spent by view messages in the postponed queue
+              val PostponedViewMessagesQueueLatency =
+                "consensus-postponed-view-messages-queue-latency"
+
+              object stateTransfer {
+                // Time spent by consensus messages in the postponed queue during state transfer
+                val PostponedMessagesQueueLatency =
+                  "state-transfer-postponed-consensus-messages-queue-latency"
+              }
             }
 
             object output {
@@ -639,6 +649,50 @@ class BftOrderingMetrics private[metrics] (
       0,
     )
 
+    val postponedViewMessagesQueueSize: Gauge[Int] =
+      openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "postponed-view-messages-queue-size",
+          summary = "Size of the queue containing postponed view messages",
+          description = "Size of the queue containing postponed view messages.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+
+    val postponedViewMessagesQueueMaxSize: Gauge[Int] =
+      openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "postponed-view-messages-queue-max-size",
+          summary = "Actual maximum size of the queue containing postponed view messages",
+          description = "Actual maximum size of the queue containing postponed view messages.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+
+    val postponedViewMessagesQueueDuplicatesMeter: Meter =
+      openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "postponed-view-messages-duplicates",
+          summary =
+            "Count of messages dropped as duplicates by queue containing postponed view messages",
+          description =
+            "Count of messages dropped as duplicates by queue containing postponed view messages.",
+          qualification = MetricQualification.Saturation,
+        )
+      )
+
+    val postponedViewMessagesQueueDropMeter: Meter =
+      openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "postponed-view-messages-dropped",
+          summary = "Count of messages dropped by queue containing postponed view messages",
+          description = "Count of messages dropped by queue containing postponed view messages.",
+          qualification = MetricQualification.Saturation,
+        )
+      )
+
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
 
@@ -785,8 +839,53 @@ class BftOrderingMetrics private[metrics] (
           gaugesMap.remove(id).discard
         }
     }
+
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class StateTransferMetrics private[BftOrderingMetrics] {
+      private val prefix = ConsensusMetrics.this.prefix :+ "state-transfer"
+
+      val postponedMessagesQueueSize: Gauge[Int] =
+        openTelemetryMetricsFactory.gauge(
+          MetricInfo(
+            prefix :+ "postponed-consensus-messages-queue-size",
+            summary =
+              "Size of the queue containing consensus messages postponed during state transfer",
+            description =
+              "Size of the queue containing consensus messages postponed during state transfer.",
+            qualification = MetricQualification.Saturation,
+          ),
+          0,
+        )
+
+      val postponedMessagesQueueMaxSize: Gauge[Int] =
+        openTelemetryMetricsFactory.gauge(
+          MetricInfo(
+            prefix :+ "postponed-consensus-messages-queue-max-size",
+            summary =
+              "Actual maximum size of the queue containing consensus messages postponed during state transfer",
+            description =
+              "Actual maximum size of the queue containing consensus messages postponed during state transfer.",
+            qualification = MetricQualification.Saturation,
+          ),
+          0,
+        )
+
+      val postponedMessagesQueueDropMeter: Meter =
+        openTelemetryMetricsFactory.meter(
+          MetricInfo(
+            prefix :+ "postponed-consensus-messages-dropped",
+            summary =
+              "Count of messages dropped by queue containing consensus messages postponed during state transfer",
+            description =
+              "Count of messages dropped by queue containing consensus messages postponed during state transfer.",
+            qualification = MetricQualification.Saturation,
+          )
+        )
+    }
+
     val votes = new VotesMetrics
     val retransmissions = new RetransmissionsMetrics
+    val stateTransfer = new StateTransferMetrics
   }
   val consensus = new ConsensusMetrics
 

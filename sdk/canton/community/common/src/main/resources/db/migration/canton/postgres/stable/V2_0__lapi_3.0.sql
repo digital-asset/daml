@@ -81,7 +81,7 @@ CREATE TABLE lapi_command_completions (
 CREATE INDEX lapi_command_completions_user_id_offset_idx ON lapi_command_completions USING btree (user_id, completion_offset);
 CREATE INDEX lapi_command_completions_offset_idx ON lapi_command_completions USING btree (completion_offset);
 CREATE INDEX lapi_command_completions_publication_time_idx ON lapi_command_completions USING btree (publication_time, completion_offset);
-CREATE INDEX lapi_command_completions_synchronizer_record_time_idx ON lapi_command_completions USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_command_completions_synchronizer_record_time_offset_idx ON lapi_command_completions USING btree (synchronizer_id, record_time, completion_offset);
 CREATE INDEX lapi_command_completions_synchronizer_offset_idx ON lapi_command_completions USING btree (synchronizer_id, completion_offset);
 ---------------------------------------------------------------------------------------------------
 -- Events: Assign
@@ -444,7 +444,7 @@ CREATE TABLE lapi_transaction_meta (
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta USING btree (event_offset);
 CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta USING btree (update_id);
 CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
-CREATE INDEX lapi_transaction_meta_synchronizer_record_time_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time);
+CREATE INDEX lapi_transaction_meta_synchronizer_record_time_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, record_time, event_offset);
 CREATE INDEX lapi_transaction_meta_synchronizer_offset_idx ON lapi_transaction_meta USING btree (synchronizer_id, event_offset);
 
 ---------------------------------------------------------------------------------------------------

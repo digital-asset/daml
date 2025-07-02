@@ -40,6 +40,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
@@ -2730,6 +2731,35 @@ class TopologyAdministrationGroup(
           ),
           filterSynchronizer,
         )
+      )
+    }
+
+    @Help.Summary("Latest dynamic synchronizer parameters")
+    def latest(
+        store: TopologyStoreId,
+        filterSynchronizer: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): DynamicSynchronizerParameters = consoleEnvironment.run {
+      val commandResult = adminCommand(
+        TopologyAdminCommands.Read.ListSynchronizerParametersState(
+          BaseQuery(
+            store,
+            proposals = false,
+            TimeQuery.HeadState,
+            Some(TopologyChangeOp.Replace),
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterSynchronizer,
+        )
+      )
+      commandResult.map(
+        _.headOption
+          .getOrElse(
+            consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
+          )
+          .item
       )
     }
 

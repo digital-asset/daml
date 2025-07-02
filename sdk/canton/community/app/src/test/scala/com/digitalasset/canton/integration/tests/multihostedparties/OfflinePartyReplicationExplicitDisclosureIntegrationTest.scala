@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
 import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{
   Command,
@@ -14,72 +13,61 @@ import com.daml.ledger.javaapi.data.{
   TransactionFormat,
   TransactionShape,
 }
-import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.HasTempDirectory
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
 import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-}
+import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.ContractNotFound
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
 import java.util.Collections
 
 sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment {
+    extends UseSilentSynchronizerInTest
+    with HasTempDirectory {
 
-  private val acsFilename: String = s"${getClass.getSimpleName}.gz"
+  private val acsSnapshot = tempDirectory.toTempFile(s"${getClass.getSimpleName}.gz")
+  private val acsSnapshotPath: String = acsSnapshot.toString
+
+  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to one year.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   private var alice: PartyId = _
   private var bob: PartyId = _
 
-  private val mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
-  private val waitTimeMs =
-    (mediatorReactionTimeout + confirmationResponseTimeout + config.NonNegativeFiniteDuration
-      .ofMillis(500)).duration.toMillis
-
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
-      import env.*
+    EnvironmentDefinition.P2_S1M1
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
+      .withSetup { implicit env =>
+        import env.*
 
-      participants.all.synchronizers.connect_local(sequencer1, alias = daName)
-      participants.all.dars.upload(CantonTestsPath)
+        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        participants.all.dars.upload(CantonTestsPath)
 
-      alice = participant1.parties.enable(
-        "Alice",
-        synchronizeParticipants = Seq(participant2),
-      )
-      bob = participant2.parties.enable(
-        "Bob",
-        synchronizeParticipants = Seq(participant1),
-      )
-
-      sequencers.all.foreach(
-        _.topology.synchronizer_parameters.propose_update(
-          synchronizerId = daId,
-          _.update(
-            mediatorReactionTimeout = mediatorReactionTimeout,
-            confirmationResponseTimeout = confirmationResponseTimeout,
-          ),
+        alice = participant1.parties.enable(
+          "Alice",
+          synchronizeParticipants = Seq(participant2),
         )
-      )
-    }
+        bob = participant2.parties.enable(
+          "Bob",
+          synchronizeParticipants = Seq(participant1),
+        )
 
-  override def afterAll(): Unit =
-    try {
-      val acsExport = File(acsFilename)
-      if (acsExport.exists) {
-        acsExport.delete()
+        sequencers.all.foreach { s =>
+          adjustTimeouts(s)
+          s.topology.synchronizer_parameters
+            .propose_update(
+              daId,
+              _.update(reconciliationInterval = reconciliationInterval.toConfig),
+            )
+        }
       }
-    } finally super.afterAll()
 
   "Explicit disclosure should work on replicated contracts" in { implicit env =>
     import env.*
@@ -89,6 +77,8 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       import scala.jdk.CollectionConverters.IteratorHasAsScala
       hasCommands.commands.iterator.asScala.toSeq
     }
+
+    val simClock = Some(env.environment.simClock.value)
 
     // Create a contract visible only to `alice`
     val (quote, disclosedQuote) = {
@@ -116,7 +106,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       PositiveInt.one,
       Set(
         (participant1, PP.Submission),
-        (participant2, PP.Submission),
+        (participant2, PP.Observation),
       ),
     )
 
@@ -129,21 +119,7 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       .loneElement
       .context
 
-    sequencer1.topology.synchronizer_parameters.propose_update(
-      sequencer1.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
-    )
-
-    eventually() {
-      val confirmationRequestsMaxRate = participant1.topology.synchronizer_parameters
-        .list(store = daId)
-        .map { change =>
-          change.item.participantSynchronizerLimits.confirmationRequestsMaxRate
-        }
-      confirmationRequestsMaxRate.head.unwrap shouldBe 0
-    }
-
-    Threading.sleep(waitTimeMs)
+    silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
 
     // Replicate `alice` from `participant1` to `participant2`
     repair.party_replication.step1_hold_and_store_acs(
@@ -151,14 +127,21 @@ sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
       daId,
       participant1,
       participant2.id,
-      acsFilename,
+      acsSnapshotPath,
       onboardingTx.validFrom,
     )
-    repair.party_replication.step2_import_acs(alice, daId, participant2, acsFilename)
+    repair.party_replication.step2_import_acs(alice, daId, participant2, acsSnapshotPath)
 
-    sequencer1.topology.synchronizer_parameters.propose_update(
-      sequencer1.synchronizer_id,
-      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(10000)),
+    resumeSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant2, simClock)
+
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
+      participant1,
+      alice,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant2, PP.Submission),
+      ),
     )
 
     // Verify that `alice` can see the contract with explicit disclosure
