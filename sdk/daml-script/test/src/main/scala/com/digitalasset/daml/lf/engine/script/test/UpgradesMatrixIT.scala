@@ -212,7 +212,14 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
             }
         case _ => Future.successful(List())
       }
-      commands = apiCommands.toList.map { n => ScriptLedgerClient.CommandWithMeta(n, true) }
+      commands = apiCommands.toList.map { n =>
+        n.typeRef.pkg match {
+          case Ref.PackageRef.Id(_) =>
+            ScriptLedgerClient.CommandWithMeta(n, true)
+          case Ref.PackageRef.Name(_) =>
+            ScriptLedgerClient.CommandWithMeta(n, false)
+        }
+      }
       result <- scriptClient.submit(
         actAs = OneAnd(setupData.alice, Set()),
         readAs = Set(),

@@ -83,38 +83,49 @@ class GrpcLedgerClient(
   ): api.Identifier = {
     identifier.pkg match {
       case PackageRef.Name(name) =>
-        api.Identifier(
-          "#" + name,
-          identifier.qualifiedName.module.toString(),
-          identifier.qualifiedName.name.toString(),
-        )
+        if (explicitPackageId)
+          throw new IllegalArgumentException("Cannot set explicitPackageId = true on an ApiCommand that uses a PackageName")
+        else
+          api.Identifier(
+            "#" + name,
+            identifier.qualifiedName.module.toString(),
+            identifier.qualifiedName.name.toString(),
+          )
       case PackageRef.Id(pkgId) =>
         val converted = toApiIdentifier(identifier.assertToTypeConId)
-        compiledPackages.pkgInterface
-          .lookupPackage(pkgId)
-          .toOption
-          .filter(pkgSig => pkgSig.supportsUpgrades(pkgId) && !explicitPackageId)
-          .fold(converted)(pkgSig =>
-            converted.copy(packageId = "#" + pkgSig.metadata.name.toString)
+        packageIdToUpgradeName(explicitPackageId, pkgId)
+          .fold(converted)(name =>
+            converted.copy(packageId = "#" + name.toString)
           )
     }
   }
 
-  private def getPackageIdUpgrades(
+  private def packageIdToUpgradeName(explicitPackageId: Boolean, pkgId: PackageId): Option[PackageName] = {
+    compiledPackages.pkgInterface
+      .lookupPackage(pkgId)
+      .toOption
+      .filter(pkgSig => pkgSig.supportsUpgrades(pkgId) && !explicitPackageId)
+      .map(_.metadata.name)
+  }
+
+  private def getIdentifierPkgId(
       pkgPrefs: List[PackageId],
+      explicitPackageId: Boolean,
       identifier: TypeConRef,
   ): PackageId = {
+    def handleName(name: Ref.PackageName): PackageId = {
+      val matchingSigs = compiledPackages.signatures.filter(_._2.metadata.name == name)
+      matchingSigs
+        .filter(sig => pkgPrefs.contains(sig._1))
+        .headOption
+        .getOrElse(matchingSigs.maxBy(_._2.metadata.version))
+        ._1
+    }
     identifier.pkg match {
-      case PackageRef.Name(name) => {
-        val matchingSigs = compiledPackages.signatures.filter(_._2.metadata.name == name)
-        matchingSigs
-          .filter(sig => pkgPrefs.contains(sig._1))
-          .headOption
-          .getOrElse(matchingSigs.maxBy(_._2.metadata.version))
-          ._1
-      }
+      case PackageRef.Name(name) => handleName(name)
       case PackageRef.Id(pkgId) =>
-        pkgId
+        packageIdToUpgradeName(explicitPackageId, pkgId)
+          .fold(pkgId)(name => handleName(name))
     }
   }
 
@@ -473,9 +484,12 @@ class GrpcLedgerClient(
   ): List[PackageId] =
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
-        List(getPackageIdUpgrades(pkgPrefs, tmplRef), getPackageIdUpgrades(pkgPrefs, tmplRef))
-      case cmd =>
-        List(getPackageIdUpgrades(pkgPrefs, cmd.typeRef))
+        List(
+          getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, tmplRef),
+          getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, tmplRef)
+        )
+      case command =>
+        List(getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, command.typeRef))
     }
 
   private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
