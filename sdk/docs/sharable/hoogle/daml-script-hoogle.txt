@@ -796,38 +796,42 @@ submitMustFail :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) =
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017
 submitMustFailWithOptions :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 
--- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
+-- | DEPRECATED: Legacy API, use `submit`, `actAs` and `readAs` separately
+--   
+--   `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
 --   authorized by `actAs`. Fetched contracts must be visible to at least
 --   one party in the union of actAs and readAs.
 --   
 --   Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
 --   and is only provided for backwards compatibility.
---   DEPRECATED: Legacy API, use `submit`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmulti-45107
 submitMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script a
 
--- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
+-- | DEPRECATED: Legacy API, use `submitMustFail`, `actAs` and `readAs` separately
+--   
+--   `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
 --   but fails when `submitMulti` succeeds and the other way around.
 --   
 --   Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
 --   and is only provided for backwards compatibility.
---   DEPRECATED: Legacy API, use `submitMustFail`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmultimustfail-77808
 submitMultiMustFail :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script ()
 
--- | Equivalent to `submitMulti` but returns the full transaction tree.
+-- | DEPRECATED: Legacy API, use `submitTree`, `actAs` and `readAs` separately
+--   
+--   Equivalent to `submitMulti` but returns the full transaction tree.
 --   
 --   Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds`
 --   and is only provided for backwards compatibility.
---   DEPRECATED: Legacy API, use `submitTree`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submittreemulti-4879
 submitTreeMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script TransactionTree
 
--- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
+-- | DEPRECATED: Legacy API, use `trySubmit`, `actAs` and `readAs` separately
+--   
+--   Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
 --   
 --   Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds`
 --   and is only provided for backwards compatibility.
---   DEPRECATED: Legacy API, use `trySubmit`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmitmulti-31939
 trySubmitMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script (Either SubmitError a)
 

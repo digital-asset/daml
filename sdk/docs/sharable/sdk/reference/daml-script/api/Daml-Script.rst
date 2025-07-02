@@ -1510,7 +1510,9 @@ Functions
 `submitWithOptions <function-daml-script-internal-questions-submit-submitwithoptions-56152_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script a
 
-  DEPRECATED\: Daml 2\.9 compatibility helper, use 'submit' instead
+  .. warning::
+    DEPRECATED\:
+    Daml 2\.9 compatibility helper, use 'submit' instead
 
 .. _function-daml-script-internal-questions-submit-submittree-5925:
 
@@ -1550,12 +1552,18 @@ Functions
 `submitMustFailWithOptions <function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script ()
 
-  DEPRECATED\: Daml 2\.9 compatibility helper, use 'submitMustFail' instead
+  .. warning::
+    DEPRECATED\:
+    Daml 2\.9 compatibility helper, use 'submitMustFail' instead
 
 .. _function-daml-script-internal-questions-submit-submitmulti-45107:
 
 `submitMulti <function-daml-script-internal-questions-submit-submitmulti-45107_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script a
+
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``submit``, ``actAs`` and ``readAs`` separately
 
   ``submitMulti actAs readAs cmds`` submits ``cmds`` as a single transaction
   authorized by ``actAs``\. Fetched contracts must be visible to at least
@@ -1563,62 +1571,76 @@ Functions
 
   Note\: This behaviour can be achieved using ``submit (actAs actors <> readAs readers) cmds``
   and is only provided for backwards compatibility\.
-  DEPRECATED\: Legacy API, use ``submit``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-submitmultimustfail-77808:
 
 `submitMultiMustFail <function-daml-script-internal-questions-submit-submitmultimustfail-77808_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script ()
 
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``submitMustFail``, ``actAs`` and ``readAs`` separately
+
   ``submitMultiMustFail actAs readAs cmds`` behaves like ``submitMulti actAs readAs cmds``
   but fails when ``submitMulti`` succeeds and the other way around\.
 
   Note\: This behaviour can be achieved using ``submitMustFail (actAs actors <> readAs readers) cmds``
   and is only provided for backwards compatibility\.
-  DEPRECATED\: Legacy API, use ``submitMustFail``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-submittreemulti-4879:
 
 `submitTreeMulti <function-daml-script-internal-questions-submit-submittreemulti-4879_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_
 
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``submitTree``, ``actAs`` and ``readAs`` separately
+
   Equivalent to ``submitMulti`` but returns the full transaction tree\.
 
   Note\: This behaviour can be achieved using ``submitTree (actAs actors <> readAs readers) cmds``
   and is only provided for backwards compatibility\.
-  DEPRECATED\: Legacy API, use ``submitTree``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-trysubmitmulti-31939:
 
 `trySubmitMulti <function-daml-script-internal-questions-submit-trysubmitmulti-31939_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a)
 
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``trySubmit``, ``actAs`` and ``readAs`` separately
+
   Alternate version of ``trySubmit`` that allows specifying the actAs and readAs parties\.
 
   Note\: This behaviour can be achieved using ``trySubmit (actAs actors <> readAs readers) cmds``
   and is only provided for backwards compatibility\.
-  DEPRECATED\: Legacy API, use ``trySubmit``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-trysubmitconcurrently-11443:
 
 `trySubmitConcurrently <function-daml-script-internal-questions-submit-trysubmitconcurrently-11443_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a\] \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a\]
 
-  DEPRECATED\: Legacy API, use ``concurrent`` and ``trySubmit`` separately
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``concurrent`` and ``trySubmit`` separately
 
 .. _function-daml-script-internal-questions-submit-submitwithdisclosures-50120:
 
 `submitWithDisclosures <function-daml-script-internal-questions-submit-submitwithdisclosures-50120_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Disclosure <type-daml-script-internal-questions-commands-disclosure-40298_>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a
 
-  DEPRECATED\: Legacy API, use ``trySubmit`` and ``disclosures`` separately
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``trySubmit`` and ``disclosures`` separately
 
 .. _function-daml-script-internal-questions-submit-submitwithdisclosuresmustfail-28475:
 
 `submitWithDisclosuresMustFail <function-daml-script-internal-questions-submit-submitwithdisclosuresmustfail-28475_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Disclosure <type-daml-script-internal-questions-commands-disclosure-40298_>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ ()
 
-  DEPRECATED\: Legacy API, use ``submitMustFail`` and ``disclosures`` separately
+  .. warning::
+    DEPRECATED\:
+    Legacy API, use ``submitMustFail`` and ``disclosures`` separately
 
 .. _function-daml-script-internal-questions-transactiontree-fromtree-1340:
 
@@ -1762,7 +1784,9 @@ Functions
 `allocatePartyWithHint <function-daml-script-internal-questions-partymanagement-allocatepartywithhint-96426_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  DEPRECATED\: Daml 3\.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'
+  .. warning::
+    DEPRECATED\:
+    Daml 3\.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067:
 
@@ -1785,7 +1809,9 @@ Functions
 `allocatePartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatepartywithhinton-11859_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  DEPRECATED\: Daml 3\.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'
+  .. warning::
+    DEPRECATED\:
+    Daml 3\.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218:
 

@@ -65,9 +65,10 @@ Down :: a -> Down
 @url https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-interface-implements-92077
 type Implements t i = (HasInterfaceTypeRep i, HasToInterface t i, HasFromInterface t i)
 
--- | A wrapper for all exception types.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   A wrapper for all exception types.
 @url https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004
 data AnyException
 
@@ -1913,11 +1914,11 @@ first :: (Bifunctor p) => (a -> b) -> p a c -> p b c
 @url https://docs.daml.com/daml/stdlib/DA-Bifunctor.html#function-da-bifunctor-second-99394
 second :: (Bifunctor p) => (b -> c) -> p a b -> p a c
 
--- | Functions for working with Crypto builtins.
---   For example, as used to implement CCTP functionality.
---   WARNING: DA.Crypto.Text is an alpha feature. It can change without notice.
+-- | WARNING: DA.Crypto.Text is an alpha feature. It can change without notice.
 --   use -Wno-crypto-text-is-alpha in build-options to disable this warning
 --   
+--   Functions for working with Crypto builtins.
+--   For example, as used to implement CCTP functionality.
 @url https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#module-da-crypto-text-67266
 module DA.Crypto.Text
 
@@ -2221,11 +2222,11 @@ maybeToEither :: a -> Optional b -> Either a b
 @url https://docs.daml.com/daml/stdlib/DA-Either.html#function-da-either-eithertomaybe-94811
 eitherToMaybe :: Either a b -> Optional b
 
--- | Exception handling in Daml.
---   DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
 --   
+--   Exception handling in Daml.
+--   DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#module-da-exception-55791
 module DA.Exception
 
@@ -2234,9 +2235,10 @@ module DA.Exception
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#type-da-internal-exception-exception-4133
 type Exception e = (HasThrow e, HasMessage e, HasToAnyException e, HasFromAnyException e)
 
--- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#type-da-exception-arithmeticerror-arithmeticerror-68828
 data ArithmeticError
 
@@ -2245,9 +2247,10 @@ ArithmeticError :: Text -> ArithmeticError
 
 message :: ArithmeticError -> Text
 
--- | Exception raised by assert functions in DA.Assert
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Exception raised by assert functions in DA.Assert
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#type-da-exception-assertionfailed-assertionfailed-69740
 data AssertionFailed
 
@@ -2256,9 +2259,10 @@ AssertionFailed :: Text -> AssertionFailed
 
 message :: AssertionFailed -> Text
 
--- | Exception raised by `error`.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Exception raised by `error`.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#type-da-exception-generalerror-generalerror-5800
 data GeneralError
 
@@ -2267,9 +2271,10 @@ GeneralError :: Text -> GeneralError
 
 message :: GeneralError -> Text
 
--- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Exception raised when a contract is invalid, i.e. fails the ensure clause.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#type-da-exception-preconditionfailed-preconditionfailed-61218
 data PreconditionFailed
 
@@ -2278,9 +2283,10 @@ PreconditionFailed :: Text -> PreconditionFailed
 
 message :: PreconditionFailed -> Text
 
--- | Part of the `Exception` constraint.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Part of the `Exception` constraint.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasthrow-30284
 class HasThrow e
 
@@ -2288,9 +2294,10 @@ class HasThrow e
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#function-da-internal-exception-throwpure-97636
 throwPure :: (HasThrow e) => e -> t
 
--- | Part of the `Exception` constraint.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Part of the `Exception` constraint.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasmessage-3179
 class HasMessage e
 
@@ -2298,9 +2305,10 @@ class HasMessage e
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#function-da-internal-exception-message-17317
 message :: (HasMessage e) => e -> Text
 
--- | Part of the `Exception` constraint.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Part of the `Exception` constraint.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hastoanyexception-55973
 class HasToAnyException e
 
@@ -2308,9 +2316,10 @@ class HasToAnyException e
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#function-da-internal-exception-toanyexception-88127
 toAnyException :: (HasToAnyException e) => e -> AnyException
 
--- | Part of the `Exception` constraint.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Part of the `Exception` constraint.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasfromanyexception-16788
 class HasFromAnyException e
 
@@ -2318,19 +2327,21 @@ class HasFromAnyException e
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#function-da-internal-exception-fromanyexception-70766
 fromAnyException :: (HasFromAnyException e) => AnyException -> Optional e
 
--- | Action type in which `throw` is supported.
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Action type in which `throw` is supported.
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actionthrow-37623
 class (Action m) => ActionThrow m
 
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#function-da-internal-exception-throw-28546
 throw :: (ActionThrow m, Exception e) => e -> m t
 
--- | Action type in which `try ... catch ...` is supported.
---   DEPRECATED: Avoid the use of catch in daml code, prefer error handling on client, and throwing using `failWithStatus`
---   DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
+-- | DEPRECATED: Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.
 --   Use `-Wno-deprecated-exceptions` to disable this warning.
+--   
+--   Action type in which `try ... catch ...` is supported.
+--   DEPRECATED: Avoid the use of catch in daml code, prefer error handling on client, and throwing using `failWithStatus`
 @url https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-actioncatch-69238
 class (ActionThrow m) => ActionCatch m
 

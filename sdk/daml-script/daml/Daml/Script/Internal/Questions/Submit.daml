@@ -276,7 +276,7 @@ submitWithError opts cmds = mustFail <$> submitInternal (toSubmitOptions opts) M
 submit : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 submit opts cmds = fst <$> submitResultAndTree opts cmds
 
-{-# DEPRECATED submitWithOptions "Daml 2.9 compatibility helper, use 'submit' instead " #-}
+{-# DEPRECATED submitWithOptions "Daml 2.9 compatibility helper, use 'submit' instead" #-}
 -- | MOVE Daml.Script
 submitWithOptions : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 submitWithOptions = submit
@@ -306,7 +306,7 @@ trySubmitTree opts cmds = fmap snd <$> trySubmitResultAndTree opts cmds
 submitMustFail : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 submitMustFail opts cmds = void $ submitWithError opts cmds
 
-{-# DEPRECATED submitMustFailWithOptions "Daml 2.9 compatibility helper, use 'submitMustFail' instead " #-}
+{-# DEPRECATED submitMustFailWithOptions "Daml 2.9 compatibility helper, use 'submitMustFail' instead" #-}
 -- | MOVE Daml.Script
 submitMustFailWithOptions : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 submitMustFailWithOptions = submitMustFail

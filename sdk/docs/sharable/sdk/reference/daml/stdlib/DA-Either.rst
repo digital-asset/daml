@@ -91,11 +91,15 @@ Functions
 `maybeToEither <function-da-either-maybetoeither-6635_>`_
   \: a \-\> :ref:`Optional <type-da-internal-prelude-optional-37153>` b \-\> :ref:`Either <type-da-types-either-56020>` a b
 
-  DEPRECATED\: Daml 1\.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'
+  .. warning::
+    DEPRECATED\:
+    Daml 1\.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'
 
 .. _function-da-either-eithertomaybe-94811:
 
 `eitherToMaybe <function-da-either-eithertomaybe-94811_>`_
   \: :ref:`Either <type-da-types-either-56020>` a b \-\> :ref:`Optional <type-da-internal-prelude-optional-37153>` b
 
-  DEPRECATED\: Daml 1\.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'
+  .. warning::
+    DEPRECATED\:
+    Daml 1\.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'
