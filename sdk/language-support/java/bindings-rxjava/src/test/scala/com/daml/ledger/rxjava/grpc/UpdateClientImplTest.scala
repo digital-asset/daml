@@ -325,16 +325,30 @@ final class UpdateClientImplTest
         toAuthenticatedServer(_.getTransactionTreeById("...", Set(someParty).asJava).blockingGet())
       }
     }
-    withClue("getTransactionByOffset") {
+    withClue("getTransactionByOffset (requesting parties)") {
       expectUnauthenticated {
         toAuthenticatedServer(
           _.getTransactionByOffset(0, Set(someParty).asJava).blockingGet()
         )
       }
     }
-    withClue("getTransactionById") {
+    withClue("getTransactionById (requesting parties)") {
       expectUnauthenticated {
         toAuthenticatedServer(_.getTransactionById("...", Set(someParty).asJava).blockingGet())
+      }
+    }
+    withClue("getTransactionByOffset (transaction format)") {
+      expectUnauthenticated {
+        toAuthenticatedServer(
+          _.getTransactionByOffset(0, transactionFormatFor(someParty)).blockingGet()
+        )
+      }
+    }
+    withClue("getTransactionById (transaction format)") {
+      expectUnauthenticated {
+        toAuthenticatedServer(
+          _.getTransactionById("...", transactionFormatFor(someParty)).blockingGet()
+        )
       }
     }
   }
@@ -389,7 +403,7 @@ final class UpdateClientImplTest
         )
       }
     }
-    withClue("getTransactionByOffset") {
+    withClue("getTransactionByOffset (requesting parties)") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionByOffset(0, Set(someParty).asJava, someOtherPartyReadWriteToken)
@@ -397,10 +411,26 @@ final class UpdateClientImplTest
         )
       }
     }
-    withClue("getTransactionById") {
+    withClue("getTransactionById (requesting parties)") {
       expectPermissionDenied {
         toAuthenticatedServer(
           _.getTransactionById("...", Set(someParty).asJava, someOtherPartyReadWriteToken)
+            .blockingGet()
+        )
+      }
+    }
+    withClue("getTransactionByOffset (transaction format)") {
+      expectPermissionDenied {
+        toAuthenticatedServer(
+          _.getTransactionByOffset(0, transactionFormatFor(someParty), someOtherPartyReadWriteToken)
+            .blockingGet()
+        )
+      }
+    }
+    withClue("getTransactionById (transaction format)") {
+      expectPermissionDenied {
+        toAuthenticatedServer(
+          _.getTransactionById("...", transactionFormatFor(someParty), someOtherPartyReadWriteToken)
             .blockingGet()
         )
       }
@@ -449,18 +479,37 @@ final class UpdateClientImplTest
           .blockingGet()
       )
     }
-    withClue("getTransactionByOffset") {
+    withClue("getTransactionByOffset (requesting parties)") {
       toAuthenticatedServer(
         _.getTransactionByOffset(0, Set(someParty).asJava, somePartyReadWriteToken)
           .blockingGet()
       )
     }
-    withClue("getTransactionById") {
+    withClue("getTransactionById (requesting parties)") {
       toAuthenticatedServer(
         _.getTransactionById("...", Set(someParty).asJava, somePartyReadWriteToken)
           .blockingGet()
       )
     }
+    withClue("getTransactionByOffset (transaction format)") {
+      toAuthenticatedServer(
+        _.getTransactionByOffset(0, transactionFormatFor(someParty), somePartyReadWriteToken)
+          .blockingGet()
+      )
+    }
+    withClue("getTransactionById (transaction format)") {
+      toAuthenticatedServer(
+        _.getTransactionById("...", transactionFormatFor(someParty), somePartyReadWriteToken)
+          .blockingGet()
+      )
+    }
+  }
+
+  private def transactionFormatFor(party: String): TransactionFormat = {
+    new TransactionFormat(
+      eventsFor(party),
+      TransactionShape.ACS_DELTA,
+    )
   }
 
 }
