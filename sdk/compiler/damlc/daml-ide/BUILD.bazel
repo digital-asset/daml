@@ -9,6 +9,15 @@ load(
 da_haskell_library(
     name = "daml-ide",
     srcs = glob(["src/**/*.hs"]),
+    compiler_flags = select({
+        "@platforms//os:windows": [
+            # This is required on windows to avoid the following linker error.
+            # ghc-9.0.2.exe: internal error: IMAGE_REL_AMD64_ADDR32[NB]: High bits are set in 8539c878 for .text
+            # Related suggestion at https://gitlab.haskell.org/ghc/ghc/-/issues/13112#note_130547
+            "-fexternal-interpreter",
+        ],
+        "//conditions:default": [],
+    }),
     hackage_deps = [
         "aeson",
         "async",
