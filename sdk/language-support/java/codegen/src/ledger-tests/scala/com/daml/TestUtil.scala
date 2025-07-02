@@ -24,7 +24,6 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
-import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
@@ -75,8 +74,6 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   )
 }
 
-// TransactionFilter will be removed in 3.4, use EventFormat instead
-@nowarn("cat=deprecation")
 object TestUtil {
 
   val LedgerID = "participant0"
@@ -85,9 +82,10 @@ object TestUtil {
   implicit def func2rxfunc[A, B](f: A => B): io.reactivex.functions.Function[A, B] = f(_)
   private def randomId = UUID.randomUUID().toString
 
-  def allTemplates(partyName: String) = new TransactionFilter(
+  def allTemplates(partyName: String) = new EventFormat(
     Map[String, Filter](partyName -> NoFilter.instance).asJava,
     None.toJava,
+    true,
   )
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): SubmitAndWaitResponse = {
@@ -157,7 +155,6 @@ object TestUtil {
     val txs = stateService.getActiveContracts(
       new GetActiveContractsRequest(
         allTemplates(partyName),
-        true,
         currentEnd,
       ).toProto
     )

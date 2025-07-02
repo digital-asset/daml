@@ -14,6 +14,7 @@ import io.grpc.Channel;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Future;
@@ -240,27 +241,40 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionTreeById(transactionId, requestingParties, Optional.of(accessToken));
   }
 
-  // Method will be removed in 3.4
-  @SuppressWarnings("deprecation")
-  private Single<Transaction> extractTransaction(
-      Future<UpdateServiceOuterClass.GetTransactionResponse> future) {
+  private Single<Transaction> extractTransactionFromUpdate(
+      Future<UpdateServiceOuterClass.GetUpdateResponse> future) {
     return Single.fromFuture(future)
-        .map(GetTransactionResponse::fromProto)
-        .map(GetTransactionResponse::getTransaction);
+        .map(UpdateServiceOuterClass.GetUpdateResponse::getTransaction)
+        .map(Transaction::fromProto);
   }
 
-  // Method will be removed in 3.4, adapt to use getUpdateByOffset
-  @SuppressWarnings("deprecation")
+  private UpdateFormat getUpdateFormat(Set<String> requestingParties) {
+    Map<String, Filter> partyFilters =
+        requestingParties.stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    party -> party,
+                    party ->
+                        new CumulativeFilter(
+                            Map.of(),
+                            Map.of(),
+                            Optional.of(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB))));
+    EventFormat eventFormat = new EventFormat(partyFilters, Optional.empty(), true);
+    TransactionFormat transactionFormat =
+        new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA);
+
+    return new UpdateFormat(Optional.of(transactionFormat), Optional.empty(), Optional.empty());
+  }
+
   private Single<Transaction> getTransactionByOffset(
       Long offset, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByOffsetRequest request =
-        UpdateServiceOuterClass.GetTransactionByOffsetRequest.newBuilder()
+    UpdateServiceOuterClass.GetUpdateByOffsetRequest request =
+        UpdateServiceOuterClass.GetUpdateByOffsetRequest.newBuilder()
             .setOffset(offset)
-            .addAllRequestingParties(requestingParties)
+            .setUpdateFormat(getUpdateFormat(requestingParties).toProto())
             .build();
-    return extractTransaction(
-        StubHelper.authenticating(this.serviceFutureStub, accessToken)
-            .getTransactionByOffset(request));
+    return extractTransactionFromUpdate(
+        StubHelper.authenticating(this.serviceFutureStub, accessToken).getUpdateByOffset(request));
   }
 
   @Override
@@ -274,17 +288,16 @@ public final class UpdateClientImpl implements UpdateClient {
     return getTransactionByOffset(offset, requestingParties, Optional.of(accessToken));
   }
 
-  // Method will be removed in 3.4, adapt to use getUpdateById
-  @SuppressWarnings("deprecation")
   private Single<Transaction> getTransactionById(
       String transactionId, Set<String> requestingParties, Optional<String> accessToken) {
-    UpdateServiceOuterClass.GetTransactionByIdRequest request =
-        UpdateServiceOuterClass.GetTransactionByIdRequest.newBuilder()
+
+    UpdateServiceOuterClass.GetUpdateByIdRequest request =
+        UpdateServiceOuterClass.GetUpdateByIdRequest.newBuilder()
             .setUpdateId(transactionId)
-            .addAllRequestingParties(requestingParties)
+            .setUpdateFormat(getUpdateFormat(requestingParties).toProto())
             .build();
-    return extractTransaction(
-        StubHelper.authenticating(this.serviceFutureStub, accessToken).getTransactionById(request));
+    return extractTransactionFromUpdate(
+        StubHelper.authenticating(this.serviceFutureStub, accessToken).getUpdateById(request));
   }
 
   @Override
