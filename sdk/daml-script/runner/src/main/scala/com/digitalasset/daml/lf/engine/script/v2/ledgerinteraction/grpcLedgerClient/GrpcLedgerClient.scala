@@ -84,7 +84,9 @@ class GrpcLedgerClient(
     identifier.pkg match {
       case PackageRef.Name(name) =>
         if (explicitPackageId)
-          throw new IllegalArgumentException("Cannot set explicitPackageId = true on an ApiCommand that uses a PackageName")
+          throw new IllegalArgumentException(
+            "Cannot set explicitPackageId = true on an ApiCommand that uses a PackageName"
+          )
         else
           api.Identifier(
             "#" + name,
@@ -94,13 +96,14 @@ class GrpcLedgerClient(
       case PackageRef.Id(pkgId) =>
         val converted = toApiIdentifier(identifier.assertToTypeConId)
         packageIdToUpgradeName(explicitPackageId, pkgId)
-          .fold(converted)(name =>
-            converted.copy(packageId = "#" + name.toString)
-          )
+          .fold(converted)(name => converted.copy(packageId = "#" + name.toString))
     }
   }
 
-  private def packageIdToUpgradeName(explicitPackageId: Boolean, pkgId: PackageId): Option[PackageName] = {
+  private def packageIdToUpgradeName(
+      explicitPackageId: Boolean,
+      pkgId: PackageId,
+  ): Option[PackageName] = {
     compiledPackages.pkgInterface
       .lookupPackage(pkgId)
       .toOption
@@ -491,7 +494,7 @@ class GrpcLedgerClient(
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
         List(
           getIdentifierPkgId(pkgPrefs, tmplRef),
-          getIdentifierPkgId(pkgPrefs, tmplRef)
+          getIdentifierPkgId(pkgPrefs, tmplRef),
         )
       case command =>
         List(getIdentifierPkgId(pkgPrefs, command.typeRef))
