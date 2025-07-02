@@ -110,7 +110,6 @@ class GrpcLedgerClient(
 
   private def getIdentifierPkgId(
       pkgPrefs: List[PackageId],
-      explicitPackageId: Boolean,
       identifier: TypeConRef,
   ): PackageId = {
     def handleName(name: Ref.PackageName): PackageId = {
@@ -124,8 +123,14 @@ class GrpcLedgerClient(
     identifier.pkg match {
       case PackageRef.Name(name) => handleName(name)
       case PackageRef.Id(pkgId) =>
-        packageIdToUpgradeName(explicitPackageId, pkgId)
-          .fold(pkgId)(name => handleName(name))
+        // [djt]TODO: We likely also want to apply upgrading to pkgIds when
+        // explicitPackageId is passed, but this is outside the scope of current
+        // changes and would need to be validated with existing GrpcLedgerClient
+        // users.
+        // Implementation would look something like:
+        // packageIdToUpgradeName(explicitPackageId, pkgId)
+        //   .fold(pkgId)(name => handleName(name))
+        pkgId
     }
   }
 
@@ -485,11 +490,11 @@ class GrpcLedgerClient(
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
         List(
-          getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, tmplRef),
-          getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, tmplRef)
+          getIdentifierPkgId(pkgPrefs, tmplRef),
+          getIdentifierPkgId(pkgPrefs, tmplRef)
         )
       case command =>
-        List(getIdentifierPkgId(pkgPrefs, cmd.explicitPackageId, command.typeRef))
+        List(getIdentifierPkgId(pkgPrefs, command.typeRef))
     }
 
   private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
