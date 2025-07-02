@@ -52,7 +52,7 @@ object FreePort {
   /** Generate a random port number outside of the dynamic port range.
     */
   private def randomPortGen(dynamicRange: (Int, Int)): () => Int = {
-    val (minPort, maxPort) = (1024, 65536)
+    val (minPort, maxPort) = (1024, 65535)
     // Exclude the dynamic port range (cropped to within the valid port range).
     // E.g. 32768 60999 on most Linux systems.
     val minExcl = Math.min(Math.max(minPort, dynamicRange._1), maxPort)

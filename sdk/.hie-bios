@@ -1,27 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 hie_bios_flags() {
-  bazel build //compiler/damlc:damlc@ghci \
-    --output_groups=hie_bios \
-    --experimental_show_artifacts \
-    2>&1 \
+  bazel run //compiler/damlc:damlc@ghci@bios \
     | awk '
       BEGIN { rts_opts = false }
-      /^>>>/ {
-        while ((getline line < substr($1, 4)) > 0) {
-          if (rts_opts) {
-            if (line == "-RTS") {
-              rts_opts = false
-            }
-          } else if (line == "+RTS") {
-            rts_opts = true
-          } else if (match(line, "-qg|-fexternal-interpreter")) {
-          } else if (match(line, "com_github_madler_zlib")) {
-          } else if (match(line, "grpc_haskell_core_cbits")) {
-          } else if (match(line, "-lmerged_cbits")) {
-          } else {
-            print line
+      {
+        if (rts_opts) {
+          if ($0 == "-RTS") {
+            rts_opts = false
           }
+        } else if ($0 == "+RTS") {
+          rts_opts = true
+        } else if (match($0, "-qg|-fexternal-interpreter")) {
+        } else if (match($0, "com_github_madler_zlib")) {
+        } else if (match($0, "grpc_haskell_core_cbits")) {
+        } else if (match($0, "-lmerged_cbits")) {
+        } else {
+          print $0
         }
       }'
 }

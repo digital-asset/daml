@@ -8,7 +8,7 @@
 # 3. We produce full pom files instead of only the dependency section.
 # 4. We have some special options to deal with our specific setup.
 
-load("@scala_version//:index.bzl", "scala_major_version")
+load("@scala_version//:index.bzl", "scala_major_version", "scala_version_suffix")
 
 MavenInfo = provider(
     fields = {
@@ -75,13 +75,18 @@ def _collect_maven_info_impl(_target, ctx):
             "io_bazel_rules_scala_scalactic": "org.scalactic:scalactic_{}".format(scala_major_version),
             "io_bazel_rules_scala_scalatest": "org.scalatest:scalatest_{}".format(scala_major_version),
         }
-        if jar.label.workspace_name in replacements:
+        workspace = jar.label.workspace_name
+        if workspace.endswith("_" + scala_version_suffix):
+            workspace = workspace[:-len(scala_version_suffix) - 1]
+        if workspace in replacements:
             return [MavenInfo(
-                maven_coordinates = "{}:{}".format(replacements[jar.label.workspace_name], jar_version(jar.label.name)),
+                maven_coordinates = "{}:{}".format(replacements[workspace], jar_version(jar.label.name)),
                 maven_dependencies = [],
             )]
+
         if MavenInfo not in jar:
             fail("Expected maven info for jar dependency: {}".format(jar.label))
+
         return [jar[MavenInfo]]
     elif ctx.rule.kind == "scala_library":
         # For builtin libraries defined in the replacements section in dependencies.yaml.

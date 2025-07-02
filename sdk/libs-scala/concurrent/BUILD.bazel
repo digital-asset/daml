@@ -32,6 +32,7 @@ da_scala_test(
     srcs = glob(["src/test/scala/**/*.scala"]),
     scala_deps = [
         "@maven//:com_chuusai_shapeless",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = scalacopts,

@@ -297,6 +297,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     tags = [
@@ -336,6 +337,7 @@ da_scala_test(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     tags = [
         "cpu:4",
@@ -372,6 +374,9 @@ da_scala_test(
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -427,6 +432,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:com_typesafe_scala_logging_scala_logging",
     ],
     tags = [

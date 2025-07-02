@@ -1,0 +1,63 @@
+From ba755e9d28e1bff0d7c7208dd0875dbb75f94cbf Mon Sep 17 00:00:00 2001
+From: Andreas Herrmann <andreas.herrmann@tweag.io>
+Date: Thu, 19 Jun 2025 14:18:51 +0200
+Subject: Skip import-dirs for empty libraries
+
+Otherwise Windows builds can fail with a missing directory error on the
+`_iface` directory of empty libraries such as mtl-compat.
+---
+ haskell/private/actions/package.bzl | 4 +++-
+ haskell/private/haskell_impl.bzl    | 2 ++
+ 2 files changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
+index ef1d06f9..dc5aacab 100644
+--- a/haskell/private/actions/package.bzl
++++ b/haskell/private/actions/package.bzl
+@@ -52,6 +52,7 @@ def package(
+         other_modules,
+         my_pkg_id,
+         has_hs_library,
++        has_iface = True,
+         empty_libs_dir = ""):
+     """Create GHC package using ghc-pkg.
+ 
+@@ -65,6 +66,7 @@ def package(
+       other_modules: List of hidden modules.
+       my_pkg_id: Package id object for this package.
+       has_hs_library: Whether hs-libraries should be created.
++      has_iface: Whether the import-dirs field should be populated.
+ 	  empty_libs_dir: Directory name where the empty library should be.
+           If empty, this is assumed to be a package description
+ 		  for a real library. See Note [Empty Libraries] in haskell_impl.bzl.
+@@ -98,7 +100,7 @@ def package(
+         "key": pkg_id.to_string(my_pkg_id),
+         "exposed": "True",
+         "hidden-modules": other_modules,
+-        "import-dirs": [import_dir],
++        "import-dirs": [import_dir] if has_iface else [],
+         "library-dirs": [pkgroot_lib_path] + extra_lib_dirs,
+         "dynamic-library-dirs": [pkgroot_lib_path] + extra_dynamic_lib_dirs,
+         "extra-libraries": extra_libs,
+diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
+index fe3147e6..b66d4bc9 100644
+--- a/haskell/private/haskell_impl.bzl
++++ b/haskell/private/haskell_impl.bzl
+@@ -544,6 +544,7 @@ def haskell_library_impl(ctx):
+         other_modules,
+         my_pkg_id,
+         non_empty,
++        has_iface = non_empty,
+     )
+ 
+     empty_libs_dir = "empty_libs"
+@@ -557,6 +558,7 @@ def haskell_library_impl(ctx):
+         other_modules,
+         my_pkg_id,
+         has_hs_library = False,
++        has_iface = non_empty,
+         empty_libs_dir = empty_libs_dir,
+     )
+ 
+-- 
+2.44.1

@@ -1,1 +1,0 @@
-(import ./bazel.nix {}).go

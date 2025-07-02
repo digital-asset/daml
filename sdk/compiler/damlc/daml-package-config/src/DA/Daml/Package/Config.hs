@@ -173,7 +173,7 @@ fullDamlYamlFields = Set.fromList
 isDamlYamlForPackage :: ProjectConfig -> Bool
 isDamlYamlForPackage project =
   case unwrapProjectConfig project of
-    A.Object obj -> any (`Set.member` fullDamlYamlFields) $ fmap A.toString $ A.keys obj
+    A.Object obj -> any ((`Set.member` fullDamlYamlFields) . A.toString) (A.keys obj)
     _ -> False
 
 isDamlYamlContentForPackage :: T.Text -> Either ConfigError Bool
