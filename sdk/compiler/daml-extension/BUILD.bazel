@@ -49,7 +49,6 @@ genrule(
     name = "node_deps_cache",
     srcs = [
         "@daml_extension_deps//:node_modules",
-        "//compiler/daml-extension:yarn.lock",
     ],
     outs = ["node_modules.tar.gz"],
     cmd = """
