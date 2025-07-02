@@ -88,7 +88,8 @@ da_scala_test_suite(
         exclude = [
             "src/test/**/LargeTransactionTest.scala",
             "src/test/**/MinVersionTest.scala",
-            "src/test/**/UpgradeTest.scala",
+            "src/test/**/UpgradesMatrix.scala",
+            "src/test/**/UpgradesMatrixUnit.scala",
         ],
     ),
     data = [
@@ -204,9 +205,10 @@ da_scala_test(
     name = "upgrade-test",
     timeout = "moderate",
     srcs = glob([
-        "src/test/**/UpgradeTest.scala",
+        "src/test/**/UpgradesMatrix.scala",
+        "src/test/**/UpgradesMatrixUnit.scala",
     ]),
-    args = ["-P"],  # run the test cases in parallel
+    args = ["-P"],  # run suites in parallel
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -214,9 +216,12 @@ da_scala_test(
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts,
+    visibility = ["//daml-script:__subpackages__"],
     deps = [
         ":engine",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/data",
+        "//daml-lf/encoder",
         "//daml-lf/interpreter",
         "//daml-lf/language",
         "//daml-lf/parser",
