@@ -1,7 +1,7 @@
 From ba755e9d28e1bff0d7c7208dd0875dbb75f94cbf Mon Sep 17 00:00:00 2001
 From: Andreas Herrmann <andreas.herrmann@tweag.io>
 Date: Thu, 19 Jun 2025 14:18:51 +0200
-Subject: [PATCH 1/2] Skip import-dirs for empty libraries
+Subject: Skip import-dirs for empty libraries
 
 Otherwise Windows builds can fail with a missing directory error on the
 `_iface` directory of empty libraries such as mtl-compat.
@@ -61,33 +61,3 @@ index fe3147e6..b66d4bc9 100644
  
 -- 
 2.44.1
-
-
-From 59478837aaea507c3b7d2e87ea8cc7a15099012e Mon Sep 17 00:00:00 2001
-From: Andreas Herrmann <andreas.herrmann@tweag.io>
-Date: Thu, 19 Jun 2025 14:20:11 +0200
-Subject: [PATCH 2/2] fix indentation
-
----
- haskell/private/actions/package.bzl | 5 ++---
- 1 file changed, 2 insertions(+), 3 deletions(-)
-
-diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
-index dc5aacab..842b9eee 100644
---- a/haskell/private/actions/package.bzl
-+++ b/haskell/private/actions/package.bzl
-@@ -67,9 +67,8 @@ def package(
-       my_pkg_id: Package id object for this package.
-       has_hs_library: Whether hs-libraries should be created.
-       has_iface: Whether the import-dirs field should be populated.
--	  empty_libs_dir: Directory name where the empty library should be.
--          If empty, this is assumed to be a package description
--		  for a real library. See Note [Empty Libraries] in haskell_impl.bzl.
-+      empty_libs_dir: Directory name where the empty library should be.
-+          If empty, this is assumed to be a package description for a real library. See Note [Empty Libraries] in haskell_impl.bzl.
- 
-     Returns:
-       (File, File): GHC package conf file, GHC package cache file
--- 
-2.44.1
-
