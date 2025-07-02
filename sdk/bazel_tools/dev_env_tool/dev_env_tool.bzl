@@ -207,12 +207,12 @@ toolchain(
     toolchain = "dadew_posix",
     toolchain_type = "@rules_sh//sh/posix:toolchain_type",
     exec_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//platforms:windows",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
     ],
     target_compatible_with = [
-        "@bazel_tools//platforms:x86_64",
-        "@bazel_tools//platforms:windows",
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
     ],
 )
 """.format(

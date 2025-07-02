@@ -47,7 +47,9 @@ sh_test(
 # exists", so at this point I'm completely out of trust.
 genrule(
     name = "node_deps_cache",
-    srcs = ["@daml_extension_deps//:node_modules"],
+    srcs = [
+        "@daml_extension_deps//:node_modules",
+    ],
     outs = ["node_modules.tar.gz"],
     cmd = """
         if [[ -d node_modules ]]; then
@@ -61,9 +63,11 @@ genrule(
             # from the filename because we need to create the path (mkdir -p)
             # before we can write the file
             file=$$(basename $$f)
-            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
-            mkdir -p $$dir
-            cp ../$$f $$dir/$$file
+            dir=$$(dirname $$f | sed -E 's:^.*/node_modules/?::')
+            if [[ -n "$$dir" ]]; then
+              mkdir -p "$$dir"
+            fi
+            cp -Lr ../$$f ./$$dir/$$file
         done
         cd ..
         # Avoid file path too long errors on Windows of the form
@@ -111,6 +115,8 @@ genrule(
         trap cleanup EXIT
         DIR=$$PWD
         cp -r compiler/daml-extension $$TMP_DIR
+        # we store the target cpu value to ensure the archive is platform specific
+        echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/{npm}/" package.json

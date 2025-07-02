@@ -23,7 +23,7 @@ let shared = rec {
     netcat-gnu
     openssl
     patchelf
-    protobuf3_8
+    protobuf3_20
     python3
     toxiproxy
     zip
@@ -47,6 +47,7 @@ let shared = rec {
         perl
         haskell.compiler.ghc902
         stdenv.cc  # ghc-lib needs `gcc` or `clang`, but Bazel provides `cc`.
+        stdenv.cc.cc.lib # requiered to link `com_github_madler_zlib/libz.so` otherwise it cannot find `-lgcc_s`
         xz
       ] ++ (
         if stdenv.isDarwin
@@ -82,19 +83,6 @@ let shared = rec {
         wrapProgram $out/bin/scalap   --add-flags "-nobootcp"
       '';
     });
-
-  # We need to have a file in GOPATH that we can use as
-  # root_file in go_wrap_sdk.
-  go = pkgs.buildEnv {
-    name = "bazel-go-toolchain";
-    paths = [
-      pkgs.go
-    ];
-    postBuild = ''
-      touch $out/ROOT
-      ln -s $out/share/go/{api,doc,lib,misc,pkg,src} $out/
-    '';
-  };
 
   ghcPkgs = pkgs.haskell.packages.native-bignum.ghc902;
 
@@ -145,9 +133,8 @@ let shared = rec {
 
   # rules_nodejs expects nodejs in a subdirectory of a repository rule.
   # We use a linkFarm to fulfill this requirement.
-  nodejs = pkgs.nodejs-16_x;
+  nodejs = pkgs.nodejs-18_x;
   nodejsNested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = nodejs; }];
-  nodejs14Nested = pkgs.linkFarm "nodejs" [ { name = "node_nix"; path = pkgs.nodejs-14_x; }];
 
   sass = pkgs.sass;
 
@@ -164,7 +151,7 @@ let shared = rec {
   } ;
 
   sphinx-exts = pkgs.python3Packages.sphinx.overridePythonAttrs (attrs: rec {
-    propagatedBuildInputs = attrs.propagatedBuildInputs ++ [sphinx-copybutton];
+    propagatedBuildInputs = [sphinx-copybutton];
   });
 
   script = pkgs.unixtools.script;

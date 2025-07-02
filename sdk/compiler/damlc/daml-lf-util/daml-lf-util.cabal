@@ -19,19 +19,19 @@ library
     default-language: Haskell2010
     hs-source-dirs: src
     build-depends:
-      -- @stackage//:base
+      -- @@stackage//:base
       base,
-      -- @stackage//:bytestring
+      -- @@stackage//:bytestring
       bytestring,
       -- //libs-haskell/da-hs-base:da-hs-base
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
-      -- @stackage//:ghc-lib-parser
+      -- @@stackage//:ghc-lib-parser
       ghc-lib-parser,
-      -- @stackage//:lsp-types
+      -- @@stackage//:lsp-types
       lsp-types,
-      -- @stackage//:text
+      -- @@stackage//:text
       text,
     exposed-modules:
       DA.Daml.UtilLF

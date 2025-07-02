@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Meant to be linked to from `dev-env/bin`, symlink should be named after the
+# tool. Execute a Nix tool from a derivation that creates a `result` directory.
+
+DADE_CURRENT_SCRIPT_DIR="$( dirname $( readlink -f "${BASH_SOURCE[0]}" ) )"
+source "$DADE_CURRENT_SCRIPT_DIR/../lib/dade-common"
+base=$(basename $0)
+execTool $base out $base "$@"

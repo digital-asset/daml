@@ -18,13 +18,11 @@ def _fat_cc_library_impl(ctx):
             static_lib = None
             if lib.pic_static_library:
                 static_lib = lib.pic_static_library
-            elif is_windows and lib.static_library:
-                # On Windows we don't seem to have `pic_static_library`s available.
+            elif lib.static_library:
+                # On Windows and MacOS we don't seem to have `pic_static_library`s available.
                 static_lib = lib.static_library
             else:
-                fail("No (PIC) static library found for '{}'.".format(
-                    str(lib.dynamic_library.path),
-                ))
+                fail("No (PIC) static library found for '{}'.".format(str(lib)))
             static_libs += [static_lib]
 
     dyn_lib = ctx.outputs.dynamic_library
@@ -140,4 +138,5 @@ fat_cc_library = rule(
         "dynamic_library": "lib%{name}.dll" if is_windows else "lib%{name}.so",
         "static_library": "lib%{name}.a",
     },
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
 )

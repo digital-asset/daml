@@ -901,7 +901,7 @@ checkFields origin paramNames fields = do
 
 diffNotAtEnd :: (Eq a, Hashable a) => Upgrading [a] -> [a]
 diffNotAtEnd xs =
-    let (_del, _existing, new) = extractDelExistNew $ fmap (\xs -> HMS.fromList (zip xs (repeat ()))) xs
+    let (_del, _existing, new) = extractDelExistNew $ fmap (\xs -> HMS.fromList (map (, ()) xs)) xs
         presentIndices = zip (_present xs) [0..]
         newXesIndices = filter (flip HMS.member new . fst) presentIndices
         newIndicesNotAtEnd = map fst $ filter ((< length (_past xs)) . snd) newXesIndices
