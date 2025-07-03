@@ -619,7 +619,10 @@ load("@io_bazel_rules_go//go:deps.bzl", "go_rules_dependencies")
 
 go_rules_dependencies()
 
-gazelle_dependencies(go_sdk = "go_sdk")
+gazelle_dependencies(
+    go_sdk = "go_sdk",
+    go_repository_default_config = "@//:WORKSPACE.bzlmod",
+)
 
 load("@go_googleapis//:repository_rules.bzl", "switched_rules_by_language")
 
