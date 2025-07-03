@@ -21,7 +21,7 @@ newtype HoogleEnv = HoogleEnv
 
 -- | Convert a markdown comment into hoogle text.
 hooglify :: [DocText] -> [T.Text]
-hooglify docs = case intercalate ([""]) $ unDocText <$> docs of
+hooglify docs = case intercalate [""] $ unDocText <$> docs of
   [] -> []
   (x:xs) -> ("-- | " <> x) : map ("--   " <>) xs
 
