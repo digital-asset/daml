@@ -641,10 +641,6 @@ load("@canton_maven//:defs.bzl", pinned_canton_maven_install = "pinned_maven_ins
 
 pinned_canton_maven_install()
 
-load("@deprecated_maven//:defs.bzl", pinned_deprecated_maven_install = "pinned_maven_install")
-
-pinned_deprecated_maven_install()
-
 load("@io_bazel_rules_scala//:scala_config.bzl", "scala_config")
 
 scala_config(scala_version)
