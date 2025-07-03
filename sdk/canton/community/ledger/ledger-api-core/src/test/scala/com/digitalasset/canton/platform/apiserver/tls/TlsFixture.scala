@@ -23,7 +23,7 @@ import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, Ledg
 import com.digitalasset.canton.protobuf
 import com.digitalasset.canton.util.JarResourceUtils
 import io.grpc.{BindableService, ManagedChannel}
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 
 import java.io.File
 import java.util.concurrent.Executors

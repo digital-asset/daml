@@ -7,7 +7,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.platform.apiserver.LedgerApiService
 import com.digitalasset.canton.util.JarResourceUtils
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AsyncWordSpec
 
