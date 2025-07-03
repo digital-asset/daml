@@ -2,12 +2,18 @@
   "md_adts": [],
   "md_anchor": "module-damldocsscriptimport-97896",
   "md_classes": [],
-  "md_descr": "My documented module",
+  "md_descr": [
+    "My documented module"
+  ],
   "md_functions": [
     {
       "fct_anchor": "function-damldocsscriptimport-main-98373",
       "fct_context": [],
-      "fct_descr": "My documented script",
+      "fct_descr": [
+        [
+          "My documented script"
+        ]
+      ],
       "fct_name": "main",
       "fct_type": {
         "TypeApp": [
@@ -22,7 +28,8 @@
             }
           ]
         ]
-      }
+      },
+      "fct_warns": []
     }
   ],
   "md_instances": [],

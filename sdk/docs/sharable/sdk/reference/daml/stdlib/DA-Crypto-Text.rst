@@ -7,8 +7,8 @@ DA.Crypto.Text
 ==============
 
 .. warning::
-  DA\.Crypto\.Text is an alpha feature\. It can change without notice\.
-  use \-Wno\-crypto\-text\-is\-alpha in build\-options to disable this warning
+  | DA\.Crypto\.Text is an alpha feature\. It can change without notice\.
+  | use \-Wno\-crypto\-text\-is\-alpha in build\-options to disable this warning
 
 Functions for working with Crypto builtins\.
 For example, as used to implement CCTP functionality\.

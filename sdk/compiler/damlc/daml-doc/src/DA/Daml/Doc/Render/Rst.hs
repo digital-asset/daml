@@ -31,8 +31,8 @@ renderRst env = \case
     RenderRecordFields fields -> renderRstFields env fields
     RenderParagraph text -> [renderRstText env text]
     RenderDocs docText -> textToRst $ unDocText docText
-    RenderWarnOrDeprecated (WarnData txt) -> ".. warning::" : indent (textToRst txt)
-    RenderWarnOrDeprecated (DeprecatedData txt) -> ".. warning::" : indent (textToRst $ "DEPRECATED:" : txt)
+    RenderWarnOrDeprecated (WarnData txt) -> ".. warning::" : indent (textToRst $ ("| " <> ) <$> txt)
+    RenderWarnOrDeprecated (DeprecatedData txt) -> ".. warning::" : indent (textToRst $ "**DEPRECATED**:" : "" : (("| " <>) <$> txt))
     RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
     RenderIndex moduleNames ->
         [ T.concat

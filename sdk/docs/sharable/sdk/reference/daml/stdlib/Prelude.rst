@@ -1456,9 +1456,10 @@ Data Types
 **data** `AnyException <type-da-internal-lf-anyexception-7004_>`_
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   A wrapper for all exception types\.
 

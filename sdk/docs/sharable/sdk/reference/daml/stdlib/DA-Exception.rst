@@ -7,9 +7,10 @@ DA.Exception
 ============
 
 .. warning::
-  DEPRECATED\:
-  Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-  Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+  **DEPRECATED**\:
+
+  | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+  | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
 Exception handling in Daml\.
 DEPRECATED\: Use ``failWithStatus`` and ``FailureStatus`` over Daml Exceptions
@@ -22,9 +23,10 @@ Typeclasses
 **class** `HasThrow <class-da-internal-exception-hasthrow-30284_>`_ e **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Part of the ``Exception`` constraint\.
 
@@ -48,9 +50,10 @@ Typeclasses
 **class** `HasMessage <class-da-internal-exception-hasmessage-3179_>`_ e **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Part of the ``Exception`` constraint\.
 
@@ -76,9 +79,10 @@ Typeclasses
 **class** `HasToAnyException <class-da-internal-exception-hastoanyexception-55973_>`_ e **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Part of the ``Exception`` constraint\.
 
@@ -104,9 +108,10 @@ Typeclasses
 **class** `HasFromAnyException <class-da-internal-exception-hasfromanyexception-16788_>`_ e **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Part of the ``Exception`` constraint\.
 
@@ -132,9 +137,10 @@ Typeclasses
 **class** :ref:`Action <class-da-internal-prelude-action-68790>` m \=\> `ActionThrow <class-da-internal-exception-actionthrow-37623_>`_ m **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Action type in which ``throw`` is supported\.
 
@@ -150,9 +156,10 @@ Typeclasses
 **class** `ActionThrow <class-da-internal-exception-actionthrow-37623_>`_ m \=\> `ActionCatch <class-da-internal-exception-actioncatch-69238_>`_ m **where**
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Action type in which ``try ... catch ...`` is supported\.
   DEPRECATED\: Avoid the use of catch in daml code, prefer error handling on client, and throwing using ``failWithStatus``
@@ -183,9 +190,10 @@ Data Types
 **data** `ArithmeticError <type-da-exception-arithmeticerror-arithmeticerror-68828_>`_
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Exception raised by an arithmetic operation, such as divide\-by\-zero or overflow\.
 
@@ -209,9 +217,10 @@ Data Types
 **data** `AssertionFailed <type-da-exception-assertionfailed-assertionfailed-69740_>`_
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Exception raised by assert functions in DA\.Assert
 
@@ -235,9 +244,10 @@ Data Types
 **data** `GeneralError <type-da-exception-generalerror-generalerror-5800_>`_
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Exception raised by ``error``\.
 
@@ -261,9 +271,10 @@ Data Types
 **data** `PreconditionFailed <type-da-exception-preconditionfailed-preconditionfailed-61218_>`_
 
   .. warning::
-    DEPRECATED\:
-    Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
-    Use ``-Wno-deprecated-exceptions`` to disable this warning\.
+    **DEPRECATED**\:
+
+    | Exceptions are deprecated, prefer ``failWithStatus``, and avoid using catch\.
+    | Use ``-Wno-deprecated-exceptions`` to disable this warning\.
 
   Exception raised when a contract is invalid, i\.e\. fails the ensure clause\.
 
