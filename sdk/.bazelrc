@@ -1,7 +1,7 @@
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
-build:darwin --remote_cache=https://bazel-cache.da-ext.net/202309/macos
-build:linux --remote_cache=https://bazel-cache.da-ext.net/202309/ubuntu
+build:darwin --remote_cache=https://bazel-cache.da-ext.net/20250703/macos
+build:linux --remote_cache=https://bazel-cache.da-ext.net/20250703/ubuntu
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
 # Do still push local build results to the local disk cache.
