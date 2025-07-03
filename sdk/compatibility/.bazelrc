@@ -1,9 +1,19 @@
-common --noenable_bzlmod
+# Disable bzlmod lock-file.
+# During the migration from workspace to bzlmod the lock-file is mostly
+# going to get in the way.
+# More generally, multi-platform projects with platform specific
+# dependencies require some extra considerations to make a Bazel lockfile
+# work well.
+common --lockfile_mode=off
+
+# TODO: remove this flag.
+# Temporarily set to work around visibility issues between grpc deps and protobuf.
+build --check_visibility=false
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
-build:darwin --remote_cache=https://bazel-cache.da-ext.net/202405/macos
-build:linux --remote_cache=https://bazel-cache.da-ext.net/202405/ubuntu
+build:darwin --remote_cache=https://bazel-cache.da-ext.net/202506bzlmod/macos
+build:linux --remote_cache=https://bazel-cache.da-ext.net/202506bzlmod/ubuntu
 # Don't push local build results to the remote cache.
 build --remote_upload_local_results=false
 # Do still push local build results to the local disk cache.
@@ -96,9 +106,12 @@ build --action_env=GIT_SSL_CAINFO
 build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
+build --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
-build:linux --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
-build:darwin --host_platform=@io_tweag_rules_nixpkgs//nixpkgs/platforms:host
+build:linux --host_platform=@rules_nixpkgs_core//platforms:host
+build:darwin --host_platform=@rules_nixpkgs_core//platforms:host
+build:linux --extra_toolchains=@local_config_cc//:all
+build:darwin --extra_toolchains=@local_config_cc//:all
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true

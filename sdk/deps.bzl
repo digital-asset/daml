@@ -56,7 +56,7 @@ rules_nixpkgs_toolchain_patches = {
     "java": [],
     "cc": [],
     "python": [],
-    "go": [],
+    "go": ["//bazel_tools:nixpkgs-go-repo-name.patch"],
     "rust": [],
     "posix": [],
 }
@@ -404,7 +404,7 @@ package(default_visibility = ["//visibility:public"])
 genrule(
   name = "site",
   srcs = ["_config.yml"] + glob(["**/*"],
-          exclude = ["_config.yml", "LICENSE", "WORKSPACE", "BUILD.bazel", "README.md"]),
+          exclude = ["_config.yml", "LICENSE", "MODULE.bazel", "WORKSPACE", "WORKSPACE.bzlmod", "BUILD.bazel", "README.md"]),
   outs = ["cheat-sheet.tar.gz"],
   tools = ["@jekyll_nix//:bin/jekyll"],
   cmd = '''
