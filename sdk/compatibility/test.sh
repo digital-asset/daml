@@ -115,7 +115,7 @@ if [ "${1:-}" = "--quick" ]; then
   tag_filter="${tag_filter}+head-quick,"
 fi
 
-bazel test  //:create-daml-app-2.9.5-platform-0.0.0  //:create-daml-app-0.0.0-platform-2.9.5  \
+bazel test  //:create-daml-app-2.8.6-platform-0.0.0  //:create-daml-app-0.0.0-platform-2.8.6  \
   --test_env "POSTGRESQL_HOST=${POSTGRESQL_HOST}" \
   --test_env "POSTGRESQL_PORT=${POSTGRESQL_PORT}" \
   --test_env "POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}" \
