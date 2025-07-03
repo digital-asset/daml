@@ -46,8 +46,8 @@ go_library(
     srcs = [
         "protoc-gen-scalapb.go",
     ],
-    importpath = "github.com/digital-asset/daml/scala/protoc-gen-scalapb",
     embedsrcs = [":java-path"],
+    importpath = "github.com/digital-asset/daml/scala/protoc-gen-scalapb",
     visibility = ["//visibility:public"],
 )
 

@@ -84,7 +84,7 @@ def _fat_cc_library_impl(ctx):
         )
     else:
         # Note [MRI Script Tilde]
-        # 
+        #
         # The MRI script (`ar -M`) started failing with bzlmod enabled because
         # some of the provided archives had `~` characters in their path due to
         # Bazel bzlmod name mangling. The reason is that ar's MRI script format
