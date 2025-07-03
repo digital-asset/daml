@@ -79,6 +79,9 @@ if (Has-Regenerate-Stackage-Trailer) {
   throw ("Stopping after stackage has been regenerated.")
 }
 
+# TMP
+bazel clean `-`-expunge
+
 Write-Output "Running 'bazel build //...'"
 bazel build //... `
   `-`-profile build-profile.json `

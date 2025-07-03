@@ -94,6 +94,8 @@ if has_regenerate_stackage_trailer; then
   exit 1
 fi
 
+# TMP
+$bazel clean --expunge
 echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
