@@ -328,17 +328,3 @@ def install_java_deps():
         fail_if_repin_required = True,
     )
 
-    # Do not use those dependencies in anything new !
-    maven_install(
-        name = "deprecated_maven",
-        maven_install_json = "@//:deprecated_maven_install.json",
-        artifacts = [
-            "io.gatling.highcharts:gatling-charts-highcharts:3.5.1",
-            "io.gatling:gatling-app:3.5.1",
-        ],
-        repositories = [
-            "https://repo1.maven.org/maven2",
-        ],
-        fetch_sources = True,
-        version_conflict_policy = "pinned",
-    )
