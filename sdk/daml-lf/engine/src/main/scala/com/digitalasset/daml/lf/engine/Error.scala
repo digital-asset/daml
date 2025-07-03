@@ -71,6 +71,23 @@ object Error {
           s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
     }
 
+    final case class DarSelfConsistency(
+        mainPackageId: Ref.PackageId,
+        transitiveDependencies: Set[Ref.PackageId],
+        missingDependencies: Set[Ref.PackageId],
+        extraDependencies: Set[Ref.PackageId],
+    ) extends Error {
+      def message: String =
+        s"For package $mainPackageId, the set of package dependencies ${transitiveDependencies
+            .mkString("{'", "', '", "'}")} is not self consistent, " +
+          (if (missingDependencies.nonEmpty)
+             s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")} "
+           else "") +
+          (if (missingDependencies.nonEmpty && extraDependencies.nonEmpty) "and " else "") +
+          (if (extraDependencies.nonEmpty)
+             s"the extra dependencies are ${extraDependencies.mkString("{'", "', '", "'}")}"
+           else "")
+    }
   }
 
   // Error happening during command/transaction preprocessing

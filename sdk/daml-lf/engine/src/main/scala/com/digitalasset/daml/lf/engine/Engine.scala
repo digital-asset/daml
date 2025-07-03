@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
@@ -38,6 +39,8 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+
+import scala.annotation.tailrec
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -640,6 +643,87 @@ class Engine(val config: EngineConfig) {
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
 
+    } yield ()
+  }
+
+  /** This method checks a Dar file is self-consistent (it
+    * contains all its dependencies and only those dependencies), contains only well-formed
+    * packages (See Daml-LF spec for more details) and uses only the
+    * allowed language versions (as described by the engine
+    * config).
+    * This is not affected by [[config.packageValidation]] flag.
+    * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
+    * preloaded.
+    */
+  def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
+    val darManifest = dar.all.toMap
+    val mainPackageId = dar.main._1
+    val mainPackageDependencies = dar.main._2.directDeps
+
+    def lookupDarPackage(pkgId: PackageId): Option[Package] = darManifest.get(pkgId)
+
+    @tailrec
+    def calculateDependencyInformation(
+        pkgIds: Set[PackageId],
+        knownDeps: Set[PackageId],
+        missingDeps: Set[PackageId],
+    ): (Set[PackageId], Set[PackageId]) =
+      if (pkgIds.isEmpty) {
+        (knownDeps, missingDeps)
+      } else {
+        val (newMissingDeps, newKnownDeps) = pkgIds.partition(id => lookupDarPackage(id).isEmpty)
+        val directDeps = newKnownDeps.flatMap(id =>
+          lookupDarPackage(id).get.directDeps
+        ) -- (knownDeps ++ newKnownDeps ++ missingDeps ++ newMissingDeps)
+
+        calculateDependencyInformation(
+          directDeps,
+          knownDeps ++ newKnownDeps,
+          missingDeps ++ newMissingDeps,
+        )
+      }
+
+    for {
+      _ <- darManifest
+        .collectFirst {
+          case (pkgId, pkg)
+              if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
+            Error.Package.AllowedLanguageVersion(
+              pkgId,
+              pkg.languageVersion,
+              config.allowedLanguageVersions,
+            )
+        }
+        .toLeft(())
+      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
+      // extraDeps are Dar manifest package IDs that are not stable packages and are not used (but their packages may also be missing from the Dar manifest)
+      (transitiveDeps, missingDeps) = calculateDependencyInformation(
+        mainPackageDependencies,
+        Set.empty,
+        Set.empty,
+      )
+      extraDeps = darManifest.keySet
+        .diff(
+          Set(
+            mainPackageId
+          ) ++ transitiveDeps ++ missingDeps ++ stablePackageIds
+        )
+      _ <- Either.cond(
+        missingDeps.isEmpty && extraDeps.isEmpty,
+        (),
+        Error.Package.DarSelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
+      )
+      pkgInterface = PackageInterface(darManifest)
+      _ <- {
+        darManifest.iterator
+          // we trust already loaded packages
+          .collect {
+            case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
+          }
+          .collectFirst { case Left(err) => Error.Package.Validation(err) }
+      }.toLeft(())
     } yield ()
   }
 
