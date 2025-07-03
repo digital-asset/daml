@@ -38,6 +38,7 @@
     ]
   },
   "devDependencies": {
+    "@types/minimatch": "5.1.2",
     "@types/jwt-simple": "^0.5.33",
     "@types/react": "^17.0.0",
     "@types/react-dom": "^17.0.0",
