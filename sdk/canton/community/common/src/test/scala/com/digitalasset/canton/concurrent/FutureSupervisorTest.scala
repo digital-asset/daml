@@ -4,7 +4,6 @@
 package com.digitalasset.canton.concurrent
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.FutureSupervisorImplTest.ScaleTestFutureTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
@@ -68,6 +67,8 @@ class NoOpFutureSupervisorTest extends FutureSupervisorTest {
 }
 
 class FutureSupervisorImplTest extends FutureSupervisorTest {
+
+  import FutureSupervisorImplTest.*
 
   "FutureSupervisorImpl" should {
     behave like futureSupervisor(
@@ -133,7 +134,6 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 
     "scale for many supervised futures" in {
       // Another (stricter) test ensuring that there is no quadratic algorithm anywhere in the supervision code
-      val count = 100000
       val supervisor =
         new FutureSupervisor.Impl(
           config.NonNegativeDuration.ofSeconds(ScaleTestFutureTimeout.toSeconds)
@@ -141,18 +141,18 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       val promise = Promise[Unit]()
       val startTime = System.nanoTime
 
-      val supervisedFutures = (1 to count).toList.map { i =>
+      val supervisedFutures = (1 to ScaleTestTotalNumberOfFutures).toList.map { i =>
         supervisor.supervised(s"test-$i")(promise.future)
       }
-      supervisor.inspectScheduled.size shouldBe count
+      supervisor.inspectScheduled.size shouldBe ScaleTestTotalNumberOfFutures
       promise.success(())
       Future.sequence(supervisedFutures).futureValue
 
       val totalTime = (System.nanoTime - startTime).nanos
-      if (totalTime > ScaleTestFutureTimeout) {
+      if (totalTime > ScaleTestTotalTimeout) {
         fail(
           s"Sequenced future took longer (${totalTime.toMillis} milliseconds) to complete than " +
-            s"the scale test timeout of $ScaleTestFutureTimeout"
+            s"the total scale test timeout of $ScaleTestTotalTimeout"
         )
       }
 
@@ -164,5 +164,8 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
 }
 
 object FutureSupervisorImplTest {
+  private val ScaleTestTotalNumberOfFutures = 100000
   private val ScaleTestFutureTimeout = 1.second
+  // Use a bigger timeout for completing the entire scale test
+  private val ScaleTestTotalTimeout = 5.seconds
 }

@@ -58,8 +58,7 @@ import scala.concurrent.ExecutionContext
   */
 trait SigningOps {
 
-  def defaultSigningAlgorithmSpec: SigningAlgorithmSpec
-  def supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]]
+  def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec]
 
   /** Signs the given hash using the private signing key.
     *
@@ -72,7 +71,7 @@ trait SigningOps {
       hash: Hash,
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     signBytes(hash.getCryptographicEvidence, signingKey, usage, signingAlgorithmSpec)
 
@@ -81,7 +80,7 @@ trait SigningOps {
       bytes: ByteString,
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature]
 
   /** Confirms if the provided signature is a valid signature of the payload using the public key */
@@ -104,15 +103,15 @@ trait SigningOps {
 /** Signing operations that require access to stored private keys. */
 trait SigningPrivateOps {
 
-  def defaultSigningAlgorithmSpec: SigningAlgorithmSpec
-  def defaultSigningKeySpec: SigningKeySpec
+  def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec]
+  def signingKeySpecs: CryptoScheme[SigningKeySpec]
 
   /** Signs the given hash using the referenced private signing key. */
   def sign(
       hash: Hash,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningError, Signature] =
@@ -123,14 +122,14 @@ trait SigningPrivateOps {
       bytes: ByteString,
       signingKeyId: Fingerprint,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, SigningError, Signature]
 
   /** Generates a new signing key pair with the given scheme and optional name, stores the private
     * key and returns the public key.
     */
   def generateSigningKey(
-      keySpec: SigningKeySpec = defaultSigningKeySpec,
+      keySpec: SigningKeySpec = signingKeySpecs.default,
       usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
@@ -1129,12 +1128,17 @@ object RequiredSigningSpecs {
     } yield RequiredSigningSpecs(algorithmSpecsNE, keySpecsNE)
 }
 
-final case class SigningKeyPair(publicKey: SigningPublicKey, privateKey: SigningPrivateKey)
+final case class SigningKeyPair private (publicKey: SigningPublicKey, privateKey: SigningPrivateKey)
     extends CryptoKeyPair[SigningPublicKey, SigningPrivateKey] {
 
   require(
     publicKey.usage == privateKey.usage,
-    "Public and private key must have the same key usage",
+    s"Public [${publicKey.usage}] and private [${publicKey.usage}] key must have the same key usage",
+  )
+
+  require(
+    publicKey.keySpec == privateKey.keySpec,
+    s"Public [${publicKey.keySpec}] and private[${privateKey.keySpec}] key must have the same key spec",
   )
 
   @VisibleForTesting
@@ -1703,6 +1707,16 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
   final case class FingerprintError(error: String) extends SigningKeyGenerationError {
     override protected def pretty: Pretty[FingerprintError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
+    )
+  }
+
+  final case class UnsupportedKeySpec(
+      keySpec: SigningKeySpec,
+      supportedKeySpecs: Set[SigningKeySpec],
+  ) extends SigningKeyGenerationError {
+    override protected def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
+      param("keySpec", _.keySpec),
+      param("supportedKeySpecs", _.supportedKeySpecs),
     )
   }
 

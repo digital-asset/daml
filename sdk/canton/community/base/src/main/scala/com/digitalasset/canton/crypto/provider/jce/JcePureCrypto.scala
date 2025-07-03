@@ -69,10 +69,8 @@ object JceSecureRandom {
 
 class JcePureCrypto(
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
-    override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec,
-    override val supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]],
-    override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec,
-    override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]],
+    override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
+    override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec],
     override val defaultHashAlgorithm: HashAlgorithm,
     override val defaultPbkdfScheme: PbkdfScheme,
     override val loggerFactory: NamedLoggerFactory,
@@ -412,7 +410,7 @@ class JcePureCrypto(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature] = {
 
     def signWithSigner(signer: PublicKeySign): Either[SigningError, Signature] =
@@ -446,15 +444,15 @@ class JcePureCrypto(
         .selectSigningAlgorithmSpec(
           signingKey.keySpec,
           signingAlgorithmSpec,
-          supportedSigningAlgorithmSpecs,
+          signingAlgorithmSpecs.allowed,
           algorithmSpec =>
-            SigningError.UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
+            SigningError.UnsupportedAlgorithmSpec(algorithmSpec, signingAlgorithmSpecs.allowed),
         )
       _ <- CryptoKeyValidation.ensureCryptoSpec(
         signingKey.keySpec,
         signingAlgorithmSpec,
         signingAlgorithmSpec.supportedSigningKeySpecs,
-        supportedSigningAlgorithmSpecs,
+        signingAlgorithmSpecs.allowed,
         SigningError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
         SigningError.UnsupportedAlgorithmSpec.apply,
       )
@@ -501,7 +499,7 @@ class JcePureCrypto(
       signingAlgorithmSpec <- signature.signingAlgorithmSpec match {
         case Some(spec) => Right(spec)
         case None =>
-          supportedSigningAlgorithmSpecs
+          signingAlgorithmSpecs.allowed
             .find(_.supportedSigningKeySpecs.contains(publicKey.keySpec))
             .toRight(
               SignatureCheckError
@@ -531,7 +529,7 @@ class JcePureCrypto(
         publicKey.keySpec,
         signingAlgorithmSpec,
         signingAlgorithmSpec.supportedSigningKeySpecs,
-        supportedSigningAlgorithmSpecs,
+        signingAlgorithmSpecs.allowed,
         SignatureCheckError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
         SignatureCheckError.UnsupportedAlgorithmSpec.apply,
       )
@@ -709,16 +707,16 @@ class JcePureCrypto(
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     CryptoKeyValidation
       .selectEncryptionAlgorithmSpec(
         publicKey.keySpec,
         encryptionAlgorithmSpec,
-        supportedEncryptionAlgorithmSpecs,
+        encryptionAlgorithmSpecs.allowed,
         algorithmSpec =>
           EncryptionError
-            .UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+            .UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
       )
       .flatMap {
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
@@ -743,14 +741,14 @@ class JcePureCrypto(
   override def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
     CryptoKeyValidation.selectEncryptionAlgorithmSpec(
       publicKey.keySpec,
       encryptionAlgorithmSpec,
-      supportedEncryptionAlgorithmSpecs,
+      encryptionAlgorithmSpecs.allowed,
       algorithmSpec =>
-        EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+        EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
     ) match {
       case Right(spec) if !spec.supportDeterministicEncryption =>
         Left(
@@ -799,7 +797,7 @@ class JcePureCrypto(
         privateKey.keySpec,
         encrypted.encryptionAlgorithmSpec,
         encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
-        supportedEncryptionAlgorithmSpecs,
+        encryptionAlgorithmSpecs.allowed,
         DecryptionError.KeyAlgoSpecsMismatch(_, encrypted.encryptionAlgorithmSpec, _),
         DecryptionError.UnsupportedAlgorithmSpec.apply,
       )
@@ -1028,10 +1026,8 @@ object JcePureCrypto {
     pbkdfSchemes <- schemes.pbkdfSchemes.toRight("PBKDF schemes must be defined for JCE provider")
   } yield new JcePureCrypto(
     defaultSymmetricKeyScheme = schemes.symmetricKeySchemes.default,
-    defaultSigningAlgorithmSpec = schemes.signingAlgoSpecs.default,
-    supportedSigningAlgorithmSpecs = schemes.signingAlgoSpecs.allowed,
-    defaultEncryptionAlgorithmSpec = schemes.encryptionAlgoSpecs.default,
-    supportedEncryptionAlgorithmSpecs = schemes.encryptionAlgoSpecs.allowed,
+    signingAlgorithmSpecs = schemes.signingAlgoSpecs,
+    encryptionAlgorithmSpecs = schemes.encryptionAlgoSpecs,
     defaultHashAlgorithm = schemes.hashAlgorithms.default,
     defaultPbkdfScheme = pbkdfSchemes.default,
     loggerFactory = loggerFactory,

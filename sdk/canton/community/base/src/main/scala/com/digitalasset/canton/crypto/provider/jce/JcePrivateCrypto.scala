@@ -27,9 +27,9 @@ import scala.concurrent.ExecutionContext
 
 class JcePrivateCrypto(
     pureCrypto: JcePureCrypto,
-    override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec,
-    override val defaultSigningKeySpec: SigningKeySpec,
-    override val defaultEncryptionKeySpec: EncryptionKeySpec,
+    override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
+    override val signingKeySpecs: CryptoScheme[SigningKeySpec],
+    override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
     override protected val store: CryptoPrivateStoreExtended,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -45,7 +45,14 @@ class JcePrivateCrypto(
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] =
-    JcePrivateCrypto.generateEncryptionKeypair(keySpec).toEitherT
+    CryptoKeyValidation
+      .ensureCryptoKeySpec(
+        keySpec,
+        encryptionKeySpecs.allowed,
+        EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
+      )
+      .flatMap(_ => JcePrivateCrypto.generateEncryptionKeypair(keySpec))
+      .toEitherT
 
   override protected[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
@@ -53,7 +60,14 @@ class JcePrivateCrypto(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
-    JcePrivateCrypto.generateSigningKeypair(keySpec, usage).toEitherT
+    CryptoKeyValidation
+      .ensureCryptoKeySpec(
+        keySpec,
+        signingKeySpecs.allowed,
+        SigningKeyGenerationError.UnsupportedKeySpec.apply,
+      )
+      .flatMap(_ => JcePrivateCrypto.generateSigningKeypair(keySpec, usage))
+      .toEitherT
 
   override def name: String = "jce-private-crypto"
 

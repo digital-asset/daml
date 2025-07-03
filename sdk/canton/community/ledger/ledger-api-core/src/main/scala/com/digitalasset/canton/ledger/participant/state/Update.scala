@@ -57,7 +57,7 @@ sealed trait Update extends Product with Serializable with PrettyPrinting with H
   def recordTime: CantonTimestamp
 }
 
-// TODO(i21341) this will be removed later as Topology Event project progresses
+// TODO(i25076) this will be removed later as Topology Event project progresses
 sealed trait ParticipantUpdate extends Update {
   def withRecordTime(recordTime: CantonTimestamp): Update
 

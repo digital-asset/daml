@@ -3199,8 +3199,8 @@ components:
             $ref: '#/components/schemas/PackageVettingRequirement'
         synchronizerId:
           description: |-
-            The synchronizer whose vetting state to use for resolving this query.
-            If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+            The synchronizer whose vetting state should be used for resolving this query.
+            If not specified, the vetting states of all synchronizers to which the participant is connected are used.
             Optional
           type: string
         vettingValidAt:

@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.SigningAlgorithmSpec.Ed25519
 import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
 import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.crypto.{
+  CryptoScheme,
   Fingerprint,
   Hash,
   PbkdfScheme,
@@ -70,13 +71,11 @@ class SyncCryptoVerifier(
   private lazy val verifyPublicApiSoftwareBased: SynchronizerCryptoPureApi = {
     val pureCryptoForSessionKeys = new JcePureCrypto(
       defaultSymmetricKeyScheme = Aes128Gcm, // not used
-      defaultSigningAlgorithmSpec =
-        Ed25519, // not used, as this crypto interface is only for signature verification, and the scheme is derived
-      // directly from the signature.
-      supportedSigningAlgorithmSpecs =
-        verifyPublicApiWithLongTermKeys.supportedSigningAlgorithmSpecs,
-      defaultEncryptionAlgorithmSpec = RsaOaepSha256, // not used
-      supportedEncryptionAlgorithmSpecs = NonEmpty.mk(Set, RsaOaepSha256), // not used
+      signingAlgorithmSpecs =
+        CryptoScheme(Ed25519, NonEmpty.mk(Set, Ed25519)), // not used, as this crypto
+      // interface is only for signature verification, and the scheme is derived directly from the signature.
+      encryptionAlgorithmSpecs =
+        CryptoScheme(RsaOaepSha256, NonEmpty.mk(Set, RsaOaepSha256)), // not used
       defaultHashAlgorithm = Sha256, // not used
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1, // not used
       loggerFactory = loggerFactory,

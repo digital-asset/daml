@@ -1153,9 +1153,9 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): PendingTransaction = {
-    // We consider that we rejected if at least one of the responses is not "approve"
+    // We consider that we rejected if at least one of the responses is a "reject"
     val locallyRejectedF =
-      responsesF.map(_.exists(_.responses.exists(response => !response.localVerdict.isApprove)))
+      responsesF.map(_.exists(_.responses.exists(_.localVerdict.isReject)))
 
     // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
     // or a negative mediator verdict concurrently received in Phase 7

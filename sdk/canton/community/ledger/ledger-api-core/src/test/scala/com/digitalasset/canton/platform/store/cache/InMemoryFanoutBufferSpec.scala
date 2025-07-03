@@ -578,7 +578,7 @@ class InMemoryFanoutBufferSpec
         sourceSynchronizer = ReassignmentTag.Source(someSynchronizerId),
         targetSynchronizer = ReassignmentTag.Target(someSynchronizerId),
         submitter = None,
-        reassignmentId = ReassignmentId.tryCreate("1"),
+        reassignmentId = ReassignmentId.tryCreate("0001"),
         isReassigningParticipant = false,
       ),
       reassignment = null,

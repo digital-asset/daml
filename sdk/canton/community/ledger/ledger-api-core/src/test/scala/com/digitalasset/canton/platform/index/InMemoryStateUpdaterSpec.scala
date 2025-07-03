@@ -441,7 +441,7 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId1),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
-          reassignmentId = ReassignmentId.tryCreate("155555"),
+          reassignmentId = ReassignmentId.tryCreate("00155555"),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -467,7 +467,7 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId2),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
-          reassignmentId = ReassignmentId.tryCreate("1555551"),
+          reassignmentId = ReassignmentId.tryCreate("0001555551"),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(
@@ -929,7 +929,7 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party1),
-        reassignmentId = ReassignmentId.tryCreate("155555"),
+        reassignmentId = ReassignmentId.tryCreate("00155555"),
         isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Batch(
@@ -958,7 +958,7 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party2),
-        reassignmentId = ReassignmentId.tryCreate("1555551"),
+        reassignmentId = ReassignmentId.tryCreate("0001555551"),
         isReassigningParticipant = true,
       ),
       reassignment = Reassignment.Batch(

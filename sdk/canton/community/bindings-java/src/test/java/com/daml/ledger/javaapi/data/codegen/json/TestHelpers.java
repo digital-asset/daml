@@ -81,7 +81,7 @@ public class TestHelpers {
 
       @Override
       public boolean equals(Object o) {
-        return o != null && (o instanceof Bar) && x.equals(((Bar) o).x);
+        return o != null && (o instanceof Bar) && x == ((Bar) o).x;
       }
 
       @Override
@@ -246,13 +246,15 @@ public class TestHelpers {
       }
     }
 
-    static final Map<String, Suit> damlNames = new LinkedHashMap<String, Suit>();
-    static {
-        damlNames.put("Spades", Suit.SPADES);
-        damlNames.put("Hearts", Suit.HEARTS);
-        damlNames.put("Diamonds", Suit.DIAMONDS);
-        damlNames.put("Clubs", Suit.CLUBS);
-    }
+    static final Map<String, Suit> damlNames =
+        new HashMap<>() {
+          {
+            put("Hearts", HEARTS);
+            put("Diamonds", DIAMONDS);
+            put("Clubs", CLUBS);
+            put("Spades", SPADES);
+          }
+        };
 
     @Override
     public com.daml.ledger.javaapi.data.DamlEnum toValue() {

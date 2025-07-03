@@ -9,6 +9,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{
@@ -57,7 +58,6 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
@@ -140,7 +140,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       case reject: MediatorReject =>
         reject.reason
       case reasons: ParticipantReject =>
-        reasons.keyEvent.reason
+        reasons.keyEvent.reason()
     }
     pendingSubmission.reassignmentCompletion.success(status)
   }
@@ -383,9 +383,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
   protected def createConfirmationResponses(
       requestId: RequestId,
       malformedPayloads: Seq[MalformedPayload],
-      topologySnapshot: TopologySnapshot,
       protocolVersion: ProtocolVersion,
-      confirmingParties: Set[LfPartyId],
       validationResult: ReassignmentValidationResult,
   )(implicit
       traceContext: TraceContext
@@ -404,101 +402,81 @@ private[reassignment] trait ReassignmentProcessingSteps[
     } else {
       responsesForWellformedPayloads(
         requestId,
-        topologySnapshot,
         protocolVersion,
-        confirmingParties,
         validationResult,
       )
     }
 
   private def responsesForWellformedPayloads(
       requestId: RequestId,
-      topologySnapshot: TopologySnapshot,
       protocolVersion: ProtocolVersion,
-      confirmingParties: Set[LfPartyId],
       validationResult: ReassignmentValidationResult,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[ConfirmationResponses]] =
-    for {
-      hostedConfirmingParties <-
-        if (validationResult.isReassigningParticipant)
-          topologySnapshot.canConfirm(
-            participantId,
-            confirmingParties,
-          )
-        else
-          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
+    NonEmpty.from(validationResult.hostedConfirmingReassigningParties).traverse {
+      hostedConfirmingParties =>
+        for {
+          contractAuthenticationResult <-
+            validationResult.commonValidationResult.contractAuthenticationResultF.value
+        } yield {
+          val authenticationErrorO =
+            validationResult.commonValidationResult.participantSignatureVerificationResult
 
-      contractAuthenticationResult <-
-        if (hostedConfirmingParties.nonEmpty)
-          validationResult.commonValidationResult.contractAuthenticationResultF.value
-        else
-          FutureUnlessShutdown.pure(Right(()))
-    } yield {
-      if (hostedConfirmingParties.isEmpty) None
-      else {
-        val authenticationErrorO =
-          validationResult.commonValidationResult.participantSignatureVerificationResult
-
-        val authenticationRejection = authenticationErrorO.map(err =>
-          LocalRejectError.MalformedRejects.MalformedRequest
-            .Reject(err.message)
-        )
-
-        val modelConformanceRejection = contractAuthenticationResult.swap.toSeq.map(err =>
-          LocalRejectError.MalformedRejects.ModelConformance.Reject(err.toString)
-        )
-
-        val submitterCheckRejection =
-          validationResult.commonValidationResult.submitterCheckResult.map(err =>
-            LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
+          val authenticationRejection = authenticationErrorO.map(err =>
+            LocalRejectError.MalformedRejects.MalformedRequest
+              .Reject(err.message)
           )
 
-        val failedValidationRejection =
-          validationResult.reassigningParticipantValidationResult.errors.map(err =>
-            LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
-          )
+          val modelConformanceRejection = contractAuthenticationResult.swap.toSeq
+            .map(err => LocalRejectError.MalformedRejects.ModelConformance.Reject(err.toString))
 
-        val activenessRejection =
-          localRejectFromActivenessCheck(requestId, validationResult)
+          val submitterCheckRejection = validationResult.commonValidationResult.submitterCheckResult
+            .map(err => LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message))
 
-        val localRejections =
-          (modelConformanceRejection ++ activenessRejection.toList ++
-            authenticationRejection.toList ++ submitterCheckRejection ++ failedValidationRejection)
-            .map { err =>
-              err.logWithContext()
-              err.toLocalReject(protocolVersion)
+          val failedValidationRejection =
+            validationResult.reassigningParticipantValidationResult.errors
+              .map(err => LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message))
+
+          val activenessRejection =
+            localRejectFromActivenessCheck(requestId, validationResult)
+
+          val localRejections =
+            (modelConformanceRejection ++ activenessRejection.toList ++
+              authenticationRejection.toList ++ submitterCheckRejection ++ failedValidationRejection)
+              .map { err =>
+                err.logWithContext()
+                err.toLocalReject(protocolVersion)
+              }
+
+          val (localVerdict, parties) = localRejections
+            .collectFirst[(LocalVerdict, Set[LfPartyId])] {
+              case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
+              case localReject: LocalReject =>
+                localReject -> hostedConfirmingParties.forgetNE
             }
+            .getOrElse(
+              LocalApprove(protocolVersion) -> hostedConfirmingParties.forgetNE
+            )
 
-        val (localVerdict, parties) = localRejections
-          .collectFirst[(LocalVerdict, Set[LfPartyId])] {
-            case malformed: LocalReject if malformed.isMalformed => malformed -> Set.empty
-            case localReject: LocalReject =>
-              localReject -> hostedConfirmingParties
-          }
-          .getOrElse(
-            LocalApprove(protocolVersion) -> hostedConfirmingParties
+          val confirmationResponses = checked(
+            ConfirmationResponses.tryCreate(
+              requestId,
+              validationResult.rootHash,
+              synchronizerId.unwrap,
+              participantId,
+              NonEmpty.mk(
+                Seq,
+                ConfirmationResponse
+                  .tryCreate(
+                    Some(ViewPosition.root),
+                    localVerdict,
+                    parties,
+                  ),
+              ),
+              protocolVersion,
+            )
           )
-
-        val confirmationResponses = checked(
-          ConfirmationResponses.tryCreate(
-            requestId,
-            validationResult.rootHash,
-            synchronizerId.unwrap,
-            participantId,
-            NonEmpty.mk(
-              Seq,
-              ConfirmationResponse
-                .tryCreate(
-                  Some(ViewPosition.root),
-                  localVerdict,
-                  parties,
-                ),
-            ),
-            protocolVersion,
-          )
-        )
-        Some(confirmationResponses)
-      }
+          confirmationResponses
+        }
     }
 
   /** During phase 7, the validations that should be checked are the validations that can be done on

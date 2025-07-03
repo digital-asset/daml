@@ -543,7 +543,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       assignments = Map[LfContractId, AssignmentCommit](
         coid(1, 0) -> AssignmentCommit(
           Source(synchronizerId),
-          ReassignmentId.tryCreate("4"),
+          ReassignmentId.tryCreate("0004"),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           reassignmentCounter2,
         )
@@ -606,7 +606,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       assignments = Map[LfContractId, AssignmentCommit](
         coid(2, 0) -> AssignmentCommit(
           Source(synchronizerId),
-          ReassignmentId.tryCreate("8"),
+          ReassignmentId.tryCreate("0008"),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           reassignmentCounter2,
         )
@@ -1939,7 +1939,7 @@ class AcsCommitmentProcessorTest
         assignments = Map[LfContractId, AssignmentCommit](
           cid3.leftSide -> CommitSet.AssignmentCommit(
             Source(synchronizerId),
-            ReassignmentId.tryCreate("0"),
+            ReassignmentId.tryCreate("00"),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             reassignmentCounter1,
           )

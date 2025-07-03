@@ -1145,16 +1145,17 @@ abstract class ProtocolProcessor[
         } else {
           signedResponsesTo match {
             case Some((spm, recipients)) =>
+              lazy val (approved, rejected, abstained) = spm.message.responses.foldLeft((0, 0, 0)) {
+                case ((app, rej, abst), response) =>
+                  response.localVerdict match {
+                    case LocalApprove() => (app + 1, rej, abst)
+                    case _: LocalReject => (app, rej + 1, abst)
+                    case _: LocalAbstain => (app, rej, abst + 1)
+                  }
+              }
               val messageId = sequencerClient.generateMessageId
               logger.info(
-                s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId ${val (approved, rejected) =
-                    spm.message.responses.foldLeft((0, 0)) { case ((app, rej), response) =>
-                      response.localVerdict match {
-                        case LocalApprove() => (app + 1, rej)
-                        case _: LocalReject => (app, rej + 1)
-                      }
-                    }
-                  s"approved=$approved, rejected=$rejected" }"
+                s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId approved=$approved, rejected=$rejected, abstained=$abstained"
               )
               EitherT.right[steps.RequestError](
                 sendResponses(requestId, Seq(spm -> recipients), Some(messageId))

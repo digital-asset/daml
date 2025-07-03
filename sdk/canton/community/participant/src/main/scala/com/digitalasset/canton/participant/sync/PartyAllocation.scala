@@ -122,7 +122,7 @@ private[sync] class PartyAllocation(
             x
           }
 
-        // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
+        // TODO(i25076) remove this waiting logic once topology events are published on the ledger api
         // wait for parties to be available on the currently connected synchronizers
         waitingSuccessful <- EitherT
           .right[SubmissionResult](connectedSynchronizersLookup.get(synchronizerId).traverse {

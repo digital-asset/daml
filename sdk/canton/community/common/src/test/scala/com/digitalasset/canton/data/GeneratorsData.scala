@@ -484,7 +484,9 @@ final class GeneratorsData(
 
   implicit val reassignmentIdArb: Arbitrary[ReassignmentId] = Arbitrary {
     val hexChars: Seq[Char] = "0123456789abcdefABCDEF".toIndexedSeq
-    Gen.stringOfN(32, Gen.oneOf(hexChars)).map(ReassignmentId.tryCreate)
+    Gen.stringOfN(32, Gen.oneOf(hexChars)).map { payload =>
+      ReassignmentId.tryCreate(s"00$payload")
+    }
   }
 
   implicit val reassignmentSubmitterMetadataArb: Arbitrary[ReassignmentSubmitterMetadata] =

@@ -1428,9 +1428,9 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     SynchronizerId(UniqueIdentifier.tryCreate("target", "SYNCHRONIZER"))
   )
 
-  val reassignment10 = ReassignmentId.tryCreate("10")
-  val reassignment11 = ReassignmentId.tryCreate("11")
-  val reassignment20 = ReassignmentId.tryCreate("20")
+  val reassignment10 = ReassignmentId.tryCreate("0010")
+  val reassignment11 = ReassignmentId.tryCreate("0011")
+  val reassignment20 = ReassignmentId.tryCreate("0020")
 
   val loggerFactoryNotUsed = NamedLoggerFactory.unnamedKey("test", "NotUsed-ReassignmentStoreTest")
   val ec: ExecutionContext = DirectExecutionContext(

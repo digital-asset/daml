@@ -173,8 +173,9 @@ class OutputModule[E <: Env[E]](
   private[output] var currentEpochCouldAlterOrderingTopology =
     startupState.onboardingEpochCouldAlterOrderingTopology
 
-  // Storing metadata is idempotent but we try to avoid unnecessary writes
-  private var currentEpochMetadataStored = false
+  // Storing metadata is idempotent, but we try to avoid unnecessary writes
+  @VisibleForTesting
+  private[output] val epochsWithMetadataStoredCache = mutable.Set[EpochNumber]()
 
   private val snapshotAdditionalInfoProvider =
     new SequencerSnapshotAdditionalInfoProvider[E](
@@ -318,7 +319,8 @@ class OutputModule[E <: Env[E]](
           //  the epoch could not alter the ordering topology.
           currentEpochCouldAlterOrderingTopology =
             epochMetadata.exists(_.couldAlterOrderingTopology)
-          currentEpochMetadataStored = epochMetadata.isDefined
+          if (epochMetadata.isDefined)
+            setEpochMetadataStoredCache(startEpochNumber)
           orderedBlocksToProcess.foreach(orderedBlockForOutput =>
             context.self.asyncSend(BlockOrdered(orderedBlockForOutput))
           )
@@ -386,8 +388,8 @@ class OutputModule[E <: Env[E]](
             completedBlocksPeanoQueue.insert(blockNumber, completedBlockData)
             processFetchedBlocks()
 
-          // Blocks metadata persistence can complete in any order, so relying on mutable state
-          //  is generally unsafe in this handler.
+          // Blocks metadata persistence can complete in any order, so no assumption can be made
+          //  on the epoch number in this handler.
           case BlockDataStored(
                 orderedBlockData,
                 orderedBlockNumber,
@@ -396,9 +398,13 @@ class OutputModule[E <: Env[E]](
               ) =>
             emitRequestsOrderingStats(metrics, orderedBlockData, orderedBlockBftTime)
 
+            val epochNumber =
+              orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber
+
             // If the epoch could alter the ordering topology as a result of this block data,
             //  the epoch metadata was stored before sending this message.
-            currentEpochMetadataStored = epochCouldAlterOrderingTopology
+            if (epochCouldAlterOrderingTopology)
+              setEpochMetadataStoredCache(epochNumber)
 
             // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
             //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
@@ -427,7 +433,7 @@ class OutputModule[E <: Env[E]](
               val tickTopology = isBlockLastInEpoch && epochCouldAlterOrderingTopology
               logger.debug(
                 s"Sending block $orderedBlockNumber " +
-                  s"(current epoch = ${orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber}, " +
+                  s"(current epoch = $epochNumber, " +
                   s"block's BFT time = $orderedBlockBftTime, " +
                   s"block size = ${orderedBlockData.requestsView.size}, " +
                   s"is last in epoch = $isBlockLastInEpoch, " +
@@ -590,7 +596,10 @@ class OutputModule[E <: Env[E]](
         // We only store metadata for an epoch if it may alter the topology, i.e.,
         //  we never insert `false` and then change it; this avoids updates
         //  and allows leveraging idempotency for easier CFT support.
-        if (couldAlterOrderingTopology && !currentEpochMetadataStored) {
+        if (
+          couldAlterOrderingTopology && !epochsWithMetadataStoredCache
+            .contains(orderedBlockEpochNumber)
+        ) {
           val outputEpochMetadata =
             OutputEpochMetadata(orderedBlockEpochNumber, couldAlterOrderingTopology = true)
           logger.debug(s"Storing $outputEpochMetadata")
@@ -786,10 +795,13 @@ class OutputModule[E <: Env[E]](
       //  - Ordered blocks processing, which uses and changes epoch-related mutable state:
       //    - Also happens sequentially and in order.
       //    - Furthermore, only blocks for the current epoch are processed.
-      logger.debug(s"Setting up new epoch ${newEpochTopologyMessage.epochNumber}")
+      val newEpochNumber = newEpochTopologyMessage.epochNumber
+      logger.debug(s"Setting up new epoch $newEpochNumber")
       currentEpochCouldAlterOrderingTopology = false
-      currentEpochMetadataStored = epochMetadataStored
-      processingFetchedBlocksInEpoch = Some(newEpochTopologyMessage.epochNumber)
+      if (epochMetadataStored)
+        setEpochMetadataStoredCache(newEpochNumber)
+      cleanupEpochMetadataStoredCache(newEpochNumber)
+      processingFetchedBlocksInEpoch = Some(newEpochNumber)
 
       currentEpochOrderingTopology = newEpochTopologyMessage.membership.orderingTopology
       currentEpochCryptoProvider = newEpochTopologyMessage.cryptoProvider
@@ -801,14 +813,14 @@ class OutputModule[E <: Env[E]](
 
       metrics.topology.validators.updateValue(currentEpochOrderingTopology.nodes.size)
       logger.debug(
-        s"Sending topology $currentEpochOrderingTopology of a new epoch ${newEpochTopologyMessage.epochNumber} " +
+        s"Sending topology $currentEpochOrderingTopology of a new epoch $newEpochNumber " +
           "to a consensus behavior"
       )
 
       consensus.asyncSend(newEpochTopologyMessage)
       epochChecker.check(
         thisNode,
-        newEpochTopologyMessage.epochNumber,
+        newEpochNumber,
         newEpochTopologyMessage.membership,
       )
 
@@ -825,6 +837,16 @@ class OutputModule[E <: Env[E]](
         val timestamp = BftTime.requestBftTime(blockBftTime, index)
         Traced(OrderedRequest(timestamp.toMicros, tag, body))(tracedRequest.traceContext)
     }.toSeq
+
+  private def setEpochMetadataStoredCache(newEpochNumber: EpochNumber): Unit =
+    epochsWithMetadataStoredCache.add(newEpochNumber).discard
+
+  private def cleanupEpochMetadataStoredCache(newEpochNumber: EpochNumber): Unit =
+    // Cleanup old epoch bookkeeping state to avoid OOMs; keep the last two epochs to
+    //  spare epoch metadata inserts for blocks that finish saving after an epoch switch
+    this.epochsWithMetadataStoredCache
+      .filterInPlace(_ >= newEpochNumber - 1)
+      .discard
 
   private def emitFetchLatency(start: Instant): Unit = {
     import metrics.performance.orderingStageLatency.*

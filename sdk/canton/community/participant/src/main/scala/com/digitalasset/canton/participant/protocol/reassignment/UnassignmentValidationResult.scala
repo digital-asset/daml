@@ -31,7 +31,7 @@ final case class UnassignmentValidationResult(
     // we don't need all the tree to validate the assignment request
     fullTree: FullUnassignmentTree,
     reassignmentId: ReassignmentId,
-    hostedStakeholders: Set[LfPartyId],
+    hostedConfirmingReassigningParties: Set[LfPartyId],
     assignmentExclusivity: Option[
       Target[CantonTimestamp]
     ], // Defined iff the participant is reassigning

@@ -34,9 +34,9 @@ object JceCrypto {
       privateCrypto =
         new JcePrivateCrypto(
           pureCrypto,
-          defaultSigningAlgorithmSpec = cryptoSchemes.signingAlgoSpecs.default,
-          defaultSigningKeySpec = cryptoSchemes.signingKeySpecs.default,
-          defaultEncryptionKeySpec = cryptoSchemes.encryptionKeySpecs.default,
+          signingAlgorithmSpecs = cryptoSchemes.signingAlgoSpecs,
+          signingKeySpecs = cryptoSchemes.signingKeySpecs,
+          encryptionKeySpecs = cryptoSchemes.encryptionKeySpecs,
           store = cryptoPrivateStoreExtended,
           timeouts = timeouts,
           loggerFactory = loggerFactory,

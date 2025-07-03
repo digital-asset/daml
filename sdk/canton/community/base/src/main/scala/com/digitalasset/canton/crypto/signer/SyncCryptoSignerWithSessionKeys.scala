@@ -77,11 +77,12 @@ class SyncCryptoSignerWithSessionKeys(
   private lazy val signPublicApiSoftwareBased: SynchronizerCryptoPureApi = {
     val pureCryptoForSessionKeys = new JcePureCrypto(
       defaultSymmetricKeyScheme = Aes128Gcm, // not used
-      defaultSigningAlgorithmSpec = sessionSigningKeysConfig.signingAlgorithmSpec,
-      supportedSigningAlgorithmSpecs =
+      signingAlgorithmSpecs = CryptoScheme(
+        sessionSigningKeysConfig.signingAlgorithmSpec,
         NonEmpty.mk(Set, sessionSigningKeysConfig.signingAlgorithmSpec),
-      defaultEncryptionAlgorithmSpec = RsaOaepSha256, // not used
-      supportedEncryptionAlgorithmSpecs = NonEmpty.mk(Set, RsaOaepSha256), // not used
+      ),
+      encryptionAlgorithmSpecs =
+        CryptoScheme(RsaOaepSha256, NonEmpty.mk(Set, RsaOaepSha256)), // not used
       defaultHashAlgorithm = Sha256, // not used
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1, // not used
       loggerFactory = loggerFactory,
