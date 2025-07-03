@@ -691,8 +691,8 @@ testScriptService lfVersion getScriptService =
     , testGroup "multi packages"
         [ testCase "upgrade to acquired interface" $ do
             scriptDar <- locateDamlScriptDar lfVersion
-            rs <- runScriptsInAllPackages getScriptService lfVersion (ProjectPath "v2")
-              [ ( ProjectPath "interface"
+            rs <- runScriptsInAllPackages getScriptService lfVersion "v2"
+              [ ( "interface"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
                       , "name: interface"
@@ -712,7 +712,7 @@ testScriptService lfVersion getScriptService =
                     )
                   ]
                 )
-              , ( ProjectPath "v1"
+              , ( "v1"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
                       , "name: main"
@@ -748,7 +748,7 @@ testScriptService lfVersion getScriptService =
                     )
                   ]
                 )
-              , ( ProjectPath "v2"
+              , ( "v2"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
                       , "name: main"
@@ -1258,17 +1258,17 @@ runScriptsInModule getIdeState fileContent = do
       let render (vr, r) = (vr,) <$> prettyResult world r
       mapM render xs
 
-runScriptsInAllPackages :: SdkVersioned => IO SS.Handle -> LF.Version -> ProjectPath -> [(ProjectPath, [(FilePath, [T.Text])])] -> IO [(VirtualResource, Either T.Text T.Text)]
-runScriptsInAllPackages getScriptService lfVersion mainProject projects = do
+runScriptsInAllPackages :: SdkVersioned => IO SS.Handle -> LF.Version -> FilePath -> [(FilePath, [(FilePath, [T.Text])])] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
   withCurrentTempDir $ do
-    for_ projects $ writeAndBuildProject lfVersion damlc
-    opts <- withPackageConfig mainProject $ \ PackageConfigFields{..} -> do
+    for_ packages $ writeAndBuildProject lfVersion damlc
+    opts <- withPackageConfig mainPackage $ \ PackageConfigFields{..} -> do
       pure $ (defaultOptions (Just lfVersion)) 
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }
-    damlFiles <- getDamlRootFiles (unwrapProjectPath mainProject)
+    damlFiles <- getDamlRootFiles mainPackage
     withIdeState getScriptService opts $ \ideState -> do
       (result, extResults) <- runAllScripts ideState damlFiles (RunAllOption True)
       let 
@@ -1291,8 +1291,8 @@ locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
   where
     prefix = mainWorkspace </> "daml-script" </> "daml"
 
-writeAndBuildProject :: LF.Version -> FilePath -> (ProjectPath, [(FilePath, [T.Text])]) -> IO ()
-writeAndBuildProject lfVersion damlc (ProjectPath projectPath, projectFiles) = do
+writeAndBuildProject :: LF.Version -> FilePath -> (FilePath, [(FilePath, [T.Text])]) -> IO ()
+writeAndBuildProject lfVersion damlc (projectPath, projectFiles) = do
   createDirectory projectPath
   for_ projectFiles $ \(file, fileContent) ->
     writeFile (projectPath </> file) $ T.unpack $ T.unlines fileContent
