@@ -362,6 +362,7 @@ maven_install(
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
+    fail_if_repin_required = True,
     version_conflict_policy = "pinned",
 )
 

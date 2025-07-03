@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # When adding, removing or changing a dependency in this file, update the pinned dependencies by executing
-# $ bazel run @unpinned_maven//:pin
+# $ REPIN=1 bazel run @unpinned_maven//:pin
 # See https://github.com/bazelbuild/rules_jvm_external#updating-maven_installjson
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
@@ -312,6 +312,7 @@ def install_java_deps():
         # on. Therefore, we don't enable strict visibility. This is the default.
         # strict_visibility = True,
         version_conflict_policy = "pinned",
+        fail_if_repin_required = True,
     )
     maven_install(
         name = "canton_maven",
@@ -324,6 +325,7 @@ def install_java_deps():
         ],
         fetch_sources = True,
         version_conflict_policy = "pinned",
+        fail_if_repin_required = True,
     )
 
     # Do not use those dependencies in anything new !
