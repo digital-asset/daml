@@ -277,6 +277,8 @@ patchTsDependencies uiDir packageJsonFile = do
                        "file:" <> "./daml.js/create-daml-app-0.1.0")
                    | "@daml.js/create-daml-app" `elem` depNames
                    ] ++
+                   [ ("@types/minimatch", Aeson.toJSON ("5.1.2" :: String))
+                   ] ++
                    [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
                    | tsLib <- allTsLibraries
                    , let libName = tsLibraryName tsLib
