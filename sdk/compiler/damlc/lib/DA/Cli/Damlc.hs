@@ -67,7 +67,7 @@ import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging (setupPackageDb, setupPackageDbFromPackageConfig, mbErr)
 import DA.Cli.Damlc.Test (CoveragePaths(..),
                           LoadCoverageOnly(..),
-                          RunAllTests(..),
+                          RunAllOption(..),
                           ShowCoverage(..),
                           TableOutputPath(..),
                           TransactionsOutputPath(..),
@@ -433,7 +433,7 @@ cmdTest numProcessors =
     cmd = runTestsInProjectOrFiles
       <$> projectOpts "daml test"
       <*> filesOpt
-      <*> fmap RunAllTests runAllTests
+      <*> fmap RunAllOption runAllOption
       <*> fmap LoadCoverageOnly loadCoverageOnly
       <*> fmap ShowCoverage showCoverageOpt
       <*> fmap UseColor colorOutput
@@ -453,7 +453,7 @@ cmdTest numProcessors =
     junitOutput = optional $ strOptionOnce $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
     showCoverageOpt = switch $ long "show-coverage" <> help "Show detailed test coverage"
-    runAllTests = switch $ long "all" <> help "Run tests in current project as well as dependencies"
+    runAllOption = switch $ long "all" <> help "Run tests in current project as well as dependencies"
     tableOutputPathOpt = optional $ strOptionOnce $ long "table-output" <> help "Filename to which table should be output"
     transactionsOutputPathOpt = optional $ strOptionOnce $ long "transactions-output" <> help "Filename to which the transaction list should be output"
     coveragePathsOpt =
@@ -470,7 +470,7 @@ runTestsInProjectOrFiles ::
        SdkVersion.Class.SdkVersioned
     => ProjectOpts
     -> Maybe [FilePath]
-    -> RunAllTests
+    -> RunAllOption
     -> LoadCoverageOnly
     -> ShowCoverage
     -> UseColor
