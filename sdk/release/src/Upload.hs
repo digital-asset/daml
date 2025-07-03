@@ -142,6 +142,17 @@ comDamlMavenProfileId = "5f937eac6445fb"
 prepareStagingRepo :: (MonadCI m) => Request -> Manager -> m Text
 prepareStagingRepo baseRequest manager = do
 
+    -- TODO remove once publishing is fixed
+    -- Get and print the full list of profiles to check that the current profile ID is still valid
+    let stagingProfilesRequest
+            = setRequestMethod "GET"
+            $ setRequestPath "/service/local/staging/profiles"
+            $ setRequestHeader "accept" [ "application/json" ] baseRequest
+    stagingProfilesResponse <- 
+        recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs stagingProfilesRequest manager)
+    StagingProfilesResponse stagingProfiles <- decodeStagingProfilesResponse stagingProfilesResponse
+    liftIO $ print stagingProfiles
+
     --
     -- Note in Profile IDs
     --
@@ -166,9 +177,9 @@ prepareStagingRepo baseRequest manager = do
 
     startComDamlStagingReposResponse <-
         recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs startComDamlStagingRepoRequest manager)
-    comDamlStagingRepoInfo <- decodeStagingPromoteResponse startComDamlStagingReposResponse
+    StagingPromoteResponse comDamlStagingRepoInfo <- decodeStagingPromoteResponse startComDamlStagingReposResponse
 
-    return (stagedRepositoryId $ _data comDamlStagingRepoInfo)
+    return (stagedRepositoryId comDamlStagingRepoInfo)
 
 publishStagingRepo :: (MonadCI m) => Request -> Manager -> Text -> m ()
 publishStagingRepo baseRequest manager comDamlRepoId = do
@@ -378,6 +389,9 @@ handleStatusRequest request manager = do
 -- to be defined as Aeson will simply ignore them.
 -- See https://oss.sonatype.org/nexus-staging-plugin/default/docs/index.html
 --
+data StagingProfile = StagingProfile { id :: Text, name :: Text } deriving Show
+data StagingProfilesResponse = StagingProfilesResponse { _data :: [StagingProfile] }
+
 data RepoStatusResponse = RepoStatusResponse
     { repositoryId :: Text
     , status :: Text
@@ -415,6 +429,13 @@ instance Show RepoActivityDetails where
             intercalatedValues = T.intercalate "\n  " ([""] <> map tshow events <> [""])
 
 -- 'Manual' parsing of required fields as the API uses the Haskell reserved keyword 'type'
+instance FromJSON StagingProfile where
+   parseJSON = withObject "StagingProfile" $ \o -> StagingProfile <$> o .: "id" <*> o .: "name"
+
+instance FromJSON StagingProfilesResponse where
+    parseJSON = withObject "StagingProfilesResponse" $ \o -> StagingProfilesResponse
+      <$> o .: "data"
+
 instance FromJSON RepoStatusResponse where
     parseJSON (Object o) = RepoStatusResponse <$> o .: "repositoryId" <*> o .: "type" <*> o .: "transitioning"
     parseJSON _ = fail "Expected an Object"
@@ -442,6 +463,11 @@ instance FromJSON NameValue where
    parseJSON = withObject "NameValue" $ \o -> NameValue
         <$> o .: "name"
         <*> o .: "value"
+
+decodeStagingProfilesResponse :: MonadIO m => Response BSL.ByteString -> m StagingProfilesResponse
+decodeStagingProfilesResponse response = case (eitherDecode $ responseBody response :: Either String StagingProfilesResponse) of
+    Left err -> throwIO $ ParseJsonException err
+    Right r -> return r
 
 decodeRepoStatus :: (MonadIO m) => BSL.ByteString -> m RepoStatusResponse
 decodeRepoStatus jsonString = case (eitherDecode jsonString :: Either String RepoStatusResponse) of
