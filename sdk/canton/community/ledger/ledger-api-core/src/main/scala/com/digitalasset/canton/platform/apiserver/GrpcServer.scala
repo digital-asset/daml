@@ -8,8 +8,8 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.*
 import io.grpc.inprocess.InProcessServerBuilder
-import io.grpc.netty.NettyServerBuilder
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import java.net.{InetAddress, InetSocketAddress}
 import java.util.concurrent.{Executor, TimeUnit}
