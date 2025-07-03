@@ -51,12 +51,12 @@ SCALA_LIBRARY_JAR_VERSION="$$(jar_version $(rootpath {scala_library}))"
 SCALA_REFLECT_JAR_VERSION="$$(jar_version $(rootpath {scala_reflect}))"
 
 function maven_version {{
-    $$JQ -r --arg name "$$1" '.dependency_tree.dependencies | .[] | .coord | capture("^org\\\\.scala-lang:" + $$name + ":(?<version>[0-9\\\\.]+)$$") | .version' '$(rootpath {maven_install_json})'
+    $$JQ -r --arg name "$$1" '.artifacts[$$name].version' '$(rootpath {maven_install_json})'
 }}
 
-SCALA_COMPILER_MAVEN_VERSION="$$(maven_version 'scala-compiler')"
-SCALA_LIBRARY_MAVEN_VERSION="$$(maven_version 'scala-library')"
-SCALA_REFLECT_MAVEN_VERSION="$$(maven_version 'scala-reflect')"
+SCALA_COMPILER_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-compiler')"
+SCALA_LIBRARY_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-library')"
+SCALA_REFLECT_MAVEN_VERSION="$$(maven_version 'org.scala-lang:scala-reflect')"
 
 check 'scala binary' "$$SCALA_BIN_VERSION"
 check '$(rootpath {scala_compiler})' "$$SCALA_COMPILER_JAR_VERSION"
