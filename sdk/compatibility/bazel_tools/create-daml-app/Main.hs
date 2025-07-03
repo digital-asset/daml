@@ -219,6 +219,7 @@ main = withTempDir $ \npmCache -> do
           step "Install Jest, Puppeteer and other dependencies"
           addTestDependencies "package.json" testDepsPath
           patchTsDependencies uiDir "package.json"
+          patchMinimatch "package.json"
           -- use '--scripts-prepend-node-path' to make sure we are using the correct 'node' binary
           retry 3 (callProcessSilent npmPath ["install", "--scripts-prepend-node-path"])
           step "Run Puppeteer end-to-end tests"
@@ -260,47 +261,58 @@ setupNpmEnv uiDir libs = do
 
 -- | Overwrite dependencies to our TypeScript libraries to point to local file dependencies in the
 -- 'ui' directory in the specified package.json file.
+patchNestedKey :: FilePath -> Boolean -> AK.Key -> (Aeson.Object -> Aeson.Object) -> IO ()
+patchNestedKey packageJsonFile allowMissing key f = do
+  packageJson0 <- readJsonFile packageJsonFile
+  let newPackageJson = updateNestedKey key f packageJson0
+  -- Make sure we have write permissions before writing
+  p <- getPermissions packageJsonFile
+  setPermissions packageJsonFile (setOwnerWritable True p)
+  BSL.writeFile packageJsonFile (Aeson.encode newPackageJson)
+  where
+    updateNestedKey key1 f obj =
+      case obj of
+        Aeson.Object obj' ->
+          case KM.lookup key1 obj' of
+            Just (Aeson.Object sub) ->
+              Aeson.Object (KM.insert key1 (Aeson.Object (f sub)) obj')
+            _ ->
+              if allowMissing
+              then obj
+              else error $ "malformed json file while patching '" <> packageJsonFile <> "':" <> show obj'
+        _ -> error $ "malformed json file while patching '" <> packageJsonFile <> "':" <> show obj
+
+patchMinimatch :: FilePath -> IO ()
+patchMinimatch packageJsonFile = patchNestedKey packageJsonFile "devDependencies" False $ KM.insert "@types/minimatch" (Aeson.String "5.1.2")
+
 patchTsDependencies :: FilePath -> FilePath -> IO ()
 patchTsDependencies uiDir packageJsonFile = do
-  packageJson0 <- readJsonFile packageJsonFile
-  case packageJson0 of
-    Aeson.Object packageJson ->
-      case KM.lookup "dependencies" packageJson of
-        Just (Aeson.Object dependencies) -> do
-          let depNames = KM.keys dependencies
-          -- patch dependencies to point to local files if they are present in the package.json
-          let patchedDeps =
-                KM.fromList
-                  ([ ( "@daml.js/create-daml-app"
-                     , Aeson.String $
-                       T.pack $
-                       "file:" <> "./daml.js/create-daml-app-0.1.0")
-                   | "@daml.js/create-daml-app" `elem` depNames
-                   ] ++
-                   [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
-                   | tsLib <- allTsLibraries
-                   , let libName = tsLibraryName tsLib
-                   , let libPath = uiDir </> libName
-                   , let libRelPath =
-                           makeRelative (takeDirectory packageJsonFile) libPath
-                   , let depName = AK.fromText $ T.replace "-" "/" $ T.pack $ "@" <> libName
-                   , depName `elem` depNames
-                   ]) `KM.union`
-                dependencies
-          let t1 = KM.insert "dependencies" (Aeson.Object patchedDeps) packageJson
-          let newPackageJson = case KM.lookup "scripts" packageJson of
-                Just (Aeson.Object oldScripts) -> do
-                  let t2 = KM.insert "start" "react-scripts start" oldScripts
-                  let t3 = KM.insert "build" "react-scripts build" t2
-                  Aeson.Object $ KM.insert "scripts" (Aeson.Object t3) t1
-                _ -> Aeson.Object t1
-          -- Make sure we have write permissions before writing
-          p <- getPermissions packageJsonFile
-          setPermissions packageJsonFile (setOwnerWritable True p)
-          BSL.writeFile packageJsonFile (Aeson.encode newPackageJson)
-        Nothing -> pure () -- Nothing to patch
-        _otherwise -> error $ "malformed package.json:" <> show packageJson
-    _otherwise -> error $ "malformed package.json:" <> show packageJson0
+  patchNestedKey packageJsonFile "dependencies" False patchDeps
+  patchNestedKey packageJsonFile "scripts" True patchScripts
+  where
+  patchScripts scripts =
+    KM.insert "start" "react-scripts start" . KM.insert "build" "react-scripts build"
+  patchDeps dependencies =
+    let depNames = KM.keys dependencies
+    in
+    -- patch dependencies to point to local files if they are present in the package.json
+    KM.fromList
+      ([ ( "@daml.js/create-daml-app"
+         , Aeson.String $
+           T.pack $
+           "file:" <> "./daml.js/create-daml-app-0.1.0")
+       | "@daml.js/create-daml-app" `elem` depNames
+       ] ++
+       [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
+       | tsLib <- allTsLibraries
+       , let libName = tsLibraryName tsLib
+       , let libPath = uiDir </> libName
+       , let libRelPath =
+               makeRelative (takeDirectory packageJsonFile) libPath
+       , let depName = AK.fromText $ T.replace "-" "/" $ T.pack $ "@" <> libName
+       , depName `elem` depNames
+       ]) `KM.union`
+      dependencies
 
 data TsLibrary
     = DamlLedger
