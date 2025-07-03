@@ -99,6 +99,7 @@ $bazel clean --expunge
 echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
+  --announce_rc \
   --toolchain_resolution_debug=cc \
   --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \

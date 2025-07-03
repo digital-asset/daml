@@ -109,6 +109,8 @@ build:windows --action_env=JAVA_HOME
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
 build:linux --host_platform=@rules_nixpkgs_core//platforms:host
 build:darwin --host_platform=@rules_nixpkgs_core//platforms:host
+build:linux --extra_toolchains=@local_config_cc//:all
+build:darwin --extra_toolchains=@local_config_cc//:all
 # and GHC's gcc on Windows
 build:windows --crosstool_top=@rules_haskell_ghc_windows_amd64//:cc_toolchain
 build:windows --remote_accept_cached=true
