@@ -50,7 +50,7 @@ version_specific = {
 netty_tcnative_version = "2.0.65.Final"
 netty_version = "4.1.110.Final"
 grpc_version = "1.67.1"
-protobuf_version = "3.25.5"
+protobuf_version = "3.25.4"
 pekko_version = "1.1.2"
 pekko_http_version = "1.1.0"
 
