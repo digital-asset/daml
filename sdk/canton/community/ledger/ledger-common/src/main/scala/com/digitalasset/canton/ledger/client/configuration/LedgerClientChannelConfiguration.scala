@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.client.configuration
 
 import io.grpc.internal.GrpcUtil
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 /** @param sslContext
   *   If defined, the context will be passed on to the underlying gRPC code to ensure the

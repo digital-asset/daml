@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.{v30 => protocol}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
 import com.google.protobuf.ByteString
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.{Closeable, File, FileInputStream}

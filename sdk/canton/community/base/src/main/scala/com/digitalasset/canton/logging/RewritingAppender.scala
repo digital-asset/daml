@@ -49,7 +49,7 @@ final class Rewrite {
   *   <testing>true</testing>
   *   <appender-ref ref="CANTON_TEST_LOG" />
   *   <rewrite class="com.digitalasset.canton.logging.Rewrite">
-  *     <logger>io.grpc.netty.NettyServerStream</logger>
+  *     <logger>io.grpc.netty.shaded.io.grpc.netty.NettyServerStream</logger>
   *     <maxLevel>INFO</maxLevel>
   *   </rewrite>
   *   <rewrite class="com.digitalasset.canton.logging.Rewrite">

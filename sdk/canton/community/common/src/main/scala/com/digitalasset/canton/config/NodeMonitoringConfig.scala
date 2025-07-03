@@ -6,7 +6,7 @@ package com.digitalasset.canton.config
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 /** Configuration of the gRPC health server for a canton node.
   * @param parallelism

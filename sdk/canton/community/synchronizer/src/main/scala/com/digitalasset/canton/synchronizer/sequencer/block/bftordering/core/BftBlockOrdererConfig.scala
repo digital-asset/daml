@@ -47,7 +47,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.*
 

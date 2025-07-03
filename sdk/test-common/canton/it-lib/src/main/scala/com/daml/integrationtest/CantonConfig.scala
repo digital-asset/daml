@@ -12,7 +12,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.digitalasset.daml.lf.data.Ref
 import com.daml.ports.Port
 import io.grpc.ManagedChannel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 import java.nio.file.{Path, Paths}
