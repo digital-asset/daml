@@ -261,7 +261,7 @@ setupNpmEnv uiDir libs = do
 
 -- | Overwrite dependencies to our TypeScript libraries to point to local file dependencies in the
 -- 'ui' directory in the specified package.json file.
-patchNestedKey :: FilePath -> Boolean -> AK.Key -> (Aeson.Object -> Aeson.Object) -> IO ()
+patchNestedKey :: FilePath -> Bool -> AK.Key -> (Aeson.Object -> Aeson.Object) -> IO ()
 patchNestedKey packageJsonFile allowMissing key f = do
   packageJson0 <- readJsonFile packageJsonFile
   let newPackageJson = updateNestedKey key f packageJson0
