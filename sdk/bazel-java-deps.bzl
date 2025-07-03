@@ -327,4 +327,3 @@ def install_java_deps():
         version_conflict_policy = "pinned",
         fail_if_repin_required = True,
     )
-
