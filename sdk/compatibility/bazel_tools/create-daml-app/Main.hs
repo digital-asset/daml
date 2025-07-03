@@ -283,31 +283,27 @@ patchMinimatch :: FilePath -> IO ()
 patchMinimatch packageJsonFile = patchNestedKey packageJsonFile "devDependencies" $ KM.insert "@types/minimatch" (Aeson.String "5.1.2")
 
 patchTsDependencies :: FilePath -> FilePath -> IO ()
-patchTsDependencies uiDir packageJsonFile = patchNestedKey packageJsonFile "dependencies" updateDependencies
-  where
-    updateDependencies dependencies =
-        let depNames = KM.keys dependencies
-            -- patch dependencies to point to local files if they are present in the package.json
-            patchedDeps =
-              KM.fromList
-                ([ ( "@daml.js/create-daml-app"
-                   , Aeson.String $
-                     T.pack $
-                     "file:" <> "./daml.js/create-daml-app-0.1.0")
-                 | "@daml.js/create-daml-app" `elem` depNames
-                 ] ++
-                 [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
-                 | tsLib <- allTsLibraries
-                 , let libName = tsLibraryName tsLib
-                 , let libPath = uiDir </> libName
-                 , let libRelPath =
-                         makeRelative (takeDirectory packageJsonFile) libPath
-                 , let depName = AK.fromText $ T.replace "-" "/" $ T.pack $ "@" <> libName
-                 , depName `elem` depNames
-                 ]) `KM.union`
-              dependencies
-        in
-        patchedDeps
+patchTsDependencies uiDir packageJsonFile = patchNestedKey packageJsonFile "dependencies" $ \dependencies ->
+    let depNames = KM.keys dependencies
+    in
+    -- patch dependencies to point to local files if they are present in the package.json
+    KM.fromList
+      ([ ( "@daml.js/create-daml-app"
+         , Aeson.String $
+           T.pack $
+           "file:" <> "./daml.js/create-daml-app-0.1.0")
+       | "@daml.js/create-daml-app" `elem` depNames
+       ] ++
+       [ (depName, Aeson.String $ T.pack $ "file:" <> libRelPath)
+       | tsLib <- allTsLibraries
+       , let libName = tsLibraryName tsLib
+       , let libPath = uiDir </> libName
+       , let libRelPath =
+               makeRelative (takeDirectory packageJsonFile) libPath
+       , let depName = AK.fromText $ T.replace "-" "/" $ T.pack $ "@" <> libName
+       , depName `elem` depNames
+       ]) `KM.union`
+      dependencies
 
 data TsLibrary
     = DamlLedger
