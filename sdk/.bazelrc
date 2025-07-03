@@ -102,6 +102,7 @@ build --action_env=GIT_SSL_CAINFO
 build:linux --action_env=LOCALE_ARCHIVE
 build:windows --action_env=JAVA_HOME
 
+build --repo_env=BAZEL_DO_NOT_DETECT_CPP_TOOLCHAIN=1
 # Tell bazel to use the nixpkgs Haskell toolchain on Linux and Darwin
 build:linux --host_platform=@rules_nixpkgs_core//platforms:host
 build:darwin --host_platform=@rules_nixpkgs_core//platforms:host
