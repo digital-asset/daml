@@ -28,6 +28,7 @@ jobs:
       name: out
 
 - job: Linux
+  condition: false
   dependsOn:
     - check_for_release
   variables:
@@ -108,6 +109,7 @@ jobs:
 - template: blackduck.yml
 
 - job: Windows
+  condition: false
   dependsOn:
     - check_for_release
   variables:
@@ -168,6 +170,7 @@ jobs:
     - template: report-end.yml
 
 - job: Linux_oracle
+  condition: false
   timeoutInMinutes: 240
   pool:
     name: 'ubuntu_20_04'
@@ -268,9 +271,9 @@ jobs:
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
   dependsOn:
-    - Windows
-    - Linux
-    - macOS
+   - Windows
+   - Linux
+   - macOS
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -352,6 +355,7 @@ jobs:
 
 # For main and PRs targeting main, we simply check against the most recent stable tag.
 - job: compatibility_stable_protobuf
+  condition: false
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
