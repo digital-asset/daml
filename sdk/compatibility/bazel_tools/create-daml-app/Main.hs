@@ -283,15 +283,15 @@ patchNestedKey packageJsonFile allowMissing key f = do
         _ -> error $ "malformed json file while patching '" <> packageJsonFile <> "':" <> show obj
 
 patchMinimatch :: FilePath -> IO ()
-patchMinimatch packageJsonFile = patchNestedKey packageJsonFile "devDependencies" False $ KM.insert "@types/minimatch" (Aeson.String "5.1.2")
+patchMinimatch packageJsonFile = patchNestedKey packageJsonFile False "devDependencies" $ KM.insert "@types/minimatch" (Aeson.String "5.1.2")
 
 patchTsDependencies :: FilePath -> FilePath -> IO ()
 patchTsDependencies uiDir packageJsonFile = do
-  patchNestedKey packageJsonFile "dependencies" False patchDeps
-  patchNestedKey packageJsonFile "scripts" True patchScripts
+  patchNestedKey packageJsonFile False "dependencies" patchDeps
+  patchNestedKey packageJsonFile True "scripts" patchScripts
   where
   patchScripts scripts =
-    KM.insert "start" "react-scripts start" . KM.insert "build" "react-scripts build"
+    KM.insert "start" "react-scripts start" $ KM.insert "build" "react-scripts build" scripts
   patchDeps dependencies =
     let depNames = KM.keys dependencies
     in
