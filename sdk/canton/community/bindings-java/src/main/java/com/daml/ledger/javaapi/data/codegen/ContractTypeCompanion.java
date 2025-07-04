@@ -89,7 +89,7 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));
   }
 
-  public final Identifier getTemplateIdWithPackageId() {
+  public Identifier getTemplateIdWithPackageId() {
     return new Identifier(PACKAGE.id, TEMPLATE_ID.getModuleName(), TEMPLATE_ID.getEntityName());
   }
 

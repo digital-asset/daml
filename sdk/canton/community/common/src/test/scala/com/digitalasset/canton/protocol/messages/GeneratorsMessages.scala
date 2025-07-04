@@ -102,7 +102,7 @@ final class GeneratorsMessages(
         if (localVerdict.isMalformed) Gen.const(Set.empty[LfPartyId])
         else nonEmptySet(implicitly[Arbitrary[LfPartyId]]).arbitrary.map(_.forgetNE)
       viewPositionO <- localVerdict match {
-        case _: LocalApprove | _: LocalReject =>
+        case _: LocalApprove | _: LocalReject | _: LocalAbstain =>
           Gen.some(Arbitrary.arbitrary[ViewPosition])
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }

@@ -24,7 +24,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
   private val assign = ReassignmentCommand.Assign(
     Source(synchronizerId(1)),
     Target(synchronizerId(2)),
-    ReassignmentId.tryCreate("0"),
+    ReassignmentId.tryCreate("00"),
   )
 
   "ReassignmentCommandsBatch.create" when {
@@ -91,7 +91,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
       ReassignmentCommandsBatch.create(
         Seq(
           assign,
-          assign.copy(reassignmentId = ReassignmentId.tryCreate("1")),
+          assign.copy(reassignmentId = ReassignmentId.tryCreate("0001")),
         )
       ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignWithOtherCommands)
     }

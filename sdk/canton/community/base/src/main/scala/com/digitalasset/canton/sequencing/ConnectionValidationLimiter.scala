@@ -145,7 +145,9 @@ class ConnectionValidationLimiter(
     logger.debug("Aborting connection validation")
 
     validationState.getAndSet(ValidationState.Idle) match {
-      case ValidationState.Idle => ErrorUtil.invalidState("Cannot be Idle while validating")
+      case ValidationState.Idle =>
+        // During a shutdown, this can be a valid state due to a concurrent execution of `shutdown()`
+        if (throwableO.isDefined) ErrorUtil.invalidState("Cannot be Idle while validating")
 
       case ValidationState.Validating(_, _) =>
 

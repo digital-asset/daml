@@ -188,6 +188,7 @@ object RequireTypes {
     lazy val zero: NonNegativeInt = NonNegativeInt.tryCreate(0)
     lazy val one: NonNegativeInt = NonNegativeInt.tryCreate(1)
     lazy val two: NonNegativeInt = NonNegativeInt.tryCreate(2)
+    lazy val three: NonNegativeInt = NonNegativeInt.tryCreate(3)
     lazy val maxValue: NonNegativeInt = NonNegativeInt.tryCreate(Int.MaxValue)
 
     def create(n: Int): Either[InvariantViolation, NonNegativeInt] = NonNegativeNumeric.create(n)

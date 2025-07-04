@@ -61,11 +61,12 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
   UnknownPackageError,
 }
 import com.digitalasset.canton.participant.protocol.validation.*
+import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator.AuthenticationValidatorResult
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
   ErrorWithSubTransaction,
-  LazyAsyncReInterpretation,
+  LazyAsyncReInterpretationMap,
 }
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
 import com.digitalasset.canton.participant.store.*
@@ -818,7 +819,7 @@ class TransactionProcessingSteps(
       // and save us some work.
       // Note that we keep this asynchronous and lazy on purpose here, such that the authentication checks will only access the result
       // if they need to (for external submissions). For classic submissions the behavior remains the same.
-      val reInterpretedTopLevelViews: LazyAsyncReInterpretation =
+      val reInterpretedTopLevelViews: LazyAsyncReInterpretationMap =
         parsedRequest.rootViewTrees.forgetNE
           .filter(_.isTopLevel)
           .map { viewTree =>
@@ -985,6 +986,8 @@ class TransactionProcessingSteps(
         timeValidationResultE = parallelChecksResult.timeValidationResultE,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
         replayCheckResult = parallelChecksResult.replayCheckResult,
+        validatedExternalTransactionHash =
+          parallelChecksResult.authenticationValidatorResult.externalHash,
       )
     }
 
@@ -1153,9 +1156,9 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): PendingTransaction = {
-    // We consider that we rejected if at least one of the responses is not "approve"
+    // We consider that we rejected if at least one of the responses is a "reject"
     val locallyRejectedF =
-      responsesF.map(_.exists(_.responses.exists(response => !response.localVerdict.isApprove)))
+      responsesF.map(_.exists(_.responses.exists(_.localVerdict.isReject)))
 
     // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
     // or a negative mediator verdict concurrently received in Phase 7
@@ -1200,6 +1203,8 @@ class TransactionProcessingSteps(
       witnessed = txValidationResult.witnessed,
       completionInfoO = completionInfoO,
       lfTx = modelConformanceResult.suffixedTransaction,
+      externalTransactionHash =
+        pendingRequestData.transactionValidationResult.validatedExternalTransactionHash,
     )
   }
 
@@ -1212,6 +1217,7 @@ class TransactionProcessingSteps(
       witnessed: Map[LfContractId, SerializableContract],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
+      externalTransactionHash: Option[Hash],
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -1257,6 +1263,7 @@ class TransactionProcessingSteps(
           contractMetadata = contractMetadata,
           synchronizerId = psid.logical,
           recordTime = requestTime,
+          externalTransactionHash = externalTransactionHash,
         )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
@@ -1308,6 +1315,8 @@ class TransactionProcessingSteps(
         witnessed = usedAndCreated.contracts.witnessed,
         completionInfoO = completionInfoO,
         lfTx = validSubTransaction,
+        externalTransactionHash =
+          pendingRequestData.transactionValidationResult.validatedExternalTransactionHash,
       )
     } yield commitAndContractsAndEvent
 
@@ -1540,7 +1549,7 @@ object TransactionProcessingSteps {
   }
 
   private final case class ParallelChecksResult(
-      authenticationResult: Map[ViewPosition, AuthenticationError],
+      authenticationValidatorResult: AuthenticationValidatorResult,
       consistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
       authorizationResult: Map[ViewPosition, String],
       conformanceResultET: EitherT[
@@ -1551,7 +1560,9 @@ object TransactionProcessingSteps {
       internalConsistencyResultE: Either[ErrorWithInternalConsistencyCheck, Unit],
       timeValidationResultE: Either[TimeCheckFailure, Unit],
       replayCheckResult: Option[String],
-  )
+  ) {
+    val authenticationResult = authenticationValidatorResult.viewAuthenticationErrors
+  }
 
   final case class RejectionArgs(
       pendingTransaction: PendingTransaction,

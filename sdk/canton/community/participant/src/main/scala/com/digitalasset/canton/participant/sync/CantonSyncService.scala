@@ -222,7 +222,7 @@ class CantonSyncService(
   )
 
   /** Validates that the provided packages are vetted on the currently connected synchronizers. */
-  // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
+  // TODO(i25076) remove this waiting logic once topology events are published on the ledger api
   val synchronizeVettingOnConnectedSynchronizers: PackageVettingSynchronization =
     new PackageVettingSynchronization {
       override def sync(packages: Set[PackageId])(implicit

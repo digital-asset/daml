@@ -39,6 +39,7 @@ object DbDto {
       synchronizer_id: String,
       trace_context: Array[Byte],
       record_time: Long,
+      external_transaction_hash: Option[Array[Byte]],
   ) extends DbDto
 
   final case class EventExercise(
@@ -71,6 +72,7 @@ object DbDto {
       synchronizer_id: String,
       trace_context: Array[Byte],
       record_time: Long,
+      external_transaction_hash: Option[Array[Byte]],
   ) extends DbDto
 
   final case class EventAssign(

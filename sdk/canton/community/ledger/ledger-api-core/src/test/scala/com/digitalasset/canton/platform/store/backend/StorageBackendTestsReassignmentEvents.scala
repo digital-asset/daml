@@ -336,6 +336,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               driverMetadata = someDriverMetadataBytes,
             ),
           ),
+          externalTransactionHash = None,
         ),
         Entry(
           commandId = Some("command id 2"),
@@ -373,6 +374,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
               driverMetadata = someDriverMetadataBytes,
             ),
           ),
+          externalTransactionHash = None,
         ),
       )
     )
@@ -434,6 +436,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
           nodeId = 24,
         ),
+        externalTransactionHash = None,
       ),
       Entry(
         commandId = Some("command id 2"),
@@ -458,6 +461,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
           assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
           nodeId = 42,
         ),
+        externalTransactionHash = None,
       ),
     )
   }

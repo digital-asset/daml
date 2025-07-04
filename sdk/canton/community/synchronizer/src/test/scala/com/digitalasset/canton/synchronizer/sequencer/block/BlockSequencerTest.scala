@@ -258,8 +258,8 @@ class BlockSequencerTest
 
     override def getHeadState: BlockSequencerStateManager.HeadState =
       BlockSequencerStateManager.HeadState(
-        BlockInfo.initial(CantonTimestamp.Epoch),
-        ChunkState.initial(BlockEphemeralState.empty(CantonTimestamp.Epoch)),
+        BlockInfo.initial,
+        ChunkState.initial(BlockEphemeralState.empty),
       )
 
     override protected def timeouts: ProcessingTimeout = BlockSequencerTest.this.timeouts

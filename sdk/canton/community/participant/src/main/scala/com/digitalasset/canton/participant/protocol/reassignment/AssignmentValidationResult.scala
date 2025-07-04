@@ -45,8 +45,8 @@ final case class AssignmentValidationResult(
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassignmentId: ReassignmentId,
     sourcePSId: Source[PhysicalSynchronizerId],
+    hostedConfirmingReassigningParties: Set[LfPartyId],
     isReassigningParticipant: Boolean,
-    hostedStakeholders: Set[LfPartyId],
     commonValidationResult: CommonValidationResult,
     reassigningParticipantValidationResult: ReassigningParticipantValidationResult,
 ) extends ReassignmentValidationResult {

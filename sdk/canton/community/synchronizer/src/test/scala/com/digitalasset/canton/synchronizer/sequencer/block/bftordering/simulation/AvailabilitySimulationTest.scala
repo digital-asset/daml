@@ -416,7 +416,6 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
     val simSettings = SimulationSettings(
       LocalSettings(RandomSeed),
       NetworkSettings(RandomSeed),
-      TopologySettings(RandomSeed),
       SimulationVirtualDuration,
     )
 
@@ -458,7 +457,10 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       val endpointsToTopologyDataFactories = endpoints.map { endpoint =>
         P2PEndpoint.fromEndpointConfig(
           endpoint
-        ) -> NodeSimulationTopologyDataFactory(maybeOnboardingDelay = None)
+        ) -> NodeSimulationTopologyDataFactory(
+          maybeOnboardingDelay = None,
+          maybeOffboardingDelay = None,
+        )
       }.toMap
 
       val endpointsSimulationTopologyData =

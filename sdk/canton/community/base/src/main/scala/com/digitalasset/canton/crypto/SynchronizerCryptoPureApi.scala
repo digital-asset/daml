@@ -87,11 +87,8 @@ final class SynchronizerCryptoPureApi(
       scheme: SymmetricKeyScheme,
   ): Either[EncryptionKeyCreationError, SymmetricKey] = pureCrypto.createSymmetricKey(bytes, scheme)
 
-  override def defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec =
-    pureCrypto.defaultEncryptionAlgorithmSpec
-
-  override def supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
-    pureCrypto.supportedEncryptionAlgorithmSpecs
+  override def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
+    pureCrypto.encryptionAlgorithmSpecs
 
   override def encryptWith[M <: HasToByteString](
       message: M,
@@ -136,17 +133,14 @@ final class SynchronizerCryptoPureApi(
   override protected[crypto] def generateRandomBytes(length: Int): Array[Byte] =
     pureCrypto.generateRandomBytes(length)
 
-  override def defaultSigningAlgorithmSpec: SigningAlgorithmSpec =
-    pureCrypto.defaultSigningAlgorithmSpec
-
-  override def supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
-    pureCrypto.supportedSigningAlgorithmSpecs
+  override def signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec] =
+    pureCrypto.signingAlgorithmSpecs
 
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     pureCrypto.signBytes(bytes, signingKey, usage, signingAlgorithmSpec)
 }

@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.Future
 
-// TODO(i21341) remove this synchronization logic once topology events are published on the ledger api
+// TODO(i25076) remove this synchronization logic once topology events are published on the ledger api
 trait PackageVettingSynchronization {
   def sync(packages: Set[PackageId])(implicit
       traceContext: TraceContext

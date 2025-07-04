@@ -190,7 +190,8 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.lapi_compression(exercise_result_compression) as exercise_result_compression,
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    external_transaction_hash
   from lapi_events_consuming_exercise;
 
 create or replace view debug.lapi_events_create as
@@ -220,7 +221,8 @@ create or replace view debug.lapi_events_create as
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     debug.resolve_lapi_interned_strings(create_key_maintainers) as create_key_maintainers,
     trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    external_transaction_hash
   from lapi_events_create;
 
 create or replace view debug.lapi_events_non_consuming_exercise as
@@ -249,7 +251,8 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     debug.lapi_compression(exercise_result_compression) as exercise_result_compression,
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     trace_context,
-    debug.canton_timestamp(record_time) as record_time
+    debug.canton_timestamp(record_time) as record_time,
+    external_transaction_hash
   from lapi_events_non_consuming_exercise;
 
 

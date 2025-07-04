@@ -10,10 +10,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
-  P2PEndpoint,
-  ServerHandleInfo,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcClientConnectionManager.ServerHandleInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoActorContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId

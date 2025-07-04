@@ -13,7 +13,12 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
-import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
+import com.daml.ledger.api.v2.transaction_filter.{
+  EventFormat,
+  Filters,
+  TransactionFormat,
+  TransactionShape,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient.statusFromThrowable
 import com.digitalasset.canton.tracing.TraceContext
@@ -41,7 +46,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     * use java codegen, you need to convert the List[Command] using the codegenToScalaProto method
     */
 
-  def deprecatedSubmitAndWaitForTransactionForJsonApi(
+  private[canton] def submitAndWaitForTransactionForJsonApi(
       request: SubmitAndWaitRequest,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
@@ -63,6 +68,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
 
   def submitAndWaitForTransaction(
       commands: Commands,
+      transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
   )(implicit
@@ -71,7 +77,9 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWaitForTransaction(getSubmitAndWaitForTransactionRequest(Some(commands))),
+      _.submitAndWaitForTransaction(
+        getSubmitAndWaitForTransactionRequest(Some(commands), transactionShape)
+      ),
     )
 
   // TODO(#26401) remove method
@@ -127,7 +135,10 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
         case Failure(exception) => handleException(exception)
       }
 
-  private def getSubmitAndWaitForTransactionRequest(commands: Option[Commands]) =
+  private def getSubmitAndWaitForTransactionRequest(
+      commands: Option[Commands],
+      transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+  ) =
     SubmitAndWaitForTransactionRequest(
       commands = commands,
       transactionFormat = Some(
@@ -146,7 +157,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
               verbose = true,
             )
           ),
-          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+          transactionShape = transactionShape,
         )
       ),
     )

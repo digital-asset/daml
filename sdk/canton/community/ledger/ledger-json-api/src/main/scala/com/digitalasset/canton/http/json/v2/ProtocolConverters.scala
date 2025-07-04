@@ -21,7 +21,9 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
 }
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
+import com.google.protobuf.ByteString
 import io.scalaland.chimney.Transformer
 import io.scalaland.chimney.dsl.*
 import ujson.StringRenderer
@@ -364,6 +366,13 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       } yield {
         v.into[JsTransaction]
           .withFieldConst(_.events, events)
+          .withFieldComputed(
+            _.externalTransactionHash,
+            _.externalTransactionHash
+              .map(_.toByteArray)
+              .map(Hash.assertFromByteArray)
+              .map(_.toHexString),
+          )
           .transform
       }
 
@@ -374,6 +383,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     } yield v
       .into[lapi.transaction.Transaction]
       .withFieldConst(_.events, events.map(lapi.event.Event(_)))
+      .withFieldComputed(
+        _.externalTransactionHash,
+        _.externalTransactionHash.map(ByteString.fromHex),
+      )
       .transform
   }
 

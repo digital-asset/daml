@@ -501,6 +501,7 @@ private class JdbcLedgerDao(
               }, // only for tests
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
               recordTime = CantonTimestamp(recordTime),
+              externalTransactionHash = None,
             )
           ),
         )

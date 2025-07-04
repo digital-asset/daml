@@ -274,6 +274,7 @@ private[events] object TransactionLogUpdatesConversions {
               synchronizerId = transactionAccepted.synchronizerId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
+              externalTransactionHash = transactionAccepted.externalTransactionHash.map(_.unwrap),
             )
           )
       }

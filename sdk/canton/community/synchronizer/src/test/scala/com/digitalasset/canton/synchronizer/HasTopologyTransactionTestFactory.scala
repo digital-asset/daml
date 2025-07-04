@@ -79,6 +79,32 @@ trait HasTopologyTransactionTestFactory {
       testedProtocolVersion,
     )
 
+  protected final def senderSignedAcknowledgeRequest(
+      sender: Member,
+      signingKey: Fingerprint = participant1Key.fingerprint,
+  ): Future[SignedContent[AcknowledgeRequest]] = {
+    val request = AcknowledgeRequest(sender, ts0, testedProtocolVersion)
+    val hash =
+      topologyTransactionFactory.syncCryptoClient.crypto.pureCrypto.digest(
+        HashPurpose.AcknowledgementSignature,
+        request.getCryptographicEvidence,
+      )
+    topologyTransactionFactory.syncCryptoClient.crypto.privateCrypto
+      .sign(hash, signingKey, SigningKeyUsage.ProtocolOnly)
+      .map(signature =>
+        SignedContent(
+          request,
+          signature,
+          Some(ts1),
+          testedProtocolVersion,
+        )
+      )
+      .leftMap(_.toString)
+      .value
+      .failOnShutdown
+      .map(_.value)
+  }
+
   protected final def submissionRequest(
       sender: Member,
       recipients: Recipients,

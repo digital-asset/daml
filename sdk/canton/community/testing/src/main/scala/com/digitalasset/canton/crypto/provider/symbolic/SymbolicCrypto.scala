@@ -83,7 +83,7 @@ class SymbolicCrypto(
     processE("generate symbolic encryption keypair") { implicit traceContext =>
       // We don't care about the encryption key specification in symbolic crypto
       privateCrypto
-        .generateEncryptionKeypair(privateCrypto.defaultEncryptionKeySpec)
+        .generateEncryptionKeypair(privateCrypto.encryptionKeySpecs.default)
     }
 
   def sign(

@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{SynchronizerIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -25,6 +27,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
+import com.google.protobuf.ByteString
 import org.mockito.MockitoSugar.mock
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -241,6 +244,12 @@ object SequentialWriteDaoSpec {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
+  private val externalTransactionHash =
+    Hash
+      .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
+      .unwrap
+      .toByteArray
+
   private def offset(l: Long): Offset = Offset.tryFromLong(l)
 
   private def someUpdate(key: String) = Some(
@@ -289,6 +298,7 @@ object SequentialWriteDaoSpec {
     synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
+    external_transaction_hash = Some(externalTransactionHash),
   )
 
   private val someEventExercise = DbDto.EventExercise(
@@ -319,6 +329,7 @@ object SequentialWriteDaoSpec {
     synchronizer_id = "x::synchronizer",
     trace_context = serializableTraceContext,
     record_time = 0,
+    external_transaction_hash = Some(externalTransactionHash),
   )
 
   val singlePartyFixture: Option[Update.PartyAddedToParticipant] =

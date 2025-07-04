@@ -38,7 +38,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerFilter
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
   GrpcBftOrderingService,
+  GrpcClientConnectionManager,
   GrpcNetworking,
+  GrpcServerConnectionManager,
   PekkoGrpcP2PNetworking,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
@@ -213,7 +215,13 @@ final class BftBlockOrderer(
       )
     }
 
-  private val p2pGrpcNetworking = {
+  private val p2pGrpcServerConnectionManager =
+    new GrpcServerConnectionManager(
+      config.initialNetwork.map(_.serverEndpoint).map(createServer),
+      timeouts,
+      loggerFactory,
+    )
+  private val p2pGrpcClientConnectionManager = {
     val maybeGrpcNetworkingAuthenticationInitialState =
       maybeAuthenticationServices.map { authenticationServices =>
         GrpcNetworking.AuthenticationInitialState(
@@ -225,8 +233,7 @@ final class BftBlockOrderer(
           clock,
         )
       }
-    new GrpcNetworking(
-      config.initialNetwork.map(_.serverEndpoint).map(createServer),
+    new GrpcClientConnectionManager(
       maybeGrpcNetworkingAuthenticationInitialState,
       timeouts,
       loggerFactory,
@@ -287,7 +294,7 @@ final class BftBlockOrderer(
   // Start the gRPC server only now because they need the modules to be available before serving requests,
   //  else `tryCreateServerEndpoint` could end up with a `null` input module. However, we still need
   //  to create the networking component first because the modules depend on it.
-  p2pGrpcNetworking.serverRole.startServer()
+  p2pGrpcServerConnectionManager.startServer()
 
   private def createModuleSystem() =
     PekkoModuleSystem.tryCreate(
@@ -373,8 +380,8 @@ final class BftBlockOrderer(
 
   private def createClientNetworkManager() =
     new PekkoGrpcP2PNetworking.PekkoClientP2PNetworkManager(
-      p2pGrpcNetworking.clientRole.getServerHandleOrStartConnection,
-      p2pGrpcNetworking.clientRole.closeConnection,
+      p2pGrpcClientConnectionManager.getServerHandleOrStartConnection,
+      p2pGrpcClientConnectionManager.closeConnection,
       timeouts,
       loggerFactory,
       metrics,
@@ -383,12 +390,12 @@ final class BftBlockOrderer(
   private def tryCreateServerEndpoint(
       clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]
   ): StreamObserver[BftOrderingServiceReceiveRequest] = {
-    p2pGrpcNetworking.serverRole.addClientHandle(clientEndpoint)
+    p2pGrpcServerConnectionManager.addClientHandle(clientEndpoint)
     PekkoGrpcP2PNetworking.tryCreateServerHandle(
       SequencerNodeId.toBftNodeId(sequencerId),
       p2pNetworkInModuleRef,
       clientEndpoint,
-      p2pGrpcNetworking.serverRole.cleanupClientHandle,
+      p2pGrpcServerConnectionManager.cleanupClientHandle,
       getMessageSendInstant = msg => msg.sentAt.map(_.asJavaInstant),
       loggerFactory,
       metrics,
@@ -492,7 +499,14 @@ final class BftBlockOrderer(
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     maybeServerAuthenticatingFilter.map(_.closeAsync()).getOrElse(Seq.empty) ++
       Seq[AsyncOrSyncCloseable](
-        SyncCloseable("p2pGrpcNetworking.close()", p2pGrpcNetworking.close()),
+        SyncCloseable(
+          "p2pGrpcClientConnectionManager.close()",
+          p2pGrpcClientConnectionManager.close(),
+        ),
+        SyncCloseable(
+          "p2pGrpcServerConnectionManager.close()",
+          p2pGrpcServerConnectionManager.close(),
+        ),
         SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
         SyncCloseable("blockSubscription.close()", blockSubscription.close()),
         SyncCloseable("epochStore.close()", epochStore.close()),

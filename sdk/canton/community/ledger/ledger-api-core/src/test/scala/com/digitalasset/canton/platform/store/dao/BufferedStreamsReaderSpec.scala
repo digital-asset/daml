@@ -480,6 +480,7 @@ object BufferedStreamsReaderSpec {
       completionStreamResponse = None,
       synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
+      externalTransactionHash = None,
     )(TraceContext.empty)
 
   private def offset(idx: Long): Offset = {

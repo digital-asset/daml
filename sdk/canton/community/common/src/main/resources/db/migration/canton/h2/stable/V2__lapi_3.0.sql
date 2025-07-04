@@ -149,7 +149,8 @@ CREATE TABLE lapi_events_create (
 
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    external_transaction_hash  BINARY LARGE OBJECT
 );
 
 -- offset index: used to translate to sequential_id
@@ -209,7 +210,8 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    external_transaction_hash  BINARY LARGE OBJECT
 );
 
 -- offset index: used to translate to sequential_id
@@ -265,7 +267,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT,
-    record_time BIGINT NOT NULL
+    record_time BIGINT NOT NULL,
+    external_transaction_hash  BINARY LARGE OBJECT
 );
 
 -- offset index: used to translate to sequential_id

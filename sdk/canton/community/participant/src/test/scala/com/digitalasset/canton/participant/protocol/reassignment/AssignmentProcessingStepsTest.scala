@@ -770,7 +770,7 @@ class AssignmentProcessingStepsTest
         reassignmentId,
         sourceSynchronizer,
         isReassigningParticipant = false,
-        hostedStakeholders = contract.metadata.stakeholders,
+        hostedConfirmingReassigningParties = contract.metadata.stakeholders,
         commonValidationResult = AssignmentValidationResult.CommonValidationResult(
           activenessResult = mkActivenessResult(),
           participantSignatureVerificationResult = None,

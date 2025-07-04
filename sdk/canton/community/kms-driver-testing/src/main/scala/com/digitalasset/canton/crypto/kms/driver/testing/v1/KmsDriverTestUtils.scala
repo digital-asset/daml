@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.kms.driver.api.v1.{
 import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
 import com.digitalasset.canton.crypto.{
   CryptoKeyFormat,
+  CryptoScheme,
   EncryptionPublicKey,
   HashAlgorithm,
   PbkdfScheme,
@@ -68,10 +69,10 @@ object KmsDriverTestUtils extends FutureHelpers {
 
     new JcePureCrypto(
       defaultSymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm,
-      defaultSigningAlgorithmSpec = supportedCryptoSigningAlgoSpecs.head1,
-      supportedSigningAlgorithmSpecs = supportedCryptoSigningAlgoSpecs,
-      defaultEncryptionAlgorithmSpec = supportedCryptoEncryptionAlgoSpecs.head1,
-      supportedEncryptionAlgorithmSpecs = supportedCryptoEncryptionAlgoSpecs,
+      signingAlgorithmSpecs =
+        CryptoScheme(supportedCryptoSigningAlgoSpecs.head1, supportedCryptoSigningAlgoSpecs),
+      encryptionAlgorithmSpecs =
+        CryptoScheme(supportedCryptoEncryptionAlgoSpecs.head1, supportedCryptoEncryptionAlgoSpecs),
       defaultHashAlgorithm = HashAlgorithm.Sha256,
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1,
       loggerFactory = NamedLoggerFactory.root,

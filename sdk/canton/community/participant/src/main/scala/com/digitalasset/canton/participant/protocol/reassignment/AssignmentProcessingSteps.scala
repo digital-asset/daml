@@ -383,31 +383,51 @@ private[reassignment] class AssignmentProcessingSteps(
         )(parsedRequest)
 
     } yield {
-      val responseF = if (isReassigningParticipant) {
+      val confirmationResponseF =
         if (
-          !assignmentValidationResult.reassigningParticipantValidationResult.isUnassignmentDataNotFound
-        )
+          assignmentValidationResult.reassigningParticipantValidationResult.isUnassignmentDataNotFound && isReassigningParticipant
+        ) {
+          logger.info(
+            s"Sending an abstain verdict for ${assignmentValidationResult.hostedConfirmingReassigningParties} because unassignment data is not found in the reassignment store"
+          )
+          val confirmationResponses = checked(
+            ConfirmationResponses.tryCreate(
+              parsedRequest.requestId,
+              assignmentValidationResult.rootHash,
+              synchronizerId.unwrap,
+              participantId,
+              NonEmpty.mk(
+                Seq,
+                ConfirmationResponse
+                  .tryCreate(
+                    Some(ViewPosition.root),
+                    LocalAbstainError.CannotPerformAllValidations
+                      .Abstain(
+                        s"Unassignment data not found when processing assignment $reassignmentId."
+                      )
+                      .toLocalAbstain(protocolVersion.unwrap),
+                    assignmentValidationResult.hostedConfirmingReassigningParties,
+                  ),
+              ),
+              protocolVersion.unwrap,
+            )
+          )
+          FutureUnlessShutdown.pure(Some(confirmationResponses))
+        } else {
           createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.malformedPayloads,
-            parsedRequest.snapshot.ipsSnapshot,
             protocolVersion.unwrap,
-            parsedRequest.fullViewTree.confirmingParties,
             assignmentValidationResult,
-          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
-        else {
-          logger.info(
-            "Not sending a confirmation response because unassignment data is not found in the reassignment store"
           )
-          FutureUnlessShutdown.pure(None)
         }
-      } else // TODO(i24532): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
-        FutureUnlessShutdown.pure(None)
 
-      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve"
+      val responseF = confirmationResponseF.map(_.map((_, Recipients.cc(parsedRequest.mediator))))
+
+      // We consider that we rejected if we fail to process or if at least one of the responses is a "reject"
       val locallyRejectedF = responseF.map(
         _.exists { case (confirmation, _) =>
-          confirmation.responses.exists(response => !response.localVerdict.isApprove)
+          confirmation.responses.exists(_.localVerdict.isReject)
         }
       )
 

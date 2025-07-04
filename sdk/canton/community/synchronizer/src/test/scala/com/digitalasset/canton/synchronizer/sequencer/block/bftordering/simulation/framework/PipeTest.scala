@@ -144,7 +144,6 @@ class PipeTest extends AnyFlatSpec with BaseTest {
     val simSettings = SimulationSettings(
       localSettings = LocalSettings(randomSeed = 4),
       networkSettings = NetworkSettings(randomSeed = 4),
-      topologySettings = TopologySettings(randomSeed = 4),
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 

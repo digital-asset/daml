@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
@@ -135,7 +136,9 @@ class BlockSequencer(
     new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
 
   override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
-    SequencerWriter.ResetWatermarkToTimestamp(stateManager.getHeadState.block.lastTs)
+    SequencerWriter.ResetWatermarkToTimestamp(
+      stateManager.getHeadState.block.lastTs.max(minimumSequencingTime.immediatePredecessor)
+    )
 
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
@@ -294,6 +297,23 @@ class BlockSequencer(
           )
       }
 
+  // This method rejects submissions before the minimum sequencing time.
+  // It compares clock.now against the configured minimumSequencingTime. It cannot use the time from the head state,
+  // because any blocks before minimumSequencingTime are filtered out and therefore the time would never advance.
+  // The ordering service is expected to lag a bit behind the (synchronized) wall clock, therefore this method does not
+  // reject submissions that would be sequenced after minimumSequencingTime. It could however pass through submissions
+  // that then get dropped, because they end up getting sequenced before minimumSequencingTime.
+  private def rejectSubmissionsBeforeMinimumSequencingTime()
+      : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
+    val currentTime = clock.now
+    EitherTUtil.condUnitET[FutureUnlessShutdown](
+      currentTime >= minimumSequencingTime,
+      SubmissionRequestRefused(
+        s"Cannot submit before minimum sequencing time $minimumSequencingTime, time is currently at $currentTime"
+      ),
+    )
+  }
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit
@@ -314,6 +334,7 @@ class BlockSequencer(
     )
 
     for {
+      _ <- rejectSubmissionsBeforeMinimumSequencingTime()
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
@@ -348,9 +369,14 @@ class BlockSequencer(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val req = signedAcknowledgeRequest.content
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
-    val waitForAcknowledgementF =
-      stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
+      _ <- EitherTUtil.toFutureUnlessShutdown(
+        rejectSubmissionsBeforeMinimumSequencingTime().leftMap(_.asGrpcError)
+      )
+      waitForAcknowledgementF = stateManager.waitForAcknowledgementToComplete(
+        req.member,
+        req.timestamp,
+      )
       _ <- FutureUnlessShutdown.outcomeF(blockOrderer.acknowledge(signedAcknowledgeRequest))
       _ <- FutureUnlessShutdown.outcomeF(waitForAcknowledgementF)
     } yield ()

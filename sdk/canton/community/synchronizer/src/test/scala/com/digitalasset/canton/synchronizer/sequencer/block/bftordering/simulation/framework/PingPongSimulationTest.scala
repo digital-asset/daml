@@ -234,7 +234,6 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
     val simSettings = SimulationSettings(
       localSettings = LocalSettings(randomSeed = 4),
       networkSettings = NetworkSettings(randomSeed = 4),
-      TopologySettings(randomSeed = 4L),
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 

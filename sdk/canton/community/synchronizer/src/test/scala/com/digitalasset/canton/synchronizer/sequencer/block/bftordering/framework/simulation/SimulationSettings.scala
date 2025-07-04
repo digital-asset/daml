@@ -4,10 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.TopologySettings.{
-  defaultKeyAdditionDistribution,
-  defaultKeyExpirationDistribution,
-}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -122,24 +118,9 @@ object LocalSettings {
     PowerDistribution(1.second, 5.seconds)
 }
 
-final case class TopologySettings(
-    randomSeed: Long,
-    shouldDoKeyRotations: Boolean = false,
-    keyExpirationDistribution: PowerDistribution = defaultKeyExpirationDistribution,
-    keyAdditionDistribution: PowerDistribution = defaultKeyAdditionDistribution,
-)
-
-object TopologySettings {
-  private val defaultKeyExpirationDistribution: PowerDistribution =
-    PowerDistribution(10 seconds, 25 seconds)
-  private val defaultKeyAdditionDistribution: PowerDistribution =
-    PowerDistribution(10 seconds, 25 seconds)
-}
-
 final case class SimulationSettings(
     localSettings: LocalSettings,
     networkSettings: NetworkSettings,
-    topologySettings: TopologySettings,
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),
@@ -147,16 +128,7 @@ final case class SimulationSettings(
       PositiveInt.three // fully arbitrary
     ),
     livenessCheckInterval: FiniteDuration = 25.seconds,
-    nodeOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
-    becomingOnlineAfterOnboardingDelay: FiniteDuration =
-      SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay,
-    retryBecomingOnlineInterval: FiniteDuration = 1.second,
 ) {
   def totalSimulationTime: FiniteDuration =
     durationOfFirstPhaseWithFaults.plus(durationOfSecondPhaseWithoutFaults)
-}
-
-object SimulationSettings {
-
-  val DefaultBecomingOnlineAfterOnboardingDelay: FiniteDuration = 15.seconds
 }

@@ -37,21 +37,20 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
   // NOTE: The following schemes are not really used by Symbolic crypto, but we pretend to support them
   override val defaultSymmetricKeyScheme: SymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm
-  override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec =
-    SigningAlgorithmSpec.Ed25519
-  override val supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
-    NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519)
-  override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec =
-    EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm
-  override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
-    NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm)
+  override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec] =
+    CryptoScheme(SigningAlgorithmSpec.Ed25519, NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519))
+  override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
+    CryptoScheme(
+      EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
+      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm),
+    )
   override val defaultPbkdfScheme: PbkdfScheme = PbkdfScheme.Argon2idMode1
 
   override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+      signingAlgorithmSpec: SigningAlgorithmSpec = signingAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[SigningError, Signature] =
     CryptoKeyValidation
       .ensureUsage(
@@ -161,14 +160,14 @@ class SymbolicPureCrypto extends CryptoPureApi {
   override def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     encryptWithInternal(message.toByteString, publicKey, encryptionAlgorithmSpec, randomized = true)
 
   def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]] =
     encryptWithInternal(
       message.toByteString,

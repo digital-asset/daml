@@ -30,10 +30,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   InjectedSend,
   ModuleAddress,
   PrepareOnboarding,
-  SimulationSettings,
   StartMachine,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.BftOrderingVerifier
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.{
+  BftOrderingVerifier,
+  TopologySettings,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.data.StorageHelpers
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.SequencerSnapshotOnboardingManager.{
   BftOnboardingData,
@@ -51,7 +53,7 @@ class SequencerSnapshotOnboardingManager(
     nodeToEndpoint: Map[BftNodeId, P2PEndpoint],
     stores: Map[BftNodeId, BftOrderingStores[SimulationEnv]],
     model: BftOrderingVerifier,
-    simulationSettings: SimulationSettings,
+    topologySettings: TopologySettings,
 ) extends OnboardingManager[BftOnboardingData]
     with TestEssentials {
 
@@ -104,7 +106,7 @@ class SequencerSnapshotOnboardingManager(
     val commandsToRetryNodes: Seq[(Command, FiniteDuration)] = nodesToRetry.map { sequencerId =>
       PrepareOnboarding(
         sequencerId
-      ) -> simulationSettings.retryBecomingOnlineInterval
+      ) -> topologySettings.retryBecomingOnlineInterval
     }
     nodesToRetry = Seq.empty
 
@@ -134,20 +136,20 @@ class SequencerSnapshotOnboardingManager(
       newlyOnboardedNodesToOnboardingTimes: Map[BftNodeId, TopologyActivationTime],
       newNodesToEndpoint: Map[BftNodeId, P2PEndpoint],
       newModel: BftOrderingVerifier,
-      simulationSettings: SimulationSettings,
+      topologySettings: TopologySettings,
   ): SequencerSnapshotOnboardingManager = new SequencerSnapshotOnboardingManager(
     newlyOnboardedNodesToOnboardingTimes,
     onboardedNodes,
     newNodesToEndpoint,
     stores,
     newModel,
-    simulationSettings,
+    topologySettings,
   )
 
   override def initCommands: Seq[(Command, CantonTimestamp)] = newlyOnboardingNodesToTimes.map {
     case (node, timestamp) =>
       PrepareOnboarding(node) -> timestamp.value.add(
-        simulationSettings.becomingOnlineAfterOnboardingDelay.toJava
+        topologySettings.becomingOnlineAfterOnboardingDelay.toJava
       )
   }.toSeq
 

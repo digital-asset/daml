@@ -797,7 +797,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    "This error indicates that a synchronizer upgrade is not ongoing, which prevents some upgrade operations to be performed"
+    "This error indicates that a synchronizer upgrade is not ongoing, which prevents some upgrade operations from being performed."
   )
   @Resolution(
     "Contact the owners of the synchronizer about the ongoing synchronizer upgrade."
@@ -817,7 +817,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
 
   @Explanation("This error indicates that the successor synchronizer id is not valid.")
   @Resolution(
-    "Change the successor synchronizer id to have a protocol version that is the same as or newer than the current synchronizer's."
+    "Change the successor synchronizer ID to have a protocol version that is the same as or newer than the current synchronizer's."
   )
   object InvalidSynchronizerSuccessor
       extends ErrorCode(id = "TOPOLOGY_INVALID_SUCCESSOR", InvalidIndependentOfSystemState) {

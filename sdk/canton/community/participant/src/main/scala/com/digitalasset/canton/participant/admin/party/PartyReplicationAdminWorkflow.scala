@@ -10,7 +10,7 @@ import com.daml.ledger.api.v2.event.{CreatedEvent as ScalaCreatedEvent, Event}
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.state_service.ActiveContract
 import com.daml.ledger.api.v2.transaction.Transaction
-import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
+import com.daml.ledger.api.v2.transaction_filter.EventFormat
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.{CreatedEvent as JavaCreatedEvent, Identifier as JavaIdentifier}
 import com.daml.nonempty.NonEmpty
@@ -36,7 +36,6 @@ import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, Sy
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
-import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
@@ -106,11 +105,9 @@ class PartyReplicationAdminWorkflow(
     ).mapK(FutureUnlessShutdown.outcomeK)
   }
 
-  // TODO(#26455) use EventFormat instead of TransactionFilter
-  @nowarn("cat=deprecation")
-  override private[admin] def filters: TransactionFilter =
+  override private[admin] def eventFormat: EventFormat =
     // we can't filter by template id as we don't know when the admin workflow package is loaded
-    LedgerConnection.transactionFilterByParty(Map(participantId.adminParty -> Seq.empty))
+    LedgerConnection.eventFormatByParty(Map(participantId.adminParty -> Seq.empty))
 
   override private[admin] def processTransaction(tx: Transaction): Unit = {
     implicit val traceContext: TraceContext =

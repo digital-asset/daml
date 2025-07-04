@@ -188,7 +188,8 @@ CREATE TABLE lapi_events_consuming_exercise (
 
     synchronizer_id integer not null,
     trace_context bytea,
-    record_time bigint not null
+    record_time bigint not null,
+    external_transaction_hash bytea
 );
 
 -- lookup by contract id
@@ -242,7 +243,8 @@ CREATE TABLE lapi_events_create (
     synchronizer_id integer not null,
     create_key_maintainers integer[],
     trace_context bytea,
-    record_time bigint not null
+    record_time bigint not null,
+    external_transaction_hash bytea
 );
 
 -- lookup by contract_id
@@ -301,7 +303,8 @@ CREATE TABLE lapi_events_non_consuming_exercise (
 
     synchronizer_id integer not null,
     trace_context bytea,
-    record_time bigint not null
+    record_time bigint not null,
+    external_transaction_hash bytea
 );
 
 -- offset index: used to translate to sequential_id

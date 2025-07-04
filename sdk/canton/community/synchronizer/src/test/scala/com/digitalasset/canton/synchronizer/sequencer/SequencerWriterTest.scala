@@ -30,14 +30,14 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import org.scalatest.FutureOutcome
-import org.scalatest.wordspec.FixtureAsyncWordSpec
+import org.scalatest.Assertion
+import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.{Future, Promise}
 
-class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
+class SequencerWriterTest extends AsyncWordSpec with BaseTest {
   def ts(epochSeconds: Int): CantonTimestamp =
     CantonTimestamp.Epoch.plusSeconds(epochSeconds.toLong)
 
@@ -60,7 +60,10 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       )
   }
 
-  class Env {
+  def withEnv(blockSequencerMode: Boolean)(f: Env => Future[Assertion]): Future[Assertion] =
+    f(new Env(blockSequencerMode))
+
+  class Env(blockSequencerMode: Boolean) {
     val clock = new SimClock(loggerFactory = loggerFactory)
     val runningFlows = mutable.Buffer[MockRunningWriterFlow]()
     val storage = new MemoryStorage(loggerFactory, timeouts)
@@ -71,7 +74,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = sequencerMember,
-      blockSequencerMode = true,
+      blockSequencerMode = blockSequencerMode,
       loggerFactory = loggerFactory,
     )
     val instanceIndex = 0
@@ -86,6 +89,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         generalStore = store,
         clock = clock,
         expectedCommitMode = CommitMode.Default.some,
+        blockSequencerMode = blockSequencerMode,
         timeouts = timeouts,
         loggerFactory = loggerFactory,
       )
@@ -101,8 +105,6 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
       */
     def allowScheduledFuturesToComplete: Future[Unit] = Future.unit
 
-    def close(): Unit = ()
-
     object TestSequencerWriterFlowFactory extends SequencerWriter.SequencerWriterFlowFactory {
       override def create(
           store: SequencerWriterStore
@@ -114,23 +116,17 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     }
   }
 
-  override type FixtureParam = Env
-
-  override def withFixture(test: OneArgAsyncTest): FutureOutcome = {
-    val env = new Env
-
-    complete {
-      withFixture(test.toNoArgAsyncTest(env))
-    } lastly {
-      env.close()
-    }
-  }
-
   "starting" should {
-    "wait for online timestamp to be reached" in { env =>
+    "wait for online timestamp to be reached" in withEnv(blockSequencerMode = false) { env =>
       import env.*
 
-      val startET = writer.start(None, SequencerWriter.ResetWatermarkToClockNow).failOnShutdown
+      val targetTime = clock.now.plusSeconds(10)
+      val startET = writer
+        .start(
+          None,
+          SequencerWriter.ResetWatermarkToTimestamp(targetTime),
+        )
+        .failOnShutdown
 
       for {
         _ <- allowScheduledFuturesToComplete
@@ -139,12 +135,38 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         _ = writer.isRunning shouldBe false
         _ = startET.value.isCompleted shouldBe false
         _ <- valueOrFail(startET)("Starting Sequencer Writer")
+        _ = clock.now should be >= targetTime
       } yield writer.isRunning shouldBe true
     }
+
+    "not wait for online timestamp to be reached for block sequencers" in withEnv(
+      blockSequencerMode = true
+    ) { env =>
+      import env.*
+
+      val targetTime = clock.now.plusSeconds(60)
+      val startET = writer
+        .start(
+          None,
+          SequencerWriter.ResetWatermarkToTimestamp(targetTime),
+        )
+        .failOnShutdown
+
+      for {
+        _ <- allowScheduledFuturesToComplete
+        _ = writer.isRunning shouldBe false
+        _ <- allowScheduledFuturesToComplete
+        _ = writer.isRunning shouldBe false
+        _ = startET.value.isCompleted shouldBe false
+        _ <- valueOrFail(startET)("Starting Sequencer Writer")
+        _ = clock.now should be < targetTime
+      } yield writer.isRunning shouldBe true
+    }
+
   }
 
   "getting knocked offline" should {
-    "run recovery and restart" in { env =>
+    "run recovery and restart" in withEnv(blockSequencerMode = false) { env =>
       import env.*
 
       val mockSubmissionRequest = SubmissionRequest.tryCreate(

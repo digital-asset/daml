@@ -190,7 +190,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       mcc: ModelConformanceChecker,
       views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
       ips: TopologySnapshot = factory.topologySnapshot,
-      reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretation = Map.empty,
+      reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretationMap = Map.empty,
   ): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)

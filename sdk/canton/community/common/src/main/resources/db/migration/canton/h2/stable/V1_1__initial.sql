@@ -237,7 +237,7 @@ create table par_reassignments (
     -- defined if reassignment was completed
     -- UTC timestamp in microseconds relative to EPOCH
     assignment_timestamp bigint,
-    primary key (target_synchronizer_idx, source_synchronizer_idx, reassignment_id)
+    primary key (target_synchronizer_idx, reassignment_id)
 );
 
 -- stores all requests for the request journal

@@ -238,7 +238,7 @@ create table par_reassignments (
   source_synchronizer_idx integer not null,
   reassignment_id varchar collate "C" not null,
 
-  primary key (target_synchronizer_idx, source_synchronizer_idx, reassignment_id),
+  primary key (target_synchronizer_idx, reassignment_id),
 
   unassignment_global_offset bigint,
   assignment_global_offset bigint,

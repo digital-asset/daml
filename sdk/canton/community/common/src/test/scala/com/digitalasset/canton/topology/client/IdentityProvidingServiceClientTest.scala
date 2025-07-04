@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.client
 
 import cats.syntax.either.*
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.*
@@ -72,11 +71,6 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest with F
             party -> topology.getOrElse(party, PartyInfo.EmptyPartyInfo)
           }.toMap
         )
-
-      override def consortiumThresholds(
-          parties: Set[LfPartyId]
-      )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfPartyId, PositiveInt]] =
-        ???
 
       override def canNotSubmit(
           participant: ParticipantId,
