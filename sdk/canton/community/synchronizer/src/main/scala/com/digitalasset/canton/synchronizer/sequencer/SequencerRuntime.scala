@@ -91,7 +91,7 @@ object SequencerAuthenticationConfig {
 class SequencerRuntime(
     sequencerId: SequencerId,
     val sequencer: Sequencer,
-    client: SequencerClient,
+    @VisibleForTesting val client: SequencerClient,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     localNodeParameters: SequencerNodeParameters,
     timeTracker: SynchronizerTimeTracker,

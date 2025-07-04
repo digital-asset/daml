@@ -493,7 +493,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_consensus_commit_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_consensus_commit_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -825,7 +825,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.999, sum by(mode) (rate(daml_sequencer_bftordering_output_block_delay_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "histogram_quantile($percentile, sum by(mode) (rate(daml_sequencer_bftordering_output_block_delay_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -1092,7 +1092,7 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.999, sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_bytes{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "histogram_quantile($percentile, sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_bytes{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -2330,6 +2330,64 @@
         "skipUrlSync": false,
         "sort": 0,
         "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": ".999",
+          "value": ".999"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Percentile",
+        "multi": false,
+        "name": "percentile",
+        "options": [
+          {
+            "selected": false,
+            "text": ".5",
+            "value": ".5"
+          },
+          {
+            "selected": false,
+            "text": ".6",
+            "value": ".6"
+          },
+          {
+            "selected": false,
+            "text": ".7",
+            "value": ".7"
+          },
+          {
+            "selected": false,
+            "text": ".75",
+            "value": ".75"
+          },
+          {
+            "selected": false,
+            "text": ".8",
+            "value": ".8"
+          },
+          {
+            "selected": false,
+            "text": ".9",
+            "value": ".9"
+          },
+          {
+            "selected": false,
+            "text": ".99",
+            "value": ".99"
+          },
+          {
+            "selected": true,
+            "text": ".999",
+            "value": ".999"
+          }
+        ],
+        "query": ".5,.6,.7,.75,.8,.9,.99,.999",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
       }
     ]
   },

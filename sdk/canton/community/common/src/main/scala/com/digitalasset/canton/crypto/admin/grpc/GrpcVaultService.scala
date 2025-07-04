@@ -204,7 +204,7 @@ class GrpcVaultService(
     for {
       scheme <-
         if (request.keySpec.isSigningKeySpecUnspecified)
-          Future.successful(crypto.privateCrypto.defaultSigningKeySpec)
+          Future.successful(crypto.privateCrypto.signingKeySpecs.default)
         else
           Future(
             SigningKeySpec
@@ -237,7 +237,7 @@ class GrpcVaultService(
     for {
       scheme <-
         if (request.keySpec.isEncryptionKeySpecUnspecified)
-          Future.successful(crypto.privateCrypto.defaultEncryptionKeySpec)
+          Future.successful(crypto.privateCrypto.encryptionKeySpecs.default)
         else
           Future(
             EncryptionKeySpec

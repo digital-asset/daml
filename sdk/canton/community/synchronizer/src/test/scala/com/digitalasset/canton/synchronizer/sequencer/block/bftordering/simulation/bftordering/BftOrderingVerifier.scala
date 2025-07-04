@@ -32,6 +32,7 @@ final class BftOrderingVerifier(
     queue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
     stores: Map[BftNodeId, OutputMetadataStore[SimulationEnv]],
     onboardingTimes: Map[BftNodeId, TopologyActivationTime],
+    offboardingTimes: Map[BftNodeId, CantonTimestamp],
     initialNodes: Seq[BftNodeId],
     simSettings: SimulationSettings,
     override val loggerFactory: NamedLoggerFactory,
@@ -100,6 +101,7 @@ final class BftOrderingVerifier(
   def newStage(
       simulationSettings: SimulationSettings,
       newOnboardingTimes: Map[BftNodeId, TopologyActivationTime],
+      newOffboardingTimes: Map[BftNodeId, CantonTimestamp],
       newStores: Map[BftNodeId, OutputMetadataStore[SimulationEnv]],
   ): BftOrderingVerifier = {
     val newVerifier =
@@ -107,6 +109,7 @@ final class BftOrderingVerifier(
         queue,
         stores ++ newStores,
         newOnboardingTimes,
+        newOffboardingTimes,
         Seq.empty,
         simulationSettings,
         loggerFactory,
@@ -121,10 +124,19 @@ final class BftOrderingVerifier(
     livenessState match {
       case LivenessState.NotChecking => ()
       case LivenessState.Checking(startedAt, logSizeAtStart, peanoQueueSnapshots) =>
-        val hasEveryoneMadeProgress = peanoQueueSnapshots.forall { case (node, peanoQueueHead) =>
-          peanoQueues(node).head.unwrap > peanoQueueHead
-        }
-        if (currentLog.sizeIs > logSizeAtStart && hasEveryoneMadeProgress) {
+        val (nodesInTopology, nodesNotInTopology) = peanoQueueSnapshots
+          .partition(x => offboardingTimes.get(x._1).forall(at <= _))
+        val hasEveryoneMadeProgress = nodesInTopology
+          .forall { case (node, peanoQueueHead) =>
+            peanoQueues(node).head.unwrap > peanoQueueHead
+          }
+        val hasAllOffboardedNotMadeProgress = nodesNotInTopology
+          .forall { case (node, peanoQueueHead) =>
+            peanoQueues(node).head.unwrap == peanoQueueHead
+          }
+        if (
+          currentLog.sizeIs > logSizeAtStart && hasEveryoneMadeProgress && hasAllOffboardedNotMadeProgress
+        ) {
           // There has been progress since the simulation became healthy, so we don't need to check anymore
           livenessState = LivenessState.NotChecking
         } else {
@@ -142,7 +154,7 @@ final class BftOrderingVerifier(
   private def checkBlockAgainstModel(block: BlockFormat.Block): Unit =
     if (block.blockHeight < currentLog.size) {
       // Block already exists in the model, check it is the same
-      currentLog(block.blockHeight.toInt) shouldBe block
+      block shouldBe currentLog(block.blockHeight.toInt)
     } else {
       // New block
       block.blockHeight shouldBe currentLog.size

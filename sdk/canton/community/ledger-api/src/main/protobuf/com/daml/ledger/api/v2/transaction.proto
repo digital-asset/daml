@@ -139,4 +139,9 @@ message Transaction {
   // which synchronized the transaction.
   // Required
   google.protobuf.Timestamp record_time = 9;
+
+  // For transaction externally signed, contains the external transaction hash
+  // signed by the external party. Can be used to correlate an external submission with a committed transaction.
+  // Optional
+  optional bytes external_transaction_hash = 10;
 }

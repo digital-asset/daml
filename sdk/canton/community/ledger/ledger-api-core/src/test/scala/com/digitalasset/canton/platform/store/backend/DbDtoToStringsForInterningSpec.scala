@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -81,6 +84,12 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
+  private val externalTransactionHash =
+    Hash
+      .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
+      .unwrap
+      .toByteArray
+
   private def fixture: List[DbDto] = List(
     DbDto.PartyEntry(
       ledger_offset = 1,
@@ -122,6 +131,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       synchronizer_id = "synchronizer2",
       trace_context = serializableTraceContext,
       record_time = 1,
+      external_transaction_hash = Some(externalTransactionHash),
     ),
     DbDto.EventExercise(
       consuming = true,
@@ -151,6 +161,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       synchronizer_id = "synchronizer3",
       trace_context = serializableTraceContext,
       record_time = 1,
+      external_transaction_hash = Some(externalTransactionHash),
     ),
     DbDto.CommandCompletion(
       completion_offset = 64,

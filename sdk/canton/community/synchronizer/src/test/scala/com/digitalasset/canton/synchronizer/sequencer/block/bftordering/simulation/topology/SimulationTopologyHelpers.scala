@@ -11,8 +11,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.int
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationSettings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.TopologySettings
 
 import scala.concurrent.duration.FiniteDuration
 import scala.jdk.DurationConverters.ScalaDurationOps
@@ -33,9 +33,9 @@ object SimulationTopologyHelpers extends TestEssentials {
 
   def sequencerBecomeOnlineTime(
       onboardingTime: TopologyActivationTime,
-      simSettings: SimulationSettings,
+      topologySettings: TopologySettings,
   ): CantonTimestamp =
-    onboardingTime.value.plus(simSettings.becomingOnlineAfterOnboardingDelay.toJava)
+    onboardingTime.value.plus(topologySettings.becomingOnlineAfterOnboardingDelay.toJava)
 
   private val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)

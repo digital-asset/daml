@@ -277,14 +277,6 @@ trait PartyTopologySnapshotClient {
       check: ParticipantAttributes => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Set[LfPartyId], Unit]
 
-  /** Returns the consortium thresholds (how many votes from different participants that host the
-    * consortium party are required for the confirmation to become valid). For normal parties
-    * returns 1.
-    */
-  def consortiumThresholds(parties: Set[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfPartyId, PositiveInt]]
-
   /** Returns true if there is at least one participant that satisfies the predicate */
   def isHostedByAtLeastOneParticipantF(
       parties: Set[LfPartyId],
@@ -980,11 +972,6 @@ private[client] trait PartyTopologySnapshotLoader
       parties: Seq[LfPartyId]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfPartyId, PartyInfo]] =
     loadAndMapPartyInfos(parties, identity)
-
-  final override def consortiumThresholds(
-      parties: Set[LfPartyId]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfPartyId, PositiveInt]] =
-    loadAndMapPartyInfos(parties.toSeq, _.threshold)
 
   final override def canNotSubmit(
       participant: ParticipantId,

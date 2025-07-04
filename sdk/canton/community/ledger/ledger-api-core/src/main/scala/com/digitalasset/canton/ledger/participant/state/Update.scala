@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.base.error.GrpcStatuses
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -57,7 +58,7 @@ sealed trait Update extends Product with Serializable with PrettyPrinting with H
   def recordTime: CantonTimestamp
 }
 
-// TODO(i21341) this will be removed later as Topology Event project progresses
+// TODO(i25076) this will be removed later as Topology Event project progresses
 sealed trait ParticipantUpdate extends Update {
   def withRecordTime(recordTime: CantonTimestamp): Update
 
@@ -292,6 +293,8 @@ object Update {
       */
     def contractMetadata: Map[Value.ContractId, Bytes]
 
+    def externalTransactionHash: Option[Hash]
+
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
     override protected def pretty: Pretty[TransactionAccepted] =
@@ -330,6 +333,7 @@ object Update {
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       commitSetO: Option[LapiCommitSet] = None,
+      externalTransactionHash: Option[Hash] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with SequencedUpdate
@@ -350,6 +354,7 @@ object Update {
       extends TransactionAccepted
       with RepairUpdate {
 
+    override def externalTransactionHash: Option[Hash] = None
     override def completionInfoO: Option[CompletionInfo] = None
   }
 

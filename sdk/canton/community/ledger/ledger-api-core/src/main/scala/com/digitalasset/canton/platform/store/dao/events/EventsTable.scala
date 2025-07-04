@@ -39,6 +39,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawParticipantAuthorization,
 }
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
+import com.google.protobuf.ByteString
 
 import scala.annotation.nowarn
 
@@ -98,6 +99,7 @@ object EventsTable {
         synchronizerId = first.synchronizerId,
         traceContext = traceContext,
         recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+        externalTransactionHash = first.externalTransactionHash.map(ByteString.copyFrom),
       )
 
     def toGetTransactionsResponse(

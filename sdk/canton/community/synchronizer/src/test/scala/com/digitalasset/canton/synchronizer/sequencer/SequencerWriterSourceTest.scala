@@ -25,6 +25,7 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.{
   PayloadToEventTimeBoundExceeded,
   SequencedBeforeLowerBound,
@@ -202,7 +203,8 @@ class SequencerWriterSourceTest
 
   private def withEnv(
       keepAliveInterval: Option[NonNegativeFiniteDuration] = None,
-      minimumSequencingTime: CantonTimestamp = CantonTimestamp.MinValue,
+      minimumSequencingTime: CantonTimestamp =
+        SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
       blockSequencerMode: Boolean = true,
   )(testCode: Env => Future[Assertion]): Future[Assertion] = {
     val env = new Env(keepAliveInterval, minimumSequencingTime, blockSequencerMode)

@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.{SigningKeyPair, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.TopologySettings
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.TopologySettings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.NodeSimulationTopologyData.SigningKeyPairWithLifetime
 
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -17,6 +17,7 @@ import scala.util.Random
 
 final case class NodeSimulationTopologyData(
     onboardingTime: TopologyActivationTime,
+    offboardingTime: Option[CantonTimestamp],
     signingKeyPair: SigningKeyPair,
     signingKeyPairExpiration: Option[CantonTimestamp],
     signingKeyPairWithLifetimes: Seq[SigningKeyPairWithLifetime] = Seq.empty,
@@ -36,6 +37,10 @@ final case class NodeSimulationTopologyData(
         }
     }
   }
+  require(
+    offboardingTime.forall(onboardingTime.value.isBefore),
+    "Onboarding time needs to be before than offboarding time",
+  )
 
   private lazy val allKeys: Seq[SigningKeyPairWithLifetime] =
     SigningKeyPairWithLifetime(
@@ -65,6 +70,7 @@ object NodeSimulationTopologyData {
 
 final case class NodeSimulationTopologyDataFactory(
     maybeOnboardingDelay: Option[FiniteDuration], // None means available from start
+    maybeOffboardingDelay: Option[FiniteDuration], // None means never leaves
     keyRotations: Seq[(FiniteDuration, Option[FiniteDuration])] = Seq.empty,
     initialKeyValidFor: Option[FiniteDuration] = None,
 ) {
@@ -77,6 +83,9 @@ final case class NodeSimulationTopologyDataFactory(
         TopologyActivationTime(stageStart.add(onboardingDelay.toJava))
       case None => Genesis.GenesisTopologyActivationTime
     }
+    val offboardingTime = maybeOffboardingDelay.map(offboardingDelay =>
+      onboardingTime.value.add(offboardingDelay.toJava)
+    )
     val signingKeyPair = crypto.newSymbolicSigningKeyPair(SigningKeyUsage.ProtocolOnly)
     val signingKeyPairExpiration =
       initialKeyValidFor.map(duration => stageStart.add(duration.toJava))
@@ -91,6 +100,7 @@ final case class NodeSimulationTopologyDataFactory(
     }
     NodeSimulationTopologyData(
       onboardingTime,
+      offboardingTime,
       signingKeyPair,
       signingKeyPairExpiration,
       signingKeyPairWithLifetimes,
@@ -102,6 +112,7 @@ object NodeSimulationTopologyDataFactory {
   def generate(
       random: Random,
       onboardingTime: Option[FiniteDuration],
+      shouldPerformOffboarding: Boolean,
       topologySettings: TopologySettings,
       stopKeyRotations: FiniteDuration,
   ): NodeSimulationTopologyDataFactory = {
@@ -146,8 +157,14 @@ object NodeSimulationTopologyDataFactory {
       } else {
         (None, Seq.empty)
       }
+    val offboardingTime = if (shouldPerformOffboarding) {
+      Some(topologySettings.offboardDistribution.generateRandomDuration(random))
+    } else {
+      None
+    }
     NodeSimulationTopologyDataFactory(
       onboardingTime,
+      offboardingTime,
       keyRotations,
       keyExpire,
     )

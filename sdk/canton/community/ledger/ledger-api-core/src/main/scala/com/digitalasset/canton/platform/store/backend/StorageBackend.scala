@@ -414,6 +414,7 @@ object EventStorageBackend {
       synchronizerId: String,
       traceContext: Option[Array[Byte]],
       recordTime: Timestamp,
+      externalTransactionHash: Option[Array[Byte]],
       event: E,
   )
 

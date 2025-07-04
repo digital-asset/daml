@@ -880,7 +880,7 @@ final class UnassignmentProcessingStepsTest
       fullTree = fullUnassignmentTree,
       reassignmentId = reassignmentId,
       assignmentExclusivity = Some(Target(assignmentExclusivity)),
-      hostedStakeholders = Set(party1),
+      hostedConfirmingReassigningParties = Set(party1),
       commonValidationResult = CommonValidationResult(
         activenessResult = mkActivenessResult(),
         participantSignatureVerificationResult = None,

@@ -49,7 +49,6 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Flow
 
 import java.io.InputStream
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Manages our admin workflow applications (ping, party management). Currently, each is an
@@ -279,8 +278,6 @@ class AdminWorkflowServices(
     )
   }
 
-  // TODO(#26455) remove suppression of deprecation warnings
-  @nowarn("cat=deprecation")
   private def createService[S <: AdminWorkflowService](
       userId: String,
       resubscribeIfPruned: Boolean,
@@ -293,7 +290,11 @@ class AdminWorkflowServices(
     val startupF =
       client.stateService.getLedgerEndOffset().flatMap { offset =>
         client.stateService
-          .getActiveContracts(filter = service.filters, validAtOffset = offset)
+          .getActiveContracts(
+            eventFormat = service.eventFormat,
+            validAtOffset = offset,
+            token = None,
+          )
           .map { acs =>
             logger.debug(s"Loading $acs $service")
             service.processAcs(acs)
@@ -301,7 +302,7 @@ class AdminWorkflowServices(
               makeSource = subscribeOffset =>
                 client.updateService.getUpdatesSource(
                   begin = subscribeOffset,
-                  filter = service.filters,
+                  eventFormat = service.eventFormat,
                 ),
               consumingFlow = Flow[GetUpdatesResponse]
                 .map(_.update)

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -36,6 +37,7 @@ final case class TransactionValidationResult(
     timeValidationResultE: Either[TimeCheckFailure, Unit],
     hostedWitnesses: Set[LfPartyId],
     replayCheckResult: Option[String],
+    validatedExternalTransactionHash: Option[Hash],
 ) {
 
   def commitSet(

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveNumeric}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
@@ -418,9 +419,15 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
 }
 
 object Simulation {
-  def fixupDurationPrettyPrinting: PartialFunction[Any, Tree] = {
+  def fixupPrettyPrinting: PartialFunction[Any, Tree] = {
     case duration: java.time.Duration =>
       Tree.Literal(s"Duration.ofNanos(${duration.toNanos}L)")
+    case port: Port =>
+      Tree.Literal(s"Port.tryCreate(${port.unwrap})")
+    case mode: PartitionMode =>
+      Tree.Literal(s"PartitionMode.$mode")
+    case pn: PositiveNumeric[_] =>
+      Tree.Literal(s"PositiveNumeric.tryCreate(${pn.value})")
   }
 }
 

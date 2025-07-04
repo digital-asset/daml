@@ -207,7 +207,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """This error occurs if the topology state of the participant's connected synchronizers cannot satisfy the vetting requirements provided in the request."""
   )
   @Resolution(
-    """Inspect the error message and refine the request or retry again later. If the error persists, inform the involved counterparties about their invalid topology state."""
+    """Inspect the error message and refine the request or retry later. If the error persists, inform the involved counterparties about their invalid topology state."""
   )
   object NoPreferredPackagesFound
       extends ErrorCode(

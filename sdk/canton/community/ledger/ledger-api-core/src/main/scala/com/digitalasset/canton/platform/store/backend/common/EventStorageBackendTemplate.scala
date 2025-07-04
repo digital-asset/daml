@@ -75,6 +75,7 @@ object EventStorageBackendTemplate {
       "synchronizer_id",
       "trace_context",
       "record_time",
+      "external_transaction_hash",
     )
 
   private val baseColumnsForFlatTransactionsExercise =
@@ -101,6 +102,7 @@ object EventStorageBackendTemplate {
       "synchronizer_id",
       "trace_context",
       "record_time",
+      "external_transaction_hash",
     )
 
   val selectColumnsForFlatTransactionsCreate: String =
@@ -111,7 +113,8 @@ object EventStorageBackendTemplate {
 
   private type SharedRow =
     Long ~ String ~ Int ~ Long ~ ContractId ~ Timestamp ~ Int ~ Int ~ Option[String] ~
-      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]] ~ Timestamp
+      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Int ~ Option[Array[Byte]] ~ Timestamp ~
+      Option[Array[Byte]]
 
   private val sharedRow: RowParser[SharedRow] =
     long("event_offset") ~
@@ -128,7 +131,8 @@ object EventStorageBackendTemplate {
       array[Int]("submitters").? ~
       int("synchronizer_id") ~
       byteArray("trace_context").? ~
-      timestampFromMicros("record_time")
+      timestampFromMicros("record_time") ~
+      byteArray("external_transaction_hash").?
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
@@ -189,6 +193,7 @@ object EventStorageBackendTemplate {
           internedSynchronizerId ~
           traceContext ~
           recordTime ~
+          externalTransactionHash ~
           createArgument ~
           createArgumentCompression ~
           createSignatories ~
@@ -235,6 +240,7 @@ object EventStorageBackendTemplate {
             stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
           traceContext = traceContext,
           recordTime = recordTime,
+          externalTransactionHash = externalTransactionHash,
         )
     }
 
@@ -257,7 +263,8 @@ object EventStorageBackendTemplate {
           submitters ~
           internedSynchronizerId ~
           traceContext ~
-          recordTime =>
+          recordTime ~
+          externalTransactionHash =>
         Entry(
           offset = eventOffset,
           updateId = updateId,
@@ -269,6 +276,7 @@ object EventStorageBackendTemplate {
             stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
           traceContext = traceContext,
           recordTime = recordTime,
+          externalTransactionHash = externalTransactionHash,
           event = RawArchivedEvent(
             updateId = updateId,
             offset = eventOffset,
@@ -312,6 +320,7 @@ object EventStorageBackendTemplate {
           internedSynchronizerId ~
           traceContext ~
           recordTime ~
+          externalTransactionHash ~
           exerciseConsuming ~
           choice ~
           exerciseArgument ~
@@ -331,6 +340,7 @@ object EventStorageBackendTemplate {
             stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
           traceContext = traceContext,
           recordTime = recordTime,
+          externalTransactionHash = externalTransactionHash,
           event = RawExercisedEvent(
             updateId = updateId,
             offset = eventOffset,
@@ -393,6 +403,7 @@ object EventStorageBackendTemplate {
     "synchronizer_id",
     "trace_context",
     "record_time",
+    "external_transaction_hash",
   ).mkString(", ")
 
   val selectColumnsForTransactionTreeExercise: String = Seq(
@@ -425,6 +436,7 @@ object EventStorageBackendTemplate {
     "synchronizer_id",
     "trace_context",
     "record_time",
+    "external_transaction_hash",
   ).mkString(", ")
 
   val EventSequentialIdFirstLast: RowParser[(Long, Long)] =
@@ -576,6 +588,8 @@ object EventStorageBackendTemplate {
               driverMetadata = driverMetadata,
             ),
           ),
+          // TODO(i26562) Assignments are not externally signed
+          externalTransactionHash = None,
         )
     }
 
@@ -652,6 +666,8 @@ object EventStorageBackendTemplate {
             assignmentExclusivity = assignmentExclusivity,
             nodeId = nodeId,
           ),
+          // TODO(i26562) Unassignments are not externally signed
+          externalTransactionHash = None,
         )
     }
 

@@ -233,7 +233,6 @@ abstract class BlockSequencerFactory(
           synchronizerSyncCryptoApi.psid,
           store,
           trafficConsumedStore,
-          minimumSequencingTime,
           nodeParameters.enableAdditionalConsistencyChecks,
           nodeParameters.processingTimeouts,
           synchronizerLoggerFactory,

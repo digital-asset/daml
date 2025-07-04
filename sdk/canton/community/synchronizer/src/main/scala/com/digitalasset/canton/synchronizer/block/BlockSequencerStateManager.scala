@@ -412,7 +412,6 @@ object BlockSequencerStateManager {
       synchronizerId: PhysicalSynchronizerId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
-      minimumSequencingTime: CantonTimestamp,
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -426,7 +425,7 @@ object BlockSequencerStateManager {
     timeouts.unbounded
       .awaitUS(s"Reading the head of the $synchronizerId sequencer state")(store.readHead)
       .map { headBlockO =>
-        val headBlock = headBlockO.getOrElse(BlockEphemeralState.empty(minimumSequencingTime))
+        val headBlock = headBlockO.getOrElse(BlockEphemeralState.empty)
         new AtomicReference[HeadState]({
           logger.debug(
             s"Initialized the block sequencer with head block ${headBlock.latestBlock}"

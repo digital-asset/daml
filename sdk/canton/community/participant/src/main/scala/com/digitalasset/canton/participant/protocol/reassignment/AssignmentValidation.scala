@@ -107,10 +107,14 @@ private[reassignment] class AssignmentValidation(
           )
       }
 
-      hostedStakeholders <- EitherT.right(
-        targetSnapshot.unwrap
-          .hostedOn(assignmentRequest.stakeholders.all, participantId)
-          .map(_.keySet)
+      hostedConfirmingReassigningParties <- EitherT.right(
+        if (isReassigningParticipant)
+          targetSnapshot.unwrap.canConfirm(
+            participantId,
+            parsedRequest.fullViewTree.confirmingParties,
+          )
+        else
+          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
       )
 
     } yield AssignmentValidationResult(
@@ -120,7 +124,7 @@ private[reassignment] class AssignmentValidation(
       reassignmentId = reassignmentId,
       sourcePSId = sourcePSId,
       isReassigningParticipant = isReassigningParticipant,
-      hostedStakeholders = hostedStakeholders,
+      hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
       commonValidationResult = commonValidationResult,
       reassigningParticipantValidationResult = reassigningParticipantValidationResult,
     )

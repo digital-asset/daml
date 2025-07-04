@@ -163,7 +163,7 @@ sealed trait RollbackUnassignmentIntegrationTest
   "cannot rollback an unknown reassignment" in { implicit env =>
     import env.*
 
-    val reassignmentId = ReassignmentId.tryCreate("42").toProtoPrimitive
+    val reassignmentId = ReassignmentId.tryCreate("0042").toProtoPrimitive
     participant2.synchronizers.disconnect_all()
 
     loggerFactory.assertThrowsAndLogs[CommandFailure](

@@ -18,8 +18,6 @@ import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
-import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
 
@@ -101,17 +99,13 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       "type" -> "send-topology"
     )
     logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
-    EitherTUtil.logOnErrorU(
-      sequencerClient.sendAsync(
-        Batch
-          .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
-        maxSequencingTime = maxSequencingTime,
-        callback = sendCallback,
-        // Do not amplify because we are running our own retry loop here anyway
-        amplify = false,
-      ),
-      s"Failed sending topology transaction broadcast: $request. This will be retried automatically.",
-      level = Level.WARN,
+    sequencerClient.sendAsync(
+      Batch
+        .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
+      maxSequencingTime = maxSequencingTime,
+      callback = sendCallback,
+      // Do not amplify because we are running our own retry loop here anyway
+      amplify = false,
     )
   }
 

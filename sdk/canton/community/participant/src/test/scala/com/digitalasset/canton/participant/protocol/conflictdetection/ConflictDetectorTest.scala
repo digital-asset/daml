@@ -86,8 +86,8 @@ class ConflictDetectorTest
   private val coid21: LfContractId = ExampleTransactionFactory.suffixedId(2, 1)
   private val coid22: LfContractId = ExampleTransactionFactory.suffixedId(2, 2)
 
-  private val reassignment1 = ReassignmentId.tryCreate("1")
-  private val reassignment2 = ReassignmentId.tryCreate("2")
+  private val reassignment1 = ReassignmentId.tryCreate("0001")
+  private val reassignment2 = ReassignmentId.tryCreate("0002")
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
   private val reassignmentCounter1 = initialReassignmentCounter + 1

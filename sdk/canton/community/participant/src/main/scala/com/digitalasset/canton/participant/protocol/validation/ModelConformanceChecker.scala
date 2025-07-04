@@ -92,7 +92,7 @@ class ModelConformanceChecker(
       topologySnapshot: TopologySnapshot,
       commonData: CommonData,
       getEngineAbortStatus: GetEngineAbortStatus,
-      reInterpretedTopLevelViews: LazyAsyncReInterpretation,
+      reInterpretedTopLevelViews: LazyAsyncReInterpretationMap,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction, Result] = {
@@ -313,7 +313,7 @@ class ModelConformanceChecker(
       submitterMetadataO: Option[SubmitterMetadata],
       topologySnapshot: TopologySnapshot,
       getEngineAbortStatus: GetEngineAbortStatus,
-      reInterpretedTopLevelViewsET: LazyAsyncReInterpretation,
+      reInterpretedTopLevelViewsET: LazyAsyncReInterpretationMap,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, WithRollbackScope[
@@ -444,14 +444,12 @@ object ModelConformanceChecker {
 
   // Type alias for a temporary caching of re-interpreted top views to be used both for authentication of externally
   // signed transaction and model conformance checker
-  type LazyAsyncReInterpretation = Map[
-    ViewHash,
-    Eval[EitherT[
-      FutureUnlessShutdown,
-      ModelConformanceChecker.Error,
-      ModelConformanceChecker.ConformanceReInterpretationResult,
-    ]],
-  ]
+  type LazyAsyncReInterpretation = Eval[EitherT[
+    FutureUnlessShutdown,
+    ModelConformanceChecker.Error,
+    ModelConformanceChecker.ConformanceReInterpretationResult,
+  ]]
+  type LazyAsyncReInterpretationMap = Map[ViewHash, LazyAsyncReInterpretation]
   private[protocol] final case class ConformanceReInterpretationResult(
       reInterpretationResult: ReInterpretationResult,
       contractLookup: ExtendedContractLookup,

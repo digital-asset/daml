@@ -67,6 +67,7 @@ object JsSchema {
       synchronizerId: String,
       traceContext: Option[TraceContext],
       recordTime: com.google.protobuf.timestamp.Timestamp,
+      externalTransactionHash: Option[String],
   )
 
   final case class JsTransactionTree(

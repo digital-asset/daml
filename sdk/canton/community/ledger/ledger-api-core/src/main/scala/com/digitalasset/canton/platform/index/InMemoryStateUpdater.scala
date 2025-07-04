@@ -525,6 +525,7 @@ private[platform] object InMemoryStateUpdater {
       completionStreamResponse = completionStreamResponse,
       synchronizerId = txAccepted.synchronizerId.toProtoPrimitive,
       recordTime = txAccepted.recordTime.toLf,
+      externalTransactionHash = txAccepted.externalTransactionHash,
     )(txAccepted.traceContext)
   }
 

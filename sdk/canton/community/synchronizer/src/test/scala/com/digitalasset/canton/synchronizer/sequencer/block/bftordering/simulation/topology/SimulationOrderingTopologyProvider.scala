@@ -40,6 +40,7 @@ class SimulationOrderingTopologyProvider(
         getEndpointsToTopologyData().view
           .filter { case (_, topologyData) =>
             topologyData.onboardingTime.value <= activationTime.value
+            && topologyData.offboardingTime.forall(activationTime.value <= _)
           }
           .map { case (endpoint, topologyData) =>
             endpointToTestBftNodeId(endpoint) -> topologyData

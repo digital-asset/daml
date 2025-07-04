@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawCreatedEvent,
   RawFlatEvent,
@@ -13,6 +15,7 @@ import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForUpdatesLedgerEffects,
 }
 import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, OptionValues}
@@ -55,6 +58,99 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     testCreatedAt(
       partiesO = None,
       expectedCreatedAt = someTime,
+    )
+  }
+
+  def testExternalTransactionHash(hash: Option[Array[Byte]]) = {
+    val creates = Vector(
+      dtoCreate(
+        offset(1),
+        1L,
+        contractId = contractId1,
+        signatory = signatory,
+        externalTransactionHash = hash,
+      ),
+      dtoExercise(
+        offset(1),
+        2L,
+        consuming = true,
+        contractId = contractId2,
+        signatory = signatory,
+        externalTransactionHash = hash,
+      ),
+      dtoExercise(
+        offset(1),
+        2L,
+        consuming = false,
+        contractId = contractId3,
+        signatory = signatory,
+        externalTransactionHash = hash,
+      ),
+    )
+
+    ingestDtos(creates)
+
+    val someParty = Ref.Party.assertFromString(signatory)
+    val filterParties = Some(Set(someParty))
+    def flatTransactionEvents(target: EventPayloadSourceForUpdatesAcsDelta) = executeSql(
+      backend.event.fetchEventPayloadsAcsDelta(
+        target
+      )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
+    )
+    def transactionTreeEvents(target: EventPayloadSourceForUpdatesLedgerEffects) = executeSql(
+      backend.event.fetchEventPayloadsLedgerEffects(
+        target
+      )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
+    )
+
+    def byteArrayToHash(array: Array[Byte]) = Hash.tryFromByteStringRaw(ByteString.copyFrom(array))
+
+    val expectedHash = hash.map(byteArrayToHash)
+
+    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDelta.Create)
+      .map(
+        _.externalTransactionHash
+      )
+      .loneElement
+      .map(byteArrayToHash) shouldBe expectedHash
+    flatTransactionEvents(EventPayloadSourceForUpdatesAcsDelta.Consuming)
+      .map(
+        _.externalTransactionHash
+      )
+      .loneElement
+      .map(byteArrayToHash) shouldBe expectedHash
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.Create)
+      .map(
+        _.externalTransactionHash
+      )
+      .loneElement
+      .map(byteArrayToHash) shouldBe expectedHash
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.Consuming)
+      .map(
+        _.externalTransactionHash
+      )
+      .loneElement
+      .map(byteArrayToHash) shouldBe expectedHash
+    transactionTreeEvents(EventPayloadSourceForUpdatesLedgerEffects.NonConsuming)
+      .map(
+        _.externalTransactionHash
+      )
+      .loneElement
+      .map(byteArrayToHash) shouldBe expectedHash
+  }
+
+  it should "return empty external transaction hash" in {
+    testExternalTransactionHash(None)
+  }
+
+  it should "return defined external transaction hash" in {
+    testExternalTransactionHash(
+      Some(
+        Hash
+          .digest(HashPurpose.PreparedSubmission, ByteString.copyFromUtf8("mock_hash"), Sha256)
+          .unwrap
+          .toByteArray
+      )
     )
   }
 
@@ -109,7 +205,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   }
 
-  private def ingestDtos(creates: Vector[DbDto.EventCreate]) = {
+  private def ingestDtos(creates: Vector[DbDto]) = {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(creates, _))
     executeSql(updateLedgerEnd(offset(1), creates.size.toLong))

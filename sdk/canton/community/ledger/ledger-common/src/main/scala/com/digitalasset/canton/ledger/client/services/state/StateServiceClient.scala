@@ -79,8 +79,8 @@ class StateServiceClient(service: StateServiceStub)(implicit
   def getActiveContracts(
       filter: TransactionFilter,
       validAtOffset: Long,
-      verbose: Boolean = false,
-      token: Option[String] = None,
+      verbose: Boolean,
+      token: Option[String],
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
@@ -98,7 +98,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
   def getActiveContracts(
       eventFormat: EventFormat,
       validAtOffset: Long,
-      token: Option[String],
+      token: Option[String] = None,
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
