@@ -703,12 +703,8 @@ class Engine(val config: EngineConfig) {
         Set.empty,
         Set.empty,
       )
-      extraDeps = darManifest.keySet
-        .diff(
-          Set(
-            mainPackageId
-          ) ++ transitiveDeps ++ missingDeps ++ stablePackageIds
-        )
+      knownDeps = Set(mainPackageId) ++ transitiveDeps ++ missingDeps ++ stablePackageIds
+      extraDeps = darManifest.keySet.diff(knownDeps)
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),
