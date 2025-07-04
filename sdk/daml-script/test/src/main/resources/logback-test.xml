@@ -8,8 +8,8 @@
 
     <appender name="TEST-LOGGER" class="com.digitalasset.daml.lf.engine.script.test.LogCollector" />
 
-    <logger name="io.netty" level="WARN" />
-    <logger name="io.grpc.netty" level="WARN" />
+    <logger name="io.grpc.netty.shaded.io.netty" level="WARN" />
+    <logger name="io.grpc.netty.shaded" level="WARN" />
 
     <!-- Disable all logging on submission failures.
          Otherwise tests for failing submits become a logging mess. -->

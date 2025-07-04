@@ -3,8 +3,8 @@
 
 package com.daml.tls
 
-import io.netty.buffer.ByteBufAllocator
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.netty.buffer.ByteBufAllocator
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import javax.net.ssl.SSLEngine
 

@@ -5,7 +5,7 @@ package com.daml.ledger.api.testing.utils
 
 import io.grpc._
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 
 import java.net.SocketAddress
 
