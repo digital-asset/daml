@@ -16,7 +16,7 @@ import com.daml.ledger.api.tls.TlsConfiguration
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.SecurityTest
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits._
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import java.io.File
 import java.nio.file.Paths
 import com.daml.metrics.api.reporters.MetricsReporter

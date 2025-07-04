@@ -31,8 +31,8 @@ import com.daml.navigator.store.Store._
 import com.daml.navigator.time._
 import com.daml.navigator.util.RetryHelper
 import io.grpc.Channel
-import io.grpc.netty.GrpcSslContexts
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 

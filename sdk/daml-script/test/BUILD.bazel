@@ -211,7 +211,7 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_core",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -327,7 +327,7 @@ da_scala_test_suite(
         "//observability/metrics",
         "//test-common/canton/it-lib",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
     ],
 )
 

@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
 import com.google.protobuf.ByteString
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import java.net.URI
 import java.util.concurrent.Executor

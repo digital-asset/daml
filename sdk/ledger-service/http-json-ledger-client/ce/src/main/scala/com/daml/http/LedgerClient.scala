@@ -4,7 +4,7 @@
 package com.daml.http
 
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 

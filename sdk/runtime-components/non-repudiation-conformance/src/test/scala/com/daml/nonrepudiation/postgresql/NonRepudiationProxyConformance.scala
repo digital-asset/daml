@@ -24,7 +24,7 @@ import com.daml.platform.sandboxnext.{Runner => Sandbox}
 import com.daml.ports.Port
 import com.daml.testing.postgresql.PostgresAroundAll
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Inside, OptionValues}

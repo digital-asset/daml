@@ -26,8 +26,7 @@ load("//ledger-test-tool:conformance.bzl", "testtool_lf_versions")
             "//libs-scala/resources-grpc",
             "//libs-scala/resources-pekko",
             "@maven//:io_grpc_grpc_api",
-            "@maven//:io_grpc_grpc_netty",
-            "@maven//:io_netty_netty_handler",
+            "@maven//:io_grpc_grpc_netty_shaded",
             "@maven//:org_slf4j_slf4j_api",
         ],
     )

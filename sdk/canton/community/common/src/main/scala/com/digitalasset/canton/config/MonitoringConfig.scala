@@ -15,7 +15,7 @@ import com.digitalasset.canton.networking.grpc.{
   CantonServerInterceptors,
 }
 import com.digitalasset.canton.tracing.TracingConfig
-import io.netty.handler.ssl.SslContext
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import scala.annotation.nowarn
 

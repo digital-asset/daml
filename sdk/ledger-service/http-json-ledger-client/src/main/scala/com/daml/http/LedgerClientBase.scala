@@ -10,7 +10,7 @@ import com.daml.ledger.client.configuration.{
 }
 import com.daml.scalautil.ExceptionOps._
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import scalaz._
 import Scalaz._
 import com.daml.http.util.Logging.InstanceUUID

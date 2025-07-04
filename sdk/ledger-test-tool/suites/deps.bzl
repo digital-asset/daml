@@ -54,7 +54,6 @@ def deps(lf_version):
         "//libs-scala/timer-utils",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_slf4j_slf4j_api",
     ] + additional_tests
