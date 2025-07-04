@@ -11,7 +11,7 @@ load(
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows", "is_linux")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
