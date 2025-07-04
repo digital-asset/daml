@@ -181,8 +181,8 @@ jobs:
             cd compiler/daml-extension
             sed -i "s/__VERSION__/$GITHUB/" package.json
             # This produces out/src/extension.js
-            bazel run --run_under="cd $PWD &&" @nodejs//:yarn install
-            bazel run --run_under="cd $PWD &&" @nodejs//:yarn compile
+            bazel run --run_under="cd $PWD &&" @yarn//:yarn install
+            bazel run --run_under="cd $PWD &&" @yarn//:yarn compile
             bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
             )
           else
