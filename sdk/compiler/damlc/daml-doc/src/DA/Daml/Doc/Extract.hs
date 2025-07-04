@@ -43,10 +43,13 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
+import "ghc-lib-parser" FastString (unpackFS)
 
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
+import Data.Bifunctor (first)
+import Data.Either (partitionEithers)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.List.Extended (spanMaybe)
@@ -76,6 +79,12 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
         . hsmodHaddockModHeader . unLoc
         . pm_parsed_source . tm_parsed_module
 
+    modWarn :: TypecheckedModule -> Maybe WarnOrDeprecatedData
+    modWarn
+        = fmap (warningTxtToWarnData . unLoc)
+        . hsmodDeprecMessage . unLoc
+        . pm_parsed_source . tm_parsed_module
+
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
         let tcmod = Service.tmrModule tmr
@@ -89,6 +98,7 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc tcmod
+            md_warn = modWarn tcmod
             md_templates = getTemplateDocs ctx typeMap interfaceInstanceMap templateMaps
             md_interfaces = getInterfaceDocs ctx typeMap interfaceInstanceMap templateMaps
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
@@ -104,36 +114,42 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
         in ModuleDoc {..}
 
--- | This is equivalent to Haddock’s Haddock.Interface.Create.collectDocs
+-- | Collects sets of documents before and after a non DocD definition, and groups them together for that decl
+-- also collects WarningD definitions and assigns accordingly. Warnings must be before the definition, with or without
+-- DocD definitions between.
 collectDocs :: [LHsDecl GhcPs] -> [DeclData]
 collectDocs ds
-    | (nextDocs, decl:ds') <- spanMaybe getNextOrPrevDoc ds
+    | ((nextDocs, warnDocs), decl:ds') <- first partitionEithers $ spanMaybe getNextOrPrevOrWarnDoc ds
     , (prevDocs, ds'') <- spanMaybe getPrevDoc ds'
-    = DeclData decl (joinDocs nextDocs prevDocs)
+    = DeclData decl (nextDocs <> prevDocs) (concat warnDocs)
     : collectDocs ds''
 
     | otherwise
     = [] -- nothing to document
   where
-
-    joinDocs :: [DocText] -> [DocText] -> Maybe DocText
-    joinDocs nextDocs prevDocs =
-        let docs = map unDocText (nextDocs ++ prevDocs)
-        in if null docs
-            then Nothing
-            else Just . DocText . T.strip $ T.unlines docs
-
-    getNextOrPrevDoc :: LHsDecl a -> Maybe DocText
-    getNextOrPrevDoc = \case
-        L _ (DocD _ (DocCommentNext str)) -> Just (docToText str)
-        L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
-            -- technically this is a malformed doc, but we'll take it
+    getNextOrPrevOrWarnDoc :: LHsDecl a -> Maybe (Either DocText [WarnOrDeprecatedData])
+    getNextOrPrevOrWarnDoc = \case
+        L _ (DocD _ (DocCommentNext str)) -> Just $ Left $ docToText str
+        -- technically below is a malformed doc, but we'll take it
+        L _ (DocD _ (DocCommentPrev str)) -> Just $ Left $ docToText str
+        -- Warning decs need to be last, so we split them over Either and sort later
+        L _ (WarningD _ (Warnings _ _ warns)) -> Just $ Right $ warnDeclToWarnData `mapMaybe` warns
         _ -> Nothing
+
+    warnDeclToWarnData :: LWarnDecl a -> Maybe WarnOrDeprecatedData
+    warnDeclToWarnData (L _ (Warning _ _ warningTxt)) = Just $ warningTxtToWarnData warningTxt
+    warnDeclToWarnData _ = Nothing
 
     getPrevDoc :: LHsDecl a -> Maybe DocText
     getPrevDoc = \case
         L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
         _ -> Nothing
+
+warningTxtToWarnData :: WarningTxt -> WarnOrDeprecatedData
+warningTxtToWarnData (WarningTxt _ _ lits) =
+  WarnData $ T.pack . unpackFS . sl_fs . unLoc <$> lits
+warningTxtToWarnData (DeprecatedTxt _ _ lits) =
+  DeprecatedData $ T.pack . unpackFS . sl_fs . unLoc <$> lits
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions tcmod  =
@@ -208,7 +224,7 @@ getInterfaceInstanceMap :: DocCtx -> [DeclData] -> MS.Map Typename (Set.Set Inte
 getInterfaceInstanceMap ctx@DocCtx{..} decls =
     MS.fromListWith Set.union
         [ (parent, Set.singleton (InterfaceInstanceDoc interface template))
-        | DeclData decl _ <- decls
+        | DeclData decl _ _ <- decls
         , name <- case unLoc decl of
             SigD _ (TypeSig _ (L _ n :_) _) -> [packRdrName n]
             _ -> []
@@ -226,7 +242,7 @@ getInterfaceInstanceMap ctx@DocCtx{..} decls =
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
 getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
-getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
+getFctDocs ctx@DocCtx{..} (DeclData decl docs warns) = do
     name <- case unLoc decl of
         SigD _ (TypeSig _ (L _ n :_) _) -> Just n
         ValD _ FunBind{..} | not (null docs) ->
@@ -244,18 +260,20 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
         fct_type = typeToType ctx ty
         fct_anchor = Just $ functionAnchor dc_modname fct_name
         fct_descr = docs
+        fct_warns = warns
 
     guard (exportsFunction dc_exports fct_name)
     guard (not $ isDamlGenerated $ rdrNameOcc name)
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
-getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
+getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs tcwarns) = do
     let cl_name = Typename . packRdrName $ unLoc tcdLName
     tycon <- MS.lookup cl_name dc_tycons
     tycls <- tyConClass_maybe tycon
     let cl_anchor = Just $ classAnchor dc_modname cl_name
         cl_descr = tcdocs
+        cl_warns = tcwarns
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
         opMap = MS.fromList
             [ (Fieldname $ packId id, (id, dmInfoM))
@@ -297,7 +315,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ ClassDecl{..})) tcdocs) = do
         -> DeclData
         -> [ClassMethodDoc]
     getMethodDocs opMap cl_anchor cl_name cl_args = \case
-        DeclData (L _ (SigD _ (ClassOpSig _ cm_isDefault rdrNamesL _))) cm_descr ->
+        DeclData (L _ (SigD _ (ClassOpSig _ cm_isDefault rdrNamesL _))) cm_descr cm_warns ->
             flip mapMaybe rdrNamesL $ \rdrNameL -> do
                 let cm_name = Fieldname . packRdrName . unLoc $ rdrNameL
                     cm_anchor = guard (not cm_isDefault) >>
@@ -342,7 +360,7 @@ unknownType :: DDoc.Type
 unknownType = TypeApp Nothing (Typename "_") []
 
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
-getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
+getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc warns)
     | XTyClDecl{} <- decl =
         Nothing
     | ClassDecl{} <- decl =
@@ -353,6 +371,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     | SynDecl{..} <- decl = do
         let ad_name = Typename . packRdrName $ unLoc tcdLName
             ad_descr = doc
+            ad_warns = warns
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
             ad_anchor = Just $ typeAnchor dc_modname ad_name
             ad_rhs = fromMaybe unknownType $ do
@@ -365,6 +384,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     | DataDecl{..} <- decl = do
         let ad_name = Typename . packRdrName $ unLoc tcdLName
             ad_descr = doc
+            ad_warns = warns
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
             ad_anchor = Just $ typeAnchor dc_modname ad_name
             ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
@@ -375,7 +395,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     constrDoc (L _ con) =
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
-            ac_descr = fmap (docToText . unLoc) $ con_doc con
+            ac_descr = maybeToList $ fmap (docToText . unLoc) $ con_doc con
             ac_args =
                 case MS.lookup ac_name dc_datacons of
                     Nothing ->

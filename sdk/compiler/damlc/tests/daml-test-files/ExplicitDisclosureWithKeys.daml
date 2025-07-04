@@ -32,6 +32,6 @@ disclosuresByKeyTest = do
      createCmd (Box alice "my secret")
   disclosure <- fromSome <$> queryDisclosure alice did
 
-  content <- submitWithDisclosures bob [disclosure] (exerciseByKeyCmd @Box alice (Open bob))
+  content <- (actAs bob <> disclose disclosure) `submit` (exerciseByKeyCmd @Box alice (Open bob))
 
   pure content

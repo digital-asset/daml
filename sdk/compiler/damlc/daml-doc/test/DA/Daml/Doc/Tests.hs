@@ -83,7 +83,7 @@ unitTests =
            (\md -> assertBool
                    ("Expected a single type synonym doc, got " <> show md)
                    (isJust $ do adt <- getSingle $ md_adts md
-                                check $ ad_descr adt == Just "Foo doc"))
+                                check $ ad_descr adt == ["Foo doc"]))
 
          , damldocExpect
            Nothing
@@ -95,7 +95,7 @@ unitTests =
            (\md -> assertBool
                    ("Expected a single data type doc, got " <> show md)
                    (isJust $ do adt <- getSingle $ md_adts md
-                                check $ ad_descr adt == Just "Foo doc"))
+                                check $ ad_descr adt == ["Foo doc"]))
 
          , damldocExpect
            Nothing
@@ -108,7 +108,7 @@ unitTests =
                    ("Expected single constructor with doc, got " <> show md)
                    (isJust $ do adt <- getSingle $ md_adts md
                                 con <- getSingle $ ad_constrs adt
-                                check $ ac_descr con == Just "Constructor"))
+                                check $ ac_descr con == ["Constructor"]))
 
          , damldocExpect
            Nothing
@@ -121,7 +121,7 @@ unitTests =
                    ("Expected record with a field with doc, got " <> show md)
                    (isJust $ do adt <- getSingle $ md_adts md
                                 con <- getSingle $ ad_constrs adt
-                                check $ isNothing $ ac_descr con
+                                check $ null $ ac_descr con
                                 f1  <- getSingle $ ac_fields con
                                 check $ fd_descr f1 == Just "Field1"))
 
@@ -138,7 +138,7 @@ unitTests =
            (\md -> assertBool
                    ("Expected template and a field in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
-                                check $ Just "Template doc" == td_descr t
+                                check $ ["Template doc"] == td_descr t
                                 check $ Just ["field1"] == td_signatory t
                                 f1 <- getSingle $ td_payload t
                                 check $ fd_descr f1 == Just "Field1"))
@@ -159,7 +159,7 @@ unitTests =
            (\md -> assertBool
                    ("Expected a choice with field in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
-                                check $ isNothing $ td_descr t
+                                check $ null $ td_descr t
                                 f1 <- getSingle $ td_payload t
                                 check $ isNothing $ fd_descr f1
                                 ch <- getSingle $ td_choicesWithoutArchive t
@@ -188,7 +188,7 @@ unitTests =
            (\md -> assertBool
                    ("Expected two choices in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
-                                check $ isNothing $ td_descr t
+                                check $ null $ td_descr t
                                 cs <- Just $ td_choicesWithoutArchive t
                                 check $ length cs == 2
                                 check $ ["DoMore", "DoSomething"] == sort (map cd_name cs)))
@@ -284,9 +284,9 @@ unitTests =
            (\md -> assertBool
                    ("Expected a class description and a function description, got " <> show md)
                    (isJust $ do cls <- getSingle $ md_classes md
-                                check (Just "Class description" == cl_descr cls)
+                                check (["Class description"] == cl_descr cls)
                                 member <- getSingle $ cl_methods cls
-                                check (Just "Member description" == cm_descr member)))
+                                check (["Member description"] == cm_descr member)))
          ]
 
 
@@ -316,6 +316,7 @@ emptyDocs name =
     let md_name = Modulename (T.pack name)
         md_anchor = Just (moduleAnchor md_name)
         md_descr = Nothing
+        md_warn = Nothing
         md_templates = []
         md_adts = []
         md_functions = []

@@ -1,0 +1,123 @@
+{
+  "md_adts": [
+    {
+      "ADTDoc": {
+        "ad_anchor": "type-damldocswarnings-mydata-11893",
+        "ad_args": [],
+        "ad_constrs": [
+          {
+            "PrefixC": {
+              "ac_anchor": "constr-damldocswarnings-mydata-39166",
+              "ac_args": [],
+              "ac_descr": [],
+              "ac_name": "MyData"
+            }
+          }
+        ],
+        "ad_descr": [
+          [
+            "My data"
+          ]
+        ],
+        "ad_name": "MyData",
+        "ad_warns": [
+          {
+            "WarnData": [
+              "MyData warning line 1",
+              "MyData warning line 2"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "ADTDoc": {
+        "ad_anchor": "type-damldocswarnings-mydata2-76250",
+        "ad_args": [],
+        "ad_constrs": [
+          {
+            "PrefixC": {
+              "ac_anchor": "constr-damldocswarnings-mydata2-86727",
+              "ac_args": [],
+              "ac_descr": [],
+              "ac_name": "MyData2"
+            }
+          }
+        ],
+        "ad_descr": [
+          [
+            "My data2"
+          ]
+        ],
+        "ad_name": "MyData2",
+        "ad_warns": [
+          {
+            "DeprecatedData": [
+              "MyData2 deprecated line 1",
+              "MyData deprecated line 2"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "md_anchor": "module-damldocswarnings-17843",
+  "md_classes": [],
+  "md_descr": [
+    "My module"
+  ],
+  "md_functions": [
+    {
+      "fct_anchor": "function-damldocswarnings-myfunc-41459",
+      "fct_context": [],
+      "fct_descr": [
+        [
+          "my function"
+        ]
+      ],
+      "fct_name": "myFunc",
+      "fct_type": {
+        "TypeFun": [
+          {
+            "TypeApp": [
+              {
+                "referenceAnchor": "type-ghc-types-int-37261",
+                "referencePackage": "daml-prim"
+              },
+              "Int",
+              []
+            ]
+          },
+          {
+            "TypeApp": [
+              {
+                "referenceAnchor": "type-ghc-types-int-37261",
+                "referencePackage": "daml-prim"
+              },
+              "Int",
+              []
+            ]
+          }
+        ]
+      },
+      "fct_warns": [
+        {
+          "DeprecatedData": [
+            "myFunc deprecated line 1",
+            "myFunc deprecated line 2"
+          ]
+        }
+      ]
+    }
+  ],
+  "md_instances": [],
+  "md_interfaces": [],
+  "md_name": "DamlDocsWarnings",
+  "md_templates": [],
+  "md_warn": {
+    "WarnData": [
+      "Module warning line 1",
+      "MyData warning line 2"
+    ]
+  }
+}

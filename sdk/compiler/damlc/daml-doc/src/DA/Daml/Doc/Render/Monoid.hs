@@ -31,6 +31,7 @@ data RenderOut
     | RenderRecordFields [(RenderText, RenderText, RenderText)]
     | RenderParagraph RenderText
     | RenderDocs DocText
+    | RenderWarnOrDeprecated WarnOrDeprecatedData
     | RenderIndex [Modulename]
 
 data RenderText
@@ -124,6 +125,7 @@ getRenderAnchors = \case
     RenderRecordFields _ -> Set.empty
     RenderParagraph _ -> Set.empty
     RenderDocs _ -> Set.empty
+    RenderWarnOrDeprecated _ -> Set.empty
     RenderIndex _ -> Set.empty
 
 renderPage :: RenderFormatter -> AnchorMap -> RenderOut -> T.Text

@@ -60,6 +60,7 @@ distributeInstanceDocs opts docs =
         { md_name = md_name
         , md_anchor = md_anchor
         , md_descr = md_descr
+        , md_warn = md_warn
         , md_functions = md_functions
         , md_templates = md_templates
         , md_interfaces = map (addIfaceInstances imap) md_interfaces
@@ -91,7 +92,7 @@ distributeInstanceDocs opts docs =
     addIfaceInstances imap idoc = idoc
       { if_methods =
           [ MethodDoc{..}
-          | InstanceDoc {id_type, id_module, id_descr} <-
+          | InstanceDoc {id_type, id_module, id_descr, id_warns} <-
                 maybe [] Set.toList $ do
                   anchor <- if_anchor idoc
                   Map.lookup anchor imap
@@ -100,6 +101,7 @@ distributeInstanceDocs opts docs =
           , Just [_if_name, TypeLit name, mtd_type] <- [getTypeAppArgs id_type]
           , let mtd_name = Typename $ T.dropEnd 1 $ T.drop 1 name -- drop enclosing double-quotes.
           , let mtd_descr = id_descr
+          , let mtd_warns = id_warns
           ]
       , if_viewtype = listToMaybe
           [ InterfaceViewtypeDoc viewtype
