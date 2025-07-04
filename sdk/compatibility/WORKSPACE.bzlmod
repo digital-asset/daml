@@ -361,6 +361,7 @@ maven_install(
         "https://repo1.maven.org/maven2",
     ],
     version_conflict_policy = "pinned",
+    fail_if_repin_required = True,
 )
 
 load("@maven//:defs.bzl", "pinned_maven_install")
