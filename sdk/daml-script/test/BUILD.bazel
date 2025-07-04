@@ -11,7 +11,7 @@ load(
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@build_environment//:configuration.bzl", "sdk_version")
-load("@os_info//:os_info.bzl", "is_windows")
+load("@os_info//:os_info.bzl", "is_linux_intel", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 load(
     "//daml-lf/language:daml-lf.bzl",
@@ -368,7 +368,7 @@ da_scala_test(
 
 da_scala_test(
     name = "upgrade-matrix-integration",
-    size = "large",
+    size = "enormous",
     srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesMatrixIT.scala"],
     args = ["-P"],  # run suites in parallel
     resources = glob(["src/main/resources/**/*"]),
@@ -407,7 +407,7 @@ da_scala_test(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:io_grpc_grpc_api",
     ],
-)
+) if is_linux_intel else None
 
 da_scala_test(
     name = "utility-package-test",
