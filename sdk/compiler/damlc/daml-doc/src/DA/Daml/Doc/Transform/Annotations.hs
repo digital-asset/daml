@@ -143,16 +143,21 @@ applyHide = concatMap onModule
             | ADTDoc{..} <- x, all (isHide . ac_descr) ad_constrs = pure x{ad_constrs = []}
             | otherwise = [x]
 
+-- Returns first line, rest of lines from first doc, and rest of docs
+extractFirstLineFromDocs :: [DocText] -> Maybe (T.Text, [T.Text], [DocText])
+extractFirstLineFromDocs docs = do
+  (firstDoc, restDocs) <- uncons docs
+  (firstLine, restLines) <- uncons $ unDocText firstDoc
+  pure (firstLine, restLines, restDocs)
+
 isHide :: [DocText] -> Bool
-isHide x = fromMaybe False $ do
-  firstDoc <- unDocText . fst <$> uncons x
-  firstLine <- fst <$> uncons firstDoc
+isHide docs = fromMaybe False $ do
+  (firstLine, _, _) <- extractFirstLineFromDocs docs
   pure $ ["HIDE"] `isPrefixOf` T.words firstLine
 
 isMove :: [DocText] -> Maybe (Modulename, [DocText])
 isMove docs = do
-  (firstDoc, restDocs) <- uncons docs
-  (firstLine, restLines) <- uncons $ unDocText firstDoc
+  (firstLine, restLines, restDocs) <- extractFirstLineFromDocs docs
   case T.words firstLine of
     ("MOVE":modName:restLine) ->
       let firstDocLines = [T.unwords restLine | not $ null restLine] ++ restLines

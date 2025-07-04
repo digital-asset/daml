@@ -114,7 +114,9 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
         in ModuleDoc {..}
 
--- | This is equivalent to Haddock’s Haddock.Interface.Create.collectDocs
+-- | Collects sets of documents before and after a non DocD definition, and groups them together for that decl
+-- also collects WarningD definitions and assigns accordingly. Warnings must be before the definition, with or without
+-- DocD definitions between.
 collectDocs :: [LHsDecl GhcPs] -> [DeclData]
 collectDocs ds
     | ((nextDocs, warnDocs), decl:ds') <- first partitionEithers $ spanMaybe getNextOrPrevOrWarnDoc ds
