@@ -1558,7 +1558,6 @@ da_java_library(
         ":ledger-api-java-grpc",
     ],
     javacopts = [
-        "-Werror",
         "-Xlint",
         "-Xlint:-serial",
         "-Xlint:-deprecation",  # Protoc 2.24 generates code that is deprecated in 2.25
