@@ -131,8 +131,9 @@ class AssignmentProcessingStepsTest
       maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainersVersioned,
     )
 
-  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-    metadata = testMetadata()
+  private lazy val contract = ExampleContractFactory.build(
+    signatories = Set(party1),
+    stakeholders = Set(party1),
   )
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.One
@@ -305,9 +306,12 @@ class AssignmentProcessingStepsTest
     "fail when a receiving party has no participant on the synchronizer" in {
       // metadataTransformer updates the contract metadata to inject receiving parties
       def test(metadataTransformer: ContractMetadata => ContractMetadata) = {
+
         val helpers = reassignmentDataHelpers
-          .focus(_.contract.metadata)
-          .modify(metadataTransformer)
+          .focus(_.contract)
+          .modify(c =>
+            ExampleContractFactory.modify(c, metadata = Some(metadataTransformer(c.metadata)))
+          )
 
         val unassignmentRequest = helpers.unassignmentRequest(
           party1,
@@ -390,12 +394,14 @@ class AssignmentProcessingStepsTest
       )
 
       // We need to change the contract instance otherwise we get another error (AssignmentSubmitterMustBeStakeholder)
-      val contract = ExampleTransactionFactory.asSerializable(
-        contractId = coidAbs1,
-        contractInstance = ExampleTransactionFactory.contractInstance(),
-        ledgerTime = CantonTimestamp.Epoch,
-        metadata = ContractMetadata.tryCreate(Set(), Set(party3), None),
-      )
+      val contract = ExampleTransactionFactory
+        .asSerializable(
+          contractId = coidAbs1,
+          contractInstance = ExampleTransactionFactory.contractInstance(),
+          ledgerTime = CantonTimestamp.Epoch,
+          metadata = ContractMetadata.tryCreate(Set(party3), Set(party3), None),
+        )
+        .tryToContractInstance()
 
       val reassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         reassignmentId,
@@ -562,7 +568,7 @@ class AssignmentProcessingStepsTest
     }
 
     "fail when wrong metadata is given" in {
-      def test(testContract: SerializableContract) =
+      def test(testContract: ContractInstance) =
         for {
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
@@ -616,7 +622,7 @@ class AssignmentProcessingStepsTest
       val baseMetadata = testMetadata()
 
       // party2 is incorrectly registered as a stakeholder
-      val contractWrongStakeholders: SerializableContract =
+      val contractWrongStakeholders: ContractInstance =
         ExampleTransactionFactory
           .authenticatedSerializableContract(
             metadata = baseMetadata
@@ -625,9 +631,10 @@ class AssignmentProcessingStepsTest
           .replace(
             testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
+          .tryToContractInstance()
 
       // party2 is incorrectly registered as a signatory
-      val contractWrongSignatories: SerializableContract =
+      val contractWrongSignatories: ContractInstance =
         ExampleTransactionFactory
           .authenticatedSerializableContract(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
@@ -639,6 +646,7 @@ class AssignmentProcessingStepsTest
               signatories = baseMetadata.signatories + party2,
             )
           )
+          .tryToContractInstance()
 
       val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
         ExampleTransactionFactory.defaultGlobalKey,
@@ -646,7 +654,7 @@ class AssignmentProcessingStepsTest
       )
 
       // Metadata has incorrect key
-      val contractWrongKey: SerializableContract =
+      val contractWrongKey: ContractInstance =
         ExampleTransactionFactory
           .authenticatedSerializableContract(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
@@ -657,6 +665,7 @@ class AssignmentProcessingStepsTest
               maybeKeyWithMaintainersVersioned = Some(incorrectKey)
             )
           )
+          .tryToContractInstance()
 
       for {
         _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -697,7 +706,7 @@ class AssignmentProcessingStepsTest
       val correctViewTree = makeFullAssignmentTree(reassignmentId)
       val incorrectViewTree = makeFullAssignmentTree(
         reassignmentId,
-        contract = contract.copy(metadata = incorrectMetadata),
+        contract = contract.serializable.copy(metadata = incorrectMetadata).tryToContractInstance(),
         reassigningParticipants = Set(participant),
       )
 
@@ -750,13 +759,10 @@ class AssignmentProcessingStepsTest
   }
 
   "get commit set and contracts to be stored and event" should {
-    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-    val contract =
-      ExampleTransactionFactory.asSerializable(
-        contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(),
-        metadata = ContractMetadata.tryCreate(Set(party1), Set(party1), None),
-      )
+    val contract = ExampleContractFactory.build(
+      signatories = Set(party1),
+      stakeholders = Set(party1),
+    )
     val rootHash = mock[RootHash]
     when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
     val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
@@ -930,7 +936,7 @@ class AssignmentProcessingStepsTest
   private def makeFullAssignmentTree(
       reassignmentId: ReassignmentId = reassignment10,
       submitter: LfPartyId = party1,
-      contract: SerializableContract = contract,
+      contract: ContractInstance = contract,
       targetSynchronizer: Target[PhysicalSynchronizerId] = targetSynchronizer,
       targetMediator: MediatorGroupRecipient = targetMediator,
       uuid: UUID = new UUID(4L, 5L),

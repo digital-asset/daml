@@ -771,7 +771,7 @@ class ConnectedSynchronizer(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext

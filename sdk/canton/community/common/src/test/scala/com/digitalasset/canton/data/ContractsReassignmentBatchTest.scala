@@ -5,9 +5,8 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
-  ExampleTransactionFactory,
+  ExampleContractFactory,
   LfTemplateId,
-  SerializableContract,
   Stakeholders,
 }
 import com.digitalasset.canton.{LfPackageName, LfPartyId, ReassignmentCounter}
@@ -16,14 +15,12 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
-  private val contract1 = ExampleTransactionFactory.asSerializable(contractId =
-    ExampleTransactionFactory.suffixedId(-1, 0)
-  )
-  private val contract2 = contract1.copy(contractId = ExampleTransactionFactory.suffixedId(-1, 1))
-  private val contract3 = contract1.copy(contractId = ExampleTransactionFactory.suffixedId(-1, 2))
+  private val contract1 = ExampleContractFactory.build()
+  private val contract2 = ExampleContractFactory.build()
+  private val contract3 = ExampleContractFactory.build()
 
-  private val templateId = contract1.rawContractInstance.contractInstance.unversioned.template
-  private val packageName = contract1.rawContractInstance.contractInstance.unversioned.packageName
+  private val templateId = contract1.inst.templateId
+  private val packageName = contract1.inst.packageName
   private val stakeholders = Stakeholders(contract1.metadata)
   private val counter = ReassignmentCounter(1)
 
@@ -81,7 +78,7 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
         .create(
           Seq(
             (contract1, counter),
-            (setTemplateId(contract2, newTemplateId), counter),
+            (ExampleContractFactory.build(templateId = newTemplateId), counter),
           )
         )
         .value
@@ -95,11 +92,10 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
         .create(
           Seq(
             (contract1, counter),
-            (setPackageName(contract2, newPackageName), counter),
+            (ExampleContractFactory.build(packageName = newPackageName), counter),
           )
         )
         .value
-
       batch.contracts.map(_.packageName) shouldBe Seq(packageName, newPackageName)
     }
 
@@ -111,10 +107,14 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
       ContractsReassignmentBatch.create(
         Seq(
           (contract1, counter),
-          (setStakeholders(contract2, newStakeholders), counter),
+          (
+            ExampleContractFactory
+              .modify(contract2, metadata = Some(ContractMetadata(newStakeholders))),
+            counter,
+          ),
         )
       ) shouldBe Left(
-        ContractsReassignmentBatch.DifferingStakeholders(Seq(stakeholders, newStakeholders))
+        ContractsReassignmentBatch.DifferingStakeholders(Seq(newStakeholders, stakeholders))
       )
     }
   }
@@ -160,7 +160,7 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
         .partition(
           Seq(
             (contract1, counter),
-            (setTemplateId(contract2, newTemplateId), counter),
+            (ExampleContractFactory.modify(contract2, templateId = Some(newTemplateId)), counter),
           )
         ): @unchecked
 
@@ -176,7 +176,7 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
         .partition(
           Seq(
             (contract1, counter),
-            (setPackageName(contract2, newPackageName), counter),
+            (ExampleContractFactory.modify(contract2, packageName = Some(newPackageName)), counter),
           )
         ): @unchecked
 
@@ -195,7 +195,11 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
         .partition(
           Seq(
             (contract1, counter),
-            (setStakeholders(contract2, newStakeholders), counter),
+            (
+              ExampleContractFactory
+                .modify(contract2, metadata = Some(ContractMetadata(newStakeholders))),
+              counter,
+            ),
           )
         )
         .sortBy(_.stakeholders.all.size): @unchecked
@@ -208,37 +212,4 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
     }
   }
 
-  private def setTemplateId(
-      contract: SerializableContract,
-      templateId: LfTemplateId,
-  ): SerializableContract =
-    ExampleTransactionFactory.asSerializable(
-      contractId = contract.contractId,
-      contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
-      metadata = contract.metadata,
-    )
-
-  private def setPackageName(
-      contract: SerializableContract,
-      packageName: LfPackageName,
-  ): SerializableContract =
-    ExampleTransactionFactory.asSerializable(
-      contractId = contract.contractId,
-      contractInstance = ExampleTransactionFactory.contractInstance(packageName = packageName),
-      metadata = contract.metadata,
-    )
-
-  private def setStakeholders(
-      contract: SerializableContract,
-      stakeholders: Stakeholders,
-  ): SerializableContract =
-    ExampleTransactionFactory.asSerializable(
-      contractId = contract.contractId,
-      contractInstance = contract.contractInstance,
-      metadata = ContractMetadata.tryCreate(
-        stakeholders.signatories,
-        stakeholders.all,
-        contract.metadata.maybeKeyWithMaintainersVersioned,
-      ),
-    )
 }

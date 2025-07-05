@@ -555,6 +555,12 @@ abstract class ParticipantReference(
   private lazy val repair_ =
     new ParticipantRepairAdministration(consoleEnvironment, this, loggerFactory)
 
+  private lazy val commitments_ =
+    new CommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
+  @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
+  @Help.Group("Commitments")
+  def commitments: CommitmentsAdministrationGroup = commitments_
+
   @Help.Summary("Commands to repair the participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration = repair_
@@ -738,7 +744,7 @@ class LocalParticipantReference(
     new LocalCommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
   @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
   @Help.Group("Commitments")
-  def commitments: LocalCommitmentsAdministrationGroup = commitments_
+  override def commitments: LocalCommitmentsAdministrationGroup = commitments_
 
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]

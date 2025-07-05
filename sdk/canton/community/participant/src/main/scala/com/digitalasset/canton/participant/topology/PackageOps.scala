@@ -114,9 +114,7 @@ class PackageOpsImpl(
     // Use the aliasManager to query all synchronizers, even those that are currently disconnected
     val snapshotsForSynchronizers: List[TopologySnapshot] =
       stateManager.getAll.view.values
-        .map(persistentState =>
-          stateManager.topologyFactoryFor(persistentState.physicalSynchronizerId)
-        )
+        .map(persistentState => stateManager.topologyFactoryFor(persistentState.psid))
         .flatMap(_.map(_.createHeadTopologySnapshot()))
         .toList
 

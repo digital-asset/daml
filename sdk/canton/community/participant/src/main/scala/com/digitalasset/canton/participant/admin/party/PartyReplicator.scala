@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{PositiveFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -17,20 +17,20 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   AuthorizedReplicationParams,
+  ConnectedReplicationParams,
   ConnectionEstablished,
   PartyReplicationStatus,
   PartyReplicationStatusCode,
+  ReplicationParams,
 }
 import com.digitalasset.canton.participant.protocol.party.{
+  PartyReplicationProcessor,
   PartyReplicationSourceParticipantProcessor,
   PartyReplicationTargetParticipantProcessor,
 }
 import com.digitalasset.canton.participant.sync.{CantonSyncService, ConnectedSynchronizer}
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
-import com.digitalasset.canton.sequencing.client.channel.{
-  SequencerChannelClient,
-  SequencerChannelProtocolProcessor,
-}
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
@@ -442,6 +442,7 @@ final class PartyReplicator(
           s"Party replication $requestId agreement accepted for party ${agreementParams.partyId}"
         )
         partyReplications.put(requestId, expectedAgreementAccepted).discard
+        activateProgressMonitoring(requestId)
       }
     }
 
@@ -540,13 +541,15 @@ final class PartyReplicator(
         ](requestId)
         (status, connectedSynchronizer, channelClient) = state
         AuthorizedReplicationParams(
-          _,
-          partyId,
-          synchronizerId,
-          sourceParticipantId,
-          targetParticipantId,
-          _,
-          _,
+          ReplicationParams(
+            _,
+            partyId,
+            synchronizerId,
+            sourceParticipantId,
+            targetParticipantId,
+            _,
+            _,
+          ),
           sequencerId,
           effectiveAt,
         ) = status.authorizedParams
@@ -565,12 +568,13 @@ final class PartyReplicator(
                   effectiveAt,
                   partiesAlreadyHostedByTargetParticipant,
                   connectedSynchronizer.synchronizerHandle.syncPersistentState.acsInspection,
-                  updateProgress(requestId, traceContext),
-                  markComplete(requestId, traceContext),
+                  markComplete(requestId),
                   recordError(requestId, traceContext),
+                  futureSupervisor,
+                  exitOnFatalFailures,
                   timeouts,
                   loggerFactory,
-                ): SequencerChannelProtocolProcessor,
+                ): PartyReplicationProcessor,
                 status.params.targetParticipantId,
                 false,
               )
@@ -581,15 +585,16 @@ final class PartyReplicator(
                 PartyReplicationTargetParticipantProcessor(
                   partyId,
                   effectiveAt,
-                  updateProgress(requestId, traceContext),
-                  markComplete(requestId, traceContext),
+                  markComplete(requestId),
                   recordError(requestId, traceContext),
                   (_, _) => EitherTUtil.unitUS,
                   syncService.participantNodePersistentState,
                   connectedSynchronizer,
+                  futureSupervisor,
+                  exitOnFatalFailures,
                   timeouts,
                   loggerFactory,
-                ): SequencerChannelProtocolProcessor,
+                ): PartyReplicationProcessor,
                 status.params.sourceParticipantId,
                 true,
               )
@@ -597,7 +602,7 @@ final class PartyReplicator(
           } else {
             EitherT.leftT[
               FutureUnlessShutdown,
-              (SequencerChannelProtocolProcessor, ParticipantId, Boolean),
+              (PartyReplicationProcessor, ParticipantId, Boolean),
             ](
               s"participant $participantId is neither source nor target"
             )
@@ -614,17 +619,35 @@ final class PartyReplicator(
           )
           .mapK(FutureUnlessShutdown.liftK)
       } yield {
-        val newStatus = ConnectionEstablished(status.authorizedParams)
+        val newStatus =
+          ConnectionEstablished(ConnectedReplicationParams(status.authorizedParams, processor))
         logger.info(s"Party replication $requestId connected to sequencer $sequencerId")
         partyReplications.put(requestId, newStatus).discard
       }
     )
 
-  private def updateProgress(requestId: AddPartyRequestId, tc: TraceContext)(
-      contractsReplicated: NonNegativeInt
-  ): Unit = {
-    implicit val traceContext: TraceContext = tc
+  /** Transition to the replicating state if the replicated contracts count is greater than 0.
+    */
+  private def markAcsReplicating(
+      requestId: AddPartyRequestId
+  )(implicit traceContext: TraceContext): Unit =
     executeAsync(requestId, "progress party replication") {
+      for {
+        state <- ensureParticipantStateAndSynchronizerConnected[
+          PartyReplicationStatus.ConnectionEstablished
+        ](requestId)
+        (PartyReplicationStatus.ConnectionEstablished(previousParams), _, _) = state
+      } yield {
+        if (previousParams.replicatedContractsCount.unwrap > 0) {
+          val newStatus = PartyReplicationStatus.ReplicatingAcs(previousParams)
+          partyReplications.put(requestId, newStatus).discard
+        }
+      }
+    }
+
+  private def markComplete(requestId: AddPartyRequestId)(tc: TraceContext): Unit = {
+    implicit val traceContext: TraceContext = tc
+    executeAsync(requestId, "complete party replication") {
       for {
         status <- EitherT.fromEither[FutureUnlessShutdown](
           partyReplications
@@ -634,7 +657,7 @@ final class PartyReplicator(
         previousParams <- EitherT.fromEither[FutureUnlessShutdown](status match {
           case PartyReplicationStatus.ConnectionEstablished(params) =>
             Right(params)
-          case PartyReplicationStatus.ReplicatingAcs(params, _) =>
+          case PartyReplicationStatus.ReplicatingAcs(params) =>
             Right(params)
           case unexpectedStatus =>
             Left(
@@ -642,36 +665,7 @@ final class PartyReplicator(
             )
         })
       } yield {
-        val newStatus = PartyReplicationStatus.ReplicatingAcs(
-          previousParams,
-          contractsReplicated,
-        )
-        partyReplications.put(requestId, newStatus).discard
-      }
-    }
-  }
-
-  private def markComplete(requestId: AddPartyRequestId, tc: TraceContext)(
-      contractsReplicated: NonNegativeInt
-  ): Unit = {
-    implicit val traceContext: TraceContext = tc
-    executeAsync(requestId, "complete party replication") {
-      for {
-        status <- EitherT.fromEither[FutureUnlessShutdown](
-          partyReplications
-            .get(requestId)
-            .toRight(s"Unknown party replication $requestId")
-        )
-        replicatingAcs <- EitherT.fromEither[FutureUnlessShutdown](
-          status
-            .select[PartyReplicationStatus.ReplicatingAcs]
-            .toRight(s"Party replication $requestId status $status not expected")
-        )
-      } yield {
-        val newStatus = PartyReplicationStatus.Completed(
-          replicatingAcs.authorizedParams,
-          contractsReplicated,
-        )
+        val newStatus = PartyReplicationStatus.Completed(previousParams)
         partyReplications.put(requestId, newStatus).discard
       }
     }
@@ -780,10 +774,15 @@ final class PartyReplicator(
             logger.debug(
               s"Party replication $requestId connection established for ${params.partyId}. Progress driven by processor."
             )
-          case (requestId, PartyReplicationStatus.ReplicatingAcs(params, numReplicated)) =>
+            markAcsReplicating(requestId)
+            // check that processor has not gotten stuck
+            params.partyReplicationProcessor.progressPartyReplication()
+          case (requestId, PartyReplicationStatus.ReplicatingAcs(params)) =>
             logger.debug(
-              s"Party replication $requestId has replicated $numReplicated contracts for ${params.partyId}. Progress driven by processor."
+              s"Party replication $requestId has replicated ${params.replicatedContractsCount} contracts for ${params.partyId}. Progress driven by processor."
             )
+            // check that processor has not gotten stuck
+            params.partyReplicationProcessor.progressPartyReplication()
         }
       }
       scheduleExecuteAsync(progressSchedulingInterval)(progressPartyReplication())

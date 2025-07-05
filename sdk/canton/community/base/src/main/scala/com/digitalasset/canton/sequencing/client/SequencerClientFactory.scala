@@ -12,7 +12,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient, SynchronizerCrypto}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
@@ -53,6 +53,7 @@ trait SequencerClientFactory {
       sendTrackerStore: SendTrackerStore,
       requestSigner: RequestSigner,
       sequencerConnections: SequencerConnections,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       connectionPool: SequencerConnectionXPool,
   )(implicit
@@ -96,6 +97,7 @@ object SequencerClientFactory {
           sendTrackerStore: SendTrackerStore,
           requestSigner: RequestSigner,
           sequencerConnections: SequencerConnections,
+          synchronizerPredecessor: Option[SynchronizerPredecessor],
           expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
           connectionPool: SequencerConnectionXPool,
       )(implicit
@@ -291,6 +293,7 @@ object SequencerClientFactory {
           }
         } yield new RichSequencerClientImpl(
           psid,
+          synchronizerPredecessor,
           member,
           sequencerTransports,
           connectionPool,

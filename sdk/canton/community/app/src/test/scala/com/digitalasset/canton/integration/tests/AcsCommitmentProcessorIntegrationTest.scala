@@ -7,7 +7,7 @@ import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -578,15 +578,17 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
     def deployThreeAndCheck(synchronizerId: SynchronizerId)(implicit
         env: FixtureParam
+    ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) =
+      deployManyAndCheck(synchronizerId, PositiveInt.three)
+
+    def deployManyAndCheck(synchronizerId: SynchronizerId, nContracts: PositiveInt)(implicit
+        env: FixtureParam
     ): (Seq[Iou.Contract], CommitmentPeriod, AcsCommitment.HashedCommitmentType) = {
       import env.*
 
       val simClock = environment.simClock.value
 
-      val c1 = deployAndCheckContract(synchronizerId)
-      val c2 = deployAndCheckContract(synchronizerId)
-      val c3 = deployAndCheckContract(synchronizerId)
-      val createdCids = Seq(c1, c2, c3)
+      val createdCids = (1 to nContracts.value).map(_ => deployAndCheckContract(synchronizerId))
 
       val tick1 = tickAfter(simClock.uniqueTime())
       simClock.advanceTo(tick1.forgetRefinement.immediateSuccessor)

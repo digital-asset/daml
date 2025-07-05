@@ -4,9 +4,8 @@
 package com.digitalasset.canton.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ProtoDeserializationError.{ContractDeserializationError, OtherError}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
@@ -21,7 +20,7 @@ import monocle.macros.GenLens
   *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContract private (
-    contract: SerializableContract,
+    contract: ContractInstance,
     consumedInCore: Boolean,
     rolledBack: Boolean,
 ) extends PrettyPrinting {
@@ -31,7 +30,7 @@ final case class CreatedContract private (
   // we need the contract instance to construct the LfCreateCommand.
   def toProtoV30: v30.CreatedContract =
     v30.CreatedContract(
-      contract = Some(contract.toProtoV30),
+      contract = contract.encoded,
       consumedInCore = consumedInCore,
       rolledBack = rolledBack,
     )
@@ -46,7 +45,7 @@ final case class CreatedContract private (
 
 object CreatedContract {
   def create(
-      contract: SerializableContract,
+      contract: ContractInstance,
       consumedInCore: Boolean,
       rolledBack: Boolean,
   ): Either[String, CreatedContract] =
@@ -56,7 +55,7 @@ object CreatedContract {
       .map(_ => new CreatedContract(contract, consumedInCore, rolledBack))
 
   def tryCreate(
-      contract: SerializableContract,
+      contract: ContractInstance,
       consumedInCore: Boolean,
       rolledBack: Boolean,
   ): CreatedContract =
@@ -73,9 +72,9 @@ object CreatedContract {
       createdContractP
 
     for {
-      contract <- ProtoConverter
-        .required("contract", contractP)
-        .flatMap(SerializableContract.fromProtoV30)
+      contract <- ContractInstance
+        .decode(contractP)
+        .leftMap(err => ContractDeserializationError(err))
       createdContract <- create(
         contract = contract,
         consumedInCore = consumedInCore,
@@ -85,7 +84,7 @@ object CreatedContract {
   }
 
   @VisibleForTesting
-  val contractUnsafe: Lens[CreatedContract, SerializableContract] =
+  val contractUnsafe: Lens[CreatedContract, ContractInstance] =
     GenLens[CreatedContract](_.contract)
 }
 
@@ -105,7 +104,7 @@ final case class CreatedContractInView(
 object CreatedContractInView {
   def fromCreatedContract(created: CreatedContract): CreatedContractInView =
     CreatedContractInView(
-      created.contract,
+      created.contract.serializable,
       consumedInView = created.consumedInCore,
       created.rolledBack,
     )

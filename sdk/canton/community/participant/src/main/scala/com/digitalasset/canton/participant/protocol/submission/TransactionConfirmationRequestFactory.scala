@@ -25,7 +25,7 @@ import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMess
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
-  SerializableContractOfId,
+  ContractInstanceOfId,
   TransactionTreeConversionError,
 }
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
@@ -88,7 +88,7 @@ class TransactionConfirmationRequestFactory(
       mediator: MediatorGroupRecipient,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       sessionKeyStore: SessionKeyStore,
-      contractInstanceOfId: SerializableContractOfId,
+      contractInstanceOfId: ContractInstanceOfId,
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
   )(implicit

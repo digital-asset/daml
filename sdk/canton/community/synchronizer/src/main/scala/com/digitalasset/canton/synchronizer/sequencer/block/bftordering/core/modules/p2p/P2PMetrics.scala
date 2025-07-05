@@ -18,7 +18,7 @@ private[p2p] object P2PMetrics {
   )(implicit
       mc: MetricsContext
   ): Unit =
-    metrics.p2p.connections.connected.updateValue(known.getEndpoints.size)
+    metrics.p2p.connections.connected.updateValue(known.connectedCount)
 
   def emitAuthenticatedCount(
       metrics: BftOrderingMetrics,

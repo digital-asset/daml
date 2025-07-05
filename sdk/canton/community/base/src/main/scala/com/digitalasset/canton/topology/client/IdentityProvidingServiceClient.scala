@@ -17,7 +17,7 @@ import com.digitalasset.canton.crypto.{
   SigningKeyUsage,
   SigningPublicKey,
 }
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -648,7 +648,7 @@ trait SynchronizerUpgradeClient {
     */
   def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]
+  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]]
 
   /** Returns the known sequencer connection details for the successor synchronizer as published by
     * the sequencers.

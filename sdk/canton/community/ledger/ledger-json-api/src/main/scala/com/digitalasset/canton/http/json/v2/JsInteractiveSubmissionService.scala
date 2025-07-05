@@ -127,17 +127,17 @@ class JsInteractiveSubmissionService(
 }
 
 final case class JsPrepareSubmissionRequest(
-    userId: String,
+    userId: String = "",
     commandId: String,
     commands: Seq[JsCommand.Command],
-    minLedgerTime: Option[interactive_submission_service.MinLedgerTime],
+    minLedgerTime: Option[interactive_submission_service.MinLedgerTime] = None,
     actAs: Seq[String],
-    readAs: Seq[String],
-    disclosedContracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract],
+    readAs: Seq[String] = Seq.empty,
+    disclosedContracts: Seq[com.daml.ledger.api.v2.commands.DisclosedContract] = Seq.empty,
     synchronizerId: String,
     packageIdSelectionPreference: Seq[String],
-    verboseHashing: Boolean,
-    prefetchContractKeys: Seq[js.PrefetchContractKey],
+    verboseHashing: Boolean = false,
+    prefetchContractKeys: Seq[js.PrefetchContractKey] = Seq.empty,
 )
 
 final case class JsPrepareSubmissionResponse(
@@ -152,7 +152,7 @@ final case class JsExecuteSubmissionRequest(
     partySignatures: Option[interactive_submission_service.PartySignatures],
     deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
     submissionId: String,
-    userId: String,
+    userId: String = "",
     hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
     minLedgerTime: Option[MinLedgerTime] = None,
 )

@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.ProtoDeserializationError.ContractDeserializationError
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 
 /** @param consumed
@@ -14,7 +15,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
   * @see
   *   com.digitalasset.canton.data.ViewParticipantData.coreInputs
   */
-final case class InputContract(contract: SerializableContract, consumed: Boolean)
+final case class InputContract(contract: ContractInstance, consumed: Boolean)
     extends PrettyPrinting {
 
   def contractId: LfContractId = contract.contractId
@@ -27,7 +28,7 @@ final case class InputContract(contract: SerializableContract, consumed: Boolean
 
   def toProtoV30: v30.InputContract =
     v30.InputContract(
-      contract = Some(contract.toProtoV30),
+      contract = contract.encoded,
       consumed = consumed,
     )
 
@@ -42,16 +43,10 @@ object InputContract {
       inputContractP: v30.InputContract
   ): ParsingResult[InputContract] = {
     val v30.InputContract(contractP, consumed) = inputContractP
-    toInputContract(contractP, consumed, SerializableContract.fromProtoV30)
+    ContractInstance
+      .decode(contractP)
+      .leftMap(err => ContractDeserializationError(err))
+      .map(InputContract(_, consumed))
   }
 
-  private def toInputContract[SerializableContractP](
-      serializableContractO: Option[SerializableContractP],
-      consumed: Boolean,
-      deserializeContract: SerializableContractP => ParsingResult[SerializableContract],
-  ): ParsingResult[InputContract] =
-    ProtoConverter
-      .required("InputContract.contract", serializableContractO)
-      .flatMap(deserializeContract)
-      .map(InputContract(_, consumed))
 }

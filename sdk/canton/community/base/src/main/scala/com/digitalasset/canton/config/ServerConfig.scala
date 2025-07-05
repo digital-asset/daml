@@ -349,9 +349,7 @@ sealed trait BaseTlsArguments {
   *   supported ciphers. Set to None (or null in config file) to default to JVM settings.
   * @param enableCertRevocationChecking
   *   whether to enable certificate revocation checking per
-  *   https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/ TODO(#4881): implement
-  *   cert-revocation at the participant and synchronizer admin endpoints Ledger api server
-  *   reference PR: https://github.com/digital-asset/daml/pull/7965
+  *   https://tersesystems.com/blog/2014/03/22/fixing-certificate-revocation/
   */
 // Information in this ScalaDoc comment has been taken from https://grpc.io/docs/guides/auth/.
 final case class TlsServerConfig(

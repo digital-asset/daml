@@ -122,6 +122,7 @@ object SequencerBftAdminData {
   sealed trait PeerEndpointHealthStatus extends PrettyNameOnlyCase with Serializable
   object PeerEndpointHealthStatus {
     case object UnknownEndpoint extends PeerEndpointHealthStatus
+    case object Disconnected extends PeerEndpointHealthStatus
     case object Unauthenticated extends PeerEndpointHealthStatus
     final case class Authenticated(sequencerId: SequencerId) extends PeerEndpointHealthStatus {
       override val pretty: Pretty[Authenticated.this.type] =
@@ -158,6 +159,14 @@ object SequencerBftAdminData {
                   ProtoPeerEndpointHealthStatus(
                     ProtoPeerEndpointHealthStatus.Status.UnknownEndpoint(
                       ProtoPeerEndpointHealthStatus.UnknownEndpoint()
+                    )
+                  )
+                )
+              case PeerEndpointHealthStatus.Disconnected =>
+                Some(
+                  ProtoPeerEndpointHealthStatus(
+                    ProtoPeerEndpointHealthStatus.Status.Disconnected(
+                      ProtoPeerEndpointHealthStatus.Disconnected()
                     )
                   )
                 )

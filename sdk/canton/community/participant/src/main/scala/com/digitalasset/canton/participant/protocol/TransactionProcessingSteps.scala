@@ -56,8 +56,8 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ContractInstanceOfId,
   ContractLookupError,
-  SerializableContractOfId,
   UnknownPackageError,
 }
 import com.digitalasset.canton.participant.protocol.validation.*
@@ -225,7 +225,7 @@ class TransactionProcessingSteps(
       mediator: MediatorGroupRecipient,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
   )(implicit traceContext: TraceContext)
       extends TrackedSubmission {
 
@@ -331,7 +331,7 @@ class TransactionProcessingSteps(
               )
           )
 
-        lookupContractsWithDisclosed: SerializableContractOfId =
+        lookupContractsWithDisclosed: ContractInstanceOfId =
           (contractId: LfContractId) =>
             disclosedContracts
               .get(contractId)
@@ -1116,7 +1116,7 @@ class TransactionProcessingSteps(
 
   @VisibleForTesting
   private[protocol] def authenticateInputContractsInternal(
-      inputContracts: Map[LfContractId, SerializableContract]
+      inputContracts: Map[LfContractId, ContractInstance]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
@@ -1124,7 +1124,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticateSerializable(contract)
+            .authenticateFat(contract.inst)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )
@@ -1213,8 +1213,8 @@ class TransactionProcessingSteps(
       txId: TransactionId,
       workflowIdO: Option[WorkflowId],
       commitSet: CommitSet,
-      createdContracts: Map[LfContractId, SerializableContract],
-      witnessed: Map[LfContractId, SerializableContract],
+      createdContracts: Map[LfContractId, ContractInstance],
+      witnessed: Map[LfContractId, ContractInstance],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
       externalTransactionHash: Option[Hash],
@@ -1236,11 +1236,8 @@ class TransactionProcessingSteps(
       contractMetadata =
         // We deliberately do not forward the driver metadata
         // for divulged contracts since they are not visible on the Ledger API
-        (createdContracts ++ witnessed).view.map {
-          case (contractId, SerializableContract(_, _, _, _, salt)) =>
-            contractId -> DriverContractMetadata(salt).toLfBytes(
-              CantonContractIdVersion.tryCantonContractIdVersion(contractId)
-            )
+        (createdContracts ++ witnessed).view.map { case (contractId, contract) =>
+          contractId -> contract.inst.cantonData
         }.toMap
 
       acceptedEvent =
@@ -1509,7 +1506,7 @@ object TransactionProcessingSteps {
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
   )
 
   final case class ParsedTransactionRequest(

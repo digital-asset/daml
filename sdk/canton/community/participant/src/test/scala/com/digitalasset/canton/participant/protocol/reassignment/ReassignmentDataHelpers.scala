@@ -20,7 +20,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import java.util.UUID
 
 final case class ReassignmentDataHelpers(
-    contract: SerializableContract,
+    contract: ContractInstance,
     sourceSynchronizer: Source[PhysicalSynchronizerId],
     targetSynchronizer: Target[PhysicalSynchronizerId],
     pureCrypto: SynchronizerCryptoPureApi,
@@ -95,7 +95,7 @@ final case class ReassignmentDataHelpers(
 object ReassignmentDataHelpers {
 
   def apply(
-      contract: SerializableContract,
+      contract: ContractInstance,
       sourceSynchronizer: Source[PhysicalSynchronizerId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
       identityFactory: TestingIdentityFactory,

@@ -17,11 +17,12 @@ import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
-  LfContractId,
+  ExampleContractFactory,
   LfFatContractInst,
   SerializableContract,
 }
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -32,7 +33,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
   private val participantId: ParticipantId = ParticipantId("participant")
 
   private def buildTestInstance(
-      behaviors: Map[SerializableContract, Either[String, Unit]]
+      behaviors: Map[ContractId, Either[String, Unit]]
   ) = new TransactionProcessingSteps(
     psid = synchronizerId,
     participantId = participantId,
@@ -45,12 +46,14 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     serializableContractAuthenticator = new ContractAuthenticator {
       override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
         behaviors.getOrElse(
-          contract,
+          contract.contractId,
           fail(s"authenticateSerializable did not find ${contract.contractId}"),
         )
-      override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = fail(
-        "unexpected"
-      )
+      override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] =
+        behaviors.getOrElse(
+          contract.contractId,
+          fail(s"authenticateSerializable did not find ${contract.contractId}"),
+        )
       override def verifyMetadata(
           contract: SerializableContract,
           metadata: ContractMetadata,
@@ -68,15 +71,14 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
   )
 
   "authenticateInputContracts" when {
-    val c1, c2 = mock[SerializableContract]
-    val contractId1 = LfContractId.assertFromString("00" * 33 + "00")
-    val contractId2 = LfContractId.assertFromString("00" * 33 + "01")
-    val inputContracts = Map(contractId1 -> c1, contractId2 -> c2)
+    val c1 = ExampleContractFactory.build()
+    val c2 = ExampleContractFactory.build()
+    val inputContracts = Map(c1.contractId -> c1, c2.contractId -> c2)
 
     "provided with valid input contracts" should {
       "succeed" in {
         val testInstance =
-          buildTestInstance(Map(c1 -> Either.unit, c2 -> Either.unit))
+          buildTestInstance(Map(c1.contractId -> Either.unit, c2.contractId -> Either.unit))
 
         val result = testInstance.authenticateInputContractsInternal(inputContracts)
         result.value.map(_ shouldBe Right[TransactionProcessorError, Unit](()))
@@ -87,7 +89,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
       "convert failure and raise alarm" in {
         val testInstance =
           buildTestInstance(
-            Map(c1 -> Either.unit, c2 -> Left("some authentication failure"))
+            Map(c1.contractId -> Either.unit, c2.contractId -> Left("some authentication failure"))
           )
 
         val (expectedLog, expectedResult) = {
@@ -95,12 +97,12 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
             _.shouldBeCantonError(
               ContractAuthenticationFailed,
               _ should include(
-                s"Contract with id (${contractId2.coid}) could not be authenticated: some authentication failure"
+                s"Contract with id (${c2.contractId.coid}) could not be authenticated: some authentication failure"
               ),
             )
 
           val expectedError =
-            ContractAuthenticationFailed.Error(contractId2, "some authentication failure")
+            ContractAuthenticationFailed.Error(c2.contractId, "some authentication failure")
 
           Some(expectedLog) -> Left(expectedError)
         }

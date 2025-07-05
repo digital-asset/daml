@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
+import org.jetbrains.annotations.TestOnly
 
 /** Represents a serializable contract.
   *
@@ -97,6 +98,12 @@ case class SerializableContract(
     keyOpt = metadata.maybeKeyWithMaintainers,
     version = rawContractInstance.contractInstance.version,
   )
+
+  @TestOnly
+  def tryToContractInstance(): ContractInstance = ContractInstance(this)
+    .valueOr(err =>
+      throw new IllegalArgumentException(s"Failed to convert to contract instance: $err")
+    )
 
 }
 

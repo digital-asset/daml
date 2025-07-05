@@ -18,7 +18,6 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
 }
 import com.digitalasset.canton.{LfPartyId, LfVersioned, checked}
-import com.digitalasset.daml.lf.transaction.Versioned
 
 /** Metadata for a contract.
   *
@@ -89,14 +88,6 @@ object ContractMetadata
   override def name: String = "contract metadata"
 
   final case class InvalidContractMetadata(message: String) extends RuntimeException(message)
-
-  def fromFatContractInst(inst: LfFatContractInst): ContractMetadata =
-    ContractMetadata(
-      signatories = inst.signatories,
-      stakeholders = inst.stakeholders,
-      maybeKeyWithMaintainersVersioned =
-        inst.contractKeyWithMaintainers.map(Versioned(inst.version, _)),
-    )
 
   def apply(stakeholders: Stakeholders): ContractMetadata =
     ContractMetadata(stakeholders.signatories, stakeholders.all, None)

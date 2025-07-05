@@ -785,7 +785,7 @@ class LocalCommitmentsAdministrationGroup(
 }
 
 class CommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
+    runner: AdminCommandRunner,
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter

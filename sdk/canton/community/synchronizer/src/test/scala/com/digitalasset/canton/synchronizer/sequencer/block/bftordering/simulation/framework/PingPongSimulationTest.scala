@@ -29,7 +29,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleName,
   ModuleRef,
+  P2PConnectionEventListener,
   P2PNetworkRef,
+  P2PNetworkRefFactory,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
@@ -157,17 +159,21 @@ final case class PingerClient[E <: Env[E]](
 
 object TestSystem {
 
-  def mkPinger[E <: Env[E]](
+  def mkPinger[
+      E <: Env[E],
+      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, String],
+  ](
       pongerEndpoint: P2PEndpoint,
       recorder: Recorder,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
-  ): SystemInitializer[E, String, String] =
-    (system, network) => {
-      val pongerRef = network.createNetworkRef(
+  ): SystemInitializer[E, P2PNetworkRefFactoryT, String, String] =
+    (system, createP2PNetworkRefFactory) => {
+      val p2pNetworkRefFactory = createP2PNetworkRefFactory(P2PConnectionEventListener.NoOp)
+      val pongerRef = p2pNetworkRefFactory.createNetworkRef(
         system.rootActorContext,
         pongerEndpoint,
-      )((_, _) => ())
+      )
       val module = Ping[E](pongerRef, recorder, loggerFactory, timeouts)
       val ref = system.newModuleRef[String](ModuleName("ping"))()
       system.setModule[String](ref, module)
@@ -183,20 +189,25 @@ object TestSystem {
         p2PAdminModuleRef,
         consensusAdminModuleRef,
         outputModuleRef,
+        p2pNetworkRefFactory,
       )
     }
 
-  def mkPonger[E <: Env[E]](
+  def mkPonger[
+      E <: Env[E],
+      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, String],
+  ](
       pingerEndpoint: P2PEndpoint,
       recorder: Recorder,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
-  ): SystemInitializer[E, String, String] =
-    (system, network) => {
-      val pingerRef = network.createNetworkRef(
+  ): SystemInitializer[E, P2PNetworkRefFactoryT, String, String] =
+    (system, createP2PNetworkRefFactory) => {
+      val p2pNetworkRefFactory = createP2PNetworkRefFactory(P2PConnectionEventListener.NoOp)
+      val pingerRef = p2pNetworkRefFactory.createNetworkRef(
         system.rootActorContext,
         pingerEndpoint,
-      )((_, _) => ())
+      )
       val module = Pong[E](pingerRef, recorder, loggerFactory, timeouts)
       val ref = system.newModuleRef[String](ModuleName("pong"))()
       system.setModule[String](ref, module)
@@ -212,6 +223,7 @@ object TestSystem {
         p2PAdminModuleRef,
         consensusAdminModuleRef,
         outputModuleRef,
+        p2pNetworkRefFactory,
       )
     }
 

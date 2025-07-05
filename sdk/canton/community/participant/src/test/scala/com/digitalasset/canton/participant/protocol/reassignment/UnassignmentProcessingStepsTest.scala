@@ -204,7 +204,7 @@ final class UnassignmentProcessingStepsTest
     submitterMetadata = submitterMetadata(party1),
     reassigningParticipants = Set(submittingParticipant),
     ContractsReassignmentBatch(
-      contract.serializable,
+      contract,
       initialReassignmentCounter,
     ),
     sourceSynchronizer,
@@ -382,7 +382,7 @@ final class UnassignmentProcessingStepsTest
           submittingParticipant,
           timeProof,
           ContractsReassignmentBatch(
-            updatedContract.serializable,
+            updatedContract,
             initialReassignmentCounter,
           ),
           submitterMetadata(submitter),
@@ -573,7 +573,7 @@ final class UnassignmentProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             reassigningParticipants = Set(submittingParticipant, participant1),
             contracts = ContractsReassignmentBatch(
-              contract.serializable,
+              contract,
               initialReassignmentCounter,
             ),
             sourceSynchronizer = sourceSynchronizer,
@@ -613,7 +613,7 @@ final class UnassignmentProcessingStepsTest
             reassigningParticipants =
               Set(submittingParticipant, participant1, participant3, participant4),
             contracts = ContractsReassignmentBatch(
-              contract.serializable,
+              contract,
               initialReassignmentCounter,
             ),
             sourceSynchronizer = sourceSynchronizer,
@@ -642,7 +642,7 @@ final class UnassignmentProcessingStepsTest
           // Because admin1 is a stakeholder, participant1 is reassigning
           reassigningParticipants = Set(submittingParticipant, participant1),
           contracts = ContractsReassignmentBatch(
-            updatedContract.serializable,
+            updatedContract,
             initialReassignmentCounter,
           ),
           sourceSynchronizer = sourceSynchronizer,
@@ -757,7 +757,7 @@ final class UnassignmentProcessingStepsTest
         submitterMetadata = submitterMetadata(party1),
         reassigningParticipants = Set(submittingParticipant),
         ContractsReassignmentBatch(
-          contract.serializable,
+          contract,
           initialReassignmentCounter,
         ),
         sourceSynchronizer,

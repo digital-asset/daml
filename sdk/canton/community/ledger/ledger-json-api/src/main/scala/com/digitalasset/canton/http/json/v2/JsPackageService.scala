@@ -71,7 +71,7 @@ class JsPackageService(
       @unused caller: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, package_service.GetPackageStatusResponse]
-  ] = req => packageClient.getPackageStatus(req.in)(req.traceContext).resultToRight
+  ] = req => packageClient.getPackageStatus(req.in, caller.token())(req.traceContext).resultToRight
 
   private def upload(caller: CallerContext) = {
     (tracedInput: TracedInput[Source[util.ByteString, Any]]) =>
@@ -79,7 +79,7 @@ class JsPackageService(
       val inputStream = tracedInput.in.runWith(StreamConverters.asInputStream())(materializer)
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
-        .uploadDarFile(bs, caller.jwt.map(_.token))
+        .uploadDarFile(bs, caller.token())
         .map { _ =>
           package_management_service.UploadDarFileResponse()
         }
@@ -89,7 +89,7 @@ class JsPackageService(
 
   private def getPackage(caller: CallerContext) = { (tracedInput: TracedInput[String]) =>
     packageClient
-      .getPackage(tracedInput.in, caller.jwt.map(_.token))(tracedInput.traceContext)
+      .getPackage(tracedInput.in, caller.token())(tracedInput.traceContext)
       .map(response =>
         (
           Source.fromIterator(() =>

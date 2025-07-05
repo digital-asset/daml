@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
   DbContracts,
   ReassignmentEntryRaw,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, ReassignmentId}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -41,7 +41,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
-import com.digitalasset.canton.version.{ProtocolVersion, ProtocolVersionValidation}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult.GetInt
 import slick.jdbc.canton.SQLActionBuilder
@@ -54,7 +54,6 @@ class DbReassignmentStore(
     override protected val storage: DbStorage,
     indexedTargetSynchronizer: Target[IndexedSynchronizer],
     indexedStringStore: IndexedStringStore,
-    targetSynchronizerProtocolVersion: Target[ProtocolVersion],
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
@@ -141,16 +140,16 @@ class DbReassignmentStore(
     DbParameterUtils.setArrayBytesParameterDb(
       storageProfile = storage.profile,
       items = value.contracts.toArray.sortBy(_.contractId.toString),
-      serialize = DbContracts.serializeOne(targetSynchronizerProtocolVersion.unwrap),
+      serialize = DbContracts.serializeOne,
       pp = pp,
     )
   }
 
   private implicit val getDbContracts: GetResult[DbContracts] =
     DbParameterUtils
-      .getDataBytesArrayResultsDb[SerializableContract](deserialize = DbContracts.tryDeserializeOne)
+      .getDataBytesArrayResultsDb[ContractInstance](deserialize = DbContracts.tryDeserializeOne)
       .andThen { arr =>
-        val contracts: NonEmpty[Seq[SerializableContract]] = NonEmpty
+        val contracts: NonEmpty[Seq[ContractInstance]] = NonEmpty
           .from(ArraySeq.unsafeWrapArray(arr))
           .getOrElse(throw new DbDeserializationException(s"Found empty contract array"))
         DbContracts(contracts)
@@ -791,7 +790,7 @@ object DbReassignmentStore {
       sourceSynchronizerIndex: Int,
       reassignmentId: ReassignmentId,
       unassignmentTs: CantonTimestamp,
-      contracts: NonEmpty[Seq[SerializableContract]],
+      contracts: NonEmpty[Seq[ContractInstance]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       assignmentTs: Option[CantonTimestamp],
@@ -812,17 +811,19 @@ object DbReassignmentStore {
   // We tend to use 1000 to limit queries
   private val dbQueryLimit = 1000
 
-  // Used for encoding and decoding the par_reassignments.contracts column, which is an array type.
-  private[db] final case class DbContracts(contracts: NonEmpty[Seq[SerializableContract]])
-  private[db] object DbContracts {
-    def serializeOne(protocolVersion: ProtocolVersion)(
-        contract: SerializableContract
-    ): Array[Byte] =
-      contract.toByteArray(protocolVersion)
+  import com.google.protobuf.ByteString
 
-    def tryDeserializeOne(bytes: Array[Byte]): SerializableContract =
-      SerializableContract
-        .fromTrustedByteArray(bytes)
+  // Used for encoding and decoding the par_reassignments.contracts column, which is an array type.
+  private[db] final case class DbContracts(contracts: NonEmpty[Seq[ContractInstance]])
+  private[db] object DbContracts {
+    def serializeOne(
+        contract: ContractInstance
+    ): Array[Byte] =
+      contract.encoded.toByteArray
+
+    def tryDeserializeOne(bytes: Array[Byte]): ContractInstance =
+      ContractInstance
+        .decode(ByteString.copyFrom(bytes))
         .valueOr(err =>
           throw new DbDeserializationException(s"Failed to deserialize contract: $err")
         )

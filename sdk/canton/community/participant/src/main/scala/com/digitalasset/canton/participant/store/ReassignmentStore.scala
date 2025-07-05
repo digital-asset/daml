@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateLookup
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -264,7 +264,7 @@ object ReassignmentStore {
   final case class ReassignmentEntry(
       reassignmentId: ReassignmentId,
       sourceSynchronizer: Source[SynchronizerId],
-      contracts: NonEmpty[Seq[SerializableContract]],
+      contracts: NonEmpty[Seq[ContractInstance]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       unassignmentTs: CantonTimestamp,

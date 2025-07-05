@@ -29,10 +29,11 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   suffixedId,
 }
 import com.digitalasset.canton.protocol.{
+  ContractInstance,
   ContractMetadata,
+  ExampleContractFactory,
   LfContractId,
   ReassignmentId,
-  SerializableContract,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.IndexedSynchronizer
@@ -66,7 +67,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
     def unassignmentDataFor(
         sourceSynchronizer: Source[PhysicalSynchronizerId],
         unassignmentTs: CantonTimestamp,
-        contract: SerializableContract,
+        contract: ContractInstance,
     ): UnassignmentData = mkUnassignmentData(
       sourceSynchronizer,
       unassignmentTs,
@@ -230,9 +231,11 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
 
         val updatedBatch = ContractsReassignmentBatch
           .create(assignmentData.contracts.contracts.map { reassign =>
-            val newCid =
-              LfContractId.assertFromString(reassign.contract.contractId.coid.replace("1", "2"))
-            (reassign.contract.copy(contractId = newCid), reassign.counter)
+            val newCid = ExampleContractFactory.buildContractId(77)
+            (
+              ExampleContractFactory.modify(reassign.contract, contractId = Some(newCid)),
+              reassign.counter,
+            )
           })
           .value
         val updatedAssignmentData = assignmentData.focus(_.contracts).replace(updatedBatch)
@@ -1380,13 +1383,13 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   val alice = LfPartyId.assertFromString("alice")
   val bob = LfPartyId.assertFromString("bob")
 
-  private def contract(id: LfContractId, signatory: LfPartyId): SerializableContract =
+  private def contract(id: LfContractId, signatory: LfPartyId): ContractInstance =
     asSerializable(
       contractId = id,
       contractInstance = contractInstance(),
       ledgerTime = CantonTimestamp.Epoch,
       metadata = ContractMetadata.tryCreate(Set(signatory), Set(signatory), None),
-    )
+    ).tryToContractInstance()
 
   val coidAbs1 = suffixedId(1, 0)
   val coidAbs2 = suffixedId(2, 0)
@@ -1394,7 +1397,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     contractId = coidAbs1,
     contractInstance = contractInstance(),
     ledgerTime = CantonTimestamp.Epoch,
-  )
+  ).tryToContractInstance()
 
   val synchronizer1 = SynchronizerId(
     UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1")
@@ -1463,7 +1466,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       sourceSynchronizerId: Source[PhysicalSynchronizerId],
       targetSynchronizerId: Target[SynchronizerId],
-      contract: SerializableContract = contract,
+      contract: ContractInstance = contract,
       unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
 
@@ -1492,7 +1495,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       unassignmentTs: CantonTimestamp,
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
-      contract: SerializableContract = contract,
+      contract: ContractInstance = contract,
   ): UnassignmentData = {
     val reassignmentId =
       ReassignmentId(

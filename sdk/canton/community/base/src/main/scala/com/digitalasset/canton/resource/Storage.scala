@@ -375,6 +375,9 @@ trait DbStorage extends Storage { self: NamedLogging =>
 object DbStorage {
   val healthName: String = "db-storage"
 
+  // sql prepared statement have a limit of 65535 parameters
+  val maxSqlParameters: PositiveInt = PositiveInt.tryCreate(65500)
+
   final case class PassiveInstanceException(reason: String)
       extends RuntimeException(s"DbStorage instance is not active: $reason")
 

@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
-  SerializableContractOfId,
+  ContractInstanceOfId,
   TransactionTreeConversionError,
 }
 import com.digitalasset.canton.participant.store.ContractLookup
@@ -48,7 +48,7 @@ trait TransactionTreeFactory {
       transactionSeed: SaltSeed,
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
       keyResolver: LfKeyResolver,
       maxSequencingTime: CantonTimestamp,
       validatePackageVettings: Boolean,
@@ -72,7 +72,7 @@ trait TransactionTreeFactory {
       salts: Iterable[Salt],
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
@@ -90,29 +90,29 @@ trait TransactionTreeFactory {
 
 object TransactionTreeFactory {
 
-  type SerializableContractOfId =
+  type ContractInstanceOfId =
     LfContractId => EitherT[
       Future,
       ContractLookupError,
-      SerializableContract,
+      ContractInstance,
     ]
 
   def contractInstanceLookup(contractStore: ContractLookup)(implicit
       ex: ExecutionContext,
       traceContext: TraceContext,
-  ): SerializableContractOfId = id =>
+  ): ContractInstanceOfId = id =>
     for {
       contract <- contractStore
         .lookupContract(id)
         .toRight(ContractLookupError(id, "Unknown contract"))
         .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
-    } yield contract.serializable // TODO(#26348) - use fat contract downstream
+    } yield contract
 
   /** Supertype for all errors than may arise during the conversion. */
   sealed trait TransactionTreeConversionError extends Product with Serializable with PrettyPrinting
 
   /** Indicates that a contract instance could not be looked up by an instance of
-    * [[SerializableContractOfId]].
+    * [[ContractInstanceOfId]].
     */
   final case class ContractLookupError(id: LfContractId, message: String)
       extends TransactionTreeConversionError {

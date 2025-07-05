@@ -66,7 +66,6 @@ import scala.concurrent.{ExecutionContext, Future}
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
     synchronizerId: PhysicalSynchronizerId,
-    contractSerializer: LfThinContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -86,7 +85,7 @@ class TransactionTreeFactoryImpl(
       transactionSeed: SaltSeed,
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
       keyResolver: LfKeyResolver,
       maxSequencingTime: CantonTimestamp,
       validatePackageVettings: Boolean,
@@ -245,7 +244,7 @@ class TransactionTreeFactoryImpl(
 
     def viewPartyPackages(view: TransactionView): Map[LfPartyId, Set[PackageId]] = {
       val inputPackages = checked(view.viewParticipantData.tryUnwrap).coreInputs.values
-        .map(_.contract.contractInstance.unversioned.template.packageId)
+        .map(_.contract.templateId.packageId)
         .toSet
       val informees = checked(view.viewCommonData.tryUnwrap).viewConfirmationParameters.informees
       val viewMap = informees.map(_ -> inputPackages).toMap
@@ -265,7 +264,7 @@ class TransactionTreeFactoryImpl(
   private def createRootViews(
       decompositions: Seq[TransactionViewDecomposition.NewView],
       state: State,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionTreeConversionError, Seq[TransactionView]] = {
@@ -299,7 +298,7 @@ class TransactionTreeFactoryImpl(
       .flatMap { preloaded =>
         def fromPreloaded(
             cid: LfContractId
-        ): EitherT[Future, ContractLookupError, SerializableContract] =
+        ): EitherT[Future, ContractLookupError, ContractInstance] =
           preloaded.get(cid) match {
             case Some(value) => EitherT.fromEither(value)
             case None =>
@@ -321,7 +320,7 @@ class TransactionTreeFactoryImpl(
       view: TransactionViewDecomposition.NewView,
       viewPosition: ViewPosition,
       state: State,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionTreeConversionError, TransactionView] = {
@@ -509,6 +508,7 @@ class TransactionTreeFactoryImpl(
       createIndex: Int,
       state: State,
   )(implicit traceContext: TraceContext): LfNodeCreate = {
+
     val cantonContractInst = checked(
       LfTransactionUtil
         .suffixContractInst(state.unicumOfCreatedContract, cantonContractIdVersion)(
@@ -521,8 +521,7 @@ class TransactionTreeFactoryImpl(
             ),
           Predef.identity,
         )
-    )
-    val serializedCantonContractInst = contractSerializer(cantonContractInst)
+    ).unversioned
 
     val discriminator = createNode.coid match {
       case LfContractId.V1(discriminator, suffix) if suffix.isEmpty =>
@@ -542,28 +541,33 @@ class TransactionTreeFactoryImpl(
       createIndex,
       CreationTime.CreatedAt(state.ledgerTime.toLf),
       contractMetadata,
-      serializedCantonContractInst,
+      cantonContractInst,
       cantonContractIdVersion,
     )
 
-    val contractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
+    val suffixedContractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
+
+    val suffixedCreateNode =
+      createNode.copy(coid = suffixedContractId, arg = cantonContractInst.arg)
+
+    val inst = LfFatContractInst.fromCreateNode(
+      create = suffixedCreateNode,
+      createTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
+      cantonData = DriverContractMetadata(contractSalt.unwrap).toLfBytes(cantonContractIdVersion),
+    )
 
     state.setUnicumFor(discriminator, unicum)
 
-    val createdInfo = SerializableContract(
-      contractId = contractId,
-      rawContractInstance = serializedCantonContractInst,
-      metadata = contractMetadata,
-      ledgerCreateTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
-      contractSalt = contractSalt.unwrap,
+    val createdInfo = ContractInstance(inst).valueOr(err =>
+      throw new IllegalArgumentException(
+        s"Failed to create contract instance well formed instrument: $err"
+      )
     )
-    state.setCreatedContractInfo(contractId, createdInfo)
 
-    // No need to update the key because the key does not contain contract ids
-    val suffixedNode =
-      createNode.copy(coid = contractId, arg = cantonContractInst.unversioned.arg)
-    state.addSuffixedNode(nodeId, suffixedNode)
-    suffixedNode
+    state.setCreatedContractInfo(suffixedContractId, createdInfo)
+
+    state.addSuffixedNode(nodeId, suffixedCreateNode)
+    suffixedCreateNode
   }
 
   private def trySuffixNode(
@@ -709,11 +713,11 @@ class TransactionTreeFactoryImpl(
       coreCreatedNodes: List[(LfNodeCreate, RollbackScope)],
       coreOtherNodes: List[(LfActionNode, RollbackScope)],
       childViews: Seq[TransactionView],
-      createdContractInfo: collection.Map[LfContractId, SerializableContract],
+      createdContractInfo: collection.Map[LfContractId, ContractInstance],
       resolvedKeys: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
       actionDescription: ActionDescription,
       salt: Salt,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
       rbContextCore: RollbackContext,
   ): EitherT[Future, TransactionTreeConversionError, ViewParticipantData] = {
 
@@ -828,7 +832,7 @@ class TransactionTreeFactoryImpl(
       viewSalts: Iterable[Salt],
       transactionUuid: UUID,
       topologySnapshot: TopologySnapshot,
-      contractOfId: SerializableContractOfId,
+      contractOfId: ContractInstanceOfId,
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
   )(implicit traceContext: TraceContext): EitherT[
@@ -947,22 +951,9 @@ object TransactionTreeFactoryImpl {
     new TransactionTreeFactoryImpl(
       submittingParticipant,
       synchronizerId,
-      contractSerializer,
       cryptoOps,
       loggerFactory,
     )
-
-  private[submission] def contractSerializer(
-      contractInst: LfThinContractInst
-  ): SerializableRawContractInstance =
-    SerializableRawContractInstance
-      .create(contractInst)
-      .leftMap { err =>
-        throw new IllegalArgumentException(
-          s"Unable to serialize contract instance, although it is contained in a well-formed transaction.\n$err\n$contractInst"
-        )
-      }
-      .merge
 
   private val initialCsmState: ContractStateMachine.State[Unit] =
     ContractStateMachine.initial[Unit](ContractKeyUniquenessMode.Off)
@@ -1008,12 +999,12 @@ object TransactionTreeFactoryImpl {
       }
 
     /** All contracts created by a node that has already been processed. */
-    val createdContractInfo: mutable.Map[LfContractId, SerializableContract] =
+    val createdContractInfo: mutable.Map[LfContractId, ContractInstance] =
       mutable.Map.empty
 
     def setCreatedContractInfo(
         contractId: LfContractId,
-        createdInfo: SerializableContract,
+        createdInfo: ContractInstance,
     )(implicit loggingContext: ErrorLoggingContext): Unit =
       createdContractInfo.put(contractId, createdInfo).foreach { _ =>
         ErrorUtil.internalError(

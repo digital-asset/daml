@@ -5,65 +5,22 @@ package com.digitalasset.canton.platform.apiserver.ratelimiting
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.LimitResultCheck
+import com.digitalasset.canton.networking.grpc.ratelimiting.RateLimitingInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
-import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
-  LimitResultCheck,
-  OverLimit,
-  UnderLimit,
-}
-import com.digitalasset.canton.platform.apiserver.ratelimiting.RateLimitingInterceptor.*
-import io.grpc.{Metadata, ServerCall, ServerCallHandler, ServerInterceptor}
 
 import java.lang.management.{ManagementFactory, MemoryMXBean, MemoryPoolMXBean}
 import scala.jdk.CollectionConverters.ListHasAsScala
 
-final class RateLimitingInterceptor(
-    checks: List[LimitResultCheck]
-) extends ServerInterceptor {
+object RateLimitingInterceptorFactory {
 
-  override def interceptCall[ReqT, RespT](
-      call: ServerCall[ReqT, RespT],
-      headers: Metadata,
-      next: ServerCallHandler[ReqT, RespT],
-  ): ServerCall.Listener[ReqT] = {
-
-    val fullMethodName = call.getMethodDescriptor.getFullMethodName
-    val isStream = !call.getMethodDescriptor.getType.serverSendsOneMessage()
-    serviceOverloaded(fullMethodName, isStream) match {
-
-      case OverLimit(damlError) =>
-        val statusRuntimeException = damlError.asGrpcError
-        call.close(statusRuntimeException.getStatus, statusRuntimeException.getTrailers)
-        new ServerCall.Listener[ReqT]() {}
-
-      case UnderLimit =>
-        next.startCall(call, headers)
-
-    }
-
-  }
-
-  private def serviceOverloaded(
-      fullMethodName: String,
-      isStream: Boolean,
-  ): LimitResult =
-    if (doNonLimit.contains(fullMethodName)) {
-      UnderLimit
-    } else {
-      checks.traverse(fullMethodName, isStream)
-    }
-
-}
-
-object RateLimitingInterceptor {
-
-  def apply(
+  def create(
       loggerFactory: NamedLoggerFactory,
       metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): RateLimitingInterceptor =
-    apply(
+    createWithMXBeans(
       loggerFactory = loggerFactory,
       metrics = metrics,
       config = config,
@@ -72,7 +29,7 @@ object RateLimitingInterceptor {
       additionalChecks = additionalChecks,
     )
 
-  def apply(
+  def createWithMXBeans(
       loggerFactory: NamedLoggerFactory,
       metrics: LedgerApiServerMetrics,
       config: RateLimitingConfig,
@@ -91,11 +48,5 @@ object RateLimitingInterceptor {
       ) ::: additionalChecks
     )
   }
-
-  private val doNonLimit: Set[String] = Set(
-    "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
-    "grpc.health.v1.Health/Check",
-    "grpc.health.v1.Health/Watch",
-  )
 
 }

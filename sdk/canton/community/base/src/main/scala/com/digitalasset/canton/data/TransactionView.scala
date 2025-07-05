@@ -154,8 +154,9 @@ final case class TransactionView private (
     copy(viewCommonData, viewParticipantData, subviews).tryValidated()
 
   /** If the view with the given hash appears either as this view or one of its unblinded
-    * descendants, replace it by the given view. TODO(i12900): not stack safe unless we have limits
-    * on the depths of views.
+    * descendants, replace it by the given view.
+    *
+    * TODO(i26565): not stack safe unless we have limits on the depths of views.
     */
   def replace(h: ViewHash, v: TransactionView): TransactionView =
     if (viewHash == h) v

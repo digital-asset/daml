@@ -69,6 +69,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   SimulationEnv,
   SimulationInitializer,
+  SimulationP2PNetworkRefFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
@@ -274,9 +275,10 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       store: TrieMap[BatchId, OrderingRequestBatch] => AvailabilityStore[SimulationEnv],
   ): SystemInitializer[
     SimulationEnv,
+    SimulationP2PNetworkRefFactory[BftOrderingServiceReceiveRequest],
     BftOrderingServiceReceiveRequest,
     Availability.LocalDissemination.LocalBatchCreated,
-  ] = (moduleSystem, p2pNetworkManager) => {
+  ] = (moduleSystem, createP2PNetworkRefFactory) => {
     val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", thisNode)
 
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))()
@@ -315,7 +317,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         timeouts,
       )
     val p2PNetworkOutDependencies = P2PNetworkOutModuleDependencies(
-      p2pNetworkManager,
+      createP2PNetworkRefFactory,
       p2pNetworkInRef,
       mempoolRef,
       availabilityRef,
@@ -324,7 +326,9 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       pruningRef,
     )
     val p2pNetworkOut =
-      new P2PNetworkOutModule[SimulationEnv](
+      new P2PNetworkOutModule[SimulationEnv, SimulationP2PNetworkRefFactory[
+        BftOrderingServiceReceiveRequest
+      ]](
         thisNode,
         new SimulationP2PEndpointsStore(
           config.initialNetwork
@@ -389,6 +393,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         consensusRef,
         loggerFactoryWithSequencerId,
       )
+    val p2pNetworkRefFactory = createP2PNetworkRefFactory(P2PConnectionEventListener.NoOp)
     val pruningSimulationFake =
       new PruningSimulationFake[SimulationEnv](loggerFactoryWithSequencerId)
 
@@ -409,6 +414,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       p2pNetworkOutRef,
       consensusRef,
       outputRef,
+      p2pNetworkRefFactory,
     )
   }
 

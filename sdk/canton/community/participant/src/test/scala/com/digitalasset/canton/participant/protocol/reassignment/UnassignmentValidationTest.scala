@@ -84,8 +84,9 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
   private val stakeholders: Stakeholders = Stakeholders(baseMetadata)
 
-  private val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-    metadata = baseMetadata
+  private val contract = ExampleContractFactory.build(
+    signatories = baseMetadata.signatories,
+    stakeholders = baseMetadata.stakeholders,
   )
 
   private val reassigningParticipants: Set[ParticipantId] =
@@ -137,7 +138,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       def test(
           metadata: ContractMetadata
       ): Either[ReassignmentValidationError, Unit] = {
-        val updatedContract = contract.copy(metadata = metadata)
+        val updatedContract = ExampleContractFactory.modify(contract, metadata = Some(metadata))
         performValidation(
           updatedContract
         ).futureValueUS.value.commonValidationResult.contractAuthenticationResultF.futureValueUS
@@ -177,7 +178,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
       def createUnassignmentTree(metadata: ContractMetadata): FullUnassignmentTree =
         ReassignmentDataHelpers(
-          contract.copy(metadata = metadata),
+          ExampleContractFactory.modify(contract, metadata = Some(metadata)),
           sourceSynchronizer,
           targetSynchronizer,
           identityFactory,
@@ -357,7 +358,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   }
 
   private def performValidation(
-      contract: SerializableContract = contract,
+      contract: ContractInstance = contract,
       reassigningParticipantsOverride: Set[ParticipantId] = reassigningParticipants,
       submitter: LfPartyId = signatory,
       identityFactory: TestingIdentityFactory = identityFactory,
