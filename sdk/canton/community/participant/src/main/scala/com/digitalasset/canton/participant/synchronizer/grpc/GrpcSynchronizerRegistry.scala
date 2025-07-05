@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerCryptoClient,
 }
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -123,7 +124,8 @@ class GrpcSynchronizerRegistry(
   }
 
   override def connect(
-      config: SynchronizerConnectionConfig
+      config: SynchronizerConnectionConfig,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
@@ -179,6 +181,7 @@ class GrpcSynchronizerRegistry(
         .leftMap(SynchronizerRegistryInternalError.InvalidState(_))
       synchronizerHandle <- getSynchronizerHandle(
         config,
+        synchronizerPredecessor,
         syncPersistentStateManager,
         info,
       )(

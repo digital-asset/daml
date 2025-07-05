@@ -162,9 +162,6 @@ private[reassignment] class UnassignmentProcessingSteps(
         for {
           contract <- ephemeralState.contractLookup
             .lookup(contractId)
-            .map(
-              _.serializable
-            ) // TODO(#26348) - use fat contract downstream
             .toRight[ReassignmentProcessorError](
               UnassignmentProcessorError.UnknownContract(contractId)
             )

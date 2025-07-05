@@ -19,11 +19,11 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
   val etf: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
   private val emptyUsedAndCreatedContracts = UsedAndCreatedContracts(
-    witnessed = Map.empty[LfContractId, SerializableContract],
+    witnessed = Map.empty[LfContractId, ContractInstance],
     checkActivenessTxInputs = Set.empty[LfContractId],
     consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
-    used = Map.empty[LfContractId, SerializableContract],
-    maybeCreated = Map.empty[LfContractId, Option[SerializableContract]],
+    used = Map.empty[LfContractId, ContractInstance],
+    maybeCreated = Map.empty[LfContractId, Option[ContractInstance]],
     transient = Map.empty[LfContractId, Set[LfPartyId]],
     maybeUnknown = Set.empty[LfContractId],
   )
@@ -56,7 +56,9 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
     val expected = UsedAndCreated(
       contracts = emptyUsedAndCreatedContracts.copy(maybeCreated =
-        Map(singleCreate.contractId -> singleCreate.created.headOption)
+        Map(
+          singleCreate.contractId -> singleCreate.created.headOption.map(_.tryToContractInstance())
+        )
       ),
       hostedWitnesses = informeeParties,
     )
@@ -77,7 +79,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
       val actual = underTest.inputContractPrep(Seq(viewData))
 
-      val serializedContract = singleExercise.used.head
+      val serializedContract = singleExercise.used.head.tryToContractInstance()
       val expected = InputContractPrep(
         used = Map(singleExercise.contractId -> serializedContract),
         divulged = Map.empty,
@@ -105,7 +107,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
       val actual = underTestWithNoHostedParties.inputContractPrep(Seq(viewData))
 
-      val serializedContract = singleExercise.used.head
+      val serializedContract = singleExercise.used.head.tryToContractInstance()
 
       val expected = InputContractPrep(
         used = Map(singleExercise.contractId -> serializedContract),
@@ -138,7 +140,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
 
         val expected = InputContractPrep(
-          used = Map(singleExercise.contractId -> serializedContract),
+          used = Map(singleExercise.contractId -> serializedContract.tryToContractInstance()),
           divulged = Map.empty,
           consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
           contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
@@ -160,7 +162,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
 
         val expected = InputContractPrep(
-          used = Map(singleExercise.contractId -> serializedContract),
+          used = Map(singleExercise.contractId -> serializedContract.tryToContractInstance()),
           divulged = Map.empty,
           consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
           contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
@@ -184,8 +186,9 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
       val actual = underTest.createdContractPrep(Seq(viewData))
 
       val expected = CreatedContractPrep(
-        createdContractsOfHostedInformees =
-          Map(singleCreate.contractId -> singleCreate.created.headOption),
+        createdContractsOfHostedInformees = Map(
+          singleCreate.contractId -> singleCreate.created.headOption.map(_.tryToContractInstance())
+        ),
         witnessed = Map.empty,
       )
 
@@ -207,7 +210,8 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
       val expected = CreatedContractPrep(
         createdContractsOfHostedInformees = Map.empty,
-        witnessed = Map(singleCreate.contractId -> singleCreate.created.head),
+        witnessed =
+          Map(singleCreate.contractId -> singleCreate.created.head.tryToContractInstance()),
       )
 
       actual shouldBe expected

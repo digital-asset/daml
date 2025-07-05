@@ -1550,15 +1550,7 @@ abstract class ProtocolProcessor[
         synchronizerParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT(
-        contractsToBeStored
-          .traverse(c =>
-            ContractInstance(c).leftMap(err =>
-              steps.embedResultError(FailedToConstructInstance(err))
-            )
-          )
-          .traverse(ephemeral.contractStore.storeContracts)
-      )
+      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(

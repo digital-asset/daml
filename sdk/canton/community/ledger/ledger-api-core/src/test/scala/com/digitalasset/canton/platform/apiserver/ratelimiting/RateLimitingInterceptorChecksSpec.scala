@@ -15,12 +15,13 @@ import com.digitalasset.canton.ledger.api.grpc.{GrpcClientResource, GrpcHealthSe
 import com.digitalasset.canton.ledger.api.health.HealthChecks.ComponentName
 import com.digitalasset.canton.ledger.api.health.{HealthChecks, ReportsHealth}
 import com.digitalasset.canton.ledger.resources.TestResourceContext
-import com.digitalasset.canton.logging.SuppressingLogger
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.LimitResultCheck
 import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
-import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
+import com.typesafe.scalalogging.Logger
 import io.grpc.*
 import io.grpc.Status.Code
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
@@ -44,7 +45,7 @@ import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-final class RateLimitingInterceptorSpec
+final class RateLimitingInterceptorChecksSpec
     extends AsyncFlatSpec
     with PekkoBeforeAndAfterAll
     with Eventually
@@ -53,7 +54,7 @@ final class RateLimitingInterceptorSpec
     with HasExecutionContext
     with BaseTest {
 
-  import RateLimitingInterceptorSpec.*
+  import RateLimitingInterceptorChecksSpec.*
 
   implicit override val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(1, Second)))
@@ -74,6 +75,7 @@ final class RateLimitingInterceptorSpec
       metrics,
       new HelloServiceReferenceImplementation,
       config,
+      loggerFactory,
       additionalChecks = List(
         ThreadpoolCheck(
           threadPoolHumanReadableName,
@@ -109,7 +111,7 @@ final class RateLimitingInterceptorSpec
 
     val protoService = ProtoReflectionService.newInstance()
 
-    withChannel(metrics, protoService, config).use { channel =>
+    withChannel(metrics, protoService, config, loggerFactory).use { channel =>
       val methodDescriptor: MethodDescriptor[ServerReflectionRequest, ServerReflectionResponse] =
         ServerReflectionGrpc.getServerReflectionInfoMethod
       val call = channel.newCall(methodDescriptor, CallOptions.DEFAULT)
@@ -150,7 +152,7 @@ final class RateLimitingInterceptorSpec
         executionContext,
       )
 
-    withChannel(metrics, healthService, config).use { channel =>
+    withChannel(metrics, healthService, config, loggerFactory).use { channel =>
       val healthStub = HealthGrpc.stub(channel)
       val promise = Promise[Unit]()
       for {
@@ -200,20 +202,27 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(nonCollectableBean, nonHeapBean, memoryPoolBean)
 
-    withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
-      channel =>
-        val helloService = protobuf.HelloServiceGrpc.stub(channel)
-        for {
-          _ <- helloService.hello(protobuf.Hello.Request("one"))
-          exception <- helloService.hello(protobuf.Hello.Request("two")).failed
-          _ <- helloService.hello(protobuf.Hello.Request("three"))
-        } yield {
-          verify(memoryPoolBean).setCollectionUsageThreshold(
-            config.calculateCollectionUsageThreshold(maxMemory)
-          )
-          verify(memoryBean).gc()
-          exception.getMessage should include(expectedMetric)
-        }
+    withChannel(
+      metrics,
+      new HelloServiceReferenceImplementation,
+      config,
+      loggerFactory,
+      pool,
+      memoryBean,
+    ).use { channel =>
+      val helloService = protobuf.HelloServiceGrpc.stub(channel)
+      for {
+        _ <- helloService.hello(protobuf.Hello.Request("one"))
+        exception <- helloService.hello(protobuf.Hello.Request("two")).failed
+        _ <- helloService.hello(protobuf.Hello.Request("three"))
+      } yield {
+        verify(memoryPoolBean).setCollectionUsageThreshold(
+          config.calculateCollectionUsageThreshold(maxMemory)
+        )
+        verify(memoryBean).gc()
+        exception.getMessage should include(expectedMetric)
+      }
+
     }
   }
 
@@ -222,7 +231,7 @@ final class RateLimitingInterceptorSpec
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig).use { channel =>
+    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
       for {
         fStatus1 <- streamHello(channel) // Ok
         fStatus2 <- streamHello(channel) // Ok
@@ -252,15 +261,15 @@ final class RateLimitingInterceptorSpec
   it should "exclude non-stream traffic from stream counts" in {
 
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
-
+    val logger = loggerFactory.getLogger(getClass)
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig).use { channel =>
+    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
       for {
 
         fStatus1 <- streamHello(channel)
-        fHelloStatus1 = singleHello(channel)
+        fHelloStatus1 = singleHello(channel, logger)
         fStatus2 <- streamHello(channel)
-        fHelloStatus2 = singleHello(channel)
+        fHelloStatus2 = singleHello(channel, logger)
 
         activeStreams = metrics.lapi.streams.active.getValue
 
@@ -290,12 +299,12 @@ final class RateLimitingInterceptorSpec
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig).use { channel =>
+    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
       for {
 
         fStatus1 <- streamHello(channel)
         fStatus2 <- streamHello(channel)
-        fHelloStatus1 = singleHello(channel)
+        fHelloStatus1 = singleHello(channel, loggerFactory.getLogger(getClass))
 
         _ = waitService.completeSingle()
         _ = waitService.completeStream()
@@ -316,7 +325,7 @@ final class RateLimitingInterceptorSpec
     val limitStreamConfig = RateLimitingConfig.Default.copy(maxStreams = 2)
 
     val waitService = new WaitService()
-    withChannel(metrics, waitService, limitStreamConfig).use { channel =>
+    withChannel(metrics, waitService, limitStreamConfig, loggerFactory).use { channel =>
       for {
         fStatus1 <- streamHello(channel, cancel = true)
         status1 <- fStatus1
@@ -347,19 +356,28 @@ final class RateLimitingInterceptorSpec
 
     val pool = List(memoryPoolBean)
 
-    withChannel(metrics, new HelloServiceReferenceImplementation, config, pool, memoryBean).use {
-      channel =>
-        val helloService = protobuf.HelloServiceGrpc.stub(channel)
-        for {
-          _ <- helloService.hello(protobuf.Hello.Request("foo"))
-        } yield {
-          verify(memoryPoolBean).setCollectionUsageThreshold(
-            config.calculateCollectionUsageThreshold(initMemory)
-          )
-          verify(memoryPoolBean).setCollectionUsageThreshold(
-            config.calculateCollectionUsageThreshold(increasedMemory)
-          )
-          succeed
+    loggerFactory.suppressWarnings {
+      withChannel(
+        metrics,
+        new HelloServiceReferenceImplementation,
+        config,
+        loggerFactory,
+        pool,
+        memoryBean,
+      )
+        .use { channel =>
+          val helloService = protobuf.HelloServiceGrpc.stub(channel)
+          for {
+            _ <- helloService.hello(protobuf.Hello.Request("foo"))
+          } yield {
+            verify(memoryPoolBean).setCollectionUsageThreshold(
+              config.calculateCollectionUsageThreshold(initMemory)
+            )
+            verify(memoryPoolBean).setCollectionUsageThreshold(
+              config.calculateCollectionUsageThreshold(increasedMemory)
+            )
+            succeed
+          }
         }
     }
   }
@@ -374,10 +392,8 @@ final class RateLimitingInterceptorSpec
 
 }
 
-object RateLimitingInterceptorSpec extends MockitoSugar {
+object RateLimitingInterceptorChecksSpec extends MockitoSugar {
 
-  private val loggerFactory = SuppressingLogger(getClass)
-  private val logger = loggerFactory.getLogger(getClass)
   private val healthChecks = new HealthChecks(Map.empty[ComponentName, ReportsHealth])
 
   private def metrics = LedgerApiServerMetrics.ForTesting
@@ -396,11 +412,12 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
       metrics: LedgerApiServerMetrics,
       service: BindableService,
       config: RateLimitingConfig,
+      loggerFactory: NamedLoggerFactory,
       pool: List[MemoryPoolMXBean] = List(underLimitMemoryPoolMXBean()),
       memoryBean: MemoryMXBean = ManagementFactory.getMemoryMXBean,
       additionalChecks: List[LimitResultCheck] = List.empty,
   ): ResourceOwner[Channel] = {
-    val rateLimitingInterceptor = RateLimitingInterceptor(
+    val rateLimitingInterceptor = RateLimitingInterceptorFactory.createWithMXBeans(
       loggerFactory,
       metrics,
       config,
@@ -461,7 +478,7 @@ object RateLimitingInterceptorSpec extends MockitoSugar {
 
   }
 
-  def singleHello(channel: Channel): Future[Status] = {
+  def singleHello(channel: Channel, logger: Logger): Future[Status] = {
 
     val status = Promise[Status]()
     val clientCall = channel.newCall(protobuf.HelloServiceGrpc.METHOD_HELLO, CallOptions.DEFAULT)

@@ -128,6 +128,7 @@ class DbInFlightSubmissionStore(
         new IllegalStateException(s"Retry stopped early for submission $submission")
       )
     }
+    logger.debug(s"Registering submission $submission")
 
     batchAggregatorRegister.run(submission).flatMap(FutureUnlessShutdown.fromTry).map(failOnNone)
 

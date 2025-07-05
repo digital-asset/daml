@@ -153,7 +153,7 @@ class JsUserManagementService(
     UserId.fromString(req.in) match {
       case Right(userId) =>
         userManagementClient
-          .deleteUser(userId, callerContext.jwt.map(_.token))(req.traceContext)
+          .deleteUser(userId, callerContext.token())(req.traceContext)
           .resultToRight
       case Left(errorMsg) =>
         malformedUserId(errorMsg)(req.traceContext)

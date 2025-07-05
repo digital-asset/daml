@@ -115,7 +115,7 @@ object ExampleTransactionFactory {
       createIndex = 0,
       ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
       metadata = metadata,
-      suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(instance),
+      suffixedContractInstance = instance.unversioned,
       cantonContractIdVersion = contractIdVersion,
     )
 
@@ -161,7 +161,7 @@ object ExampleTransactionFactory {
 
   def globalKeyWithMaintainers(
       key: LfGlobalKey = defaultGlobalKey,
-      maintainers: Set[LfPartyId] = Set.empty,
+      maintainers: Set[LfPartyId] = Set(signatory),
   ): Versioned[LfGlobalKeyWithMaintainers] =
     LfVersioned(transactionVersion, LfGlobalKeyWithMaintainers(key, maintainers))
 
@@ -350,7 +350,8 @@ object ExampleTransactionFactory {
   def asSerializable(
       contractId: LfContractId,
       contractInstance: LfThinContractInst = this.contractInstance(),
-      metadata: ContractMetadata = ContractMetadata.tryCreate(Set.empty, Set(this.signatory), None),
+      metadata: ContractMetadata =
+        ContractMetadata.tryCreate(Set(this.signatory), Set(this.signatory), None),
       ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ): SerializableContract =
@@ -574,7 +575,7 @@ class ExampleTransactionFactory(
         createIndex,
         CreationTime.CreatedAt(ledgerTime.toLf),
         metadata,
-        asSerializableRaw(suffixedContractInstance),
+        suffixedContractInstance.unversioned,
         cantonContractIdVersion,
       )
 
@@ -634,12 +635,16 @@ class ExampleTransactionFactory(
 
     val createWithSerialization = created.map { contract =>
       val coid = contract.contractId
-      CreatedContract.tryCreate(contract, consumed.contains(coid), rolledBack = false)
+      CreatedContract.tryCreate(
+        ContractInstance(contract).value,
+        consumed.contains(coid),
+        rolledBack = false,
+      )
     }
 
     val coreInputContracts = coreInputs.map { contract =>
       val coid = contract.contractId
-      coid -> InputContract(contract, consumed.contains(coid))
+      coid -> InputContract(ContractInstance(contract).value, consumed.contains(coid))
     }.toMap
 
     val createdInSubviews = (for {

@@ -271,6 +271,7 @@ class InFlightSubmissionSynchronizerTracker(
           _.leftMap(SubmissionAlreadyInFlight(submission, _))
             .leftWiden[InFlightSubmissionTrackerError]
         )
+
       // It is safe to request a tick only after persisting the in-flight submission
       // because if we crash in between, crash recovery will request the tick.
       _ = timeTracker.requestTick(submission.sequencingInfo.timeout)

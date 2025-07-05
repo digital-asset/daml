@@ -688,6 +688,7 @@ class MediatorNodeBootstrap(
             loggerFactory,
           ),
           info.sequencerConnections,
+          synchronizerPredecessor = None,
           info.expectedSequencers,
           connectionPool,
         )

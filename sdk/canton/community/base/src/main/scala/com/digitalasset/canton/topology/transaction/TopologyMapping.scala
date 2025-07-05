@@ -17,7 +17,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 }
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.protocol.v30.Enums
@@ -1894,6 +1894,8 @@ final case class SynchronizerUpgradeAnnouncement(
     successorSynchronizerId: PhysicalSynchronizerId,
     upgradeTime: CantonTimestamp,
 ) extends TopologyMapping {
+
+  def successor: SynchronizerSuccessor = SynchronizerSuccessor(successorSynchronizerId, upgradeTime)
 
   override def companion: SynchronizerUpgradeAnnouncement.type = SynchronizerUpgradeAnnouncement
 

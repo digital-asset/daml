@@ -7,6 +7,7 @@ import com.digitalasset.base.error.{ErrorCategory, ErrorCode, ErrorGroup, Explan
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerInfoLoaderError
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -34,7 +35,8 @@ trait SynchronizerRegistry extends AutoCloseable {
     * for which the connection attempt was successful.
     */
   def connect(
-      config: SynchronizerConnectionConfig
+      config: SynchronizerConnectionConfig,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[

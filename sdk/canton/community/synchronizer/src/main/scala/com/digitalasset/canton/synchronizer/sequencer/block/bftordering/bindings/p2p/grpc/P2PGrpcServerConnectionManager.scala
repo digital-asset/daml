@@ -17,7 +17,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.collection.mutable
 
-final class GrpcServerConnectionManager(
+final class P2PGrpcServerConnectionManager(
     maybeServerUS: Option[UnlessShutdown[LifeCycle.CloseableServer]],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,

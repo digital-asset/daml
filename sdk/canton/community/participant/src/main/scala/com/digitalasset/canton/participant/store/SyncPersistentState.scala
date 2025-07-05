@@ -56,9 +56,7 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
   def synchronizerOutboxQueue: SynchronizerOutboxQueue
   def acsInspection: AcsInspection
 
-  lazy val physicalSynchronizerId: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(synchronizerIdx.synchronizerId, staticSynchronizerParameters)
-
+  lazy val psid: PhysicalSynchronizerId = physicalSynchronizerIdx.synchronizerId
   lazy val logicalSynchronizerId: SynchronizerId = synchronizerIdx.synchronizerId
 }
 

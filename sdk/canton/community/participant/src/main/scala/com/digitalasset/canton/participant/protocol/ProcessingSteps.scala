@@ -552,7 +552,7 @@ trait ProcessingSteps[
     */
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[FutureUnlessShutdown[CommitSet]],
-      contractsToBeStored: Seq[SerializableContract],
+      contractsToBeStored: Seq[ContractInstance],
       maybeEvent: Option[SequencedUpdate],
   )
 

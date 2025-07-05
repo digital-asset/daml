@@ -33,7 +33,7 @@ final class TransactionTreeFactoryImplTest
 
   def successfulLookup(
       example: ExampleTransaction
-  ): SerializableContractOfId = id => {
+  ): ContractInstanceOfId = id => {
     EitherT.fromEither(
       example.inputContracts
         .get(id)
@@ -43,7 +43,7 @@ final class TransactionTreeFactoryImplTest
 
   def failedLookup(
       testErrorMessage: String
-  ): SerializableContractOfId = id => EitherT.leftT(ContractLookupError(id, testErrorMessage))
+  ): ContractInstanceOfId = id => EitherT.leftT(ContractLookupError(id, testErrorMessage))
 
   def createTransactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
@@ -56,7 +56,7 @@ final class TransactionTreeFactoryImplTest
   def createTransactionTree(
       treeFactory: TransactionTreeFactoryImpl,
       transaction: WellFormedTransaction[WithoutSuffixes],
-      contractInstanceOfId: SerializableContractOfId,
+      contractInstanceOfId: ContractInstanceOfId,
       keyResolver: LfKeyResolver,
       actAs: List[LfPartyId] = List(ExampleTransactionFactory.submitter),
       snapshot: TopologySnapshot = factory.topologySnapshot,

@@ -8,9 +8,8 @@ import cats.syntax.apply.*
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -31,8 +30,6 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerConnectionConfig,
 }
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
@@ -40,15 +37,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.{
-  HasVersionedMessageCompanion,
-  HasVersionedMessageCompanionCommon,
-  HasVersionedMessageCompanionDbHelpers,
-  HasVersionedWrapper,
-  ProtoVersion,
-  ProtocolVersion,
-  ReleaseProtocolVersion,
-}
+import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -374,66 +363,4 @@ object SynchronizerConnectionConfigStore {
           loggerFactory,
         ).initialize()
     }
-}
-
-/** Information about the predecessor of a synchronizer.
-  * @param psid
-  *   Id of the predecessor.
-  * @param upgradeTime
-  *   When the migration happened/is supposed to happen.
-  */
-final case class SynchronizerPredecessor(
-    psid: PhysicalSynchronizerId,
-    upgradeTime: CantonTimestamp,
-) extends HasVersionedWrapper[SynchronizerPredecessor] {
-  override protected def companionObj: HasVersionedMessageCompanionCommon[SynchronizerPredecessor] =
-    SynchronizerPredecessor
-
-  def toProtoV30: v30.SynchronizerPredecessor =
-    v30.SynchronizerPredecessor(
-      psid.toProtoPrimitive,
-      Some(upgradeTime.toProtoTimestamp),
-    )
-}
-
-object SynchronizerPredecessor
-    extends HasVersionedMessageCompanion[SynchronizerPredecessor]
-    with HasVersionedMessageCompanionDbHelpers[SynchronizerPredecessor] {
-  override def name: String = "PredecessorInfo"
-
-  override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v34,
-      supportedProtoVersion(v30.SynchronizerPredecessor)(fromProtoV30),
-      _.toProtoV30,
-    )
-  )
-
-  private def fromProtoV30(
-      proto: v30.SynchronizerPredecessor
-  ): ParsingResult[SynchronizerPredecessor] = {
-    val v30.SynchronizerPredecessor(psidP, upgradeTimePO) = proto
-
-    for {
-      psid <- PhysicalSynchronizerId.fromProtoPrimitive(psidP, "predecessor_physical_id")
-      upgradeTime <- ProtoConverter.parseRequired(
-        CantonTimestamp.fromProtoTimestamp,
-        "upgrade_time",
-        upgradeTimePO,
-      )
-    } yield SynchronizerPredecessor(psid, upgradeTime)
-  }
-
-  implicit val predecessorInfoGetResult: GetResult[SynchronizerPredecessor] = GetResult { r =>
-    SynchronizerPredecessor(
-      psid = GetResult[PhysicalSynchronizerId].apply(r),
-      upgradeTime = GetResult[CantonTimestamp].apply(r),
-    )
-  }
-
-  implicit val predecessorInfoSetParameter: SetParameter[SynchronizerPredecessor] = SetParameter {
-    (predecessorInfo, pp) =>
-      pp >> predecessorInfo.psid
-      pp >> predecessorInfo.upgradeTime
-  }
 }

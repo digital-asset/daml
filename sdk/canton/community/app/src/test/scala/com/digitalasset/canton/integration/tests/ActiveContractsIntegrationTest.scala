@@ -204,7 +204,7 @@ class ActiveContractsIntegrationTest
       createIndex = 0,
       ledgerCreateTime = CreationTime.CreatedAt(ledgerCreateTime.toLf),
       metadata = contractMetadata,
-      suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInst),
+      suffixedContractInstance = contractInst.unversioned,
       cantonContractIdVersion,
     )
 

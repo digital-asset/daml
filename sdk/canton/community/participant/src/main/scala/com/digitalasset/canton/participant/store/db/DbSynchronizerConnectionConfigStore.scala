@@ -10,6 +10,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -26,7 +27,6 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
   SynchronizerConnectionConfigStore,
-  SynchronizerPredecessor,
 }
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasResolution,

@@ -83,24 +83,24 @@ final case class AssignmentValidationResult(
     val reassignment =
       Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
         val contract = reassign.contract
-        val contractInst = contract.contractInstance.unversioned
+        val contractInst = contract.inst
         val createNode = LfNodeCreate(
           coid = contract.contractId,
-          templateId = contractInst.template,
+          templateId = contractInst.templateId,
           packageName = contractInst.packageName,
-          arg = contractInst.arg,
+          arg = contractInst.createArg,
           signatories = contract.metadata.signatories,
           stakeholders = contract.metadata.stakeholders,
           keyOpt = contract.metadata.maybeKeyWithMaintainers,
-          version = contract.contractInstance.version,
+          version = contractInst.version,
         )
         val contractIdVersion =
           CantonContractIdVersion.tryCantonContractIdVersion(contract.contractId)
         val driverContractMetadata =
-          DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
+          DriverContractMetadata(contract.serializable.contractSalt).toLfBytes(contractIdVersion)
 
         Reassignment.Assign(
-          ledgerEffectiveTime = contract.ledgerCreateTime.time,
+          ledgerEffectiveTime = contract.inst.createdAt.time,
           createNode = createNode,
           contractMetadata = driverContractMetadata,
           reassignmentCounter = reassign.counter.unwrap,

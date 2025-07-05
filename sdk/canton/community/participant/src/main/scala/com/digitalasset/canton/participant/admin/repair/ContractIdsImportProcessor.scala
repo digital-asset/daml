@@ -155,7 +155,7 @@ object ContractIdsImportProcessor {
                 contract.contractSalt,
                 contract.ledgerCreateTime,
                 contract.metadata,
-                newRawContractInstance,
+                newRawContractInstance.contractInstance.unversioned,
                 contractIdVersion,
               )
           }

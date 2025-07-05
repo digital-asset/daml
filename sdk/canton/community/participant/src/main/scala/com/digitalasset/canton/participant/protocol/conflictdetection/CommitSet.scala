@@ -12,11 +12,11 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.{
+  ContractInstance,
   ContractMetadata,
   LfContractId,
   ReassignmentId,
   RequestId,
-  SerializableContract,
 }
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -110,7 +110,7 @@ object CommitSet {
       requestId: RequestId,
       consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
       transient: Map[LfContractId, Set[LfPartyId]],
-      createdContracts: Map[LfContractId, SerializableContract],
+      createdContracts: Map[LfContractId, ContractInstance],
   )(implicit loggingContext: ErrorLoggingContext): CommitSet =
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {

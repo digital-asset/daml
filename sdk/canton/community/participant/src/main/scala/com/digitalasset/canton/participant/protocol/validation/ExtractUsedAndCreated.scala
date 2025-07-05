@@ -122,13 +122,13 @@ object ExtractUsedAndCreated {
 
   private[validation] final case class CreatedContractPrep(
       // The contract will be optional if it has been rolled back
-      createdContractsOfHostedInformees: Map[LfContractId, Option[SerializableContract]],
-      witnessed: Map[LfContractId, SerializableContract],
+      createdContractsOfHostedInformees: Map[LfContractId, Option[ContractInstance]],
+      witnessed: Map[LfContractId, ContractInstance],
   )
 
   private[validation] final case class InputContractPrep(
-      used: Map[LfContractId, SerializableContract],
-      divulged: Map[LfContractId, SerializableContract],
+      used: Map[LfContractId, ContractInstance],
+      divulged: Map[LfContractId, ContractInstance],
       consumedOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
       contractIdsOfHostedInformeeStakeholder: Set[LfContractId],
       contractIdsAllowedToBeUnknown: Set[LfContractId],
@@ -163,13 +163,13 @@ private[validation] class ExtractUsedAndCreated(
   ): InputContractPrep = {
 
     val usedB =
-      Map.newBuilder[LfContractId, SerializableContract]
+      Map.newBuilder[LfContractId, ContractInstance]
     val contractIdsOfHostedInformeeStakeholderB = Set.newBuilder[LfContractId]
     val contractIdsAllowedToBeUnknownB = Set.newBuilder[LfContractId]
     val consumedOfHostedStakeholdersB =
       Map.newBuilder[LfContractId, Set[LfPartyId]]
     val divulgedB =
-      Map.newBuilder[LfContractId, SerializableContract]
+      Map.newBuilder[LfContractId, ContractInstance]
 
     (for {
       viewData <- dataViews: Seq[ViewData]
@@ -216,10 +216,10 @@ private[validation] class ExtractUsedAndCreated(
   private[validation] def createdContractPrep(dataViews: Seq[ViewData]): CreatedContractPrep = {
 
     val createdContractsOfHostedInformeesB =
-      Map.newBuilder[LfContractId, Option[SerializableContract]]
+      Map.newBuilder[LfContractId, Option[ContractInstance]]
 
     val witnessedB =
-      Map.newBuilder[LfContractId, SerializableContract]
+      Map.newBuilder[LfContractId, ContractInstance]
 
     (for {
       viewData <- dataViews

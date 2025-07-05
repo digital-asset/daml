@@ -169,12 +169,12 @@ final case class ViewParticipantData private (
             show"View with root action Create $contractId declares ${createdContract.contract.contractId} as first created core contract."
           )
         val metadata = createdContract.contract.metadata
-        val contractInst = createdContract.contract.rawContractInstance.contractInstance
+        val contractInst = createdContract.contract.inst
 
         RootAction(
           LfCreateCommand(
-            templateId = contractInst.unversioned.template,
-            argument = contractInst.unversioned.arg,
+            templateId = contractInst.templateId,
+            argument = contractInst.createArg,
           ),
           metadata.signatories,
           failed = false,

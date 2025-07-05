@@ -7,7 +7,7 @@ import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.MetricName
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.MaximumNumberOfStreams
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
-import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.{
   LimitResultCheck,
   OverLimit,
   UnderLimit,

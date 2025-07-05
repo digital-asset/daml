@@ -19,6 +19,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcFUSExtended, 
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.pruning.{
+  AcsCommitmentProcessor,
   CommitmentContractMetadata,
   CommitmentInspectContract,
 }
@@ -426,6 +427,7 @@ class GrpcInspectionService(
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
     val result =
       for {
         // 1. Check that the commitment to open matches a sent local commitment
@@ -511,9 +513,9 @@ class GrpcInspectionService(
             )
             .leftMap[RpcError](_ =>
               InspectionServiceError.IllegalArgumentError.Error(
-                s"""The participant cannot open commitment ${request.commitment} for participant
-                   | ${request.computedForCounterParticipantUid} on synchronizer ${request.physicalSynchronizerId} because the given
-                   | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
+                s"""|The participant cannot open commitment ${request.commitment} for participant
+                   |${request.computedForCounterParticipantUid} on synchronizer ${request.physicalSynchronizerId} because the given
+                   |period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
               )
             )
         )
@@ -533,9 +535,9 @@ class GrpcInspectionService(
           },
           (),
           InspectionServiceError.IllegalArgumentError.Error(
-            s"""The participant cannot open commitment ${request.commitment} for participant
-            ${request.computedForCounterParticipantUid} on synchronizer ${request.physicalSynchronizerId} and period end
-            ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
+            s"""|The participant cannot open commitment ${request.commitment} for participant
+            |${request.computedForCounterParticipantUid} on synchronizer ${request.physicalSynchronizerId} and period end
+            |${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
           ): RpcError,
         )
 
@@ -561,10 +563,28 @@ class GrpcInspectionService(
           )
           .leftWiden[RpcError]
 
-        commitmentContractsMetadata = contractsAndReassignmentCounter.map {
-          case (cid, reassignmentCounter) =>
-            CommitmentContractMetadata.create(cid, reassignmentCounter)(psid.protocolVersion)
-        }
+        // consistency check that the sent commitment corresponded to the ACS state at the timestamp it was computed
+        _ <- EitherT.cond[FutureUnlessShutdown](
+          AcsCommitmentProcessor.checkCommitmentMatchesContracts(
+            requestCommitment,
+            cantonTickTs,
+            contractsAndReassignmentCounter,
+            counterParticipant,
+          ),
+          (),
+          InspectionServiceError.IllegalArgumentError.Error(
+            s"""|The participant computed commitment ${request.commitment} for participant
+                |${request.computedForCounterParticipantUid} on synchronizer ${request.physicalSynchronizerId} and period end
+                |${request.periodEndTick} does not correspond to the ACS contents at that time""".stripMargin
+          ): RpcError,
+        )
+
+        commitmentContractsMetadata = contractsAndReassignmentCounter
+          .map { case (contract, reassignmentCounter) =>
+            CommitmentContractMetadata.create(contract.contractId, reassignmentCounter)(
+              psid.protocolVersion
+            )
+          }
 
       } yield {
         commitmentContractsMetadata.foreach(c => c.writeDelimitedTo(out).foreach(_ => out.flush()))

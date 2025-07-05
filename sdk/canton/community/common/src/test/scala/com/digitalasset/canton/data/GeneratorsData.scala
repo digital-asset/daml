@@ -261,9 +261,11 @@ final class GeneratorsData(
             c <- Gen
               .zip(
                 generatorsProtocol
-                  .serializableContractArb(canHaveEmptyKey = false)
-                  .arbitrary
-                  .map(_.copy(contractId = ex.inputContractId)),
+                  .contractInstanceArb(
+                    canHaveEmptyKey = false,
+                    overrideContractId = Some(ex.inputContractId),
+                  )
+                  .arbitrary,
                 Gen.oneOf(true, false),
               )
               .map(InputContract.apply tupled)
@@ -271,7 +273,7 @@ final class GeneratorsData(
             others <- Gen
               .listOf(
                 Gen.zip(
-                  generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+                  generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
                   Gen.oneOf(true, false),
                 )
               )
@@ -282,11 +284,12 @@ final class GeneratorsData(
 
         case fetch: FetchActionDescription =>
           generatorsProtocol
-            .serializableContractArb(canHaveEmptyKey = false)
-            .arbitrary
-            .map(c =>
-              List(InputContract(c.copy(contractId = fetch.inputContractId), consumed = false))
+            .contractInstanceArb(
+              canHaveEmptyKey = false,
+              overrideContractId = Some(fetch.inputContractId),
             )
+            .arbitrary
+            .map(c => List(InputContract(c, consumed = false)))
         case _: CreateActionDescription | _: LookupByKeyActionDescription => Gen.const(List.empty)
       }
 
@@ -295,14 +298,17 @@ final class GeneratorsData(
           Gen
             .zip(
               generatorsProtocol
-                .serializableContractArb(canHaveEmptyKey = false)
+                .contractInstanceArb(
+                  canHaveEmptyKey = false,
+                  overrideContractId = Some(created.contractId),
+                )
                 .arbitrary,
               Gen.oneOf(true, false),
             )
             .map { case (c, rolledBack) =>
               List(
                 CreatedContract.tryCreate(
-                  c.copy(contractId = created.contractId),
+                  c,
                   consumedInCore = false,
                   rolledBack = rolledBack,
                 )
@@ -313,7 +319,7 @@ final class GeneratorsData(
           Gen
             .listOf(
               Gen.zip(
-                generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+                generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
                 Gen.oneOf(true, false),
                 Gen.oneOf(true, false),
               )

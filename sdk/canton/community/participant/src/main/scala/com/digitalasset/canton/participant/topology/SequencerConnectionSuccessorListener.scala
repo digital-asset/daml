@@ -7,13 +7,14 @@ import cats.Monad
 import cats.data.OptionT
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  SynchronizerPredecessor,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.{
-  SynchronizerConnectionConfigStore,
-  SynchronizerPredecessor,
-}
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
@@ -88,10 +89,10 @@ class SequencerConnectionSuccessorListener(
       configuredSequencerIds = configuredSequencers.keySet
 
       synchronizerUpgradeOngoing <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
-      (successorSynchronizerId, upgradeTime) = synchronizerUpgradeOngoing
+      SynchronizerSuccessor(successorPSId, upgradeTime) = synchronizerUpgradeOngoing
 
       _ = logger.debug(
-        s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorSynchronizerId"
+        s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorPSId"
       )
       _ = logger.debug(s"Configured sequencer connections: $configuredSequencerIds")
 
@@ -129,19 +130,19 @@ class SequencerConnectionSuccessorListener(
       )
 
       currentSuccessorConfigO =
-        configStore.get(alias, KnownPhysicalSynchronizerId(successorSynchronizerId)).toOption
+        configStore.get(alias, KnownPhysicalSynchronizerId(successorPSId)).toOption
       _ <- currentSuccessorConfigO match {
         case None =>
           val updated = activeConfig.config
             .copy(
-              synchronizerId = Some(successorSynchronizerId),
+              synchronizerId = Some(successorPSId),
               sequencerConnections = sequencerConnections,
             )
           configStore
             .put(
               config = updated,
               status = SynchronizerConnectionConfigStore.MigratingTo,
-              configuredPSId = KnownPhysicalSynchronizerId(successorSynchronizerId),
+              configuredPSId = KnownPhysicalSynchronizerId(successorPSId),
               synchronizerPredecessor =
                 Some(SynchronizerPredecessor(topologyClient.psid, upgradeTime)),
             )
@@ -154,8 +155,8 @@ class SequencerConnectionSuccessorListener(
 
       _ = if (automaticallyConnectToUpgradedSynchronizer)
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          synchronizerHandshake.performHandshake(successorSynchronizerId),
-          s"failed to perform the synchronizer handshake with $successorSynchronizerId",
+          synchronizerHandshake.performHandshake(successorPSId),
+          s"failed to perform the synchronizer handshake with $successorPSId",
         )
     } yield ()
     resultOT.value.void

@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 
 object ContractConsistencyChecker {
 
@@ -28,12 +28,12 @@ object ContractConsistencyChecker {
   /** Checks that the provided contracts have a ledger time no later than `ledgerTime`.
     */
   def assertInputContractsInPast(
-      inputContracts: List[(LfContractId, SerializableContract)],
+      inputContracts: List[(LfContractId, ContractInstance)],
       ledgerTime: CantonTimestamp,
   ): Either[List[ReferenceToFutureContractError], Unit] =
     inputContracts
       .traverse_ { case (coid, contract) =>
-        val let = CantonTimestamp(contract.ledgerCreateTime.time)
+        val let = CantonTimestamp(contract.inst.createdAt.time)
         Validated.condNec(
           let <= ledgerTime,
           (),

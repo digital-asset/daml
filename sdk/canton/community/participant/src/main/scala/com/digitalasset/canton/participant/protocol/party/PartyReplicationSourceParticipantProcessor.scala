@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -15,7 +16,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
@@ -33,14 +33,11 @@ import scala.util.chaining.scalaUtilChainingOps
   * the source participant processor enforces the protocol guarantees made by a
   * [[PartyReplicationTargetParticipantProcessor]]. The following guarantees made by the source
   * participant processor are verifiable by the party replication protocol: The source participant
-  *   - sends [[PartyReplicationSourceMessage.SourceParticipantIsReady]] when ready to send
-  *     contracts,
-  *   - only sends as many [[PartyReplicationSourceMessage.AcsChunk]]s as requested by the target
-  *     participant to honor flow control,
-  *   - sends [[PartyReplicationSourceMessage.AcsChunk]]s in strictly increasing and gap-free chunk
-  *     id order,
-  *   - sends [[PartyReplicationSourceMessage.EndOfACS]] iff the processor is closed by the next
-  *     message,
+  *   - sends [[PartyReplicationSourceParticipantMessage.SourceParticipantIsReady]] when ready to
+  *     send contracts,
+  *   - only sends as many contracts as requested by the target participant to honor flow control,
+  *   - sends [[PartyReplicationSourceParticipantMessage.EndOfACS]] iff the processor is closed by
+  *     the next message,
   *   - and sends only deserializable payloads.
   *
   * @param psid
@@ -55,15 +52,10 @@ import scala.util.chaining.scalaUtilChainingOps
   *   replicated. Used to skip over shared contracts already hosted on TP.
   * @param acsInspection
   *   Interface to inspect the ACS.
-  * @param onProgress
-  *   Callback to update progress wrt the number of active contracts sent.
   * @param onComplete
   *   Callback notification that the source participant has sent the entire ACS.
   * @param onError
   *   Callback notification that the source participant has errored.
-  * @param protocolVersion
-  *   The protocol version to use for now for the party replication protocol. Technically the online
-  *   party replication protocol is a different protocol from the canton protocol.
   */
 final class PartyReplicationSourceParticipantProcessor private (
     val psid: PhysicalSynchronizerId,
@@ -73,16 +65,22 @@ final class PartyReplicationSourceParticipantProcessor private (
     //  as the set of other parties would change dynamically.
     otherPartiesHostedByTargetParticipant: Set[LfPartyId],
     acsInspection: AcsInspection, // TODO(#24326): Stream the ACS via the Ledger Api instead.
-    onProgress: NonNegativeInt => Unit,
-    onComplete: NonNegativeInt => Unit,
+    onComplete: TraceContext => Unit,
     onError: String => Unit,
+    protected val futureSupervisor: FutureSupervisor,
+    protected val exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
-    extends SequencerChannelProtocolProcessor {
-  private val chunkToSendUpToExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  private val numberOfContractsSent = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  private val numberOfContractsPerChunk = PositiveInt.two
+    extends PartyReplicationProcessor {
+  private val contractOrdinalToSendUpToExclusive =
+    new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val sentContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val contractsPerBatch = PositiveInt.two
+
+  override def replicatedContractsCount: NonNegativeInt = sentContractsCount.get()
+
+  override protected def name: String = "party-replication-source-processor"
 
   /** Once connected notify the target participant that the source participant is ready to be asked
     * to send contracts.
@@ -91,10 +89,10 @@ final class PartyReplicationSourceParticipantProcessor private (
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     // Once connected to target participant, send that source participant is ready.
-    val status = PartyReplicationSourceMessage(
-      PartyReplicationSourceMessage.SourceParticipantIsReady
+    val status = PartyReplicationSourceParticipantMessage(
+      PartyReplicationSourceParticipantMessage.SourceParticipantIsReady
     )(
-      PartyReplicationSourceMessage.protocolVersionRepresentativeFor(protocolVersion)
+      PartyReplicationSourceParticipantMessage.protocolVersionRepresentativeFor(protocolVersion)
     )
     sendPayload("source participant ready", status.toByteString)
   }
@@ -103,64 +101,102 @@ final class PartyReplicationSourceParticipantProcessor private (
     */
   override def handlePayload(payload: ByteString)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = execute("handle payload from TP") {
     (for {
-      instruction <- EitherT.fromEither[FutureUnlessShutdown](
-        PartyReplicationInstruction
+      messageFromTP <- EitherT.fromEither[FutureUnlessShutdown](
+        PartyReplicationTargetParticipantMessage
           .fromByteString(protocolVersion, payload)
           .leftMap(_.message)
       )
-      previousChunkToSendUpToExclusive = chunkToSendUpToExclusive.get
+      sendAcsUpTo = messageFromTP.instruction match {
+        case i @ PartyReplicationTargetParticipantMessage.SendAcsSnapshotUpTo(_) => i
+      }
+      previousContractOrdinalToSendUpToExclusive = contractOrdinalToSendUpToExclusive.get
       _ = logger.debug(
-        s"Source participant has received instruction to send up to chunk ${instruction.maxCounter}"
+        s"Source participant has received instruction to send up to contract ${sendAcsUpTo.maxContractOrdinalInclusive}"
       )
-      // Check that the target participant is requesting higher chunk numbers.
-      // The party replication protocol does not support retries as a TP is expected to establish a new connection
-      // after disconnects if it needs to consume previously sent chunks.
+      // Check that the target participant is requesting higher contract ordinals.
+      // TODO(#26341): The party replication protocol does not yet support retries
+      //  that would be based on a different instruction type.
       _ <- EitherTUtil.ifThenET(
-        instruction.maxCounter < previousChunkToSendUpToExclusive
+        sendAcsUpTo.maxContractOrdinalInclusive < previousContractOrdinalToSendUpToExclusive
       ) {
         sendError(
-          s"Target participant requested non-increasing chunk ${instruction.maxCounter} compared to previous chunk $previousChunkToSendUpToExclusive"
+          s"Target participant requested non-increasing contract ordinal ${sendAcsUpTo.maxContractOrdinalInclusive} compared to previous ordinal $previousContractOrdinalToSendUpToExclusive"
         )
       }
-      newChunkToSendUpTo = instruction.maxCounter
-      contracts <- readContracts(previousChunkToSendUpToExclusive, newChunkToSendUpTo)
-      _ <- sendContracts(contracts)
-      sendingUpToChunk = chunkToSendUpToExclusive.updateAndGet(
-        _ + NonNegativeInt.tryCreate(contracts.size)
+      _ = contractOrdinalToSendUpToExclusive.set(
+        sendAcsUpTo.maxContractOrdinalInclusive + NonNegativeInt.one // +1 for inclusive to exclusive
       )
-      numContractsSent = numberOfContractsSent.updateAndGet(
-        _ + NonNegativeInt.tryCreate(contracts.flatMap(_._1).size)
-      )
-      _ = onProgress(numContractsSent)
+    } yield ()).bimap(
+      _.tap { error =>
+        logger.warn(s"Error while processing payload: $error")
+        isChannelClosed.set(true) // returned error causes the channel to actually close
+        onError(error)
+      },
+      _ => progressPartyReplication(),
+    )
+  }
 
-      // If there aren't enough contracts, send that we have reached the end of the ACS.
-      _ <- EitherTUtil.ifThenET(sendingUpToChunk < newChunkToSendUpTo)(
-        sendEndOfAcs(s"End of ACS after chunk $sendingUpToChunk").map(_ =>
-          onComplete(numContractsSent)
+  /** Single point of entry for progress monitoring and advancing of party replication states for
+    * those states that are driven by the party replicator.
+    */
+  override def progressPartyReplication()(implicit traceContext: TraceContext): Unit =
+    if (
+      !isChannelClosed.get() &&
+      // Skip progress check if another task is already queued that performs this same progress check or
+      // is going to schedule a progress check.
+      executionQueue.queueSize <= 1
+    ) {
+      executeAsync(
+        s"Respond to target participant if needed"
+      ) {
+        val (fromInclusive, toInclusive) = (
+          sentContractsCount.get(),
+          contractOrdinalToSendUpToExclusive.get().map(_ - 1), // -1 for exclusive to inclusive
         )
+        EitherTUtil.ifThenET(fromInclusive < toInclusive)(
+          respondToTargetParticipant(fromInclusive, toInclusive)
+        )
+      }
+    }
+
+  private def respondToTargetParticipant(
+      fromInclusive: NonNegativeInt,
+      toInclusive: NonNegativeInt,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    logger.debug(
+      s"Source participant has received instruction to send up to contract ordinal ${toInclusive.unwrap}"
+    )
+    (for {
+      contracts <- readContracts(fromInclusive, toInclusive)
+      numContractsSending = contracts.flatten.size
+      _ <- sendContracts(contracts, sentContractsCount.get(), numContractsSending)
+      numSentInTotal = sentContractsCount.updateAndGet(
+        _ + NonNegativeInt.tryCreate(numContractsSending)
+      )
+      // If there aren't enough contracts, send that we have reached the end of the ACS.
+      _ <- EitherTUtil.ifThenET(numSentInTotal < toInclusive)(
+        sendEndOfAcs(s"End of ACS after $numSentInTotal contracts")
       )
     } yield ()).leftMap(_.tap { error =>
       logger.warn(s"Error while processing payload: $error")
-      onError(error)
+      isChannelClosed.set(true)
+      onError(error) // Let the PartyReplicator know there has been an error.
+      sendError(error) // Let the target participant know there has been an error.
     })
+  }
 
-  /** Reads contract chunks from the ACS in a brute-force fashion via AcsInspection until
+  /** Reads contract batches from the ACS in a brute-force fashion via AcsInspection until
     * TODO(#24326) reads the ACS via the Ledger API.
     */
-  private def readContracts(
-      newChunkToConsumerFrom: NonNegativeInt,
-      newChunkToConsumeTo: NonNegativeInt,
-  )(implicit
+  private def readContracts(fromInclusive: NonNegativeInt, toInclusive: NonNegativeInt)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Seq[
-    (NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)
-  ]] = {
+  ): EitherT[FutureUnlessShutdown, String, Seq[NonEmpty[Seq[ActiveContractOld]]]] = {
     val contracts = List.newBuilder[ActiveContractOld]
-    synchronizeWithClosing(
-      s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
-    )(
+    synchronizeWithClosing(s"Read ACS from ${fromInclusive.unwrap} to $toInclusive")(
       acsInspection
         .forEachVisibleActiveContract(
           psid.logical,
@@ -177,7 +213,7 @@ final class PartyReplicationSourceParticipantProcessor private (
             // Skip contracts already hosted by the target participant.
             logger.debug(
               s"Skipping contract ${contract.contractId} as it is already hosted by ${stakeholdersHostedByTargetParticipant
-                  .mkString(", ")} on the target participant between chunks $newChunkToConsumerFrom and $newChunkToConsumeTo}"
+                  .mkString(", ")} on the target participant between contract ordinals $fromInclusive and $toInclusive}"
             )
           }
           Right(())
@@ -187,49 +223,58 @@ final class PartyReplicationSourceParticipantProcessor private (
           _ =>
             contracts
               .result()
-              .grouped(numberOfContractsPerChunk.unwrap)
+              .slice(fromInclusive.unwrap, toInclusive.unwrap + 1)
+              .grouped(contractsPerBatch.unwrap)
               .toSeq
-              .map(NonEmpty.from(_).getOrElse(throw new IllegalStateException("Grouping failed")))
-              .zipWithIndex
-              .slice(newChunkToConsumerFrom.unwrap, newChunkToConsumeTo.unwrap + 1)
-              .map { case (chunk, index) => (chunk, NonNegativeInt.tryCreate(index)) },
+              .map(NonEmpty.from(_).getOrElse(throw new IllegalStateException("Grouping failed"))),
         )
     )
   }
 
   private def sendContracts(
-      indexedContractChunks: Seq[(NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)]
+      contractBatches: Seq[NonEmpty[Seq[ActiveContractOld]]],
+      firstContractOrdinal: NonNegativeInt,
+      numContractsSending: Int,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.debug(
-      s"Source participant sending ${indexedContractChunks.size} chunks up to ${chunkToSendUpToExclusive.get().unwrap + indexedContractChunks.size}"
+      s"Source participant sending ${contractBatches.size} batches with contract ordinals from ${firstContractOrdinal.unwrap} to ${firstContractOrdinal.unwrap + numContractsSending - 1}"
     )
-    MonadUtil.sequentialTraverse_(indexedContractChunks) { case (chunkContracts, index) =>
-      val acsChunk = PartyReplicationSourceMessage(
-        PartyReplicationSourceMessage.AcsChunk(
-          index,
-          chunkContracts,
+    val indexedContractBatches = contractBatches.zipWithIndex.map { case (batch, index) =>
+      val fromInclusive = firstContractOrdinal +
+        (NonNegativeInt.tryCreate(index) * contractsPerBatch.toNonNegative)
+      val toInclusive = fromInclusive + NonNegativeInt.tryCreate(batch.size - 1)
+      (batch, (fromInclusive, toInclusive))
+    }
+    MonadUtil.sequentialTraverse_(indexedContractBatches) {
+      case (contracts, (fromInclusive, toInclusive)) =>
+        val acsBatch = PartyReplicationSourceParticipantMessage(
+          PartyReplicationSourceParticipantMessage.AcsBatch(contracts)
+        )(
+          PartyReplicationSourceParticipantMessage.protocolVersionRepresentativeFor(protocolVersion)
         )
-      )(
-        PartyReplicationSourceMessage.protocolVersionRepresentativeFor(protocolVersion)
-      )
-      sendPayload(s"ACS chunk $index", acsChunk.toByteString)
+        sendPayload(s"ACS batch from $fromInclusive to $toInclusive", acsBatch.toByteString)
     }
   }
 
   private def sendEndOfAcs(endOfStreamMessage: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val endOfACS = PartyReplicationSourceMessage(
-      PartyReplicationSourceMessage.EndOfACS
+    logger.info(endOfStreamMessage)
+    val endOfACS = PartyReplicationSourceParticipantMessage(
+      PartyReplicationSourceParticipantMessage.EndOfACS
     )(
-      PartyReplicationSourceMessage.protocolVersionRepresentativeFor(protocolVersion)
+      PartyReplicationSourceParticipantMessage.protocolVersionRepresentativeFor(protocolVersion)
     )
     for {
       _ <- sendPayload(endOfStreamMessage, endOfACS.toByteString)
       _ <- sendCompleted(endOfStreamMessage)
-    } yield ()
+    } yield {
+      hasEndOfACSBeenReached.set(true)
+      isChannelClosed.set(true)
+      onComplete(traceContext)
+    }
   }
 
   override def onDisconnected(status: Either[String, Unit])(implicit
@@ -244,9 +289,10 @@ object PartyReplicationSourceParticipantProcessor {
       activeAt: CantonTimestamp,
       partiesHostedByTargetParticipant: Set[LfPartyId],
       acsInspection: AcsInspection,
-      onProgress: NonNegativeInt => Unit,
-      onComplete: NonNegativeInt => Unit,
+      onComplete: TraceContext => Unit,
       onError: String => Unit,
+      futureSupervisor: FutureSupervisor,
+      exitOnFatalFailures: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): PartyReplicationSourceParticipantProcessor =
@@ -256,9 +302,10 @@ object PartyReplicationSourceParticipantProcessor {
       activeAt,
       partiesHostedByTargetParticipant,
       acsInspection,
-      onProgress,
       onComplete,
       onError,
+      futureSupervisor,
+      exitOnFatalFailures,
       timeouts,
       loggerFactory
         .append("synchronizerId", psid.toProtoPrimitive)

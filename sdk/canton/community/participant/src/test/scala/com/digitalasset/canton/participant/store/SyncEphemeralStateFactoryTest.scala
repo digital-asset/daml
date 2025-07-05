@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.ledger.participant.state.{
   RepairIndex,
   SequencerIndex,

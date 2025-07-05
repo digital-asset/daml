@@ -17,17 +17,19 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcClientConnectionManager.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
   AuthenticationInitialState,
   P2PEndpoint,
   completeHandle,
   mutex,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcClientConnectionManager.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.{
   AddEndpointHeaderClientInterceptor,
   AuthenticateServerClientInterceptor,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.P2PConnectionEventListener
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
   BftOrderingServiceGrpc,
   BftOrderingServiceReceiveRequest,
@@ -49,8 +51,9 @@ import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
-class GrpcClientConnectionManager(
+class P2PGrpcClientConnectionManager(
     authenticationInitialState: Option[AuthenticationInitialState],
+    p2pConnectionEventListener: P2PConnectionEventListener,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -63,20 +66,20 @@ class GrpcClientConnectionManager(
   private val connectExecutionContext = ExecutionContext.fromExecutor(connectExecutor)
   private val connectWorkers = mutable.Map[P2PEndpoint, FutureUnlessShutdown[Unit]]()
   private val serverHandles =
-    mutable.Map[P2PEndpoint, ServerHandleInfo[BftOrderingServiceReceiveRequest]]()
+    mutable.Map[P2PEndpoint, StreamObserver[BftOrderingServiceReceiveRequest]]()
   private val channels = mutable.Map[P2PEndpoint, ManagedChannel]()
   private val grpcSequencerClientAuths = mutable.Map[P2PEndpoint, GrpcSequencerClientAuth]()
 
   // Called by the client network manager when establishing a connection to an endpoint
   def getServerHandleOrStartConnection(
       serverEndpoint: P2PEndpoint
-  ): Option[ServerHandleInfo[BftOrderingServiceReceiveRequest]] =
+  ): Option[StreamObserver[BftOrderingServiceReceiveRequest]] =
     mutex(this) {
       val res = serverHandles.get(serverEndpoint)
-      res.foreach { case ServerHandleInfo(sequencerId, handle, _) =>
+      res.foreach { handle =>
         serverHandles.put(
           serverEndpoint,
-          ServerHandleInfo(sequencerId, handle, isNewlyConnected = false),
+          handle,
         )
       }
       res
@@ -95,7 +98,10 @@ class GrpcClientConnectionManager(
   def closeConnection(serverEndpoint: P2PEndpoint): Unit = {
     logger.info(s"Closing connection to endpoint in server role $serverEndpoint")
     mutex(this) {
-      serverHandles.remove(serverEndpoint).map(_.serverHandle).foreach(completeHandle)
+      serverHandles.remove(serverEndpoint).foreach { handle =>
+        p2pConnectionEventListener.onDisconnect(serverEndpoint.id)
+        completeHandle(handle)
+      }
       connectWorkers.remove(serverEndpoint).discard // Signals "stop" to the connect worker
       grpcSequencerClientAuths.remove(serverEndpoint).foreach(_.close())
       channels.remove(serverEndpoint)
@@ -191,7 +197,8 @@ class GrpcClientConnectionManager(
       serverEndpoint: P2PEndpoint,
       sequencerId: SequencerId,
       streamFromServer: StreamObserver[BftOrderingServiceReceiveRequest],
-  ): Unit =
+  ): Unit = {
+    p2pConnectionEventListener.onConnect(serverEndpoint.id)
     // These streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
     //  We avoid bidirectional streaming because client TLS certificate authentication is not well-supported
     //  by all network infrastructure, but we still want to be able to authenticate both ends with TLS.
@@ -201,10 +208,16 @@ class GrpcClientConnectionManager(
       serverHandles
         .put(
           serverEndpoint,
-          ServerHandleInfo(sequencerId, streamFromServer, isNewlyConnected = true),
+          streamFromServer,
         )
         .discard
     }
+    p2pConnectionEventListener.onConnect(serverEndpoint.id)
+    p2pConnectionEventListener.onSequencerId(
+      serverEndpoint.id,
+      SequencerNodeId.toBftNodeId(sequencerId),
+    )
+  }
 
   private def openGrpcChannel(serverEndpoint: P2PEndpoint): OpenChannel = {
     implicit val executor: Executor = (command: Runnable) => executionContext.execute(command)
@@ -353,15 +366,16 @@ class GrpcClientConnectionManager(
         //  at least the initial connection can be established.
         blockingStub.ping(PingRequest.defaultInstance).discard
         val sequencerIdPromiseUS = PromiseUnlessShutdown.unsupervised[SequencerId]()
-        val streamFromServer = asyncStub.receive(
-          new GrpcClientHandle(
-            serverEndpoint,
-            sequencerIdPromiseUS,
-            closeConnection,
-            authenticationEnabled = authenticationInitialState.isDefined,
-            loggerFactory,
+        val streamFromServer =
+          asyncStub.receive(
+            new GrpcClientHandle(
+              serverEndpoint,
+              sequencerIdPromiseUS,
+              closeConnection,
+              authenticationEnabled = authenticationInitialState.isDefined,
+              loggerFactory,
+            )
           )
-        )
         sequencerIdPromiseUS.futureUS.map(sequencerId => (sequencerId, streamFromServer))
       } match {
         case Success(futureUSResult) =>
@@ -407,13 +421,7 @@ class GrpcClientConnectionManager(
   }
 }
 
-private[bftordering] object GrpcClientConnectionManager {
-
-  final case class ServerHandleInfo[REQ](
-      sequencerId: SequencerId,
-      serverHandle: StreamObserver[REQ],
-      isNewlyConnected: Boolean,
-  )
+private[bftordering] object P2PGrpcClientConnectionManager {
 
   private val MaxConnectionAttemptsBeforeWarning = 10
 

@@ -18,7 +18,12 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  Offset,
+  ReassignmentSubmitterMetadata,
+  SynchronizerPredecessor,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.TransactionRoutingError.{
@@ -1475,7 +1480,10 @@ class CantonSyncService(
             s"Performing handshake with synchronizer with id ${synchronizerConnectionConfig.configuredPSId} and config: ${synchronizerConnectionConfig.config}"
           )
           synchronizerHandleAndUpdatedConfig <- EitherT(
-            synchronizerRegistry.connect(synchronizerConnectionConfig.config)
+            synchronizerRegistry.connect(
+              synchronizerConnectionConfig.config,
+              synchronizerConnectionConfig.predecessor,
+            )
           )
             .leftMap[SyncServiceError](err =>
               SyncServiceError.SyncServiceFailedSynchronizerConnection(synchronizerAlias, err)
@@ -1533,7 +1541,10 @@ class CantonSyncService(
             s"Performing handshake with synchronizer with id ${synchronizerConnectionConfig.configuredPSId} and config: ${synchronizerConnectionConfig.config}"
           )
           synchronizerHandleAndUpdatedConfig <- EitherT(
-            synchronizerRegistry.connect(synchronizerConnectionConfig.config)
+            synchronizerRegistry.connect(
+              synchronizerConnectionConfig.config,
+              synchronizerConnectionConfig.predecessor,
+            )
           )
             .leftMap[SyncServiceError](err =>
               SyncServiceError.SyncServiceFailedSynchronizerConnection(
@@ -1559,13 +1570,14 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] = {
     def connect(
-        config: SynchronizerConnectionConfig
+        config: SynchronizerConnectionConfig,
+        synchronizerPredecessor: Option[SynchronizerPredecessor],
     ): EitherT[
       FutureUnlessShutdown,
       SyncServiceFailedSynchronizerConnection,
       (SynchronizerHandle, SynchronizerConnectionConfig),
     ] =
-      EitherT(synchronizerRegistry.connect(config)).leftMap(err =>
+      EitherT(synchronizerRegistry.connect(config, synchronizerPredecessor)).leftMap(err =>
         SyncServiceError.SyncServiceFailedSynchronizerConnection(synchronizerAlias, err)
       )
 
@@ -1601,7 +1613,10 @@ class CantonSyncService(
           _ = logger.debug(
             s"Connecting to synchronizer with id ${synchronizerConnectionConfig.configuredPSId} config: ${synchronizerConnectionConfig.config}"
           )
-          synchronizerHandleAndUpdatedConfig <- connect(synchronizerConnectionConfig.config)
+          synchronizerHandleAndUpdatedConfig <- connect(
+            synchronizerConnectionConfig.config,
+            synchronizerConnectionConfig.predecessor,
+          )
           (synchronizerHandle, updatedConfig) = synchronizerHandleAndUpdatedConfig
           synchronizerId = synchronizerHandle.psid
 
@@ -1636,6 +1651,7 @@ class CantonSyncService(
             syncEphemeralStateFactory
               .createFromPersistent(
                 persistent,
+                synchronizerCrypto,
                 ledgerApiIndexer.asEval,
                 participantNodePersistentState.map(_.contractStore),
                 participantNodeEphemeralState,
@@ -1698,6 +1714,7 @@ class CantonSyncService(
                   synchronizerHandle.topologyClient,
                   ephemeral.recordOrderPublisher,
                   synchronizerHandle.syncPersistentState.sequencedEventStore,
+                  synchronizerConnectionConfig.predecessor,
                   ledgerApiIndexer.asEval.value.ledgerApiStore.value,
                 ),
               missingKeysAlerter,

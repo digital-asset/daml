@@ -354,7 +354,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           contractSalt,
           CreationTime.CreatedAt(createdAt.toLf),
           metadata,
-          rawContract,
+          rawContract.contractInstance.unversioned,
           cantonContractIdVersion,
         )
         .valueOr(err => throw new RuntimeException(err))

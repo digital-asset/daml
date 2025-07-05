@@ -51,7 +51,7 @@ trait ExampleTransaction {
     */
   def viewWithSubviews: Seq[(TransactionView, Seq[TransactionView])]
 
-  def inputContracts: Map[LfContractId, SerializableContract] =
+  def inputContracts: Map[LfContractId, ContractInstance] =
     transactionViewTrees.flatMap(_.viewParticipantData.coreInputs).toMap.fmap(_.contract)
 
   def transactionTree: GenTransactionTree

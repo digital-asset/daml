@@ -328,7 +328,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     createIndex = 0,
     ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
     metadata = contractMetadata,
-    suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInstance),
+    suffixedContractInstance = contractInstance.unversioned,
     cantonContractIdVersion = contractIdVersion,
   )
 
@@ -364,7 +364,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
         ledgerCreateTime = CreationTime.CreatedAt(testedLedgerTime.toLf),
         metadata = ContractMetadata
           .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
-        suffixedContractInstance = testedContractInstance,
+        suffixedContractInstance = testedContractInstance.contractInstance.unversioned,
         cantonContractIdVersion = contractIdVersion,
       )
       .valueOrFail("Failed unicum computation")

@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
-import cats.implicits.toBifunctorOps
+import cats.syntax.either.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -19,6 +19,7 @@ final case class ContractInstance private (
     inst: LfFatContractInst,
     serializable: SerializableContract,
     useUpgradeFriendlyHash: Boolean,
+    serialization: ByteString,
 ) extends PrettyPrinting {
 
   def contractId: LfContractId = inst.contractId
@@ -36,10 +37,7 @@ final case class ContractInstance private (
     param("created at", _.inst.createdAt),
   )
 
-  def encode(): Either[String, ByteString] =
-    TransactionCoder
-      .encodeFatContractInstance(inst)
-      .leftMap(e => s"Failed to encode contract instance: $e")
+  def encoded: ByteString = serialization
 
 }
 
@@ -72,6 +70,7 @@ object ContractInstance {
         maybeKeyWithMaintainersVersioned =
           inst.contractKeyWithMaintainers.map(Versioned(inst.version, _)),
       )
+      serialization <- encodeInst(inst)
       serializable <- SerializableContract(
         contractId = inst.contractId,
         contractInstance = inst.toCreateNode.versionedCoinst,
@@ -80,20 +79,31 @@ object ContractInstance {
         contractSalt = salt,
       ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
 
-    } yield ContractInstance(inst, serializable, contractIdVersion.useUpgradeFriendlyHashing)
+    } yield ContractInstance(
+      inst,
+      serializable,
+      contractIdVersion.useUpgradeFriendlyHashing,
+      serialization,
+    )
 
   def apply(serializable: SerializableContract): Either[String, ContractInstance] =
     for {
       contractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(serializable.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-    } yield {
-      val inst = FatContractInstance.fromCreateNode(
+      inst = FatContractInstance.fromCreateNode(
         serializable.toLf,
         serializable.ledgerCreateTime,
         DriverContractMetadata(serializable.contractSalt).toLfBytes(contractIdVersion),
       )
-      ContractInstance(inst, serializable, contractIdVersion.useUpgradeFriendlyHashing)
+      serialization <- encodeInst(inst)
+    } yield {
+      ContractInstance(
+        inst,
+        serializable,
+        contractIdVersion.useUpgradeFriendlyHashing,
+        serialization,
+      )
     }
 
   def decode(bytes: ByteString): Either[String, ContractInstance] =
@@ -103,5 +113,10 @@ object ContractInstance {
         .leftMap(e => s"Failed to decode contract instance: $e")
       contract <- apply(decoded)
     } yield contract
+
+  private def encodeInst(inst: LfFatContractInst): Either[String, ByteString] =
+    TransactionCoder
+      .encodeFatContractInstance(inst)
+      .leftMap(e => s"Failed to encode contract instance: $e")
 
 }

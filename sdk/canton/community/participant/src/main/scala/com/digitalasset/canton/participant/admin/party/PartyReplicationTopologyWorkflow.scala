@@ -249,9 +249,6 @@ class PartyReplicationTopologyWorkflow(
       // Sign and authorize the party addition on the target participant if the TP has not already signed.
       _ <- EitherTUtil.ifThenET(!hasTargetParticipantAlreadySigned)(
         {
-          println(
-            s"About to propose onboarding topology for party replication $requestId and party $partyId with target participant signature"
-          )
           topologyManager
             .proposeAndAuthorize(
               op = TopologyChangeOp.Replace,

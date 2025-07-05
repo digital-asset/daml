@@ -37,7 +37,7 @@ object IncompleteReassignmentData {
       reassignmentId: ReassignmentId,
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
-      contracts: Seq[SerializableContract],
+      contracts: Seq[ContractInstance],
   ) {
     def toIncompleteReassignmentData(
         queryOffset: Offset

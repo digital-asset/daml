@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationEnv,
   SimulationInitializer,
   SimulationModuleSystem,
-  SimulationP2PNetworkManager,
+  SimulationP2PNetworkRefFactory,
   TraceContextGenerator,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
@@ -130,8 +130,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         local.scheduleFuture(node, to, clock.now, future, errorMessage, traceContext)
       case NodeCollector.CancelTick(tickCounter) =>
         agenda.removeInternalTick(node, tickCounter)
-      case NodeCollector.OpenConnection(to, endpoint, continuation) =>
-        network.scheduleEstablishConnection(node, to, endpoint, continuation)
+      case NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener) =>
+        network.scheduleEstablishConnection(node, to, endpoint, p2pConnectionEventListener)
     }
 
   private def runClientCollector(node: BftNodeId, collector: ClientCollector): Unit =
@@ -358,9 +358,10 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
         case AddEndpoint(endpoint, to) =>
           addEndpoint(endpoint, to)
-        case EstablishConnection(from, to, endpoint, continuation) =>
+        case EstablishConnection(from, to, endpoint, p2pConnectionEventListener) =>
           logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
-          continuation(endpoint.id, to)
+          p2pConnectionEventListener.onConnect(endpoint.id)
+          p2pConnectionEventListener.onSequencerId(endpoint.id, to)
           val machine = tryGetMachine(from)
           runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
         case CrashNode(node) =>
@@ -446,7 +447,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     init: SimulationInitializer[OnboardingDataT, SystemNetworkMessageT, ?, ?],
     onboardingManager: OnboardingManager[OnboardingDataT],
     loggerFactory: NamedLoggerFactory,
-    simulationP2PNetworkManager: SimulationP2PNetworkManager[SystemNetworkMessageT],
+    simulationP2PNetworkRefFactory: SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
 ) {
   private val logger = loggerFactory.getLogger(getClass)
   private var crashed = false
@@ -463,7 +464,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     logger.info("Initializing modules again to simulate restart")
     val _ = init
       .systemInitializerFactory(onboardingManager.provide(ProvideForRestart, node))
-      .initialize(system, simulationP2PNetworkManager)
+      .initialize(system, _ => simulationP2PNetworkRefFactory)
     crashed = false
   }
 

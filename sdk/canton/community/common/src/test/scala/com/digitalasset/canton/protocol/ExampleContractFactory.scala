@@ -55,9 +55,12 @@ object ExampleContractFactory extends EitherValues {
 
     val discriminator = lfHash()
 
+    // Template ID must be common across contract and key
+    val contractTemplateId = keyOpt.map(_.globalKey.templateId).getOrElse(templateId)
+
     val create = Node.Create(
       coid = LfContractId.V1(discriminator),
-      templateId = templateId,
+      templateId = contractTemplateId,
       packageName = packageName,
       arg = argument,
       signatories = signatories,
@@ -91,5 +94,32 @@ object ExampleContractFactory extends EitherValues {
       cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
   ): ContractId =
     cantonContractIdVersion.fromDiscriminator(lfHash(index), Unicum(TestHash.digest(index)))
+
+  def modify(
+      base: ContractInstance,
+      contractId: Option[ContractId] = None,
+      metadata: Option[ContractMetadata] = None,
+      arg: Option[Value] = None,
+      templateId: Option[LfTemplateId] = None,
+      packageName: Option[PackageName] = None,
+  ): ContractInstance = {
+
+    val create = base.toLf
+    val inst = FatContractInstance.fromCreateNode(
+      base.toLf.copy(
+        coid = contractId.getOrElse(create.coid),
+        templateId = templateId.getOrElse(create.templateId),
+        arg = arg.getOrElse(create.arg),
+        signatories = metadata.map(_.signatories).getOrElse(create.signatories),
+        stakeholders = metadata.map(_.stakeholders).getOrElse(create.stakeholders),
+        keyOpt = metadata.map(_.maybeKeyWithMaintainers).getOrElse(create.keyOpt),
+        packageName = packageName.getOrElse(create.packageName),
+      ),
+      base.inst.createdAt,
+      base.inst.cantonData,
+    )
+
+    ContractInstance(inst).value
+  }
 
 }

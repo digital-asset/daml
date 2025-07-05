@@ -20,7 +20,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.health.{
@@ -179,6 +179,10 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
+
+  /** For participant nodes, the predecessor synchronizer if any.
+    */
+  protected def synchronizerPredecessor: Option[SynchronizerPredecessor]
 }
 
 trait RichSequencerClient extends SequencerClient {
@@ -837,20 +841,28 @@ abstract class SequencerClientImpl(
       }
     }
 
-    val request = AcknowledgeRequest(member, timestamp, protocolVersion)
-    for {
-      signedRequest <- requestSigner.signRequest(
-        request,
-        HashPurpose.AcknowledgementSignature,
-        Some(syncCryptoClient.currentSnapshotApproximation),
+    if (LogicalUpgradeTime.canProcessKnowingPredecessor(synchronizerPredecessor, timestamp)) {
+      val request = AcknowledgeRequest(member, timestamp, protocolVersion)
+      for {
+        signedRequest <- requestSigner.signRequest(
+          request,
+          HashPurpose.AcknowledgementSignature,
+          Some(syncCryptoClient.currentSnapshotApproximation),
+        )
+        result <-
+          if (config.useNewConnectionPool) {
+            acknowledgeWithConnectionPool(signedRequest)
+          } else {
+            sequencersTransportState.transport.acknowledgeSigned(signedRequest)
+          }
+      } yield result
+    } else {
+      logger.debug(
+        s"Not acknowledging timestamp $timestamp which is before upgrade time ${synchronizerPredecessor
+            .map(_.upgradeTime)}"
       )
-      result <-
-        if (config.useNewConnectionPool) {
-          acknowledgeWithConnectionPool(signedRequest)
-        } else {
-          sequencersTransportState.transport.acknowledgeSigned(signedRequest)
-        }
-    } yield result
+      EitherT.pure(true)
+    }
   }
 
   override def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
@@ -931,6 +943,7 @@ object SequencerClientImpl {
   */
 class RichSequencerClientImpl(
     override val psid: PhysicalSynchronizerId,
+    override val synchronizerPredecessor: Option[SynchronizerPredecessor],
     member: Member,
     sequencerTransports: SequencerTransports[?],
     connectionPool: SequencerConnectionXPool,
@@ -1686,6 +1699,8 @@ class SequencerClientImplPekko[E: Pretty](
       loggerFactory,
       futureSupervisor,
     ) {
+
+  override protected def synchronizerPredecessor: Option[SynchronizerPredecessor] = None
 
   import SequencerClientImplPekko.*
 

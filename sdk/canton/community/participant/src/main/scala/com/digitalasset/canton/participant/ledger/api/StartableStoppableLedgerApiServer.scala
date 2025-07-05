@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
-  RateLimitingInterceptor,
+  RateLimitingInterceptorFactory,
   ThreadpoolCheck,
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.Utils
@@ -470,7 +470,7 @@ class StartableStoppableLedgerApiServer(
       .newServerInterceptor(),
   ) ::: config.serverConfig.rateLimit
     .map(rateLimit =>
-      RateLimitingInterceptor(
+      RateLimitingInterceptorFactory.create(
         loggerFactory = loggerFactory,
         metrics = config.metrics,
         config = rateLimit,

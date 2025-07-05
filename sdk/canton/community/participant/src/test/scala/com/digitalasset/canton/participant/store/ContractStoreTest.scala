@@ -77,7 +77,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
           stakeholders = manySignatories,
         )
 
-      largeContract.encode().value.size() should be > 32768
+      largeContract.encoded.size() should be > 32768
 
       val storedLargeContractUpdated = largeContract
 

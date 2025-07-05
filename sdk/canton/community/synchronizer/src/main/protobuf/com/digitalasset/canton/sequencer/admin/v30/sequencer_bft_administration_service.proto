@@ -60,11 +60,13 @@ message RemovePeerEndpointResponse {
 message PeerEndpointHealthStatus {
   oneof status {
     UnknownEndpoint unknown_endpoint = 1;
-    Unauthenticated unauthenticated = 2;
-    Authenticated authenticated = 3;
+    Disconnected disconnected = 2;
+    Unauthenticated unauthenticated = 3;
+    Authenticated authenticated = 4;
   }
 
   message UnknownEndpoint {}
+  message Disconnected {}
   message Unauthenticated {}
   message Authenticated {
     string sequencer_id = 1;

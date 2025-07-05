@@ -8,28 +8,41 @@ package com.digitalasset.canton.participant.protocol.v30;
 import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "scalapb/scalapb.proto";
 
-message PartyReplicationInstruction {
+/**
+ * Party replication protocol message sent by the target participant to the source participant.
+ */
+message PartyReplicationTargetParticipantMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-  // ACS snapshot chunk counter (0-based) up to which the source participant is allowed to send ACS chunks
-  // inclusively
-  // Required
-  uint32 max_counter = 1;
+
+  message SendAcsSnapshotUpTo {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    // ACS snapshot contract ordinal (0-based) deterministic on the source participant. This serves as a
+    // watermark specifying up to which contract ordinal inclusively the source participant is expected
+    // to send ACS batches. This puts the target participant in charge of flow-controlling the rate of
+    // ACS ingestion.
+    // Required
+    uint32 max_contract_ordinal_inclusive = 1;
+  }
+
+  oneof instruction {
+    SendAcsSnapshotUpTo send_acs_snapshot_up_to = 1;
+  }
 }
 
-message PartyReplicationSourceMessage {
+/**
+ * Party replication protocol message sent by the source participant to the target participant.
+ */
+message PartyReplicationSourceParticipantMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  message AcsChunk {
+  // Batch of ACS contracts previously requested by the target participant.
+  message AcsBatch {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-    // ACS chunk counter (0-based)
-    // Required
-    uint32 chunk_counter = 1;
-
-    // The portion of the ACS in the chunk expressed as nonempty list
+    // The portion of the ACS in the batch expressed as nonempty list
     // TODO(#24326) - Use a Ledger API representation instead.
     // Required
-    repeated com.digitalasset.canton.admin.participant.v30.ActiveContractOld contracts = 2;
+    repeated com.digitalasset.canton.admin.participant.v30.ActiveContractOld contracts = 1;
   }
 
   message SourceParticipantIsReady {
@@ -41,7 +54,7 @@ message PartyReplicationSourceMessage {
   }
 
   oneof data_or_status {
-    AcsChunk acs_chunk = 1;
+    AcsBatch acs_batch = 1;
     SourceParticipantIsReady source_participant_is_ready = 2;
     EndOfACS end_of_acs = 3;
   }

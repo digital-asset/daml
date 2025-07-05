@@ -798,7 +798,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               createIndex = 0,
               ledgerCreateTime = creationTime,
               metadata = contractMetadata,
-              suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(contractInst),
+              suffixedContractInstance = contractInst.unversioned,
               authenticatedContractIdVersion,
             )
 

@@ -153,12 +153,9 @@ class AssignmentValidationTest
   }
 
   "validateAssignmentRequest" should {
-    val contract = ExampleTransactionFactory.authenticatedSerializableContract(
-      ContractMetadata.tryCreate(
-        signatories = Set(signatory),
-        stakeholders = Set(signatory, observer),
-        None,
-      )
+    val contract = ExampleContractFactory.build(
+      signatories = Set(signatory),
+      stakeholders = Set(signatory, observer),
     )
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
@@ -246,7 +243,7 @@ class AssignmentValidationTest
         ReassignmentProcessingSteps.ReassignmentProcessorError,
         AssignmentValidationResult,
       ] = {
-        val updatedContract = contract.copy(contractId = cid)
+        val updatedContract = ExampleContractFactory.modify(contract, contractId = Some(cid))
 
         val assignmentRequest = makeFullAssignmentTree(
           unassignmentData.reassignmentId,
@@ -397,7 +394,7 @@ class AssignmentValidationTest
 
   private def makeFullAssignmentTree(
       reassignmentId: ReassignmentId,
-      contract: SerializableContract,
+      contract: ContractInstance,
       submitter: LfPartyId = signatory,
       uuid: UUID = new UUID(4L, 5L),
       targetSynchronizer: Target[PhysicalSynchronizerId] = targetSynchronizer,

@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.apiserver.ratelimiting
+package com.digitalasset.canton.networking.grpc.ratelimiting
 
-import com.digitalasset.canton.ledger.error.LedgerApiErrors.MaximumNumberOfStreams
+import com.digitalasset.base.error.{ContextualizedDamlError, ErrorCategory, ErrorClass, ErrorCode}
 import com.digitalasset.canton.logging.NoLogging
-import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{OverLimit, UnderLimit}
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.{OverLimit, UnderLimit}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -15,7 +15,7 @@ class LimitResultSpec extends AnyFlatSpec with Matchers {
 
   def underCheck(): LimitResult = UnderLimit
   def overCheck(method: String): LimitResult = OverLimit(
-    MaximumNumberOfStreams.Rejection(0, 0, "", method)(NoLogging)
+    LimitResultSpec.TestError.Err(method)
   )
 
   it should "compose under limit" in {
@@ -37,4 +37,17 @@ class LimitResultSpec extends AnyFlatSpec with Matchers {
     actual shouldBe expected
   }
 
+}
+
+object LimitResultSpec {
+  private object TestError
+      extends ErrorCode(
+        id = "IGNORE_ME",
+        ErrorCategory.ContentionOnSharedResources,
+      )(ErrorClass.root()) {
+    final case class Err(name: String)
+        extends ContextualizedDamlError(
+          cause = ""
+        )(TestError.this, NoLogging)
+  }
 }

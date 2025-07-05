@@ -10,6 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoGrpcP2PNetworking.PekkoP2PNetworkRefFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.{
@@ -23,6 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializationResult,
   SystemInitializer,
 }
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.actor.typed.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -376,14 +378,17 @@ object PekkoModuleSystem {
     *   The Pekko typed actor system used
     * @param initResult
     *   The initialization result
-    * @tparam P2PMessageT
-    *   The type of P2P messages
     * @tparam InputMessageT
     *   The type of input messages, i.e., messages sent by client to the input module
     */
-  final case class PekkoModuleSystemInitResult[P2PMessageT, InputMessageT](
+  final case class PekkoModuleSystemInitResult[InputMessageT](
       actorSystem: ActorSystem[ModuleControl[PekkoEnv, Unit]],
-      initResult: SystemInitializationResult[P2PMessageT, InputMessageT],
+      initResult: SystemInitializationResult[
+        PekkoEnv,
+        PekkoP2PNetworkRefFactory,
+        BftOrderingServiceReceiveRequest,
+        InputMessageT,
+      ],
   )
 
   private[bftordering] final class PekkoModuleSystem(
@@ -427,17 +432,27 @@ object PekkoModuleSystem {
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-  def tryCreate[P2PMessageT, InputMessageT](
+  def tryCreate[InputMessageT](
       name: String,
-      systemInitializer: SystemInitializer[PekkoEnv, P2PMessageT, InputMessageT],
-      p2pManager: ClientP2PNetworkManager[PekkoEnv, P2PMessageT],
+      systemInitializer: SystemInitializer[
+        PekkoEnv,
+        PekkoP2PNetworkRefFactory,
+        BftOrderingServiceReceiveRequest,
+        InputMessageT,
+      ],
+      createP2PNetworkRefFactory: P2PConnectionEventListener => PekkoP2PNetworkRefFactory,
       metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
-  ): PekkoModuleSystemInitResult[P2PMessageT, InputMessageT] = {
+  ): PekkoModuleSystemInitResult[InputMessageT] = {
     val resultPromise =
-      Promise[SystemInitializationResult[P2PMessageT, InputMessageT]]()
+      Promise[SystemInitializationResult[
+        PekkoEnv,
+        PekkoP2PNetworkRefFactory,
+        BftOrderingServiceReceiveRequest,
+        InputMessageT,
+      ]]()
 
     val actorSystem = {
       val systemBehavior =
@@ -446,7 +461,9 @@ object PekkoModuleSystem {
             Behaviors.setup[ModuleControl[PekkoEnv, Unit]] { actorContext =>
               val logger = loggerFactory.getLogger(getClass)
               val moduleSystem = new PekkoModuleSystem(actorContext, metrics, loggerFactory)
-              resultPromise.success(systemInitializer.initialize(moduleSystem, p2pManager))
+              resultPromise.success(
+                systemInitializer.initialize(moduleSystem, createP2PNetworkRefFactory)
+              )
               Behaviors.receiveSignal { case (_, Terminated(actorRef)) =>
                 logger.debug(
                   s"Pekko module system behavior received 'Terminated($actorRef)' signal"

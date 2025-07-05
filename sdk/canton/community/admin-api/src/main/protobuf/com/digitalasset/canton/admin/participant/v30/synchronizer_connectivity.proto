@@ -8,7 +8,6 @@ package com.digitalasset.canton.admin.participant.v30;
 import "com/digitalasset/canton/admin/sequencer/v30/sequencer_connection.proto";
 import "com/digitalasset/canton/admin/time/v30/time_tracker_config.proto";
 import "google/protobuf/duration.proto";
-import "google/protobuf/timestamp.proto";
 
 /**
  * Synchronizer connectivity service for adding and connecting to synchronizers
@@ -187,11 +186,3 @@ message LogoutRequest {
 }
 
 message LogoutResponse {}
-
-message SynchronizerPredecessor {
-  // Id of the predecessor.
-  string predecessor_physical_id = 1;
-
-  // When the upgrade happened/is supposed to happen.
-  google.protobuf.Timestamp upgrade_time = 2;
-}

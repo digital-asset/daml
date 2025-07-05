@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests.examples
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.ledger.javaapi.data.codegen.ContractCompanion
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
@@ -21,6 +22,8 @@ import scala.jdk.CollectionConverters.*
 object IouSyntax {
 
   import org.scalatest.OptionValues.*
+  val modelCompanion: ContractCompanion.WithoutKey[Iou.Contract, Iou.ContractId, Iou] =
+    iou.Iou.COMPANION
 
   def testIou(
       payer: PartyId,

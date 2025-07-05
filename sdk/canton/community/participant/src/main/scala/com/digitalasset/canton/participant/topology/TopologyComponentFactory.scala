@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.topology
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SynchronizerCrypto
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
@@ -50,6 +50,7 @@ class TopologyComponentFactory(
       topologyClient: SynchronizerTopologyClientWithInit,
       recordOrderPublisher: RecordOrderPublisher,
       sequencedEventStore: SequencedEventStore,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       ledgerApiStore: LedgerApiStore,
   ): TopologyTransactionProcessor.Factory = new TopologyTransactionProcessor.Factory {
     override def create(
@@ -60,12 +61,12 @@ class TopologyComponentFactory(
     ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
       val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
-        psid,
         recordOrderPublisher,
         topologyStore,
-        recordOrderPublisher.initTimestamp,
+        initialRecordTime = recordOrderPublisher.initTimestamp,
         participantId,
         pauseSynchronizerIndexingDuringPartyReplication = unsafeOnlinePartyReplication.nonEmpty,
+        synchronizerPredecessor = synchronizerPredecessor,
         loggerFactory,
       )
       val terminateTopologyProcessingFUS =

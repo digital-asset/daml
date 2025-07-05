@@ -191,15 +191,27 @@ trait P2PNetworkRef[-P2PMessageT] extends FlagCloseable {
   ): Unit
 }
 
-/** An abstraction of the P2P network manager for deterministic simulation testing purposes.
+trait P2PConnectionEventListener {
+  def onConnect(endpointId: P2PEndpoint.Id): Unit
+  def onDisconnect(endpointId: P2PEndpoint.Id): Unit
+  def onSequencerId(endpointId: P2PEndpoint.Id, nodeId: BftNodeId): Unit
+}
+object P2PConnectionEventListener {
+  val NoOp: P2PConnectionEventListener = new P2PConnectionEventListener {
+    override def onConnect(endpointId: P2PEndpoint.Id): Unit = ()
+    override def onDisconnect(endpointId: P2PEndpoint.Id): Unit = ()
+    override def onSequencerId(endpointId: P2PEndpoint.Id, nodeId: BftNodeId): Unit = ()
+  }
+}
+
+/** An abstraction of the P2P network reference factory for deterministic simulation testing
+  * purposes.
   */
-trait ClientP2PNetworkManager[E <: Env[E], -P2PMessageT] {
+trait P2PNetworkRefFactory[E <: Env[E], -P2PMessageT] extends FlagCloseable {
 
   def createNetworkRef[ActorContextT](
       context: E#ActorContextT[ActorContextT],
       endpoint: P2PEndpoint,
-  )(
-      onSequencerId: (P2PEndpoint.Id, BftNodeId) => Unit
   ): P2PNetworkRef[P2PMessageT]
 }
 
@@ -456,23 +468,35 @@ object Module {
     * of the concrete actors framework, such as Pekko or the simulation testing framework, as to
     * further reduce the gap between what is run and what is deterministically simulation-tested.
     *
-    * Inputs are a module system and a network manager; the latter defines how nodes connect.
+    * Inputs are a module system and a client P2P network manager factory; the latter defines how
+    * nodes connect.
     */
-  trait SystemInitializer[E <: Env[E], P2PMessageT, InputMessageT] {
+  trait SystemInitializer[
+      E <: Env[E],
+      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, P2PMessageT],
+      P2PMessageT,
+      InputMessageT,
+  ] {
     def initialize(
         moduleSystem: ModuleSystem[E],
-        networkManager: ClientP2PNetworkManager[E, P2PMessageT],
-    ): SystemInitializationResult[P2PMessageT, InputMessageT]
+        createP2PNetworkRefFactory: P2PConnectionEventListener => P2PNetworkRefFactoryT,
+    ): SystemInitializationResult[E, P2PNetworkRefFactoryT, P2PMessageT, InputMessageT]
   }
 
   /** The result of initializing a module system independent of the actor framework, to be used
     * during the actor framework-specific initialization.
     */
-  final case class SystemInitializationResult[P2PMessageT, InputMessageT](
+  final case class SystemInitializationResult[
+      E <: Env[E],
+      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, P2PMessageT],
+      P2PMessageT,
+      InputMessageT,
+  ](
       inputModuleRef: ModuleRef[InputMessageT],
       p2pNetworkInModuleRef: ModuleRef[P2PMessageT],
       p2pNetworkOutAdminModuleRef: ModuleRef[P2PNetworkOut.Admin],
       consensusAdminModuleRef: ModuleRef[Consensus.Admin],
       outputModuleRef: ModuleRef[Output.SequencerSnapshotMessage],
+      p2pNetworkRefFactory: P2PNetworkRefFactoryT,
   )
 }

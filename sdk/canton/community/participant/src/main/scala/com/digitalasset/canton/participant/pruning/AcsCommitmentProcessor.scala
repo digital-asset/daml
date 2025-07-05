@@ -69,6 +69,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.protocol.{
   AcsCommitmentsCatchUpParameters,
+  ContractInstance,
   LfContractId,
   SerializableContract,
 }
@@ -2482,11 +2483,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
         }
         change <- lookupChangeMetadata(activations)
       } yield {
-        val emptyRunningCommitments =
-          new RunningCommitments(RecordTime.MinValue, TrieMap.empty[SortedSet[LfPartyId], LtHash16])
         val toc = new RecordTime(toInclusive, 0)
-        emptyRunningCommitments.update(toc, change)
-        val acsCommitments = emptyRunningCommitments.snapshot().active
+        val rc = runningCommitmentFromAcsChange(change, toc)
+        val acsCommitments = rc.snapshot().active
         if (acsCommitments != runningCommitments) {
           Errors.InternalError
             .InconsistentRunningCommitmentAndACS(toc, acsCommitments, runningCommitments)
@@ -2717,6 +2716,60 @@ object AcsCommitmentProcessor extends HasLoggerName {
     }
 
     transientCidsAssigned ++ transientCidsCreated
+  }
+
+  private def runningCommitmentFromAcsChange(
+      acsChange: AcsChange,
+      rt: RecordTime,
+  )(implicit namedLoggingContext: NamedLoggingContext) = {
+    val runningCommitments = new RunningCommitments(RecordTime.MinValue, TrieMap.empty)
+    runningCommitments.update(rt, acsChange)
+    runningCommitments
+  }
+
+  /** Checks that the given commitment matches the given contracts and reassignment counters.
+    *
+    * @param commitment
+    *   The commitment to check
+    * @param timestamp
+    *   The timestamp of the commitment
+    * @param contractsAndReassignmentCounter
+    *   The set of contracts and their reassignment counters that should constitute the commitment
+    * @param counterParticipant
+    *   The participant for which the commitment is computed
+    * @return
+    *   true if the commitment matches the contracts and reassignment counters, false otherwise
+    */
+  def checkCommitmentMatchesContracts(
+      commitment: AcsCommitment.HashedCommitmentType,
+      timestamp: CantonTimestamp,
+      contractsAndReassignmentCounter: Set[(ContractInstance, ReassignmentCounter)],
+      counterParticipant: ParticipantId,
+  )(implicit namedLoggingContext: NamedLoggingContext): Boolean = {
+
+    val toc = new RecordTime(timestamp, 0)
+    val acsChangeToCmp =
+      AcsChange(
+        activations = contractsAndReassignmentCounter.map { case (instance, counter) =>
+          instance.contractId ->
+            ContractStakeholdersAndReassignmentCounter(
+              instance.metadata.stakeholders,
+              counter,
+            )
+        }.toMap,
+        deactivations = Map.empty,
+      )
+
+    val rc = runningCommitmentFromAcsChange(acsChangeToCmp, toc)
+    val recomputedCommitment = computeCommitmentsPerParticipant(
+      Map {
+        counterParticipant -> rc.snapshot().active
+      },
+      new CachedCommitments(),
+    )
+    commitment == AcsCommitment.hashCommitment(
+      recomputedCommitment.getOrElse(counterParticipant, emptyCommitment)
+    )
   }
 
   private sealed trait CommitmentSendState extends Product with Serializable

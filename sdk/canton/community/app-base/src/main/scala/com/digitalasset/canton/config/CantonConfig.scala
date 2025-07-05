@@ -501,6 +501,8 @@ final case class CantonConfig(
           sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
         unsafeEnableOnlinePartyReplication =
           sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
+        sequencerApiLimits = sequencerNodeConfig.parameters.sequencerApiLimits,
+        warnOnUndefinedLimits = sequencerNodeConfig.parameters.warnOnUndefinedLimits,
       )
     }
 
