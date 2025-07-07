@@ -691,7 +691,7 @@ class Engine(val config: EngineConfig) {
         val knownDeps = knownPkgIds.map(id => id -> DependentPackage(id)).toMap
         // There is no point in searching through missing package Ids!
         val directDeps =
-          knownDeps.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
+          knownPkgIds.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
 
         calculateDependencyInformation(directDeps, pkgClassification ++ knownDeps ++ missingDeps)
       }
@@ -713,7 +713,7 @@ class Engine(val config: EngineConfig) {
       // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
       (transitiveDeps, missingDeps, unusedDeps) = calculateDependencyInformation(
         mainPackageDependencies,
-        darPackages.map((id, pkg) => ExtraPackage(id, pkg)),
+        darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
       )
       // extraDeps are unused Dar manifest package IDs that are not stable packages
       extraDeps = unusedDeps.diff(stablePackageIds)
