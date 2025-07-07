@@ -715,8 +715,8 @@ class Engine(val config: EngineConfig) {
         mainPackageDependencies,
         darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
       )
-      // extraDeps are unused Dar manifest package IDs that are not stable packages
-      extraDeps = unusedDeps.diff(stablePackageIds)
+      // extraDeps are unused Dar manifest package IDs that are not stable packages and not the main package ID
+      extraDeps = unusedDeps.diff(Set(mainPackageId) union stablePackageIds)
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),
