@@ -205,7 +205,7 @@ in rec {
 
     # Cloud tools
     aws = pkgs.awscli;
-    az = pkgs.azure-cli;
+    az = pkgs.azure-cli.withExtensions [ pkgs.azure-cli.extensions.azure-devops ];
     gcloud = pkgs.google-cloud-sdk;
     bq = gcloud;
     gsutil = gcloud;

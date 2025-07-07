@@ -338,15 +338,11 @@ jobs:
       - bash: |
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
-
-          for branch in main; do
-            sha=$(git rev-parse origin/$branch)
-            az extension add --name azure-devops
-            trap "az devops logout" EXIT
-            echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-            az pipelines run --org "https://dev.azure.com/digitalasset" \
-                             --project daml \
-                             --name "snapshot" \
-                             --commit-id main \
-                             --parameters "commit=$sha"
-          done
+          sha=$(git rev-parse origin/$branch)
+          az pipelines run --org "https://dev.azure.com/digitalasset" \
+                            --project daml \
+                            --name "snapshot" \
+                            --commit-id main \
+                            --parameters "commit=$sha"
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
