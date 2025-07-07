@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
@@ -38,6 +39,8 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+
+import scala.annotation.tailrec
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -640,6 +643,95 @@ class Engine(val config: EngineConfig) {
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
 
+    } yield ()
+  }
+
+  /** This method checks a Dar file is self-consistent (it
+    * contains all its dependencies and only those dependencies), contains only well-formed
+    * packages (See Daml-LF spec for more details) and uses only the
+    * allowed language versions (as described by the engine
+    * config).
+    * This is not affected by [[config.packageValidation]] flag.
+    * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
+    * preloaded.
+    */
+  def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
+    val darPackages = dar.all.toMap
+    val mainPackageId = dar.main._1
+    val mainPackageDependencies = dar.main._2.directDeps
+
+    sealed abstract class PackageClassification
+    final case class ExtraPackage(pkgId: PackageId, pkg: Package) extends PackageClassification
+    final case class DependentPackage(pkgId: PackageId) extends PackageClassification
+    final case class MissingPackage(pkgId: PackageId) extends PackageClassification
+
+    @tailrec
+    def calculateDependencyInformation(
+        pkgIds: Set[PackageId],
+        pkgClassification: Map[PackageId, PackageClassification],
+    ): (Set[PackageId], Set[PackageId], Set[PackageId]) = {
+      val unclassifiedPkgIds = pkgIds.collect {
+        case id
+            if !pkgClassification.contains(id) || pkgClassification(id)
+              .isInstanceOf[ExtraPackage] =>
+          id
+      }
+
+      if (unclassifiedPkgIds.isEmpty) {
+        val result = pkgClassification.values.toSet
+        val knownDeps = result.collect { case DependentPackage(id) => id }
+        val missingDeps = result.collect { case MissingPackage(id) => id }
+        val extraDeps = result.collect { case ExtraPackage(id, _) => id }
+
+        (knownDeps, missingDeps, extraDeps)
+      } else {
+        val (knownPkgIds, missingPkdIds) =
+          unclassifiedPkgIds.partition(id => pkgClassification.contains(id))
+        val missingDeps = missingPkdIds.map(id => id -> MissingPackage(id)).toMap
+        val knownDeps = knownPkgIds.map(id => id -> DependentPackage(id)).toMap
+        // There is no point in searching through missing package Ids!
+        val directDeps =
+          knownPkgIds.flatMap(id => pkgClassification(id).asInstanceOf[ExtraPackage].pkg.directDeps)
+
+        calculateDependencyInformation(directDeps, pkgClassification ++ knownDeps ++ missingDeps)
+      }
+    }
+
+    for {
+      _ <- darPackages
+        .collectFirst {
+          case (pkgId, pkg)
+              if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
+            Error.Package.AllowedLanguageVersion(
+              pkgId,
+              pkg.languageVersion,
+              config.allowedLanguageVersions,
+            )
+        }
+        .toLeft(())
+      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
+      (transitiveDeps, missingDeps, unusedDeps) = calculateDependencyInformation(
+        mainPackageDependencies,
+        darPackages.map { case (id, pkg) => id -> ExtraPackage(id, pkg) },
+      )
+      // extraDeps are unused Dar manifest package IDs that are not stable packages and not the main package ID
+      extraDeps = unusedDeps.diff(Set(mainPackageId) union stablePackageIds)
+      _ <- Either.cond(
+        missingDeps.isEmpty && extraDeps.isEmpty,
+        (),
+        Error.Package.DarSelfConsistency(mainPackageId, transitiveDeps, missingDeps, extraDeps),
+      )
+      pkgInterface = PackageInterface(darPackages)
+      _ <- {
+        darPackages.iterator
+          // we trust already loaded packages
+          .collect {
+            case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
+          }
+          .collectFirst { case Left(err) => Error.Package.Validation(err) }
+      }.toLeft(())
     } yield ()
   }
 
