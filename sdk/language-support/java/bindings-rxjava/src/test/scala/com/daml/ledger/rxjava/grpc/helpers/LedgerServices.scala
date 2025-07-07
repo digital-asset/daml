@@ -162,6 +162,7 @@ final class LedgerServices(val name: String) {
     }
   }
 
+  @nowarn("cat=deprecation")
   def withCommandCompletionClient(
       completions: List[CompletionStreamResponse],
       authService: AuthService = AuthServiceWildcard,
@@ -174,6 +175,7 @@ final class LedgerServices(val name: String) {
     }
   }
 
+  @nowarn("cat=deprecation")
   def withEventQueryClient(
       getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
       authService: AuthService = AuthServiceWildcard,
@@ -189,6 +191,7 @@ final class LedgerServices(val name: String) {
     }
   }
 
+  @nowarn("cat=deprecation")
   def withPackageClient(
       listPackagesResponse: Future[ListPackagesResponse],
       getPackageResponse: Future[GetPackageResponse],

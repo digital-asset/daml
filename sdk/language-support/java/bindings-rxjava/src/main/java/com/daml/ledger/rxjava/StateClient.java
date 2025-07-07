@@ -9,6 +9,7 @@ import io.reactivex.Single;
 import java.util.Set;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.StateServiceGrpc} */
+@Deprecated
 public interface StateClient {
 
   // Method will be removed in 3.4

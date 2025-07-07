@@ -30,6 +30,7 @@ import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 
+@nowarn("cat=deprecation")
 class DamlLedgerClientTest
     extends AnyFlatSpec
     with Matchers

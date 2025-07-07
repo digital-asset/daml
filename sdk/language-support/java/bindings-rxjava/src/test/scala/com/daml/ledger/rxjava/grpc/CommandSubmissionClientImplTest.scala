@@ -16,6 +16,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.chaining.scalaUtilChainingOps
@@ -106,6 +107,7 @@ class CommandSubmissionClientImplTest
     }
   }
 
+  @nowarn("cat=deprecation")
   private def toAuthenticatedServer(fn: CommandSubmissionClient => Any): Any =
     ledgerServices.withCommandSubmissionClient(
       alwaysSucceed,
@@ -114,6 +116,7 @@ class CommandSubmissionClientImplTest
       fn(client)
     }
 
+  @nowarn("cat=deprecation")
   private def submitDummyCommand(
       client: CommandSubmissionClient,
       accessToken: Option[String] = None,
