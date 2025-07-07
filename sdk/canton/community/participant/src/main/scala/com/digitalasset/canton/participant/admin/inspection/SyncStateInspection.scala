@@ -45,7 +45,12 @@ import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.{
   Matched,
   fromIntValidSentPeriodState,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  LfContractId,
+  ReassignmentId,
+  SerializableContract,
+}
 import com.digitalasset.canton.pruning.{
   ConfigForSlowCounterParticipants,
   ConfigForSynchronizerThresholds,
@@ -393,7 +398,7 @@ final class SyncStateInspection(
       parties: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Set[(LfContractId, ReassignmentCounter)]] =
+  ): FutureUnlessShutdown[Set[(ContractInstance, ReassignmentCounter)]] =
     for {
       state <- FutureUnlessShutdown.fromTry(
         syncPersistentStateManager
@@ -430,7 +435,7 @@ final class SyncStateInspection(
 
       filteredByParty = contractsWithReassignmentCounter.collect {
         case (contract, reassignmentCounter) if parties.intersect(contract.stakeholders).nonEmpty =>
-          (contract.contractId, reassignmentCounter)
+          (contract, reassignmentCounter)
       }
     } yield filteredByParty.toSet
 
@@ -883,7 +888,7 @@ final class SyncStateInspection(
 
       sortedReconciliationProvider <- EitherTUtil.toFutureUnlessShutdown(
         sortedReconciliationIntervalsProviderFactory
-          .get(syncPersistentState.physicalSynchronizerId, lastSentFinal)
+          .get(syncPersistentState.psid, lastSentFinal)
           .leftMap(string =>
             new IllegalStateException(
               s"failed to retrieve reconciliationIntervalProvider: $string"
@@ -956,7 +961,7 @@ final class SyncStateInspection(
   ): EitherT[FutureUnlessShutdown, String, InFlightCount] =
     for {
       state <- EitherT.fromEither[FutureUnlessShutdown](getPersistentState(psid))
-      synchronizerId = state.physicalSynchronizerId
+      synchronizerId = state.psid
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())
@@ -1055,7 +1060,7 @@ final class SyncStateInspection(
     val filteredSynchronizerIds = syncPersistentStateManager.getAllLatest.toSeq
       .mapFilter { case (synchronizerId, state) =>
         Option.when(synchronizerFilter.fold(true)(_.contains(synchronizerId)))(
-          state.physicalSynchronizerId
+          state.psid
         )
       }
 

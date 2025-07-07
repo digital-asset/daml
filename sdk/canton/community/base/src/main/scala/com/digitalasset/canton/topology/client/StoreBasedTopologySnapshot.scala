@@ -5,7 +5,7 @@ package com.digitalasset.canton.topology.client
 
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -791,7 +791,7 @@ class StoreBasedTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
     findTransactions(
       types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
       filterUid = None,
@@ -799,7 +799,9 @@ class StoreBasedTopologySnapshot(
     ).map(_.collectOfMapping[SynchronizerUpgradeAnnouncement].result.toList match {
       case atMostOne @ (_ :: Nil | Nil) =>
         atMostOne
-          .map(tx => (tx.mapping.successorSynchronizerId, tx.mapping.upgradeTime))
+          .map(tx =>
+            SynchronizerSuccessor(tx.mapping.successorSynchronizerId, tx.mapping.upgradeTime)
+          )
           .headOption
       case _moreThanOne =>
         ErrorUtil.invalidState("Found more than one SynchronizerUpgradeAnnouncement mapping")

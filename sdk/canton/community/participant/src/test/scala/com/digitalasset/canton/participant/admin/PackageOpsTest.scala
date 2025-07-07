@@ -129,7 +129,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     ).toPhysical
 
     val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
-    when(syncPersistentState.physicalSynchronizerId).thenReturn(synchronizerId1)
+    when(syncPersistentState.psid).thenReturn(synchronizerId1)
 
     when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
     when(stateManager.getAllLatest).thenReturn(Map(synchronizerId1.logical -> syncPersistentState))

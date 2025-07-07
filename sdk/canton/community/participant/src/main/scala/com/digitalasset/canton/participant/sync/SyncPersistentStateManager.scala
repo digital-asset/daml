@@ -53,9 +53,9 @@ trait SyncPersistentStateLookup {
     */
   def getAllLatest: Map[SynchronizerId, SyncPersistentState] =
     getAll.values.toSeq
-      .groupBy1(_.physicalSynchronizerId.logical)
+      .groupBy1(_.psid.logical)
       .view
-      .mapValues(_.maxBy1(_.physicalSynchronizerId))
+      .mapValues(_.maxBy1(_.psid))
       .toMap
 
   /** Return the latest [[com.digitalasset.canton.participant.store.SyncPersistentState]] (wrt to
@@ -302,7 +302,7 @@ class SyncPersistentStateManager(
 
   override def getAllFor(id: SynchronizerId): Seq[SyncPersistentState] =
     lock.withReadLock[Seq[SyncPersistentState]](
-      persistentStates.values.filter(_.physicalSynchronizerId.logical == id).toSeq
+      persistentStates.values.filter(_.psid.logical == id).toSeq
     )
 
   override def synchronizerIdForAlias(

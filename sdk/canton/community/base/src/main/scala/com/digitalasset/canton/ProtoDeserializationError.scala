@@ -28,7 +28,7 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
       extends ProtoDeserializationError {
     override val message = error.message
   }
-  final case class TransactionDeserialization(message: String) extends ProtoDeserializationError
+  final case class ContractDeserializationError(message: String) extends ProtoDeserializationError
   final case class ValueDeserializationError(field: String, message: String)
       extends ProtoDeserializationError
   final case class StringConversionError(error: String, field: Option[String] = None)

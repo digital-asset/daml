@@ -126,7 +126,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
               contractSalt = contractSalt,
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
-              suffixedContractInstance = rawContractInstance,
+              suffixedContractInstance = rawContractInstance.contractInstance.unversioned,
               cantonContractIdVersion = contractIdVersion,
             )
           recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)

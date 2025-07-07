@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.{
   SynchronizerCrypto,
   SynchronizerCryptoClient,
 }
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
@@ -70,6 +71,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
 
   protected def getSynchronizerHandle(
       config: SynchronizerConnectionConfig,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       syncPersistentStateManager: SyncPersistentStateManager,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(
@@ -305,6 +307,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
             loggerFactory,
           ),
           sequencerAggregatedInfo.sequencerConnections,
+          synchronizerPredecessor,
           sequencerAggregatedInfo.expectedSequencers,
           connectionPool,
         )

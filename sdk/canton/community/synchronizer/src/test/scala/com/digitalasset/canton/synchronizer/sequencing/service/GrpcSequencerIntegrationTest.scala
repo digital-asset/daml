@@ -133,6 +133,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     override protected[this] def logger: TracedLogger = self.logger
   })
 
+  // TODO(i25218): adjust when the new connection pool is stable
   val useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
@@ -384,6 +385,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
               )
           },
           connections,
+          synchronizerPredecessor = None,
           expectedSequencers,
           connectionPool = connectionPool,
         )

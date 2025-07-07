@@ -23,7 +23,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -752,10 +752,7 @@ class SequencerReader(
                 )
                 .map(_.ipsSnapshot)
             )(FutureUnlessShutdown.pure)
-            upgradeTimeO <- topologySnapshot.isSynchronizerUpgradeOngoing()
-            isEventBeforeUpgradeTime = upgradeTimeO.forall { case (_, upgradeTime) =>
-              timestamp < upgradeTime
-            }
+            successorO <- topologySnapshot.isSynchronizerUpgradeOngoing()
             resolvedGroupAddresses <- {
               groupRecipients match {
                 case x if x.isEmpty =>
@@ -789,7 +786,10 @@ class SequencerReader(
               // deliver events should only retain the traffic state for the sender's subscription
               trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
-            if (isEventBeforeUpgradeTime || TimeProof.isTimeProofDeliver(deliver)) deliver
+            if (
+              LogicalUpgradeTime.canProcessKnowingSuccessor(successorO, timestamp) ||
+              TimeProof.isTimeProofDeliver(deliver)
+            ) deliver
             else {
               logger.info(
                 "Delivering an empty event instead of the original, because it was sequenced at or after the upgrade time."

@@ -21,12 +21,10 @@ import com.digitalasset.canton.logging.{
   SuppressingLogger,
 }
 import com.digitalasset.canton.metrics.{LedgerApiServerHistograms, LedgerApiServerMetrics}
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult
 import com.digitalasset.canton.platform.apiserver.GrpcServerSpec.*
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
-import com.digitalasset.canton.platform.apiserver.ratelimiting.{
-  LimitResult,
-  RateLimitingInterceptor,
-}
+import com.digitalasset.canton.platform.apiserver.ratelimiting.RateLimitingInterceptorFactory
 import com.digitalasset.canton.protobuf.Hello
 import com.digitalasset.canton.protobuf.HelloServiceGrpc.HelloService
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
@@ -162,7 +160,7 @@ final class GrpcServerSpec
         59,
         "test",
       )
-      val rateLimitingInterceptor = RateLimitingInterceptor(
+      val rateLimitingInterceptor = RateLimitingInterceptorFactory.create(
         loggerFactory,
         metrics,
         rateLimitingConfig,

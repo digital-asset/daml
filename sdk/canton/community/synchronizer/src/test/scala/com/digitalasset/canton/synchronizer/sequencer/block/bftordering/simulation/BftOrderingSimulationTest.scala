@@ -39,6 +39,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   SimulationEnv,
   SimulationInitializer,
+  SimulationP2PNetworkRefFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering.{
   BftOrderingVerifier,
@@ -390,7 +391,9 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true
           }
 
-          new BftOrderingModuleSystemInitializer[SimulationEnv](
+          new BftOrderingModuleSystemInitializer[SimulationEnv, SimulationP2PNetworkRefFactory[
+            BftOrderingServiceReceiveRequest
+          ]](
             thisNode,
             BftBlockOrdererConfig(
               availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning = 100

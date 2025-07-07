@@ -6,7 +6,11 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.toTraverseOps
-import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
+import com.digitalasset.canton.ProtoDeserializationError.{
+  ContractDeserializationError,
+  InvariantViolation,
+  OtherError,
+}
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
@@ -322,7 +326,7 @@ final case class UnassignmentView private (
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       contracts = contracts.contracts.map { case reassign =>
         v30.ActiveContract(
-          Some(reassign.contract.toProtoV30),
+          reassign.contract.encoded,
           reassign.counter.toProtoPrimitive,
         )
       },
@@ -385,9 +389,9 @@ object UnassignmentView extends VersioningCompanionContextMemoization[Unassignme
         .flatMap(TimeProof.fromProtoV30(targetSynchronizerId.protocolVersion, hashOps))
       contracts <- contractsP
         .traverse { case v30.ActiveContract(contractP, reassignmentCounterP) =>
-          ProtoConverter
-            .required("contract", contractP)
-            .flatMap(SerializableContract.fromProtoV30)
+          ContractInstance
+            .decode(contractP)
+            .leftMap(err => ContractDeserializationError(err))
             .map(_ -> ReassignmentCounter(reassignmentCounterP))
         }
         .flatMap(

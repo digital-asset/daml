@@ -8,7 +8,7 @@ import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -402,7 +402,7 @@ private class ForwardingTopologySnapshotClient(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
     parent.isSynchronizerUpgradeOngoing()
 
   override def sequencerConnectionSuccessors()(implicit
@@ -531,7 +531,7 @@ class CachingTopologySnapshot(
 
   private val synchronizerUpgradeCache =
     new AtomicReference[
-      Option[FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]]
+      Option[FutureUnlessShutdown[Option[SynchronizerSuccessor]]]
     ](None)
 
   override def allKeys(owner: Member)(implicit
@@ -689,7 +689,7 @@ class CachingTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
     getAndCache(synchronizerUpgradeCache, parent.isSynchronizerUpgradeOngoing())
 
   override def sequencerConnectionSuccessors()(implicit

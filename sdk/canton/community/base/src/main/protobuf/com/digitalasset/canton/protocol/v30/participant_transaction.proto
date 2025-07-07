@@ -103,13 +103,13 @@ message FullInformeeTree {
 }
 
 message CreatedContract {
-  v30.SerializableContract contract = 1;
+  bytes contract = 1; // Encoded ContractInstance
   bool consumed_in_core = 2;
   bool rolled_back = 3;
 }
 
 message InputContract {
-  v30.SerializableContract contract = 1;
+  bytes contract = 1; // Encoded ContractInstance
   bool consumed = 2;
 }
 

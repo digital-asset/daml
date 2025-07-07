@@ -8,7 +8,8 @@ import cats.syntax.apply.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, PromiseUnlessShutdownFactory}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -21,7 +22,6 @@ import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
   RequestJournalStore,
   SyncPersistentState,
-  SynchronizerPredecessor,
 }
 import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.*
@@ -38,6 +38,7 @@ import scala.concurrent.ExecutionContext
 trait SyncEphemeralStateFactory {
   def createFromPersistent(
       persistentState: SyncPersistentState,
+      synchronizerCrypto: SynchronizerCryptoClient,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -64,6 +65,7 @@ class SyncEphemeralStateFactoryImpl(
 
   override def createFromPersistent(
       persistentState: SyncPersistentState,
+      synchronizerCrypto: SynchronizerCryptoClient,
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
@@ -91,10 +93,19 @@ class SyncEphemeralStateFactoryImpl(
 
       _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, synchronizerIndex)
 
-      recordOrderPublisher = new RecordOrderPublisher(
-        persistentState.synchronizerIdx.synchronizerId,
-        startingPoints.processing.nextSequencerCounter,
-        startingPoints.processing.currentRecordTime,
+      /*
+      Taking the approximation here is not a problem. What might happen is that crash recovery will start at an older
+      point in time and re-process the synchronizer announcement. This will update the record order publisher with the value
+      of the successor a second time.
+       */
+      synchronizerSuccessorO <- synchronizerCrypto.ips.currentSnapshotApproximation
+        .isSynchronizerUpgradeOngoing()
+
+      recordOrderPublisher = RecordOrderPublisher(
+        persistentState.psid,
+        synchronizerSuccessorO,
+        initSc = startingPoints.processing.nextSequencerCounter,
+        initTimestamp = startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,
         metrics.recordOrderPublisher,
         exitOnFatalFailures = exitOnFatalFailures,
@@ -111,7 +122,7 @@ class SyncEphemeralStateFactoryImpl(
       inFlightSubmissionSynchronizerTracker <-
         participantNodeEphemeralState.inFlightSubmissionTracker
           .inFlightSubmissionSynchronizerTracker(
-            synchronizerId = persistentState.physicalSynchronizerId,
+            synchronizerId = persistentState.psid,
             recordOrderPublisher = recordOrderPublisher,
             timeTracker = timeTracker,
             metrics = metrics,

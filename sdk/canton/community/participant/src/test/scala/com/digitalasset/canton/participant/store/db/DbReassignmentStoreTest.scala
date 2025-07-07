@@ -9,12 +9,12 @@ import com.digitalasset.canton.config.BatchingConfig
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest
+import com.digitalasset.canton.protocol.ExampleContractFactory
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
-import com.digitalasset.canton.util.ReassignmentTag.Target
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with ReassignmentStoreTest {
@@ -36,7 +36,6 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
         storage,
         ReassignmentTag.Target(synchronizerId),
         indexStore,
-        Target(testedProtocolVersion),
         new SymbolicPureCrypto,
         futureSupervisor,
         exitOnFatalFailures = true,
@@ -54,10 +53,10 @@ class DbContractsTest extends AsyncWordSpec with BaseTest {
 
   "DbContracts" should {
     "roundTrip" in {
-      val contract = ReassignmentStoreTest.contract
+      val contract = ExampleContractFactory.build()
 
       DbContracts.tryDeserializeOne(
-        DbContracts.serializeOne(testedProtocolVersion)(contract)
+        DbContracts.serializeOne(contract)
       ) shouldBe contract
     }
   }

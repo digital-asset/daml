@@ -99,13 +99,14 @@ class TransactionRoutingProcessor(
       inputDisclosedContracts <- EitherT
         .fromEither[FutureUnlessShutdown](
           for {
+            _ <- explicitlyDisclosedContracts.toList
+              .traverse_(serializableContractAuthenticator.authenticateFat)
+              .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
-                .parTraverse(SerializableContract.fromFatContract)
+                .parTraverse(ContractInstance.apply)
                 .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
-            _ <- inputDisclosedContracts
-              .traverse_(serializableContractAuthenticator.authenticateSerializable)
-              .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
+
           } yield inputDisclosedContracts
         )
       _ <- contractsReassigner
