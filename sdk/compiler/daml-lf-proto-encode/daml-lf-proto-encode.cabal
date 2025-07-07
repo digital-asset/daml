@@ -23,7 +23,7 @@ library
       base,
       -- @@stackage//:bytestring
       bytestring,
-      -- @stackage//:cryptonite
+      -- @@stackage//:cryptonite
       cryptonite,
       -- //libs-haskell/da-hs-base:da-hs-base
       da-hs-base,
@@ -35,9 +35,9 @@ library
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
       daml-lf-proto-util,
-      -- @stackage//:memory
+      -- @@stackage//:memory
       memory,
-      -- @stackage//:proto3-suite
+      -- @@stackage//:proto3-suite
       proto3-suite,
       -- @@stackage//:text
       text,
