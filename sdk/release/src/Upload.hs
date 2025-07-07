@@ -17,13 +17,13 @@ import           Control.Monad.IO.Class
 import           "cryptohash" Crypto.Hash (Digest, MD5(..), SHA1(..), digestToHexByteString, hash)
 import           Control.Retry
 import           Data.Foldable
+import           Data.Aeson
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Char8 as C8
 import qualified Data.Text as T
 import           Data.Text.Encoding (encodeUtf8)
-import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Network.Connection (TLSSettings(..))
 import           Network.HTTP.Client
@@ -37,6 +37,7 @@ import           System.IO.Temp
 
 import Types
 import Util
+
 
 --
 -- Upload the artifacts to Maven Central
@@ -61,7 +62,8 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
     manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (10 * 60 * 1000 * 1000) }
 
     parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
-    let baseRequest = setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword) 
+    let baseRequest = setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword)
+            $ setRequestMethod "POST"
             $ setRequestHeader "User-Agent" ["http-conduit"] parsedUrlRequest
 
     decodedSigningKey <- decodeSigningKey mucSigningKey
@@ -79,15 +81,13 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     liftIO $ BSL.writeFile (fromAbsDir releaseDir <> "bundle.zip") $ ZipArchive.fromArchive bundle
     uploadRequest <- formDataBody [partFile "bundle" $ fromAbsDir releaseDir <> "bundle.zip"]
-            $ setRequestMethod "POST"
             $ setRequestPath "/api/v1/publisher/upload"
             $ setRequestQueryString [("publishingType", Just "AUTOMATIC")] baseRequest
 
     uploadResponse <- recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpLbs uploadRequest manager)
 
-    let deploymentId = BSL.toStrict $ responseBody uploadResponse 
-    let statusRequest = setRequestMethod "POST"
-            $ setRequestPath "/api/v1/publisher/status"
+    let deploymentId = BSL.toStrict $ responseBody uploadResponse
+    let statusRequest = setRequestPath "/api/v1/publisher/status"
             $ setRequestHeader "accept" [ "application/json" ]
             $ setRequestQueryString [("id", Just deploymentId)] baseRequest
 
@@ -187,10 +187,14 @@ logRetry shouldRetry err status = do
     nextMsg = if shouldRetry then "Retrying." else "Aborting after " <> (tshow $ rsCumulativeDelay status) <> "µs total delay."
 
 logStatusRetry :: (MonadIO m, MonadLogger m) => Bool -> DeploymentInProgress -> RetryStatus -> m ()
-logStatusRetry shouldRetry _ status =
+logStatusRetry shouldRetry DeploymentInProgress {..} status =
     if shouldRetry
     then
-        $logDebug ("Deployment is still in progress. Checked after " <> tshow (rsCumulativeDelay status) <> "µs")
+        $logDebug $
+            "Deployment is still in progress ("
+            <> inProgressStatus
+            <> "). Checked after "
+            <> tshow (rsCumulativeDelay status) <> "µs"
     else
         $logDebug ("Aborting deployment check after " <> (tshow $ rsCumulativeDelay status) <> "µs.")
 
@@ -206,21 +210,43 @@ checkStatusRetryPolicy = limitRetriesByCumulativeDelay (2 * 60 * 60 * 1000 * 100
 handleStatusRequest :: (MonadIO m) => Request -> Manager -> m ()
 handleStatusRequest request manager = do
     statusResponse <- liftIO $ httpLbs request manager
-    case decodeUtf8 $ responseBody statusResponse of
+    DeploymentStatus {..} <- decodeDeploymentStatus $ responseBody statusResponse 
+    case deploymentState of
         "FAILED" -> throwIO DeploymentFailed
         "PUBLISHED" -> pure ()
-        _ -> throwIO DeploymentInProgress
+        _ -> throwIO $ DeploymentInProgress deploymentState
+
+decodeDeploymentStatus :: (MonadIO m) => BSL.ByteString -> m DeploymentStatus
+decodeDeploymentStatus json = case (eitherDecode json :: Either String DeploymentStatus) of
+    Left err -> throwIO $ ParseJsonException err
+    Right r -> return r
+
+--
+-- Data Transfer Objects for the Nexus Staging REST API.
+-- Note that fields from the REST response that are not used do not need to be defined
+-- as Aeson will simply ignore them.
+--
+
+data DeploymentStatus = DeploymentStatus { deploymentState :: T.Text }
+
+instance FromJSON DeploymentStatus where
+    parseJSON = withObject "DeploymentStatus" $ \o -> DeploymentStatus
+      <$> o .: "deploymentState"
 
 --
 -- Error definitions
 --
-data CannotDecodeSigningKey = CannotDecodeSigningKey String
 
-instance E.Exception CannotDecodeSigningKey
-instance Show CannotDecodeSigningKey where
-   show (CannotDecodeSigningKey msg) = "Cannot Base64 decode signing key: " <> msg
+data UploadFailure
+    = ParseJsonException String
+    | CannotDecodeSigningKey String
 
-data DeploymentInProgress = DeploymentInProgress deriving Show
+instance E.Exception UploadFailure
+instance Show UploadFailure where
+    show (ParseJsonException msg) = "Cannot parse JSON data: " <> msg
+    show (CannotDecodeSigningKey msg) = "Cannot Base64 decode signing key: " <> msg
+
+data DeploymentInProgress = DeploymentInProgress { inProgressStatus :: T.Text } deriving Show
 
 instance E.Exception DeploymentInProgress
 
