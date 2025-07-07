@@ -18,7 +18,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty
 
 entry :: IO ()
-entry = defaultMain $ testGroup "All tests" [ dec_tests ]
+entry = defaultMain $ testGroup "All tests" [ decTests ]
 
 ------------------------------------------------------------------------
 -- Params
@@ -29,10 +29,13 @@ testVersion = Version V2 PointDev
 ------------------------------------------------------------------------
 -- DecodeTests
 ------------------------------------------------------------------------
-dec_tests :: TestTree
-dec_tests = testGroup "decoding tests"
-  [ dec_pure_tests
-  , dec_interning_tests
+decTests :: TestTree
+decTests = testGroup "decoding tests"
+  [ decPureTests
+  , decInterningTests
+  -- TODO[RB]: add tests that feature kinds occurring in types occuring in
+  -- expressions (will be done when type- and expression interning will be
+  -- implemented)
   ]
 
 emptyDecodeEnv :: DecodeEnv
@@ -43,16 +46,13 @@ decodeKindAssert pk k =
   either
     (\err -> assertFailure $ "Unexpected error: " ++ show err)
     (\k' -> k @=? k')
-    (runDecode env (decodeKind pk))
-    where
-      env = emptyDecodeEnv
-
+    (runDecode emptyDecodeEnv (decodeKind pk))
 
 decodeKindTest :: String -> P.Kind -> Kind -> TestTree
 decodeKindTest str pk k = testCase str $ decodeKindAssert pk k
 
-dec_pure_tests :: TestTree
-dec_pure_tests = testGroup "decoding tests (non-interning)" $ map (uncurry3 decodeKindTest)
+decPureTests :: TestTree
+decPureTests = testGroup "decoding tests (non-interning)" $ map (uncurry3 decodeKindTest)
   [ ("Kind star", pkstar, KStar)
   , ("Kind Nat", pknat, KNat)
   , ("star to star", pkarr pkstar pkstar, KArrow KStar KStar)
@@ -63,14 +63,14 @@ dec_pure_tests = testGroup "decoding tests (non-interning)" $ map (uncurry3 deco
     uncurry3 f (a, b, c) = f a b c
 
 
-dec_interning_tests :: TestTree
-dec_interning_tests = testGroup "decoding tests (interning)"
-  [ dec_interning_starToStar
+decInterningTests :: TestTree
+decInterningTests = testGroup "decoding tests (interning)"
+  [ decInterningStarToStar
   ]
 
 
-dec_interning_starToStar :: TestTree
-dec_interning_starToStar =
+decInterningStarToStar :: TestTree
+decInterningStarToStar =
   let kinds = V.singleton (KArrow KStar KStar)
       env = emptyDecodeEnv{internedKinds = kinds}
   in  testCase "star to star" $ either

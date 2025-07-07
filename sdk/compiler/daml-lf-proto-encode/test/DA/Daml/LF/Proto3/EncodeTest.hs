@@ -20,7 +20,7 @@ import           Test.Tasty.HUnit
 import           Test.Tasty
 
 entry :: IO ()
-entry = defaultMain $ testGroup "All tests" [enc_tests]
+entry = defaultMain $ testGroup "All tests" [encTests]
 
 ------------------------------------------------------------------------
 -- Params
@@ -41,14 +41,17 @@ encodeKindAssert k pk =
 encodeKindTest :: String -> Kind -> P.Kind -> TestTree
 encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
 
-enc_tests :: TestTree
-enc_tests = testGroup "Encoding tests"
-  [ enc_pure_tests
-  , enc_interning_tests
+encTests :: TestTree
+encTests = testGroup "Encoding tests"
+  [ encPureTests
+  , encInterningTests
+  -- TODO[RB]: add tests that feature kinds occurring in types occuring in
+  -- expressions (will be done when type- and expression interning will be
+  -- implemented)
   ]
 
-enc_pure_tests :: TestTree
-enc_pure_tests = testGroup "Encoding tests (non-interning)" $
+encPureTests :: TestTree
+encPureTests = testGroup "Encoding tests (non-interning)" $
   map (uncurry3 encodeKindTest)
     [ ("Kind star", KStar, pkstar)
     , ("Kind Nat", KNat, pknat)
@@ -58,24 +61,24 @@ enc_pure_tests = testGroup "Encoding tests (non-interning)" $
     uncurry3 f (a, b, c) = f a b c
 
 
-enc_interning_tests :: TestTree
-enc_interning_tests = testGroup "Encoding tests (interning)"
-  [ enc_interning_starToStar
-  , enc_interning_starToNatToStar
+encInterningTests :: TestTree
+encInterningTests = testGroup "Encoding tests (interning)"
+  [ encInterningStarToStar
+  , encInterningStarToNatToStar
   ]
 
 runEncodeTest :: Kind -> (P.Kind, EncodeEnv)
 runEncodeTest k = runState (encodeKind k) (initEncodeEnv testVersion)
 
-enc_interning_starToStar :: TestTree
-enc_interning_starToStar =
+encInterningStarToStar :: TestTree
+encInterningStarToStar =
   let (pk, EncodeEnv{internedKindsMap}) = runEncodeTest (KArrow KStar KStar)
   in  testCase "star to star" $ do
     pk @=? interned 0
     toVec internedKindsMap V.! 0 @=? pkarr' pkstar pkstar
 
-enc_interning_starToNatToStar :: TestTree
-enc_interning_starToNatToStar =
+encInterningStarToNatToStar :: TestTree
+encInterningStarToNatToStar =
   let (pk, EncodeEnv{internedKindsMap}) = runEncodeTest (KArrow (KArrow KStar KNat) KStar)
   in  testCase "(star to nat) to star" $ do
     pk @=? interned 1

@@ -27,6 +27,7 @@ import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
 import DA.Daml.LF.Ast.Optics
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version
 
 dvalName :: DefValue -> ExprValName
 dvalName = fst . dvalBinder
@@ -457,3 +458,42 @@ instance Show UpgradingDep where
     case udMbPackageVersion of
       Just udPackageVersion -> " (v" <> show udPackageVersion <> ")"
       Nothing -> mempty
+
+mkEmptyModule :: Module
+mkEmptyModule = Module{..}
+  where
+    moduleName :: ModuleName
+    moduleName = ModuleName ["test"]
+    moduleSource :: (Maybe FilePath)
+    moduleSource = Nothing
+    moduleFeatureFlags :: FeatureFlags
+    moduleFeatureFlags = FeatureFlags
+    moduleSynonyms :: (NM.NameMap DefTypeSyn)
+    moduleSynonyms = NM.empty
+    moduleDataTypes :: (NM.NameMap DefDataType)
+    moduleDataTypes = NM.empty
+    moduleValues :: (NM.NameMap DefValue)
+    moduleValues = NM.empty
+    moduleTemplates :: (NM.NameMap Template)
+    moduleTemplates = NM.empty
+    moduleExceptions :: (NM.NameMap DefException)
+    moduleExceptions = NM.empty
+    moduleInterfaces :: (NM.NameMap DefInterface)
+    moduleInterfaces = NM.empty
+
+mkOneModulePackage :: Module -> Package
+mkOneModulePackage m = Package{..}
+  where
+    packageLfVersion :: Version
+    packageLfVersion = Version V2 PointDev
+    packageModules :: NM.NameMap Module
+    packageModules = NM.fromList [m]
+    packageMetadata :: PackageMetadata
+    packageMetadata = PackageMetadata{..}
+      where
+        packageName :: PackageName
+        packageName = PackageName "test"
+        packageVersion :: PackageVersion
+        packageVersion = PackageVersion "0.0"
+        upgradedPackageId :: Maybe UpgradedPackageId
+        upgradedPackageId = Nothing
