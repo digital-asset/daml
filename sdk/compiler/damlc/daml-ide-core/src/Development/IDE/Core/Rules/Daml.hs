@@ -17,8 +17,8 @@ import qualified Module as GHC
 import GhcMonad
 import Data.IORef
 import qualified Proto3.Suite             as Proto
-import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
-import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
+import qualified DA.Daml.LF.Proto3.Decode as Decode
+import qualified DA.Daml.LF.Proto3.Encode as Encode
 import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
@@ -804,7 +804,7 @@ readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V2 -> decode DecodeV2.decodeSinglePackageModule lfVersion
+            LF.V2 -> decode Decode.decodeSinglePackageModule lfVersion
   where
     decode decodeSinglePackageModule lfVersion = do
         bytes <- BS.readFile $ fromNormalizedFilePath dalfFile
@@ -820,7 +820,7 @@ writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
         case LF.versionMajor lfVersion of
-            LF.V2 -> encode EncodeV2.encodeSinglePackageModule lfVersion
+            LF.V2 -> encode Encode.encodeSinglePackageModule lfVersion
   where
     encode encodeSinglePackageModule lfVersion = do
         liftIO $
