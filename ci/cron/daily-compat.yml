@@ -202,8 +202,6 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh canton
                   open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
-                  az extension add --name azure-devops
-                  trap "az devops logout" EXIT
                   echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
@@ -215,6 +213,7 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: compat_versions_pr
     condition: or(eq(variables['Build.SourceBranchName'], 'main'),
