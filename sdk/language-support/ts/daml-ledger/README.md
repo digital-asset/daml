@@ -4,7 +4,7 @@
 > API](https://docs.daml.com/json-api/index.html) for a Daml ledger.
 
 > **Warning**  
-> This library is deprecated and will be removed in a future release.
+> This library is deprecated and will be removed in the release 3.4.
 
 <!-- START_BACKLINK -->
 

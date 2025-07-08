@@ -19,7 +19,7 @@ sources = [
 da_ts_library(
     name = "daml-react",
     srcs = sources,
-    deprecation = "The daml-react library is deprecated and will be removed in a future release.",
+    deprecation = "The daml-react library is deprecated and will be removed in the release 3.4.",
     module_name = "@daml/react",
     visibility = ["//visibility:public"],
     deps = [
@@ -52,7 +52,7 @@ pkg_npm(
         ":package.json",
         ":tsconfig.json",
     ],
-    deprecation = "The npm package @daml/react is deprecated and will be removed in a future release.",
+    deprecation = "The npm package @daml/react is deprecated and will be removed in the release 3.4.",
     substitutions = {"0.0.0-SDKVERSION": sdk_version},
     visibility = ["//visibility:public"],
     deps = [

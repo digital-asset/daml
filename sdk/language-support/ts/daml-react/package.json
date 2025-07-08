@@ -18,7 +18,7 @@
   "main": "index.js",
   "types": "index.d.ts",
   "license": "Apache-2.0",
-  "deprecated": "The daml-react library is deprecated and will be removed in a future release.",
+  "deprecated": "The daml-react library is deprecated and will be removed in the release 3.4.",
   "dependencies": {
     "@daml/ledger": "0.0.0-SDKVERSION",
     "@daml/types": "0.0.0-SDKVERSION"
