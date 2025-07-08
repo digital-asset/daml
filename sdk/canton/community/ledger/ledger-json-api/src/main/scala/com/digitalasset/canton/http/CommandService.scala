@@ -38,9 +38,11 @@ import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, \/, \/-}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
+@nowarn("cat=deprecation")
 class CommandService(
     submitAndWaitForTransaction: LedgerClientJwt.SubmitAndWaitForTransaction,
     submitAndWaitForTransactionTree: LedgerClientJwt.SubmitAndWaitForTransactionTree,
@@ -307,6 +309,7 @@ class CommandService(
       .traverse(ActiveContract.fromLedgerApi(ActiveContract.ExtractAs.Template, _))
       .leftMap(e => InternalError(Some(Symbol("activeContracts")), e.shows))
 
+  @nowarn("cat=deprecation")
   private def contracts(
       response: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ List[Contract[lav2.value.Value]] =
@@ -319,6 +322,7 @@ class CommandService(
       )
       .flatMap(contracts)
 
+  @nowarn("cat=deprecation")
   private def contracts(
       tx: lav2.transaction.TransactionTree
   ): Error \/ List[Contract[lav2.value.Value]] =
@@ -327,6 +331,7 @@ class CommandService(
       .leftMap(e => InternalError(Some(Symbol("contracts")), e.shows))
       .map(_.toList)
 
+  @nowarn("cat=deprecation")
   private def exerciseResult(
       a: lav2.command_service.SubmitAndWaitForTransactionTreeResponse
   ): Error \/ lav2.value.Value = {
@@ -344,6 +349,7 @@ class CommandService(
     )
   }
 
+  @nowarn("cat=deprecation")
   private def firstExercisedEvent(
       tx: lav2.transaction.TransactionTree
   ): Option[lav2.event.ExercisedEvent] = {

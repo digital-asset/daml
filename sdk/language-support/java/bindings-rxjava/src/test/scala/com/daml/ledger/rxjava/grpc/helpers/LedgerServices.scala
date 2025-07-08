@@ -38,6 +38,7 @@ import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.reactivex.Observable
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -207,6 +208,9 @@ final class LedgerServices(val name: String) {
     }
   }
 
+  @nowarn(
+    "cat=deprecation"
+  ) // use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
   def withCommandClient(
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
@@ -250,6 +254,9 @@ final class LedgerServices(val name: String) {
     }
   }
 
+  @nowarn(
+    "cat=deprecation"
+  ) // use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
   def withFakeLedgerServer(
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
       transactions: Observable[LedgerItem],

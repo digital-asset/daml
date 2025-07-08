@@ -27,6 +27,7 @@ import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TracerProvider
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutor
 
 object LedgerConnection {
@@ -63,6 +64,7 @@ object LedgerConnection {
     LedgerClient.withoutToken(builder.build(), clientConfig, loggerFactory)
   }
 
+  @nowarn("cat=deprecation")
   def transactionFilterByParty(filter: Map[PartyId, Seq[Identifier]]): TransactionFilter =
     TransactionFilter(
       filter.map {

@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.api.auth.services.EventQueryServiceAuthori
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class EventQueryServiceAuthorization(
@@ -38,6 +39,7 @@ final class EventQueryServiceAuthorization(
 }
 
 object EventQueryServiceAuthorization {
+  @nowarn("cat=deprecation")
   def getEventsByContractIdClaims(
       request: GetEventsByContractIdRequest
   ): List[RequiredClaim[GetEventsByContractIdRequest]] =

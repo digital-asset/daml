@@ -38,6 +38,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 
+import scala.annotation.nowarn
+
 object EventsTable {
 
   object TransactionConversions {
@@ -144,6 +146,7 @@ object EventsTable {
           )
       }
 
+    @nowarn("cat=deprecation")
     private def treeOf(
         events: Seq[Entry[TreeEvent]]
     ): (Map[Int, TreeEvent], Option[DamlTraceContext]) = {
@@ -160,6 +163,7 @@ object EventsTable {
 
     }
 
+    @nowarn("cat=deprecation")
     private def transactionTree(
         events: Seq[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
@@ -178,6 +182,7 @@ object EventsTable {
         )
       }
 
+    @nowarn("cat=deprecation")
     def toGetTransactionTreesResponse(
         events: Seq[Entry[TreeEvent]]
     ): List[(Long, GetUpdateTreesResponse)] =
@@ -186,6 +191,7 @@ object EventsTable {
           .withPrecomputedSerializedSize()
       )
 
+    @nowarn("cat=deprecation")
     def toGetTransactionTreeResponse(
         events: Seq[Entry[TreeEvent]]
     ): Option[GetTransactionTreeResponse] =

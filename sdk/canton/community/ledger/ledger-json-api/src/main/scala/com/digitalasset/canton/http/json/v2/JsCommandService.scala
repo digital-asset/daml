@@ -44,6 +44,7 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, webSocketBody}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsCommandService(
@@ -137,6 +138,7 @@ class JsCommandService(
     } yield result
   }
 
+  @nowarn("cat=deprecation")
   def submitAndWaitForTransactionTree(
       callerContext: CallerContext
   ): TracedInput[JsCommands] => Future[

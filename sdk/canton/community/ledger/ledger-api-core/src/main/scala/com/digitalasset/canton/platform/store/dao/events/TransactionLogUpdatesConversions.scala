@@ -17,7 +17,6 @@ import com.daml.ledger.api.v2.transaction.{
   TreeEvent,
 }
 import com.daml.ledger.api.v2.update_service.{
-  GetTransactionResponse,
   GetTransactionTreeResponse,
   GetUpdateResponse,
   GetUpdateTreesResponse,
@@ -45,6 +44,7 @@ import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithM
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 private[events] object TransactionLogUpdatesConversions {
@@ -231,34 +231,6 @@ private[events] object TransactionLogUpdatesConversions {
             )
         }
         .map(_.map(Some(_)))
-        .getOrElse(Future.successful(None))
-
-    def toGetFlatTransactionResponse(
-        transactionLogUpdate: TransactionLogUpdate,
-        internalTransactionFormat: InternalTransactionFormat,
-        lfValueTranslation: LfValueTranslation,
-    )(implicit
-        loggingContext: LoggingContextWithTrace,
-        executionContext: ExecutionContext,
-    ): Future[Option[GetTransactionResponse]] =
-      filter(
-        InternalUpdateFormat(
-          includeTransactions = Some(internalTransactionFormat),
-          includeReassignments = None,
-          includeTopologyEvents = None,
-        )
-      )(
-        transactionLogUpdate
-      )
-        .collect { case transactionAccepted: TransactionLogUpdate.TransactionAccepted =>
-          toTransaction(
-            transactionAccepted = transactionAccepted,
-            internalTransactionFormat = internalTransactionFormat,
-            lfValueTranslation = lfValueTranslation,
-            traceContext = transactionAccepted.traceContext,
-          )
-        }
-        .map(_.map(flatTransaction => Some(GetTransactionResponse(Some(flatTransaction)))))
         .getOrElse(Future.successful(None))
 
     private def toTransaction(
@@ -487,6 +459,7 @@ private[events] object TransactionLogUpdatesConversions {
   }
 
   // TODO(i23504) remove
+  @nowarn("cat=deprecation")
   object ToTransactionTree {
     def filter(
         requestingParties: Option[Set[Party]]

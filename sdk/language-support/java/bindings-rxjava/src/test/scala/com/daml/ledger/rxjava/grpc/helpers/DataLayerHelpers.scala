@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.google.protobuf.timestamp.Timestamp
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
@@ -47,9 +48,13 @@ trait DataLayerHelpers {
       .withWorkflowId("workflowId")
   }
 
+  // TransactionFilter will be removed in 3.4, use EventFormat instead
+  @nowarn("cat=deprecation")
   val filterNothing: TransactionFilter =
     new TransactionFilter(Map[String, Filter]().asJava, None.toJava)
 
+  // TransactionFilter will be removed in 3.4, use EventFormat instead
+  @nowarn("cat=deprecation")
   def filterFor(party: String): TransactionFilter =
     new TransactionFilter(
       Map(

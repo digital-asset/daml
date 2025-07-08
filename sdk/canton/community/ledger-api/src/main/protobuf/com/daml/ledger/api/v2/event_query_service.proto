@@ -23,7 +23,7 @@ message GetEventsByContractIdRequest {
   // at least one party that is a stakeholder of the event. For a definition of stakeholders see
   // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#contract-observers-and-stakeholders
   // Optional, if some parties specified, event_format needs to be unset.
-  repeated string requesting_parties = 2;
+  repeated string requesting_parties = 2 [deprecated = true];
 
   // Format of the events in the result, the presentation will be of TRANSACTION_SHAPE_ACS_DELTA.
   // Optional for backwards compatibility, defaults to an EventFormat where:

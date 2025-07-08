@@ -51,6 +51,8 @@ public class CommandClientImpl implements CommandClient {
         .map(Transaction::fromProto);
   }
 
+  // Method will be removed in 3.4
+  @Deprecated
   @Override
   public Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =

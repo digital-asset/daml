@@ -28,6 +28,7 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.PartyId
 
 import java.util.Collections
+import scala.annotation.nowarn
 
 sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
     extends CommunityIntegrationTest
@@ -129,6 +130,7 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
     )
   }
 
+  @nowarn("cat=deprecation")
   private def filter(f: (PartyId, Identifier)): TransactionFilter = {
     import scala.jdk.CollectionConverters.MapHasAsJava
     import scala.jdk.OptionConverters.RichOption

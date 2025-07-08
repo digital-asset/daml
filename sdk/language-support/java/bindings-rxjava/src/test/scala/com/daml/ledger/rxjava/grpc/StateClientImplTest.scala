@@ -14,9 +14,12 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
 
+// TODO use EventFormat instead of requestingParties
+@nowarn("cat=deprecation")
 class StateClientImplTest
     extends AnyFlatSpec
     with ScalaCheckDrivenPropertyChecks

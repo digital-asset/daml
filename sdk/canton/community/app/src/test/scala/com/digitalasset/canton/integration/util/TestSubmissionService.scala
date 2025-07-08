@@ -75,10 +75,11 @@ import org.scalatest.OptionValues.*
 
 import java.time.Duration
 import java.util.UUID
-import scala.annotation.{tailrec, unused}
+import scala.annotation.{nowarn, tailrec, unused}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
+@nowarn("cat=deprecation")
 class TestSubmissionService(
     participantId: ParticipantId,
     maxDeduplicationDuration: NonNegativeFiniteDuration,
@@ -367,6 +368,7 @@ class TestSubmissionService(
   }
 }
 
+@nowarn("cat=deprecation")
 object TestSubmissionService {
 
   /** Creates a `TestSubmissionService` for submitting commands to the given `participant`. The

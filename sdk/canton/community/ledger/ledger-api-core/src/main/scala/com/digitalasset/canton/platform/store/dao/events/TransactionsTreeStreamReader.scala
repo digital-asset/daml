@@ -43,9 +43,11 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
+@nowarn("cat=deprecation")
 class TransactionsTreeStreamReader(
     config: TransactionTreeStreamsConfig,
     globalIdQueriesLimiter: ConcurrencyLimiter,

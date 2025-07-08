@@ -12,6 +12,7 @@ import java.util.Objects;
  * Helper wrapper of a grpc message used in SubmitAndWaitForTransactionTree call. Class will be
  * removed in 3.4.0.
  */
+@Deprecated
 public final class SubmitAndWaitForTransactionTreeResponse {
 
   @NonNull private final TransactionTree transaction;

@@ -361,6 +361,7 @@ class ParticipantTab(
     }
 
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
+    @nowarn("cat=deprecation")
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
       endInclusive = None,

@@ -24,6 +24,7 @@ import java.nio.file.Paths
 import java.util.concurrent.TimeUnit
 import java.util.stream.{Collectors, StreamSupport}
 import java.util.{Optional, UUID}
+import scala.annotation.nowarn
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
 import scala.jdk.CollectionConverters._
@@ -74,6 +75,8 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   )
 }
 
+// TransactionFilter will be removed in 3.4, use EventFormat instead
+@nowarn("cat=deprecation")
 object TestUtil {
 
   val LedgerID = "participant0"

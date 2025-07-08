@@ -23,6 +23,7 @@ import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import io.grpc.ServerServiceDefinition
 import io.reactivex.Observable
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 case class LedgerServicesImpls(
@@ -38,6 +39,9 @@ case class LedgerServicesImpls(
 
 object LedgerServicesImpls {
 
+  @nowarn(
+    "cat=deprecation"
+  ) // use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
   def createWithRef(
       getActiveContractsResponse: Observable[GetActiveContractsResponse],
       transactions: Observable[UpdateServiceImpl.LedgerItem],

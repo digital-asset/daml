@@ -9,6 +9,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util.{Collections, Optional}
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.{MapHasAsJava, SetHasAsJava}
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -39,6 +40,7 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
     Optional.empty(),
   )
 
+  @nowarn("cat=deprecation")
   private def assertFilters(
       contractFilter: ContractFilter[_],
       expectedIncluded: Boolean,

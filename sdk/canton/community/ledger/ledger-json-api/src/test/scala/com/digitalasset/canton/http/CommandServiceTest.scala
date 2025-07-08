@@ -27,6 +27,7 @@ import scalaz.{NonEmptyList, \/-}
 import spray.json.*
 
 import java.util.concurrent.CopyOnWriteArrayList
+import scala.annotation.nowarn
 import scala.collection as sc
 import scala.concurrent.{ExecutionContext as EC, Future}
 import scala.jdk.CollectionConverters.*
@@ -84,6 +85,7 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
   }
 }
 
+@nowarn("cat=deprecation")
 object CommandServiceTest extends BaseTest {
   private val multiPartyJwp = JwtWritePayload(
     UserId("myapp"),
