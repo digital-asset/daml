@@ -59,9 +59,11 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
 import org.scalatest.Assertion
 
 import java.util.UUID
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 
+@nowarn("cat=deprecation")
 class ActiveContractsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment

@@ -15,8 +15,10 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.{LedgerUserId, config}
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
+@nowarn("cat=deprecation")
 object IouSyntax {
 
   import org.scalatest.OptionValues.*

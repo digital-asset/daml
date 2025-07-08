@@ -111,10 +111,12 @@ public final class ContractFilter<Ct> {
   }
 
   /** Method will be removed in 3.4.0 */
+  @Deprecated
   public TransactionFilter transactionFilter(Optional<Set<String>> parties) {
     return transactionFilter(filter, parties);
   }
 
+  @Deprecated
   private static TransactionFilter transactionFilter(
       Filter filter, Optional<Set<String>> partiesO) {
     Map<String, Filter> partyToFilters =

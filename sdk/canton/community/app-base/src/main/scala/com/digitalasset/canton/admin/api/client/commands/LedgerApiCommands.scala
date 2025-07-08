@@ -192,9 +192,11 @@ import io.grpc.stub.StreamObserver
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ScheduledExecutorService
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
+@nowarn("cat=deprecation")
 object LedgerApiCommands {
 
   final val defaultUserId = "CantonConsole"

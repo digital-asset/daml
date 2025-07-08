@@ -50,6 +50,7 @@ import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json.JsValue
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 import util.ApiValueToLfValueConverter
@@ -394,6 +395,7 @@ class ContractsService(
       }
   }
 
+  @nowarn("cat=deprecation")
   def liveAcsAsInsertDeleteStepSource(
       jwt: Jwt,
       txnFilter: TransactionFilter,
@@ -419,6 +421,7 @@ class ContractsService(
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset` and ending at
     * `terminates`.
     */
+  @nowarn("cat=deprecation")
   def insertDeleteStepSource(
       jwt: Jwt,
       txnFilter: TransactionFilter,
@@ -568,6 +571,7 @@ object ContractsService {
 
   type SearchResult[A] = SyncResponse[Source[A, NotUsed]]
 
+  @nowarn("cat=deprecation")
   def buildTransactionFilter(
       parties: PartySet,
       resolvedQuery: ResolvedQuery,

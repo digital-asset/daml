@@ -12,6 +12,8 @@ import com.daml.ledger.api.v2.transaction_filter.{
 import com.digitalasset.canton.auth.RequiredClaim
 import scalapb.lenses.Lens
 
+import scala.annotation.nowarn
+
 object RequiredClaims {
 
   def apply[Req](claims: RequiredClaim[Req]*): List[RequiredClaim[Req]] = claims.toList
@@ -51,6 +53,7 @@ object RequiredClaims {
         },
     ).flatten.distinct
 
+  @nowarn("cat=deprecation")
   def transactionFilterClaims[Req](transactionFilter: TransactionFilter): List[RequiredClaim[Req]] =
     readAsForAllParties[Req](transactionFilter.filtersByParty.keys)
       ::: transactionFilter.filtersForAnyParty.map(_ => RequiredClaim.ReadAsAnyParty[Req]()).toList

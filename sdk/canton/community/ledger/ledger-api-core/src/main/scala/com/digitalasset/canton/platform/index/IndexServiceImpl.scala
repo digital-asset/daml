@@ -75,6 +75,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -217,6 +218,7 @@ private[index] class IndexServiceImpl(
         elem
       }
 
+  @nowarn("cat=deprecation")
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -381,6 +383,7 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
+  @nowarn("cat=deprecation")
   override def getTransactionById(
       updateId: UpdateId,
       transactionFormat: TransactionFormat,
@@ -413,6 +416,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Ref.Party],
@@ -433,6 +437,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionByOffset(
       offset: Offset,
       transactionFormat: TransactionFormat,
@@ -493,6 +498,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Ref.Party],
@@ -1257,6 +1263,7 @@ object IndexServiceImpl {
   ): GetUpdatesResponse =
     GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
+  @nowarn("cat=deprecation")
   private def updateTreesResponse(
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdateTreesResponse =

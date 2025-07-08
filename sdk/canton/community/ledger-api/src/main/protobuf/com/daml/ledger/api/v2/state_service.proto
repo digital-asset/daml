@@ -40,13 +40,13 @@ message GetActiveContractsRequest {
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Templates to include in the served snapshot, per party.
   // Optional, if specified event_format must be unset, if not specified event_format must be set.
-  TransactionFilter filter = 1;
+  TransactionFilter filter = 1 [deprecated = true];
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
   // In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
   // Optional, if specified event_format must be unset.
-  bool verbose = 2;
+  bool verbose = 2 [deprecated = true];
 
   // The offset at which the snapshot of the active contracts will be computed.
   // Must be no greater than the current ledger end offset.

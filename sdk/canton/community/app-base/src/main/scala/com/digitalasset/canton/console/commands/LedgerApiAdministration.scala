@@ -99,10 +99,12 @@ import io.grpc.stub.StreamObserver
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success, Try}
 
+@nowarn("cat=deprecation")
 trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper {
   thisAdministration: LedgerApiCommandRunner & NamedLogging & FeatureFlagFilter =>
 

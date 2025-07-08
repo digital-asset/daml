@@ -54,6 +54,7 @@ import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
@@ -113,6 +114,7 @@ private[dao] final class UpdateReader(
       .mapMaterializedValue((_: Future[NotUsed]) => NotUsed)
   }
 
+  @nowarn("cat=deprecation")
   override def lookupTransactionById(
       updateId: data.UpdateId,
       internalTransactionFormat: InternalTransactionFormat,
@@ -129,6 +131,7 @@ private[dao] final class UpdateReader(
       .map(_.flatMap(_.update.transaction))
       .map(_.map(tx => GetTransactionResponse(transaction = Some(tx))))
 
+  @nowarn("cat=deprecation")
   override def lookupTransactionByOffset(
       offset: data.Offset,
       internalTransactionFormat: InternalTransactionFormat,
@@ -154,6 +157,7 @@ private[dao] final class UpdateReader(
       internalUpdateFormat = internalUpdateFormat,
     )
 
+  @nowarn("cat=deprecation")
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
@@ -167,6 +171,7 @@ private[dao] final class UpdateReader(
       eventProjectionProperties = eventProjectionProperties,
     )
 
+  @nowarn("cat=deprecation")
   override def lookupTransactionTreeByOffset(
       offset: data.Offset,
       requestingParties: Set[Party],
@@ -180,6 +185,7 @@ private[dao] final class UpdateReader(
       eventProjectionProperties = eventProjectionProperties,
     )
 
+  @nowarn("cat=deprecation")
   override def getTransactionTrees(
       startInclusive: Offset,
       endInclusive: Offset,
@@ -431,6 +437,7 @@ private[dao] object UpdateReader {
   }
 
   // TODO(#23504) cleanup
+  @nowarn("cat=deprecation")
   def deserializeTreeEvent(
       eventProjectionProperties: EventProjectionProperties,
       lfValueTranslation: LfValueTranslation,

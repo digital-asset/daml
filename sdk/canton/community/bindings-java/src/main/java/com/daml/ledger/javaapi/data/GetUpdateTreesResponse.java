@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Helper wrapper of a grpc message used in GetUpdateTrees call. Class will be removed in 3.4.0. */
+@Deprecated
 public final class GetUpdateTreesResponse {
 
   @NonNull private final Optional<TransactionTree> transactionTree;

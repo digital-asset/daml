@@ -31,6 +31,10 @@ class StateServiceClient(service: StateServiceStub)(implicit
 ) {
 
   /** Returns a stream of GetActiveContractsResponse messages. */
+  @deprecated(
+    "Use getActiveContractsSource with EventFormat instead",
+    "3.3.0",
+  )
   def getActiveContractsSource(
       filter: TransactionFilter,
       validAtOffset: Long,
@@ -49,6 +53,10 @@ class StateServiceClient(service: StateServiceStub)(implicit
       )
 
   /** Returns the resulting active contract set */
+  @deprecated(
+    "Use getActiveContracts with EventFormat instead",
+    "3.3.0",
+  )
   def getActiveContracts(
       filter: TransactionFilter,
       validAtOffset: Long,

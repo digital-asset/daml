@@ -14,6 +14,7 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
 import java.time.{Duration, Instant, LocalDate}
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -237,6 +238,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def treeEventGen: Gen[v2.TransactionOuterClass.TreeEvent] = {
     import v2.TransactionOuterClass.TreeEvent
     for {
@@ -441,6 +443,7 @@ object Generators {
       .setParticipantId(participantId)
       .build()
 
+  @nowarn("cat=deprecation")
   def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
     for {
       filtersByParty <- Gen.mapOf(partyWithFiltersGen)
@@ -528,6 +531,7 @@ object Generators {
         .build()
     }
 
+  @nowarn("cat=deprecation")
   def getActiveContractRequestGen: Gen[v2.StateServiceOuterClass.GetActiveContractsRequest] =
     for {
       transactionFilter <- transactionFilterGen
@@ -903,6 +907,7 @@ object Generators {
     getDescendants(node, 0)._1
   }
 
+  @nowarn("cat=deprecation")
   def transactionTreeGenWithIdsInPreOrder: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def treeEventGen(nodeId: Int, lastDescendantNodeId: Int): Gen[(Integer, TreeEvent)] =
@@ -1002,6 +1007,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def idTreeEventPairGen =
@@ -1092,6 +1098,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionByOffsetRequestGen
       : Gen[v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest as Request
@@ -1131,6 +1138,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByIdRequest as Request
     for {
@@ -1145,6 +1153,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionResponse] =
     transactionGen.map(
       v2.UpdateServiceOuterClass.GetTransactionResponse
@@ -1153,6 +1162,7 @@ object Generators {
         .build()
     )
 
+  @nowarn("cat=deprecation")
   def getTransactionTreeResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionTreeResponse] =
     transactionTreeGen.map(
       v2.UpdateServiceOuterClass.GetTransactionTreeResponse
@@ -1161,6 +1171,7 @@ object Generators {
         .build()
     )
 
+  @nowarn("cat=deprecation")
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
@@ -1233,6 +1244,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getUpdateTreesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateTreesResponse] = {
     import v2.UpdateServiceOuterClass.GetUpdateTreesResponse as Response
     for {
@@ -1455,6 +1467,7 @@ object Generators {
       .setReassignment(reassignment)
       .build()
   }
+  @nowarn("cat=deprecation")
   def submitAndWaitForTransactionTreeResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse] = {
     import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response

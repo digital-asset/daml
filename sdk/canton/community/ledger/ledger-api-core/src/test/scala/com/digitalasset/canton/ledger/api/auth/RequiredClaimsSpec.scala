@@ -19,6 +19,9 @@ import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 import scalapb.lenses.Lens
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class RequiredClaimsSpec extends AsyncFlatSpec with BaseTest with Matchers {
 
   behavior of "submissionClaims"

@@ -57,11 +57,13 @@ import org.scalatest.Assertion
 
 import java.time.Duration
 import scala.Ordered.orderingToOrdered
+import scala.annotation.nowarn
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
 import DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 
+@nowarn("cat=deprecation")
 trait CommandDeduplicationIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment

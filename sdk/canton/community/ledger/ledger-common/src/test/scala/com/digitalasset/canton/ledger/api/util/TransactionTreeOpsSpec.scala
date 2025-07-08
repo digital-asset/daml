@@ -16,8 +16,10 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
+@nowarn("cat=deprecation")
 class TransactionTreeOpsSpec
     extends AnyFlatSpec
     with Matchers

@@ -40,31 +40,41 @@ service UpdateService {
   // Read the ledger's complete transaction tree stream and related (un)assignments for a set of parties.
   // The stream will be filtered only by the parties as wildcard parties.
   // The template/interface filters describe the respective fields in the ``CreatedEvent`` results.
-  rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse);
+  rpc GetUpdateTrees(GetUpdatesRequest) returns (stream GetUpdateTreesResponse) {
+    option deprecated = true;
+  }
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Lookup a transaction tree by its offset.
   // For looking up a transaction instead of a transaction tree, please see GetTransactionByEventId
   // If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
-  rpc GetTransactionTreeByOffset(GetTransactionByOffsetRequest) returns (GetTransactionTreeResponse);
+  rpc GetTransactionTreeByOffset(GetTransactionByOffsetRequest) returns (GetTransactionTreeResponse) {
+    option deprecated = true;
+  }
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Lookup a transaction tree by its ID.
   // For looking up a transaction instead of a transaction tree, please see GetTransactionById
   // If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
-  rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
+  rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse) {
+    option deprecated = true;
+  }
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Lookup a transaction by its offset.
   // If there is no transaction with this offset, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
-  rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse);
+  rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse) {
+    option deprecated = true;
+  }
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Lookup a transaction by its ID.
   // If there is no transaction with this id, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
-  rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
+  rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse) {
+    option deprecated = true;
+  }
 
   // Lookup an update by its offset.
   // If there is no update with this offset, or all the events are filtered, an UPDATE_NOT_FOUND error will be raised.
@@ -93,14 +103,14 @@ message GetUpdatesRequest {
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.
   // Optional for backwards compatibility, if defined update_format must be unset
-  TransactionFilter filter = 3;
+  TransactionFilter filter = 3 [deprecated = true];
 
   // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
   // In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
   // for record fields.
   // Optional for backwards compatibility, if defined update_format must be unset
-  bool verbose = 4;
+  bool verbose = 4 [deprecated = true];
 
   // Must be unset for GetUpdateTrees request.
   // Optional for backwards compatibility for GetUpdates request: defaults to an UpdateFormat where:
@@ -127,6 +137,7 @@ message GetUpdatesResponse {
 
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message GetUpdateTreesResponse {
+  option deprecated = true;
   // The update that matches the filter in the request.
   oneof update {
     TransactionTree transaction_tree = 1;
@@ -137,6 +148,7 @@ message GetUpdateTreesResponse {
 
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message GetTransactionByOffsetRequest {
+  option deprecated = true;
   // The offset of the transaction being looked up.
   // Must be a valid absolute offset (positive integer).
   // Required
@@ -163,6 +175,7 @@ message GetTransactionByOffsetRequest {
 
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message GetTransactionByIdRequest {
+  option deprecated = true;
   // The ID of a particular transaction.
   // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
@@ -189,12 +202,14 @@ message GetTransactionByIdRequest {
 
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message GetTransactionTreeResponse {
+  option deprecated = true;
   // Required
   TransactionTree transaction = 1;
 }
 
 // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message GetTransactionResponse {
+  option deprecated = true;
   // Required
   Transaction transaction = 1;
 }

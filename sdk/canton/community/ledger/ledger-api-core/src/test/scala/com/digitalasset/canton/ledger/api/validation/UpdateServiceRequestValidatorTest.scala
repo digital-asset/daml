@@ -24,6 +24,9 @@ import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class UpdateServiceRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils

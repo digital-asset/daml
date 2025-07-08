@@ -20,8 +20,10 @@ import com.digitalasset.canton.{
   LfWorkflowId,
 }
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+@nowarn("cat=deprecation")
 private[integration] trait HasCommandRunnersHelpers {
   this: BaseTest =>
 

@@ -30,11 +30,13 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 
+@nowarn("cat=deprecation")
 class ReferenceDemoScript(
     participants: Seq[ParticipantReference],
     bankingConnection: SequencerConnection,

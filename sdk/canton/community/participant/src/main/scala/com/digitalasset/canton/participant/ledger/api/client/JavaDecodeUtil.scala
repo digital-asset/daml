@@ -21,6 +21,7 @@ import com.daml.ledger.javaapi.data.{
 }
 import com.digitalasset.daml.lf.data.Ref
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
 /** Java event decoders
@@ -29,6 +30,7 @@ import scala.jdk.CollectionConverters.*
   * JavaCreatedEvent.fromProto(ScalaCreatedEvent.toJavaProto(scalaProtoEvent))
   * javaapi.data.Transaction.fromProto(Transaction.toJavaProto(scalaTx))
   */
+@nowarn("cat=deprecation")
 object JavaDecodeUtil {
 
   private def matchesTemplate(
