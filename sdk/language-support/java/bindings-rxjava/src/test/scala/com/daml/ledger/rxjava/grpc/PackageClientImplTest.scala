@@ -13,6 +13,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers with OptionValues {
@@ -101,6 +102,7 @@ class PackageClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers 
 
   behavior of "Authorization"
 
+  @nowarn("cat=deprecation")
   private def toAuthenticatedServer(fn: PackageClient => Any): Any =
     ledgerServices.withPackageClient(
       listPackageResponseFuture(),

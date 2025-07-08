@@ -10,6 +10,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.UpdateServiceGrpc} */
+@Deprecated
 public interface UpdateClient {
 
   Flowable<Transaction> getTransactions(

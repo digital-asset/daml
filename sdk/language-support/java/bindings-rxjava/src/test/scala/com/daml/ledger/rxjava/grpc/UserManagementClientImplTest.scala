@@ -11,6 +11,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
 import java.util.Optional
+import scala.annotation.nowarn
 
 class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMatchers {
 
@@ -72,6 +73,7 @@ class UserManagementClientImplTest extends AnyFlatSpec with Matchers with AuthMa
 
   behavior of "UserManagementClientImpl (Authorization)"
 
+  @nowarn("cat=deprecation")
   private def toAuthenticatedServer(fn: UserManagementClient => Any): Any =
     ledgerServices.withUserManagementClient(mockedAuthService) { (client, _) => fn(client) }
 

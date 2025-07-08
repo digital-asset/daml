@@ -12,6 +12,7 @@ import io.reactivex.Single;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandServiceGrpc} */
+@Deprecated
 public interface CommandClient {
   Single<String> submitAndWait(CommandsSubmission submission);
 

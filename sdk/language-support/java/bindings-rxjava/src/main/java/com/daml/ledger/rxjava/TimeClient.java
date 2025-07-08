@@ -8,6 +8,7 @@ import io.reactivex.Flowable;
 import io.reactivex.Single;
 import java.time.Instant;
 
+@Deprecated
 public interface TimeClient {
 
   Single<Empty> setTime(Instant currentTime, Instant newTime);

@@ -2,6 +2,9 @@
 
 > React framework for Daml applications
 
+> **Warning**  
+> This library is deprecated and will be removed in the release 3.4.
+
 <!-- START_BACKLINK -->
 
 ## Documentation

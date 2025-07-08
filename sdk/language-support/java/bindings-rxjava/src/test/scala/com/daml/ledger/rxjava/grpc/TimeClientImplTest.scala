@@ -12,6 +12,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class TimeClientImplTest
@@ -95,6 +96,7 @@ final class TimeClientImplTest
 
   behavior of "Authorization"
 
+  @nowarn("cat=deprecation")
   def toAuthenticatedServer(fn: TimeClient => Any): Any =
     ledgerServices.withTimeClient(
       Seq(

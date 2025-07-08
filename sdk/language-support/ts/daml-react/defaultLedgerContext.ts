@@ -19,6 +19,8 @@ const ledgerContext = createLedgerContext();
 /**
  * Within a `DamlLedger` one can use the hooks provided here.
  *
+ * @deprecated
+ *
  * @param props React props and children for this element.
  */
 export function DamlLedger(
@@ -29,6 +31,8 @@ export function DamlLedger(
 
 /**
  * React hook to get the party currently connected to the ledger.
+ *
+ * @deprecated
  */
 export function useParty(): Party {
   return ledgerContext.useParty();
@@ -36,6 +40,8 @@ export function useParty(): Party {
 
 /**
  * React hook to get the user currently connected to the ledger participant.
+ *
+ * @deprecated
  */
 export function useUser(): User {
   return ledgerContext.useUser();
@@ -43,6 +49,8 @@ export function useUser(): User {
 
 /**
  * React Hook that returns the Ledger instance to interact with the connected Daml ledger.
+ *
+ * @deprecated
  */
 export function useLedger(): Ledger {
   return ledgerContext.useLedger();
@@ -50,6 +58,8 @@ export function useLedger(): Ledger {
 
 /**
  * React Hook for a ``query`` against the ledger.
+ *
+ * @deprecated
  *
  * @typeparam T The contract template or interface type of the query.
  * @typeparam K The contract key type of the query.
@@ -84,6 +94,8 @@ export function useQuery<T extends object, K, I extends string>(
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
  *
+ * @deprecated
+ *
  * @param template The template of the contract to fetch.
  * @param contractId The contractId to fetch.
  *
@@ -98,6 +110,8 @@ export function useFetch<T extends object, K, I extends string>(
 
 /**
  * React Hook for a lookup by key against the `/v1/fetch` endpoint of the JSON API.
+ *
+ * @deprecated
  *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
@@ -120,7 +134,7 @@ export function useFetchByKey<T extends object, K, I extends string>(
 /**
  * React Hook to query the ledger, the returned result is updated as the ledger state changes.
  *
- * @deprecated prefer useStreamQueries
+ * @deprecated
  *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
@@ -150,6 +164,8 @@ export function useStreamQuery<T extends object, K, I extends string>(
 /**
  * React Hook to query the ledger, the returned result is updated as the ledger state changes.
  *
+ * @deprecated
+ *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
@@ -178,7 +194,7 @@ export function useStreamQueries<T extends object, K, I extends string>(
 /**
  * React Hook to query the ledger. Same as useStreamQuery, but query by contract key instead.
  *
- * @deprecated prefer useStreamFetchByKeys
+ * @deprecated
  *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
@@ -210,6 +226,8 @@ export function useStreamFetchByKey<T extends object, K, I extends string>(
 
 /**
  * React Hook to query the ledger. Same as useStreamQueries, but query by contract keys instead.
+ *
+ * @deprecated
  *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
