@@ -13,23 +13,19 @@ import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.HashPurpose
+import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, ContractReassignment}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{
-  ContractInstance,
-  ReassignmentId,
-  SerializableContract,
-  TransactionId,
-}
+import com.digitalasset.canton.protocol.{ContractInstance, ReassignmentId, TransactionId}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
@@ -39,19 +35,6 @@ import com.google.protobuf.ByteString
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
-
-/** Helper trait for test hook providing ProgrammableSequencer-like control in tests. Not sealed to
-  * allow inheritance in tests.
-  */
-trait InterceptReceivedAcsBatchForTesting {
-
-  // TODO(#25765): Mark as VisibleForTesting in a way that does not run afoul of the EnforceVisibleForTesting
-  //  guidelines.
-  def onAcsBatchReceivedForTesting(
-      firstContractOrdinal: NonNegativeInt,
-      contracts: NonEmpty[Seq[SerializableContract]],
-  ): EitherT[FutureUnlessShutdown, String, Unit]
-}
 
 /** The target participant processor ingests a party's active contracts on a specific synchronizer
   * and timestamp from a source participant as part of Online Party Replication.
@@ -74,24 +57,27 @@ trait InterceptReceivedAcsBatchForTesting {
   *   Callback notification that the target participant has received the entire ACS.
   * @param onError
   *   Callback notification that the target participant has errored.
+  * @param testOnlyInterceptor
+  *   Test interceptor only alters behavior in integration tests.
   */
 final class PartyReplicationTargetParticipantProcessor(
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     onComplete: TraceContext => Unit,
     onError: String => Unit,
-    interceptorForTestingOnly: InterceptReceivedAcsBatchForTesting,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     connectedSynchronizer: ConnectedSynchronizer,
     protected val futureSupervisor: FutureSupervisor,
     protected val exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    protected val testOnlyInterceptor: PartyReplicationTestInterceptor,
 )(implicit override val executionContext: ExecutionContext)
     extends PartyReplicationProcessor {
 
-  private val requestedContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  private val processedContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val processorStore = InMemoryProcessorStore.targetParticipant()
+  private def requestedContractsCount = processorStore.requestedContractsCount
+  private def processedContractsCount = processorStore.processedContractsCount
   private val contractsToRequestEachTime = PositiveInt.tryCreate(10)
   private val isSourceParticipantReady = new AtomicBoolean(false)
   private val nextRepairCounter = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
@@ -143,10 +129,6 @@ final class PartyReplicationTargetParticipantProcessor(
           )
           val contractsToAdd = contracts.map(_.contract)
           for {
-            _ <- interceptorForTestingOnly.onAcsBatchReceivedForTesting(
-              firstContractOrdinal,
-              contractsToAdd,
-            )
             _ <- EitherT(
               contractsToAdd.forgetNE
                 .traverse(ContractInstance.apply)
@@ -204,7 +186,10 @@ final class PartyReplicationTargetParticipantProcessor(
       !isChannelClosed.get() &&
       // Skip progress check if another task is already queued that performs this same progress check or
       // is going to schedule a progress check.
-      executionQueue.queueSize <= 1
+      executionQueue.queueSize <= 1 &&
+      testOnlyInterceptor.onTargetParticipantProgress(
+        processorStore
+      ) == PartyReplicationTestInterceptor.Proceed
     ) {
       executeAsync(
         s"Respond to source participant if needed"
@@ -334,23 +319,24 @@ final class PartyReplicationTargetParticipantProcessor(
 object PartyReplicationTargetParticipantProcessor {
   def apply(
       partyId: PartyId,
+      requestId: Hash,
       partyToParticipantEffectiveAt: CantonTimestamp,
       onComplete: TraceContext => Unit,
       onError: String => Unit,
-      interceptorForTestingOnly: InterceptReceivedAcsBatchForTesting,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       connectedSynchronizer: ConnectedSynchronizer,
       futureSupervisor: FutureSupervisor,
       exitOnFatalFailures: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      testInterceptor: PartyReplicationTestInterceptor =
+        PartyReplicationTestInterceptor.AlwaysProceed,
   )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
       partyId,
       partyToParticipantEffectiveAt,
       onComplete,
       onError,
-      interceptorForTestingOnly,
       participantNodePersistentState,
       connectedSynchronizer,
       futureSupervisor,
@@ -358,6 +344,8 @@ object PartyReplicationTargetParticipantProcessor {
       timeouts,
       loggerFactory
         .append("synchronizerId", connectedSynchronizer.psid.toProtoPrimitive)
-        .append("partyId", partyId.toProtoPrimitive),
+        .append("partyId", partyId.toProtoPrimitive)
+        .append("requestId", requestId.toHexString),
+      testInterceptor,
     )
 }

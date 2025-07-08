@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "com/digitalasset/canton/admin/participant/v30/active_contract.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
@@ -99,7 +98,7 @@ message CommitmentContract {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes cid = 1;
   bool active_on_expected_synchronizer = 2;
-  Contract serialized_contract = 3;
+  optional bytes contract = 3; // Encoded ContractInstance
   repeated ContractState.SynchronizerState states = 4;
 }
 

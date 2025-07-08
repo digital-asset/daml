@@ -165,7 +165,7 @@ object PartyReplicationStatus {
       with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.ReplicatingAcs
 
-    def numberOfContractsReplicated: NonNegativeInt =
+    def replicatedContractsCount: NonNegativeInt =
       connectedParams.partyReplicationProcessor.replicatedContractsCount
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -174,7 +174,7 @@ object PartyReplicationStatus {
           .ReplicatingAcs(
             authorizedParams.sequencerId.uid.toProtoPrimitive,
             Some(authorizedParams.effectiveAt.toProtoTimestamp),
-            numberOfContractsReplicated.unwrap,
+            replicatedContractsCount.unwrap,
           )
       )
   }
@@ -184,7 +184,7 @@ object PartyReplicationStatus {
   ) extends ConnectedPartyReplicationStatus {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.Completed
 
-    def numberOfContractsReplicated: NonNegativeInt =
+    def replicatedContractsCount: NonNegativeInt =
       connectedParams.partyReplicationProcessor.replicatedContractsCount
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -193,7 +193,7 @@ object PartyReplicationStatus {
           .Completed(
             authorizedParams.sequencerId.uid.toProtoPrimitive,
             Some(authorizedParams.effectiveAt.toProtoTimestamp),
-            numberOfContractsReplicated.unwrap,
+            replicatedContractsCount.unwrap,
           )
       )
   }

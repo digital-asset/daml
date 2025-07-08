@@ -23,6 +23,7 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   PartyReplicationStatusCode,
   ReplicationParams,
 }
+import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationProcessor,
   PartyReplicationSourceParticipantProcessor,
@@ -43,7 +44,6 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{
-  EitherTUtil,
   FutureUnlessShutdownUtil,
   MonadUtil,
   SimpleExecutionQueue,
@@ -73,6 +73,7 @@ final class PartyReplicator(
     participantId: ParticipantId,
     syncService: CantonSyncService,
     clock: Clock,
+    config: UnsafeOnlinePartyReplicationConfig,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
     override val timeouts: ProcessingTimeout,
@@ -101,6 +102,9 @@ final class PartyReplicator(
 
   private val topologyWorkflow =
     new PartyReplicationTopologyWorkflow(participantId, timeouts, loggerFactory)
+
+  private val testInterceptorO: Option[PartyReplicationTestInterceptor] =
+    config.testInterceptor.map(_())
 
   /** Validates online party replication arguments and propose party replication via the provided
     * admin workflow service.
@@ -461,9 +465,9 @@ final class PartyReplicator(
           connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyManager,
           connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
         )
-        // On the source participant wait until the topology change is visible via the ledger api
+        // To be sure the authorization has become effective, wait until the topology change is visible via the ledger api
         _ <- authorizedAtO match {
-          case Some(authorizedAt) if participantId == params.sourceParticipantId =>
+          case Some(authorizedAt) =>
             val operation = s"observe ${params.partyId} topology transaction via ledger api"
             retryUntilLocalStoreUpdatedInExpectedState(operation)(
               synchronizeWithClosingF(_)(
@@ -475,7 +479,7 @@ final class PartyReplicator(
                   .map(offsetO => Either.cond(offsetO.nonEmpty, (), s"failed to $operation"))
               )
             )
-          case Some(_) | None => EitherT.rightT[FutureUnlessShutdown, String](())
+          case None => EitherT.rightT[FutureUnlessShutdown, String](())
         }
       } yield {
         val (partyId, serial) = (params.partyId, params.serial)
@@ -544,7 +548,7 @@ final class PartyReplicator(
           ReplicationParams(
             _,
             partyId,
-            synchronizerId,
+            _,
             sourceParticipantId,
             targetParticipantId,
             _,
@@ -565,6 +569,7 @@ final class PartyReplicator(
                 PartyReplicationSourceParticipantProcessor(
                   connectedSynchronizer.psid,
                   partyId,
+                  requestId,
                   effectiveAt,
                   partiesAlreadyHostedByTargetParticipant,
                   connectedSynchronizer.synchronizerHandle.syncPersistentState.acsInspection,
@@ -574,6 +579,7 @@ final class PartyReplicator(
                   exitOnFatalFailures,
                   timeouts,
                   loggerFactory,
+                  testInterceptorO.getOrElse(PartyReplicationTestInterceptor.AlwaysProceed),
                 ): PartyReplicationProcessor,
                 status.params.targetParticipantId,
                 false,
@@ -584,16 +590,17 @@ final class PartyReplicator(
               (
                 PartyReplicationTargetParticipantProcessor(
                   partyId,
+                  requestId,
                   effectiveAt,
                   markComplete(requestId),
                   recordError(requestId, traceContext),
-                  (_, _) => EitherTUtil.unitUS,
                   syncService.participantNodePersistentState,
                   connectedSynchronizer,
                   futureSupervisor,
                   exitOnFatalFailures,
                   timeouts,
                   loggerFactory,
+                  testInterceptorO.getOrElse(PartyReplicationTestInterceptor.AlwaysProceed),
                 ): PartyReplicationProcessor,
                 status.params.sourceParticipantId,
                 true,

@@ -113,7 +113,7 @@ class AdminWorkflowServices(
 
   val partyManagementO
       : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)] =
-    parameters.unsafeOnlinePartyReplication.map(_ =>
+    parameters.unsafeOnlinePartyReplication.map(config =>
       createService(
         "party-management",
         // TODO(#20637): Don't resubscribe if the ledger api has been pruned as that would mean missing updates that
@@ -128,6 +128,7 @@ class AdminWorkflowServices(
             participantId,
             syncService,
             clock,
+            config,
             futureSupervisor,
             parameters.exitOnFatalFailures,
             parameters.processingTimeouts,

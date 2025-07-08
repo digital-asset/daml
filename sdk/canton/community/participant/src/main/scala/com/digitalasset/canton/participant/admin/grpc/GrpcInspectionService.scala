@@ -43,6 +43,7 @@ import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, MonadUtil}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Bytes
 import io.grpc.stub.StreamObserver
 
@@ -581,13 +582,15 @@ class GrpcInspectionService(
 
         commitmentContractsMetadata = contractsAndReassignmentCounter
           .map { case (contract, reassignmentCounter) =>
-            CommitmentContractMetadata.create(contract.contractId, reassignmentCounter)(
-              psid.protocolVersion
-            )
+            CommitmentContractMetadata.create(contract.contractId, reassignmentCounter)
           }
 
       } yield {
-        commitmentContractsMetadata.foreach(c => c.writeDelimitedTo(out).foreach(_ => out.flush()))
+        // We serialize with the latest known protocol version, because what matters is that the console can decode the
+        // message. There is no particular need to serialize with the protocol version of the synchronizer
+        commitmentContractsMetadata.foreach(c =>
+          c.writeDelimitedTo(ProtocolVersion.latest, out).foreach(_ => out.flush())
+        )
       }
 
     CantonGrpcUtil.mapErrNewEUS(result)

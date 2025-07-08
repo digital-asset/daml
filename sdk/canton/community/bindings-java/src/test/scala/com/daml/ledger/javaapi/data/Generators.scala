@@ -484,29 +484,6 @@ object Generators {
       .setParticipantId(participantId)
       .build()
 
-  // TODO(#23504) remove as TransactionFilter is deprecated
-  @nowarn("cat=deprecation")
-  def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
-    for {
-      filtersByParty <- Gen.mapOf(partyWithFiltersGen)
-      filterForAnyPartyO <- Gen.option(filtersGen)
-    } yield {
-
-      filterForAnyPartyO match {
-        case None =>
-          v2.TransactionFilterOuterClass.TransactionFilter
-            .newBuilder()
-            .putAllFiltersByParty(filtersByParty.asJava)
-            .build()
-        case Some(filterForAnyParty) =>
-          v2.TransactionFilterOuterClass.TransactionFilter
-            .newBuilder()
-            .putAllFiltersByParty(filtersByParty.asJava)
-            .setFiltersForAnyParty(filterForAnyParty)
-            .build()
-      }
-    }
-
   def partyWithFiltersGen: Gen[(String, v2.TransactionFilterOuterClass.Filters)] =
     for {
       party <- Arbitrary.arbString.arbitrary
@@ -573,17 +550,13 @@ object Generators {
         .build()
     }
 
-  // TODO(#26401) use setEventFormat
-  @nowarn("cat=deprecation")
   def getActiveContractRequestGen: Gen[v2.StateServiceOuterClass.GetActiveContractsRequest] =
     for {
-      transactionFilter <- transactionFilterGen
-      verbose <- Arbitrary.arbBool.arbitrary
+      eventFormat <- eventFormatGen
       activeAtOffset <- Arbitrary.arbLong.arbitrary
     } yield v2.StateServiceOuterClass.GetActiveContractsRequest
       .newBuilder()
-      .setFilter(transactionFilter)
-      .setVerbose(verbose)
+      .setEventFormat(eventFormat)
       .setActiveAtOffset(activeAtOffset)
       .build()
 
@@ -1223,21 +1196,17 @@ object Generators {
         .build()
     )
 
-  // TODO(#26401) use setUpdateFormat
-  @nowarn("cat=deprecation")
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
       beginExclusive <- Arbitrary.arbLong.arbitrary
       endInclusiveO <- Gen.option(Arbitrary.arbLong.arbitrary)
-      filter <- transactionFilterGen
-      verbose <- Arbitrary.arbBool.arbitrary
+      updateFormat <- updateFormatGen
     } yield {
       val partialBuilder = Request
         .newBuilder()
         .setBeginExclusive(beginExclusive)
-        .setFilter(filter)
-        .setVerbose(verbose)
+        .setUpdateFormat(updateFormat)
 
       val builder =
         endInclusiveO.fold(partialBuilder)(partialBuilder.setEndInclusive)

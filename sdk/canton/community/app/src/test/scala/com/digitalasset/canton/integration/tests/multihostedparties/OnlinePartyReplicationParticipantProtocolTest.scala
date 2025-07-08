@@ -7,6 +7,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, DbConfig}
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
@@ -23,11 +24,8 @@ import com.digitalasset.canton.integration.{
   HasCycleUtils,
   SharedEnvironment,
 }
-import com.digitalasset.canton.lifecycle.{
-  FutureUnlessShutdown,
-  PromiseUnlessShutdown,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.party.PartyReplicationTestInterceptorImpl
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantProcessor,
   PartyReplicationTargetParticipantProcessor,
@@ -36,12 +34,10 @@ import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 import scala.annotation.nowarn
-import scala.concurrent.blocking
 
 /** Objectives:
   *   - Test the behavior of the [[PartyReplicationSourceParticipantProcessor]] and
@@ -79,7 +75,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
-        (ConfigTransforms.unsafeEnableOnlinePartyReplication :+
+        (ConfigTransforms.unsafeEnableOnlinePartyReplication() :+
           // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
           //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
           //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
@@ -87,7 +83,11 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           ConfigTransforms.updateParticipantConfig("participant1")(
             _.focus(_.parameters.journalGarbageCollectionDelay)
               .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-          ))*
+          ) :+
+          // TODO(#25744): PartyReplicationTargetParticipantProcessor needs to update the in-memory lock state
+          //   along with the ActiveContractStore to prevent racy LockableStates internal consistency check failures
+          //   such as #26384. Until then, disable the "additional consistency checks".
+          ConfigTransforms.disableAdditionalConsistencyChecks)*
       )
       .withSetup { implicit env =>
         import env.*
@@ -178,12 +178,14 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       asyncExec("ping2")(tpClient.ping(sequencer1.id))
 
       val channelId = SequencerChannelId("channel1")
+      val requestId = TestHash.build.add("OnlinePartyReplicationParticipantProtocolTest").finish()
 
       def noOpProgressAndCompletionCallback[T]: T => Unit = _ => ()
 
       val sourceProcessor = PartyReplicationSourceParticipantProcessor(
         daId,
         alice,
+        requestId,
         partyToTargetParticipantEffectiveAt,
         Set.empty,
         sourceParticipant.testing.state_inspection.getAcsInspection(daId).value,
@@ -197,33 +199,24 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val connectedSynchronizer =
         targetParticipant.underlying.value.sync.connectedSynchronizerForAlias(daName).value
 
-      // A promise blocks OnPR temporarily until the transactions have been run concurrently to OnPR.
-      val promiseWhenConcurrentTransactionsSubmitted = PromiseUnlessShutdown.unsupervised[Unit]()
+      // This flag, when set to true will unblock the target participant processor.
+      var canTargetParticipantProceed: Boolean = false
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
         alice,
+        requestId,
         partyToTargetParticipantEffectiveAt,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
-        { (firstContractOrdinal, _) =>
-          if (firstContractOrdinal.unwrap == 4) {
-            logger.debug(
-              s"Block replication of batch beginning at ordinal $firstContractOrdinal until concurrent transactions are submitted"
-            )
-            blocking {
-              timeouts.default.awaitUS_("Block Target Participant Processor for test")(
-                promiseWhenConcurrentTransactionsSubmitted.futureUS
-              )
-            }
-            logger.debug(s"Unblocked replication of $firstContractOrdinal")
-          }
-          EitherTUtil.unitUS
-        },
         targetParticipant.underlying.value.sync.participantNodePersistentState,
         connectedSynchronizer,
         futureSupervisor,
         exitOnFatalFailures = true,
         timeouts,
         loggerFactory,
+        PartyReplicationTestInterceptorImpl
+          .targetParticipantProceedsIf(
+            canTargetParticipantProceed || _.processedContractsCount.get().unwrap < 4
+          ),
       )
 
       val sessionKeyOwner = true
@@ -287,8 +280,10 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         )
       }
 
-      // Succeed the promise now that concurrent transactions have been submitted.
-      promiseWhenConcurrentTransactionsSubmitted.trySuccess(UnlessShutdown.Outcome(()))
+      // Set the flag and wake up the target participant processor to resume OnPR.
+      logger.info("Unblocking the target participant processor")
+      canTargetParticipantProceed = true
+      targetProcessor.progressPartyReplication()
 
       clue(s"Creating contract $lastContractIndex")(
         createCycleContract(

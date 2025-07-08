@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.store.AcsInspection.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.messages.HasSynchronizerId
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, SerializableContract}
 import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
@@ -61,11 +61,11 @@ class AcsInspection(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[
-    Map[LfContractId, SerializableContract]
+    Map[LfContractId, ContractInstance]
   ] =
     contractStore.findWithPayload(contractIds).map { contracts =>
       contracts.view.map { case (cid, contract) =>
-        cid -> contract.serializable
+        cid -> contract
       }.toMap
     }
 

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
@@ -30,6 +31,8 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     loggerFactory,
     crashOnFailure = exitOnFatalFailures,
   )
+
+  protected def testOnlyInterceptor: PartyReplicationTestInterceptor
 
   /** Single point of entry for progress monitoring and advancing party replication.
     */
