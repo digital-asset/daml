@@ -337,7 +337,7 @@ jobs:
       - bash: |
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
-          sha=$(git rev-parse origin/$branch)
+          sha=$(git rev-parse origin/main)
           az pipelines run --org "https://dev.azure.com/digitalasset" \
                             --project daml \
                             --name "snapshot" \
