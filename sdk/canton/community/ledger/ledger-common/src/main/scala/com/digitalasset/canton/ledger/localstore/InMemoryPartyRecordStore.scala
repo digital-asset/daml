@@ -214,7 +214,7 @@ class InMemoryPartyRecordStore(
   private def withState[T](t: => T): Future[T] =
     blocking(
       state.synchronized(
-        Future(t)
+        Future.successful(t)
       )
     )
 
