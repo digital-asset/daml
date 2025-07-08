@@ -6,8 +6,6 @@ module DA.Daml.LF.Proto3.EncodeTest (
 ) where
 
 import           Control.Monad.State.Strict
-import           Data.Int
-import qualified Data.Text                                as T
 import qualified Data.Text.Lazy                           as TL
 import qualified Data.Vector                              as V
 
@@ -15,8 +13,10 @@ import           DA.Daml.LF.Proto3.EncodeV2
 
 
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Proto3.Util
+
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
-import qualified Proto3.Suite                             as P (Enumerated (..))
+
 
 import           Test.Tasty.HUnit                               (Assertion, testCase, (@?=))
 import           Test.Tasty
@@ -140,7 +140,7 @@ typeInterningVar =
   let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tvar "a"
   in  testCase "tvar a" $ do
       pt @?= ptinterned 0
-      iTypes V.! 0 @?= (liftT $ P.TypeSumVar $ P.Type_Var 0 V.empty)
+      iTypes V.! 0 @?= (pliftT $ P.TypeSumVar $ P.Type_Var 0 V.empty)
       iStrings V.! 0 @?= "a"
 
 typeInterningMaybeUnit :: TestTree
@@ -202,7 +202,7 @@ typeInterningTNat =
   let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ TNat $ typeLevelNat (16 :: Int)
   in  testCase "tnat 16" $ do
       pt @?= ptinterned 0
-      (iTypes V.! 0) @?= (liftT $ P.TypeSumNat 16)
+      (iTypes V.! 0) @?= (pliftT $ P.TypeSumNat 16)
 
 typeInterningAssertSharing :: TestTree
 typeInterningAssertSharing =
@@ -211,105 +211,3 @@ typeInterningAssertSharing =
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit
       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
-
-------------------------------------------------------------------------
--- Lf AST helpers
-------------------------------------------------------------------------
-tvar :: T.Text -> Type
-tvar = TVar . TypeVarName
-
-tunit :: Type
-tunit = TBuiltin BTUnit
-
-tint :: Type
-tint = TBuiltin BTInt64
-
-tbool :: Type
-tbool = TBuiltin BTBool
-
-tyLamTyp :: Type
-tyLamTyp = TForall (a, typToTyp) (TVar a :-> TVar a)
-  where
-    a = TypeVarName "a"
-    typToTyp = KArrow KStar KStar
-
-tcon :: T.Text -> Type
-tcon t = TCon $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeConName [t])
-
-tsyn :: T.Text -> [Type] -> Type
-tsyn t = TSynApp $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeSynName [t])
-
-ptconid :: Int32 -> P.TypeConId
-ptconid = P.TypeConId (Just $ P.ModuleId (Just id) 0)
-  where
-    id :: P.SelfOrImportedPackageId
-    id = P.SelfOrImportedPackageId $ Just sum
-
-    sum :: P.SelfOrImportedPackageIdSum
-    sum = P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-
-ptcon :: Int32 -> V.Vector P.Type -> P.Type
-ptcon i args = liftT $ P.TypeSumCon $ P.Type_Con (Just $ ptconid i) args
-
-ptsynid :: Int32 -> P.TypeSynId
-ptsynid = P.TypeSynId (Just $ P.ModuleId (Just id) 0)
-  where
-    id :: P.SelfOrImportedPackageId
-    id = P.SelfOrImportedPackageId $ Just sum
-
-    sum :: P.SelfOrImportedPackageIdSum
-    sum = P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-
-ptsyn :: Int32 -> V.Vector P.Type -> P.Type
-ptsyn i args = liftT $ P.TypeSumSyn $ P.Type_Syn (Just (ptsynid i)) args
-
-tmaybe :: Type -> Type
-tmaybe = TApp (tcon "Maybe")
-
-------------------------------------------------------------------------
--- Proto AST helpers
-------------------------------------------------------------------------
-
--- kinds
-liftK :: P.KindSum -> P.Kind
-liftK = P.Kind . Just
-
-pkstar :: P.Kind
-pkstar = (liftK . P.KindSumStar) P.Unit
-
-pknat :: P.Kind
-pknat = (liftK . P.KindSumNat) P.Unit
-
-pkarr :: P.Kind -> P.Kind -> P.Kind
-pkarr k1 k2 = liftK $ P.KindSumArrow $ P.Kind_Arrow (V.singleton k1) (Just k2)
-
-pkinterned :: Int32 -> P.Kind
-pkinterned = liftK . P.KindSumInterned
-
--- types
-liftT :: P.TypeSum -> P.Type
-liftT = P.Type . Just
-
-pbuiltin :: P.BuiltinType -> P.Type
-pbuiltin bit = liftT $ P.TypeSumBuiltin $ P.Type_Builtin (P.Enumerated $ Right bit) V.empty
-
-ptunit :: P.Type
-ptunit = pbuiltin P.BuiltinTypeUNIT
-
-ptint :: P.Type
-ptint = pbuiltin P.BuiltinTypeINT64
-
-ptbool :: P.Type
-ptbool = pbuiltin P.BuiltinTypeBOOL
-
-ptarr :: P.Type -> P.Type -> P.Type
-ptarr t1 t2 = liftT $ P.TypeSumBuiltin $ P.Type_Builtin (P.Enumerated $ Right P.BuiltinTypeARROW) (V.fromList [t1, t2])
-
-ptinterned :: Int32 -> P.Type
-ptinterned = liftT . P.TypeSumInterned
-
-ptforall :: Int32 -> P.Kind -> P.Type -> P.Type
-ptforall a k t = liftT $ P.TypeSumForall $ P.Type_Forall (V.singleton $ P.TypeVarWithKind a (Just k)) (Just t)
-
-ptstructSingleton :: Int32 -> P.Type -> P.Type
-ptstructSingleton i t = liftT $ P.TypeSumStruct $ P.Type_Struct $ V.singleton $ P.FieldWithType i (Just t)

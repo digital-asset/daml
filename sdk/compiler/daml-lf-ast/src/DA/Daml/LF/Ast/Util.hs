@@ -459,6 +459,39 @@ instance Show UpgradingDep where
       Just udPackageVersion -> " (v" <> show udPackageVersion <> ")"
       Nothing -> mempty
 
+------------------------------------------------------------------------
+-- Shorthands
+------------------------------------------------------------------------
+
+-- Types
+tvar :: T.Text -> Type
+tvar = TVar . TypeVarName
+
+tunit :: Type
+tunit = TBuiltin BTUnit
+
+tint :: Type
+tint = TBuiltin BTInt64
+
+tbool :: Type
+tbool = TBuiltin BTBool
+
+tyLamTyp :: Type
+tyLamTyp = TForall (a, typToTyp) (TVar a :-> TVar a)
+  where
+    a = TypeVarName "a"
+    typToTyp = KArrow KStar KStar
+
+tcon :: T.Text -> Type
+tcon t = TCon $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeConName [t])
+
+tsyn :: T.Text -> [Type] -> Type
+tsyn t = TSynApp $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeSynName [t])
+
+tmaybe :: Type -> Type
+tmaybe = TApp (tcon "Maybe")
+
+-- Modules
 mkEmptyModule :: Module
 mkEmptyModule = Module{..}
   where
@@ -481,6 +514,7 @@ mkEmptyModule = Module{..}
     moduleInterfaces :: (NM.NameMap DefInterface)
     moduleInterfaces = NM.empty
 
+-- Packages
 mkOneModulePackage :: Module -> Package
 mkOneModulePackage m = Package{..}
   where
