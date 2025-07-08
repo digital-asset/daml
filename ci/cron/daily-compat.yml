@@ -202,7 +202,6 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh canton
                   open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
-                  echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
                                            --org "https://dev.azure.com/digitalasset" \
