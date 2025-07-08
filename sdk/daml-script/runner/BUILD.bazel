@@ -58,6 +58,7 @@ da_scala_library(
         "//canton:base_daml-tls",
         "//canton:base_errors",
         "//canton:base_grpc-utils",
+        "//canton:bindings-java",
         "//canton:community_base_proto_scala",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-observability",
