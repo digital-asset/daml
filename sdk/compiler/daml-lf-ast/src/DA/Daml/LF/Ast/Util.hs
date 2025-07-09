@@ -468,19 +468,19 @@ tvar :: T.Text -> Type
 tvar = TVar . TypeVarName
 
 tyLamTyp :: Type
-tyLamTyp = TForall (a, typToTyp) (TVar a :-> TVar a)
+tyLamTyp = TForall (a, typToTyp) (tvar "a" :-> tvar "a")
   where
     a = TypeVarName "a"
     typToTyp = KArrow KStar KStar
 
-tcon :: T.Text -> Type
-tcon t = TCon $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeConName [t])
+tconTest :: T.Text -> Type
+tconTest t = TCon $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeConName [t])
 
-tsyn :: T.Text -> [Type] -> Type
-tsyn t = TSynApp $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeSynName [t])
+tsynTest :: T.Text -> [Type] -> Type
+tsynTest t = TSynApp $ Qualified SelfPackageId (ModuleName ["Main"]) (TypeSynName [t])
 
-tmaybe :: Type -> Type
-tmaybe = TApp (tcon "Maybe")
+tmyFuncTest :: Type -> Type
+tmyFuncTest = TApp (tconTest "MyFunc")
 
 -- Modules
 mkEmptyModule :: Module

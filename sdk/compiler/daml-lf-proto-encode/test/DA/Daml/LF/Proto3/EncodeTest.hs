@@ -145,8 +145,8 @@ typeInterningVar =
 
 typeInterningMaybeUnit :: TestTree
 typeInterningMaybeUnit =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tmaybe TUnit
-  in  testCase "Maybe ()" $ do
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tmyFuncTest TUnit
+  in  testCase "MyFunc ()" $ do
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
       iTypes V.! 1 @?= ptcon 1 (V.singleton $ ptinterned 0)
@@ -155,7 +155,7 @@ typeInterningMaybeUnit =
 
 typeInterningMaybeSyn :: TestTree
 typeInterningMaybeSyn =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tsyn "MaybeSyn" [TUnit]
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tsynTest "MaybeSyn" [TUnit]
   in  testCase "MaybeSyn ()" $ do
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
