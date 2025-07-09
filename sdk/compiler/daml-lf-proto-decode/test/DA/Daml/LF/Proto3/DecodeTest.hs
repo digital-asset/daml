@@ -6,12 +6,12 @@ module DA.Daml.LF.Proto3.DecodeTest (
 ) where
 
 
-import           Data.Int
 import qualified Data.Vector                              as V
 
 import           DA.Daml.LF.Proto3.DecodeV2
 
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Proto3.Util
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import           Test.Tasty.HUnit
@@ -76,22 +76,4 @@ decInterningStarToStar =
   in  testCase "star to star" $ either
         (\err -> assertFailure $ "Unexpected error: " ++ show err)
         (\k -> k @=? KArrow KStar KStar)
-        (runDecode env (decodeKind (interned 0)))
-
-------------------------------------------------------------------------
--- Proto Ast helpers
-------------------------------------------------------------------------
-pkstar :: P.Kind
-pkstar = (P.Kind . Just . P.KindSumStar) P.Unit
-
-pknat :: P.Kind
-pknat = (P.Kind . Just . P.KindSumNat) P.Unit
-
-pkarr :: P.Kind -> P.Kind -> P.Kind
-pkarr k1 k2 = (P.Kind . Just) (pkarr' k1 k2)
-
-pkarr' :: P.Kind -> P.Kind -> P.KindSum
-pkarr' k1 k2 = P.KindSumArrow $ P.Kind_Arrow (V.singleton k1) (Just k2)
-
-interned :: Int32 -> P.Kind
-interned = P.Kind . Just . P.KindSumInterned
+        (runDecode env (decodeKind (pkinterned 0)))

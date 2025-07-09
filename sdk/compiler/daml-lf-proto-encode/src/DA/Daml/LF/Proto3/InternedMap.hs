@@ -12,7 +12,7 @@ here, we can be sure the Num and Map are not modified externally.
 -}
 
 module DA.Daml.LF.Proto3.InternedMap (
-  InternedMap, internState, toVec, empty, extend
+  InternedMap, internState, toVec, empty
   ) where
 
 import           Control.Monad.State.Strict
@@ -39,18 +39,13 @@ toVec (InternedMap mp n) =
     then vec
     else error "internedKinds of incorrect length"
 
-extend :: val -> InternedMap val key -> (InternedMap val key, key)
-extend x (InternedMap mp n) =
-  if n == maxBound
-  then error "Interning table grew too large"
-  else (InternedMap (Map.insert x n mp) (n + 1), n)
-
 internState :: val -> State (InternedMap val key) key
 internState x = do
-  im@(InternedMap mp _) <- get
+  (InternedMap mp n) <- get
   case x `Map.lookup` mp of
-    Just n -> return n
-    Nothing -> do
-      let (mp', n') = extend x im
-      put mp'
-      return n'
+    Just m -> return m
+    Nothing -> if n == maxBound
+      then error "Interning table grew too large"
+      else do
+        put $ InternedMap (Map.insert x n mp) (n + 1)
+        return n

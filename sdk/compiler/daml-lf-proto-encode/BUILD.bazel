@@ -64,6 +64,8 @@ da_haskell_test(
         "mtl",
         "tasty",
         "tasty-hunit",
+        "proto3-suite",
+        "text",
         "vector",
     ],
     main_function = "DA.Daml.LF.Proto3.EncodeTest.entry",
@@ -72,6 +74,7 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode:daml-lf-proto-encode-internal",
+        "//compiler/daml-lf-proto-util",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
