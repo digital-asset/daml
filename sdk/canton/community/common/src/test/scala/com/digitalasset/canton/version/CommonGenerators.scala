@@ -16,7 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol as Generat
 import com.digitalasset.canton.topology.GeneratorsTopology
 import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
 
-final class AllGenerators(protocolVersion: ProtocolVersion) {
+final class CommonGenerators(protocolVersion: ProtocolVersion) {
   lazy val topology = new GeneratorsTopology(protocolVersion)
   lazy val generatorsSequencing = new GeneratorsSequencing(topology)
   lazy val lf = new GeneratorsLf(topology)

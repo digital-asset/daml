@@ -4,6 +4,7 @@
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
+import com.digitalasset.canton.Generators.boundedListGen
 import com.digitalasset.canton.fetchcontracts.Offset
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -77,8 +78,8 @@ object ContractStreamStepTest {
 
   private val validStreamGen: Gen[Seq[CSS]] = for {
     beforeAfter <- Gen.zip(
-      Gen.containerOf[Vector, CSS](acsGen),
-      Gen.containerOf[Vector, CSS](txnGen),
+      boundedListGen(acsGen),
+      boundedListGen(txnGen),
     )
     (acsSeq, txnSeq) = beforeAfter
     liveBegin <- if (acsSeq.isEmpty) noAcsLBGen else postAcsGen

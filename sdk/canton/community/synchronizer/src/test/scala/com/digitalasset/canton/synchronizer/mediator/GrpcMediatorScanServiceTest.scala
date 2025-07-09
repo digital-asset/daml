@@ -24,7 +24,7 @@ import com.digitalasset.canton.time.TimeAwaiter
 import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.version.AllGenerators
+import com.digitalasset.canton.version.CommonGenerators
 import io.grpc.stub.ServerCallStreamObserver
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -33,7 +33,7 @@ import scala.concurrent.{Future, Promise}
 import scala.util.Random
 
 class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
-  private lazy val generators = new AllGenerators(testedProtocolVersion)
+  private lazy val generators = new CommonGenerators(testedProtocolVersion)
 
   // use our generators to generate a random full informee tree
   private val fullInformeeTree =

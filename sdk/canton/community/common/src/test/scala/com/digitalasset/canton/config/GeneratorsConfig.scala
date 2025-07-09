@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config.CantonRequireTypes.{String185, String255, String68}
+import com.digitalasset.canton.config.CantonRequireTypes.{String185, String255, String300, String68}
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.{Generators, config}
 import org.scalacheck.{Arbitrary, Gen}
@@ -37,6 +37,9 @@ object GeneratorsConfig {
   )
   implicit val string255Arb: Arbitrary[String255] = Arbitrary(
     Generators.lengthLimitedStringGen(String255)
+  )
+  implicit val string300Arb: Arbitrary[String300] = Arbitrary(
+    Generators.lengthLimitedStringGen(String300)
   )
 
   implicit val configNonNegativeFiniteDurationArb: Arbitrary[config.NonNegativeFiniteDuration] =

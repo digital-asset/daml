@@ -35,6 +35,7 @@ import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
+  ProtocolVersionValidation,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
   VersioningCompanion,
@@ -75,10 +76,10 @@ final case class ClosedEnvelope private (
           }
       case Some(signaturesNE) =>
         TypedSignedProtocolMessageContent
-          .fromByteStringPV(protocolVersion, bytes)
+          .fromByteStringPVV(ProtocolVersionValidation.PV(protocolVersion), bytes)
           .map { typedMessage =>
             OpenEnvelope(
-              SignedProtocolMessage(typedMessage, signaturesNE, protocolVersion),
+              SignedProtocolMessage(typedMessage, signaturesNE),
               recipients,
             )(protocolVersion)
           }

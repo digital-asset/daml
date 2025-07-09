@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.admin.version
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.admin.data.{ActiveContractOld, GeneratorsData}
 import com.digitalasset.canton.version.{
-  AllGenerators,
+  CommonGenerators,
   ProtocolVersion,
   SerializationDeserializationTestHelpers,
 }
@@ -20,7 +20,7 @@ class SerializationDeserializationTest
     with SerializationDeserializationTestHelpers {
 
   forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
-    val generators = new AllGenerators(version)
+    val generators = new CommonGenerators(version)
     val generatorsAdminData = new GeneratorsData(version, generators.protocol, generators.topology)
     import generatorsAdminData.*
 

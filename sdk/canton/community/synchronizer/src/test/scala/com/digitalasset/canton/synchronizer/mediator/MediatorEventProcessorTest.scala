@@ -137,9 +137,8 @@ class MediatorEventProcessorTest
     )
 
     val message = SignedProtocolMessage(
-      TypedSignedProtocolMessageContent(confirmationResponses, testedProtocolVersion),
+      TypedSignedProtocolMessageContent(confirmationResponses),
       NonEmpty(Seq, SymbolicCrypto.emptySignature),
-      testedProtocolVersion,
     )
     mkDefaultOpenEnvelope(message)
   }

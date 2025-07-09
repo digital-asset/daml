@@ -1215,7 +1215,7 @@ object DebuggingHelpers extends LazyLogging {
 
   private def get_active_contracts_helper(
       ref: ParticipantReference,
-      lookup: SynchronizerAlias => Seq[(Boolean, SerializableContract)],
+      lookup: SynchronizerAlias => Seq[(Boolean, ContractInstance)],
   ): (Map[String, String], Map[String, TemplateId]) = {
     val syncAcs = ref.synchronizers
       .list_connected()
@@ -1223,7 +1223,7 @@ object DebuggingHelpers extends LazyLogging {
       .flatMap(lookup)
       .collect {
         case (active, sc) if active =>
-          (sc.contractId.coid, sc.contractInstance.unversioned.template.qualifiedName.toString())
+          (sc.contractId.coid, sc.templateId.qualifiedName.toString())
       }
       .toMap
     val lapiAcs =

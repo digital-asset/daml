@@ -17,7 +17,9 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.store.AcsInspection
+import com.digitalasset.canton.participant.store.AcsInspectionError.SerializationIssue
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
@@ -212,21 +214,28 @@ final class PartyReplicationSourceParticipantProcessor private (
           psid.logical,
           Set(partyId.toLf),
           Some(TimeOfChange(activeAfter.immediateSuccessor)),
-        ) { case (contract, reassignmentCounter) =>
-          val stakeholdersHostedByTargetParticipant =
-            contract.metadata.stakeholders.intersect(otherPartiesHostedByTargetParticipant)
-          if (stakeholdersHostedByTargetParticipant.isEmpty) {
-            contracts += ActiveContractOld.create(psid.logical, contract, reassignmentCounter)(
-              protocolVersion
+        ) { case (contractInst, reassignmentCounter) =>
+          SerializableContract
+            .fromLfFatContractInst(contractInst.inst)
+            .bimap(
+              err => SerializationIssue(psid.logical, contractInst.contractId, err),
+              contract => {
+                val stakeholdersHostedByTargetParticipant =
+                  contract.metadata.stakeholders.intersect(otherPartiesHostedByTargetParticipant)
+                if (stakeholdersHostedByTargetParticipant.isEmpty) {
+                  contracts += ActiveContractOld
+                    .create(psid.logical, contract, reassignmentCounter)(
+                      protocolVersion
+                    )
+                } else {
+                  // Skip contracts already hosted by the target participant.
+                  logger.debug(
+                    s"Skipping contract ${contract.contractId} as it is already hosted by ${stakeholdersHostedByTargetParticipant
+                        .mkString(", ")} on the target participant between contract ordinals $fromInclusive and $toInclusive}"
+                  )
+                }
+              },
             )
-          } else {
-            // Skip contracts already hosted by the target participant.
-            logger.debug(
-              s"Skipping contract ${contract.contractId} as it is already hosted by ${stakeholdersHostedByTargetParticipant
-                  .mkString(", ")} on the target participant between contract ordinals $fromInclusive and $toInclusive}"
-            )
-          }
-          Right(())
         }(traceContext, executionContext)
         .bimap(
           _.toString,

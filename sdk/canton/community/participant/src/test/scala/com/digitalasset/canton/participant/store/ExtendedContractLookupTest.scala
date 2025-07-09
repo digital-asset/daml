@@ -22,7 +22,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
       Either.unit
     override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = Either.unit
     override def verifyMetadata(
-        contract: SerializableContract,
+        contract: ContractInstance,
         metadata: ContractMetadata,
     ): Either[String, Unit] = Either.unit
   }

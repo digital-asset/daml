@@ -12,11 +12,12 @@ import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
+import com.digitalasset.canton.protocol.ContractInstance.driverContractMetadata
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{admin, crypto, protocol}
-import com.digitalasset.daml.lf.transaction.CreationTime
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
@@ -139,9 +140,6 @@ object SerializableContract
         )
       )
 
-  def fromFatContract(fat: LfFatContractInst): Either[String, SerializableContract] =
-    ContractInstance(fat).map(_.serializable)
-
   def fromProtoV30(
       serializableContractInstanceP: protocol.v30.SerializableContract
   ): ParsingResult[SerializableContract] = {
@@ -224,5 +222,27 @@ object SerializableContract
       ledgerCreateTime,
       contractSalt,
     )
+
+  def fromLfFatContractInst(inst: LfFatContractInst): Either[String, SerializableContract] =
+    for {
+      _ <- CantonContractIdVersion
+        .extractCantonContractIdVersion(inst.contractId)
+        .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
+      salt <- driverContractMetadata(inst).map(_.salt)
+      metadata <- ContractMetadata.create(
+        signatories = inst.signatories,
+        stakeholders = inst.stakeholders,
+        maybeKeyWithMaintainersVersioned =
+          inst.contractKeyWithMaintainers.map(Versioned(inst.version, _)),
+      )
+      serializable <- SerializableContract(
+        contractId = inst.contractId,
+        contractInstance = inst.toCreateNode.versionedCoinst,
+        metadata = metadata,
+        ledgerTime = CantonTimestamp(inst.createdAt.time),
+        contractSalt = salt,
+      ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
+
+    } yield serializable
 
 }

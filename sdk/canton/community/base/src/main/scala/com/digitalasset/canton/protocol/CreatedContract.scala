@@ -97,14 +97,14 @@ object CreatedContract {
   *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContractInView(
-    contract: SerializableContract,
+    contract: ContractInstance,
     consumedInView: Boolean,
     rolledBack: Boolean,
 )
 object CreatedContractInView {
   def fromCreatedContract(created: CreatedContract): CreatedContractInView =
     CreatedContractInView(
-      created.contract.serializable,
+      created.contract,
       consumedInView = created.consumedInCore,
       created.rolledBack,
     )

@@ -71,7 +71,6 @@ import com.digitalasset.canton.protocol.{
   AcsCommitmentsCatchUpParameters,
   ContractInstance,
   LfContractId,
-  SerializableContract,
 }
 import com.digitalasset.canton.pruning.{
   ConfigForNoWaitCounterParticipants,
@@ -1646,7 +1645,7 @@ class AcsCommitmentProcessor private (
         signedCmtMsgs <- EitherT.right(
           msgsFiltered.parTraverse { case (participant, commitment) =>
             SignedProtocolMessage
-              .trySignAndCreate(commitment, cryptoSnapshot, protocolVersion)
+              .trySignAndCreate(commitment, cryptoSnapshot)
               .map(_ -> Recipients.cc(participant))
           }
         )
@@ -2433,12 +2432,9 @@ object AcsCommitmentProcessor extends HasLoggerName {
       namedLoggingContext: NamedLoggingContext,
   ): FutureUnlessShutdown[Unit] = {
 
-    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[ContractInstance]] =
       contractStore
         .lookupManyExistingUncached(cids)(namedLoggingContext.traceContext)
-        .map(
-          _.map(_.serializable)
-        ) // TODO(#26348) - use fat contract downstream
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(
@@ -2461,7 +2457,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.metadata.stakeholders,
+                  c.stakeholders,
                   activations(c.contractId),
                 )
             )

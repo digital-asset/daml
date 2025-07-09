@@ -41,7 +41,6 @@ trait DbAcsCommitmentStoreTest extends AcsCommitmentStoreTest { this: DbTest =>
         storage,
         IndexedSynchronizer.tryCreate(synchronizerId, 1),
         new DbAcsCommitmentConfigStore(storage, timeouts, loggerFactory),
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       )(ec)
@@ -68,7 +67,6 @@ trait DbIncrementalCommitmentStoreTest extends IncrementalCommitmentStoreTest { 
       new DbIncrementalCommitmentStore(
         storage,
         IndexedSynchronizer.tryCreate(synchronizerId, 1),
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       )(ec)

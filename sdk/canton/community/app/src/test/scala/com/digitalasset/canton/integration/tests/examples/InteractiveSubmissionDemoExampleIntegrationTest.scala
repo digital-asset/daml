@@ -16,7 +16,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.c
 }
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
-import com.digitalasset.canton.version.{AllGenerators, HashingSchemeVersion}
+import com.digitalasset.canton.version.{CommonGenerators, HashingSchemeVersion}
 import monocle.macros.syntax.lens.*
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
@@ -29,7 +29,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     with CommunityIntegrationTest
     with ScalaCheckPropertyChecks {
 
-  private lazy val generators = new AllGenerators(testedProtocolVersion)
+  private lazy val generators = new CommonGenerators(testedProtocolVersion)
   private lazy val generatorsInteractiveSubmission =
     new GeneratorsInteractiveSubmission(generators.lf, generators.topology)
 

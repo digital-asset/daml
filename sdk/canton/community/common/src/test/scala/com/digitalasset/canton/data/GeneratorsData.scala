@@ -59,7 +59,7 @@ final class GeneratorsData(
   )
 
   implicit val viewPositionArb: Arbitrary[ViewPosition] = Arbitrary(
-    Gen.listOf(merklePathElementArg.arbitrary).map(ViewPosition(_))
+    boundedListGen[MerklePathElement].map(ViewPosition(_))
   )
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
@@ -126,11 +126,9 @@ final class GeneratorsData(
 
   implicit val viewConfirmationParametersArb: Arbitrary[ViewConfirmationParameters] = Arbitrary(
     for {
-      informees <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      viewConfirmationParameters <-
-        Gen
-          .containerOf[Seq, Quorum](Arbitrary.arbitrary[Quorum](quorumArb(informees.toSeq)))
-          .map(ViewConfirmationParameters.tryCreate(informees, _))
+      informees <- boundedSetGen[LfPartyId]
+      viewConfirmationParameters <- boundedListGen(quorumArb(informees.toSeq).arbitrary)
+        .map(ViewConfirmationParameters.tryCreate(informees, _))
     } yield viewConfirmationParameters
   )
 
@@ -183,13 +181,13 @@ final class GeneratorsData(
 
       interfaceId <- Gen.option(Arbitrary.arbitrary[LfInterfaceId])
 
-      packagePreference <- Gen.containerOf[Set, LfPackageId](Arbitrary.arbitrary[LfPackageId])
+      packagePreference <- boundedSetGen[LfPackageId]
 
       // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
       chosenValue <- Gen.long.map(ValueInt64.apply)
       version <- Arbitrary.arbitrary[LfLanguageVersion]
 
-      actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      actors <- boundedSetGen[LfPartyId]
       seed <- Arbitrary.arbitrary[LfHash]
       byKey <- Gen.oneOf(true, false)
       failed <- Gen.oneOf(true, false)
@@ -213,7 +211,7 @@ final class GeneratorsData(
   ): Gen[FetchActionDescription] =
     for {
       inputContractId <- Arbitrary.arbitrary[LfContractId]
-      actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      actors <- boundedSetGen[LfPartyId]
       byKey <- Gen.oneOf(true, false)
       templateId <- Arbitrary.arbitrary[LfTemplateId]
       interfaceId <- Gen.option(Arbitrary.arbitrary[LfInterfaceId])
@@ -248,7 +246,7 @@ final class GeneratorsData(
   }
 
   private implicit val freeKeyArb: Arbitrary[FreeKey] = Arbitrary(for {
-    maintainers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+    maintainers <- boundedSetGen[LfPartyId]
   } yield FreeKey(maintainers))
 
   implicit val viewParticipantDataArb: Arbitrary[ViewParticipantData] = Arbitrary(
@@ -270,13 +268,12 @@ final class GeneratorsData(
               )
               .map(InputContract.apply tupled)
 
-            others <- Gen
-              .listOf(
-                Gen.zip(
-                  generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
-                  Gen.oneOf(true, false),
-                )
+            others <- boundedListGen(
+              Gen.zip(
+                generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
+                Gen.oneOf(true, false),
               )
+            )
               .map(_.map(InputContract.apply tupled))
           } yield (c +: others).groupBy(_.contractId).flatMap { case (_, contracts) =>
             contracts.headOption
@@ -316,14 +313,13 @@ final class GeneratorsData(
             }
 
         case _: ExerciseActionDescription =>
-          Gen
-            .listOf(
-              Gen.zip(
-                generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
-                Gen.oneOf(true, false),
-                Gen.oneOf(true, false),
-              )
+          boundedListGen(
+            Gen.zip(
+              generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
+              Gen.oneOf(true, false),
+              Gen.oneOf(true, false),
             )
+          )
             .map(_.map(CreatedContract.tryCreate tupled))
             // Deduplicating on contract id
             .map(
@@ -337,10 +333,7 @@ final class GeneratorsData(
 
       notTransient = (createdCore.map(_.contract.contractId) ++ coreInputs.map(_.contractId)).toSet
 
-      createdInSubviewArchivedInCore <- Gen
-        .containerOf[Set, LfContractId](
-          Arbitrary.arbitrary[LfContractId]
-        )
+      createdInSubviewArchivedInCore <- boundedSetGen[LfContractId]
         // createdInSubviewArchivedInCore and notTransient should be disjoint
         .map(_ -- notTransient)
 
@@ -363,10 +356,7 @@ final class GeneratorsData(
         case _: CreateActionDescription | _: FetchActionDescription => Gen.const(List.empty)
 
         case _: ExerciseActionDescription =>
-          Gen.listOf(
-            Gen
-              .zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[LfVersioned[FreeKey]])
-          )
+          boundedListGen[(LfGlobalKey, LfVersioned[FreeKey])]
 
         case LookupByKeyActionDescription(key) =>
           Arbitrary.arbitrary[LfVersioned[FreeKey]].map(res => List(key.unversioned -> res))
@@ -481,7 +471,7 @@ final class GeneratorsData(
   implicit val merkleSeqArb: Arbitrary[MerkleSeq[VersionedMerkleTree[?]]] =
     Arbitrary(
       for {
-        submitterMetadataSeq <- Gen.listOf(submitterMetadataArb.arbitrary)
+        submitterMetadataSeq <- boundedListGen[SubmitterMetadata]
       } yield MerkleSeq.fromSeq(TestHash, protocolVersion)(submitterMetadataSeq)
     )
 
@@ -528,7 +518,7 @@ final class GeneratorsData(
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
-      reassigningParticipants <- Arbitrary.arbitrary[Set[ParticipantId]]
+      reassigningParticipants <- boundedSetGen[ParticipantId]
 
       hashOps = TestHash // Not used for serialization
 
@@ -553,7 +543,7 @@ final class GeneratorsData(
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       stakeholders <- Arbitrary.arbitrary[Stakeholders]
-      reassigningParticipants <- Arbitrary.arbitrary[Set[ParticipantId]]
+      reassigningParticipants <- boundedSetGen[ParticipantId]
 
       uuid <- Gen.uuid
 

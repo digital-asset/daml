@@ -1905,13 +1905,6 @@ object ProtocolProcessor {
     )
   }
 
-  // TODO(#26348) - only needed until ContractInstance is constructed upstream
-  final case class FailedToConstructInstance(error: String) extends ResultProcessingError {
-    override protected def pretty: Pretty[FailedToConstructInstance] = prettyOfClass(
-      param("error", _.error.unquoted)
-    )
-  }
-
   final case class DecisionTimeElapsed(requestId: RequestId, timestamp: CantonTimestamp)
       extends ResultProcessingError {
     override protected def pretty: Pretty[DecisionTimeElapsed] = prettyOfClass(

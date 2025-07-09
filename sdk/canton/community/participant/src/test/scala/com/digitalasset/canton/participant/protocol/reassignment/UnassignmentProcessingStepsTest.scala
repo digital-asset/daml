@@ -846,7 +846,6 @@ final class UnassignmentProcessingStepsTest
       .trySignAndCreate(
         reassignmentResult,
         cryptoSnapshot,
-        testedProtocolVersion,
       )
       .futureValueUS
 

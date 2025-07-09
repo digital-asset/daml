@@ -6,6 +6,8 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
+import cats.syntax.traverse.*
+import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -22,13 +24,13 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  ContractError,
   FieldConversionError,
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
 import com.digitalasset.canton.protocol.{
   CantonContractIdVersion,
-  DriverContractMetadata,
   LfNodeCreate,
   ReassignmentId,
   RootHash,
@@ -79,36 +81,41 @@ final case class AssignmentValidationResult(
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, SequencedUpdate] = {
-    val reassignment =
-      Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
-        val contract = reassign.contract
-        val contractInst = contract.inst
-        val createNode = LfNodeCreate(
-          coid = contract.contractId,
-          templateId = contractInst.templateId,
-          packageName = contractInst.packageName,
-          arg = contractInst.createArg,
-          signatories = contract.metadata.signatories,
-          stakeholders = contract.metadata.stakeholders,
-          keyOpt = contract.metadata.maybeKeyWithMaintainers,
-          version = contractInst.version,
-        )
-        val contractIdVersion =
-          CantonContractIdVersion.tryCantonContractIdVersion(contract.contractId)
-        val driverContractMetadata =
-          DriverContractMetadata(contract.serializable.contractSalt).toLfBytes(contractIdVersion)
-
-        Reassignment.Assign(
-          ledgerEffectiveTime = contract.inst.createdAt.time,
-          createNode = createNode,
-          contractMetadata = driverContractMetadata,
-          reassignmentCounter = reassign.counter.unwrap,
-          nodeId = idx,
-        )
-      })
-
+  ): Either[ReassignmentProcessorError, SequencedUpdate] =
     for {
+
+      reassignment <-
+        contracts.contracts.zipWithIndex.toNEF
+          .traverse { case (reassign, idx) =>
+            val contract = reassign.contract
+            val contractInst = contract.inst
+            val createNode = LfNodeCreate(
+              coid = contract.contractId,
+              templateId = contractInst.templateId,
+              packageName = contractInst.packageName,
+              arg = contractInst.createArg,
+              signatories = contract.metadata.signatories,
+              stakeholders = contract.metadata.stakeholders,
+              keyOpt = contract.metadata.maybeKeyWithMaintainers,
+              version = contractInst.version,
+            )
+            for {
+              driverContractMetadata <- contract.driverContractMetadata.leftMap(err =>
+                ContractError(err)
+              )
+              contractIdVersion <- CantonContractIdVersion
+                .extractCantonContractIdVersion(contract.contractId)
+                .leftMap(err => ContractError(err.toString))
+            } yield Reassignment.Assign(
+              ledgerEffectiveTime = contract.inst.createdAt.time,
+              createNode = createNode,
+              contractMetadata = driverContractMetadata.toLfBytes(contractIdVersion),
+              reassignmentCounter = reassign.counter.unwrap,
+              nodeId = idx,
+            )
+          }
+          .map(Reassignment.Batch(_))
+
       updateId <-
         rootHash.asLedgerTransactionId.leftMap[ReassignmentProcessorError](
           FieldConversionError(reassignmentId, "Transaction id (root hash)", _)
@@ -139,7 +146,6 @@ final case class AssignmentValidationResult(
       recordTime = recordTime,
       synchronizerId = targetSynchronizer.unwrap,
     )
-  }
 }
 
 object AssignmentValidationResult {

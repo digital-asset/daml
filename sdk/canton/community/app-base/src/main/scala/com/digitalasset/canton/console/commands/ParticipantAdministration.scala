@@ -64,7 +64,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -452,7 +452,7 @@ class LocalParticipantTestingGroup(
       // only include active contracts
       activeSet: Boolean = false,
       limit: PositiveInt = defaultLimit,
-  ): List[(Boolean, SerializableContract)] = {
+  ): List[(Boolean, ContractInstance)] = {
     def toOpt(str: String) = OptionUtil.emptyStringAsNone(str)
 
     val pcs = state_inspection
@@ -475,9 +475,9 @@ class LocalParticipantTestingGroup(
       filterTemplate: String = "",
       filterStakeholder: Option[PartyId] = None,
       limit: PositiveInt = defaultLimit,
-  ): List[SerializableContract] = {
-    val predicate = (c: SerializableContract) =>
-      filterStakeholder.forall(s => c.metadata.stakeholders.contains(s.toLf))
+  ): List[ContractInstance] = {
+    val predicate = (c: ContractInstance) =>
+      filterStakeholder.forall(s => c.stakeholders.contains(s.toLf))
 
     check(FeatureFlag.Testing) {
       pcs_search(
