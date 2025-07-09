@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Development.IDE.Core.Service.Daml(
+    ScriptName (..),
     VirtualResource(..),
     DamlEnv(..),
     mkDamlEnv,

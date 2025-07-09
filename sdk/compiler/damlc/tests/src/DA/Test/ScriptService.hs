@@ -10,6 +10,7 @@ import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
 import DA.Cli.Damlc.Test
+import DA.Cli.Damlc.Test.TestResults as TR
 import DA.Daml.Compiler.Dar (getDamlRootFiles)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
@@ -32,7 +33,7 @@ import Development.IDE.Core.Debouncer (noopDebouncer)
 import Development.IDE.Core.FileStore (makeVFSHandle, setBufferModified)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState, IdeState)
 import Development.IDE.Core.OfInterest (setFilesOfInterest)
-import Development.IDE.Core.RuleTypes.Daml (RunScripts (..), VirtualResource (..))
+import Development.IDE.Core.RuleTypes.Daml (RunScripts (..), ScriptName (..))
 import Development.IDE.Core.Rules.Daml (worldForFile)
 import Development.IDE.Core.Service (getDiagnostics, runActionSync, shutdown)
 import Development.IDE.Core.Shake (ShakeLspEnv(..), NotificationHandler(..), use)
@@ -142,13 +143,13 @@ testScriptService lfVersion getScriptService =
                       "  cid <- submit p (createCmd (T p 42))",
                       "  submit p (archiveCmd cid)"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "testCreate") $ \r ->
+                expectScriptSuccess rs "testCreate" $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: #0:0\n$"
-                expectScriptSuccess rs (vr "Test.daml" "testExercise") $ \r ->
+                expectScriptSuccess rs "testExercise" $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$"
-                expectScriptSuccess rs (vr "Test.daml" "testCreateAndExercise") $ \r ->
+                expectScriptSuccess rs "testCreateAndExercise" $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$"
-                expectScriptSuccess rs (vr "Test.daml" "testMulti") $ \r ->
+                expectScriptSuccess rs "testMulti" $ \r ->
                   matchRegex r $
                     T.unlines
                       [ "Active contracts: "
@@ -157,7 +158,7 @@ testScriptService lfVersion getScriptService =
                       , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                       , "    _1 = 23; _2 = 42"
                       ]
-                expectScriptSuccess rs (vr "Test.daml" "testArchive") $ \r ->
+                expectScriptSuccess rs "testArchive" $ \r ->
                   matchRegex r "'p' exercises Archive on #0:0",
               testCase "query" $
                 do
@@ -234,9 +235,9 @@ testScriptService lfVersion getScriptService =
                         "  sharedp2 <- query @TShared p2",
                         "  sortOn snd sharedp2 === [(cidSharedp1, TShared p1 p2), (cidSharedp2, TShared p2 p1)]"
                       ]
-                  expectScriptSuccess rs (vr "Test.daml" "testQueryInactive") $ \r ->
+                  expectScriptSuccess rs "testQueryInactive" $ \r ->
                     matchRegex r "Active contracts:  #0:0, #2:0\n\n"
-                  expectScriptSuccess rs (vr "Test.daml" "testQueryVisibility") $ \r ->
+                  expectScriptSuccess rs "testQueryVisibility" $ \r ->
                     matchRegex r "Active contracts:  #0:0, #1:0, #2:0, #3:0, #4:0\n\n"
                   pure (),
               testCase "submitMustFail" $ do
@@ -261,7 +262,7 @@ testScriptService lfVersion getScriptService =
                         "  cid <- submit p (createCmd (T p))",
                         "  pure ()"
                       ]
-                  expectScriptSuccess rs (vr "Test.daml" "testAssertFail") $ \r ->
+                  expectScriptSuccess rs "testAssertFail" $ \r ->
                     matchRegex r "Active contracts:  #0:0, #2:0\n\nReturn value: {}\n$"
                   pure (),
               testCase "time" $ do
@@ -303,21 +304,21 @@ testScriptService lfVersion getScriptService =
                       "  passTime (days (-1))",
                       "  submit p $ exerciseCmd cid Archive"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "testTime") $ \r ->
+                expectScriptSuccess rs "testTime" $ \r ->
                     matchRegex r $
                       T.unlines
                         [ "Return value:"
                         , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                         , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
-                expectScriptSuccess rs (vr "Test.daml" "testChoiceTime") $ \r ->
+                expectScriptSuccess rs "testChoiceTime" $ \r ->
                     matchRegex r $
                       T.unlines
                         [ "Return value:"
                         , "  DA\\.Types:Tuple2@[a-z0-9]+ with"
                         , "    _1 = 1970-01-01T00:00:00Z; _2 = 2000-02-02T00:01:02Z"
                         ]
-                expectScriptFailure rs (vr "Test.daml" "testPassTime") $ \r ->
+                expectScriptFailure rs "testPassTime" $ \r ->
                     matchRegex r "Attempt to fetch or exercise a contract not yet effective",
               testCase "partyManagement" $ do
                 rs <-
@@ -361,13 +362,13 @@ testScriptService lfVersion getScriptService =
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"hint\")",
                       "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "partyManagement") $ \r ->
+                expectScriptSuccess rs "partyManagement" $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-                expectScriptFailure rs (vr "Test.daml" "duplicateAllocateByHint") $ \r ->
+                expectScriptFailure rs "duplicateAllocateByHint" $ \r ->
                   matchRegex r "Tried to allocate a party that already exists: alice"
-                expectScriptSuccess rs (vr "Test.daml" "partyWithEmptyDisplayName") $ \r ->
+                expectScriptSuccess rs "partyWithEmptyDisplayName" $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-                expectScriptFailure rs (vr "Test.daml" "mismatchingNameAndHint") $ \r ->
+                expectScriptFailure rs "mismatchingNameAndHint" $ \r ->
                   matchRegex r "Requested name 'alice' cannot be different from id hint 'hint'",
               testCase "trace" $ do
                 rs <-
@@ -394,7 +395,7 @@ testScriptService lfVersion getScriptService =
                     , "  submit p (createAndExerciseCmd (T p) Failing)"
                     , "  pure ()"
                     ]
-                expectScriptFailure rs (vr "Test.daml" "testTrace") $ \r ->
+                expectScriptFailure rs "testTrace" $ \r ->
                   matchRegex r $ T.concat
                     [ "Trace: \n"
                     , "  \"logClient1\"\n"
@@ -432,9 +433,9 @@ testScriptService lfVersion getScriptService =
                     , "  p1 <- allocateParty \"p1\""
                     , "  submitMulti [p0] [p1] (createCmd (T p0 p1))"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "testSucceed") $ \r ->
+                expectScriptSuccess rs "testSucceed" $ \r ->
                   matchRegex r "Active contracts:  #2:0, #3:0"
-                expectScriptFailure rs (vr "Test.daml" "testFail") $ \r ->
+                expectScriptFailure rs "testFail" $ \r ->
                   matchRegex r "missing authorization from 'p1-[a-z0-9]+'",
               testCase "submitTree" $ do
                 rs <-
@@ -468,7 +469,7 @@ testScriptService lfVersion getScriptService =
                     , "  fromAnyTemplate c2.argument === Some (T p 2)"
                     , "  fromAnyTemplate c3.argument === Some (T p 3)"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "test") $ \r ->
+                expectScriptSuccess rs "test" $ \r ->
                   matchRegex r "Active contracts:",
               testCase "exceptions" $ do
                 rs <-
@@ -534,10 +535,10 @@ testScriptService lfVersion getScriptService =
                     , "  p <- allocateParty \"p\""
                     , "  submit p $ createAndExerciseCmd (Helper p) Fail"
                     ]
-                expectScriptSuccess rs (vr "Test.daml" "testActive") $ \r ->
+                expectScriptSuccess rs "testActive" $ \r ->
                   matchRegex r "Active contracts:  #0:0\n"
-                expectScriptFailure rs (vr "Test.daml" "unhandledOffLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
-                expectScriptFailure rs (vr "Test.daml" "unhandledOnLedger") $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
+                expectScriptFailure rs "unhandledOffLedger" $ \r -> matchRegex r "UNHANDLED_EXCEPTION"
+                expectScriptFailure rs "unhandledOnLedger" $ \r -> matchRegex r "UNHANDLED_EXCEPTION",
               testCase "user management" $ do
                 rs <- runScriptsInModule getIdeState
                   [ "module Test where"
@@ -617,9 +618,9 @@ testScriptService lfVersion getScriptService =
                   , "  expectUserNotFound (grantUserRights nonexistent [])"
                   , "  pure ()"
                   ]
-                expectScriptSuccess rs (vr "Test.daml" "testUserManagement") $ \r ->
+                expectScriptSuccess rs "testUserManagement" $ \r ->
                     matchRegex r "Active contracts: \n"
-                expectScriptSuccess rs (vr "Test.daml" "testUserRightManagement") $ \r ->
+                expectScriptSuccess rs "testUserRightManagement" $ \r ->
                     matchRegex r "Active contracts: \n",
               testCase "implicit party allocation" $ do
                 rs <- runScriptsInModule getIdeState
@@ -647,9 +648,9 @@ testScriptService lfVersion getScriptService =
                   , "  submit x $ createCmd (T x unallocated)"
                   , "  pure ()"
                   ]
-                expectScriptFailure rs (vr "Test.daml" "submitterNotAllocated") $ \r ->
+                expectScriptFailure rs "submitterNotAllocated" $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'"
-                expectScriptFailure rs (vr "Test.daml" "observerNotAllocated") $ \r ->
+                expectScriptFailure rs "observerNotAllocated" $ \r ->
                     matchRegex r "Tried to submit a command for parties that have not ben allocated:\n  'y'",
               -- Regression test for issue https://github.com/digital-asset/daml/issues/13835
               testCase "rollback archive" $ do
@@ -685,13 +686,13 @@ testScriptService lfVersion getScriptService =
                   , "  submit a do"
                   , "    exerciseCmd c Catch"
                   ]
-                expectScriptSuccess rs (vr "Test.daml" "test") $ \r ->
+                expectScriptSuccess rs "test" $ \r ->
                    matchRegex r "Active contracts:  #0:0\n"
             ]
     , testGroup "multi packages"
         [ testCase "upgrade to acquired interface" $ do
             scriptDar <- locateDamlScriptDar lfVersion
-            rs <- runScriptsInAllPackages getScriptService lfVersion "v2"
+            rs <- runScriptsInAllPackages getScriptService lfVersion  (ProjectPath "v2")
               [ ( "interface"
                 , [ ( "daml.yaml"
                     , [ "sdk-version: " <> T.pack sdkVersion
@@ -793,14 +794,13 @@ testScriptService lfVersion getScriptService =
                   ]
                 )
               ]
-            expectScriptSuccess rs (vr "v2/Main.daml" "test1") $ \r ->
-              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            expectScriptSuccess rs (vr "v2/Main.daml" "test2") $ \r ->
-              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            expectScriptSuccess rs (vr "main-1.0.0" "test1") $ \r ->
-              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-            expectScriptSuccess rs (vr "main-1.0.0" "test2") $ \r ->
-              matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            inLocalOrExternal rs "v2/Main.daml" $ \modRes -> do
+              expectScriptSuccess modRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+              expectScriptSuccess modRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+            
+            inLocalOrExternal rs "main-1.0.0" $ \pkgRes -> do
+              expectScriptSuccess pkgRes "test1" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
+              expectScriptSuccess pkgRes "test2" $ flip matchRegex "Active contracts:  #0:0\n\nReturn value: {}\n$"
             
         ]
     ]
@@ -833,7 +833,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  submit p $ createCmd (WithKey p 42)",
                       "  submit p $ exerciseByKeyCmd @WithKey p C"
                     ]
-                expectScriptSuccess rs (vr "testExerciseByKey") $ \r ->
+                expectScriptSuccess rs "testExerciseByKey" $ \r ->
                   matchRegex r "Active contracts: \n\nReturn value: 42\n$",
               testCase "fetch and exercising by key shows key in log" $ do
                 rs <-
@@ -888,7 +888,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  p <- allocateParty \"p\"",
                       "  submit p $ createAndExerciseCmd (Runner p) (Run p)"
                     ]
-                expectScriptSuccess rs (vr "testReportsKey") $ \r ->
+                expectScriptSuccess rs "testReportsKey" $ \r ->
                   matchRegex r (T.unlines
                     [ ".*exercises.*"
                     , ".*by key.*"
@@ -897,7 +897,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     [ ".*fetch.*"
                     , ".*by key.*"
                     ])
-                expectScriptSuccess rs (vr "testDoesNotReportKey") $ \r ->
+                expectScriptSuccess rs "testDoesNotReportKey" $ \r ->
                   matchRegex r ".*exercises.*" &&
                   matchRegex r ".*fetch.*" &&
                   not (matchRegex r (T.unlines
@@ -975,17 +975,17 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  submit party (createCmd (Helper party))",
                       "  submitMustFail party1 (createCmd (Helper party1))"
                     ]
-                expectScriptFailure rs (vr "testMissingAuthorization") $ \r ->
+                expectScriptFailure rs "testMissingAuthorization" $ \r ->
                   matchRegex r "failed due to a missing authorization from 'party1-[a-z0-9]+'"
-                expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
+                expectScriptFailure rs "testDuplicateKey" $ \r ->
                   matchRegex r "due to unique key violation for key"
-                expectScriptFailure rs (vr "testNotVisible") $ \r ->
+                expectScriptFailure rs "testNotVisible" $ \r ->
                   matchRegex r "Attempt to fetch or exercise a contract not visible to the reading parties"
-                expectScriptFailure rs (vr "testError") $ \r ->
+                expectScriptFailure rs "testError" $ \r ->
                   matchRegex r "errorCrash"
-                expectScriptFailure rs (vr "testAbort") $ \r ->
+                expectScriptFailure rs "testAbort" $ \r ->
                   matchRegex r "abortCrash"
-                expectScriptFailure rs (vr "testPartialSubmit") $ \r ->
+                expectScriptFailure rs "testPartialSubmit" $ \r ->
                   matchRegex r  $ T.unlines
                     [ "Script execution failed on commit at Test:57:3:"
                     , ".*"
@@ -998,7 +998,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "     0"
                     , ".*'party-[a-z0-9]+' creates Test:Helper.*"
                     ]
-                expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
+                expectScriptFailure rs "testPartialSubmitMustFail" $ \r ->
                   matchRegex r $ T.unlines
                     [ "Script execution failed on commit at Test:62:3:"
                     , "  Aborted:  Expected submit to fail but it succeeded"
@@ -1042,7 +1042,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  fetchedCid === cid",
                       "  t === T p"
                     ]
-                expectScriptSuccess rs (vr "testFetchByKey") $ \r ->
+                expectScriptSuccess rs "testFetchByKey" $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0\n\n",
               testCase "queryContractId/Key" $ do
                 rs <-
@@ -1101,7 +1101,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "  optOnlyP1 === None"
                     , "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "testQueryContract") $ \r ->
+                expectScriptSuccess rs "testQueryContract" $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0, #2:0",
               testCase "multi-party query" $ do
                 rs <-
@@ -1138,7 +1138,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "  r === cid1"
                     , "  pure ()"
                     ]
-                expectScriptSuccess rs (vr "test") $ \r ->
+                expectScriptSuccess rs "test" $ \r ->
                   matchRegex r "Active contracts:  #0:0, #1:0",
               testCase "local key visibility" $ do
                 rs <-
@@ -1189,60 +1189,72 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "  submitMulti [p2] [p1]  $ exerciseCmd cid LocalLookup"
                     , "  submitMulti [p2] [p1] $ exerciseCmd cid LocalFetch"
                     ]
-                expectScriptSuccess rs (vr "localLookup") $ \r ->
+                expectScriptSuccess rs "localLookup" $ \r ->
                   matchRegex r "Active contracts:"
-                expectScriptSuccess rs (vr "localFetch") $ \r ->
+                expectScriptSuccess rs "localFetch" $ \r ->
                   matchRegex r "Active contracts:"
-                expectScriptSuccess rs (vr "localLookupFetchMulti") $ \r ->
+                expectScriptSuccess rs "localLookupFetchMulti" $ \r ->
                   matchRegex r "Active contracts:"
             ]
-  where
-    vr n = VRScript (toNormalizedFilePath' "Test.daml") n
 
 matchRegex :: T.Text -> T.Text -> Bool
 matchRegex s regex = matchTest (makeRegex regex :: Regex) s
 
+inLocalOrExternal :: HasCallStack =>
+  -- | The list of script results in all local or external packages
+  [(TR.LocalOrExternal, a)] ->
+  -- | a local or external name
+  T.Text -> 
+  -- | assertions on the list of script results.
+  (a -> Assertion) ->
+  -- | Succeeds if the LocalOrExternal is found and the assertions are successful
+  Assertion
+inLocalOrExternal results loeName assert = case find ((loeName ==) . TR.localOrExternalName . fst) results of
+  Nothing -> assertFailure $ "No result for " <> show loeName
+  Just (_, res) -> assert res
+
+
 expectScriptSuccess :: HasCallStack =>
   -- | The list of script results.
-  [(VirtualResource, Either T.Text T.Text)] ->
-  -- | VR of the script
-  VirtualResource ->
+  [(ScriptName, Either T.Text T.Text)] ->
+  -- | script name
+  T.Text ->
   -- | Predicate on the result
   (T.Text -> Bool) ->
   -- | Succeeds if there is a successful result for the given
   -- VR and the predicate holds.
   Assertion
-expectScriptSuccess xs vr pred = case find ((vr ==) . fst) xs of
-  Nothing -> assertFailure $ "No result for " <> show vr
+expectScriptSuccess xs scriptName pred = case find ((ScriptName scriptName ==) . fst) xs of
+  Nothing -> assertFailure $ "No result for " <> show scriptName
   Just (_, Left err) ->
     assertFailure $
-      "Expected success for " <> show vr <> " but got "
+      "Expected success for " <> show scriptName <> " but got "
         <> show err
   Just (_, Right r) ->
     unless (pred r) $
-      assertFailure $ "Predicate for " <> show vr <> " failed on " <> show r
+      assertFailure $ "Predicate for " <> show scriptName <> " failed on " <> show r
 
 expectScriptFailure ::
   -- | The list of script results.
-  [(VirtualResource, Either T.Text T.Text)] ->
-  -- | VR of the script
-  VirtualResource ->
+  [(ScriptName, Either T.Text T.Text)] ->
+  -- | script name
+  T.Text ->
   -- | Predicate on the result
   (T.Text -> Bool) ->
   -- | Succeeds if there is a failing result for the given
   -- VR and the predicate holds.
   Assertion
-expectScriptFailure xs vr pred = case find ((vr ==) . fst) xs of
-  Nothing -> assertFailure $ "No result for " <> show vr
+expectScriptFailure xs scriptName pred = case find ((ScriptName scriptName ==) . fst) xs of
+  Nothing -> assertFailure $ "No result for " <> show scriptName
   Just (_, Right r) ->
     assertFailure $
-      "Expected failure for " <> show vr <> " but got "
+      "Expected failure for " <> show scriptName <> " but got "
         <> show r
   Just (_, Left err) ->
     unless (pred err) $
-      assertFailure $ "Predicate for " <> show vr <> " failed on " <> show err
+      assertFailure $ "Predicate for " <> show scriptName <> " failed on " <> show err
 
-runScriptsInModule :: IO IdeState -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScriptsInModule :: IO IdeState -> [T.Text] -> IO [(ScriptName, Either T.Text T.Text)]
 runScriptsInModule getIdeState fileContent = do 
   ideState <- getIdeState
   let file = toNormalizedFilePath' "Test.daml"
@@ -1255,10 +1267,16 @@ runScriptsInModule getIdeState fileContent = do
       fail (T.unpack $ showDiagnostics diags)
     Just xs -> do
       world <- runActionSync ideState (worldForFile file)
-      let render (vr, r) = (vr,) <$> prettyResult world r
+      let render (sn, r) = (sn,) <$> prettyResult world r
       mapM render xs
 
-runScriptsInAllPackages :: SdkVersioned => IO SS.Handle -> LF.Version -> FilePath -> [(FilePath, [(FilePath, [T.Text])])] -> IO [(VirtualResource, Either T.Text T.Text)]
+runScriptsInAllPackages
+  :: SdkVersioned
+  => IO SS.Handle
+  -> LF.Version
+  -> ProjectPath
+  -> [(FilePath, [(FilePath, [T.Text])])]
+  -> IO [(TR.LocalOrExternal, [(ScriptName, Either T.Text T.Text)])]
 runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
   damlc <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> exe "damlc")
   withCurrentTempDir $ do
@@ -1268,21 +1286,14 @@ runScriptsInAllPackages getScriptService lfVersion mainPackage packages = do
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
         }
-    damlFiles <- getDamlRootFiles mainPackage
-    withIdeState getScriptService opts $ \ideState -> do
-      (result, extResults) <- runAllScripts ideState damlFiles (RunAllOption True)
-      let 
-        extPkgs = [pkg | ExtPackageTestResults pkg _ <- extResults] 
-        prettyModuleRes = [ (vr,) <$> prettyResult world res 
-                          | ModuleTestResults world _ _ (Just modRes) <- result
-                          , (vr, res) <- modRes
-                          ]
-        prettyExtRes = [ (vr,) <$> prettyResult world res
-                      | ExtPackageTestResults (LF.ExternalPackage _ pkg) (Just pkgRes) <- extResults
-                      , let world = LF.initWorldSelf extPkgs pkg
-                      , (vr, res) <- pkgRes
-                      ]
-      sequence $ prettyModuleRes ++ prettyExtRes
+    damlFiles <- getDamlRootFiles (unwrapProjectPath mainPackage)
+    (localResults, extResults) <- withIdeState getScriptService opts $ \ideState ->
+      runAllScripts ideState damlFiles (RunAllOption True)
+    sequence
+      [ (loe,) <$> sequence [(scriptName,) <$> prettyResult world res | (scriptName, res) <- results]
+      | TR.ScriptResults loe world (Just results) <- localResults ++ extResults
+      ]
+
 
 locateDamlScriptDar :: LF.Version -> IO FilePath
 locateDamlScriptDar lfVersion = locateRunfiles $ case lfVersion of
@@ -1328,6 +1339,3 @@ prettyResult world (Left err) = case err of
 prettyResult world (Right r) = pure $ Right $ renderPlain $
   prettyScriptResult prettyNormal world (S.fromList (V.toList (SS.scriptResultActiveContracts r))) r
     $$ text "" -- add a newline at the end
-
-vr :: FilePath -> T.Text -> VirtualResource 
-vr path scriptName = VRScript (toNormalizedFilePath' path) scriptName
