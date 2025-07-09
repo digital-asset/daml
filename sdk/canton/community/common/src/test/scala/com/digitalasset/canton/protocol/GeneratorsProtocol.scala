@@ -28,6 +28,8 @@ import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
 
+import scala.jdk.CollectionConverters.*
+
 final class GeneratorsProtocol(
     protocolVersion: ProtocolVersion,
     generatorsLf: GeneratorsLf,
@@ -291,8 +293,8 @@ final class GeneratorsProtocol(
         else Gen.some(globalKeyWithMaintainersArb.arbitrary)
       maintainers = maybeKeyWithMaintainers.fold(Set.empty[LfPartyId])(_.unversioned.maintainers)
 
-      signatories <- Gen.nonEmptyContainerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      signatories <- nonEmptySetGen[LfPartyId]
+      observers <- boundedSetGen[LfPartyId]
 
       allSignatories = maintainers ++ signatories
       allStakeholders = allSignatories ++ observers
@@ -307,8 +309,8 @@ final class GeneratorsProtocol(
 
   implicit val stakeholdersArb: Arbitrary[Stakeholders] = Arbitrary(
     for {
-      signatories <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      signatories <- boundedSetGen[LfPartyId]
+      observers <- boundedSetGen[LfPartyId]
     } yield Stakeholders.withSignatoriesAndObservers(
       signatories = signatories,
       observers = observers,
@@ -318,7 +320,7 @@ final class GeneratorsProtocol(
   implicit val requestIdArb: Arbitrary[RequestId] = genArbitrary
 
   implicit val rollbackContextArb: Arbitrary[RollbackContext] =
-    Arbitrary(Gen.listOf(Arbitrary.arbitrary[PositiveInt]).map(RollbackContext.apply))
+    Arbitrary(boundedListGen[PositiveInt].map(RollbackContext.apply))
 
   implicit val createdContractArb: Arbitrary[CreatedContract] = Arbitrary(
     for {
@@ -337,8 +339,8 @@ final class GeneratorsProtocol(
   implicit val contractReassignmentBatch: Arbitrary[ContractsReassignmentBatch] = Arbitrary(
     for {
       metadata <- contractMetadataArb(canHaveEmptyKey = true).arbitrary
-      contracts <- Gen.nonEmptyContainerOf[Seq, ContractInstance](
-        contractInstanceWithMetadataArb(metadata).arbitrary
+      contracts <- nonEmptyListGen[ContractInstance](
+        Arbitrary(contractInstanceWithMetadataArb(metadata).arbitrary)
       )
       reassignmentCounters <- Gen
         .containerOfN[Seq, ReassignmentCounter](contracts.length, reassignmentCounterGen)
@@ -348,9 +350,16 @@ final class GeneratorsProtocol(
 
   implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(
     for {
-      signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
+      parties <- boundedListGen[PartyId]
+      signatures <- Gen.sequence(
+        parties.map(p => boundedListGen[Signature].map(p -> _))
+      )
       hashingSchemeVersion <- Arbitrary.arbitrary[HashingSchemeVersion]
-    } yield ExternalAuthorization.create(signatures, hashingSchemeVersion, protocolVersion)
+    } yield ExternalAuthorization.create(
+      signatures.asScala.toMap,
+      hashingSchemeVersion,
+      protocolVersion,
+    )
   )
 
   implicit val protocolSymmetricKeyArb: Arbitrary[ProtocolSymmetricKey] =

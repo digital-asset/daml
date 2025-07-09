@@ -215,7 +215,7 @@ private[mediator] class DefaultVerdictSender(
             )
 
         SignedProtocolMessage
-          .signAndCreate(result, snapshot, protocolVersion)
+          .signAndCreate(result, snapshot)
           .map(signedResult => List(OpenEnvelope(signedResult, recipients)(protocolVersion)))
       }
 
@@ -329,7 +329,7 @@ private[mediator] class DefaultVerdictSender(
             val recipients = Recipients.recipientGroups(flatRecipients.map(r => NonEmpty(Set, r)))
 
             SignedProtocolMessage
-              .trySignAndCreate(rejection, snapshot, protocolVersion)
+              .trySignAndCreate(rejection, snapshot)
               .map(_ -> recipients)
           }
         batches = envs.map(Batch.of(protocolVersion, _))

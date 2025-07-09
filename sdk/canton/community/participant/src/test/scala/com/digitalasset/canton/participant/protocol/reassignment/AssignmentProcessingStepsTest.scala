@@ -706,7 +706,7 @@ class AssignmentProcessingStepsTest
       val correctViewTree = makeFullAssignmentTree(reassignmentId)
       val incorrectViewTree = makeFullAssignmentTree(
         reassignmentId,
-        contract = contract.serializable.copy(metadata = incorrectMetadata).tryToContractInstance(),
+        contract = ExampleContractFactory.modify(contract, metadata = Some(incorrectMetadata)),
         reassigningParticipants = Set(participant),
       )
 

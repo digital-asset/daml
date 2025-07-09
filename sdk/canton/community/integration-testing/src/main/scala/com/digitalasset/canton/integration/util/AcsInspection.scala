@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.W
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.examples.java as M
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias}
@@ -247,8 +247,8 @@ trait AcsInspection {
   ): Unit =
     for (participantRef <- participantRefs) {
 
-      val predicate = (c: SerializableContract) =>
-        stakeholder.forall(s => c.metadata.stakeholders.contains(s.toLf))
+      val predicate = (c: ContractInstance) =>
+        stakeholder.forall(s => c.stakeholders.contains(s.toLf))
 
       val contracts = participantRef.testing
         .acs_search(

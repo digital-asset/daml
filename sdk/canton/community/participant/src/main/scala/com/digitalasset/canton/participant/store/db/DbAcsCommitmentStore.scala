@@ -23,7 +23,6 @@ import com.digitalasset.canton.participant.store.{
   CommitmentQueue,
   IncrementalCommitmentStore,
 }
-import com.digitalasset.canton.protocol.StoredParties
 import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
@@ -36,7 +35,7 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
   toSQLActionBuilderChain,
 }
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
-import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbPrunableByTimeSynchronizer}
 import com.digitalasset.canton.store.{IndexedString, IndexedSynchronizer}
@@ -44,7 +43,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.collection.IterableUtil.Ops
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
 import slick.jdbc.{
@@ -62,7 +61,6 @@ class DbAcsCommitmentStore(
     override protected val storage: DbStorage,
     override val indexedSynchronizer: IndexedSynchronizer,
     override val acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
-    protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -80,7 +78,9 @@ class DbAcsCommitmentStore(
 
   implicit val getSignedCommitment: GetResult[SignedProtocolMessage[AcsCommitment]] = GetResult(r =>
     SignedProtocolMessage
-      .fromTrustedByteString(protocolVersion)(ByteString.copyFrom(r.<<[Array[Byte]]))
+      .fromTrustedByteString(ProtocolVersionValidation.NoValidation)(
+        ByteString.copyFrom(r.<<[Array[Byte]])
+      )
       .fold(
         err =>
           throw new DbDeserializationException(
@@ -465,7 +465,6 @@ class DbAcsCommitmentStore(
     new DbIncrementalCommitmentStore(
       storage,
       indexedSynchronizer,
-      protocolVersion,
       timeouts,
       loggerFactory,
     )
@@ -496,7 +495,6 @@ class DbAcsCommitmentStore(
 class DbIncrementalCommitmentStore(
     override protected val storage: DbStorage,
     indexedSynchronizer: IndexedSynchronizer,
-    protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -505,10 +503,18 @@ class DbIncrementalCommitmentStore(
 
   import DbStorage.Implicits.*
   import storage.api.*
-  import storage.converters.*
 
-  private implicit val setParameterStoredParties: SetParameter[StoredParties] =
-    StoredParties.getVersionedSetParameter(protocolVersion)
+  private implicit val getLfPartyIdSortedSet: GetResult[SortedSet[LfPartyId]] =
+    DbParameterUtils.getStringArrayResultsDb
+      .andThen(arr => SortedSet.from(arr.view.map(LfPartyId.assertFromString)))
+
+  private implicit val setParameterPartyIdSortedSet: SetParameter[SortedSet[LfPartyId]] = {
+    (parties, pp) =>
+      DbParameterUtils.setArrayStringParameterDb(
+        parties,
+        pp,
+      )
+  }
 
   override def get()(implicit
       traceContext: TraceContext
@@ -522,7 +528,7 @@ class DbIncrementalCommitmentStore(
               .headOption
           snapshot <-
             sql"""select stakeholders, commitment from par_commitment_snapshot where synchronizer_idx = $indexedSynchronizer"""
-              .as[(StoredParties, AcsCommitment.CommitmentType)]
+              .as[(SortedSet[LfPartyId], AcsCommitment.CommitmentType)]
         } yield (tsWithTieBreaker, snapshot)).transactionally
           .withTransactionIsolation(Serializable),
         operationName = "commitments: read commitments snapshot",
@@ -532,9 +538,7 @@ class DbIncrementalCommitmentStore(
       optTsWithTieBreaker.fold(
         RecordTime.MinValue -> Map.empty[SortedSet[LfPartyId], AcsCommitment.CommitmentType]
       ) { case (ts, tieBreaker) =>
-        RecordTime(ts, tieBreaker) -> snapshot.map { case (storedParties, commitment) =>
-          storedParties.parties -> commitment
-        }.toMap
+        RecordTime(ts, tieBreaker) -> snapshot.toMap
       }
     }
 
@@ -580,7 +584,7 @@ class DbIncrementalCommitmentStore(
         case (stkhs, commitment) =>
           pp >> indexedSynchronizer
           pp >> partySetHash(stkhs)
-          pp >> StoredParties(stkhs)
+          pp >> stkhs
           pp >> commitment
       }
 

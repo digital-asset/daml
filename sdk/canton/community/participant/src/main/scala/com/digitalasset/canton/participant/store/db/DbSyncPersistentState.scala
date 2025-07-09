@@ -115,7 +115,6 @@ class DbSyncPersistentState(
     storage,
     synchronizerIdx,
     acsCounterParticipantConfigStore,
-    staticSynchronizerParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )

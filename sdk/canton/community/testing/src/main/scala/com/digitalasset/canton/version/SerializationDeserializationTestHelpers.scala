@@ -5,7 +5,7 @@ package com.digitalasset.canton.version
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.util.ReassignmentTag
+import com.digitalasset.canton.util.{LoggerUtil, ReassignmentTag}
 import com.google.protobuf.ByteString
 import org.reflections.Reflections
 import org.scalacheck.Arbitrary
@@ -13,6 +13,7 @@ import org.scalatest.Assertion
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
 import scala.collection.mutable
+import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 
 import SerializationDeserializationTestHelpers.*
@@ -34,9 +35,10 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   )(implicit arb: Arbitrary[T]): Assertion =
     testVersionedCommon(companion, protocolVersion, companion.fromTrustedByteString, defaults)
 
-  /*
-   Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the instance).
-   */
+  /** Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the
+    * instance). In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x
+    * to 2x the normal runtime.
+    */
   protected def test[
       T <: HasProtocolVersionedWrapper[T],
       DeserializedValueClass <: HasRepresentativeProtocolVersion,
@@ -48,12 +50,17 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         Unit,
       ],
       protocolVersion: ProtocolVersion,
+      warnWhenTestRunsLongerThan: Duration = 1.second,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(protocolVersion, ()),
+      warnWhenTestRunsLongerThan,
     )
 
+  /** In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x to 2x the
+    * normal runtime.
+    */
   protected def testContext[
       T <: HasProtocolVersionedWrapper[T],
       DeserializedValueClass <: HasRepresentativeProtocolVersion,
@@ -68,12 +75,17 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       ],
       context: Context,
       protocolVersion: ProtocolVersion,
+      warnWhenTestRunsLongerThan: Duration = 1.second,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(protocolVersion, context),
+      warnWhenTestRunsLongerThan,
     )
 
+  /** In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x to 2x the
+    * normal runtime.
+    */
   protected def testContextTaggedProtocolVersion[
       ValueClass <: HasProtocolVersionedWrapper[ValueClass],
       T[X] <: ReassignmentTag[X],
@@ -86,10 +98,12 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       ],
       context: Context,
       protocolVersion: T[ProtocolVersion],
+      warnWhenTestRunsLongerThan: Duration = 1.second,
   )(implicit arb: Arbitrary[ValueClass]): Assertion =
     testProtocolVersionedCommon(
       companion,
       companion.fromByteString(context, protocolVersion),
+      warnWhenTestRunsLongerThan,
     )
 
   /*
@@ -131,10 +145,13 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   ](
       companion: BaseVersioningCompanion[T, ?, DeserializedValueClass, ?],
       deserializer: ByteString => ParsingResult[DeserializedValueClass],
+      warnWhenTestRunsLongerThan: Duration,
   )(implicit arb: Arbitrary[T]): Assertion = {
-    testedClasses.add(companion.getClass.getName.replace("$", ""))
+    val className = companion.getClass.getName.replace("$", "")
+    testedClasses.add(className)
 
-    forAll { (instance: T) =>
+    val start = System.nanoTime()
+    val result = forAll { (instance: T) =>
       val proto = clue(s"Serializing instance of ${companion.name}")(instance.toByteString)
 
       val deserializedInstance = clue(s"Deserializing serialized ${companion.name}")(
@@ -148,6 +165,13 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         instance.representativeProtocolVersion shouldBe deserializedInstance.representativeProtocolVersion
       }
     }
+    val elapsed = Duration.fromNanos(System.nanoTime() - start)
+
+    if (elapsed > warnWhenTestRunsLongerThan)
+      logger.warn(
+        s"Test for $className took ${LoggerUtil.roundDurationForHumans(elapsed)} to run, instead of the allotted $warnWhenTestRunsLongerThan."
+      )
+    result
   }
 
   /* Find all subclasses of `parent` in package `packageName` */

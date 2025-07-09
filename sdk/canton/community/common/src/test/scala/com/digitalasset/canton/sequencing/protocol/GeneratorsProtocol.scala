@@ -46,6 +46,17 @@ final class GeneratorsProtocol(
   import generatorsTopology.*
   import generatorsMessages.*
 
+  implicit val recipientsArb: Arbitrary[Recipients] = {
+    val protocolVersionDependentRecipientGen = Arbitrary.arbitrary[Recipient]
+
+    Arbitrary(for {
+      depths <- nonEmptyListGen(Arbitrary(Gen.choose(0, 3)))
+      trees <- Gen.sequence[List[RecipientsTree], RecipientsTree](
+        depths.forgetNE.map(recipientsTreeGen(Arbitrary(protocolVersionDependentRecipientGen)))
+      )
+    } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
+  }
+
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
     ts <- Arbitrary.arbitrary[CantonTimestamp]
     member <- Arbitrary.arbitrary[Member]
@@ -56,15 +67,12 @@ final class GeneratorsProtocol(
       for {
         threshold <- Arbitrary.arbitrary[PositiveInt]
         eligibleMembers <- Generators.nonEmptyListGen[Member]
-      } yield AggregationRule(eligibleMembers, threshold)(
-        AggregationRule.protocolVersionRepresentativeFor(protocolVersion)
-      )
+      } yield AggregationRule(eligibleMembers, threshold, protocolVersion)
     )
 
   implicit val closedEnvelopeArb: Arbitrary[ClosedEnvelope] = Arbitrary(for {
     bytes <- Arbitrary.arbitrary[ByteString]
-    signatures <- Gen.listOfN(5, signatureArb.arbitrary)
-
+    signatures <- boundedListGen[Signature]
     recipients <- recipientsArb.arbitrary
   } yield ClosedEnvelope.create(bytes, recipients, signatures, protocolVersion))
 
@@ -258,20 +266,6 @@ final class GeneratorsProtocol(
     }
   )
 
-  implicit val groupRecipientArb: Arbitrary[GroupRecipient] = genArbitrary
-  implicit val recipientArb: Arbitrary[Recipient] = genArbitrary
-  implicit val memberRecipientArb: Arbitrary[MemberRecipient] = genArbitrary
-
-  implicit val recipientsArb: Arbitrary[Recipients] = {
-    val protocolVersionDependentRecipientGen = Arbitrary.arbitrary[Recipient]
-
-    Arbitrary(for {
-      depths <- nonEmptyListGen(Arbitrary(Gen.choose(0, 3)))
-      trees <- Gen.sequence[List[RecipientsTree], RecipientsTree](
-        depths.forgetNE.map(recipientsTreeGen(Arbitrary(protocolVersionDependentRecipientGen)))
-      )
-    } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
-  }
   implicit val mediatorGroupRecipientArb: Arbitrary[MediatorGroupRecipient] = Arbitrary(
     Arbitrary.arbitrary[NonNegativeInt].map(MediatorGroupRecipient(_))
   )

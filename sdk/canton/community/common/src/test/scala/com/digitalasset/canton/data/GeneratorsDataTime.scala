@@ -10,6 +10,10 @@ import java.time.Duration
 object GeneratorsDataTime {
   private val tenYears: Duration = Duration.ofDays(365 * 10)
 
+  implicit val cantonTimestampGenChoose: Gen.Choose[CantonTimestamp] =
+    (min: CantonTimestamp, max: CantonTimestamp) =>
+      Gen.choose(min.toMicros, max.toMicros).map(CantonTimestamp.ofEpochMicro)
+
   implicit val cantonTimestampArb: Arbitrary[CantonTimestamp] = Arbitrary(
     Gen.choose(0, tenYears.getSeconds * 1000 * 1000).map(CantonTimestamp.ofEpochMicro)
   )

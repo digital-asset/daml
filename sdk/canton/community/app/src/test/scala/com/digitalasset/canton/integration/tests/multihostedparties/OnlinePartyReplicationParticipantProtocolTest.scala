@@ -340,8 +340,8 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           case c if !sourceContractIds.contains(c.contractId.coid) =>
             (
               c.contractId,
-              c.contractInstance.unversioned.template,
-              c.contractInstance.unversioned.arg,
+              c.templateId,
+              c.inst.createArg,
             )
         }
       if (excessContracts.nonEmpty) {

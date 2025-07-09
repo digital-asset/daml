@@ -7,6 +7,7 @@ import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 
 trait ContractAuthenticator {
@@ -36,7 +37,7 @@ trait ContractAuthenticator {
     *   the recalculated metadata
     */
   def verifyMetadata(
-      contract: SerializableContract,
+      contract: ContractInstance,
       metadata: ContractMetadata,
   ): Either[String, Unit]
 
@@ -55,6 +56,13 @@ object ContractAuthenticator {
 
 class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends ContractAuthenticator {
 
+  private def toThin(inst: LfFatContractInst): ThinContractInstance =
+    Value.ThinContractInstance(
+      inst.packageName,
+      inst.templateId,
+      inst.createArg,
+    )
+
   override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = {
     val gk = contract.contractKeyWithMaintainers.map(Versioned(contract.version, _))
     for {
@@ -62,25 +70,12 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       driverMetadata <- DriverContractMetadata
         .fromLfBytes(contract.cantonData.toByteArray)
         .leftMap(_.toString)
-
-      contractInstance <- SerializableRawContractInstance
-        .create(
-          Versioned(
-            contract.version,
-            ThinContractInstance(
-              contract.packageName,
-              contract.templateId,
-              contract.createArg,
-            ),
-          )
-        )
-        .leftMap(_.toString)
       _ <- authenticate(
         contract.contractId,
         driverMetadata.salt,
         contract.createdAt,
         metadata,
-        contractInstance,
+        toThin(contract),
       )
     } yield ()
   }
@@ -91,27 +86,34 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       contract.contractSalt,
       contract.ledgerCreateTime,
       contract.metadata,
-      contract.rawContractInstance,
+      contract.rawContractInstance.contractInstance.unversioned,
     )
 
   def verifyMetadata(
-      contract: SerializableContract,
+      contract: ContractInstance,
       metadata: ContractMetadata,
-  ): Either[String, Unit] =
-    authenticate(
-      contract.contractId,
-      contract.contractSalt,
-      contract.ledgerCreateTime,
-      metadata,
-      contract.rawContractInstance,
+  ): Either[String, Unit] = for {
+    dcm <- contract.driverContractMetadata
+    thin = Value.ThinContractInstance(
+      contract.inst.packageName,
+      contract.inst.templateId,
+      contract.inst.createArg,
     )
+    result <- authenticate(
+      contract.contractId,
+      dcm.salt,
+      contract.inst.createdAt,
+      metadata,
+      thin,
+    )
+  } yield result
 
   def authenticate(
       contractId: LfContractId,
       contractSalt: Salt,
       ledgerTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
-      rawContractInstance: SerializableRawContractInstance,
+      suffixedContractInstance: ThinContractInstance,
   ): Either[String, Unit] = {
     val ContractId.V1(_, cantonContractSuffix) = contractId match {
       case cid: LfContractId.V1 => cid
@@ -126,7 +128,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
               contractSalt = contractSalt,
               ledgerCreateTime = ledgerTime,
               metadata = metadata,
-              suffixedContractInstance = rawContractInstance.contractInstance.unversioned,
+              suffixedContractInstance = suffixedContractInstance,
               cantonContractIdVersion = contractIdVersion,
             )
           recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)

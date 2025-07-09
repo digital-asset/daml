@@ -203,9 +203,9 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       parties: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext
-  ): Future[Either[AcsInspectionError, Vector[SerializableContract]]] =
+  ): Future[Either[AcsInspectionError, Vector[ContractInstance]]] =
     TraceContext.withNewTraceContext("read_visible_active_contracts") { implicit tc =>
-      val builder = Vector.newBuilder[SerializableContract]
+      val builder = Vector.newBuilder[ContractInstance]
       state.acsInspection
         .forEachVisibleActiveContract(
           fakeSynchronizerId,

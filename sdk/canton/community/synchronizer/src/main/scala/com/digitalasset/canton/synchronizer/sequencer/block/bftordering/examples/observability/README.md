@@ -104,7 +104,34 @@ res2: com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Seq
 )
 ```
 
-#### Testing catch-up state transfer
+#### Crashing a node (`sequencer4`)
+
+Use `docker stop sequencer4` to stop the container. After a while, use `docker start sequencer4`,
+and check Grafana if everything is back to normal. Alternatively, use the Docker UI (on Mac).
+
+#### Onboarding `sequencer5`
+
+```scala
+val existingSequencers = Set[com.digitalasset.canton.console.InstanceReference](sequencer1, sequencer2, sequencer3, sequencer4)
+val synchronizerAlias = "observabilityExample"
+val synchronizerId = participant1.synchronizers.id_of(synchronizerAlias)
+bootstrap.onboard_new_sequencer(synchronizerId.logical,sequencer5,sequencer1,existingSequencers,isBftSequencer = true)
+
+// set up connections to new sequencer5
+// sequencer5's connections are set up as part of the initial network config
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{EndpointId, P2PEndpointConfig}
+import com.digitalasset.canton.config.RequireTypes.Port
+
+sequencer1.bft.add_peer_endpoint(P2PEndpointConfig("sequencer5", Port.tryCreate(31034), None))
+sequencer2.bft.add_peer_endpoint(P2PEndpointConfig("sequencer5", Port.tryCreate(31034), None))
+sequencer3.bft.add_peer_endpoint(P2PEndpointConfig("sequencer5", Port.tryCreate(31034), None))
+sequencer4.bft.add_peer_endpoint(P2PEndpointConfig("sequencer5", Port.tryCreate(31034), None))
+
+// profit
+sequencer5.health.wait_for_initialized()
+```
+
+#### Testing catch-up state transfer without crashing nodes
 
 Because a remote console (i.e., remote instance references) is used here, nodes cannot be easily restarted.
 The easiest way to trigger catch-up is to remove some of the connections (copy-paste ready):

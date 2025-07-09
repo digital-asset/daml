@@ -328,7 +328,7 @@ create table par_commitment_snapshot (
   -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
   -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
   stakeholders_hash varchar collate "C" not null,
-  stakeholders bytea not null,
+  stakeholders varchar[] collate "C" not null,
   commitment bytea not null,
   primary key (synchronizer_idx, stakeholders_hash)
 );

@@ -17,11 +17,16 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.sequencing.GeneratorsSequencing
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
+}
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
   CanSignAllMappings,
   CanSignSpecificMappings,
 }
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.{
   GeneratorsTopology,
@@ -190,7 +195,7 @@ final class GeneratorsTransaction(
   implicit val vettedPackagesTopologyTransactionArb: Arbitrary[VettedPackages] = Arbitrary(
     for {
       participantId <- Arbitrary.arbitrary[ParticipantId]
-      vettedPackages <- Gen.listOf(Arbitrary.arbitrary[VettedPackage])
+      vettedPackages <- boundedListGen[VettedPackage]
     } yield VettedPackages.create(participantId, vettedPackages).value
   )
 
@@ -267,7 +272,14 @@ final class GeneratorsTransaction(
   implicit val signedTopologyTransactionsArb
       : Arbitrary[SignedTopologyTransactions[TopologyChangeOp, TopologyMapping]] = Arbitrary(
     for {
-      transactions <- Gen.listOf(signedTopologyTransactionArb.arbitrary)
+      transactions <- boundedListGen[GenericSignedTopologyTransaction]
     } yield SignedTopologyTransactions(transactions, protocolVersion)
+  )
+
+  implicit val storedTopologyTransactionsArb
+      : Arbitrary[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]] = Arbitrary(
+    for {
+      transactions <- boundedListGen[StoredTopologyTransaction[TopologyChangeOp, TopologyMapping]]
+    } yield StoredTopologyTransactions(transactions)
   )
 }

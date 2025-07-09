@@ -895,7 +895,7 @@ class AcsCommitmentProcessorTest
 
     snapshotF.flatMap { snapshot =>
       SignedProtocolMessage
-        .trySignAndCreate(payload, snapshot, testedProtocolVersion)
+        .trySignAndCreate(payload, snapshot)
     }
   }
 

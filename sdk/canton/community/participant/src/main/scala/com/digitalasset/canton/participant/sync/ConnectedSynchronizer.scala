@@ -327,12 +327,9 @@ class ConnectedSynchronizer(
         f: FutureUnlessShutdown[A]
     ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, A] = EitherT.right(f)
 
-    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[ContractInstance]] =
       participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
-        .map(
-          _.map(_.serializable)
-        ) // TODO(#26348) - use fat contract downstream
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(
@@ -361,7 +358,7 @@ class ConnectedSynchronizer(
           activations = storedActivatedContracts
             .map(c =>
               c.contractId -> ContractStakeholdersAndReassignmentCounter(
-                c.metadata.stakeholders,
+                c.stakeholders,
                 change.activations(c.contractId).reassignmentCounter,
               )
             )
@@ -370,7 +367,7 @@ class ConnectedSynchronizer(
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.metadata.stakeholders,
+                  c.stakeholders,
                   change.deactivations(c.contractId).reassignmentCounter,
                 )
             )

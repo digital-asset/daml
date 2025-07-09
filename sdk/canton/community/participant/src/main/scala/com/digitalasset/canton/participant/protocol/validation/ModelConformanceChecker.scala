@@ -63,7 +63,7 @@ import scala.concurrent.ExecutionContext
   */
 class ModelConformanceChecker(
     val reinterpreter: HasReinterpret,
-    val validateContract: SerializableContractValidation,
+    val validateContract: ContractInstanceValidation,
     val transactionTreeFactory: TransactionTreeFactory,
     val participantId: ParticipantId,
     val serializableContractAuthenticator: ContractAuthenticator,
@@ -205,7 +205,7 @@ class ModelConformanceChecker(
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, InputContract(contract, _)) =>
         val templateId = contract.templateId
-        validateContract(contract.serializable, getEngineAbortStatus, traceContext)
+        validateContract(contract, getEngineAbortStatus, traceContext)
           .leftMap {
             case DAMLeFailure(error) =>
               DAMLeError(error, view.viewHash): Error
@@ -347,11 +347,11 @@ class ModelConformanceChecker(
       // again by re-running the `ContractStateMachine` and checks consistency
       // with the reconstructed view's global key inputs,
       // which by the view equality check is the same as the `resolverFromView`.
-      wfTxE = WellFormedTransaction
-        .normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
-        .leftMap[Error](err => TransactionNotWellFormed(err, view.viewHash))
-
-      wfTx <- EitherT(FutureUnlessShutdown.pure(wfTxE))
+      wfTx <- EitherT.fromEither[FutureUnlessShutdown](
+        WellFormedTransaction
+          .normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
+          .leftMap[Error](err => TransactionNotWellFormed(err, view.viewHash))
+      )
 
       salts = transactionTreeFactory.saltsFromView(view)
 
@@ -423,7 +423,7 @@ object ModelConformanceChecker {
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker =
     new ModelConformanceChecker(
       damlE,
-      validateSerializedContract(damlE),
+      validateContractInstance(damlE),
       transactionTreeFactory,
       participantId,
       serializableContractAuthenticator,
@@ -519,24 +519,20 @@ object ModelConformanceChecker {
       expected: LfNodeCreate,
   ) extends ContractValidationFailure
 
-  private type SerializableContractValidation =
+  private type ContractInstanceValidation =
     (
-        SerializableContract,
+        ContractInstance,
         GetEngineAbortStatus,
         TraceContext,
     ) => EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit]
 
-  def validateSerializedContract(damlE: DAMLe)(
-      contract: SerializableContract,
+  def validateContractInstance(damlE: DAMLe)(
+      contract: ContractInstance,
       getEngineAbortStatus: GetEngineAbortStatus,
       traceContext: TraceContext,
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = {
-
-    val instance = contract.rawContractInstance
-    val unversioned = instance.contractInstance.unversioned
-    val metadata = contract.metadata
 
     // The upgrade friendly hash computes that same hash for both normalized and un-normalized values
     def upgradeFriendlyHash(
@@ -544,7 +540,7 @@ object ModelConformanceChecker {
     ): EitherT[FutureUnlessShutdown, ContractValidationFailure, LfHash] =
       EitherT.fromEither(
         lf.crypto.Hash
-          .hashContractInstance(unversioned.packageName, unversioned.template, arg)
+          .hashContractInstance(contract.inst.packageName, contract.templateId, arg)
           .leftMap(ArgumentHashingFailure(_))
       )
 
@@ -563,24 +559,17 @@ object ModelConformanceChecker {
     for {
       actual <- damlE
         .replayCreate(
-          metadata.signatories,
-          LfCreateCommand(unversioned.template, unversioned.arg),
-          contract.ledgerCreateTime,
+          contract.metadata.signatories,
+          LfCreateCommand(contract.templateId, contract.inst.createArg),
+          contract.inst.createdAt,
           getEngineAbortStatus,
         )(traceContext)
         .leftMap(DAMLeFailure.apply)
-      expected: LfNodeCreate = LfNodeCreate(
+      expected: LfNodeCreate = contract.inst.toCreateNode.copy(
         // Do not validate the contract id. The validation would fail due to mismatching seed.
-        // The contract id is already validated by SerializableContractAuthenticator,
+        // The contract id is already validated by contract id authentication,
         // as contract is an input contract of the underlying transaction.
-        coid = actual.coid,
-        packageName = unversioned.packageName,
-        templateId = unversioned.template,
-        arg = unversioned.arg,
-        signatories = metadata.signatories,
-        stakeholders = metadata.stakeholders,
-        keyOpt = metadata.maybeKeyWithMaintainers,
-        version = instance.contractInstance.version,
+        coid = actual.coid
       )
 
       // Since 3.3 all Create nodes contain normalized values. As the input value may have been created
@@ -713,13 +702,6 @@ object ModelConformanceChecker {
           }
           .mkShow("\n")
       )
-    )
-  }
-
-  // TODO(#26348) - remove once upstream switched to ContractInstance
-  final case class FailedToConvertContract(error: String) extends Error {
-    override protected def pretty: Pretty[FailedToConvertContract] = prettyOfClass(
-      param("error", _.error.unquoted)
     )
   }
 

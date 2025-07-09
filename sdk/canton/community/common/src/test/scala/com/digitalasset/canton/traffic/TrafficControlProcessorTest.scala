@@ -70,7 +70,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       case Some(signature) =>
         SignedProtocolMessage.from(
           setTrafficPurchased,
-          testedProtocolVersion,
           signature,
         )
 
@@ -79,7 +78,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
           .trySignAndCreate(
             setTrafficPurchased,
             synchronizerCrypto.currentSnapshotApproximation,
-            testedProtocolVersion,
           )
           .failOnShutdown
           .futureValue

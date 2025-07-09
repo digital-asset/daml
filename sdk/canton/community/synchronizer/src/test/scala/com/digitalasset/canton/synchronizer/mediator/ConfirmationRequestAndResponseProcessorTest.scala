@@ -292,7 +292,6 @@ class ConfirmationRequestAndResponseProcessorTest
         participantCrypto
           .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
-        testedProtocolVersion,
       )
   }
 
@@ -315,7 +314,6 @@ class ConfirmationRequestAndResponseProcessorTest
         participantCrypto
           .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
-        testedProtocolVersion,
       )
   }
 
@@ -471,9 +469,8 @@ class ConfirmationRequestAndResponseProcessorTest
           testedProtocolVersion,
         )
         signedResponse = SignedProtocolMessage(
-          TypedSignedProtocolMessageContent(response, testedProtocolVersion),
+          TypedSignedProtocolMessageContent(response),
           NonEmpty(Seq, Signature.noSignature),
-          testedProtocolVersion,
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
@@ -1173,7 +1170,6 @@ class ConfirmationRequestAndResponseProcessorTest
             participantCrypto
               .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
               .currentSnapshotApproximation,
-            testedProtocolVersion,
           )
           .failOnShutdown
       }
