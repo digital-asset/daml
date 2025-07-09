@@ -132,7 +132,7 @@ virtualResourceToUri
     :: VirtualResource
     -> T.Text
 virtualResourceToUri vr = case vr of
-    VRScript filePath topLevelDeclName ->
+    VRScript filePath (ScriptName topLevelDeclName) ->
         T.pack $ "daml://compiler?" <> keyValueToQueryString
             [ ("file", fromNormalizedFilePath filePath)
             , ("top-level-decl", T.unpack topLevelDeclName)
@@ -156,7 +156,7 @@ uriToVirtualResource uri = do
             let decoded = queryString uri
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScript (toNormalizedFilePath' file) (T.pack topLevelDecl)
+            pure $ VRScript (toNormalizedFilePath' file) (ScriptName $ T.pack topLevelDecl)
         _ -> Nothing
 
   where
@@ -242,7 +242,7 @@ getDalfDependencies files = do
           | otherwise = unitId
 
 
-runScripts :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
+runScripts :: NormalizedFilePath -> Action (Maybe [(ScriptName, Either SS.Error SS.ScriptResult)])
 runScripts file = use RunScripts file
 
 priorityGenerateDalf :: Priority
@@ -941,10 +941,10 @@ runScriptsRule :: Rules ()
 runScriptsRule =
     define $ \RunScripts file -> do
       scripts <- use_ GetScripts file
-      scriptResults <-
+      results <-
           forM scripts $ \script ->
-              use_ (RunSingleScript (vrScriptName script)) file
-      pure ([], Just (concat scriptResults))
+              use_ (RunSingleScript script) file
+      pure ([], Just (concat results))
 
 getScriptsRule :: Rules ()
 getScriptsRule =
@@ -952,18 +952,18 @@ getScriptsRule =
       m <- moduleForScript file
       testFilter <- envTestFilter <$> getDamlServiceEnv
       let scripts =
-              [ VRScript file name
+              [ ScriptName name
               | (sc, _scLoc) <- scriptsInModule m
               , let name = LF.unExprValName sc
               , testFilter name]
       pure ([], Just scripts)
 
-getScripts :: NormalizedFilePath -> Action [VirtualResource]
+getScripts :: NormalizedFilePath -> Action [ScriptName]
 getScripts file = use_ GetScripts file
 
 runSingleScriptRule :: Rules ()
 runSingleScriptRule =
-    define $ \(RunSingleScript targetScriptName) file -> do
+    define $ \(RunSingleScript (ScriptName targetScriptName)) file -> do
       m <- moduleForScript file
       world <- worldForFile file
       Just scriptService <- envScriptService <$> getDamlServiceEnv
@@ -979,18 +979,14 @@ runSingleScriptRule =
       lvl <- getDetailLevel
       scriptResults <-
           forM scripts $ \(script, loc) -> do
-              (vr, res) <- runScript scriptService file ctxId (LF.moduleName m) script
+              (vr, res) <- runScript scriptService (Just file) ctxId (LF.moduleName m) script
               let range = maybe noRange sourceLocToRange loc
               pure (toDiagnostics lvl world file range res, (vr, res))
       let (diags, results) = unzip scriptResults
       pure (concat diags, Just results)
 
-runScriptsPkg ::
-       NormalizedFilePath
-    -> LF.ExternalPackage
-    -> [LF.ExternalPackage]
-    -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
-runScriptsPkg damlFile extPkg pkgs = do
+runScriptsPkg :: NormalizedFilePath -> LF.ExternalPackage -> Action (Maybe [(ScriptName, Either SS.Error SS.ScriptResult)])
+runScriptsPkg damlFile extPkg = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
     ctx <- contextForExtPkg damlFile extPkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx
@@ -1002,19 +998,12 @@ runScriptsPkg damlFile extPkg pkgs = do
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert damlFile ctxId
-    lvl <- getDetailLevel
     results <- forM scripts $ \(modName, script) -> 
-        runScript scriptService pkgName' ctxId modName script
+        runScript scriptService Nothing ctxId modName script
     -- modify result to map back to PackageId
-    let diags = concatMap (toDiagnostics lvl world pkgName' noRange . snd) results
-    pure (diags, Just results)
+    pure $ Just results
   where
     pkg = LF.extPackagePkg extPkg
-    pkgName' =
-        toNormalizedFilePath' $
-        T.unpack $
-        LF.unPackageName (LF.packageName (LF.packageMetadata pkg))
-    world = LF.initWorldSelf pkgs pkg
     scripts =
         [ (modName, sc)
         | mod <- NM.elems $ LF.packageModules pkg
@@ -1227,7 +1216,7 @@ ofInterestRule = do
                 if isJust envScriptService -- only run Scripts when we have a service
                     then if getStudioAutorunAllScripts envStudioAutorunAllScripts
                             then map runWholeFile (HashSet.toList allFiles)
-                            else map runScript (HashSet.toList openVRs)
+                            else map (\(VRScript file name) -> runScript file name) (HashSet.toList openVRs)
                     else []
 
         -- Run all in parallel
@@ -1237,29 +1226,28 @@ ofInterestRule = do
       -- Run all scripts in a file, used when StudioAutorunAllScripts flag is set
       runWholeFile file = do
           scripts <- use GetScripts file
-          mapM_ runScript (fromMaybe [] scripts)
+          mapM_ (runScript file) (fromMaybe [] scripts)
 
       -- Run a single script
-      runScript vr = do
+      runScript file scriptName = do
           -- Extract file with world info
-          let file = vrScriptFile vr
           world <- worldForFile file
 
           -- Run either the script or the script in the appropriate file
-          mbScriptVrs <- use (RunSingleScript (vrScriptName vr)) file
-          let vrResults = fromMaybe [] mbScriptVrs
+          mbScriptResults <- use (RunSingleScript scriptName) file
+          let scriptResults = fromMaybe [] mbScriptResults
 
           lvl <- getDetailLevel
 
           -- Should be a singleton list, send results via LSP
-          forM_ vrResults $ \(vr, res) -> do
+          forM_ scriptResults $ \(scriptName, res) -> do
               let doc = formatScriptResult lvl world res
-              vrChangedNotification vr doc
+              vrChangedNotification (VRScript file scriptName) doc
 
           -- If the script name is not in the results, the script no
           -- longer exists on this file - Notify the client via LSP
-          when (vrScriptName vr `notElem` map (vrScriptName . fst) vrResults) $
-              vrNoteSetNotification vr $ LF.scriptNotInFileNote $
+          when (scriptName `notElem` map fst scriptResults) $
+              vrNoteSetNotification (VRScript file scriptName) $ LF.scriptNotInFileNote $
               T.pack $ fromNormalizedFilePath file
 
       gc :: HashSet.HashSet NormalizedFilePath -> Action ()
@@ -1351,13 +1339,16 @@ formatScriptResult lvl world errOrRes =
         Right res ->
             LF.renderScriptResult lvl world res
 
-runScript :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ModuleName -> LF.ExprValName -> Action (VirtualResource, Either SS.Error SS.ScriptResult)
-runScript scriptService file ctxId moduleName scriptName = do
+runScript :: SS.Handle -> Maybe NormalizedFilePath -> SS.ContextId -> LF.ModuleName -> LF.ExprValName -> Action (ScriptName, Either SS.Error SS.ScriptResult)
+runScript scriptService mbFile ctxId moduleName exprName = do
     ShakeExtras {lspEnv} <- getShakeExtras
-    let vr = VRScript file $ LF.unExprValName scriptName
+    let scriptName = ScriptName $ LF.unExprValName exprName
+    let liveHandler = case mbFile of
+            Just file -> vrProgressNotification lspEnv $ VRScript file scriptName
+            Nothing -> const $ pure ()
     logger <- actionLogger
-    res <- liftIO $ SS.runLiveScript scriptService ctxId logger moduleName scriptName $ vrProgressNotification lspEnv vr
-    pure (vr, res)
+    res <- liftIO $ SS.runLiveScript scriptService ctxId logger moduleName exprName liveHandler
+    pure (scriptName, res)
 
 encodeModuleRule :: Options -> Rules ()
 encodeModuleRule options =

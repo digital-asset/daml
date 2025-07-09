@@ -8,14 +8,15 @@ module Cli
 import Control.Exception (SomeException, try)
 import qualified DA.Cli.Args as ParseArgs
 import DA.Cli.Damlc (Command (..), fullParseArgs)
+import DA.Test.Util
 import Data.Either (isRight)
 import Data.List (isInfixOf)
 import qualified Data.Text as T
 import qualified Data.Text.Extended as T
 import Options.Applicative
-import System.Directory (getCurrentDirectory, withCurrentDirectory)
+import System.Directory (getCurrentDirectory)
 import System.Environment.Blank
-import System.IO.Extra (stderr, stdout, withTempDir)
+import System.IO.Extra (stderr, stdout)
 import System.IO.Silently (hCapture)
 import Test.Tasty
 import Test.Tasty.HUnit
@@ -52,9 +53,6 @@ parseFails args = parse args @?= Nothing
 parserInfo :: ParserInfo ()
 parserInfo = info (subparser cmdIde) idm
    where cmdIde = command "ide" $ info (pure ()) idm
-
-withCurrentTempDir :: IO a -> IO a
-withCurrentTempDir = withTempDir . flip withCurrentDirectory
 
 -- Runs the damlc parser with a set of command line flags/options, and a set of daml.yaml flags/options
 -- Takes a maybe expected error infix

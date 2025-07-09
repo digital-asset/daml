@@ -10,10 +10,11 @@ module DA.Cli.Damlc.Test.TestResults (
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.NameMap as NM
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Types.Location
 import qualified TestResults as TR
 import qualified ScriptService as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
-import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
 import qualified Data.ByteString.Lazy as BSL
@@ -160,20 +161,26 @@ loadTestResults file = do
       _ -> Nothing
 
 data LocalOrExternal
-    = Local LF.Module
+    = Local NormalizedFilePath LF.Module
     | External LF.ExternalPackage
     deriving (Show, Eq)
 
+localOrExternalName :: LocalOrExternal -> T.Text
+localOrExternalName (Local file _) = T.pack $ fromNormalizedFilePath file
+localOrExternalName (External LF.ExternalPackage { extPackagePkg }) =
+        LF.unPackageName packageName <> "-" <> LF.unPackageVersion packageVersion
+    where LF.PackageMetadata{..} = LF.packageMetadata extPackagePkg
+
 isLocal :: LocalOrExternal -> Bool
-isLocal (Local _) = True
+isLocal (Local _ _) = True
 isLocal _ = False
 
 loeGetModules :: LocalOrExternal -> [LF.Module]
-loeGetModules (Local mod) = [mod]
+loeGetModules (Local _ mod) = [mod]
 loeGetModules (External pkg) = NM.elems $ LF.packageModules $ LF.extPackagePkg pkg
 
 loeToPackageId :: (T.Text -> T.Text) -> LocalOrExternal -> PackageId
-loeToPackageId _ (Local _) = LocalPackageId
+loeToPackageId _ (Local _ _) = LocalPackageId
 loeToPackageId pkgIdToPkgName (External pkg) =
     let pid = LF.unPackageId (LF.extPackageId pkg)
     in
@@ -276,10 +283,9 @@ allInterfaceInstanceChoices testResults = M.fromList
             instanceTemplate implementation `M.lookup` exercise
     ]
 
-scriptResultsToTestResults
-    :: [LocalOrExternal]
-    -> [(LocalOrExternal, [(VirtualResource, Either SSC.Error SS.ScriptResult)])]
-    -> TestResults
+
+data ScriptResults = ScriptResults LocalOrExternal LF.World (Maybe [(ScriptName, Either SSC.Error SS.ScriptResult)])
+scriptResultsToTestResults :: [LocalOrExternal] -> [ScriptResults] -> TestResults
 scriptResultsToTestResults allPackages results =
     TestResults
         { templates = fmap (extractChoicesFromTemplate . thd) $ templatesDefinedIn allPackages
@@ -341,45 +347,50 @@ scriptResultsToTestResults allPackages results =
         , LF.TemplateImplements { tpiInterface }
             <- NM.toList $ LF.tplImplements templateInfo
         ]
+    
+    scriptNodes :: [(LocalOrExternal, [SS.Node])]
+    scriptNodes = 
+        [ (localOrExternal, nodes)
+        | ScriptResults localOrExternal _ (Just namesAndResults) <- results
+        , let nodes = 
+                [ node
+                | (_, Right result) <- namesAndResults
+                , node <- V.toList $ SS.scriptResultNodes result
+                ]
+        ]
 
     allCreatedTemplates :: M.Map TemplateIdentifier (S.Set PackageId)
-    allCreatedTemplates = M.unionsWith (<>) $ map (uncurry templatesCreatedIn) results
+    allCreatedTemplates = M.unionsWith (<>) $ map (uncurry templatesCreatedIn) scriptNodes
 
     allExercisedChoices :: M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
-    allExercisedChoices = M.unionsWith (M.unionWith (<>)) $ map (uncurry choicesExercisedIn) results
+    allExercisedChoices = M.unionsWith (M.unionWith (<>)) $ map (uncurry choicesExercisedIn) scriptNodes
 
-    templatesCreatedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map TemplateIdentifier (S.Set PackageId)
-    templatesCreatedIn loe results = M.fromListWith (<>)
+    templatesCreatedIn :: LocalOrExternal -> [SS.Node] -> M.Map TemplateIdentifier (S.Set PackageId)
+    templatesCreatedIn loe nodes = M.fromListWith (<>)
         [ ( ssIdentifierToIdentifier pkgIdToPkgName identifier
           , S.singleton (loeToPackageId pkgIdToPkgName loe)
           )
-        | n <- scriptNodes results
+        | n <- nodes
         , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateThinContractInstance}) <-
               [SS.nodeNode n]
         , Just contractInstance <- [node_CreateThinContractInstance]
         , Just identifier <- [SS.thinContractInstanceTemplateId contractInstance]
         ]
 
-    choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
-    choicesExercisedIn loe results = M.fromListWith (<>)
+    choicesExercisedIn :: LocalOrExternal -> [SS.Node] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))
+    choicesExercisedIn loe nodes = M.fromListWith (<>)
         [ ( TL.toStrict node_ExerciseChoiceId
           , M.singleton
               (ssIdentifierToIdentifier pkgIdToPkgName identifier)
               (S.singleton (loeToPackageId pkgIdToPkgName loe))
           )
-        | n <- scriptNodes results
+        | n <- nodes
         , Just (SS.NodeNodeExercise SS.Node_Exercise { SS.node_ExerciseTemplateId
                                                      , SS.node_ExerciseChoiceId
                                                      }) <- [SS.nodeNode n]
         , Just identifier <- [node_ExerciseTemplateId]
         ]
 
-    scriptNodes :: [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> [SS.Node]
-    scriptNodes results =
-        [ node
-        | (_virtualResource, Right result) <- results
-        , node <- V.toList $ SS.scriptResultNodes result
-        ]
 
     pkgIdToPkgName :: T.Text -> T.Text
     pkgIdToPkgName targetPid =
