@@ -113,13 +113,13 @@ addArtifactToBundle gpgTempDir releaseDir time bundle (_, file) = do
     loggedProcess_ "gpg" [ "--homedir", T.pack gpgTempDir, "-ab", "-o", T.pack sigFile, "--batch", "--yes", T.pack absFile ]
 
     content <- liftIO $ BS.readFile absFile
-    sig <- liftIO $ BSL.readFile sigFile
+    sig <- liftIO $ BS.readFile sigFile
 
     let md5 = digestToHexByteString (hash content :: Digest MD5)
         sha1 = digestToHexByteString (hash content :: Digest SHA1)
 
     let mainEntry = ZipArchive.toEntry (fromRelFile file) time (BSL.fromStrict content)
-        sigEntry = ZipArchive.toEntry (fromRelFile file <> ".asc") time sig
+        sigEntry = ZipArchive.toEntry (fromRelFile file <> ".asc") time (BSL.fromStrict sig)
         md5Entry = ZipArchive.toEntry (fromRelFile file <> ".md5") time (BSL.fromStrict md5)
         sha1Entry = ZipArchive.toEntry (fromRelFile file <> ".sha1") time (BSL.fromStrict sha1)
 
