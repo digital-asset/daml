@@ -145,7 +145,7 @@ typeInterningVar =
 
 typeInterningMaybeUnit :: TestTree
 typeInterningMaybeUnit =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tmaybe tunit
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tmaybe TUnit
   in  testCase "Maybe ()" $ do
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
@@ -155,7 +155,7 @@ typeInterningMaybeUnit =
 
 typeInterningMaybeSyn :: TestTree
 typeInterningMaybeSyn =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tsyn "MaybeSyn" [tunit]
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tsyn "MaybeSyn" [TUnit]
   in  testCase "MaybeSyn ()" $ do
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
@@ -165,14 +165,14 @@ typeInterningMaybeSyn =
 
 typeInterningUnit :: TestTree
 typeInterningUnit =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest tunit
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest TUnit
   in  testCase "unit" $ do
       pt @?= ptinterned 0
       (iTypes V.! 0) @?= ptunit
 
 typeInterningIntToBool :: TestTree
 typeInterningIntToBool =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tint :-> tbool
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ TInt64 :-> TBool
   in  testCase "Int -> Bool" $ do
       pt @?= ptinterned 2
       (iTypes V.! 0) @?= ptint
@@ -190,7 +190,7 @@ typeInterningForall =
 
 typeInterningTStruct :: TestTree
 typeInterningTStruct =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ TStruct [(FieldName "foo", tunit)]
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ TStruct [(FieldName "foo", TUnit)]
   in  testCase "struct {foo :: ()}" $ do
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit
@@ -206,7 +206,7 @@ typeInterningTNat =
 
 typeInterningAssertSharing :: TestTree
 typeInterningAssertSharing =
-  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tunit :-> tunit
+  let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ TUnit :-> TUnit
   in  testCase "Sharing: () -> ()" $ do
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit

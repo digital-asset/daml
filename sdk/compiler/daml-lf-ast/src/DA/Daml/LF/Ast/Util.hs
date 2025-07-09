@@ -467,15 +467,6 @@ instance Show UpgradingDep where
 tvar :: T.Text -> Type
 tvar = TVar . TypeVarName
 
-tunit :: Type
-tunit = TBuiltin BTUnit
-
-tint :: Type
-tint = TBuiltin BTInt64
-
-tbool :: Type
-tbool = TBuiltin BTBool
-
 tyLamTyp :: Type
 tyLamTyp = TForall (a, typToTyp) (TVar a :-> TVar a)
   where
