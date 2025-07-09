@@ -121,7 +121,7 @@ kindInterningAssertSharing =
 typeInterningTests :: TestTree
 typeInterningTests = testGroup "Type tests (interning)"
   [ typeInterningVar
-  , typeInterningMaybeUnit
+  , typeInterningMyFuncUnit
   , typeInterningMaybeSyn
   , typeInterningUnit
   , typeInterningIntToBool
@@ -143,15 +143,15 @@ typeInterningVar =
       iTypes V.! 0 @?= (pliftT $ P.TypeSumVar $ P.Type_Var 0 V.empty)
       iStrings V.! 0 @?= "a"
 
-typeInterningMaybeUnit :: TestTree
-typeInterningMaybeUnit =
+typeInterningMyFuncUnit :: TestTree
+typeInterningMyFuncUnit =
   let (pt, EncodeTestEnv{..}) = runEncodeTypeTest $ tmyFuncTest TUnit
   in  testCase "MyFunc ()" $ do
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
       iTypes V.! 1 @?= ptcon 1 (V.singleton $ ptinterned 0)
       iStrings V.! 0 @?= "Main"
-      iStrings V.! 1 @?= "Maybe"
+      iStrings V.! 1 @?= "MyFunc"
 
 typeInterningMaybeSyn :: TestTree
 typeInterningMaybeSyn =
