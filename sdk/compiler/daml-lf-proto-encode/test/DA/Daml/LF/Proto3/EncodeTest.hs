@@ -9,6 +9,11 @@ import           Control.Monad.State.Strict
 import qualified Data.Text.Lazy                           as TL
 import qualified Data.Vector                              as V
 
+--tmp, move to utils
+import           Data.Int
+import           Data.Text                                (Text)
+import qualified Proto3.Suite                             as P (Enumerated (..))
+
 import           DA.Daml.LF.Proto3.EncodeV2
 
 
@@ -25,6 +30,7 @@ entry :: IO ()
 entry = defaultMain $ testGroup "All tests"
   [ kindTests
   , typeInterningTests
+  , exprInterningTests
   ]
 
 ------------------------------------------------------------------------
@@ -34,6 +40,7 @@ data EncodeTestEnv = EncodeTestEnv
     { iStrings :: V.Vector TL.Text
     , iKinds   :: V.Vector P.Kind
     , iTypes   :: V.Vector P.Type
+    , iExprs   :: V.Vector P.Expr
     }
 
 envToTestEnv :: EncodeEnv -> EncodeTestEnv
@@ -41,6 +48,7 @@ envToTestEnv EncodeEnv{..} =
   EncodeTestEnv (packInternedStrings internedStrings)
                 (packInternedKinds   internedKindsMap)
                 (packInternedTypes   internedTypesMap)
+                (packInternedExprs   internedExprsMap)
 
 ------------------------------------------------------------------------
 -- Params
@@ -211,3 +219,66 @@ typeInterningAssertSharing =
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit
       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
+
+------------------------------------------------------------------------
+-- Exprs
+------------------------------------------------------------------------
+exprInterningTests :: TestTree
+exprInterningTests = testGroup "Expr tests (interning)"
+  [ exprInterningVar
+  , exprInterningVal
+  ]
+
+
+runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
+runEncodeExprTest k = envToTestEnv <$> runState (encodeExpr' k) (initEncodeEnv testVersion)
+
+-- ast
+eVar :: Text -> Expr
+eVar = EVar . ExprVarName
+
+eQual :: a -> Qualified a
+eQual x = Qualified SelfPackageId (ModuleName ["Main"]) x
+
+eVal :: Text -> Expr
+eVal = EVal . eQual . ExprValName
+
+-- P.ast
+liftE :: P.ExprSum -> P.Expr
+liftE = P.Expr Nothing . Just
+
+peInterned :: Int32 -> P.Expr
+peInterned = liftE . P.ExprSumInterned
+
+peBuiltinCon :: P.BuiltinCon -> P.Expr
+peBuiltinCon bit = liftE $ P.ExprSumBuiltinCon $ P.Enumerated $ Right bit
+
+peUnit :: P.Expr
+peUnit = peBuiltinCon P.BuiltinConCON_UNIT
+
+peVar :: Int32 -> P.Expr
+peVar = liftE . P.ExprSumVarInternedStr
+
+peSelfOrImportedPackageIdSelf :: Maybe P.SelfOrImportedPackageId
+peSelfOrImportedPackageIdSelf = Just $ P.SelfOrImportedPackageId $ Just $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
+
+peVal :: Int32 -> Int32 -> P.Expr
+peVal mod val = liftE $ P.ExprSumVal $ P.ValueId (Just $ P.ModuleId peSelfOrImportedPackageIdSelf mod) val
+
+-- tests
+exprInterningVar :: TestTree
+exprInterningVar =
+  let (pe, EncodeTestEnv{..}) = runEncodeExprTest $ eVar "x"
+  in  testCase "eVar x" $ do
+      pe @?= peInterned 0
+      iExprs V.! 0 @?= peVar 0
+      iStrings V.! 0 @?= "x"
+
+exprInterningVal :: TestTree
+exprInterningVal =
+  let (pe, EncodeTestEnv{..}) = runEncodeExprTest $ eVal "x"
+  in  testCase "eVar x" $ do
+      pe @?= peInterned 0
+      iExprs V.! 0 @?= peVal 0 1
+      iStrings V.! 0 @?= "Main"
+      iStrings V.! 1 @?= "x"
