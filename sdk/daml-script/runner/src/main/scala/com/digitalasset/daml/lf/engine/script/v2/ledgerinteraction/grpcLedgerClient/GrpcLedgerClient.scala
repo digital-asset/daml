@@ -24,6 +24,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   InterfaceFilter,
   TemplateFilter,
 }
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.{value => api}
 import com.daml.timer.RetryStrategy
 import com.digitalasset.daml.lf.CompiledPackages
@@ -47,7 +48,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.{Status, StatusRuntimeException}
 import io.grpc.protobuf.StatusProto
 import com.google.rpc.status.{Status => GoogleStatus}
-import scala.annotation.nowarn
 import scalaz.OneAnd
 import scalaz.OneAnd._
 import scalaz.std.either._
@@ -353,9 +353,6 @@ class GrpcLedgerClient(
     }
   }
 
-  @nowarn(
-    "cat=deprecation"
-  ) // use submitAndWaitForTransaction instead of submitAndWaitForTransactionTree
   override def submit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
@@ -404,13 +401,13 @@ class GrpcLedgerClient(
         packageIdSelectionPreference = optPackagePreference.getOrElse(List.empty),
       )
       eResp <- grpcClient.commandService
-        .submitAndWaitForTransactionTree(apiCommands)
+        .submitAndWaitForTransaction(apiCommands, TRANSACTION_SHAPE_LEDGER_EFFECTS)
 
       result <- eResp match {
         case Right(resp) =>
           for {
             tree <- Converter.toFuture(
-              Converter.fromTransactionTree(resp.getTransaction, commandResultPackageIds)
+              Converter.fromTransaction(resp.getTransaction, commandResultPackageIds)
             )
             results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           } yield Right((results, tree))

@@ -6,8 +6,10 @@ package engine
 package script
 package v2
 
-import com.daml.ledger.api.v2.transaction.TreeEvent
-import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.daml.ledger.api.v2.event.{Event, ExercisedEvent}
+import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.ledger.javaapi.data.{Transaction => JavaTransaction}
+import com.daml.ledger.javaapi.data.{ExercisedEvent => JavaExercisedEvent}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
@@ -17,8 +19,7 @@ import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
-import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.TransactionTreeOps
-import scala.annotation.nowarn
+import scala.jdk.CollectionConverters._
 import scalaz.std.list._
 import scalaz.std.either._
 import scalaz.std.option._
@@ -230,66 +231,85 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     )
   }
 
-  // TransactionFilter will be removed in 3.4, use EventFormat instead
-  @nowarn("cat=deprecation")
-  def fromTransactionTree(
-      tree: TransactionTree,
+  def fromTransaction(
+      tx: Transaction,
       intendedPackageIds: List[PackageId],
   ): Either[String, ScriptLedgerClient.TransactionTree] = {
     def convEvent(
         ev: Int,
         oIntendedPackageId: Option[PackageId],
-    ): Either[String, ScriptLedgerClient.TreeEvent] =
-      tree.eventsById.get(ev).toRight(s"Event id $ev does not exist").flatMap { event =>
-        event.kind match {
-          case TreeEvent.Kind.Created(created) =>
-            for {
-              tplId <- Converter.fromApiIdentifier(created.getTemplateId)
-              cid <- ContractId.fromString(created.contractId)
-              arg <-
-                NoLoggingValueValidator
-                  .validateRecord(created.getCreateArguments)
+    ): Either[String, ScriptLedgerClient.TreeEvent] = {
+      val javaTx = JavaTransaction.fromProto(Transaction.toJavaProto(tx))
+
+      javaTx.getEventsById.asScala.get(ev).toRight(s"Event id $ev does not exist").flatMap {
+        event =>
+          Event.fromJavaProto(event.toProtoEvent).event match {
+            case Event.Event.Created(created) =>
+              for {
+                tplId <- Converter.fromApiIdentifier(created.getTemplateId)
+                cid <- ContractId.fromString(created.contractId)
+                arg <-
+                  NoLoggingValueValidator
+                    .validateRecord(created.getCreateArguments)
+                    .left
+                    .map(err => s"Failed to validate create argument: $err")
+              } yield ScriptLedgerClient.Created(
+                oIntendedPackageId
+                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
+                cid,
+                arg,
+                Bytes.fromByteString(created.createdEventBlob),
+              )
+            case Event.Event.Exercised(exercised) =>
+              for {
+                tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
+                ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
+                cid <- ContractId.fromString(exercised.contractId)
+                choice <- ChoiceName.fromString(exercised.choice)
+                choiceArg <- NoLoggingValueValidator
+                  .validateValue(exercised.getChoiceArgument)
                   .left
-                  .map(err => s"Failed to validate create argument: $err")
-            } yield ScriptLedgerClient.Created(
-              oIntendedPackageId
-                .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
-              cid,
-              arg,
-              Bytes.fromByteString(created.createdEventBlob),
-            )
-          case TreeEvent.Kind.Exercised(exercised) =>
-            for {
-              tplId <- Converter.fromApiIdentifier(exercised.getTemplateId)
-              ifaceId <- exercised.interfaceId.traverse(Converter.fromApiIdentifier)
-              cid <- ContractId.fromString(exercised.contractId)
-              choice <- ChoiceName.fromString(exercised.choice)
-              choiceArg <- NoLoggingValueValidator
-                .validateValue(exercised.getChoiceArgument)
-                .left
-                .map(err => s"Failed to validate exercise argument: $err")
-              choiceResult <- NoLoggingValueValidator
-                .validateValue(exercised.getExerciseResult)
-                .left
-                .map(_.toString)
-              childEvents <- tree.childNodeIds(exercised).toList.traverse(convEvent(_, None))
-            } yield ScriptLedgerClient.Exercised(
-              oIntendedPackageId
-                .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
-              ifaceId,
-              cid,
-              choice,
-              choiceArg,
-              choiceResult,
-              childEvents,
-            )
-          case TreeEvent.Kind.Empty => throw new RuntimeException("foo")
-        }
+                  .map(err => s"Failed to validate exercise argument: $err")
+                choiceResult <- NoLoggingValueValidator
+                  .validateValue(exercised.getExerciseResult)
+                  .left
+                  .map(_.toString)
+                childEvents <- javaTx
+                  .getChildNodeIds(
+                    JavaExercisedEvent.fromProto(ExercisedEvent.toJavaProto(exercised))
+                  )
+                  .asScala
+                  .toList
+                  .traverse(convEvent(_, None))
+              } yield ScriptLedgerClient.Exercised(
+                oIntendedPackageId
+                  .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
+                ifaceId,
+                cid,
+                choice,
+                choiceArg,
+                choiceResult,
+                childEvents,
+              )
+            case Event.Event.Archived(_) =>
+              throw new RuntimeException(
+                "Unexpected archived event in transaction with LedgerEffects shape"
+              )
+            case Event.Event.Empty =>
+              throw new RuntimeException("Unexpected empty event encountered in transaction")
+          }
       }
+    }
     for {
-      rootEvents <- tree.rootNodeIds().zip(intendedPackageIds).traverse {
-        case (nodeId, intendedPackageId) => convEvent(nodeId, Some(intendedPackageId))
-      }
+      rootEvents <- JavaTransaction
+        .fromProto(Transaction.toJavaProto(tx))
+        .getRootNodeIds()
+        .asScala
+        .toList
+        .zip(intendedPackageIds)
+        .traverse { case (nodeId, intendedPackageId) =>
+          convEvent(nodeId, Some(intendedPackageId))
+        }
     } yield {
       ScriptLedgerClient.TransactionTree(rootEvents)
     }
