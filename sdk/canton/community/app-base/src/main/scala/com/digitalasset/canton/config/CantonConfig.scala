@@ -1213,6 +1213,10 @@ object CantonConfig {
         deriveReader[CommandProgressTrackerConfig]
       implicit val packageMetadataViewConfigReader: ConfigReader[PackageMetadataViewConfig] =
         deriveReader[PackageMetadataViewConfig]
+      implicit val partyReplicatorTestInterceptorReader
+          : ConfigReader[UnsafeOnlinePartyReplicationConfig.TestInterceptor] =
+        (_: ConfigCursor) =>
+          sys.error("party replicator test interceptor cannot be created from pureconfig")
       implicit val unsafeOnlinePartyReplicationConfig
           : ConfigReader[UnsafeOnlinePartyReplicationConfig] =
         deriveReader[UnsafeOnlinePartyReplicationConfig]
@@ -1816,6 +1820,9 @@ object CantonConfig {
 
       implicit val packageMetadataViewConfigWriter: ConfigWriter[PackageMetadataViewConfig] =
         deriveWriter[PackageMetadataViewConfig]
+      implicit val partyReplicatorTestInterceptorWriter
+          : ConfigWriter[UnsafeOnlinePartyReplicationConfig.TestInterceptor] =
+        ConfigWriter.toString(_ => "None")
       implicit val unsafeOnlinePartyReplicationConfigWriter
           : ConfigWriter[UnsafeOnlinePartyReplicationConfig] =
         deriveWriter[UnsafeOnlinePartyReplicationConfig]

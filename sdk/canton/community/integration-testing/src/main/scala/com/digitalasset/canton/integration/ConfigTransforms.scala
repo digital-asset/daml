@@ -818,11 +818,23 @@ object ConfigTransforms {
     ),
   )
 
-  def unsafeEnableOnlinePartyReplication: Seq[ConfigTransform] = Seq(
-    updateAllParticipantConfigs_(
-      _.focus(_.parameters.unsafeOnlinePartyReplication)
-        .replace(Some(UnsafeOnlinePartyReplicationConfig()))
-    ),
+  def unsafeEnableOnlinePartyReplication(
+      participantsWithOnPRInterceptor: Map[
+        String,
+        UnsafeOnlinePartyReplicationConfig.TestInterceptor,
+      ] = Map.empty
+  ): Seq[ConfigTransform] = Seq(
+    updateAllParticipantConfigs { case (name, config) =>
+      config
+        .focus(_.parameters.unsafeOnlinePartyReplication)
+        .replace(
+          Some(
+            UnsafeOnlinePartyReplicationConfig(
+              testInterceptor = participantsWithOnPRInterceptor.get(name)
+            )
+          )
+        )
+    },
     updateAllSequencerConfigs_(
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),

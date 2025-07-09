@@ -21,6 +21,17 @@ template DivulgeIouByExercise
           iou <- fetch ref
           return  ()
 
+    nonconsuming choice ImmediateDivulgeIou : ContractId Iou
+      controller payer
+        do
+          create Iou with payer = payer; owner = payer; amount = Amount {value = 100.0; currency = "USD"}; viewers = []
+
+    nonconsuming choice RetroactiveArchivalDivulgeIou : ()
+      with ref : ContractId Iou
+      controller payer
+        do
+          archive ref
+
     nonconsuming choice NotDivulge : ()
       with ref : ContractId Iou
       controller payer

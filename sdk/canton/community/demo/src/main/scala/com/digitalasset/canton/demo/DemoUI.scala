@@ -4,7 +4,13 @@
 package com.digitalasset.canton.demo
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{
+  EventFormat,
+  Filters,
+  TransactionFormat,
+  UpdateFormat,
+}
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
 import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
@@ -361,16 +367,29 @@ class ParticipantTab(
     }
 
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
-    // TODO(#26401) use UpdateFormat instead of TransactionFilter
-    @nowarn("cat=deprecation")
     val req = new GetUpdatesRequest(
       beginExclusive = offset,
       endInclusive = None,
-      filter = Some(
-        TransactionFilter(filtersByParty = Map(partyId -> Filters(Nil)), filtersForAnyParty = None)
+      filter = None,
+      verbose = false,
+      updateFormat = Some(
+        UpdateFormat(
+          includeTransactions = Some(
+            TransactionFormat(
+              Some(
+                EventFormat(
+                  filtersByParty = Map(partyId -> Filters(Nil)),
+                  filtersForAnyParty = None,
+                  verbose = true,
+                )
+              ),
+              TRANSACTION_SHAPE_ACS_DELTA,
+            )
+          ),
+          includeReassignments = None,
+          includeTopologyEvents = None,
+        )
       ),
-      verbose = true,
-      updateFormat = None,
     )
     updatesService.getUpdates(req, obs)
   }

@@ -10,10 +10,12 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.store.AcsInspection
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
@@ -21,7 +23,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -56,6 +57,8 @@ import scala.util.chaining.scalaUtilChainingOps
   *   Callback notification that the source participant has sent the entire ACS.
   * @param onError
   *   Callback notification that the source participant has errored.
+  * @param testOnlyInterceptor
+  *   Test interceptor only alters behavior in integration tests.
   */
 final class PartyReplicationSourceParticipantProcessor private (
     val psid: PhysicalSynchronizerId,
@@ -71,11 +74,12 @@ final class PartyReplicationSourceParticipantProcessor private (
     protected val exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    protected val testOnlyInterceptor: PartyReplicationTestInterceptor,
 )(implicit override val executionContext: ExecutionContext)
     extends PartyReplicationProcessor {
-  private val contractOrdinalToSendUpToExclusive =
-    new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  private val sentContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val processorStore = InMemoryProcessorStore.sourceParticipant()
+  private def contractOrdinalToSendUpToExclusive = processorStore.contractOrdinalToSendUpToExclusive
+  private def sentContractsCount = processorStore.sentContractsCount
   private val contractsPerBatch = PositiveInt.two
 
   override def replicatedContractsCount: NonNegativeInt = sentContractsCount.get()
@@ -146,17 +150,23 @@ final class PartyReplicationSourceParticipantProcessor private (
       !isChannelClosed.get() &&
       // Skip progress check if another task is already queued that performs this same progress check or
       // is going to schedule a progress check.
-      executionQueue.queueSize <= 1
+      executionQueue.queueSize <= 1 &&
+      testOnlyInterceptor.onSourceParticipantProgress(
+        processorStore
+      ) == PartyReplicationTestInterceptor.Proceed
     ) {
       executeAsync(
         s"Respond to target participant if needed"
       ) {
-        val (fromInclusive, toInclusive) = (
-          sentContractsCount.get(),
-          contractOrdinalToSendUpToExclusive.get().map(_ - 1), // -1 for exclusive to inclusive
-        )
-        EitherTUtil.ifThenET(fromInclusive < toInclusive)(
-          respondToTargetParticipant(fromInclusive, toInclusive)
+        val fromInclusive = sentContractsCount.get()
+        // -1 for exclusive to inclusive
+        EitherTUtil.ifThenET(
+          fromInclusive.unwrap < contractOrdinalToSendUpToExclusive.get().unwrap - 1
+        )(
+          respondToTargetParticipant(
+            fromInclusive,
+            contractOrdinalToSendUpToExclusive.get().map(_ - 1),
+          )
         )
       }
     }
@@ -286,6 +296,7 @@ object PartyReplicationSourceParticipantProcessor {
   def apply(
       psid: PhysicalSynchronizerId,
       partyId: PartyId,
+      requestId: Hash,
       activeAt: CantonTimestamp,
       partiesHostedByTargetParticipant: Set[LfPartyId],
       acsInspection: AcsInspection,
@@ -295,6 +306,8 @@ object PartyReplicationSourceParticipantProcessor {
       exitOnFatalFailures: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      testInterceptor: PartyReplicationTestInterceptor =
+        PartyReplicationTestInterceptor.AlwaysProceed,
   )(implicit executionContext: ExecutionContext): PartyReplicationSourceParticipantProcessor =
     new PartyReplicationSourceParticipantProcessor(
       psid,
@@ -309,6 +322,8 @@ object PartyReplicationSourceParticipantProcessor {
       timeouts,
       loggerFactory
         .append("synchronizerId", psid.toProtoPrimitive)
-        .append("partyId", partyId.toProtoPrimitive),
+        .append("partyId", partyId.toProtoPrimitive)
+        .append("requestId", requestId.toHexString),
+      testInterceptor,
     )
 }

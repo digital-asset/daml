@@ -55,7 +55,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       getSubmitAndWaitForTransactionRequest(request.commands)
     )
 
-  // TODO(#26401) remove the method and use LedgerEffects instead
+  // TODO(#23504) remove when json/v1 api is removed
   @deprecated("TransactionTrees are deprecated", "3.4.0")
   def deprecatedSubmitAndWaitForTransactionTreeForJsonApi(
       request: SubmitAndWaitRequest,
@@ -82,7 +82,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       ),
     )
 
-  // TODO(#26401) remove method
+  // TODO(#23504) remove method
   @deprecated("TransactionTrees are deprecated", "3.4.0")
   def submitAndWaitForTransactionTree(
       commands: Commands,

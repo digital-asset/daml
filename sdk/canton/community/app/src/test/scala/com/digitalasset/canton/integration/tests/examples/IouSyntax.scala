@@ -11,17 +11,18 @@ import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.*
+import com.digitalasset.canton.examples.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.{LedgerUserId, config}
+import org.scalatest.LoneElement.convertToCollectionLoneElementWrapper
 
 import scala.jdk.CollectionConverters.*
 
 object IouSyntax {
 
-  import org.scalatest.OptionValues.*
   val modelCompanion: ContractCompanion.WithoutKey[Iou.Contract, Iou.ContractId, Iou] =
     iou.Iou.COMPANION
 
@@ -36,6 +37,15 @@ object IouSyntax {
       owner.toProtoPrimitive,
       new iou.Amount(amount.toBigDecimal, "USD"),
       observers.map(_.toProtoPrimitive).asJava,
+    )
+
+  def testDivulgeIouByExercise(
+      payer: PartyId,
+      divulgee: PartyId,
+  ): DivulgeIouByExercise =
+    new DivulgeIouByExercise(
+      payer.toProtoPrimitive,
+      divulgee.toProtoPrimitive,
     )
 
   def createIou(
@@ -58,7 +68,7 @@ object IouSyntax {
       synchronizerId,
       optTimeout = optTimeout,
     )
-    JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).headOption.value
+    JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).loneElement
   }
 
   /** Similar to createIou above but returns the update and command completion
@@ -70,39 +80,90 @@ object IouSyntax {
       payer: PartyId,
       owner: PartyId,
       amount: Double = 100.0,
-  ): (Iou.Contract, Transaction, Completion) = {
-    val userId: LedgerUserId =
-      LedgerUserId.assertFromString("enterprise-user")
+  ): (Iou.Contract, Transaction, Completion) =
+    complete(participant, payer) {
+      val createIouCmd = IouSyntax.testIou(payer, owner, amount).create().commands().asScala.toSeq
 
-    val ledgerEnd = participant.ledger_api.state.end()
+      val tx = participant.ledger_api.javaapi.commands.submit(
+        Seq(payer),
+        createIouCmd,
+        synchronizerId,
+        optTimeout = None,
+        userId = userId,
+      )
+      JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).loneElement
+    }
 
-    val createIouCmd = IouSyntax.testIou(payer, owner, amount).create().commands().asScala.toSeq
+  /** Similar to createIou above but returns the update and command completion
+    */
+  def createDivulgeIouByExerciseComplete(
+      participant: ParticipantReference,
+      synchronizerId: Option[SynchronizerId] = None,
+  )(
+      payer: PartyId,
+      divulgee: PartyId,
+  ): (DivulgeIouByExercise.Contract, Transaction, Completion) =
+    complete(participant, divulgee) {
+      val createDivulgeIouByExerciseCmd =
+        IouSyntax.testDivulgeIouByExercise(payer, divulgee).create().commands().asScala.toSeq
 
-    val tx = participant.ledger_api.javaapi.commands.submit(
-      Seq(payer),
-      createIouCmd,
-      synchronizerId,
-      optTimeout = None,
-      userId = userId,
-    )
-    val iou = JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).headOption.value
+      val tx = participant.ledger_api.javaapi.commands.submit(
+        Seq(divulgee),
+        createDivulgeIouByExerciseCmd,
+        synchronizerId,
+        optTimeout = None,
+        userId = userId,
+      )
+      JavaDecodeUtil.decodeAllCreated(DivulgeIouByExercise.COMPANION)(tx).loneElement
+    }
 
-    val completions = participant.ledger_api.completions.list(
-      partyId = payer,
-      beginOffsetExclusive = ledgerEnd,
-      atLeastNumCompletions = 1,
-      userId = userId,
-    )
+  def immediateDivulgeIouComplete(
+      participant: ParticipantReference,
+      synchronizerId: Option[SynchronizerId] = None,
+  )(
+      payer: PartyId,
+      divulgenceContract: DivulgeIouByExercise.Contract,
+  ): (Iou.Contract, Transaction, Completion) =
+    complete(participant, payer) {
+      val createIouByExerciseCmd =
+        divulgenceContract.id.exerciseImmediateDivulgeIou().commands().asScala.toSeq
 
-    val transactions = participant.ledger_api.updates.transactions(
-      partyIds = Set(payer),
-      completeAfter = PositiveInt.one,
-      beginOffsetExclusive = ledgerEnd,
-    )
+      val tx = participant.ledger_api.javaapi.commands.submit(
+        Seq(payer),
+        createIouByExerciseCmd,
+        synchronizerId,
+        optTimeout = None,
+        userId = userId,
+      )
+      JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).loneElement
+    }
 
-    val transaction = transactions.headOption.value.transaction
+  def retroactiveDivulgeAndArchiveIouComplete(
+      participant: ParticipantReference,
+      synchronizerId: Option[SynchronizerId] = None,
+  )(
+      payer: PartyId,
+      divulgenceContract: DivulgeIouByExercise.Contract,
+      iouContractId: Iou.ContractId,
+  ): (Transaction, Completion) = {
+    val (_, transaction, completion) = complete(participant, payer) {
+      val archiveIouByExerciseCmd =
+        divulgenceContract.id
+          .exerciseRetroactiveArchivalDivulgeIou(iouContractId)
+          .commands()
+          .asScala
+          .toSeq
 
-    (iou, transaction, completions.headOption.value)
+      participant.ledger_api.javaapi.commands.submit(
+        Seq(payer),
+        archiveIouByExerciseCmd,
+        synchronizerId,
+        optTimeout = None,
+        userId = userId,
+      )
+    }
+
+    (transaction, completion)
   }
 
   def archive(participant: ParticipantReference, synchronizerId: Option[SynchronizerId] = None)(
@@ -121,4 +182,32 @@ object IouSyntax {
         synchronizerId,
       )
       .discard
+
+  private def complete[T](participant: ParticipantReference, submitterParty: PartyId)(
+      submission: => T
+  ): (T, Transaction, Completion) = {
+    val ledgerEnd = participant.ledger_api.state.end()
+
+    val submissionResult = submission
+
+    val completions = participant.ledger_api.completions.list(
+      partyId = submitterParty,
+      beginOffsetExclusive = ledgerEnd,
+      atLeastNumCompletions = 1,
+      userId = userId,
+    )
+
+    val transactions = participant.ledger_api.updates.transactions(
+      partyIds = Set(submitterParty),
+      completeAfter = PositiveInt.one,
+      beginOffsetExclusive = ledgerEnd,
+    )
+
+    val transaction = transactions.loneElement.transaction
+
+    (submissionResult, transaction, completions.loneElement)
+  }
+
+  private val userId: LedgerUserId =
+    LedgerUserId.assertFromString("enterprise-user")
 }

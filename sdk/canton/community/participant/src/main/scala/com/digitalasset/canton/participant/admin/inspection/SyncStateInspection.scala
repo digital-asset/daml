@@ -195,14 +195,14 @@ final class SyncStateInspection(
       contractIds: Seq[LfContractId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] = {
+  ): FutureUnlessShutdown[Map[LfContractId, ContractInstance]] = {
     val synchronizerAlias = syncPersistentStateManager
       .aliasForSynchronizerId(synchronizerId)
       .getOrElse(throw new IllegalArgumentException(s"no such synchronizer [$synchronizerId]"))
 
     NonEmpty.from(contractIds) match {
       case None =>
-        FutureUnlessShutdown.pure(Map.empty[LfContractId, SerializableContract])
+        FutureUnlessShutdown.pure(Map.empty[LfContractId, ContractInstance])
       case Some(neCids) =>
         val synchronizerAcsInspection =
           getOrFail(
