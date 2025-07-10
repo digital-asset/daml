@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.config
 
 import com.daml.tls.TlsVersion
 import com.daml.tls.TlsVersion.TlsVersion
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import scopt.Read
 
 import java.time.Duration

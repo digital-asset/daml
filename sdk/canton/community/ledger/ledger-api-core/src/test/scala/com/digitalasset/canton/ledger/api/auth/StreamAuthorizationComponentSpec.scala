@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServerOw
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.*
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
