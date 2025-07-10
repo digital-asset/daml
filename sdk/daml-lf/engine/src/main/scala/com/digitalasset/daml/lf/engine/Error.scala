@@ -26,6 +26,10 @@ object Error {
       def message: String
     }
 
+    trait OptionalLogReporting {
+      def logReportingEnabled: Boolean
+    }
+
     final case class Internal(
         location: String,
         override val message: String,
@@ -76,7 +80,8 @@ object Error {
         transitiveDependencies: Set[Ref.PackageId],
         missingDependencies: Set[Ref.PackageId],
         extraDependencies: Set[Ref.PackageId],
-    ) extends Error {
+    ) extends Error
+        with OptionalLogReporting {
       def message: String =
         s"For package $mainPackageId, the set of package dependencies ${transitiveDependencies
             .mkString("{'", "', '", "'}")} is not self consistent, " +
@@ -88,7 +93,7 @@ object Error {
              s"the extra dependencies are ${extraDependencies.mkString("{'", "', '", "'}")}"
            else "")
 
-      val logReportingEnabled: Boolean =
+      override val logReportingEnabled: Boolean =
         missingDependencies.isEmpty && extraDependencies.nonEmpty
     }
   }
