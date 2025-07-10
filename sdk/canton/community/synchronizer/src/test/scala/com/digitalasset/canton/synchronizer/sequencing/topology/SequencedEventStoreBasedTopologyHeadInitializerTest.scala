@@ -85,7 +85,6 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                         None,
                         Batch.empty(testedProtocolVersion),
                         None,
-                        testedProtocolVersion,
                         Option.empty[TrafficReceipt],
                       ),
                       SymbolicCrypto.emptySignature,

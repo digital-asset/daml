@@ -100,7 +100,6 @@ object SequencedEvent
     ) = sequencedEventP
 
     for {
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       previousTimestamp <- previousTimestampP.traverse(CantonTimestamp.fromProtoPrimitive)
       timestamp <- CantonTimestamp.fromProtoPrimitive(tsP)
       psid <- PhysicalSynchronizerId.fromProtoPrimitive(
@@ -135,7 +134,7 @@ object SequencedEvent
             msgId,
             deliverErrorReason,
             trafficConsumed,
-          )(rpv, Some(bytes)) {}
+          )(Some(bytes)) {}
         case (None, Some(batch)) =>
           for {
             topologyTimestampO <- topologyTimestampP.traverse(CantonTimestamp.fromProtoPrimitive)
@@ -149,8 +148,7 @@ object SequencedEvent
             topologyTimestampO,
             trafficConsumed,
           )(
-            rpv,
-            Some(bytes),
+            Some(bytes)
           )
       }): ParsingResult[SequencedEvent[ClosedEnvelope]]
     } yield event
@@ -200,11 +198,12 @@ sealed abstract case class DeliverError private[sequencing] (
     messageId: MessageId,
     reason: Status,
     trafficReceipt: Option[TrafficReceipt],
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencedEvent.type],
-    override val deserializedFrom: Option[ByteString],
-) extends SequencedEvent[Nothing]
+)(override val deserializedFrom: Option[ByteString])
+    extends SequencedEvent[Nothing]
     with NoCopy {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencedEvent.type] =
+    SequencedEvent.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     previousTimestamp = previousTimestamp.map(_.toProtoPrimitive),
@@ -224,10 +223,7 @@ sealed abstract case class DeliverError private[sequencing] (
     messageId,
     reason,
     trafficReceipt,
-  )(
-    representativeProtocolVersion,
-    deserializedFrom,
-  ) {}
+  )(deserializedFrom) {}
 
   override protected def traverse[F[_], Env <: Envelope[?]](f: Nothing => F[Env])(implicit
       F: Applicative[F]
@@ -266,7 +262,6 @@ object DeliverError {
       synchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       sequencerError: SequencerDeliverError,
-      protocolVersion: ProtocolVersion,
       trafficReceipt: Option[TrafficReceipt],
   ): DeliverError =
     new DeliverError(
@@ -276,18 +271,13 @@ object DeliverError {
       messageId,
       sequencerError.rpcStatusWithoutLoggingContext(),
       trafficReceipt,
-    )(
-      SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
-      None,
-    ) {}
-
+    )(None) {}
   def create(
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
       synchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       status: Status,
-      protocolVersion: ProtocolVersion,
       trafficReceipt: Option[TrafficReceipt],
   ): DeliverError =
     new DeliverError(
@@ -297,10 +287,7 @@ object DeliverError {
       messageId,
       status,
       trafficReceipt,
-    )(
-      SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
-      None,
-    ) {}
+    )(None) {}
 }
 
 /** Intuitively, the member learns all envelopes addressed to it. It learns some recipients of these
@@ -329,9 +316,11 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     topologyTimestampO: Option[CantonTimestamp],
     trafficReceipt: Option[TrafficReceipt],
 )(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencedEvent.type],
-    val deserializedFrom: Option[ByteString],
+    val deserializedFrom: Option[ByteString]
 ) extends SequencedEvent[Env] {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[SequencedEvent.type] =
+    SequencedEvent.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)
 
   /** Is this deliver event a receipt for a message that the receiver previously sent? (messageId is
     * only populated for the sender)
@@ -361,10 +350,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
         _,
         topologyTimestampO,
         trafficReceipt,
-      )(
-        representativeProtocolVersion,
-        deserializedFrom,
-      )
+      )(deserializedFrom)
     )
 
   @VisibleForTesting
@@ -386,10 +372,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       batch,
       topologyTimestampO,
       trafficReceipt,
-    )(
-      representativeProtocolVersion,
-      deserializedFromO,
-    )
+    )(deserializedFromO)
 
   def updateTrafficReceipt(trafficReceipt: Option[TrafficReceipt]): Deliver[Env] =
     copy(trafficReceipt = trafficReceipt)
@@ -418,7 +401,6 @@ object Deliver {
       messageIdO: Option[MessageId],
       batch: Batch[Env],
       topologyTimestampO: Option[CantonTimestamp],
-      protocolVersion: ProtocolVersion,
       trafficReceipt: Option[TrafficReceipt],
   ): Deliver[Env] =
     Deliver[Env](
@@ -429,10 +411,7 @@ object Deliver {
       batch,
       topologyTimestampO,
       trafficReceipt,
-    )(
-      SequencedEvent.protocolVersionRepresentativeFor(protocolVersion),
-      None,
-    )
+    )(None)
 
   def fromSequencedEvent[Env <: Envelope[_]](
       deliverEvent: SequencedEvent[Env]

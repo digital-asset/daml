@@ -7,6 +7,7 @@ import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.crypto.RandomOps
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
+import com.digitalasset.canton.util.TimingSafeComparisonUtil.constantTimeEquals
 import io.grpc.Metadata
 
 import scala.concurrent.Future
@@ -37,7 +38,7 @@ class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken]) extends
       adminToken <- adminTokenO
       authKey <- Option(headers.get(AUTHORIZATION_KEY))
       token <- bearerTokenRegex.findFirstMatchIn(authKey).map(_.group(1))
-      _ <- if (token == adminToken.secret) Some(()) else None
+      _ <- if (constantTimeEquals(token, adminToken.secret)) Some(()) else None
     } yield ()
     authToken
       .fold(deny)(_ => wildcard)

@@ -230,7 +230,6 @@ final class GeneratorsProtocol(
       synchronizerId = synchronizerId,
       messageId,
       error,
-      protocolVersion,
       Option.empty[TrafficReceipt],
     )
   )
@@ -238,7 +237,7 @@ final class GeneratorsProtocol(
     for {
       synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       batch <- batchArb.arbitrary
-      deliver <- Arbitrary(deliverGen(synchronizerId, batch, protocolVersion)).arbitrary
+      deliver <- Arbitrary(deliverGen(synchronizerId, batch)).arbitrary
     } yield deliver
   )
 
@@ -290,7 +289,6 @@ final class GeneratorsProtocol(
   def deliverGen[Env <: Envelope[?]](
       synchronizerId: PhysicalSynchronizerId,
       batch: Batch[Env],
-      protocolVersion: ProtocolVersion,
   ): Gen[Deliver[Env]] = for {
     previousTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
@@ -304,7 +302,6 @@ final class GeneratorsProtocol(
     messageIdO,
     batch,
     topologyTimestampO,
-    protocolVersion,
     trafficReceipt,
   )
 }

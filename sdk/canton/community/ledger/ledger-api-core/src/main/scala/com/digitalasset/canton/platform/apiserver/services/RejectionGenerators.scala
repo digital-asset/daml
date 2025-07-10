@@ -65,6 +65,8 @@ object RejectionGenerators {
         )
       case e: Package.SelfConsistency =>
         LedgerApiErrors.InternalError.PackageSelfConsistency(e)
+      case Package.DarSelfConsistency(_, _, _, _) =>
+        LedgerApiErrors.InternalError.Generic("DarSelfConsistency not yet implemented")
     }
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): RpcError = err match {
@@ -180,6 +182,11 @@ object RejectionGenerators {
               error: LfInterpretationError.Crypto.MalformedSignature
             ) =>
           CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.Crypto(
+              error: LfInterpretationError.Crypto.MalformedContractId
+            ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedContractId
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError

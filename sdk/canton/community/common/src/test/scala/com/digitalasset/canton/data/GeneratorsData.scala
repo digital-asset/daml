@@ -581,7 +581,7 @@ final class GeneratorsData(
       .value
   )
 
-  private def timeProofArb(protocolVersion: ProtocolVersion): Arbitrary[TimeProof] = Arbitrary(
+  private val timeProofArb: Arbitrary[TimeProof] = Arbitrary(
     for {
       timestamp <- Arbitrary.arbitrary[CantonTimestamp]
       previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
@@ -592,7 +592,6 @@ final class GeneratorsData(
       previousEventTimestamp,
       counter,
       targetSynchronizerId,
-      protocolVersion,
     )
   )
 
@@ -605,7 +604,7 @@ final class GeneratorsData(
       targetSynchronizerId <- Arbitrary
         .arbitrary[Target[PhysicalSynchronizerId]]
         .map(_.map(_.copy(protocolVersion = protocolVersion)))
-      timeProof <- timeProofArb(protocolVersion).arbitrary
+      timeProof <- timeProofArb.arbitrary
 
       hashOps = TestHash // Not used for serialization
 

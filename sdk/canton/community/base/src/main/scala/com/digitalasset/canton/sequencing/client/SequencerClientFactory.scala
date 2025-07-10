@@ -284,7 +284,6 @@ object SequencerClientFactory {
               } else {
                 new SequencedEventValidatorImpl(
                   psid,
-                  synchronizerParameters.protocolVersion,
                   syncCryptoApi,
                   loggerFactory,
                   processingTimeout,

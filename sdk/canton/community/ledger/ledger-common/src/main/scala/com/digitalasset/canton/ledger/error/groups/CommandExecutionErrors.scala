@@ -987,6 +987,31 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
             )
         }
       }
+      @Explanation(
+        "Contract ID used in `fromHex @(ContractId a)` is malformed"
+      )
+      @Resolution(
+        "Ensure input is correctly formatted and hex encoded ContractId"
+      )
+      object MalformedContractId
+          extends ErrorCode(
+            id = "INTERPRETATION_CRYPTO_ERROR_MALFORMED_CONTRACT_ID",
+            ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ) {
+        final case class Reject(
+            override val cause: String,
+            err: LfInterpretationError.Crypto.MalformedContractId,
+        )(implicit
+            loggingContext: ErrorLoggingContext
+        ) extends DamlErrorWithDefiniteAnswer(
+              cause = cause
+            ) {
+          override def resources: Seq[(ErrorResource, String)] =
+            Seq(
+              (ErrorResource.CryptoValue, err.value)
+            )
+        }
+      }
     }
 
     @Explanation(
