@@ -708,6 +708,7 @@ yarn_install(
     args = ["--frozen-lockfile"],
     package_json = "//compiler/daml-extension:package.json",
     symlink_node_modules = False,
+    use_global_yarn_cache = False,
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
