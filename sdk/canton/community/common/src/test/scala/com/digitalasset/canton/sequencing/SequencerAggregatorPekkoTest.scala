@@ -326,7 +326,6 @@ class SequencerAggregatorPekkoTest
 
       val validator = new SequencedEventValidatorImpl(
         DefaultTestIdentities.physicalSynchronizerId,
-        testedProtocolVersion,
         subscriberCryptoApi,
         loggerFactory,
         timeouts,

@@ -468,40 +468,27 @@ private[apiserver] final class ApiUserManagementService(
       errorLogger: ErrorLoggingContext,
   ): Future[Unit] = {
     val parties = userParties(rights)
-    val partiesExistingInPartyRecordStore =
-      if (isParticipantAdmin) partyRecordExist.filterPartiesExistingInPartyRecordStore(parties)
+    val partiesKnownF =
+      if (isParticipantAdmin)
+        indexKnownParties(parties)
       else
         partyRecordExist
           .filterPartiesExistingInPartyRecordStore(identityProviderId, parties)
 
-    partiesExistingInPartyRecordStore
-      .flatMap { partiesExist =>
-        val partiesWithoutRecord = parties -- partiesExist
-        if (partiesWithoutRecord.isEmpty)
+    partiesKnownF
+      .flatMap { partiesKnown =>
+        val unknownParties = parties -- partiesKnown
+        if (unknownParties.isEmpty)
           Future.unit
         else
-          verifyPartiesExistsInIdp(partiesWithoutRecord, identityProviderId)
+          partiesNotExistsError(unknownParties, identityProviderId)
       }
   }
 
-  private def verifyPartiesExistsInIdp(
-      partiesWithoutRecord: Set[Ref.Party],
-      identityProviderId: IdentityProviderId,
-  )(implicit
-      loggingContext: LoggingContextWithTrace,
-      errorLogger: ErrorLoggingContext,
-  ): Future[Unit] =
-    indexKnownParties(partiesWithoutRecord.toList).flatMap { partiesKnown =>
-      val unknownParties = partiesWithoutRecord -- partiesKnown
-      if (unknownParties.isEmpty) Future.unit
-      else
-        partiesNotExistsError(unknownParties, identityProviderId)
-    }
-
   private def indexKnownParties(
-      parties: Seq[Ref.Party]
+      parties: Set[Ref.Party]
   )(implicit loggingContext: LoggingContextWithTrace): Future[Set[Ref.Party]] =
-    indexPartyManagementService.getParties(parties).map { partyDetails =>
+    indexPartyManagementService.getParties(parties.toList).map { partyDetails =>
       partyDetails.map(_.party).toSet
     }
 

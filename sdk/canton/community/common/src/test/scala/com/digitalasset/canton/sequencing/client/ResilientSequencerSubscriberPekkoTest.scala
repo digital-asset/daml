@@ -383,7 +383,6 @@ object TestSequencerSubscriptionFactoryPekko {
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
       None,
-      BaseTest.testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
     val signedContent =

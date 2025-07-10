@@ -16,6 +16,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionConfir
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{
+  ContractInstance,
   ContractMetadata,
   ExampleContractFactory,
   LfFatContractInst,
@@ -55,7 +56,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
           fail(s"authenticateSerializable did not find ${contract.contractId}"),
         )
       override def verifyMetadata(
-          contract: SerializableContract,
+          contract: ContractInstance,
           metadata: ContractMetadata,
       ): Either[String, Unit] = Either.unit
     },

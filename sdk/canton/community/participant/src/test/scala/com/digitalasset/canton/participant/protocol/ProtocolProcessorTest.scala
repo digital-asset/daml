@@ -179,7 +179,6 @@ class ProtocolProcessorTest
                 Some(messageId),
                 Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
                 None,
-                testedProtocolVersion,
                 Option.empty[TrafficReceipt],
               )
             )

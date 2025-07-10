@@ -50,7 +50,6 @@ object SequencerTestUtils extends BaseTest {
       messageId,
       batch,
       topologyTimestampO,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 
@@ -82,7 +81,6 @@ object SequencerTestUtils extends BaseTest {
       messageId,
       batch,
       topologyTimestampO,
-      BaseTest.testedProtocolVersion,
       trafficReceipt,
     )
   }
@@ -100,7 +98,6 @@ object SequencerTestUtils extends BaseTest {
       synchronizerId,
       messageId,
       sequencerError,
-      BaseTest.testedProtocolVersion,
       trafficReceipt,
     )
 

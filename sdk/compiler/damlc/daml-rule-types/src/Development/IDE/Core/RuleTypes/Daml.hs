@@ -80,10 +80,16 @@ instance Hashable DamlGhcSession
 instance NFData DamlGhcSession
 type instance RuleResult DamlGhcSession = HscEnvEq
 
+data ScriptName = ScriptName !T.Text
+ deriving (Eq, Ord, Show, Generic)
+instance Binary ScriptName
+instance Hashable ScriptName
+instance NFData ScriptName
+
 -- | Virtual resources
 data VirtualResource = VRScript
     { vrScriptFile :: !NormalizedFilePath
-    , vrScriptName :: !T.Text
+    , vrScriptName :: !ScriptName
     } deriving (Eq, Ord, Show, Generic)
     -- VRScript identifies a script in a given file.
     -- This virtual resource is associated with the HTML result of
@@ -92,11 +98,11 @@ data VirtualResource = VRScript
 instance Hashable VirtualResource
 instance NFData VirtualResource
 
-type instance RuleResult RunScripts = [(VirtualResource, Either SS.Error SS.ScriptResult)]
+type instance RuleResult RunScripts = [(ScriptName, Either SS.Error SS.ScriptResult)]
 
-type instance RuleResult RunSingleScript = [(VirtualResource, Either SS.Error SS.ScriptResult)]
+type instance RuleResult RunSingleScript = [(ScriptName, Either SS.Error SS.ScriptResult)]
 
-type instance RuleResult GetScripts = [VirtualResource]
+type instance RuleResult GetScripts = [ScriptName]
 
 -- | Encode a module and produce a hash of the module and all its transitive dependencies.
 -- The hash is used to decide if a module needs to be reloaded in the script service.
@@ -206,7 +212,7 @@ instance Binary   RunScripts
 instance Hashable RunScripts
 instance NFData   RunScripts
 
-data RunSingleScript = RunSingleScript T.Text
+data RunSingleScript = RunSingleScript ScriptName
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   RunSingleScript
 instance Hashable RunSingleScript

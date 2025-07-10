@@ -143,7 +143,6 @@ sealed trait SyncStateInspectionTest
       storage,
       indexedSynchronizer,
       acsCounterParticipantConfigStore,
-      testedProtocolVersion,
       timeouts,
       loggerFactory,
     )
@@ -223,7 +222,7 @@ sealed trait SyncStateInspectionTest
         testedProtocolVersion,
       )
     val signed =
-      SignedProtocolMessage.from(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
+      SignedProtocolMessage.from(dummyCommitmentMsg, dummySignature)
     val received = ReceivedAcsCommitment(
       synchronizerId,
       commitmentPeriod,

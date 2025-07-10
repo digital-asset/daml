@@ -73,7 +73,7 @@ import qualified Data.Vector as V
 import           System.Time.Extra
 import Development.IDE.Core.API
 import Development.IDE.Core.Rules.Daml
-import Development.IDE.Core.RuleTypes.Daml (VirtualResource (..))
+import Development.IDE.Core.RuleTypes.Daml (ScriptName (..))
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
@@ -355,7 +355,7 @@ data DamlOutput = DamlOutput
   { diagnostics :: [D.FileDiagnostic]
   , jsonPackagePath :: Maybe FilePath
   , buildLog :: String
-  , scriptResults :: HashMap.HashMap T.Text T.Text
+  , scriptResults :: HashMap.HashMap ScriptName T.Text
   }
 
 stripPartySuffix :: T.Text -> T.Text
@@ -420,7 +420,7 @@ damlFileTestTree version getService outdir registerTODO input
                   do
                     scriptResult <-
                       fromMaybe (error $ "Ledger expectation test failure: the script '" <> scriptName <> "' did not run")
-                      . HashMap.lookup (T.pack scriptName)
+                      . HashMap.lookup (ScriptName $ T.pack scriptName)
                       . scriptResults
                       <$> getDamlOutput
                     pure $ BSL.fromStrict $ TE.encodeUtf8 (stripPartySuffix scriptResult)
@@ -630,7 +630,7 @@ parseRange s =
         (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap T.Text T.Text)
+mainProj :: IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO (LF.Package, FilePath, HashMap.HashMap ScriptName T.Text)
 mainProj service outdir log file = do
     let proj = takeBaseName (fromNormalizedFilePath file)
 
@@ -678,14 +678,13 @@ lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file
 lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
-lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action (HashMap.HashMap T.Text T.Text)
+lfRunScripts :: (String -> IO ()) -> NormalizedFilePath -> Action (HashMap.HashMap ScriptName T.Text)
 lfRunScripts log file = timed log "LF scripts execution" $ do
     world <- worldForFile file
     results <- unjust $ runScripts file
     pure $ HashMap.fromList
-        [ (vrScriptName k, format world res)
-        | (k, res) <- results
-        , vrScriptFile k == file
+        [ (scriptName, format world res)
+        | (scriptName, res) <- results
         ]
     where
         format world

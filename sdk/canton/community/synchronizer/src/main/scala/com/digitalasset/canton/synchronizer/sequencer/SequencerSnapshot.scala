@@ -41,6 +41,9 @@ final case class SequencerSnapshot(
     def serializeInFlightAggregation(
         args: (AggregationId, InFlightAggregation)
     ): v30.SequencerSnapshot.InFlightAggregationWithId = {
+      // firstSequencingTimestamp is not serialized, because the sequencer that uses the sequencer snapshot to
+      // initialize itself, takes the lowest sequencing timestamp from aggregated senders and stores it as the first
+      // sequencing time for the aggregation.
       val (
         aggregationId,
         InFlightAggregation(aggregatedSenders, _firstSequencingTimestamp, maxSequencingTime, rule),

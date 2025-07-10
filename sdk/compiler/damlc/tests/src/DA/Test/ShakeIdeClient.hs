@@ -31,7 +31,7 @@ import Development.IDE.Types.Location
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
 import Development.IDE.Core.API.Testing
-import Development.IDE.Core.Service.Daml(VirtualResource(..))
+import Development.IDE.Core.Service.Daml(ScriptName (..), VirtualResource (..))
 
 import DA.Test.DamlcIntegration (ScriptPackageData, withDamlScriptDep)
 
@@ -227,8 +227,8 @@ basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic 
                 badFileContent = T.unlines $ header ++ badScript
             f1 <- makeFile "src1/Main.daml" goodFileContent
             f2 <- makeFile "src2/Main.daml" goodFileContent
-            let vr1 = VRScript f1 "v"
-            let vr2 = VRScript f2 "v"
+            let vr1 = VRScript f1 $ ScriptName "v"
+            let vr2 = VRScript f2 $ ScriptName "v"
             setFilesOfInterest [f1, f2]
             setOpenVirtualResources [vr1, vr2]
             expectNoErrors
@@ -271,8 +271,8 @@ basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic 
             b <- makeFile "bar/Test.daml" "module Test where; import Daml.Script; main = script $ return \"bar\""
             setFilesOfInterest [a, b]
             expectNoErrors
-            let va = VRScript a "main"
-            let vb = VRScript b "main"
+            let va = VRScript a $ ScriptName "main"
+            let vb = VRScript b $ ScriptName "main"
             setOpenVirtualResources [va, vb]
             expectVirtualResource va "Return value: &quot;foo&quot;"
             expectVirtualResource vb "Return value: &quot;bar&quot;"
@@ -295,7 +295,7 @@ basicTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Basic 
                 ]
             setFilesOfInterest [a]
             expectNoErrors
-            let va = VRScript a "mangled'"
+            let va = VRScript a $ ScriptName "mangled'"
             setOpenVirtualResources [va]
             expectVirtualResource va "title=\"MangledScript':T'\""
             expectVirtualResource va "MangledScript&#39;:NestedT:T1"
@@ -938,7 +938,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                   , "  pure ()"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "v"
+          let vr = VRScript foo $ ScriptName "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectNoErrors
@@ -951,7 +951,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                   , "  assert False"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "v"
+          let vr = VRScript foo $ ScriptName "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectOneError (foo,2,0) "Assertion failed"
@@ -963,7 +963,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                  , "v = script $ assert True"
                  ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "v"
+          let vr = VRScript foo $ ScriptName "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResource vr "Return value: {}"
@@ -982,12 +982,12 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
             badScript = [ "example2 = script $ assert False" ]
         f <- makeFile "F.daml" $ T.unlines goodScript
         setFilesOfInterest [f]
-        let vr1 = VRScript f "example1"
+        let vr1 = VRScript f $ ScriptName "example1"
         setOpenVirtualResources [vr1]
         expectNoErrors
         expectVirtualResource vr1 "Return value: {}"
         setBufferModified f $ T.unlines $ goodScript ++ badScript
-        let vr2 = VRScript f "example2"
+        let vr2 = VRScript f $ ScriptName "example2"
         setOpenVirtualResources [vr1, vr2]
         expectOneError (f, 3, 0) "Script execution failed"
         expectVirtualResource vr2 "Assertion failed"
@@ -1014,9 +1014,9 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
         f <- makeFile "F.daml" $ T.unlines script1F
         g <- makeFile "G.daml" $ T.unlines script1G
         setFilesOfInterest [f, g]
-        let vr1F = VRScript f "script1"
-        let vr2F = VRScript f "script2"
-        let vr1G = VRScript g "script1"
+        let vr1F = VRScript f $ ScriptName "script1"
+        let vr2F = VRScript f $ ScriptName "script2"
+        let vr1G = VRScript g $ ScriptName "script1"
 
         setOpenVirtualResources [vr1F]
         expectNoErrors
@@ -1071,8 +1071,8 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
           f <- makeFile "F.daml" $ T.unlines script1F
           g <- makeFile "G.daml" $ T.unlines script1G
           setFilesOfInterest [f, g]
-          let vr1G = VRScript g "script1"
-          let vr1F = VRScript f "script1"
+          let vr1G = VRScript g $ ScriptName "script1"
+          let vr1F = VRScript f $ ScriptName "script1"
 
           setOpenVirtualResources [vr1F]
           expectNoErrors
@@ -1107,7 +1107,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                   , "v = script $ assert False"
                   ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "v"
+          let vr = VRScript foo $ ScriptName "v"
           setFilesOfInterest [foo]
           setOpenVirtualResources []
           -- We expect to get no diagnostics because the script is never run
@@ -1119,7 +1119,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
               , "import Daml.Script"
               , "v = script $ assert True"
               ]
-          let vr = VRScript foo "v"
+          let vr = VRScript foo $ ScriptName "v"
           expectNoVirtualResource vr
           setOpenVirtualResources [vr]
           expectVirtualResource vr "Return value: {}"
@@ -1138,7 +1138,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                   ]
            foo <- makeFile "Foo.daml" fooContent
            bar <- makeFile "Bar.daml" barContent
-           let vr = VRScript foo "v"
+           let vr = VRScript foo $ ScriptName "v"
            setOpenVirtualResources [vr]
            expectNoErrors
            expectVirtualResource vr "Return value: {}"
@@ -1156,7 +1156,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
               , "import Daml.Script"
               , "v= script $ assert True"
               ]
-            let vr = VRScript foo "v"
+            let vr = VRScript foo $ ScriptName "v"
             setFilesOfInterest [foo]
             expectNoVirtualResource vr
             setOpenVirtualResources [vr]
@@ -1173,7 +1173,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                  ]
 
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "test"
+          let vr = VRScript foo $ ScriptName "test"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1"
@@ -1192,7 +1192,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                 , "  pure $ a ()"
                 ]
           foo <- makeFile "Foo.daml" fooContent
-          let vr = VRScript foo "f"
+          let vr = VRScript foo $ ScriptName "f"
           setFilesOfInterest [foo]
           setOpenVirtualResources [vr]
           expectVirtualResourceRegex vr $ T.concat
@@ -1216,7 +1216,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
                 ]
         f <- makeFile "LazyDebug.daml" $ T.unlines goodScript
         setFilesOfInterest [f]
-        let vr = VRScript f "test"
+        let vr = VRScript f $ ScriptName "test"
         setOpenVirtualResources [vr]
         let quote s = "&quot;" <> s <> "&quot;"
         let lineBreak = "<br>  "
@@ -1275,7 +1275,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
           , "  pure ()"
           ]
         setFilesOfInterest [f]
-        let vr = VRScript f "test"
+        let vr = VRScript f $ ScriptName "test"
         setOpenVirtualResources [vr]
         -- TODO(MH): Matching on HTML via regular expressions has a high
         -- chance of becoming a maintenance nightmare. Find a better way.
@@ -1321,7 +1321,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
           , "  submit p $ do exerciseCmd c Fail"
           ]
         setFilesOfInterest [f]
-        let vr = VRScript f "test"
+        let vr = VRScript f $ ScriptName "test"
         setOpenVirtualResources [vr]
         -- This is a bit messy, we also want to to test for the absence of extra nodes
         -- so we have to be quite strict in what we match against.

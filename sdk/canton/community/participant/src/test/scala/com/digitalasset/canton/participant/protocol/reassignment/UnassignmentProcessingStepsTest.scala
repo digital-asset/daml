@@ -846,7 +846,6 @@ final class UnassignmentProcessingStepsTest
       .trySignAndCreate(
         reassignmentResult,
         cryptoSnapshot,
-        testedProtocolVersion,
       )
       .futureValueUS
 
@@ -860,7 +859,6 @@ final class UnassignmentProcessingStepsTest
         Some(MessageId.tryCreate("msg-0")),
         batch,
         None,
-        testedProtocolVersion,
         Option.empty[TrafficReceipt],
       )
     }

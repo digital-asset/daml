@@ -272,7 +272,6 @@ class TrafficPurchasedSubmissionHandlerTest
       synchronizerId,
       messageId,
       Status.defaultInstance.withMessage("BOOM"),
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 

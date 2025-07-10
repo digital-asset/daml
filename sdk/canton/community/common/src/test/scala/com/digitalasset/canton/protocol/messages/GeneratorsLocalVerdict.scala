@@ -33,6 +33,7 @@ final case class GeneratorsLocalVerdict(
     generatorsLf: GeneratorsLf,
 ) {
 
+  import com.digitalasset.canton.Generators.*
   import generatorsLf.*
 
   // TODO(#14515) Check that the generator is exhaustive
@@ -102,7 +103,7 @@ final case class GeneratorsLocalVerdict(
   implicit val participantRejectReasonArb: Arbitrary[(Set[LfPartyId], LocalReject)] =
     Arbitrary(
       for {
-        parties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+        parties <- boundedSetGen[LfPartyId]
         reject <- localRejectGen
       } yield (parties, reject)
     )

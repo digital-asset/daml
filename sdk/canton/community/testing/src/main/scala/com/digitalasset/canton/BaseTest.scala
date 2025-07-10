@@ -245,6 +245,11 @@ trait FutureHelpers extends Assertions with ScalaFuturesWithPatience { self =>
 
     def futureValueUS(implicit pos: Position): Either[E, A] =
       eitherT.value.futureValueUS
+
+    def futureValueUS(timeout: PatienceConfiguration.Timeout)(implicit
+        pos: Position
+    ): Either[E, A] =
+      eitherT.value.futureValueUS(timeout)(pos)
   }
 
   implicit class CheckedTFutureUnlessShutdownSyntax[A, N, R](
@@ -270,7 +275,9 @@ trait FutureHelpers extends Assertions with ScalaFuturesWithPatience { self =>
     def failOnShutdown(implicit ec: ExecutionContext, pos: Position): Future[A] =
       fut.onShutdown(fail(s"Unexpected shutdown"))
     def futureValueUS(implicit pos: Position): A =
-      fut.unwrap.futureValue.onShutdown(fail("Unexpected shutdown"))
+      futureValueUS(PatienceConfiguration.Timeout(defaultPatience.timeout))(pos)
+    def futureValueUS(timeout: PatienceConfiguration.Timeout)(implicit pos: Position): A =
+      fut.unwrap.futureValue(timeout).onShutdown(fail("Unexpected shutdown"))
   }
 
   implicit class UnlessShutdownSyntax[A](us: UnlessShutdown[A]) {

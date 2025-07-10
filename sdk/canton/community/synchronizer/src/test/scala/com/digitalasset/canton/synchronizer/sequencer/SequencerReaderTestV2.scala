@@ -711,7 +711,6 @@ class SequencerReaderTestV2
                         messageId.some,
                         batch,
                         Some(topologyTimestamp),
-                        testedProtocolVersion,
                         Option.empty[TrafficReceipt],
                       )
                     else
@@ -724,7 +723,6 @@ class SequencerReaderTestV2
                           topologyTimestamp,
                           sequencingTimestamp,
                         ),
-                        testedProtocolVersion,
                         Option.empty[TrafficReceipt],
                       )
                   delivered.signedEvent.content shouldBe expectedSequencedEvent
@@ -762,7 +760,6 @@ class SequencerReaderTestV2
                         None,
                         batch,
                         Some(topologyTimestamp),
-                        testedProtocolVersion,
                         Option.empty[TrafficReceipt],
                       )
                     else
@@ -773,7 +770,6 @@ class SequencerReaderTestV2
                         None,
                         Batch.empty(testedProtocolVersion),
                         None,
-                        testedProtocolVersion,
                         Option.empty[TrafficReceipt],
                       )
                   delivered.signedEvent.content shouldBe expectedSequencedEvent

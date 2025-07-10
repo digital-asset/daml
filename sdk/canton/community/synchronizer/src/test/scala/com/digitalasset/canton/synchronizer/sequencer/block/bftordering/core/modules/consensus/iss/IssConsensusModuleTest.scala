@@ -96,7 +96,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
-import org.mockito.Mockito
 import org.scalatest.TryValues
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AsyncWordSpec
@@ -322,6 +321,7 @@ class IssConsensusModuleTest
         context.runPipedMessages() shouldBe empty
 
         consensus.receive(Consensus.Start)
+        context.extractSelfMessages().foreach(consensus.receive)
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
           msg shouldBe Consensus.NewEpochStored(
             newEpochInfo,
@@ -330,9 +330,7 @@ class IssConsensusModuleTest
           )
         }
 
-        val order = Mockito.inOrder(stateTransferManagerMock, segmentModuleMock)
-        order
-          .verify(segmentModuleMock, times(membership.orderingTopology.nodes.size))
+        verify(segmentModuleMock, times(membership.orderingTopology.nodes.size))
           .asyncSend(ConsensusSegment.Start)
         succeed
       }

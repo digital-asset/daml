@@ -841,7 +841,6 @@ class TransactionProcessingSteps(
           parsedRequest,
           reInterpretedTopLevelViews,
           psid,
-          protocolVersion,
           transactionEnricher,
           createNodeEnricher,
           logger,

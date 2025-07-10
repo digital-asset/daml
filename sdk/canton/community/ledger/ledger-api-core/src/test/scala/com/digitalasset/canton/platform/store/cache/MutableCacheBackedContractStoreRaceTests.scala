@@ -304,7 +304,7 @@ private object MutableCacheBackedContractStoreRaceTests {
   )
 
   private def contract(idx: Long): ThinContract = {
-    val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
+    val templateId = Identifier.assertFromString("pkgId:module:entity")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = Value.ValueInt64(idx)
     ThinContract(
