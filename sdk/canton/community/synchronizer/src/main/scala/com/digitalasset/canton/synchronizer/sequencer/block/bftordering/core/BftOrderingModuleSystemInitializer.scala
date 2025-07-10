@@ -295,7 +295,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
           ),
         pruning = () =>
           new PruningModule(
-            config.pruningConfig,
+            config.pruning,
             stores,
             loggerFactory,
             timeouts,

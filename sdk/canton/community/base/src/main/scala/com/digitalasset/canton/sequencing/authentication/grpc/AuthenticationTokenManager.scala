@@ -132,7 +132,7 @@ class AuthenticationTokenManager(
         }
         completeRefresh(NoToken)
       case Success(UnlessShutdown.AbortedDueToShutdown) =>
-        logger.warn(s"Token refresh aborted due to shutdown.")
+        logger.info(s"Token refresh aborted due to shutdown.")
         completeRefresh(NoToken)
       case Success(UnlessShutdown.Outcome(Left(error))) =>
         if (error.getCode == Status.Code.CANCELLED)

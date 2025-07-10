@@ -300,7 +300,6 @@ trait MessageDispatcherTest {
       messageId,
       batch,
       topologyTimestampO,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 
@@ -1225,7 +1224,6 @@ trait MessageDispatcherTest {
           psid,
           messageId3,
           SequencerErrors.SubmissionRequestRefused("invalid batch"),
-          testedProtocolVersion,
           Option.empty[TrafficReceipt],
         )
 

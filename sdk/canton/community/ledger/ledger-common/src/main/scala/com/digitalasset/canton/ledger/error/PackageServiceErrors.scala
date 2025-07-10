@@ -226,6 +226,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         )
       case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
         SelfConsistency.Error(packageIds, missingDependencies)
+      case Error.Package.DarSelfConsistency(_, _, _, _) =>
+        InternalError.Generic("DarSelfConsistency not yet implemented")
     }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")

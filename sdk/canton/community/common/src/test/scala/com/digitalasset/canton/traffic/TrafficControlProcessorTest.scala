@@ -127,7 +127,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       None,
       batch,
       None,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 
@@ -140,7 +139,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       synchronizerId,
       MessageId.fromUuid(new UUID(0, 1)),
       SequencerErrors.SubmissionRequestRefused("Some error"),
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 

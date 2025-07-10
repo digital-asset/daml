@@ -91,7 +91,6 @@ class TransactionProcessor(
         new TransactionConfirmationResponsesFactory(
           participantId,
           synchronizerId,
-          staticSynchronizerParameters.protocolVersion,
           loggerFactory,
         ),
         ModelConformanceChecker(

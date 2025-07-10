@@ -73,7 +73,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
           Some(msgId),
           Batch.empty(testedProtocolVersion),
           None,
-          testedProtocolVersion,
           trafficReceipt,
         )
       )
@@ -94,7 +93,6 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
           DefaultTestIdentities.physicalSynchronizerId,
           msgId,
           SequencerErrors.SubmissionRequestRefused("test"),
-          testedProtocolVersion,
           trafficReceipt,
         )
       )

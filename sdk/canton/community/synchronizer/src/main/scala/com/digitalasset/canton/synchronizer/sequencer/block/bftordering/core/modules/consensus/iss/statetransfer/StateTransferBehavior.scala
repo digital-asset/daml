@@ -214,6 +214,13 @@ final class StateTransferBehavior[E <: Env[E]](
             newEpochTopologyMessage.cryptoProvider,
             messageType,
           )
+        } else if (newEpochNumber <= currentEpochNumber) {
+          // The output module re-sent a topology for an already completed epoch; this can happen upon restart if
+          //  either the output module, or the subscribing sequencer runtime, or both are more than one epoch behind
+          //  state transfer, because the output module will just reprocess the blocks to be recovered.
+          logger.info(
+            s"Received NewEpochTopology for epoch $newEpochNumber, but the latest current epoch is already $currentEpochNumber; ignoring"
+          )
         } else {
           abort(
             s"$messageType: internal inconsistency, $stateTransferType state transfer received wrong new topology " +

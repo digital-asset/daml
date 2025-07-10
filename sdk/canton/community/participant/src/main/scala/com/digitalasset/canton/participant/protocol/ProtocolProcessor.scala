@@ -1282,12 +1282,20 @@ abstract class ProtocolProcessor[
     val snapshotTs = requestId.unwrap
 
     for {
-      snapshot <- EitherT.right(
+      // Check against future-dated request IDs to prevent a deadlock due to waiting for a topology snapshot in the future.
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        requestId.unwrap < resultTs,
+        (),
+        steps.embedResultError(
+          FutureRequestId(requestId, resultTs)
+        ),
+      )
+      requestSnapshot <- EitherT.right(
         crypto.ips.awaitSnapshotUSSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
 
       synchronizerParameters <- EitherT(
-        snapshot
+        requestSnapshot
           .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(_ =>
@@ -1928,6 +1936,14 @@ object ProtocolProcessor {
   final case class TimeoutResultTooEarly(requestId: RequestId) extends ResultProcessingError {
     override protected def pretty: Pretty[TimeoutResultTooEarly] = prettyOfClass(
       unnamedParam(_.requestId)
+    )
+  }
+
+  final case class FutureRequestId(requestId: RequestId, resultTs: CantonTimestamp)
+      extends ResultProcessingError {
+    override protected def pretty: Pretty[FutureRequestId] = prettyOfClass(
+      param("request id", _.requestId),
+      param("result timestamp", _.resultTs),
     )
   }
 

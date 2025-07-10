@@ -15,7 +15,6 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
 
 import scala.concurrent.ExecutionContext
@@ -23,11 +22,12 @@ import scala.concurrent.ExecutionContext
 class TransactionConfirmationResponsesFactory(
     participantId: ParticipantId,
     synchronizerId: PhysicalSynchronizerId,
-    protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
   import com.digitalasset.canton.util.ShowUtil.*
+
+  private val protocolVersion = synchronizerId.protocolVersion
 
   /** Takes a `transactionValidationResult` and computes the
     * [[protocol.messages.ConfirmationResponses]], to be sent to the mediator.

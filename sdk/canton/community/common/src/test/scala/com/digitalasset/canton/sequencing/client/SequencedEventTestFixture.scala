@@ -145,7 +145,6 @@ class SequencedEventTestFixture(
   )(implicit executionContext: ExecutionContext): SequencedEventValidatorImpl =
     new SequencedEventValidatorImpl(
       defaultSynchronizerId,
-      testedProtocolVersion,
       syncCryptoApi,
       loggerFactory,
       timeouts,
@@ -180,7 +179,6 @@ class SequencedEventTestFixture(
       MessageId.tryCreate("test").some,
       Batch(List(envelope), testedProtocolVersion),
       topologyTimestamp,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 

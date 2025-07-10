@@ -93,7 +93,6 @@ class MediatorEventProcessorTest
           batch = Batch(envelopes.toList, testedProtocolVersion),
           topologyTimestampO = None, // not relevant
           trafficReceipt = None, // not relevant
-          protocolVersion = testedProtocolVersion,
         )
       )(TraceContext.createNew("test")),
     )

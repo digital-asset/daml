@@ -88,7 +88,7 @@ final case class BftBlockOrdererConfig(
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
-    pruningConfig: PruningConfig = DefaultPruningConfig,
+    pruning: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
     howLongToBlacklist: LeaderSelectionPolicyConfig.HowLongToBlacklist = DefaultHowLongToBlackList,
     howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =

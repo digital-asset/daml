@@ -28,7 +28,7 @@ class BftSequencerPruningConfigIntegrationTest
       import env.*
       val sequencer = sequencer1
       inside(sequencer.config.sequencer) { case conf: SequencerConfig.BftSequencer =>
-        conf.config.pruningConfig shouldBe PruningConfig(
+        conf.config.pruning shouldBe PruningConfig(
           enabled = true,
           retentionPeriod = 10.days,
           pruningFrequency = 3.hour,
