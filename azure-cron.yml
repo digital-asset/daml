@@ -183,7 +183,7 @@ jobs:
             # This produces out/src/extension.js
             bazel run --run_under="cd $PWD &&" @yarn//:yarn install
             bazel run --run_under="cd $PWD &&" @yarn//:yarn compile
-            bazel run --run_under="cd $PWD && "@daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
+            bazel run --run_under="cd $PWD &&" @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
             )
           else
             if [[ "$GITHUB" == "$MARKET" ]]; then
