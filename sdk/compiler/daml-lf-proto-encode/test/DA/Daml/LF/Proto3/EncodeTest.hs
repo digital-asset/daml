@@ -2,15 +2,18 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE DeriveGeneric #-}
 
 module DA.Daml.LF.Proto3.EncodeTest (
         module DA.Daml.LF.Proto3.EncodeTest
 ) where
 
+
 import           Control.Monad.State.Strict
 import qualified Data.Text.Lazy                           as TL
 import qualified Data.Vector                              as V
+import           Text.Printf
 
 -- generic depth test
 import Data.Data
@@ -20,6 +23,8 @@ import Data.Generics.Aliases
 import           Data.Int
 import           Data.Text                                (Text)
 import qualified Proto3.Suite                             as P
+
+
 
 import           DA.Daml.LF.Proto3.EncodeV2
 
@@ -56,14 +61,84 @@ Assumptions:
 
 propertyTests :: TestTree
 propertyTests = testGroup "Property tests"
-  [
+  [ propertyCorrectTests
+  , deepTests
   ]
+
+{-
+Assert the correctness of the property by testing a few examples that should
+fail (negative tests). The positive tests are done within the unittests.
+-}
+propertyCorrectTests :: TestTree
+propertyCorrectTests = testGroup "Correctness of property (negative tests)"
+  [ propertyCorrectNestedKindArrow
+  , propertyCorrectNestedTypeArrow
+  , propertyCorrectExprArrow
+  , propertyCorrectKindInType
+  , propertyCorrectTypeInExpr
+  , propertyCorrectKindInExpr
+  ]
+
+propertyCorrectNestedKindArrow :: TestTree
+propertyCorrectNestedKindArrow =
+  testCase "((* -> *) -> *)" $
+    assertBool "kind ((* -> *) -> *) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ pkarr (pkarr pkstar pkstar) pkstar)
+
+propertyCorrectNestedTypeArrow :: TestTree
+propertyCorrectNestedTypeArrow =
+  testCase "(() -> interned 0)" $
+    assertBool "type (() -> ()) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptarr ptunit (ptinterned 0))
+
+propertyCorrectKindInType :: TestTree
+propertyCorrectKindInType =
+  testCase "forall 0::(* -> *). ()" $
+    assertBool "forall 0::(* -> *). () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptforall 0 (pkarr pkstar pkstar) ptunit)
+
+peApp :: P.Expr -> P.Expr -> P.Expr
+peApp e1 e2 = liftE $ P.ExprSumApp $ P.Expr_App (Just e1) (V.singleton e2)
+
+propertyCorrectExprArrow :: TestTree
+propertyCorrectExprArrow =
+  testCase "true (interned 0)" $
+    assertBool "true (interned 0) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peApp peTrue (peInterned 0))
+
+peTyApp :: P.Expr -> P.Type -> P.Expr
+peTyApp e t = liftE $ P.ExprSumTyApp $ P.Expr_TyApp (Just e) (V.singleton t)
+
+propertyCorrectTypeInExpr :: TestTree
+propertyCorrectTypeInExpr =
+  testCase "(interned 0) TUnit" $
+    assertBool "(interned 0) TUnit should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyApp (peInterned 0) ptunit)
+
+peTyAbs :: Int32 -> P.Kind -> P.Expr -> P.Expr
+peTyAbs i k e = liftE $ P.ExprSumTyAbs $ P.Expr_TyAbs (V.singleton var) (Just e)
+  where
+    var :: P.TypeVarWithKind
+    var = P.TypeVarWithKind i (Just k)
+
+propertyCorrectKindInExpr :: TestTree
+propertyCorrectKindInExpr =
+  testCase "/\0::(* -> *). ()" $
+    assertBool "/\0::(* -> *). () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyAbs 0 (pkarr pkstar pkstar) peUnit)
+
+deepTests :: TestTree
+deepTests = testGroup "Deep AST tests"
+  [ deepLetExprTest
+  ]
+
 
 data ConcreteConstrCount = ConcreteConstrCount
     { kinds :: Int
     , types :: Int
     , exprs :: Int
     }
+    deriving Show
 
 instance Semigroup ConcreteConstrCount where
     (ConcreteConstrCount k1 t1 e1) <> (ConcreteConstrCount k2 t2 e2) =
@@ -108,15 +183,18 @@ countConcreteConstrs =
 
   in genericCase `extQ` countETE `extQ` countKinds `extQ` countTypes `extQ` countExprs
 
+checkWellInterned :: ConcreteConstrCount -> Bool
+checkWellInterned ConcreteConstrCount{..} =
+    kinds + types + exprs <= 1
+
 wellInterned :: Data a => a -> Bool
-wellInterned (countConcreteConstrs -> ConcreteConstrCount{..}) =
-    kinds <= 1 && types <= 1 && exprs <= 1
+wellInterned = checkWellInterned . countConcreteConstrs
+
 
 assertInterned :: Data a => a -> Assertion
-assertInterned (countConcreteConstrs -> ConcreteConstrCount{..}) = do
-    assertBool "more than 1 non-interned kind" $ kinds <= 1
-    assertBool "more than 1 non-interned type" $ types <= 1
-    assertBool "more than 1 non-interned expr" $ exprs <= 1
+assertInterned (countConcreteConstrs -> count) = do
+    assertBool (printf "invalid counts: %s" (show count)) $ checkWellInterned count
+
 
 -- The corrected depth function for `syb`
 genDepth :: Data a => a -> Int
@@ -506,6 +584,9 @@ eVal = EVal . eQual . ExprValName
 eTrue :: Expr
 eTrue = EBuiltinFun $ BEBool True
 
+eUnit :: Expr
+eUnit = EBuiltinFun BEUnit
+
 -- P.ast
 liftE :: P.ExprSum -> P.Expr
 liftE = P.Expr Nothing . Just
@@ -561,3 +642,21 @@ exprInterningBool =
       assertInterned e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peTrue
+
+
+letOfDepth :: Int -> Expr
+letOfDepth 0 = eUnit
+letOfDepth i = elet (letOfDepth $ i -1)
+  where
+    elet :: Expr -> Expr
+    elet = ELet unitBinding
+
+    unitBinding :: Binding
+    unitBinding = Binding (ExprVarName "x", TUnit) eUnit
+
+deepLetExprTest :: TestTree
+deepLetExprTest =
+  let (pe, e) = runEncodeExprTest $ letOfDepth 100
+  in  testCase "deep let test (100 levels)" $ do
+      assertInterned pe
+      assertInterned e
