@@ -360,6 +360,38 @@ object GrpcErrorParser {
         oStatus.getOrElse(new SubmitError.TruncatedError("FailureStatusError", message))
       }
 
+      case "INTERPRETATION_CRYPTO_ERROR_MALFORMED_BYTE_ENCODING" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.CryptoValue, value)
+              ) =>
+            SubmitError.CryptoError.MalformedByteEncoding(value, message)
+        }
+
+      case "INTERPRETATION_CRYPTO_ERROR_MALFORMED_KEY" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.CryptoValue, key)
+              ) =>
+            SubmitError.CryptoError.MalformedKey(key, message)
+        }
+
+      case "INTERPRETATION_CRYPTO_ERROR_MALFORMED_SIGNATURE" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.CryptoValue, signature)
+              ) =>
+            SubmitError.CryptoError.MalformedSignature(signature, message)
+        }
+
+      case "INTERPRETATION_CRYPTO_ERROR_MALFORMED_CONTRACT_ID" =>
+        caseErr {
+          case Seq(
+                (ErrorResource.CryptoValue, value)
+              ) =>
+            SubmitError.CryptoError.MalformedContractId(value, message)
+        }
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)
