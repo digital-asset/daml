@@ -93,7 +93,7 @@ object Error {
              s"the extra dependencies are ${extraDependencies.mkString("{'", "', '", "'}")}"
            else "")
 
-      override def logReportingEnabled: Boolean =
+      override val logReportingEnabled: Boolean =
         missingDependencies.isEmpty && extraDependencies.nonEmpty
     }
   }
