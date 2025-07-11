@@ -652,7 +652,6 @@ private[update] final class SubmissionRequestValidator(
           // New aggregation
           validateAggregationRule(submissionRequest, sequencingTimestamp, rule).map { _ =>
             val fresh = FreshInFlightAggregation(
-              sequencingTimestamp,
               submissionRequest.maxSequencingTime,
               rule,
             )
@@ -671,7 +670,6 @@ private[update] final class SubmissionRequestValidator(
 
       aggregatedSender = AggregatedSender(
         submissionRequest.sender,
-        submissionRequest.maxSequencingTime,
         AggregationBySender(
           sequencingTimestamp,
           submissionRequest.batch.envelopes.map(_.signatures),

@@ -55,18 +55,8 @@ final class GeneratorsSequencer(
         )
       )
       aggregatedSenders = SortedMap.from(aggregatedSendersList.asScala)
-
-      // Normally firstSequencingTimestamp is a separate datapoint, but it is not serialized,
-      // because the sequencer, that uses the sequencer snapshot to initialize itself,
-      // takes the lowest sequencing timestamp from aggregated senders and stores it as
-      // the first sequencing time for the aggregation.
-      firstSequencingTimestamp = aggregatedSenders.values
-        .map(_.sequencingTimestamp)
-        .minOption
-        .getOrElse(sys.error("Should not fail, because rule.eligibleSenders is NonEmpty"))
     } yield InFlightAggregation.tryCreate(
       aggregatedSenders,
-      firstSequencingTimestamp,
       maxSequencingTimestamp,
       rule,
     )

@@ -206,7 +206,7 @@ final class GeneratorsMessages(
     )
   )
 
-  private val assignmentMediatorMessageArb: Arbitrary[AssignmentMediatorMessage] = Arbitrary(
+  val assignmentMediatorMessageArb: Arbitrary[AssignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[AssignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
@@ -215,7 +215,7 @@ final class GeneratorsMessages(
     )
   )
 
-  private val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
+  val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[UnassignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]

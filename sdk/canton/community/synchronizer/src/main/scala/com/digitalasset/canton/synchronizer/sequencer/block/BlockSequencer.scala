@@ -451,8 +451,17 @@ class BlockSequencer(
           info.checkedToByteString,
         )
       )
+
+      topologySnapshot <- EitherT.right(cryptoApi.awaitSnapshot(timestamp))
+      parameterChanges <- EitherT.right(
+        topologySnapshot.ipsSnapshot.listDynamicSynchronizerParametersChanges()
+      )
+      maxSequencingTimeBound = SequencerUtils.maxSequencingTimeUpperBoundAt(
+        timestamp,
+        parameterChanges,
+      )
       blockState <- store
-        .readStateForBlockContainingTimestamp(timestamp)
+        .readStateForBlockContainingTimestamp(timestamp, maxSequencingTimeBound)
       // Look up traffic info at the latest timestamp from the block,
       // because that's where the onboarded sequencer will start reading
       trafficPurchased <- EitherT

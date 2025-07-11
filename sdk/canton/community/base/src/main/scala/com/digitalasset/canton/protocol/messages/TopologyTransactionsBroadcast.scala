@@ -10,6 +10,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.version.{
+  HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   ProtocolVersionValidation,
@@ -21,7 +22,8 @@ import com.digitalasset.canton.version.{
 final case class TopologyTransactionsBroadcast(
     override val synchronizerId: PhysicalSynchronizerId,
     transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
-) extends UnsignedProtocolMessage {
+) extends UnsignedProtocolMessage
+    with HasProtocolVersionedWrapper[TopologyTransactionsBroadcast] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[
     TopologyTransactionsBroadcast.type

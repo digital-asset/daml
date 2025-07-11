@@ -20,7 +20,7 @@ object OpenSslOfflineRootKeyDemoExampleIntegrationTest {
 
 sealed abstract class OpenSslOfflineRootKeyDemoExampleIntegrationTest
     extends ExampleIntegrationTest(
-      demoFolder / "external-init-example.conf"
+      demoFolder / "manual-init-example.conf"
     )
     with CommunityIntegrationTest
     with ScalaCheckPropertyChecks {

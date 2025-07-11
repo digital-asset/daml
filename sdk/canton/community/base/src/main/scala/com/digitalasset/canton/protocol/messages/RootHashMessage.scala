@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.{
+  HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
@@ -36,7 +37,8 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
 ) extends UnsignedProtocolMessage
-    with PrettyPrinting {
+    with PrettyPrinting
+    with HasProtocolVersionedWrapper[RootHashMessage[RootHashMessagePayload]] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[RootHashMessage.type] =
     RootHashMessage.protocolVersionRepresentativeFor(synchronizerId.protocolVersion)

@@ -276,13 +276,11 @@ final class GeneratorsProtocol(
   implicit val globalKeyWithMaintainersArb: Arbitrary[Versioned[LfGlobalKeyWithMaintainers]] =
     Arbitrary(
       for {
-        // TODO(#26348) - Use single maintainer until we take a daml snapshot
-        // that includes https://github.com/digital-asset/daml/pull/21433
-        maintainer <- Arbitrary.arbitrary[LfPartyId]
+        maintainers <- nonEmptySetGen[LfPartyId]
         key <- Arbitrary.arbitrary[LfGlobalKey]
       } yield ExampleTransactionFactory.globalKeyWithMaintainers(
         key,
-        Set(maintainer),
+        maintainers,
       )
     )
 

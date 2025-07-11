@@ -8,23 +8,29 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.ledger.participant.state.PackageDescription
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.github.blemale.scaffeine.Scaffeine
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.*
 
 class PackageDependencyResolver(
     val damlPackageStore: DamlPackageStore,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    fetchPackageParallelism: PositiveInt = PositiveInt.tryCreate(8),
+    packageDependencyCacheConfig: CacheConfig = CacheConfig(
+      maximumSize = PositiveLong.tryCreate(10000),
+      expireAfterAccess = config.NonNegativeFiniteDuration.ofMinutes(15L),
+    ),
 )(implicit
     ec: ExecutionContext
 ) extends NamedLogging
@@ -37,7 +43,7 @@ class PackageDependencyResolver(
     Set[PackageId],
   ] = ScaffeineCache
     .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
-      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes).executor(ec.execute(_)),
+      cache = packageDependencyCacheConfig.buildScaffeine(),
       loader = implicit tc => loadPackageDependencies _,
       allLoader = None,
     )(logger, "dependencyCache")
@@ -66,7 +72,9 @@ class PackageDependencyResolver(
         packageIds: List[PackageId]
     ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
       for {
-        directDependenciesByPackage <- packageIds.parTraverse { packageId =>
+        directDependenciesByPackage <- MonadUtil.parTraverseWithLimit(
+          fetchPackageParallelism
+        )(packageIds) { packageId =>
           for {
             pckg <- OptionT(damlPackageStore.getPackage(packageId)).toRight(packageId)
             directDependencies <- EitherT.fromEither[FutureUnlessShutdown](

@@ -46,7 +46,7 @@ final case class SequencerSnapshot(
       // sequencing time for the aggregation.
       val (
         aggregationId,
-        InFlightAggregation(aggregatedSenders, _firstSequencingTimestamp, maxSequencingTime, rule),
+        InFlightAggregation(aggregatedSenders, maxSequencingTime, rule),
       ) = args
       v30.SequencerSnapshot.InFlightAggregationWithId(
         aggregationId.toProtoPrimitive,
@@ -191,19 +191,9 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
               } yield sender -> AggregationBySender(sequencingTimestamp, signatures)
           }
           .map(_.toMap)
-        firstSequencingTimestamp <- aggregatedSenders.values
-          .minByOption(_.sequencingTimestamp)
-          .map(_.sequencingTimestamp)
-          .toRight(
-            ProtoDeserializationError.InvariantViolation(
-              field = Some("aggregatedSenders"),
-              "Aggregated senders must not be empty",
-            )
-          )
         inFlightAggregation <- InFlightAggregation
           .create(
             aggregatedSenders,
-            firstSequencingTimestamp,
             maxSequencingTime,
             aggregationRule,
           )

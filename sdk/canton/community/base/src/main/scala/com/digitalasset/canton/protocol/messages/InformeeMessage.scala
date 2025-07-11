@@ -18,6 +18,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.{
+  HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
@@ -42,7 +43,8 @@ case class InformeeMessage(
     // By default, we use ProtoBuf for serialization.
     // Serializable classes that have a corresponding Protobuf message should inherit from this trait to inherit common code and naming conventions.
     // If the corresponding Protobuf message of a class has multiple versions (e.g. `InformeeMessage`),
-    with UnsignedProtocolMessage {
+    with UnsignedProtocolMessage
+    with HasProtocolVersionedWrapper[InformeeMessage] {
 
   override val representativeProtocolVersion: RepresentativeProtocolVersion[InformeeMessage.type] =
     InformeeMessage.protocolVersionRepresentativeFor(protocolVersion)

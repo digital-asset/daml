@@ -237,7 +237,9 @@ object HasProtocolVersionedWrapperTest {
     def toProtoV2 = VersionedMessageV2(msg, iValue, dValue)
   }
 
-  object Message extends VersioningCompanionMemoization[Message] {
+  object Message
+      extends VersioningCompanionMemoization[Message]
+      with IgnoreInSerializationTestExhaustivenessCheck {
     def name: String = "Message"
 
     /*

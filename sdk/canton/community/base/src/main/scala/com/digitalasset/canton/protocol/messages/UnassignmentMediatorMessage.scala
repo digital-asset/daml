@@ -14,6 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
+  HasProtocolVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
   ProtocolVersionValidation,
@@ -38,7 +39,8 @@ final case class UnassignmentMediatorMessage(
     val representativeProtocolVersion: RepresentativeProtocolVersion[
       UnassignmentMediatorMessage.type
     ]
-) extends ReassignmentMediatorMessage {
+) extends ReassignmentMediatorMessage
+    with HasProtocolVersionedWrapper[UnassignmentMediatorMessage] {
   require(tree.commonData.isFullyUnblinded, "The unassignment common data must be unblinded")
   require(tree.view.isBlinded, "The unassignment view must be blinded")
 
