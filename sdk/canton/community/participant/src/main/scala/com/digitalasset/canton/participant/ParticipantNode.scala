@@ -181,15 +181,18 @@ class ParticipantNodeBootstrap(
       storage: Storage,
   ): AuthorizedTopologyManager = {
     val resolver = new PackageDependencyResolver(
-      DamlPackageStore(
+      damlPackageStore = DamlPackageStore(
         storage,
         arguments.futureSupervisor,
         arguments.parameterConfig,
         exitOnFatalFailures = parameters.exitOnFatalFailures,
         loggerFactory,
       ),
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
+      timeouts = arguments.parameterConfig.processingTimeouts,
+      loggerFactory = loggerFactory,
+      fetchPackageParallelism = arguments.parameterConfig.general.batchingConfig.parallelism,
+      packageDependencyCacheConfig =
+        arguments.parameterConfig.general.cachingConfigs.packageDependencyCache,
     )
 
     packageDependencyResolver.putIfAbsent(resolver).discard
