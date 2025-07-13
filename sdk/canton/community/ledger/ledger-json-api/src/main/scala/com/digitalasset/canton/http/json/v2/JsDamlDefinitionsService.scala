@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
@@ -20,7 +21,8 @@ import scala.concurrent.Future
 class JsDamlDefinitionsService(
     damlDefinitionsView: DamlDefinitionsView,
     val loggerFactory: NamedLoggerFactory,
-) extends Endpoints {
+)(implicit val authInterceptor: AuthInterceptor)
+    extends Endpoints {
   import JsDamlDefinitionsService.*
   private val packageSignatureSelectorPath = "package-signature"
   private val templateSelectorPath = "template-id"

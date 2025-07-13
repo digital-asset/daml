@@ -132,7 +132,6 @@ object ApiServices {
       tracer: Tracer,
   ): ApiServices = {
     implicit val traceContext: TraceContext = TraceContext.empty
-
     val activeContractsService: IndexActiveContractsService = indexService
     val updateService: IndexUpdateService = indexService
     val eventQueryService: IndexEventQueryService = indexService

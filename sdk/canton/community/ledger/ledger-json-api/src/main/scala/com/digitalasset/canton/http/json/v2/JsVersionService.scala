@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.{experimental_features, version_service}
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -18,7 +19,8 @@ import sttp.tapir.json.circe.jsonBody
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLoggerFactory)(implicit
-    val executionContext: ExecutionContext
+    val executionContext: ExecutionContext,
+    val authInterceptor: AuthInterceptor,
 ) extends Endpoints {
 
   def endpoints() = List(

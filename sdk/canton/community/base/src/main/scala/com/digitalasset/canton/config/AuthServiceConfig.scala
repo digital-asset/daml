@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
 sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
+
   def create(
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       loggerFactory: NamedLoggerFactory,
@@ -36,6 +37,7 @@ object AuthServiceConfig {
 
   /** [default] Allows everything */
   case object Wildcard extends AuthServiceConfig {
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
@@ -60,6 +62,7 @@ object AuthServiceConfig {
           s"Failed to create HMAC256 verifier (secret: $secret): $err"
         )
       )
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
@@ -90,6 +93,7 @@ object AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
       .valueOr(err => throw new IllegalArgumentException(s"Failed to create RSA256 verifier: $err"))
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
@@ -123,6 +127,7 @@ object AuthServiceConfig {
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA256 verifier: $err")
       )
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
@@ -156,6 +161,7 @@ object AuthServiceConfig {
       .valueOr(err =>
         throw new IllegalArgumentException(s"Failed to create ECDSA512 verifier: $err")
       )
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
@@ -185,6 +191,7 @@ object AuthServiceConfig {
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) =
       JwksVerifier(url.unwrap, jwtTimestampLeeway)
+
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,

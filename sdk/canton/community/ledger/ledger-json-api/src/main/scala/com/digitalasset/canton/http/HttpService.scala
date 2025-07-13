@@ -9,6 +9,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
 import com.digitalasset.canton.http.json.v1.V1Routes
 import com.digitalasset.canton.http.json.v2.V2Routes
@@ -59,6 +60,7 @@ class HttpService(
     esf: ExecutionSequencerFactory,
     lc: LoggingContextOf[InstanceUUID],
     metrics: HttpApiMetrics,
+    authInterceptor: AuthInterceptor,
 ) extends ResourceOwner[ServerBinding]
     with NamedLogging
     with NoTracing {

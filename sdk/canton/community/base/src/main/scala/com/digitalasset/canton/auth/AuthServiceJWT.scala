@@ -11,13 +11,11 @@ import com.daml.jwt.{
   JwtVerifierBase,
   StandardJWTPayload,
 }
-import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Metadata
-import spray.json.*
+import spray.json.JsonParser
 
 import scala.concurrent.Future
 import scala.util.Try
@@ -52,19 +50,16 @@ abstract class AuthServiceJWTBase(
 ) extends AuthService
     with NamedLogging {
 
-  override def decodeMetadata(
-      headers: Metadata,
+  override def decodeToken(
+      authToken: Option[String],
       serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] =
     Future.successful {
-      getAuthorizationHeader(headers) match {
+      authToken match {
         case None => ClaimSet.Unauthenticated
         case Some(header) => parseHeader(header, serviceName)
       }
     }
-
-  private[this] def getAuthorizationHeader(headers: Metadata): Option[String] =
-    Option.apply(headers.get(AUTHORIZATION_KEY))
 
   private[this] def parseHeader(header: String, serviceName: String)(implicit
       traceContext: TraceContext

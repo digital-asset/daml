@@ -15,7 +15,7 @@ participant1.keys.public.download_to(intermediateKey.id, intermediateKeyPath)
 
 val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
 // Run the scripts generating the signed root and delegation certificates
-// This would usually be done on the offline site after having transfered intermediate_key.pub to it
+// This would usually be done on the offline site after having transferred intermediate_key.pub to it
 Process(
   Seq(
     s"$opensslScriptDirectory/openssl-example.sh",
@@ -25,7 +25,7 @@ Process(
   extraEnv = "OUTPUT_DIR" -> tmpDir.pathAsString,
 ).!(utils.cantonProcessLogger())
 
-// Once the certificates have be generated on the offline site, they can be transfered back
+// Once the certificates have be generated on the offline site, they can be transferred back
 // to initialize the participant node
 participant1.topology.init_id(
   identifier = "participant1",

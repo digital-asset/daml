@@ -4,7 +4,6 @@
 package com.digitalasset.canton.auth
 
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Metadata
 
 import scala.concurrent.Future
 
@@ -32,18 +31,11 @@ trait AuthService {
     * only a single [[com.digitalasset.canton.auth.ClaimPublic]] claim to reject all non-public
     * requests with a PERMISSION_DENIED status. Return a failed future to reject requests with an
     * INTERNAL error status.
+    * @param authToken
+    *   The value of the `Authorization` header, (for instance http or grpc)
     */
-  def decodeMetadata(headers: io.grpc.Metadata, serviceName: String)(implicit
+  def decodeToken(authToken: Option[String], serviceName: String)(implicit
       traceContext: TraceContext
   ): Future[ClaimSet]
 
-}
-
-object AuthService {
-
-  /** The [[io.grpc.Metadata.Key]] to use for looking up the `Authorization` header in the request
-    * metadata.
-    */
-  val AUTHORIZATION_KEY: Metadata.Key[String] =
-    Metadata.Key.of("Authorization", Metadata.ASCII_STRING_MARSHALLER)
 }

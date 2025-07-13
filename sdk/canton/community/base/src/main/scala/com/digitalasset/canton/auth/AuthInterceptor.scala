@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.auth
 
-import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthInterceptor.PassThroughAuthorizer
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -21,78 +20,49 @@ import scala.util.{Failure, Success, Try}
   */
 class AuthInterceptor(
     authServices: Seq[AuthService],
-    telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
     implicit val ec: ExecutionContext,
-    statelessAuthorizer: StatelessAuthorizer = PassThroughAuthorizer,
-) extends ServerInterceptor
-    with NamedLogging {
+    val statelessAuthorizer: StatelessAuthorizer = PassThroughAuthorizer,
+) extends NamedLogging {
   import LoggingContextWithTrace.implicitExtractTraceContext
 
-  override def interceptCall[ReqT, RespT](
-      call: ServerCall[ReqT, RespT],
-      headers: Metadata,
-      nextListener: ServerCallHandler[ReqT, RespT],
-  ): ServerCall.Listener[ReqT] = {
+  def extractClaims(
+      authToken: Option[String],
+      serviceName: String,
+  )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] =
     // Note: Context uses ThreadLocal storage, we need to capture it outside of the async block below.
     // Contexts are immutable and safe to pass around.
-    val prevCtx = Context.current
 
-    implicit val loggingContextWithTrace: LoggingContextWithTrace =
-      LoggingContextWithTrace(loggerFactory, telemetry)
-    implicit val errorLoggingContext: ErrorLoggingContext =
-      ErrorLoggingContext(logger, loggingContextWithTrace)
-
-    val serviceName = call.getMethodDescriptor.getServiceName
-
-    // The method interceptCall() must return a Listener.
-    // The target listener is created by calling `Contexts.interceptCall()`.
-    // However, this is only done after we have asynchronously received the claims.
-    // Therefore, we need to return a listener that buffers all messages until the target listener is available.
-    new AsyncForwardingListener[ReqT] {
-      private def closeWithError(error: StatusRuntimeException) = {
-        call.close(error.getStatus, error.getTrailers)
-        new ServerCall.Listener[Nothing]() {}
+    headerToClaims(authToken, serviceName)
+      .transform {
+        case Failure(f) => Failure(f)
+        case Success(claimSet) =>
+          statelessAuthorizer(claimSet)
       }
-
-      headerToClaims(headers, serviceName)
-        .transform {
-          case Failure(f) => Failure(f)
-          case Success(claimSet) => statelessAuthorizer(claimSet)
-        }
-        .onComplete {
-          case Failure(error: StatusRuntimeException) =>
-            closeWithError(error)
-          case Failure(exception: Throwable) =>
-            val error = AuthorizationChecksErrors.InternalAuthorizationError
-              .Reject(
-                message = "Failed to get claims from request metadata",
-                throwable = exception,
-              )
-              .asGrpcError
-            closeWithError(error)
-          case Success(claimSet) =>
-            val nextCtx = prevCtx.withValue(AuthInterceptor.contextKeyClaimSet, claimSet)
-            // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
-            // such that `Context.current` returns `nextCtx`.
-            val nextListenerWithContext =
-              Contexts.interceptCall(nextCtx, call, headers, nextListener)
-            setNextListener(nextListenerWithContext)
-            nextListenerWithContext
-        }
-    }
-  }
+      .transform {
+        case Failure(error: StatusRuntimeException) =>
+          Failure(error)
+        case Failure(exception: Throwable) =>
+          val error = AuthorizationChecksErrors.InternalAuthorizationError
+            .Reject(
+              message = "Failed to get claims from request metadata",
+              throwable = exception,
+            )
+            .asGrpcError
+          Failure(error)
+        case Success(claimSet) => Success(claimSet)
+      }
 
   private val deny = Future.successful(ClaimSet.Unauthenticated: ClaimSet)
 
   def headerToClaims(
-      headers: Metadata,
+      authToken: Option[String],
       serviceName: String,
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] =
     authServices
       .foldLeft(deny) { case (acc, elem) =>
         acc.flatMap {
-          case ClaimSet.Unauthenticated => elem.decodeMetadata(headers, serviceName)
+          case ClaimSet.Unauthenticated => elem.decodeToken(authToken, serviceName)
           case authenticated => Future.successful(authenticated)
         }
       }
@@ -103,7 +73,7 @@ object AuthInterceptor {
   val contextKeyClaimSet: Context.Key[ClaimSet] = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
   def extractClaimSetFromContext(): Try[ClaimSet] = {
-    val claimSet = AuthInterceptor.contextKeyClaimSet.get()
+    val claimSet = contextKeyClaimSet.get()
     if (claimSet == null)
       Failure(
         new RuntimeException(

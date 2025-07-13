@@ -12,6 +12,7 @@ import org.scalacheck.Arbitrary
 import org.scalatest.Assertion
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
+import java.lang.reflect.Modifier
 import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
@@ -24,10 +25,9 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
   // Populated by the methods `testVersioned` and friends
   lazy val testedClasses: scala.collection.mutable.Set[String] = mutable.Set.empty
 
-  /*
-   Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization method),
-   without context for deserialization.
-   */
+  /** Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization
+    * method), without context for deserialization.
+    */
   protected def testVersioned[T <: HasVersionedWrapper[_]](
       companion: HasVersionedMessageCompanion[T],
       protocolVersion: ProtocolVersion,
@@ -67,12 +67,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       Context,
       Dependency,
   ](
-      companion: BaseVersioningCompanion[
-        T,
-        Context,
-        DeserializedValueClass,
-        Dependency,
-      ],
+      companion: BaseVersioningCompanion[T, Context, DeserializedValueClass, Dependency],
       context: Context,
       protocolVersion: ProtocolVersion,
       warnWhenTestRunsLongerThan: Duration = 1.second,
@@ -91,11 +86,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       T[X] <: ReassignmentTag[X],
       Context,
   ](
-      companion: VersioningCompanionContextTaggedPVValidation2[
-        ValueClass,
-        T,
-        Context,
-      ],
+      companion: VersioningCompanionContextTaggedPVValidation2[ValueClass, T, Context],
       context: Context,
       protocolVersion: T[ProtocolVersion],
       warnWhenTestRunsLongerThan: Duration = 1.second,
@@ -147,7 +138,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       deserializer: ByteString => ParsingResult[DeserializedValueClass],
       warnWhenTestRunsLongerThan: Duration,
   )(implicit arb: Arbitrary[T]): Assertion = {
-    val className = companion.getClass.getName.replace("$", "")
+    val className = companion.getClass.getName
     testedClasses.add(className)
 
     val start = System.nanoTime()
@@ -174,22 +165,8 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     result
   }
 
-  /* Find all subclasses of `parent` in package `packageName` */
-  private def findSubClassesOf[T](parent: Class[T], packageName: String) = {
-    val reflections = new Reflections(packageName)
-
-    val classes: Seq[Class[_ <: T]] =
-      reflections.getSubTypesOf(parent).asScala.toList.filterNot(_.getName.contains("$"))
-
-    // Check if one superclass of `c` is also in the list of classes
-    def hasParent(c: Class[_ <: T]) =
-      classes.exists(p => p.getName != c.getName && p.isAssignableFrom(c))
-
-    classes.filterNot(hasParent)
-  }
-
-  protected def findHasProtocolVersionedWrapperSubClasses(packageName: String): Seq[String] =
-    findSubClassesOf(classOf[HasProtocolVersionedWrapper[_]], packageName).map(_.getName)
+  protected def findBaseVersionionCompanionSubClasses(packageName: String): Seq[Class[?]] =
+    findSubClassesOf(classOf[BaseVersioningCompanion[_, _, _, _]], packageName)
 }
 
 object SerializationDeserializationTestHelpers {
@@ -197,4 +174,25 @@ object SerializationDeserializationTestHelpers {
       transformer: ValueClass => ValueClass,
       untilExclusive: ProtocolVersion,
   )
+
+  /* Find all subclasses of `parent` in package `packageName` */
+  def findSubClassesOf[T](parent: Class[T], packageName: String): Seq[Class[_ <: T]] = {
+    val reflections = new Reflections(packageName)
+
+    val classes: Seq[Class[_ <: T]] =
+      reflections.getSubTypesOf(parent).asScala.toSeq
+
+    // Exclude abstract classes as they cannot be true companion objects, but rather just helper traits
+    def isAbstract(c: Class[_]): Boolean = Modifier.isAbstract(c.getModifiers)
+    // Exclude anonymous companion objects as they should only appear in tests
+    def isAnonymous(c: Class[_]): Boolean = c.isAnonymousClass
+
+    classes.filterNot(c => isAbstract(c) || isAnonymous(c))
+  }
 }
+
+/** Marker trait for companion objects of [[HasProtocolVersionedWrapper]] classes that we don't need
+  * to check serialization/deserialization for. Since this trait is defined in the test scope, it
+  * cannot be used for classes in production code.
+  */
+trait IgnoreInSerializationTestExhaustivenessCheck
