@@ -98,3 +98,40 @@ ptsynid = P.TypeSynId (Just $ P.ModuleId (Just id) 0)
 
 ptsyn :: Int32 -> V.Vector P.Type -> P.Type
 ptsyn i args = pliftT $ P.TypeSumSyn $ P.Type_Syn (Just (ptsynid i)) args
+
+-- Exprs
+liftE :: P.ExprSum -> P.Expr
+liftE = P.Expr Nothing . Just
+
+peInterned :: Int32 -> P.Expr
+peInterned = liftE . P.ExprSumInterned
+
+peBuiltinCon :: P.BuiltinCon -> P.Expr
+peBuiltinCon bit = liftE $ P.ExprSumBuiltinCon $ P.Enumerated $ Right bit
+
+peUnit :: P.Expr
+peUnit = peBuiltinCon P.BuiltinConCON_UNIT
+
+peVar :: Int32 -> P.Expr
+peVar = liftE . P.ExprSumVarInternedStr
+
+peSelfOrImportedPackageIdSelf :: Maybe P.SelfOrImportedPackageId
+peSelfOrImportedPackageIdSelf = Just $ P.SelfOrImportedPackageId $ Just $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
+
+peVal :: Int32 -> Int32 -> P.Expr
+peVal mod val = liftE $ P.ExprSumVal $ P.ValueId (Just $ P.ModuleId peSelfOrImportedPackageIdSelf mod) val
+
+peTrue :: P.Expr
+peTrue = peBuiltinCon P.BuiltinConCON_TRUE
+
+peApp :: P.Expr -> P.Expr -> P.Expr
+peApp e1 e2 = liftE $ P.ExprSumApp $ P.Expr_App (Just e1) (V.singleton e2)
+
+peTyApp :: P.Expr -> P.Type -> P.Expr
+peTyApp e t = liftE $ P.ExprSumTyApp $ P.Expr_TyApp (Just e) (V.singleton t)
+
+peTyAbs :: Int32 -> P.Kind -> P.Expr -> P.Expr
+peTyAbs i k e = liftE $ P.ExprSumTyAbs $ P.Expr_TyAbs (V.singleton var) (Just e)
+  where
+    var :: P.TypeVarWithKind
+    var = P.TypeVarWithKind i (Just k)

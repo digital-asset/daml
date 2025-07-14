@@ -1,8 +1,5 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
--- {-# LANGUAGE DeriveDataTypeable #-}
 
 module DA.Daml.LF.Proto3.EncodeTest (
         module DA.Daml.LF.Proto3.EncodeTest
@@ -15,21 +12,15 @@ import qualified Data.Vector                              as V
 import           Text.Printf
 
 -- generic depth test
-import Data.Data
-import Data.Generics.Aliases
-
---tmp, move to utils
-import           Data.Int
-import           Data.Text                                (Text)
-import qualified Proto3.Suite                             as P
-
-
+import           Data.Data
+import           Data.Generics.Aliases
 
 import           DA.Daml.LF.Proto3.EncodeV2
 
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Proto3.Util
+import           DA.Daml.LF.Proto3.DerivingData           ()
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
@@ -39,13 +30,14 @@ import           Test.Tasty
 
 entry :: IO ()
 entry = defaultMain $ testGroup "All tests"
-  [ unitTests
-  , propertyTests
+  [ propertyTests
+  , unitTests
   ]
 
 ------------------------------------------------------------------------
--- Property tests
+-- Property definition
 ------------------------------------------------------------------------
+
 
 {-
 Assumptions:
@@ -57,82 +49,6 @@ Assumptions:
   Com.Digitalasset.Daml.Lf.Archive.DamlLf2 AST is flat enough, it for sure is in
   the protobuff spec.
 -}
-
-propertyTests :: TestTree
-propertyTests = testGroup "Property tests"
-  [ propertyCorrectTests
-  , deepTests
-  ]
-
-{-
-Assert the correctness of the property by testing a few examples that should
-fail (negative tests). The positive tests are done within the unittests.
--}
-propertyCorrectTests :: TestTree
-propertyCorrectTests = testGroup "Correctness of property (negative tests)"
-  [ propertyCorrectNestedKindArrow
-  , propertyCorrectNestedTypeArrow
-  , propertyCorrectExprArrow
-  , propertyCorrectKindInType
-  , propertyCorrectTypeInExpr
-  , propertyCorrectKindInExpr
-  ]
-
-propertyCorrectNestedKindArrow :: TestTree
-propertyCorrectNestedKindArrow =
-  testCase "((* -> *) -> *)" $
-    assertBool "kind ((* -> *) -> *) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ pkarr (pkarr pkstar pkstar) pkstar)
-
-propertyCorrectNestedTypeArrow :: TestTree
-propertyCorrectNestedTypeArrow =
-  testCase "(() -> interned 0)" $
-    assertBool "type (() -> ()) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ ptarr ptunit (ptinterned 0))
-
-propertyCorrectKindInType :: TestTree
-propertyCorrectKindInType =
-  testCase "forall 0::(* -> *). ()" $
-    assertBool "forall 0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ ptforall 0 (pkarr pkstar pkstar) ptunit)
-
-peApp :: P.Expr -> P.Expr -> P.Expr
-peApp e1 e2 = liftE $ P.ExprSumApp $ P.Expr_App (Just e1) (V.singleton e2)
-
-propertyCorrectExprArrow :: TestTree
-propertyCorrectExprArrow =
-  testCase "true (interned 0)" $
-    assertBool "true (interned 0) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ peApp peTrue (peInterned 0))
-
-peTyApp :: P.Expr -> P.Type -> P.Expr
-peTyApp e t = liftE $ P.ExprSumTyApp $ P.Expr_TyApp (Just e) (V.singleton t)
-
-propertyCorrectTypeInExpr :: TestTree
-propertyCorrectTypeInExpr =
-  testCase "(interned 0) TUnit" $
-    assertBool "(interned 0) TUnit should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ peTyApp (peInterned 0) ptunit)
-
-peTyAbs :: Int32 -> P.Kind -> P.Expr -> P.Expr
-peTyAbs i k e = liftE $ P.ExprSumTyAbs $ P.Expr_TyAbs (V.singleton var) (Just e)
-  where
-    var :: P.TypeVarWithKind
-    var = P.TypeVarWithKind i (Just k)
-
-propertyCorrectKindInExpr :: TestTree
-propertyCorrectKindInExpr =
-  testCase "/\0::(* -> *). ()" $
-    assertBool "/\0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ peTyAbs 0 (pkarr pkstar pkstar) peUnit)
-
-deepTests :: TestTree
-deepTests = testGroup "Deep AST tests"
-  [ deepKindArrTest
-  , deepTypeArrTest
-  , deepLetExprTest
-  ]
-
 
 data ConcreteConstrCount = ConcreteConstrCount
     { kinds :: Int
@@ -207,138 +123,119 @@ assertInternedEnv EncodeTestEnv{..} = do
   assertBool "Env types" $ all wellInterned iTypes
   assertBool "Env exprs" $ all wellInterned iExprs
 
-deriving instance Data P.Unit
-deriving instance Data P.SelfOrImportedPackageId
-deriving instance Data P.SelfOrImportedPackageIdSum
-deriving instance Data P.ModuleId
-deriving instance Data P.TypeConId
-deriving instance Data P.TypeSynId
-deriving instance Data P.ValueId
-deriving instance Data P.FieldWithType
-deriving instance Data P.VarWithType
-deriving instance Data P.TypeVarWithKind
-deriving instance Data P.FieldWithExpr
-deriving instance Data P.Binding
-deriving instance Data P.Kind
-deriving instance Data P.Kind_Arrow
-deriving instance Data P.KindSum
-deriving instance Data P.BuiltinType
-deriving instance Data P.Type
-deriving instance Data P.Type_Var
-deriving instance Data P.Type_Con
-deriving instance Data P.Type_Syn
-deriving instance Data P.Type_Builtin
-deriving instance Data P.Type_Forall
-deriving instance Data P.Type_Struct
-deriving instance Data P.TypeSum
-deriving instance Data P.BuiltinCon
-deriving instance Data P.BuiltinFunction
-deriving instance Data P.BuiltinLit
-deriving instance Data P.BuiltinLit_RoundingMode
-deriving instance Data P.BuiltinLit_FailureCategory
-deriving instance Data P.BuiltinLitSum
-deriving instance Data P.Location
-deriving instance Data P.Location_Range
-deriving instance Data P.Expr
-deriving instance Data P.Expr_RecCon
-deriving instance Data P.Expr_RecProj
-deriving instance Data P.Expr_RecUpd
-deriving instance Data P.Expr_VariantCon
-deriving instance Data P.Expr_EnumCon
-deriving instance Data P.Expr_StructCon
-deriving instance Data P.Expr_StructProj
-deriving instance Data P.Expr_StructUpd
-deriving instance Data P.Expr_App
-deriving instance Data P.Expr_TyApp
-deriving instance Data P.Expr_Abs
-deriving instance Data P.Expr_TyAbs
-deriving instance Data P.Expr_Nil
-deriving instance Data P.Expr_Cons
-deriving instance Data P.Expr_OptionalNone
-deriving instance Data P.Expr_OptionalSome
-deriving instance Data P.Expr_ToAny
-deriving instance Data P.Expr_FromAny
-deriving instance Data P.Expr_ToAnyException
-deriving instance Data P.Expr_FromAnyException
-deriving instance Data P.Expr_Throw
-deriving instance Data P.Expr_ToInterface
-deriving instance Data P.Expr_FromInterface
-deriving instance Data P.Expr_CallInterface
-deriving instance Data P.Expr_ViewInterface
-deriving instance Data P.Expr_SignatoryInterface
-deriving instance Data P.Expr_ObserverInterface
-deriving instance Data P.Expr_UnsafeFromInterface
-deriving instance Data P.Expr_ToRequiredInterface
-deriving instance Data P.Expr_FromRequiredInterface
-deriving instance Data P.Expr_UnsafeFromRequiredInterface
-deriving instance Data P.Expr_InterfaceTemplateTypeRep
-deriving instance Data P.Expr_ChoiceController
-deriving instance Data P.Expr_ChoiceObserver
-deriving instance Data P.Expr_Experimental
-deriving instance Data P.ExprSum
-deriving instance Data P.CaseAlt
-deriving instance Data P.CaseAlt_Variant
-deriving instance Data P.CaseAlt_Enum
-deriving instance Data P.CaseAlt_Cons
-deriving instance Data P.CaseAlt_OptionalSome
-deriving instance Data P.CaseAltSum
-deriving instance Data P.Case
-deriving instance Data P.Block
-deriving instance Data P.Pure
-deriving instance Data P.Update
-deriving instance Data P.Update_Create
-deriving instance Data P.Update_CreateInterface
-deriving instance Data P.Update_Exercise
-deriving instance Data P.Update_ExerciseInterface
-deriving instance Data P.Update_ExerciseByKey
-deriving instance Data P.Update_Fetch
-deriving instance Data P.Update_FetchInterface
-deriving instance Data P.Update_EmbedExpr
-deriving instance Data P.Update_RetrieveByKey
-deriving instance Data P.Update_TryCatch
-deriving instance Data P.UpdateSum
-deriving instance Data P.TemplateChoice
-deriving instance Data P.InterfaceInstanceBody
-deriving instance Data P.InterfaceInstanceBody_InterfaceInstanceMethod
-deriving instance Data P.DefTemplate
-deriving instance Data P.DefTemplate_DefKey
-deriving instance Data P.DefTemplate_Implements
-deriving instance Data P.InterfaceMethod
-deriving instance Data P.DefInterface
-deriving instance Data P.DefException
-deriving instance Data P.DefDataType
-deriving instance Data P.DefDataType_Fields
-deriving instance Data P.DefDataType_EnumConstructors
-deriving instance Data P.DefDataTypeDataCons
-deriving instance Data P.DefTypeSyn
-deriving instance Data P.DefValue
-deriving instance Data P.DefValue_NameWithType
-deriving instance Data P.FeatureFlags
-deriving instance Data P.Module
-deriving instance Data P.InternedDottedName
-deriving instance Data P.UpgradedPackageId
-deriving instance Data P.Package
-deriving instance Data P.PackageMetadata
+------------------------------------------------------------------------
+-- Property tests
+------------------------------------------------------------------------
 
-instance Data a => Data (P.Enumerated a) where
-  gfoldl f z (P.Enumerated x) = z P.Enumerated `f` x
+propertyTests :: TestTree
+propertyTests = testGroup "Property tests"
+  [ propertyCorrectTests
+  , deepTests
+  ]
 
-  gunfold k z c = case constrIndex c of
-    1 -> k (z P.Enumerated)
-    _ -> error "gunfold: Bad constructor index for Enumerated"
+{-
+Assert the correctness of the property by testing a few examples that should
+fail (negative tests). The positive tests are done within the unittests.
+-}
+propertyCorrectTests :: TestTree
+propertyCorrectTests = testGroup "Correctness of property (negative tests)"
+  [ propertyCorrectNestedKindArrow
+  , propertyCorrectNestedTypeArrow
+  , propertyCorrectExprArrow
+  , propertyCorrectKindInType
+  , propertyCorrectTypeInExpr
+  , propertyCorrectKindInExpr
+  ]
 
-  toConstr (P.Enumerated _) = enumeratedConstr
+propertyCorrectNestedKindArrow :: TestTree
+propertyCorrectNestedKindArrow =
+  testCase "((* -> *) -> *)" $
+    assertBool "kind ((* -> *) -> *) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ pkarr (pkarr pkstar pkstar) pkstar)
 
-  dataTypeOf _ = enumeratedDataType
+propertyCorrectNestedTypeArrow :: TestTree
+propertyCorrectNestedTypeArrow =
+  testCase "(() -> interned 0)" $
+    assertBool "type (() -> ()) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptarr ptunit (ptinterned 0))
 
-enumeratedConstr :: Constr
-enumeratedConstr = mkConstr enumeratedDataType "Enumerated" [] Prefix
+propertyCorrectKindInType :: TestTree
+propertyCorrectKindInType =
+  testCase "forall 0::(* -> *). ()" $
+    assertBool "forall 0::(* -> *). () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptforall 0 (pkarr pkstar pkstar) ptunit)
 
-enumeratedDataType :: DataType
-enumeratedDataType = mkDataType "Proto3.Suite.Types.Enumerated" [enumeratedConstr]
+propertyCorrectExprArrow :: TestTree
+propertyCorrectExprArrow =
+  testCase "true (interned 0)" $
+    assertBool "true (interned 0) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peApp peTrue (peInterned 0))
 
--- kindDepth :: P.Kind -> Int
--- kindDepth = _astDepth
+propertyCorrectTypeInExpr :: TestTree
+propertyCorrectTypeInExpr =
+  testCase "(interned 0) TUnit" $
+    assertBool "(interned 0) TUnit should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyApp (peInterned 0) ptunit)
+
+propertyCorrectKindInExpr :: TestTree
+propertyCorrectKindInExpr =
+  testCase "/\0::(* -> *). ()" $
+    assertBool "/\0::(* -> *). () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyAbs 0 (pkarr pkstar pkstar) peUnit)
+
+{-
+Assert that interning effectively happens by testing the encoding of "deep"
+input, i.e. input with a nesting that _has_ to be interned in order to be flat
+enough to be considered well-interned
+-}
+deepTests :: TestTree
+deepTests = testGroup "Deep AST tests"
+  [ deepKindArrTest
+  , deepTypeArrTest
+  , deepLetExprTest
+  ]
+
+kindArrOfDepth :: Int -> Kind -> Kind
+kindArrOfDepth 0 k = k
+kindArrOfDepth i k = KArrow (kindArrOfDepth (i - 1) k) k
+
+deepKindArrTest :: TestTree
+deepKindArrTest =
+  let level = 100
+      (pk, e) = runEncodeKindTest $ kindArrOfDepth level KStar
+  in  testCase (printf "deep kind test (%d levels)" level) $ do
+      assertInterned pk
+      assertInternedEnv e
+
+typeArrOfDepth :: Int -> Type -> Type
+typeArrOfDepth 0 t = t
+typeArrOfDepth i t = typeArrOfDepth (i - 1) t :-> t
+
+deepTypeArrTest :: TestTree
+deepTypeArrTest =
+  let level = 100
+      (pt, e) = runEncodeTypeTest $ typeArrOfDepth level TUnit
+  in  testCase (printf "deep type test (%d levels)" level) $ do
+      assertInterned pt
+      assertInternedEnv e
+
+letOfDepth :: Int -> Expr
+letOfDepth 0 = EUnit
+letOfDepth i = elet (letOfDepth $ i -1)
+  where
+    elet :: Expr -> Expr
+    elet = ELet unitBinding
+
+    unitBinding :: Binding
+    unitBinding = Binding (ExprVarName "x", TUnit) EUnit
+
+deepLetExprTest :: TestTree
+deepLetExprTest =
+  let level = 100
+      (pe, e) = runEncodeExprTest $ letOfDepth level
+  in  testCase (printf "deep let test (%d levels)" level) $ do
+      assertInterned pe
+      assertInternedEnv e
 
 ------------------------------------------------------------------------
 -- Unit tests
@@ -560,52 +457,9 @@ exprInterningTests = testGroup "Expr tests (interning)"
   , exprInterningBool
   ]
 
-
 runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
 runEncodeExprTest k = envToTestEnv <$> runState (encodeExpr' k) (initEncodeEnv testVersion)
 
--- ast
-eVar :: Text -> Expr
-eVar = EVar . ExprVarName
-
-eQual :: a -> Qualified a
-eQual x = Qualified SelfPackageId (ModuleName ["Main"]) x
-
-eVal :: Text -> Expr
-eVal = EVal . eQual . ExprValName
-
-eTrue :: Expr
-eTrue = EBuiltinFun $ BEBool True
-
-eUnit :: Expr
-eUnit = EBuiltinFun BEUnit
-
--- P.ast
-liftE :: P.ExprSum -> P.Expr
-liftE = P.Expr Nothing . Just
-
-peInterned :: Int32 -> P.Expr
-peInterned = liftE . P.ExprSumInterned
-
-peBuiltinCon :: P.BuiltinCon -> P.Expr
-peBuiltinCon bit = liftE $ P.ExprSumBuiltinCon $ P.Enumerated $ Right bit
-
-peUnit :: P.Expr
-peUnit = peBuiltinCon P.BuiltinConCON_UNIT
-
-peVar :: Int32 -> P.Expr
-peVar = liftE . P.ExprSumVarInternedStr
-
-peSelfOrImportedPackageIdSelf :: Maybe P.SelfOrImportedPackageId
-peSelfOrImportedPackageIdSelf = Just $ P.SelfOrImportedPackageId $ Just $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-
-peVal :: Int32 -> Int32 -> P.Expr
-peVal mod val = liftE $ P.ExprSumVal $ P.ValueId (Just $ P.ModuleId peSelfOrImportedPackageIdSelf mod) val
-
-peTrue :: P.Expr
-peTrue = peBuiltinCon P.BuiltinConCON_TRUE
-
--- tests
 exprInterningVar :: TestTree
 exprInterningVar =
   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ eVar "x"
@@ -629,52 +483,9 @@ exprInterningVal =
 
 exprInterningBool :: TestTree
 exprInterningBool =
-  let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest eTrue
+  let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest ETrue
   in  testCase "True" $ do
       assertInterned pe
       assertInternedEnv e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peTrue
-
-kindArrOfDepth :: Int -> Kind -> Kind
-kindArrOfDepth 0 k = k
-kindArrOfDepth i k = KArrow (kindArrOfDepth (i - 1) k) k
-
-deepKindArrTest :: TestTree
-deepKindArrTest =
-  let level = 100
-      (pk, e) = runEncodeKindTest $ kindArrOfDepth level KStar
-  in  testCase (printf "deep kind test (%d levels)" level) $ do
-      assertInterned pk
-      assertInternedEnv e
-
-typeArrOfDepth :: Int -> Type -> Type
-typeArrOfDepth 0 t = t
-typeArrOfDepth i t = typeArrOfDepth (i - 1) t :-> t
-
-deepTypeArrTest :: TestTree
-deepTypeArrTest =
-  let level = 100
-      (pt, e) = runEncodeTypeTest $ typeArrOfDepth level TUnit
-  in  testCase (printf "deep type test (%d levels)" level) $ do
-      assertInterned pt
-      assertInternedEnv e
-
-
-letOfDepth :: Int -> Expr
-letOfDepth 0 = eUnit
-letOfDepth i = elet (letOfDepth $ i -1)
-  where
-    elet :: Expr -> Expr
-    elet = ELet unitBinding
-
-    unitBinding :: Binding
-    unitBinding = Binding (ExprVarName "x", TUnit) eUnit
-
-deepLetExprTest :: TestTree
-deepLetExprTest =
-  let level = 100
-      (pe, e) = runEncodeExprTest $ letOfDepth level
-  in  testCase (printf "deep let test (%d levels)" level) $ do
-      assertInterned pe
-      assertInternedEnv e
