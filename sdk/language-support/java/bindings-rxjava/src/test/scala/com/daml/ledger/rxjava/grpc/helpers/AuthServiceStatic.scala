@@ -3,7 +3,7 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
+import com.digitalasset.canton.auth.GrpcAuthInterceptor.AUTHORIZATION_KEY
 import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.Metadata
