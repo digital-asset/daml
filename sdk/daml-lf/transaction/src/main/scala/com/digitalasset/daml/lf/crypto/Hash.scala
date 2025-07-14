@@ -48,6 +48,12 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
+  // Names can change
+  sealed trait HashType
+  object LegacyHash extends HashType
+  object UpgradeFriendlyHash extends HashType
+  object MinimalTypeHash extends HashType
+
   val underlyingHashLength = 32
 
   sealed abstract class HashingError(val msg: String) extends Exception with NoStackTrace
