@@ -11,7 +11,12 @@ import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, PackageClient}
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
-import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard, Authorizer}
+import com.digitalasset.canton.auth.{
+  AuthService,
+  AuthServiceWildcard,
+  Authorizer,
+  GrpcAuthInterceptor,
+}
 import com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.tracing.TraceContext
@@ -108,13 +113,18 @@ final class LedgerServices(val name: String) {
     val authorizationInterceptor = new UserBasedAuthInterceptor(
       List(authService),
       Some(new InMemoryUserManagementStore(false, loggerFactory)),
+      loggerFactory,
+      executionContext,
+    )
+    val grpcAuthInterceptor = new GrpcAuthInterceptor(
+      authorizationInterceptor,
       NoOpTelemetry,
       loggerFactory,
       executionContext,
     )
     services
       .foldLeft(newServerBuilder())(_ addService _)
-      .intercept(authorizationInterceptor)
+      .intercept(grpcAuthInterceptor)
       .build()
       .start()
   }

@@ -3,10 +3,8 @@
 
 package com.daml.ledger.rxjava.grpc.helpers
 
-import com.digitalasset.canton.auth.GrpcAuthInterceptor.AUTHORIZATION_KEY
 import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Metadata
 
 import scala.concurrent.Future
 
@@ -16,17 +14,16 @@ import scala.concurrent.Future
   * Note: This AuthService is meant to be used for testing purposes only.
   */
 final class AuthServiceStatic(claims: PartialFunction[String, ClaimSet]) extends AuthService {
-  override def decodeMetadata(headers: Metadata, serviceName: String)(implicit
+  override def decodeToken(authToken: Option[String], serviceName: String)(implicit
       traceContext: TraceContext
   ): Future[ClaimSet] = {
-    if (headers.containsKey(AUTHORIZATION_KEY)) {
-      val authorizationValue = headers.get(AUTHORIZATION_KEY).stripPrefix("Bearer ")
-      Future.successful(
-        claims.lift(authorizationValue).getOrElse(ClaimSet.Unauthenticated)
-      )
-    } else {
-      Future.successful(ClaimSet.Unauthenticated)
-    }
+    Future.successful(
+      authToken match {
+        case Some(header) =>
+          claims.lift(header.stripPrefix("Bearer ")).getOrElse(ClaimSet.Unauthenticated)
+        case _ => ClaimSet.Unauthenticated
+      }
+    )
   }
 }
 
