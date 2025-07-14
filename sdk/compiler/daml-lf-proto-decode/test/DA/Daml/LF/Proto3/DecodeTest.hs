@@ -34,9 +34,6 @@ decTests :: TestTree
 decTests = testGroup "decoding tests"
   [ decPureTests
   , decInterningTests
-  -- TODO[RB]: add tests that feature kinds occurring in types occuring in
-  -- expressions (will be done when type- and expression interning will be
-  -- implemented)
   ]
 
 emptyDecodeEnv :: DecodeEnv

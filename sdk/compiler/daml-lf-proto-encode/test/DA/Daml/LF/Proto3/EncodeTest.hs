@@ -1,9 +1,8 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances, MultiParamTypeClasses #-}
-{-# LANGUAGE DeriveGeneric #-}
+-- {-# LANGUAGE DeriveDataTypeable #-}
 
 module DA.Daml.LF.Proto3.EncodeTest (
         module DA.Daml.LF.Proto3.EncodeTest
@@ -129,7 +128,9 @@ propertyCorrectKindInExpr =
 
 deepTests :: TestTree
 deepTests = testGroup "Deep AST tests"
-  [ deepLetExprTest
+  [ deepKindArrTest
+  , deepTypeArrTest
+  , deepLetExprTest
   ]
 
 
@@ -156,6 +157,14 @@ maxCount :: ConcreteConstrCount -> ConcreteConstrCount -> ConcreteConstrCount
 maxCount (ConcreteConstrCount k1 t1 e1) (ConcreteConstrCount k2 t2 e2) =
     ConcreteConstrCount (max k1 k2) (max t1 t2) (max e1 e2)
 
+{-
+Count the number of concrete constructors for kinds, types, and expressions.
+This code would be a lot simpler if we would simply return a bool or another
+pass/failiure (such as Either), simply asserting at the point of a concrete
+constructor that children do not contain concrete constructors. However, giving
+the counts is a bit more inforamative for debugging, and this code will change
+anyways if and when we allow for trees of size n
+-}
 countConcreteConstrs :: Data a => a -> ConcreteConstrCount
 countConcreteConstrs =
   let
@@ -174,10 +183,8 @@ countConcreteConstrs =
       (P.ExprSumInterned _) -> mempty
       _                     -> singleExpr <> mconcat (gmapQ countConcreteConstrs e)
 
-    countETE (env :: EncodeTestEnv) = case env of
-      EncodeTestEnv{..}     -> foldr maxCount mempty (fmap countConcreteConstrs iKinds) `maxCount`
-                               foldr maxCount mempty (fmap countConcreteConstrs iTypes) `maxCount`
-                               foldr maxCount mempty (fmap countConcreteConstrs iExprs)
+    countETE (_ :: EncodeTestEnv) =
+      error "you probably meant to call assertInternedEnv with an EnodeTestEnv (no sensible implementation for EncodeTestEnv exists)"
 
     genericCase x = mconcat (gmapQ countConcreteConstrs x)
 
@@ -190,26 +197,15 @@ checkWellInterned ConcreteConstrCount{..} =
 wellInterned :: Data a => a -> Bool
 wellInterned = checkWellInterned . countConcreteConstrs
 
-
 assertInterned :: Data a => a -> Assertion
 assertInterned (countConcreteConstrs -> count) = do
     assertBool (printf "invalid counts: %s" (show count)) $ checkWellInterned count
 
-
--- The corrected depth function for `syb`
-genDepth :: Data a => a -> Int
-genDepth =
-  let
-    -- Rule for Maybe: The depth of `Just x` is the depth of `x`. The depth of `Nothing` is 0.
-    maybeCase (m :: Maybe Expr) = case m of
-      Just x  -> genDepth x
-      Nothing -> 0
-
-    -- Generic rule for everything else: 1 + max depth of children
-    genericCase x = 1 + foldr max 0 (gmapQ genDepth x)
-
-  -- The final query combines the generic rule with the specific override for `Maybe Expr`
-  in genericCase `extQ` maybeCase
+assertInternedEnv :: EncodeTestEnv -> Assertion
+assertInternedEnv EncodeTestEnv{..} = do
+  assertBool "Env kinds" $ all wellInterned iKinds
+  assertBool "Env types" $ all wellInterned iTypes
+  assertBool "Env exprs" $ all wellInterned iExprs
 
 deriving instance Data P.Unit
 deriving instance Data P.SelfOrImportedPackageId
@@ -390,9 +386,6 @@ kindTests :: TestTree
 kindTests = testGroup "Kind tests"
   [ kindPureTests
   , kindInterningTests
-  -- TODO[RB]: add tests that feature kinds occurring in types occuring in
-  -- expressions (will be done when type- and expression interning will be
-  -- implemented)
   ]
 
 kindPureTests :: TestTree
@@ -421,7 +414,7 @@ kindInterningStarToStar =
   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow KStar KStar)
   in  testCase "star to star" $ do
       assertInterned pk
-      assertInterned e
+      assertInternedEnv e
       pk @?= pkinterned 0
       iKinds V.! 0 @?= pkarr pkstar pkstar
 
@@ -430,7 +423,7 @@ kindInterningStarToNatToStar =
   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KNat) KStar)
   in  testCase "(star to nat) to star" $ do
       assertInterned pk
-      assertInterned e
+      assertInternedEnv e
       pk @?= pkinterned 1
       iKinds V.! 0 @?= pkarr pkstar pknat
       iKinds V.! 1 @?= pkarr (pkinterned 0) pkstar
@@ -441,7 +434,7 @@ kindInterningAssertSharing =
   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KStar) (KArrow KStar KStar))
   in  testCase "Sharing: (* -> *) -> (* -> *)" $ do
       assertInterned pk
-      assertInterned e
+      assertInternedEnv e
       pk @?= pkinterned 1
       iKinds V.! 0 @?= pkarr pkstar pkstar
       iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
@@ -469,7 +462,7 @@ typeInterningVar =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ tvar "a"
   in  testCase "tvar a" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 0
       iTypes V.! 0 @?= (pliftT $ P.TypeSumVar $ P.Type_Var 0 V.empty)
       iStrings V.! 0 @?= "a"
@@ -479,7 +472,7 @@ typeInterningMyFuncUnit =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ tmyFuncTest TUnit
   in  testCase "MyFunc ()" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
       iTypes V.! 1 @?= ptcon 1 (V.singleton $ ptinterned 0)
@@ -491,7 +484,7 @@ typeInterningMaybeSyn =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ tsynTest "MaybeSyn" [TUnit]
   in  testCase "MaybeSyn ()" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 1
       iTypes V.! 0 @?= ptunit
       iTypes V.! 1 @?= ptsyn 1 (V.singleton $ ptinterned 0)
@@ -503,7 +496,7 @@ typeInterningUnit =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest TUnit
   in  testCase "unit" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 0
       (iTypes V.! 0) @?= ptunit
 
@@ -512,7 +505,7 @@ typeInterningIntToBool =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ TInt64 :-> TBool
   in  testCase "Int -> Bool" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 2
       (iTypes V.! 0) @?= ptint
       (iTypes V.! 1) @?= ptbool
@@ -523,7 +516,7 @@ typeInterningForall =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest tyLamTyp
   in  testCase "forall (a : * -> *). a -> a" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 2
       (iKinds V.! 0) @?= pkarr pkstar pkstar
       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
@@ -534,7 +527,7 @@ typeInterningTStruct =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ TStruct [(FieldName "foo", TUnit)]
   in  testCase "struct {foo :: ()}" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit
       (iTypes V.! 1) @?= ptstructSingleton 0 (ptinterned 0)
@@ -545,7 +538,7 @@ typeInterningTNat =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ TNat $ typeLevelNat (16 :: Int)
   in  testCase "tnat 16" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 0
       (iTypes V.! 0) @?= (pliftT $ P.TypeSumNat 16)
 
@@ -554,7 +547,7 @@ typeInterningAssertSharing =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ TUnit :-> TUnit
   in  testCase "Sharing: () -> ()" $ do
       assertInterned pt
-      assertInterned e
+      assertInternedEnv e
       pt @?= ptinterned 1
       (iTypes V.! 0) @?= ptunit
       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
@@ -618,7 +611,7 @@ exprInterningVar =
   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ eVar "x"
   in  testCase "eVar x" $ do
       assertInterned pe
-      assertInterned e
+      assertInternedEnv e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peVar 0
       iStrings V.! 0 @?= "x"
@@ -628,7 +621,7 @@ exprInterningVal =
   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ eVal "x"
   in  testCase "eVar x" $ do
       assertInterned pe
-      assertInterned e
+      assertInternedEnv e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peVal 0 1
       iStrings V.! 0 @?= "Main"
@@ -639,9 +632,33 @@ exprInterningBool =
   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest eTrue
   in  testCase "True" $ do
       assertInterned pe
-      assertInterned e
+      assertInternedEnv e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peTrue
+
+kindArrOfDepth :: Int -> Kind -> Kind
+kindArrOfDepth 0 k = k
+kindArrOfDepth i k = KArrow (kindArrOfDepth (i - 1) k) k
+
+deepKindArrTest :: TestTree
+deepKindArrTest =
+  let level = 100
+      (pk, e) = runEncodeKindTest $ kindArrOfDepth level KStar
+  in  testCase (printf "deep kind test (%d levels)" level) $ do
+      assertInterned pk
+      assertInternedEnv e
+
+typeArrOfDepth :: Int -> Type -> Type
+typeArrOfDepth 0 t = t
+typeArrOfDepth i t = typeArrOfDepth (i - 1) t :-> t
+
+deepTypeArrTest :: TestTree
+deepTypeArrTest =
+  let level = 100
+      (pt, e) = runEncodeTypeTest $ typeArrOfDepth level TUnit
+  in  testCase (printf "deep type test (%d levels)" level) $ do
+      assertInterned pt
+      assertInternedEnv e
 
 
 letOfDepth :: Int -> Expr
@@ -656,7 +673,8 @@ letOfDepth i = elet (letOfDepth $ i -1)
 
 deepLetExprTest :: TestTree
 deepLetExprTest =
-  let (pe, e) = runEncodeExprTest $ letOfDepth 100
-  in  testCase "deep let test (100 levels)" $ do
+  let level = 100
+      (pe, e) = runEncodeExprTest $ letOfDepth level
+  in  testCase (printf "deep let test (%d levels)" level) $ do
       assertInterned pe
-      assertInterned e
+      assertInternedEnv e
