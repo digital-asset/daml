@@ -10,7 +10,6 @@ module CCTPMintToken where
 import DA.Assert ((===))
 import DA.Crypto.Text
 import Daml.Script
-import DA.Text (sha256)
 
 type Bytes32Hex = Text
 type UInt32Hex = Text

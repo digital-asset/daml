@@ -23,7 +23,6 @@ module Daml.Script.Internal.Questions.Crypto.Text where
 import Daml.Script.Internal.LowLevel
 import DA.Crypto.Text
 import DA.Stack
-import DA.Text (sha256)
 
 -- | MOVE Daml.Script
 -- A DER formatted private key to be used for ECDSA message signing
