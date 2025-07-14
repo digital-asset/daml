@@ -1632,8 +1632,8 @@ class AcsCommitmentProcessor private (
         ): Either[CommitmentSendState, Unit]
       })
 
-    // returns a left if the commitment send failed and we want to retry
-    // we retry only in the case that the send failed because some of the recipients are no longer known
+    // returns a left if the commitment send failed, and we want to retry
+    // we retry only in the case that the sending failed because some of the recipients are no longer known
     def sendUnlessClosing(msgsFiltered: Seq[(ParticipantId, AcsCommitment)])(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] = {
@@ -1672,7 +1672,10 @@ class AcsCommitmentProcessor private (
                       .flatMap {
                         case SendResult.Success(deliver) =>
                           val difference = deliver.timestamp.toMicros - period.toInclusive.toMicros
-                          metrics.sequencingTime.updateValue(difference)
+                          // subtract the randomized sending delay to reflect the actual sequencing delay
+                          metrics.sequencingTime.updateValue(
+                            difference - FiniteDuration(delayMillis, MILLISECONDS).toMicros
+                          )
                           FutureUnlessShutdown.pure(Right[CommitmentSendState, Unit](()).either)
                         case notSequenced: SendResult.NotSequenced =>
                           retryLogic(msgsFiltered, Some(notSequenced.toString)).value

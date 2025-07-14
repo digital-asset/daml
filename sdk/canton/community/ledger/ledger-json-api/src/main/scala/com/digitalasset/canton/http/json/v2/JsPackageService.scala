@@ -5,6 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.package_management_service
 import com.daml.ledger.api.v2.package_service
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.{
@@ -36,8 +37,11 @@ class JsPackageService(
     packageClient: PackageClient,
     packageManagementClient: PackageManagementClient,
     val loggerFactory: NamedLoggerFactory,
-)(implicit val executionContext: ExecutionContext, materializer: Materializer)
-    extends Endpoints {
+)(implicit
+    val executionContext: ExecutionContext,
+    materializer: Materializer,
+    val authInterceptor: AuthInterceptor,
+) extends Endpoints {
   import JsPackageService.*
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

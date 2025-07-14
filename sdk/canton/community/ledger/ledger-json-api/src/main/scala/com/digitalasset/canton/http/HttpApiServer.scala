@@ -5,6 +5,7 @@ package com.digitalasset.canton.http
 
 import com.daml.grpc.adapter.PekkoExecutionSequencerPool
 import com.daml.ledger.resources.ResourceOwner
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.config.TlsServerConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
@@ -27,6 +28,7 @@ object HttpApiServer extends NoTracing {
       channel: Channel,
       packageSyncService: PackageSyncService,
       loggerFactory: NamedLoggerFactory,
+      authInterceptor: AuthInterceptor,
   )(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
@@ -50,6 +52,7 @@ object HttpApiServer extends NoTracing {
           executionSequencerFactory,
           loggingContextOf,
           jsonApiMetrics,
+          authInterceptor,
         )
       )
     } yield {

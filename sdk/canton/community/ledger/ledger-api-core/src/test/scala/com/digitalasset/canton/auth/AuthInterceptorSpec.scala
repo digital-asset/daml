@@ -76,7 +76,6 @@ class AuthInterceptorSpec
     val authInterceptor =
       new AuthInterceptor(
         List(authService),
-        NoOpTelemetry,
         loggerFactory,
         executionContext,
       )
@@ -84,9 +83,15 @@ class AuthInterceptorSpec
     val statusCaptor = ArgCaptor[Status]
     val metadataCaptor = ArgCaptor[Metadata]
 
-    when(authService.decodeMetadata(any[Metadata], any[String])(anyTraceContext))
+    when(authService.decodeToken(any[Option[String]], any[String])(anyTraceContext))
       .thenReturn(failedMetadataDecode)
-    authInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
+
+    new GrpcAuthInterceptor(
+      authInterceptor,
+      NoOpTelemetry,
+      loggerFactory,
+      executionContext,
+    ).interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 
     promise.future.map { _ =>
       verify(serverCall).close(statusCaptor.capture, metadataCaptor.capture)

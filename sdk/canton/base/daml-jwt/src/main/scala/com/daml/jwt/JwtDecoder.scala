@@ -17,6 +17,7 @@ object JwtDecoder {
 
   def decode(jwt: Jwt): Error \/ DecodedJwt[String] =
     \/.attempt(com.auth0.jwt.JWT.decode(jwt.value))(e => Error(Symbol("decode"), e.getMessage))
+      // TODO (i26199)- possible place to add expiration time check
       .map(a => DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
 

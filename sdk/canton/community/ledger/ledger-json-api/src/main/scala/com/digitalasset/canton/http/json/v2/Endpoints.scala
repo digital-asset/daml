@@ -6,12 +6,13 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.canton.auth.{AuthInterceptor, ClaimSet}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error.Preprocessing
@@ -80,11 +81,13 @@ trait Endpoints extends NamedLogging {
   def json[R: Decoder: Encoder: Schema, P](
       endpoint: Endpoint[CallerContext, P, CustomError, Unit, Any],
       service: CallerContext => TracedInput[P] => Future[Either[JsCantonError, R]],
+  )(implicit
+      authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, TracedInput[P], CustomError, R, Any, Future] =
     endpoint
       .in(headers)
       .mapIn(traceHeadersMapping[P]())
-      .serverSecurityLogicSuccess(Future.successful)
+      .serverSecurityLogic(validateJwtToken)
       .out(jsonBody[R])
       .serverLogic(callerContext =>
         i =>
@@ -102,6 +105,8 @@ trait Endpoints extends NamedLogging {
         PekkoStreams & WebSockets,
       ],
       service: CallerContext => TracedInput[HI] => Flow[I, O, Any],
+  )(implicit
+      authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, HI, CustomError, Flow[
     I,
     Either[JsCantonError, O],
@@ -110,7 +115,7 @@ trait Endpoints extends NamedLogging {
     endpoint
       // .in(header(wsSubprotocol))  We send wsSubprotocol header, but we do not enforce it
       .out(header(wsSubprotocol))
-      .serverSecurityLogicSuccess(Future.successful)
+      .serverSecurityLogic(validateJwtToken)
       .serverLogicSuccess { jwt => i =>
         val errorHandlingService =
           service(jwt)(
@@ -138,11 +143,15 @@ trait Endpoints extends NamedLogging {
       ], R],
       service: CallerContext => TracedInput[Unit] => Flow[INPUT, OUTPUT, Any],
       timeoutOpenEndedStream: Boolean = false,
-  )(implicit wsConfig: WebsocketConfig, materializer: Materializer) =
+  )(implicit
+      wsConfig: WebsocketConfig,
+      materializer: Materializer,
+      authInterceptor: AuthInterceptor,
+  ) =
     endpoint
       .in(headers)
       .mapIn(traceHeadersMapping[StreamList[INPUT]]())
-      .serverSecurityLogicSuccess(Future.successful)
+      .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         (tracedInput: TracedInput[StreamList[INPUT]]) => {
           val flow = service(caller)(tracedInput.copy(in = ()))
@@ -175,13 +184,15 @@ trait Endpoints extends NamedLogging {
       service: CallerContext => TracedInput[PagedList[INPUT]] => Future[
         Either[JsCantonError, OUTPUT]
       ],
+  )(implicit
+      authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, TracedInput[
     PagedList[INPUT]
   ], (StatusCode, JsCantonError), OUTPUT, R, Future] =
     endpoint
       .in(headers)
       .mapIn(traceHeadersMapping[PagedList[INPUT]]())
-      .serverSecurityLogicSuccess(Future.successful)
+      .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         tracedInput => {
           Future
@@ -193,11 +204,13 @@ trait Endpoints extends NamedLogging {
   def withServerLogic[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, INPUT, CustomError, OUTPUT, R],
       service: CallerContext => TracedInput[INPUT] => Future[Either[JsCantonError, OUTPUT]],
+  )(implicit
+      authInterceptor: AuthInterceptor
   ): Full[CallerContext, CallerContext, TracedInput[INPUT], CustomError, OUTPUT, R, Future] =
     endpoint
       .in(headers)
       .mapIn(traceHeadersMapping[INPUT]())
-      .serverSecurityLogicSuccess(Future.successful)
+      .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         tracedInput => {
           Future
@@ -205,6 +218,27 @@ trait Endpoints extends NamedLogging {
             .transform(handleErrorResponse(tracedInput.traceContext))(ExecutionContext.parasitic)
         }
       )
+  private def validateJwtToken(caller: CallerContext)(implicit
+      authInterceptor: AuthInterceptor
+  ): Future[Either[CustomError, CallerContext]] = {
+    // TODO (i26198) extract trace context from headers
+    implicit val lc = LoggingContextWithTrace.empty
+
+    // TODO (i26198) pass service name as 2nd parameter (instead of JSON Ledger API)
+    authInterceptor
+      .extractClaims(caller.token().map(token => s"Bearer $token"), "JSON Ledger API")
+      .map(claims => Right(caller.copy(claimSet = Some(claims))))(ExecutionContext.parasitic)
+      .recoverWith { error =>
+        Future.successful(handleError(lc.traceContext)(error).left.map {
+          case (statusCode, jsCantonError) =>
+            (
+              statusCode,
+              // we add info to context about json ledger api origin of the error
+              jsCantonError.copy(context = jsCantonError.context + JsCantonError.tokenProblemError),
+            )
+        })
+      }(ExecutionContext.parasitic)
+  }
 
   protected def withTraceHeaders[P, E](
       endpoint: Endpoint[CallerContext, P, E, Unit, Any]
@@ -316,7 +350,7 @@ object Endpoints {
   final case class Jwt(token: String)
 
   // added to ease burden if we change what is included in SECURITY_INPUT
-  final case class CallerContext(jwt: Option[Jwt]) {
+  final case class CallerContext(jwt: Option[Jwt], claimSet: Option[ClaimSet] = None) {
     def token(): Option[String] = jwt.map(_.token)
   }
 

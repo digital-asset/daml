@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -23,7 +24,8 @@ import scala.concurrent.Future
 class JsIdentityProviderService(
     identityProviderConfigClient: IdentityProviderConfigClient,
     val loggerFactory: NamedLoggerFactory,
-) extends Endpoints
+)(implicit val authInterceptor: AuthInterceptor)
+    extends Endpoints
     with NamedLogging {
 
   def endpoints(): List[ServerEndpoint[Any, Future]] =
