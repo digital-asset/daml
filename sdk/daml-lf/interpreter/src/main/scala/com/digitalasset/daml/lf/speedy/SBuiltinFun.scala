@@ -593,9 +593,10 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBSHA256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(Utf8.sha256(getSText(args, 0)))
+  final case object SBSHA256Text extends SBuiltinPure(2) {
+    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+      SText(Utf8.sha256(getSText(args, 0), getSBool(args, 1)))
+    }
   }
 
   final case object SBKECCAK256Text extends SBuiltinFun(1) {

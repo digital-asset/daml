@@ -318,7 +318,7 @@ data BuiltinExpr
   | BEExplodeText                -- :: Text -> List Text
   | BEAppendText                 -- :: Text -> Text -> Text
   | BEImplodeText                -- :: List Text -> Text
-  | BESha256Text                 -- :: Text -> Text
+  | BESha256Text                 -- :: Text -> -> Bool -> Text
   | BEKecCak256Text              -- :: Text -> Text
   | BEEncodeHex                  -- :: Text -> Text
   | BEDecodeHex                  -- :: Text -> Text

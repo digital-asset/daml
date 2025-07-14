@@ -307,7 +307,7 @@ parseDecimal = parseNumeric
 --
 -- This function will crash at runtime if you compile Daml to Daml-LF < 1.2.
 sha256 : Text -> Text
-sha256 = primitive @"BESha256Text"
+sha256 msg = primitive @"BESha256Text" msg False
 
 
 -- | Reverse some `Text`.
