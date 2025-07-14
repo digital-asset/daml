@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
@@ -41,6 +42,7 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
 import scala.jdk.CollectionConverters._
@@ -116,6 +118,46 @@ class Engine(val config: EngineConfig) {
 
   def info = new EngineInfo(config)
 
+  /** Validates a contract instance against the given hash type and id validator.
+    * This method is used to validate contract instances during transaction interpretation.
+    *
+    * @param instance the contract instance to validate
+    * @param target the target package id against which the instance is validated
+    * @param hashType the hash type to use for validation
+    * @param idValidator a function that checks if a given hash is valid
+    * @return a Result containing an optional error message if validation fails, or None if it succeeds
+    */
+  def validate(
+      instance: FatContractInstance,
+      target: PackageId,
+      hashType: Hash.HashType,
+      idValidator: Hash => Boolean,
+  ): Result[Option[String]] = throw new NotImplementedError()
+
+  /** This method is used to create contract instances during transaction interpretation.
+    *
+    * @param createNode the `Node.Create` extracted from the transaction
+    *
+    * @param createdAt the creation time of the contract instance
+    *
+    * @param cantonData the salt used by canton to derive the contract id
+    *
+    * @param argContractIdSuffix this function is used to suffix contract-ids used in the contract argument that
+    *                              have been created earlier in the transaction. Return Bytes.Empty if the contract id
+    *                              is unknown.
+    *
+    * @param idGenerator a function that generates a contract id and  from a hash and other contract information
+    *
+    * @return a Result containing the created `FatContractInstance`
+    */
+  def buildInstance(
+      createNode: Node.Create,
+      createdAt: CreationTime.CreatedAt,
+      cantonData: Bytes,
+      argContractIdSuffix: crypto.Hash => Bytes,
+      idGenerator: Hash => ContractId,
+  ): Result[FatContractInstance] = throw new NotImplementedError()
+
   /** Interprets a sequence of commands `cmds` to the corresponding `SubmittedTransaction` and `Tx.Metadata`.
     * Requests data required during the interpretation (such as the contract or package corresponding to a given id)
     * through the `Result` subclasses.
@@ -146,7 +188,6 @@ class Engine(val config: EngineConfig) {
       submitters: Set[Party],
       readAs: Set[Party],
       cmds: ApiCommands,
-      disclosures: ImmArray[FatContractInstance] = ImmArray.empty,
       participantId: ParticipantId,
       submissionSeed: crypto.Hash,
       prefetchKeys: Seq[ApiContractKey],
@@ -159,13 +200,11 @@ class Engine(val config: EngineConfig) {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
       processedPrefetchKeys <- preprocessor.preprocessApiContractKeys(pkgResolution, prefetchKeys)
-      preprocessedDiscsAndKeys <- preprocessor.preprocessDisclosedContracts(disclosures)
-      (processedDiscs, disclosedContractIds, disclosedKeyHashes) = preprocessedDiscsAndKeys
       _ <- preprocessor.prefetchContractIdsAndKeys(
-        processedCmds,
-        processedPrefetchKeys,
-        disclosedContractIds,
-        disclosedKeyHashes,
+        commands = processedCmds,
+        prefetchKeys = processedPrefetchKeys,
+        disclosedContractIds = Set.empty,
+        disclosedKeyHashes = Set.empty,
       )
       result <-
         interpretCommands(
@@ -173,7 +212,7 @@ class Engine(val config: EngineConfig) {
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
-          disclosures = processedDiscs,
+          disclosures = ImmArray.empty,
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -594,24 +633,6 @@ class Engine(val config: EngineConfig) {
                 coid,
                 { coinst =>
                   callback(coinst.toThinInstance)
-                  interpretLoop(machine, time, submissionInfo)
-                },
-              )
-
-            case Question.Update.NeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  callback,
-                ) =>
-              ResultNeedUpgradeVerification(
-                coid,
-                signatories,
-                observers,
-                keyOpt,
-                { x =>
-                  callback(x)
                   interpretLoop(machine, time, submissionInfo)
                 },
               )
