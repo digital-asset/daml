@@ -120,6 +120,7 @@ module Daml.Script
   , Secp256k1KeyPair
   , secp256k1generatekeypair
   , secp256k1sign
+  , secp256k1signWithEcdsaOnly
   , CryptoErrorType (..)
 #endif
 
