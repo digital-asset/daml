@@ -135,7 +135,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val env1 = env0.copy(internedKinds = internedKinds)
     // val env1 = env0
     val internedTypes = Work.run(decodeInternedTypes(env1, lfSingleModule))
-    val env = env1.copy(internedTypes = internedTypes)
+    val env2 = env1.copy(internedTypes = internedTypes)
+    val internedExprs = Work.run(decodeInternedExprs(env2, lfSingleModule))
+    val env = env2.copy(internedExprs = internedExprs)
     env.decodeModule(lfSingleModule.getModules(0))
 
   }
@@ -220,7 +222,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val lfExprs = lfPackage.getInternedExprsList
     lfExprs.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Expr](lfExprs.size)) { (buf, typ) =>
-        buf += env.copy(internedExprs = buf).decodeExprForTest(typ, "interning") //TODO[RB]: give proper tag(?)
+        buf += env
+          .copy(internedExprs = buf)
+          .decodeExprForTest(typ, "interning") // TODO[RB]: give proper tag(?)
       }
       .toIndexedSeq
   }
@@ -721,16 +725,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     /** Roger: [decodeType()]] is the checked version of [[uncheckedDecodeType()]]
-     * in the sense that [[decodeType()]] allows only references to interned
-     * kinds, meant to be used to parse the ast (after the interning table was
-     * parsed). It is meant to disallow any concrete types (any
-     * non-interned-referencing) types.
-     *
-     * TODO[RB]: figure out exact interning parameters. Decide on whehter to
-     * intern everything, everything but leaf nodes, or allow trees of depth n.
-     * Alternatively: intern everything, but allow leaf nodes and/or trees of
-     * depth n _in the interning table only_.
-     */
+      * in the sense that [[decodeType()]] allows only references to interned
+      * kinds, meant to be used to parse the ast (after the interning table was
+      * parsed). It is meant to disallow any concrete types (any
+      * non-interned-referencing) types.
+      *
+      * TODO[RB]: figure out exact interning parameters. Decide on whehter to
+      * intern everything, everything but leaf nodes, or allow trees of depth n.
+      * Alternatively: intern everything, but allow leaf nodes and/or trees of
+      * depth n _in the interning table only_.
+      */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
         Work.Delay { () =>
