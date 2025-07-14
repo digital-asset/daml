@@ -89,7 +89,7 @@ module BuiltinMod {
     TEXT_TO_CODE_POINTS;
   val textToContractId: forall (a: *). Text -> ContractId a =
     TEXT_TO_CONTRACT_ID;
-  val sha256Text: Text -> Text =
+  val sha256Text: Text -> Bool -> Text =
     SHA256_TEXT;
   val keccak256Text: Text -> Text =
     KECCAK256_TEXT;
