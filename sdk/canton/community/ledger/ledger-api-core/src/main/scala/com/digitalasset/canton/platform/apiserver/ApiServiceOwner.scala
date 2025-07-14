@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.{AuthService, Authorizer}
+import com.digitalasset.canton.auth.{AuthInterceptor, AuthService, Authorizer, GrpcAuthInterceptor}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
   KeepAliveServerConfig,
@@ -122,7 +122,7 @@ object ApiServiceOwner {
       materializer: Materializer,
       traceContext: TraceContext,
       tracer: Tracer,
-  ): ResourceOwner[ApiService] = {
+  ): ResourceOwner[(ApiService, AuthInterceptor)] = {
     import com.digitalasset.canton.platform.ResourceOwnerOps
     val logger = loggerFactory.getTracedLogger(getClass)
 
@@ -154,7 +154,16 @@ object ApiServiceOwner {
           commandExecutionContext,
         )
     }
-
+    val userAuthInterceptor = new UserBasedAuthInterceptor(
+      authServices = authServices :+ new IdentityProviderAwareAuthService(
+        identityProviderConfigLoader = identityProviderConfigLoader,
+        jwtVerifierLoader = jwtVerifierLoader,
+        loggerFactory = loggerFactory,
+      )(commandExecutionContext),
+      Option.when(userManagement.enabled)(userManagementStore),
+      loggerFactory,
+      commandExecutionContext,
+    )
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
         .afterReleased(logger.info(s"ExecutionSequencerFactory is released for LedgerApiService"))
@@ -208,17 +217,13 @@ object ApiServiceOwner {
         maxInboundMetadataSize,
         address,
         tls,
-        new UserBasedAuthInterceptor(
-          authServices = authServices :+ new IdentityProviderAwareAuthService(
-            identityProviderConfigLoader = identityProviderConfigLoader,
-            jwtVerifierLoader = jwtVerifierLoader,
-            loggerFactory = loggerFactory,
-          )(commandExecutionContext),
-          Option.when(userManagement.enabled)(userManagementStore),
+        new GrpcAuthInterceptor(
+          userAuthInterceptor,
           telemetry,
           loggerFactory,
           commandExecutionContext,
-        ) :: otherInterceptors,
+        )
+          :: otherInterceptors,
         commandExecutionContext,
         metrics,
         keepAlive,
@@ -229,7 +234,7 @@ object ApiServiceOwner {
         s"Initialized API server listening to port = ${apiService.port} ${if (tls.isDefined) "using tls"
           else "without tls"}."
       )
-      apiService
+      (apiService, userAuthInterceptor)
     }
   }
 

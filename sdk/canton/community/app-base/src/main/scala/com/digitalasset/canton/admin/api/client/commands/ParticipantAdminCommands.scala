@@ -1821,7 +1821,7 @@ object ParticipantAdminCommands {
         distinguishedParticipants: Seq[ParticipantId],
         thresholdDistinguished: NonNegativeInt,
         thresholdDefault: NonNegativeInt,
-        participantsMetrics: Seq[ParticipantId],
+        individuallyMonitored: Seq[ParticipantId],
     ) {
       def toProtoV30: v30.SlowCounterParticipantSynchronizerConfig =
         v30.SlowCounterParticipantSynchronizerConfig(
@@ -1829,7 +1829,7 @@ object ParticipantAdminCommands {
           distinguishedParticipants.map(_.toProtoPrimitive),
           thresholdDistinguished.value.toLong,
           thresholdDefault.value.toLong,
-          participantsMetrics.map(_.toProtoPrimitive),
+          individuallyMonitored.map(_.toProtoPrimitive),
         )
     }
 

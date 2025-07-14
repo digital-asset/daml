@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   MinLedgerTime,
 }
 import com.daml.ledger.api.v2.package_reference
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -38,7 +39,8 @@ class JsInteractiveSubmissionService(
     protocolConverters: ProtocolConverters,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
-    val executionContext: ExecutionContext
+    val executionContext: ExecutionContext,
+    val authInterceptor: AuthInterceptor,
 ) extends Endpoints
     with NamedLogging {
 

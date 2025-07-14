@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.party_management_service
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -26,7 +27,8 @@ class JsPartyManagementService(
     protocolConverters: ProtocolConverters,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
-    val executionContext: ExecutionContext
+    val executionContext: ExecutionContext,
+    val authInterceptor: AuthInterceptor,
 ) extends Endpoints
     with NamedLogging {
   import JsPartyManagementService.*

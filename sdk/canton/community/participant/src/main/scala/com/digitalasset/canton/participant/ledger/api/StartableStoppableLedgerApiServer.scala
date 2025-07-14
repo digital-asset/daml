@@ -14,7 +14,11 @@ import com.daml.logging.entries.LoggingEntries
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.auth.{AuthServiceWildcard, CantonAdminTokenAuthService}
+import com.digitalasset.canton.auth.{
+  AuthInterceptor,
+  AuthServiceWildcard,
+  CantonAdminTokenAuthService,
+}
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -337,7 +341,7 @@ class StartableStoppableLedgerApiServer(
             ),
       )
 
-      _ <- ApiServiceOwner(
+      (_, authInterceptor) <- ApiServiceOwner(
         indexService = indexService,
         transactionSubmissionTracker = inMemoryState.transactionSubmissionTracker,
         reassignmentSubmissionTracker = inMemoryState.reassignmentSubmissionTracker,
@@ -393,14 +397,13 @@ class StartableStoppableLedgerApiServer(
         keepAlive = config.serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
       )
-      _ <- startHttpApiIfEnabled(timedSyncService)
+      _ <- startHttpApiIfEnabled(timedSyncService, authInterceptor)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
             createExtraAdminUser(rawUserId, userManagementStore)
           }
         }
-
     } yield ()
   }
 
@@ -504,7 +507,10 @@ class StartableStoppableLedgerApiServer(
     topologyAwarePackageSelection = config.serverConfig.topologyAwarePackageSelection.enabled,
   )
 
-  private def startHttpApiIfEnabled(packageSyncService: PackageSyncService): ResourceOwner[Unit] =
+  private def startHttpApiIfEnabled(
+      packageSyncService: PackageSyncService,
+      authInterceptor: AuthInterceptor,
+  ): ResourceOwner[Unit] =
     config.jsonApiConfig
       .fold(ResourceOwner.unit) { jsonApiConfig =>
         for {
@@ -526,6 +532,7 @@ class StartableStoppableLedgerApiServer(
             channel,
             packageSyncService,
             loggerFactory,
+            authInterceptor,
           )(
             config.jsonApiMetrics
           ).afterReleased(noTracingLogger.info("JSON-API HTTP Server is released"))

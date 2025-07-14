@@ -7,6 +7,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.transaction_filter.ParticipantAuthorizationTopologyFormat
 import com.daml.ledger.api.v2.{offset_checkpoint, transaction_filter, update_service}
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
@@ -46,6 +47,7 @@ class JsUpdateService(
     esf: ExecutionSequencerFactory,
     wsConfig: WebsocketConfig,
     materializer: Materializer,
+    val authInterceptor: AuthInterceptor,
 ) extends Endpoints
     with NamedLogging {
 

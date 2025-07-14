@@ -164,23 +164,6 @@ private[reassignment] class AssignmentProcessingSteps(
         )
         .leftMap(_.toSubmissionValidationError)
 
-      exclusivityTimeoutErrorO <- AssignmentValidation
-        .checkExclusivityTimeout(
-          reassignmentCoordination,
-          synchronizerId,
-          staticSynchronizerParameters,
-          unassignmentData,
-          topologySnapshot.unwrap.timestamp,
-          submitter,
-          reassignmentId,
-        )
-
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        exclusivityTimeoutErrorO
-          .toLeft(())
-          .leftMap(_.toSubmissionValidationError)
-      )
-
       assignmentUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
 

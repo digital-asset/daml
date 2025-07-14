@@ -17,7 +17,6 @@ import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Metadata
 import spray.json.*
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -31,11 +30,11 @@ class IdentityProviderAwareAuthService(
 ) extends AuthService
     with NamedLogging {
 
-  def decodeMetadata(
-      headers: Metadata,
+  def decodeToken(
+      authToken: Option[String],
       serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] =
-    getAuthorizationHeader(headers) match {
+    authToken match {
       case None => Future.successful(ClaimSet.Unauthenticated)
       case Some(header) =>
         parseJWTPayload(header).recover { case error =>
@@ -45,9 +44,6 @@ class IdentityProviderAwareAuthService(
           ClaimSet.Unauthenticated
         }
     }
-
-  private def getAuthorizationHeader(headers: Metadata): Option[String] =
-    Option(headers.get(AuthService.AUTHORIZATION_KEY))
 
   private def parseJWTPayload(
       header: String
