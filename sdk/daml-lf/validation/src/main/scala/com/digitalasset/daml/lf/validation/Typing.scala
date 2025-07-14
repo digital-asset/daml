@@ -242,7 +242,7 @@ private[validation] object Typing {
       BPartyToText -> (TParty ->: TText),
       BDateToText -> (TDate ->: TText),
       BContractIdToText -> TForall(alpha.name -> KStar, TContractId(alpha) ->: TOptional(TText)),
-      BSHA256Text -> (TText ->: TText),
+      BSHA256Text -> (TText ->: TBool ->: TText),
       BKECCAK256Text -> (TText ->: TText),
       BDecodeHex -> (TText ->: TText),
       BEncodeHex -> (TText ->: TText),

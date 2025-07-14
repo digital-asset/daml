@@ -216,7 +216,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 )
               ) {
                 case Left(
-                      Error.Package.DarSelfConsistency(
+                      err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
                         transitiveDeps,
                         missingDeps,
@@ -227,6 +227,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                   transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set.empty
+                  err.logReportingEnabled shouldBe false
               }
             }
           }
@@ -256,7 +257,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 )
               ) {
                 case Left(
-                      Error.Package.DarSelfConsistency(
+                      err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
                         transitiveDeps,
                         missingDeps,
@@ -267,6 +268,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                   transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set.empty
                   extraDeps shouldBe Set(extraPkgId)
+                  err.logReportingEnabled shouldBe true
               }
             }
           }
@@ -296,7 +298,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                 )
               ) {
                 case Left(
-                      Error.Package.DarSelfConsistency(
+                      err @ Error.Package.DarSelfConsistency(
                         mainPkgId,
                         transitiveDeps,
                         missingDeps,
@@ -307,6 +309,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
                   transitiveDeps shouldBe utilityDirectDeps ++ stableDirectDeps
                   missingDeps shouldBe Set(missingPkgId)
                   extraDeps shouldBe Set(extraPkgId)
+                  err.logReportingEnabled shouldBe false
               }
             }
           }

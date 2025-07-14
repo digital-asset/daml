@@ -90,7 +90,7 @@ convertPrim _ "BEAppendText" (TText :-> TText :-> TText) =
     pure $ EBuiltinFun BEAppendText
 convertPrim _ "BETrace" (TText :-> a1 :-> a2) | a1 == a2 =
     pure $ EBuiltinFun BETrace `ETyApp` a1
-convertPrim _ "BESha256Text" (TText :-> TText) =
+convertPrim _ "BESha256Text" (TText :-> TBool :-> TText) =
     pure $ EBuiltinFun BESha256Text
 convertPrim _ "BEKecCak256Text" (TText :-> TText) =
     pure $ EBuiltinFun BEKecCak256Text

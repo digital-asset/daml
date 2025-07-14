@@ -144,7 +144,7 @@ safetyStep = \case
       BEEqualList         -> Safe 2 -- expects 3, 2-safe
       BEExplodeText       -> Safe 1
       BEImplodeText       -> Safe 1
-      BESha256Text        -> Safe 1
+      BESha256Text        -> Safe 2
       BEKecCak256Text     -> Safe 0
       BEEncodeHex         -> Safe 1
       BEDecodeHex         -> Safe 0

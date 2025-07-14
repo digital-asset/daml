@@ -568,7 +568,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e",
         )
         forEvery(testCases) { (input, output) =>
-          eval(e"""SHA256_TEXT "$input"""") shouldBe Right(SText(output))
+          eval(e"""SHA256_TEXT "$input" False""") shouldBe Right(SText(output))
         }
 
       }

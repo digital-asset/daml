@@ -264,7 +264,7 @@ typeOfBuiltin = \case
   BEExplodeText      -> pure $ TText :-> TList TText
   BEAppendText       -> pure $ tBinop TText
   BEImplodeText      -> pure $ TList TText :-> TText
-  BESha256Text       -> pure $ TText :-> TText
+  BESha256Text       -> pure $ TText :-> TBool :-> TText
   BEKecCak256Text    -> pure $ TText :-> TText
   BEEncodeHex        -> pure $ TText :-> TText
   BEDecodeHex        -> pure $ TText :-> TText
