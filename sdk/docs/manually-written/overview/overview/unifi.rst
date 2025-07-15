@@ -45,7 +45,7 @@ All capabilities of the Canton blockchain are available using the Open Source di
   * - Access to all apps and services on Canton Network
     - Yes
     - Yes
-  * - DA Utiliites: composable modules for accelerated application builds
+  * - DA Utilities: composable modules for accelerated application builds
     - Yes
     - No
   * - Node High Availability
