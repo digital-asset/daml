@@ -18,7 +18,7 @@ Contract time constraints may be implemented using either:
 
     * calls to getTime constrain transaction preparation and submission workflows to be (by default) within 1 minute.
 
-    * the 1 minute value is the default value for the ledger time record time tolerance parameter (a :externalref:`dynamic synchronizer parameter<synchronizer/howtos/operate/dynamic_params>`).
+    * the 1 minute value is the default value for the ledger time record time tolerance parameter (a :brokenref:`dynamic synchronizer parameter<synchronizer/howtos/operate/dynamic_params>`).
 
 The next subsections demonstrate how the following Coin and TransferProposal contracts can be modified to use
 different types of ledger time constraints to control when parties are allowed to perform ledger writes.
