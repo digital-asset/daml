@@ -589,7 +589,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumExperimental (LF2.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
-  LF2.ExprSumInterned n -> do
+  LF2.ExprSumInternedExpr n -> do
     DecodeEnv{internedExprs} <- ask
     lookupInterned internedExprs BadExprId n
 

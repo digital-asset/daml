@@ -96,8 +96,8 @@ countConcreteConstrs =
       _                     -> singleType <> mconcat (gmapQ countConcreteConstrs t)
 
     countExprs (e :: P.ExprSum) = case e of
-      (P.ExprSumInterned _) -> mempty
-      _                     -> singleExpr <> mconcat (gmapQ countConcreteConstrs e)
+      (P.ExprSumInternedExpr _) -> mempty
+      _                         -> singleExpr <> mconcat (gmapQ countConcreteConstrs e)
 
     countETE (_ :: EncodeTestEnv) =
       error "you probably meant to call assertInternedEnv with an EnodeTestEnv (no sensible implementation for EncodeTestEnv exists)"

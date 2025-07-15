@@ -104,7 +104,7 @@ liftE :: P.ExprSum -> P.Expr
 liftE = P.Expr Nothing . Just
 
 peInterned :: Int32 -> P.Expr
-peInterned = liftE . P.ExprSumInterned
+peInterned = liftE . P.ExprSumInternedExpr
 
 peBuiltinCon :: P.BuiltinCon -> P.Expr
 peBuiltinCon bit = liftE $ P.ExprSumBuiltinCon $ P.Enumerated $ Right bit
