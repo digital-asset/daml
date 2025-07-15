@@ -143,7 +143,7 @@ message Kind {
     Unit nat = 3;
     // interned kinds
     // this should really be an uint32, change in next breaking change
-    int32 interned = 4; // *Available in versions >= 2.dev*
+    int32 interned_kind = 4; // *Available in versions >= 2.dev*
   }
 }
 

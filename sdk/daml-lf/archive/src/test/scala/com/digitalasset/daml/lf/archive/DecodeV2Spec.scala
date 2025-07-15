@@ -112,7 +112,7 @@ class DecodeV2Spec
     "reject Arrow if result_interned_kind is set" in {
       val input = DamlLf2.Kind
         .newBuilder()
-        .setInterned(32)
+        .setInternedKind(32)
         .build()
 
       forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>

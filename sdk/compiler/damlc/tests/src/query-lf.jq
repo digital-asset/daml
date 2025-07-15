@@ -24,6 +24,7 @@ def _norm_interned(pkg):
   # First, ensure we only operate on objects
   if type == "object" then
     if has("interned_expr") then pkg.interned_exprs[.interned_expr]
+    #note name "interned" here, referring to interned types
     elif has("interned") then pkg.interned_types[.interned]
     else .
     end

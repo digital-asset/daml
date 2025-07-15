@@ -45,7 +45,7 @@ pkarr :: P.Kind -> P.Kind -> P.Kind
 pkarr k1 k2 = liftK $ P.KindSumArrow $ P.Kind_Arrow (V.singleton k1) (Just k2)
 
 pkinterned :: Int32 -> P.Kind
-pkinterned = liftK . P.KindSumInterned
+pkinterned = liftK . P.KindSumInternedKind
 
 -- Types
 pliftT :: P.TypeSum -> P.Type

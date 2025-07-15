@@ -743,7 +743,7 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
-  LF2.KindSumInterned n -> do
+  LF2.KindSumInternedKind n -> do
     DecodeEnv{internedKinds, version} <- ask
     if version `supports` featureKindInterning
       then lookupInterned internedKinds BadKindId n

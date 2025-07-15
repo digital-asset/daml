@@ -85,11 +85,11 @@ countConcreteConstrs :: Data a => a -> ConcreteConstrCount
 countConcreteConstrs =
   let
     countKinds (k :: P.KindSum) = case k of
-      (P.KindSumInterned _) -> mempty
+      (P.KindSumInternedKind _) -> mempty
       -- kind-specific ignoring of leafs
-      (P.KindSumStar     _) -> mempty
-      (P.KindSumNat      _) -> mempty
-      _                     -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
+      (P.KindSumStar     _)     -> mempty
+      (P.KindSumNat      _)     -> mempty
+      _                         -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
 
     countTypes (t :: P.TypeSum) = case t of
       (P.TypeSumInterned _) -> mempty
