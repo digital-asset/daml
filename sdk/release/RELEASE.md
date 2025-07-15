@@ -28,6 +28,8 @@ In this repo, the release branch for minor version `A.B` must be named
 
 The steps to create a release are:
 
+RB: This is missing a step 0: how to determine what release we actually want? Normal, snapshot? What number?
+
 1. In the [daml] repo, edit the [`LATEST`](../LATEST) file. The format of that file is a
    commit sha of the code you want to release (at this point typically the tip
    of the release branch), the version number you want to attribute to the
@@ -35,6 +37,7 @@ The steps to create a release are:
    pre-2.0 days). For a snapshot release, one can generate a snapshot version
    string using the `release.sh` script. For example, to create a PR for a
    2.0.0 snapshot release:
+   RB: version mismatched with snippet below?
 
    ```
    $ git fetch
@@ -55,13 +58,13 @@ The steps to create a release are:
    **Only change a single line** in [`LATEST`](../LATEST), otherwise
    no release is going to be created.
 
-2. Make a PR **targeting the `main` branch** with just that one line added,
+3. Make a PR **targeting the `main` branch** with just that one line added,
    touching no other file. Add the `Standard-Change` label to that PR.
 
    **The main branch is the only one that triggers releases, even for "release
    line" releases.**
 
-3. When the PR is merged, the build of the corresponding commit on `main` will
+4. When the PR is merged, the build of the corresponding commit on `main` will
    create a "split release" bundle and push it to Artifactory. It then notifies
    on `#team-internal-releases` on Slack.
 
