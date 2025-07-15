@@ -165,7 +165,7 @@ Note that the Windows build is not yet fully functional.
 
 ### 5. Working with docs
 
-Sharable documentation (used outside of this repository) is maintained using two folders:
+Shareable documentation (used outside of this repository) is maintained using two folders:
 
 - `/sdk/docs/manually-written` contains everything that is not auto-generated (tutorials, user guides, etc.)
 - `/sdk/docs/sharable` contains both manual and auto-generated docs, including
