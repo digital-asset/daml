@@ -696,7 +696,7 @@ internExpr f = do
       -- TODO: do something with location?
       (P.Expr l (Just e')) -> do
           n <- zoom internedExprsMapLens $ IM.internState e'
-          return $ (P.Expr l . Just . P.ExprSumInterned) n
+          return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
       (P.Expr _ Nothing) -> error "nothing expr during encoding"
     else return e
 

@@ -884,7 +884,7 @@ message Expr {
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
 
-    int32 interned = 44; // *Available in versions >= 2.dev*
+    int32 interned_expr = 44; // *Available in versions >= 2.dev*
 
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*

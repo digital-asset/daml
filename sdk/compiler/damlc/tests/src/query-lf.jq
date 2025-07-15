@@ -20,7 +20,24 @@ def get_text(pkg): .text_interned_str // 0 | resolve_interned_string(pkg);
 
 def norm_ty(pkg): if has("interned") then pkg.interned_types[.interned] else . end;
 
-def norm_expr(pkg): if has("interned") then pkg.interned_exprs[.interned] else . end;
+def _norm_interned(pkg):
+  # First, ensure we only operate on objects
+  if type == "object" then
+    if has("interned_expr") then pkg.interned_exprs[.interned_expr]
+    elif has("interned") then pkg.interned_types[.interned]
+    else .
+    end
+  # It's not an object (e.g., a number, string, null), so just return it
+  else .
+  end;
+
+# Applies a filter `f` repeatedly until the result stops changing.
+def fixpoint(f):
+  . as $in | f | if . == $in then . else fixpoint(f) end;
+
+def norm_interned(pkg):
+  fixpoint(walk(_norm_interned(pkg)))
+;
 
 # @SINCE-LF 1.7
 def norm_qualified_module(pkg; f):
