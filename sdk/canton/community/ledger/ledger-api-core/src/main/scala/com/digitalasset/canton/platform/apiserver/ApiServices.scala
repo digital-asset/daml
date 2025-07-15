@@ -356,6 +356,7 @@ object ApiServices {
               serializableContractAuthenticators.upgrade,
               metrics,
               engineLoggingConfig,
+              commandConfig.contractPrefetchingDepth,
               loggerFactory,
               dynParamGetter,
               timeProvider,

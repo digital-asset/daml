@@ -1,8 +1,8 @@
-sdk-version: 2.10.1-snapshot.20250527.13181.0.v1004bc26
+sdk-version: 2.10.2-snapshot.20250710.13186.3.v5f60a768
 name: ai-analysis
 source: AIAnalysis.daml
 init-script: AIAnalysis:setup
-version: 2.10.1
+version: 2.10.2
 dependencies: 
 - daml-prim
 - daml-stdlib
