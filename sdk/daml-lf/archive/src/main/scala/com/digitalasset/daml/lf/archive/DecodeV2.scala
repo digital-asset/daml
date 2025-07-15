@@ -710,11 +710,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                 Ret((kinds foldRight base)(KArrow))
               }
             }
-          case PLF.Kind.SumCase.INTERNED =>
+          case PLF.Kind.SumCase.INTERNED_KIND =>
             assertSince(LV.Features.kindInterning, "interned kinds unsupported in this version")
             Ret(
               internedKinds.applyOrElse(
-                lfKind.getInterned,
+                lfKind.getInternedKind,
                 (index: Int) => throw Error.Parsing(s"invalid internedKinds table index $index"),
               )
             )

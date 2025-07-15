@@ -271,7 +271,7 @@ internKind k =
       then case k of
         (P.Kind (Just k')) -> do
             n <- zoom internedKindsMapLens $ IM.internState k'
-            return $ (P.Kind . Just . P.KindSumInterned) n
+            return $ (P.Kind . Just . P.KindSumInternedKind) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
 
