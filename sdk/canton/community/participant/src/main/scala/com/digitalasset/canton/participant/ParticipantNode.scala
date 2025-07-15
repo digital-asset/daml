@@ -162,9 +162,13 @@ class ParticipantNodeBootstrap(
 
   private val packageDependencyResolver =
     new PackageDependencyResolver(
-      DamlPackageStore(storage, futureSupervisor, parameterConfig, loggerFactory),
-      arguments.parameterConfig.processingTimeouts,
-      loggerFactory,
+      damlPackageStore =
+        DamlPackageStore(storage, futureSupervisor, parameterConfig, loggerFactory),
+      timeouts = arguments.parameterConfig.processingTimeouts,
+      loggerFactory = loggerFactory,
+      fetchPackageParallelism = arguments.parameterConfig.general.batchingConfig.parallelism,
+      packageDependencyCacheConfig =
+        arguments.parameterConfig.general.cachingConfigs.packageDependencyCache,
     )
 
   private val topologyManager =
