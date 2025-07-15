@@ -193,7 +193,7 @@ object SyncEphemeralStateFactory {
 
       isAcrossUpgrade = (synchronizerIndexO, synchronizerPredecessor).tupled.exists {
         case (synchronizerIndex, synchronizerPredecessor) =>
-          isSequencedEventStoreEmpty && synchronizerIndex.recordTime < synchronizerPredecessor.upgradeTime
+          isSequencedEventStoreEmpty && synchronizerIndex.recordTime == synchronizerPredecessor.upgradeTime
       }
 
       messageProcessingStartingPoint <-

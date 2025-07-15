@@ -90,6 +90,7 @@ class AvailabilityModuleOutputFetchTest
               outputFetchProtocolState = outputFetchProtocolState,
               cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
               p2pNetworkOut = fakeCellModule(p2pNetworkOutCell),
+              jitterConstructor = (_, _) => jitterStream,
             )
             availability.receive(
               LocalOutputFetch.FetchBatchDataFromNodes(
@@ -98,8 +99,7 @@ class AvailabilityModuleOutputFetchTest
               )
             )
 
-            outputFetchProtocolState.localOutputMissingBatches should
-              contain only ABatchId -> AMissingBatchStatusNode1And2AcksWithNode2ToTry
+            outputFetchProtocolState.localOutputMissingBatches should contain only ABatchId -> AMissingBatchStatusNode1And2AcksWithNode2ToTry
             outputFetchProtocolState.incomingBatchRequests should be(empty)
             context.delayedMessages should contain(
               LocalOutputFetch.FetchRemoteBatchDataTimeout(ABatchId)
@@ -602,6 +602,7 @@ class AvailabilityModuleOutputFetchTest
                 ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                 Seq(Node1),
                 numberOfAttempts = 1,
+                jitterStream = jitterStream,
                 mode = OrderedBlockForOutput.Mode.FromConsensus,
               )
             )
@@ -685,6 +686,7 @@ class AvailabilityModuleOutputFetchTest
                   ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                   Seq(Node1),
                   numberOfAttempts = 1,
+                  jitterStream = jitterStream,
                   mode = OrderedBlockForOutput.Mode.FromConsensus,
                 )
               )
@@ -735,6 +737,7 @@ class AvailabilityModuleOutputFetchTest
                   ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                   Seq(Node1),
                   numberOfAttempts = 1,
+                  jitterStream = jitterStream,
                   mode = OrderedBlockForOutput.Mode.FromConsensus,
                 )
               )

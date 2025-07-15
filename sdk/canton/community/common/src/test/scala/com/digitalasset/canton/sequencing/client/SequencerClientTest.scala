@@ -756,8 +756,8 @@ final class SequencerClientTest
 
             expectedAcknowledgedTimestamps =
               if (usePredecessor) {
-                // The predecessor is not acknowledged because it is before the upgraded (so belongs to old synchronizer)
-                Set(upgradeTime, upgradeTime.immediateSuccessor)
+                // The predecessor and upgradeTime are not acknowledged because it is before the upgraded (so belongs to old synchronizer)
+                Set(upgradeTime.immediateSuccessor)
               } else
                 Set(upgradeTime.immediatePredecessor, upgradeTime, upgradeTime.immediateSuccessor)
 
@@ -765,6 +765,7 @@ final class SequencerClientTest
               .get() ++ env.pool.acknowledgedTimestamps.get()
 
             _ = acknowledgedTimestamps shouldBe expectedAcknowledgedTimestamps
+
           } yield ()
 
           res.futureValueUS

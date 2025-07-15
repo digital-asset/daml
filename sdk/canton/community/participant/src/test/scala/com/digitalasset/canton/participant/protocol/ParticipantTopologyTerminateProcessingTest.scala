@@ -343,7 +343,7 @@ class ParticipantTopologyTerminateProcessingTest
 
       for {
         _ <- test(None, expectedEventsCount = 1)
-        _ <- test(Some(synchronizerPredecessor(cts1)), expectedEventsCount = 1)
+        _ <- test(Some(synchronizerPredecessor(cts1)), expectedEventsCount = 0)
         // event is before the upgrade time
         _ <- test(Some(synchronizerPredecessor(cts1.immediateSuccessor)), expectedEventsCount = 0)
       } yield succeed

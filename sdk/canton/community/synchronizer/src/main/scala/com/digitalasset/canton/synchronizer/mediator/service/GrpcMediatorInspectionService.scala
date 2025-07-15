@@ -26,10 +26,10 @@ import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
 
-import GrpcMediatorScanService.*
+import GrpcMediatorInspectionService.*
 
-/** The mediator scan service delivers a stream of finalized verdicts. The verdicts are sorted by
-  * the finalization time, which additionally is capped by the watermark tracked via the provided
+/** The mediator inspection service delivers a stream of finalized verdicts. The verdicts are sorted
+  * by the finalization time, which additionally is capped by the watermark tracked via the provided
   * time awaiter. In case the watermark is reached and no new verdicts are found, the stream waits
   * to be notified by the time awaiter when new watermarks are encountered. In practice, the time
   * awaiter follows the observed sequencing.
@@ -38,21 +38,21 @@ import GrpcMediatorScanService.*
   * natural way to consume the information, this would add significant complexity to the
   * implementation, because of various reasons:
   *   - a later request could be completed sooner than an earlier requests
-  *   - the scan service would have to interact with the ongoing mediator state to understand which
-  *     requests are still pending and not emit verdicts of requests after the oldest pending
+  *   - the inspection service would have to interact with the ongoing mediator state to understand
+  *     which requests are still pending and not emit verdicts of requests after the oldest pending
   *     request
   *
   * In contrast, using the finalization time for sorting the verdicts is a simple and stable way to
   * deliver all known verdicts purely based on the verdicts persisted in the finalized response
   * store.
   */
-class GrpcMediatorScanService(
+class GrpcMediatorInspectionService(
     finalizedResponseStore: FinalizedResponseStore,
     watermarkTracker: TimeAwaiter,
     batchSize: PositiveInt,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends mediatorV30.MediatorScanServiceGrpc.MediatorScanService
+    extends mediatorV30.MediatorInspectionServiceGrpc.MediatorInspectionService
     with NamedLogging {
 
   /** Loads verdicts from the finalized response store, starting with the optional timestamps or the
@@ -170,7 +170,7 @@ class GrpcMediatorScanService(
     }
   }
 
-  /** Converts the responses to scan api verdicts and responds on the stream observer
+  /** Converts the responses to inspection api verdicts and responds on the stream observer
     */
   private def respondIfNonEmpty(
       finalizedResponses: Seq[FinalizedResponse],
@@ -190,7 +190,7 @@ class GrpcMediatorScanService(
     }
 
   /** Filters for verdicts for relevant requests (currently only InformeeMessage aka Daml
-    * transactions) and convert to the mediator scan api value.
+    * transactions) and convert to the mediator inspection api value.
     */
   private def convertResponses(
       responses: Seq[FinalizedResponse]
@@ -262,7 +262,7 @@ class GrpcMediatorScanService(
 
 }
 
-object GrpcMediatorScanService {
+object GrpcMediatorInspectionService {
 
   final case class QueryRange(
       fromRequestExclusive: CantonTimestamp,

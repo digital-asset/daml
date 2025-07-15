@@ -134,7 +134,8 @@ class SequencerTest
         DefaultProcessingTimeouts.testing,
         storage,
         sequencerStore,
-        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+        sequencingTimeLowerBoundExclusive =
+          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
         clock,
         topologyClientMember,
         crypto,

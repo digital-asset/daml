@@ -26,6 +26,7 @@ object PartyReplicationStatus {
     case object ReplicatingAcs extends PartyReplicationStatusCode
     case object Completed extends PartyReplicationStatusCode
     case object Error extends PartyReplicationStatusCode
+    case object Disconnected extends PartyReplicationStatusCode
   }
 
   /** Indicates whether party replication is active and expected to be progressing, i.e. whether
@@ -211,6 +212,25 @@ object PartyReplicationStatus {
           .Error(
             error,
             Some(v30.GetAddPartyStatusResponse.Status(previousStatus.toProto)),
+          )
+      )
+  }
+
+  final case class Disconnected(
+      message: String,
+      previousConnectedStatus: ConnectedPartyReplicationStatus,
+  ) extends PartyReplicationStatus
+      with ProgressIsExpected {
+    override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.Disconnected
+    override def params: ReplicationParams =
+      previousConnectedStatus.authorizedParams.replicationParams
+
+    override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
+      v30.GetAddPartyStatusResponse.Status.Status.Disconnected(
+        v30.GetAddPartyStatusResponse.Status
+          .Disconnected(
+            message,
+            Some(v30.GetAddPartyStatusResponse.Status(previousConnectedStatus.toProto)),
           )
       )
   }

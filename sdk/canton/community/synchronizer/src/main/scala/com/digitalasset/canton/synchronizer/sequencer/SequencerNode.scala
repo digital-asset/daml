@@ -669,7 +669,7 @@ class SequencerNodeBootstrap(
           topologyStateForInitializationService =
             new StoreBasedTopologyStateForInitializationService(
               synchronizerTopologyStore,
-              config.parameters.minimumSequencingTime,
+              config.parameters.sequencingTimeLowerBoundExclusive,
               synchronizerLoggerFactory,
             )
 
@@ -742,7 +742,7 @@ class SequencerNodeBootstrap(
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
-                config.parameters.minimumSequencingTime,
+                config.parameters.sequencingTimeLowerBoundExclusive,
                 runtimeReadyPromise.futureUS,
                 topologyAndSequencerSnapshot.flatMap { case (_, sequencerSnapshot) =>
                   sequencerSnapshot

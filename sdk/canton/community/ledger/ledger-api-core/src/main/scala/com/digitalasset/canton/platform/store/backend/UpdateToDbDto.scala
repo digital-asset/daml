@@ -91,8 +91,8 @@ object UpdateToDbDto {
         // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
         Iterator(DbDto.SequencerIndexMoved(u.synchronizerId.toProtoPrimitive))
 
-      case _: EmptyAcsPublicationRequired =>
-        Iterator.empty
+      case _: EmptyAcsPublicationRequired => Iterator.empty
+      case _: LogicalSynchronizerUpgradeTimeReached => Iterator.empty
 
       case _: CommitRepair =>
         Iterator.empty

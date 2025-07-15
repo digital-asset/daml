@@ -204,7 +204,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
         )
       }
 
-      val addPartyRequestId = loggerFactory.assertLogs(
+      val addPartyRequestId =
         clue("Initiate add party async")(
           targetParticipant.parties.add_party_async(
             party = alice,
@@ -302,9 +302,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
               synchronizerId = Some(daId),
             )
             .discard
-        },
-        _.warningMessage should include regex channelServiceNotImplementedWarning,
-      )
+        }
 
       // Wait until both participants observe that both participants are allowed to host the party.
       eventually()(Seq(sourceParticipant, targetParticipant).foreach { participant =>

@@ -181,6 +181,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val requestId = TestHash.build.add("OnlinePartyReplicationParticipantProtocolTest").finish()
 
       def noOpProgressAndCompletionCallback[T]: T => Unit = _ => ()
+      def noOpProgressAndCompletionCallback2[T, U]: (T, U) => Unit = (_, _) => ()
 
       val sourceProcessor = PartyReplicationSourceParticipantProcessor(
         daId,
@@ -191,6 +192,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         sourceParticipant.testing.state_inspection.getAcsInspection(daId).value,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
+        noOpProgressAndCompletionCallback2,
         futureSupervisor,
         exitOnFatalFailures = true,
         timeouts,
@@ -207,6 +209,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         partyToTargetParticipantEffectiveAt,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
+        noOpProgressAndCompletionCallback2,
         targetParticipant.underlying.value.sync.participantNodePersistentState,
         connectedSynchronizer,
         futureSupervisor,
@@ -215,7 +218,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         loggerFactory,
         PartyReplicationTestInterceptorImpl
           .targetParticipantProceedsIf(
-            canTargetParticipantProceed || _.processedContractsCount.get().unwrap < 4
+            canTargetParticipantProceed || _.getProcessedContractsCount.unwrap < 4
           ),
       )
 
@@ -242,8 +245,8 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       )
 
       eventually() {
-        sourceProcessor.hasChannelConnected shouldBe true
-        targetProcessor.hasChannelConnected shouldBe true
+        sourceProcessor.isChannelConnected shouldBe true
+        targetProcessor.isChannelConnected shouldBe true
       }
 
       // Check that archiving a contract that is still unknown on the TP

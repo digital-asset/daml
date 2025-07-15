@@ -16,7 +16,7 @@ import "scalapb/scalapb.proto";
  * This contains only a subset of the ParticipantInspection commands that can run over the admin-api instead of requiring
  * direct access to the participant node instance.
  */
-service InspectionService {
+service ParticipantInspectionService {
   // Look up the ledger offset corresponding to the timestamp, specifically the largest offset such that no later
   // offset corresponds to a later timestamp than the specified one.
   rpc LookupOffsetByTime(LookupOffsetByTimeRequest) returns (LookupOffsetByTimeResponse);

@@ -98,7 +98,7 @@ trait DownloadTopologyStateForInitializationServiceTest
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(
             store,
-            minimumSequencingTime = CantonTimestamp.Epoch,
+            sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
           storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
@@ -114,7 +114,7 @@ trait DownloadTopologyStateForInitializationServiceTest
           store <- initializeStore(bootstrapTransactionsWithUpdates)
           service = new StoreBasedTopologyStateForInitializationService(
             store,
-            minimumSequencingTime = CantonTimestamp.Epoch,
+            sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
           storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
@@ -132,16 +132,16 @@ trait DownloadTopologyStateForInitializationServiceTest
           store <- initializeStore(bootstrapTransactionsWithUpdates)
           service = new StoreBasedTopologyStateForInitializationService(
             store,
-            minimumSequencingTime = ts6,
+            sequencingTimeLowerBoundExclusive = Some(ts6),
             loggerFactory,
           )
           storedTxs <- service.initialSnapshot(dtc_p2_synchronizer1.mapping.participantId)
         } yield {
           import storedTxs.result
-          // all transactions should have a validUntil < ts6
-          forAll(result)(_.validUntil.map(_.value) should be < Option(ts6))
+          // all transactions should have a validUntil <= ts6
+          forAll(result)(_.validUntil.map(_.value) should be <= Option(ts6))
           result shouldBe bootstrapTransactionsWithUpdates
-            .filter(_.validFrom.value < ts6)
+            .filter(_.validFrom.value <= ts6)
             .asSnapshotAtMaxEffectiveTime
             .result
         }
@@ -152,7 +152,7 @@ trait DownloadTopologyStateForInitializationServiceTest
           store <- initializeStore(bootstrapTransactions)
           service = new StoreBasedTopologyStateForInitializationService(
             store,
-            minimumSequencingTime = CantonTimestamp.Epoch,
+            sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
           storedTxs <- service.initialSnapshot(med1Id)
@@ -174,7 +174,7 @@ trait DownloadTopologyStateForInitializationServiceTest
           store <- initializeStore(bootstrapTransactionsWithUpdates)
           service = new StoreBasedTopologyStateForInitializationService(
             store,
-            minimumSequencingTime = CantonTimestamp.Epoch,
+            sequencingTimeLowerBoundExclusive = None,
             loggerFactory,
           )
           storedTxs <- service.initialSnapshot(med1Id)
@@ -222,7 +222,7 @@ trait DownloadTopologyStateForInitializationServiceTest
         store <- initializeStore(snapshot)
         service = new StoreBasedTopologyStateForInitializationService(
           store,
-          minimumSequencingTime = CantonTimestamp.Epoch,
+          sequencingTimeLowerBoundExclusive = None,
           loggerFactory,
         )
         storedTxs <- service.initialSnapshot(p2Id)

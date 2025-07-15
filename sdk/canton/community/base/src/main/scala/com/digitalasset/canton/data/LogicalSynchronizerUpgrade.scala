@@ -87,7 +87,7 @@ object LogicalUpgradeTime {
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       sequencedTime: SequencedTime,
   ): Boolean =
-    canProcessKnowingPredecessor(synchronizerPredecessor, sequencedTime.value)
+    canProcessKnowingPastUpgrade(synchronizerPredecessor.map(_.upgradeTime), sequencedTime.value)
 
   /** Can the message be processed (or does it "belong" to the predecessor synchronizer).
     */
@@ -95,7 +95,15 @@ object LogicalUpgradeTime {
       synchronizerPredecessor: Option[SynchronizerPredecessor],
       sequencingTime: CantonTimestamp,
   ): Boolean =
-    synchronizerPredecessor.fold(true)(_.upgradeTime <= sequencingTime)
+    canProcessKnowingPastUpgrade(synchronizerPredecessor.map(_.upgradeTime), sequencingTime)
+
+  /** Can the message be processed (or does it "belong" to the predecessor synchronizer).
+    */
+  def canProcessKnowingPastUpgrade(
+      upgradeTime: Option[CantonTimestamp],
+      sequencingTime: CantonTimestamp,
+  ): Boolean =
+    upgradeTime.fold(true)(_ < sequencingTime)
 
   /** Can the message be processed (or does it "belong" to the successor synchronizer).
     */
@@ -103,7 +111,7 @@ object LogicalUpgradeTime {
       synchronizerSuccessor: Option[SynchronizerSuccessor],
       sequencedTime: SequencedTime,
   ): Boolean =
-    canProcessKnowingSuccessor(synchronizerSuccessor, sequencedTime.value)
+    canProcessKnowingFutureUpgrade(synchronizerSuccessor.map(_.upgradeTime), sequencedTime.value)
 
   /** Can the message be processed (or does it "belong" to the successor synchronizer).
     */
@@ -111,5 +119,13 @@ object LogicalUpgradeTime {
       synchronizerSuccessor: Option[SynchronizerSuccessor],
       sequencingTime: CantonTimestamp,
   ): Boolean =
-    synchronizerSuccessor.fold(true)(_.upgradeTime > sequencingTime)
+    canProcessKnowingFutureUpgrade(synchronizerSuccessor.map(_.upgradeTime), sequencingTime)
+
+  /** Can the message be processed (or does it "belong" to the successor synchronizer).
+    */
+  def canProcessKnowingFutureUpgrade(
+      upgradeTime: Option[CantonTimestamp],
+      sequencingTime: CantonTimestamp,
+  ): Boolean =
+    upgradeTime.fold(true)(_ > sequencingTime)
 }

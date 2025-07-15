@@ -71,6 +71,28 @@ object IouSyntax {
     JavaDecodeUtil.decodeAllCreated(Iou.COMPANION)(tx).loneElement
   }
 
+  def createIous(
+      participant: ParticipantReference,
+      payer: PartyId,
+      owner: PartyId,
+      amounts: Seq[Int],
+      observers: Seq[PartyId] = Seq.empty,
+  ): Seq[Iou.Contract] = {
+    val createIouCmds = amounts.map(amount =>
+      testIou(
+        payer,
+        owner,
+        amount.toDouble,
+        observers.toList,
+      ).create.commands.loneElement
+    )
+    JavaDecodeUtil
+      .decodeAllCreated(Iou.COMPANION)(
+        participant.ledger_api.javaapi.commands
+          .submit(Seq(payer), createIouCmds)
+      )
+  }
+
   /** Similar to createIou above but returns the update and command completion
     */
   def createIouComplete(
