@@ -7,7 +7,7 @@ package com.digitalasset.canton.mediator.admin.v30;
 
 import "google/protobuf/timestamp.proto";
 
-service MediatorScanService {
+service MediatorInspectionService {
   // Returns a stream of mediator verdicts ordered primarily by the finalization time
   // of the mediator verdict, reflected by the field
   // finalization_time, and secondarily by the record_time.

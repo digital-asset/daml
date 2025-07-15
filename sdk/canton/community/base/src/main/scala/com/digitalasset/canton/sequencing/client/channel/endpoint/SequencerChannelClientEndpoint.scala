@@ -283,6 +283,8 @@ private[channel] final class SequencerChannelClientEndpoint(
   // Channel subscriptions legitimately close when the server closes the channel.
   override protected lazy val onCompleteCloseReason: SubscriptionCloseReason[String] =
     SubscriptionCloseReason.Closed
+
+  override protected def request: String = "channel-endpoint"
 }
 
 private[channel] object SequencerChannelClientEndpoint {

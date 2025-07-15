@@ -15,8 +15,16 @@ import com.digitalasset.canton.data.{
   TaskSchedulerMetrics,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
-import com.digitalasset.canton.ledger.participant.state.{FloatingUpdate, SequencedUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  EmptyAcsPublicationRequired,
+  LogicalSynchronizerUpgradeTimeReached,
+}
+import com.digitalasset.canton.ledger.participant.state.{
+  FloatingUpdate,
+  SequencedUpdate,
+  SynchronizerUpdate,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -481,19 +489,34 @@ class RecordOrderPublisher private (
   private def publishLedgerApiIndexerEvent(
       event: Update
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val successor = synchronizerSuccessor.get()
-    val shouldPublishEvent =
-      LogicalUpgradeTime.canProcessKnowingSuccessor(successor, event.recordTime)
+    val successorO = synchronizerSuccessor.get()
 
-    if (shouldPublishEvent)
-      ledgerApiIndexer.enqueue(event).map(_ => ())
-    else {
-      logger.debug(
-        s"Not publishing event whose record time ${event.recordTime} is greater or equal than upgrade time ${successor
-            .map(_.upgradeTime)} $event"
-      )
+    successorO match {
+      // If the event's record time is at or after the upgrade time,
+      // replace the event with a notification that the upgrade time has been reached
+      case Some(successor)
+          if !LogicalUpgradeTime.canProcessKnowingSuccessor(successorO, event.recordTime) =>
+        event match {
+          case synchronizerUpdate: SynchronizerUpdate =>
+            val upgradeTimeReached = LogicalSynchronizerUpgradeTimeReached(
+              synchronizerUpdate.synchronizerId,
+              successor.upgradeTime,
+            )
+            logger.debug(
+              s"Not publishing event whose record time ${event.recordTime} is greater than upgrade time ${successor.upgradeTime} $event but publishing $upgradeTimeReached instead"
+            )
 
-      FutureUnlessShutdown.unit
+            ledgerApiIndexer.enqueue(upgradeTimeReached).map(_ => ())
+
+          case other =>
+            logger.debug(
+              s"Not publishing event whose record time ${other.recordTime} is greater than upgrade time ${successor.upgradeTime}: $other"
+            )
+
+            FutureUnlessShutdown.unit
+        }
+
+      case _ => ledgerApiIndexer.enqueue(event).map(_ => ())
     }
   }
 

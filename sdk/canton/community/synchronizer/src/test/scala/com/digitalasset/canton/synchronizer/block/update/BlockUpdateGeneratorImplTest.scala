@@ -45,7 +45,7 @@ class BlockUpdateGeneratorImplTest
 
   "BlockUpdateGeneratorImpl.extractBlockEvents" should {
     "filter out events" when {
-      "the sequencing time is before the minimum sequencing time" in {
+      "the sequencing time is before or at the minimum sequencing time" in {
         val rateLimitManagerMock = mock[SequencerRateLimitManager]
         val memberValidatorMock = mock[SequencerMemberValidator]
         val syncCryptoApiFake =
@@ -54,7 +54,7 @@ class BlockUpdateGeneratorImplTest
             physicalSynchronizerId,
             aTimestamp,
           )
-        val minimumSequencingTime = CantonTimestamp.Epoch.plusSeconds(10)
+        val sequencingTimeLowerBoundExclusive = CantonTimestamp.Epoch.plusSeconds(10)
 
         val blockUpdateGenerator =
           new BlockUpdateGeneratorImpl(
@@ -63,7 +63,7 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = minimumSequencingTime,
+            sequencingTimeLowerBoundExclusive = Some(sequencingTimeLowerBoundExclusive),
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -82,12 +82,12 @@ class BlockUpdateGeneratorImplTest
             Seq(
               RawBlockEvent.Send(
                 signedSubmissionRequest.toByteString,
-                minimumSequencingTime.minusSeconds(5).toMicros,
+                sequencingTimeLowerBoundExclusive.minusSeconds(5).toMicros,
               ),
               RawBlockEvent
                 .Acknowledgment(
                   acknowledgeRequest.toByteString,
-                  minimumSequencingTime.minusSeconds(4).toMicros,
+                  sequencingTimeLowerBoundExclusive.minusSeconds(4).toMicros,
                 ),
             ).map(Traced(_)(TraceContext.empty)),
             tickTopologyAtMicrosFromEpoch = None,
@@ -101,17 +101,17 @@ class BlockUpdateGeneratorImplTest
               RawBlockEvent
                 .Acknowledgment(
                   acknowledgeRequest.toByteString,
-                  minimumSequencingTime.immediatePredecessor.toMicros,
+                  sequencingTimeLowerBoundExclusive.immediatePredecessor.toMicros,
                 ),
               RawBlockEvent
                 .Send(
                   signedSubmissionRequest.toByteString,
-                  minimumSequencingTime.toMicros,
+                  sequencingTimeLowerBoundExclusive.immediateSuccessor.toMicros,
                 ),
               RawBlockEvent
                 .Acknowledgment(
                   acknowledgeRequest.toByteString,
-                  minimumSequencingTime.immediateSuccessor.toMicros,
+                  sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor.toMicros,
                 ),
             ).map(Traced(_)(TraceContext.empty)),
             None,
@@ -120,12 +120,12 @@ class BlockUpdateGeneratorImplTest
           1L,
           Seq(
             Send(
-              minimumSequencingTime,
+              sequencingTimeLowerBoundExclusive.immediateSuccessor,
               signedSubmissionRequest,
               signedSubmissionRequest.toByteString.size(),
             ),
             Acknowledgment(
-              minimumSequencingTime.immediateSuccessor,
+              sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor,
               acknowledgeRequest,
             ),
           ).map(
@@ -155,7 +155,8 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+            sequencingTimeLowerBoundExclusive =
+              SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -197,7 +198,8 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+            sequencingTimeLowerBoundExclusive =
+              SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,

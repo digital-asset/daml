@@ -41,6 +41,7 @@ import com.google.protobuf.ByteString
 import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
+import scala.util.chaining.scalaUtilChainingOps
 
 /** Objective: Test sequencer channels with variously behaving test sequencer protocol processors.
   *
@@ -128,8 +129,8 @@ sealed trait SequencerChannelProtocolIntegrationTest
         )
 
         eventually() {
-          testProcessor1.hasChannelConnected shouldBe true
-          testProcessor2.hasChannelConnected shouldBe true
+          testProcessor1.isChannelConnected shouldBe true
+          testProcessor2.isChannelConnected shouldBe true
         }
       }
 
@@ -224,8 +225,8 @@ sealed trait SequencerChannelProtocolIntegrationTest
         )
 
         eventually() {
-          testProcessor1.hasChannelConnected shouldBe true
-          testProcessor2.hasChannelConnected shouldBe true
+          testProcessor1.isChannelConnected shouldBe true
+          testProcessor2.isChannelConnected shouldBe true
         }
       }
 
@@ -320,7 +321,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
       )
   }
 
-  "Participant cannot reuse channel processor for multiple connections" onlyRunWith ProtocolVersion.dev in {
+  "Participant can reuse channel processor for multiple connections" onlyRunWith ProtocolVersion.dev in {
     implicit env =>
       import env.*
       val channelClient = participant1.testing.state_inspection
@@ -351,7 +352,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
         }
       }
 
-      val error = execWithError("connect processor the second time")(
+      exec("connect processor the second time")(
         channelClient.connectToSequencerChannel(
           sequencer1.id,
           SequencerChannelId("reuse processor channel2"),
@@ -361,7 +362,15 @@ sealed trait SequencerChannelProtocolIntegrationTest
           timestamp,
         )
       )
-      error shouldBe "Channel protocol processor previously connected to a different channel endpoint"
+
+      asyncExec("Complete channel2")(
+        testProcessor.sendTestCompleted("Close channel before fully connected")
+      )
+      clue("Channel2 completed on P1 and P2") {
+        eventually() {
+          testProcessor.hasChannelCompleted shouldBe true
+        }
+      }
   }
 
   private class TestProcessor(
@@ -395,8 +404,12 @@ sealed trait SequencerChannelProtocolIntegrationTest
 
     override def onDisconnected(status: Either[String, Unit])(implicit
         traceContext: TraceContext
-    ): Unit =
-      status.swap.foreach(err => logger.warn(s"TestProcessor disconnected with error: $err"))
+    ): Boolean =
+      super
+        .onDisconnected(status)
+        .tap(_ =>
+          status.swap.foreach(err => logger.warn(s"TestProcessor disconnected with error: $err"))
+        )
 
     override protected def timeouts: ProcessingTimeout =
       SequencerChannelProtocolIntegrationTest.this.timeouts

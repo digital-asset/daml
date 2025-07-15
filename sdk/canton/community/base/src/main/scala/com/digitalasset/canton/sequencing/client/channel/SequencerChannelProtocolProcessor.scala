@@ -5,18 +5,21 @@ package com.digitalasset.canton.sequencing.client.channel
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
+import com.digitalasset.canton.sequencing.client.transports.GrpcSubscriptionError
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{LoggerUtil, SingleUseCell}
+import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.ExecutionContext
 import scala.util.{Failure, Success, Try}
 
@@ -27,32 +30,32 @@ import scala.util.{Failure, Success, Try}
 trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging {
   implicit def executionContext: ExecutionContext
 
-  /** The channel endpoint is set once the sequencer channel client connects to the channel.
+  /** The channel endpoint is set once the sequencer channel client connects to the channel or
+    * reconnects to a new channel after a disconnect. Clear upon disconnect.
     */
-  private val channelEndpoint = new SingleUseCell[SequencerChannelClientEndpoint]
+  private val channelEndpoint = new AtomicReference[Option[SequencerChannelClientEndpoint]](None)
 
   private[channel] def setChannelEndpoint(
       endpoint: SequencerChannelClientEndpoint
   ): Either[String, Unit] =
-    channelEndpoint
-      .putIfAbsent(endpoint)
-      .fold(Either.unit[String])(endpointAlreadySet =>
-        Either.cond(
-          endpointAlreadySet == endpoint,
-          (),
-          "Channel protocol processor previously connected to a different channel endpoint",
-        )
+    Either
+      .cond(
+        channelEndpoint
+          .compareAndSet(None, Some(endpoint)),
+        (),
+        "Channel protocol processor already connected to a different channel endpoint, but expect to disconnect first. Coding bug",
       )
+      .map(_ => hasCompleted.set(false).discard)
 
   protected def psid: PhysicalSynchronizerId
   protected def protocolVersion: ProtocolVersion = psid.protocolVersion
 
-  // Whether the processor has at some point been connected to the channel, i.e. remains true after hasCompleted is set.
-  private[channel] val hasConnected = new AtomicBoolean(false)
+  // Whether the processor is currently connected to the channel, set to false after completion or disconnect.
+  private[channel] val isConnected = new AtomicBoolean(false)
   private val hasCompleted = new AtomicBoolean(false)
 
   // These accessors enable tests to observe and interact with all protocol processor implementations.
-  def hasChannelConnected: Boolean = this.hasConnected.get()
+  def isChannelConnected: Boolean = this.isConnected.get()
   def hasChannelCompleted: Boolean = this.hasCompleted.get()
 
   /** Notification that the processor is now connected and can begin sending and receiving messages.
@@ -68,8 +71,19 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
 
   /** Notification that the processor has been disconnected, either cleanly by the remote processor
     * completing or with the specified error if status is a left.
+    *
+    * Returns if the channel endpoint has been removed.
     */
-  def onDisconnected(status: Either[String, Unit])(implicit traceContext: TraceContext): Unit
+  def onDisconnected(
+      @scala.annotation.unused // unused parameters used by inheritors
+      status: Either[String, Unit]
+  )(implicit
+      @scala.annotation.unused
+      traceContext: TraceContext
+  ): Boolean = {
+    isConnected.set(false)
+    channelEndpoint.getAndSet(None).nonEmpty
+  }
 
   /** Sends payload to channel */
   final protected def sendPayload(operation: String, payload: ByteString)(implicit
@@ -78,11 +92,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
     synchronizeWithClosing(operation) {
       channelEndpoint.get match {
         case None =>
-          val err = s"Attempt to send $operation before channel endpoint set"
+          val err = s"Attempt to send payload \"$operation\" before channel endpoint set"
           logger.warn(err)
           EitherT.leftT[FutureUnlessShutdown, Unit](err)
-        case Some(_) if !hasConnected.get() =>
-          val err = s"Attempt to send $operation before processor is connected"
+        case Some(_) if !isConnected.get() =>
+          val err = s"Attempt to send payload \"$operation\" before processor is connected"
           logger.warn(err)
           EitherT.leftT[FutureUnlessShutdown, Unit](err)
         case Some(endpoint) =>
@@ -96,7 +110,7 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     synchronizeWithClosing(s"complete with $status") {
       channelEndpoint.get.fold {
-        val err = s"Attempt to send complete with $status before channel endpoint set"
+        val err = s"Attempt to send complete with status \"$status\" before channel endpoint set"
         logger.warn(err)
         EitherT.leftT[FutureUnlessShutdown, Unit](err)
       }(_.sendCompleted(status).map(_ => hasCompleted.set(true)))
@@ -123,6 +137,11 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
       case Success(SubscriptionCloseReason.Closed) =>
         logger.debug(s"$channel is being closed")
         Either.unit
+      case Success(GrpcSubscriptionError(sequencerUnavailable: GrpcServiceUnavailable)) =>
+        // Log GrpcServiceUnavailable as info which happens when a reconnect after a disconnect fails
+        // because the sequencer is not ready yet.
+        logger.info(s"$channel is being closed with $sequencerUnavailable")
+        Left(s"$channel closed with GrpcServiceUnavailable")
       case Success(reason) =>
         logger.warn(s"$channel is being closed with $reason")
         Left(reason.toString)
@@ -130,7 +149,7 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
         LoggerUtil.logThrowableAtLevel(Level.WARN, channel, t)
         Left(t.getMessage)
     }
-    onDisconnected(errorE)
+    onDisconnected(errorE).discard
     hasCompleted.set(true)
   }
 }

@@ -63,7 +63,8 @@ class ReferenceSequencerApiTest extends SequencerApiTest with RateLimitManagerTe
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
-        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+        sequencingTimeLowerBoundExclusive =
+          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS

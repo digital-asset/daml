@@ -81,7 +81,8 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
-        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+        sequencingTimeLowerBoundExclusive =
+          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS

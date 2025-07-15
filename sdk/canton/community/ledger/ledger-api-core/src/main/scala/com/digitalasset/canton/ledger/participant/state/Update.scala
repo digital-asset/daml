@@ -562,6 +562,28 @@ object Update {
         )
   }
 
+  final case class LogicalSynchronizerUpgradeTimeReached(
+      synchronizerId: SynchronizerId,
+      recordTime: CantonTimestamp,
+  )(implicit override val traceContext: TraceContext)
+      extends FloatingUpdate {
+    override protected def pretty: Pretty[LogicalSynchronizerUpgradeTimeReached] =
+      prettyOfClass(
+        param("synchronizerId", _.synchronizerId.uid),
+        param("sequencerTimestamp", _.recordTime),
+      )
+  }
+
+  object LogicalSynchronizerUpgradeTimeReached {
+    implicit val `LogicalSynchronizerUpgradeTimeReached to LoggingValue`
+        : ToLoggingValue[LogicalSynchronizerUpgradeTimeReached] =
+      logicalSynchronizerUpgradeTimeReached =>
+        LoggingValue.Nested.fromEntries(
+          Logging.synchronizerId(logicalSynchronizerUpgradeTimeReached.synchronizerId),
+          "sequencerTimestamp" -> logicalSynchronizerUpgradeTimeReached.recordTime.toInstant,
+        )
+  }
+
   final case class EmptyAcsPublicationRequired(
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
@@ -609,6 +631,12 @@ object Update {
       EmptyAcsPublicationRequired.`EmptyAcsPublicationRequired to LoggingValue`.toLoggingValue(
         update
       )
+    case update: LogicalSynchronizerUpgradeTimeReached =>
+      LogicalSynchronizerUpgradeTimeReached.`LogicalSynchronizerUpgradeTimeReached to LoggingValue`
+        .toLoggingValue(
+          update
+        )
+
     case update: SequencerIndexMoved =>
       SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
     case _: CommitRepair =>

@@ -28,7 +28,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.{
   PayloadToEventTimeBoundExceeded,
-  SequencedBeforeLowerBound,
+  SequencedBeforeOrAtLowerBound,
 }
 import com.digitalasset.canton.synchronizer.sequencer.store.{
   BytesPayload,
@@ -113,7 +113,7 @@ class SequencerWriterSourceTest
 
   private class Env(
       keepAliveInterval: Option[NonNegativeFiniteDuration],
-      minimumSequencingTime: CantonTimestamp,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       blockSequencerMode: Boolean,
   ) extends FlagCloseableAsync {
     override val timeouts: ProcessingTimeout = SequencerWriterSourceTest.this.timeouts
@@ -175,7 +175,7 @@ class SequencerWriterSourceTest
         testedProtocolVersion,
         SequencerMetrics.noop(suiteName),
         blockSequencerMode = blockSequencerMode,
-        minimumSequencingTime = minimumSequencingTime,
+        sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       )(executorService, implicitly[TraceContext], implicitly[ErrorLoggingContext])
         .toMat(Sink.ignore)(Keep.both),
       errorLogMessagePrefix = "Writer flow failed",
@@ -203,11 +203,11 @@ class SequencerWriterSourceTest
 
   private def withEnv(
       keepAliveInterval: Option[NonNegativeFiniteDuration] = None,
-      minimumSequencingTime: CantonTimestamp =
-        SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
+        SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
       blockSequencerMode: Boolean = true,
   )(testCode: Env => Future[Assertion]): Future[Assertion] = {
-    val env = new Env(keepAliveInterval, minimumSequencingTime, blockSequencerMode)
+    val env = new Env(keepAliveInterval, sequencingTimeLowerBoundExclusive, blockSequencerMode)
     val result = testCode(env)
     result.onComplete(_ => env.close())
     result
@@ -269,16 +269,16 @@ class SequencerWriterSourceTest
   }
 
   "sequencing time lower bound" when {
-    val lowerBound = CantonTimestamp.Epoch.plusSeconds(10)
+    val lowerBoundExclusive = CantonTimestamp.Epoch.plusSeconds(10)
 
     "in blockSequencerMode" should {
-      "prevent sends below the sequencing time" in withEnv(
-        minimumSequencingTime = lowerBound,
+      "prevent sends below or at the sequencing time" in withEnv(
+        sequencingTimeLowerBoundExclusive = Some(lowerBoundExclusive),
         blockSequencerMode = true,
       ) { env =>
         import env.*
 
-        clock.now should be < lowerBound
+        clock.now should be < lowerBoundExclusive
 
         loggerFactory.assertEventuallyLogsSeq(
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
@@ -295,17 +295,20 @@ class SequencerWriterSourceTest
             )
             _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver1, Some(clock.now)))
             _ = offerDeliverOrFail(
-              Presequenced.alwaysValid(deliver1, Some(lowerBound))
+              Presequenced.alwaysValid(deliver1, Some(lowerBoundExclusive))
+            )
+            _ = offerDeliverOrFail(
+              Presequenced.alwaysValid(deliver1, Some(lowerBoundExclusive.immediateSuccessor))
             )
             _ <- FutureUnlessShutdown.outcomeF(completeFlow())
             events <- store.readEvents(aliceId, alice)
           } yield {
-            events.events.loneElement.timestamp shouldBe lowerBound
+            events.events.loneElement.timestamp shouldBe lowerBoundExclusive.immediateSuccessor
           },
           LogEntry.assertLogSeq(
             Seq(
               (
-                entry => entry.shouldBeCantonErrorCode(SequencedBeforeLowerBound),
+                entry => entry.shouldBeCantonErrorCode(SequencedBeforeOrAtLowerBound),
                 "sequencing error",
               )
             )
@@ -316,12 +319,12 @@ class SequencerWriterSourceTest
 
     "not in blockSequencerMode" should {
       "prevent sends below the sequencing time" in withEnv(
-        minimumSequencingTime = lowerBound,
+        sequencingTimeLowerBoundExclusive = Some(lowerBoundExclusive),
         blockSequencerMode = false,
       ) { env =>
         import env.*
 
-        clock.now should be < lowerBound
+        clock.now should be < lowerBoundExclusive
 
         val f1 = loggerFactory.assertEventuallyLogsSeq(
           SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[WritePayloadsFlow.type]
@@ -341,7 +344,7 @@ class SequencerWriterSourceTest
           LogEntry.assertLogSeq(
             Seq(
               (
-                entry => entry.shouldBeCantonErrorCode(SequencedBeforeLowerBound),
+                entry => entry.shouldBeCantonErrorCode(SequencedBeforeOrAtLowerBound),
                 "sequencing error",
               )
             )
@@ -349,7 +352,7 @@ class SequencerWriterSourceTest
         )
 
         f1.flatMap { _ =>
-          clock.advanceTo(lowerBound)
+          clock.advanceTo(lowerBoundExclusive.immediateSuccessor)
 
           for {
             aliceId <- store.lookupMember(alice).map(_.value.memberId)
@@ -364,7 +367,7 @@ class SequencerWriterSourceTest
             _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver2))
             _ <- FutureUnlessShutdown.outcomeF(completeFlow())
             events <- store.readEvents(aliceId, alice)
-          } yield events.events.loneElement.timestamp shouldBe lowerBound
+          } yield events.events.loneElement.timestamp shouldBe lowerBoundExclusive.immediateSuccessor
         }
       }
     }

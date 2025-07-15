@@ -12,7 +12,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.*
@@ -22,7 +22,7 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.{
   ExceededMaxSequencingTime,
   PayloadToEventTimeBoundExceeded,
-  SequencedBeforeLowerBound,
+  SequencedBeforeOrAtLowerBound,
 }
 import com.digitalasset.canton.synchronizer.sequencer.store.*
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
@@ -204,7 +204,7 @@ object SequencerWriterSource {
       protocolVersion: ProtocolVersion,
       metrics: SequencerMetrics,
       blockSequencerMode: Boolean,
-      minimumSequencingTime: CantonTimestamp,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -275,7 +275,7 @@ object SequencerWriterSource {
           writerConfig,
           store,
           eventTimestampGenerator,
-          minimumSequencingTime,
+          sequencingTimeLowerBoundExclusive,
           loggerFactory,
           protocolVersion,
           blockSequencerMode,
@@ -505,7 +505,7 @@ object SequenceWritesFlow {
       writerConfig: SequencerWriterConfig,
       store: SequencerWriterStore,
       eventTimestampGenerator: PartitionedTimestampGenerator,
-      minimumSequencingTime: CantonTimestamp,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       loggerFactory: NamedLoggerFactory,
       protocolVersion: ProtocolVersion,
       blockSequencerMode: Boolean,
@@ -594,18 +594,25 @@ object SequenceWritesFlow {
             )
           }
 
-      def checkminimumSequencingTime(
+      def checkSequencingTimeLowerBound(
           event: Presequenced[StoreEvent[BytesPayload]]
       ): Either[CantonBaseError, Unit] =
-        Either.cond(
-          minimumSequencingTime <= timestamp,
-          (),
-          SequencedBeforeLowerBound.Error(
-            timestamp,
-            minimumSequencingTime,
-            event.event.description,
-          ),
-        )
+        sequencingTimeLowerBoundExclusive match {
+          case Some(bound) =>
+            Either.cond(
+              LogicalUpgradeTime.canProcessKnowingPastUpgrade(
+                upgradeTime = Some(bound),
+                sequencingTime = timestamp,
+              ),
+              (),
+              SequencedBeforeOrAtLowerBound.Error(
+                timestamp,
+                bound,
+                event.event.description,
+              ),
+            )
+          case None => ().asRight
+        }
 
       def deliverErrorForInvalidTopologyTimestamp(
           event: Presequenced[StoreEvent[BytesPayload]]
@@ -676,7 +683,7 @@ object SequenceWritesFlow {
       val resultE = for {
         _ <- checkPayloadToEventMargin(presequencedEvent)
         _ <- checkMaxSequencingTime(presequencedEvent)
-        _ <- checkminimumSequencingTime(presequencedEvent)
+        _ <- checkSequencingTimeLowerBound(presequencedEvent)
         checkedEvent = deliverErrorForInvalidTopologyTimestamp(presequencedEvent)
       } yield Sequenced(timestamp, checkedEvent.event)
 

@@ -295,7 +295,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
     val pruningRef = moduleSystem
       .newModuleRef[Pruning.Message](ModuleName("pruning"))()
 
-    implicit val bftOrdererConfig: BftBlockOrdererConfig = new BftBlockOrdererConfig()
+    implicit val bftOrdererConfig: BftBlockOrdererConfig = config
 
     val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
@@ -346,11 +346,6 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       .map(endpointToTestBftNodeId)
     val membership = Membership(thisNode, orderingTopology, sequencerIds)
     val availabilityStore = store(simulationModel.availabilityStorage)
-    val availabilityConfig = AvailabilityModuleConfig(
-      config.maxRequestsInBatch,
-      config.maxBatchesPerBlockProposal,
-      config.outputFetchTimeout,
-    )
     val availabilityDependencies = AvailabilityModuleDependencies(
       mempoolRef,
       p2pNetworkOutRef,
@@ -362,7 +357,6 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       initialEpochNumber = Genesis.GenesisEpochNumber,
       cryptoProvider,
       availabilityStore,
-      availabilityConfig,
       clock,
       random,
       metrics,

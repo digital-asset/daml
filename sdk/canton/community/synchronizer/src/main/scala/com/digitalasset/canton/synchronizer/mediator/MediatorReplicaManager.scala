@@ -15,7 +15,7 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.{
   MediatorAdministrationServiceGrpc,
-  MediatorScanServiceGrpc,
+  MediatorInspectionServiceGrpc,
 }
 import com.digitalasset.canton.networking.grpc.{CantonMutableHandlerRegistry, GrpcDynamicService}
 import com.digitalasset.canton.time.admin.v30
@@ -50,7 +50,7 @@ trait MediatorReplicaManager extends NamedLogging with FlagCloseableAsync {
 
   val scanService =
     new GrpcDynamicService(
-      MediatorScanServiceGrpc.SERVICE,
+      MediatorInspectionServiceGrpc.SERVICE,
       serviceUnavailableMessage,
       loggerFactory,
     )
@@ -115,7 +115,7 @@ class CommunityMediatorReplicaManager(
       mediatorRuntimeRef.set(Some(mediatorRuntime))
       synchronizerTimeService.setInstance(mediatorRuntime.timeService)
       adminService.setInstance(mediatorRuntime.administrationService)
-      scanService.setInstance(mediatorRuntime.scanService)
+      scanService.setInstance(mediatorRuntime.inspectionService)
     }
 
     EitherTUtil.toFutureUnlessShutdown(result.leftMap(new MediatorReplicaManagerException(_)))

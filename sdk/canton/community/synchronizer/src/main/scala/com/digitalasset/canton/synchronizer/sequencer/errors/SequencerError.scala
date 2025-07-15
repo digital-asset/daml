@@ -193,19 +193,19 @@ object SequencerError extends SequencerErrorGroup {
   @Resolution(
     """Wait for the time to advance beyond the sequencing time lower bound."""
   )
-  object SequencedBeforeLowerBound
+  object SequencedBeforeOrAtLowerBound
       extends ErrorCode(
-        "SEQUENCED_BEFORE_LOWER_BOUND",
+        "SEQUENCED_BEFORE_OR_AT_LOWER_BOUND",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     override def exposedViaApi: Boolean = false
     final case class Error(
         ts: CantonTimestamp,
-        minimumSequencingTime: CantonTimestamp,
+        sequencingTimeLowerBoundExclusive: CantonTimestamp,
         message: String,
     ) extends CantonBaseError.Impl(
           cause =
-            s"The sequencer time [$ts] is before the sequencing time lower bound $minimumSequencingTime: $message"
+            s"The sequencer time [$ts] is before or at the exclusive sequencing time lower bound $sequencingTimeLowerBoundExclusive: $message"
         )
   }
 

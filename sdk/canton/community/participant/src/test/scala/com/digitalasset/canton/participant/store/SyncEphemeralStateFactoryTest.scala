@@ -560,7 +560,7 @@ class SyncEphemeralStateFactoryTest
         val ts0 = CantonTimestamp.ofEpochSecond(0)
         val predecessor = SynchronizerPredecessor(
           psid = DefaultTestIdentities.physicalSynchronizerId,
-          upgradeTime = ts0.plusSeconds(1),
+          upgradeTime = ts0,
         )
 
         for {

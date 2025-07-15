@@ -70,8 +70,9 @@ final class PartyReplicationSourceParticipantProcessor private (
     //  as the set of other parties would change dynamically.
     otherPartiesHostedByTargetParticipant: Set[LfPartyId],
     acsInspection: AcsInspection, // TODO(#24326): Stream the ACS via the Ledger Api instead.
-    onComplete: TraceContext => Unit,
-    onError: String => Unit,
+    protected val onComplete: TraceContext => Unit,
+    protected val onError: String => Unit,
+    protected val onDisconnect: (String, TraceContext) => Unit,
     protected val futureSupervisor: FutureSupervisor,
     protected val exitOnFatalFailures: Boolean,
     protected val timeouts: ProcessingTimeout,
@@ -122,8 +123,6 @@ final class PartyReplicationSourceParticipantProcessor private (
         s"Source participant has received instruction to send up to contract ${sendAcsUpTo.maxContractOrdinalInclusive}"
       )
       // Check that the target participant is requesting higher contract ordinals.
-      // TODO(#26341): The party replication protocol does not yet support retries
-      //  that would be based on a different instruction type.
       _ <- EitherTUtil.ifThenET(
         sendAcsUpTo.maxContractOrdinalInclusive < previousContractOrdinalToSendUpToExclusive
       ) {
@@ -137,7 +136,6 @@ final class PartyReplicationSourceParticipantProcessor private (
     } yield ()).bimap(
       _.tap { error =>
         logger.warn(s"Error while processing payload: $error")
-        isChannelClosed.set(true) // returned error causes the channel to actually close
         onError(error)
       },
       _ => progressPartyReplication(),
@@ -148,25 +146,22 @@ final class PartyReplicationSourceParticipantProcessor private (
     * those states that are driven by the party replicator.
     */
   override def progressPartyReplication()(implicit traceContext: TraceContext): Unit =
-    if (
-      !isChannelClosed.get() &&
-      // Skip progress check if another task is already queued that performs this same progress check or
-      // is going to schedule a progress check.
-      executionQueue.queueSize <= 1 &&
-      testOnlyInterceptor.onSourceParticipantProgress(
-        processorStore
-      ) == PartyReplicationTestInterceptor.Proceed
-    ) {
-      executeAsync(
-        s"Respond to target participant if needed"
-      ) {
-        val fromInclusive = sentContractsCount.get()
-        // -1 for exclusive to inclusive
+    // Skip progress check if more than one other task is already queued that performs this same progress check or
+    // is going to schedule a progress check.
+    if (executionQueue.isAtMostOneTaskScheduled) {
+      executeAsync(s"Respond to target participant if needed") {
         EitherTUtil.ifThenET(
-          fromInclusive.unwrap < contractOrdinalToSendUpToExclusive.get().unwrap - 1
+          isChannelOpenForCommunication &&
+            !hasEndOfACSBeenReached.get() &&
+            testOnlyInterceptor.onSourceParticipantProgress(
+              processorStore
+            ) == PartyReplicationTestInterceptor.Proceed &&
+            sentContractsCount.get().unwrap < contractOrdinalToSendUpToExclusive
+              .get()
+              .unwrap - 1 // -1 for exclusive to inclusive
         )(
           respondToTargetParticipant(
-            fromInclusive,
+            sentContractsCount.get(),
             contractOrdinalToSendUpToExclusive.get().map(_ - 1),
           )
         )
@@ -190,12 +185,14 @@ final class PartyReplicationSourceParticipantProcessor private (
         _ + NonNegativeInt.tryCreate(numContractsSending)
       )
       // If there aren't enough contracts, send that we have reached the end of the ACS.
-      _ <- EitherTUtil.ifThenET(numSentInTotal < toInclusive)(
-        sendEndOfAcs(s"End of ACS after $numSentInTotal contracts")
-      )
+      _ <- EitherTUtil.ifThenET(numSentInTotal < toInclusive) {
+        sendEndOfAcs(s"End of ACS after $numSentInTotal contracts").map(_ =>
+          // Let the PartyReplicator know the SP is done, but let the TP, the channel owner, close the channel.
+          onComplete(traceContext)
+        )
+      }
     } yield ()).leftMap(_.tap { error =>
       logger.warn(s"Error while processing payload: $error")
-      isChannelClosed.set(true)
       onError(error) // Let the PartyReplicator know there has been an error.
       sendError(error) // Let the target participant know there has been an error.
     })
@@ -288,17 +285,13 @@ final class PartyReplicationSourceParticipantProcessor private (
     )
     for {
       _ <- sendPayload(endOfStreamMessage, endOfACS.toByteString)
-      _ <- sendCompleted(endOfStreamMessage)
     } yield {
       hasEndOfACSBeenReached.set(true)
-      isChannelClosed.set(true)
-      onComplete(traceContext)
+      // Don't send an onComplete or close the channel yet. Let the TP as the owner of the channel close.
+      // Having the target participant send the onComplete and initiate closing of the channel also avoids
+      // flaky warnings in case the TP has not processed the EndOfACS message yet.
     }
   }
-
-  override def onDisconnected(status: Either[String, Unit])(implicit
-      traceContext: TraceContext
-  ): Unit = ()
 }
 
 object PartyReplicationSourceParticipantProcessor {
@@ -311,6 +304,7 @@ object PartyReplicationSourceParticipantProcessor {
       acsInspection: AcsInspection,
       onComplete: TraceContext => Unit,
       onError: String => Unit,
+      onDisconnect: (String, TraceContext) => Unit,
       futureSupervisor: FutureSupervisor,
       exitOnFatalFailures: Boolean,
       timeouts: ProcessingTimeout,
@@ -326,6 +320,7 @@ object PartyReplicationSourceParticipantProcessor {
       acsInspection,
       onComplete,
       onError,
+      onDisconnect,
       futureSupervisor,
       exitOnFatalFailures,
       timeouts,

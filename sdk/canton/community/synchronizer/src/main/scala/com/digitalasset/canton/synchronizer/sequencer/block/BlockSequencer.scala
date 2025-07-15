@@ -79,7 +79,7 @@ class BlockSequencer(
     clock: Clock,
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    minimumSequencingTime: CantonTimestamp,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -110,7 +110,7 @@ class BlockSequencer(
       metrics,
       loggerFactory,
       blockSequencerMode = true,
-      minimumSequencingTime = minimumSequencingTime,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       rateLimitManagerO = Some(blockRateLimitManager),
     )
     with DatabaseSequencerIntegration
@@ -136,9 +136,17 @@ class BlockSequencer(
     new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
 
   override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
-    SequencerWriter.ResetWatermarkToTimestamp(
-      stateManager.getHeadState.block.lastTs.max(minimumSequencingTime.immediatePredecessor)
-    )
+    sequencingTimeLowerBoundExclusive match {
+      case Some(boundExclusive) =>
+        SequencerWriter.ResetWatermarkToTimestamp(
+          stateManager.getHeadState.block.lastTs.max(boundExclusive)
+        )
+
+      case None =>
+        SequencerWriter.ResetWatermarkToTimestamp(
+          stateManager.getHeadState.block.lastTs
+        )
+    }
 
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
@@ -150,7 +158,7 @@ class BlockSequencer(
       sequencerId,
       blockRateLimitManager,
       orderingTimeFixMode,
-      minimumSequencingTime = minimumSequencingTime,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       metrics,
       loggerFactory,
       memberValidator = memberValidator,
@@ -297,21 +305,30 @@ class BlockSequencer(
           )
       }
 
-  // This method rejects submissions before the minimum sequencing time.
-  // It compares clock.now against the configured minimumSequencingTime. It cannot use the time from the head state,
-  // because any blocks before minimumSequencingTime are filtered out and therefore the time would never advance.
-  // The ordering service is expected to lag a bit behind the (synchronized) wall clock, therefore this method does not
-  // reject submissions that would be sequenced after minimumSequencingTime. It could however pass through submissions
-  // that then get dropped, because they end up getting sequenced before minimumSequencingTime.
-  private def rejectSubmissionsBeforeMinimumSequencingTime()
+  /** This method rejects submissions before or at the lower bound of sequencing time. It compares
+    * clock.now against the configured sequencingTimeLowerBoundExclusive. It cannot use the time
+    * from the head state, because any blocks before sequencingTimeLowerBoundExclusive are filtered
+    * out and therefore the time would never advance. The ordering service is expected to lag a bit
+    * behind the (synchronized) wall clock, therefore this method does not reject submissions that
+    * would be sequenced after sequencingTimeLowerBoundExclusive. It could however pass through
+    * submissions that then get dropped, because they end up getting sequenced before
+    * sequencingTimeLowerBoundExclusive.
+    */
+  private def rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
       : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
     val currentTime = clock.now
-    EitherTUtil.condUnitET[FutureUnlessShutdown](
-      currentTime >= minimumSequencingTime,
-      SubmissionRequestRefused(
-        s"Cannot submit before minimum sequencing time $minimumSequencingTime, time is currently at $currentTime"
-      ),
-    )
+
+    sequencingTimeLowerBoundExclusive match {
+      case Some(boundExclusive) =>
+        EitherTUtil.condUnitET[FutureUnlessShutdown](
+          currentTime > boundExclusive,
+          SubmissionRequestRefused(
+            s"Cannot submit before or at the lower bound for sequencing time $boundExclusive; time is currently at $currentTime"
+          ),
+        )
+
+      case None => EitherTUtil.unitUS
+    }
   }
 
   override protected def sendAsyncSignedInternal(
@@ -334,7 +351,7 @@ class BlockSequencer(
     )
 
     for {
-      _ <- rejectSubmissionsBeforeMinimumSequencingTime()
+      _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
@@ -371,7 +388,7 @@ class BlockSequencer(
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
     for {
       _ <- EitherTUtil.toFutureUnlessShutdown(
-        rejectSubmissionsBeforeMinimumSequencingTime().leftMap(_.asGrpcError)
+        rejectSubmissionsBeforeOrAtSequencingTimeLowerBound().leftMap(_.asGrpcError)
       )
       waitForAcknowledgementF = stateManager.waitForAcknowledgementToComplete(
         req.member,

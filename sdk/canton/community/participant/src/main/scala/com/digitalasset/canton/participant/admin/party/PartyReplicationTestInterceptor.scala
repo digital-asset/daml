@@ -12,7 +12,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 /** OnPR test interceptor interface
   *
-  * Only for used in integration tests. In fact the test interceptor is only configurable via
+  * Only for use in integration tests. In fact the test interceptor is only configurable via
   * integration tests and disabled via pureconfig.
   */
 trait PartyReplicationTestInterceptor {

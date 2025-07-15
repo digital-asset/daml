@@ -21,7 +21,7 @@ import com.digitalasset.canton.crypto.{
   TestHash,
 }
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.resource.{MemoryStorage, Storage}
+import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, participant2}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{
@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.typesafe.config.ConfigValueFactory
 import monocle.Monocle.toAppliedFocusOps
@@ -44,26 +43,22 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
 
   // Use JceCrypto for the configured crypto schemes
   private lazy val jceStaticSynchronizerParameters: StaticSynchronizerParameters =
-    jceStaticSynchronizerParametersWith()
-
-  private def jceStaticSynchronizerParametersWith(
-      protocolVersion: ProtocolVersion = testedProtocolVersion
-  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
-    requiredSigningSpecs = RequiredSigningSpecs(
-      CryptoProvider.Jce.signingAlgorithms.supported,
-      CryptoProvider.Jce.signingKeys.supported,
-    ),
-    requiredEncryptionSpecs = RequiredEncryptionSpecs(
-      CryptoProvider.Jce.encryptionAlgorithms.supported,
-      CryptoProvider.Jce.encryptionKeys.supported,
-    ),
-    requiredSymmetricKeySchemes = CryptoProvider.Jce.symmetric.supported,
-    requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
-    requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
-    requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
-    protocolVersion = protocolVersion,
-    serial = NonNegativeInt.zero,
-  )
+    StaticSynchronizerParameters(
+      requiredSigningSpecs = RequiredSigningSpecs(
+        CryptoProvider.Jce.signingAlgorithms.supported,
+        CryptoProvider.Jce.signingKeys.supported,
+      ),
+      requiredEncryptionSpecs = RequiredEncryptionSpecs(
+        CryptoProvider.Jce.encryptionAlgorithms.supported,
+        CryptoProvider.Jce.encryptionKeys.supported,
+      ),
+      requiredSymmetricKeySchemes = CryptoProvider.Jce.symmetric.supported,
+      requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
+      requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
+      requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
+      protocolVersion = testedProtocolVersion,
+      serial = NonNegativeInt.zero,
+    )
 
   protected lazy val otherSynchronizerId: PhysicalSynchronizerId = PhysicalSynchronizerId(
     SynchronizerId(
@@ -84,7 +79,6 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
       .build(crypto, loggerFactory)
 
   protected lazy val defaultUsage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.ProtocolOnly
-  protected lazy val storage: Storage = new MemoryStorage(loggerFactory, timeouts)
 
   private val cryptoConfig: CryptoConfig = CryptoConfig()
 
@@ -114,7 +108,7 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
   protected lazy val crypto: Crypto = Crypto
     .create(
       cryptoConfig,
-      storage,
+      new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       CommunityKmsFactory,
       testedReleaseProtocolVersion,

@@ -24,6 +24,7 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
   BlacklistLeaderSelectionPolicyConfig,
+  DefaultAvailabilityMaxNonOrderedBatchesPerNode,
   DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
   DefaultConsensusQueueMaxSize,
   DefaultConsensusQueuePerNodeQuota,
@@ -40,6 +41,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   DefaultMaxRequestsInBatch,
   DefaultMinRequestsInBatch,
   DefaultOutputFetchTimeout,
+  DefaultOutputFetchTimeoutCap,
   DefaultPruningConfig,
   LeaderSelectionPolicyConfig,
   P2PNetworkConfig,
@@ -81,6 +83,7 @@ final case class BftBlockOrdererConfig(
     maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
     availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int =
       DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
+    availabilityMaxNonOrderedBatchesPerNode: Short = DefaultAvailabilityMaxNonOrderedBatchesPerNode,
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
@@ -88,6 +91,7 @@ final case class BftBlockOrdererConfig(
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
+    outputFetchTimeoutCap: FiniteDuration = DefaultOutputFetchTimeoutCap,
     pruning: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
     howLongToBlacklist: LeaderSelectionPolicyConfig.HowLongToBlacklist = DefaultHowLongToBlackList,
@@ -123,11 +127,13 @@ object BftBlockOrdererConfig {
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
   val DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int = 5
+  val DefaultAvailabilityMaxNonOrderedBatchesPerNode: Short = 1000
   val DefaultConsensusQueueMaxSize: Int = 10 * 1024
   val DefaultConsensusQueuePerNodeQuota: Int = 1024
   val DefaultDelayedInitQueueMaxSize: Int = 1024
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
+  val DefaultOutputFetchTimeoutCap: FiniteDuration = 20.second
   val DefaultPruningConfig: PruningConfig = PruningConfig(
     enabled = true,
     retentionPeriod = 30.days,

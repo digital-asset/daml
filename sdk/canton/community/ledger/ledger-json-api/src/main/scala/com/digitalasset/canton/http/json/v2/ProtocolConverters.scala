@@ -5,7 +5,12 @@ package com.digitalasset.canton.http.json.v2
 
 import cats.implicits.toTraverseOps
 import com.daml.ledger.api.v2 as lapi
-import com.daml.ledger.api.v2.interactive.interactive_submission_service.ExecuteSubmissionRequest
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionRequest,
+  PrepareSubmissionRequest,
+  PrepareSubmissionResponse,
+  PreparedTransaction,
+}
 import com.daml.ledger.api.v2.reassignment.AssignedEvent
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
@@ -1141,7 +1146,11 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(tr => lapi.update_service.GetTransactionResponse(Some(tr)))
   }
 
-  object PrepareSubmissionRequest {
+  object PrepareSubmissionRequest
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.PrepareSubmissionRequest,
+        JsPrepareSubmissionRequest,
+      ] {
     def fromJson(obj: JsPrepareSubmissionRequest)(implicit
         errorLoggingContext: ErrorLoggingContext
     ): Future[lapi.interactive.interactive_submission_service.PrepareSubmissionRequest] = for {
@@ -1153,16 +1162,43 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
       .transform
 
+    override def toJson(
+        lapiObj: PrepareSubmissionRequest
+    )(implicit errorLoggingContext: ErrorLoggingContext): Future[JsPrepareSubmissionRequest] = for {
+      commands <- SeqCommands.toJson(lapiObj.commands.map(_.command))
+      prefetchContractKeys <- lapiObj.prefetchContractKeys.map(PrefetchContractKey.toJson).sequence
+    } yield lapiObj
+      .into[JsPrepareSubmissionRequest]
+      .withFieldConst(_.commands, commands)
+      .withFieldConst(_.prefetchContractKeys, prefetchContractKeys)
+      .transform
   }
 
-  object PrepareSubmissionResponse {
+  object PrepareSubmissionResponse
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.PrepareSubmissionResponse,
+        JsPrepareSubmissionResponse,
+      ] {
     def toJson(
         obj: lapi.interactive.interactive_submission_service.PrepareSubmissionResponse
-    ): Future[JsPrepareSubmissionResponse] =
+    )(implicit errorLoggingContext: ErrorLoggingContext): Future[JsPrepareSubmissionResponse] =
       Future.successful(
         obj
           .into[JsPrepareSubmissionResponse]
           .withFieldConst(_.preparedTransaction, obj.preparedTransaction.map(_.toByteString))
+          .transform
+      )
+
+    override def fromJson(
+        jsObj: JsPrepareSubmissionResponse
+    )(implicit errorLoggingContext: ErrorLoggingContext): Future[PrepareSubmissionResponse] =
+      Future.successful(
+        jsObj
+          .into[PrepareSubmissionResponse]
+          .withFieldConst(
+            _.preparedTransaction,
+            jsObj.preparedTransaction.map(_.toByteArray).map(PreparedTransaction.parseFrom),
+          )
           .transform
       )
   }

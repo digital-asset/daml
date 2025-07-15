@@ -28,7 +28,10 @@ trait AcsChangeListener {
       traceContext: TraceContext
   ): Unit
 
-  def publish(toc: RecordTime, commitSetO: Option[CommitSet])(implicit
+  def publish(
+      toc: RecordTime,
+      commitSetO: Option[CommitSet],
+  )(implicit
       traceContext: TraceContext
   ): Unit
 

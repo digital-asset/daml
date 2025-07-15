@@ -298,6 +298,37 @@ class SimpleExecutionQueueTest
       }
     }
 
+    "queue can be checked for emptiness or single task" in {
+      val queue = mk()
+      val task1 = new MockTask("task1")
+      val task2 = new MockTask("task2")
+
+      def readQueue(): (Boolean, Boolean) = (queue.isEmpty, queue.isAtMostOneTaskScheduled)
+
+      readQueue() shouldBe (true, true)
+
+      val task1ResultF = queue.executeUS(task1.run(), "Task1").failOnShutdown
+      val (isQueueWithOneEmpty, isQueueWithOneAtMostOne) = readQueue()
+      (isQueueWithOneEmpty, isQueueWithOneAtMostOne) shouldBe (false, true)
+
+      val task2ResultF = queue.executeUS(task2.run(), "Task2").failOnShutdown
+      val (isQueueWithTwoEmpty, isQueueWithTwoAtMostOne) = readQueue()
+      (isQueueWithTwoEmpty, isQueueWithTwoAtMostOne) shouldBe (false, false)
+
+      task1.complete()
+      for {
+        _ <- task1ResultF
+        (isQueueWithFirstTaskDoneEmpty, isQueueWithFIrstTaskDoneAtMostOne) = readQueue()
+        _ = task2.complete()
+        _ <- task2ResultF
+        (isQueueWithBothTasksDoneEmpty, isQueueWithBothTasksDoneAtMostOne) = readQueue()
+        _ <- queue.flush()
+      } yield {
+        (isQueueWithFirstTaskDoneEmpty, isQueueWithFIrstTaskDoneAtMostOne) shouldBe (false, true)
+        (isQueueWithBothTasksDoneEmpty, isQueueWithBothTasksDoneAtMostOne) shouldBe (true, true)
+      }
+    }
+
     "complete subsequent tasks with shutdown even if the currently running task does not close" in {
       val queue = mk()
       val task1 = new MockTask("task1")

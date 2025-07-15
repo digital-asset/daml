@@ -132,6 +132,12 @@ message GetAddPartyStatusResponse {
       string error_message = 1;
       Status status_prior_to_error = 2;
     }
+    // The participant has disconnected from the sequencer channel used for ACS replication.
+    message Disconnected {
+      string disconnect_message = 1;
+      // Prior status is one of ConnectionEstablished or ReplicatingAcs.
+      Status status_prior_to_disconnect = 2;
+    }
 
     oneof status {
       // Party Replication Daml admin workflow proposal and agreement handling
@@ -148,6 +154,9 @@ message GetAddPartyStatusResponse {
 
       // Error indicating that party replication has failed.
       Error error = 7;
+
+      // Conditions that party replication is attempting to recover from.
+      Disconnected disconnected = 8;
     }
   }
 

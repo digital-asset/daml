@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.party
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference
 
@@ -16,12 +17,20 @@ object InMemoryProcessorStore {
 }
 
 final class SourceParticipantStore {
-  val contractOrdinalToSendUpToExclusive =
+  private[party] val contractOrdinalToSendUpToExclusive =
     new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  val sentContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private[party] val sentContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+
+  @VisibleForTesting
+  def getSentContractsCount: NonNegativeInt = sentContractsCount.get()
 }
 
 final class TargetParticipantStore {
-  val requestedContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
-  val processedContractsCount = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private[party] val requestedContractsCount =
+    new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private[party] val processedContractsCount =
+    new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+
+  @VisibleForTesting
+  def getProcessedContractsCount: NonNegativeInt = processedContractsCount.get()
 }

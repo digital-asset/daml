@@ -17,7 +17,7 @@ import com.digitalasset.canton.mediator.admin.v30.VerdictsResponse
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.InformeeMessage
 import com.digitalasset.canton.synchronizer.mediator.MediatorVerdict.MediatorApprove
-import com.digitalasset.canton.synchronizer.mediator.service.GrpcMediatorScanService
+import com.digitalasset.canton.synchronizer.mediator.service.GrpcMediatorInspectionService
 import com.digitalasset.canton.synchronizer.mediator.store.InMemoryFinalizedResponseStore
 import com.digitalasset.canton.synchronizer.service.RecordStreamObserverItems
 import com.digitalasset.canton.time.TimeAwaiter
@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{Future, Promise}
 import scala.util.Random
 
-class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
+class GrpcMediatorInspectionServiceTest extends AsyncWordSpec with BaseTest {
   private lazy val generators = new CommonGenerators(testedProtocolVersion)
 
   // use our generators to generate a random full informee tree
@@ -72,15 +72,16 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
     @volatile var latestKnownWatermark: CantonTimestamp = CantonTimestamp.MinValue
     val timeAwaiter = new TimeAwaiter(() => latestKnownWatermark, timeouts, loggerFactory)
 
-    val scanService = new GrpcMediatorScanService(
+    val scanService = new GrpcMediatorInspectionService(
       finalizedResponseStore,
       timeAwaiter,
       batchSize = PositiveInt.tryCreate(batchSize),
       loggerFactory = loggerFactory,
     )
     implicit val cc: CloseContext = CloseContext(new FlagCloseable {
-      override protected def timeouts: ProcessingTimeout = GrpcMediatorScanServiceTest.this.timeouts
-      override protected def logger: TracedLogger = GrpcMediatorScanServiceTest.this.logger
+      override protected def timeouts: ProcessingTimeout =
+        GrpcMediatorInspectionServiceTest.this.timeouts
+      override protected def logger: TracedLogger = GrpcMediatorInspectionServiceTest.this.logger
     })
 
     def requestVerdictsFrom(
@@ -137,7 +138,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
     }
   }
 
-  "GrpcMediatorScanServiceTest" should {
+  "GrpcMediatorInspectionServiceTest" should {
 
     "serve verdicts from the beginning" in {
       val f = new Fixture()
@@ -156,7 +157,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
         )
         _ = observer.values should have size 0
 
-        // notify the GrpcMediatorScanService of a new watermark time, so it starts emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark time, so it starts emitting verdicts
         _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(50))
         // wait for the future to complete after numExpected verdicts have been emitted
         _ <- FutureUnlessShutdown.outcomeF(future)
@@ -194,7 +195,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
         )
         _ = observer1.values should have size 0
 
-        // notify the GrpcMediatorScanService of a new watermark, so it starts emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark, so it starts emitting verdicts
         _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(50))
         // wait for the future to complete after numExpected verdicts have been emitted
         _ <- FutureUnlessShutdown.outcomeF(future1)
@@ -245,20 +246,20 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
         )
         _ = observer.values should have size 0
 
-        // notify the GrpcMediatorScanService of a new watermark, so it starts emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark, so it starts emitting verdicts
         _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4))
 
         _ <- eventuallyAsync() {
           observer.values should have size 4L
         }
 
-        // notify the GrpcMediatorScanService of a new watermark, so it continues emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark, so it continues emitting verdicts
         _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4 + 3))
         _ <- eventuallyAsync() {
           observer.values should have size 7L
         }
 
-        // notify the GrpcMediatorScanService of a new watermark, so it continues emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark, so it continues emitting verdicts
         _ = observeWatermark(CantonTimestamp.Epoch.plusSeconds(4 + 3 + 3))
         _ <- eventuallyAsync() {
           observer.values should have size 10L
@@ -293,7 +294,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
           fromRequestExclusive = CantonTimestamp.MinValue,
           numExpected = 5,
         )
-        // notify the GrpcMediatorScanService of a new watermark, so it starts emitting verdicts
+        // notify the GrpcMediatorInspectionService of a new watermark, so it starts emitting verdicts
         _ = observeWatermark(Epoch.plusSeconds(30))
         // wait for the future to complete after numExpected verdicts have been emitted
         verdicts1 <- FutureUnlessShutdown.outcomeF(future1)
@@ -346,7 +347,7 @@ class GrpcMediatorScanServiceTest extends AsyncWordSpec with BaseTest {
           "h" -> Seq.empty,
         )
 
-      val (nodes, rootNodes) = GrpcMediatorScanService.flattenForrest(
+      val (nodes, rootNodes) = GrpcMediatorInspectionService.flattenForrest(
         roots = Seq("a", "e"),
         getChildren = originalNodes.apply,
         (n, children) => FlattenedNode(n, children),

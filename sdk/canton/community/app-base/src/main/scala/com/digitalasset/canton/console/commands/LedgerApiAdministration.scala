@@ -2526,7 +2526,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               result
                 .get()
                 .toRight(
-                  s"Failed to find contract of type ${companion.getTemplateIdWithPackageId} after $timeout"
+                  s"Failed to find contract of type ${companion.TEMPLATE_ID} after $timeout"
                 )
             }
           })
@@ -2549,12 +2549,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               predicate: TC => Boolean = (_: TC) => true,
               synchronizerFilter: Option[SynchronizerId] = None,
           ): Seq[TC] = check(FeatureFlag.Testing) {
-            val javaTemplateId = templateCompanion.getTemplateIdWithPackageId
-            val templateId = TemplateId(
-              templateCompanion.PACKAGE.id,
-              javaTemplateId.getModuleName,
-              javaTemplateId.getEntityName,
-            )
+            val templateId = TemplateId.fromJavaIdentifier(templateCompanion.TEMPLATE_ID)
 
             def synchronizerPredicate(entry: WrappedContractEntry) =
               synchronizerFilter match {

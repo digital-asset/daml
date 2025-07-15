@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.{
   RunOnClosing,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient, GrpcManagedChannel}
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.client.channel.endpoint.SequencerChannelClientEndpoint
@@ -95,9 +96,10 @@ private[channel] final class SequencerChannelClientTransport(
       requestDescription = "ping",
       timeout = timeouts.network.duration,
       logger = logger,
+      logPolicy =
+        SilentLogPolicy, // Silent is not fully silent, and logs grpc errors with cause as info
       retryPolicy = sendAtMostOnce,
     )
     response.bimap(_.toString, _ => ())
-
   }
 }
