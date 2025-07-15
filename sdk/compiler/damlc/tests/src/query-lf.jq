@@ -20,6 +20,8 @@ def get_text(pkg): .text_interned_str // 0 | resolve_interned_string(pkg);
 
 def norm_ty(pkg): if has("interned") then pkg.interned_types[.interned] else . end;
 
+def norm_expr(pkg): if has("interned") then pkg.interned_exprs[.interned] else . end;
+
 # @SINCE-LF 1.7
 def norm_qualified_module(pkg; f):
     .type | norm_ty(pkg) | .struct.fields |
