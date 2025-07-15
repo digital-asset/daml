@@ -138,7 +138,9 @@ externalPackages version =
 -- database db path and package flag
 withVersionedDamlScriptDep :: SdkVersioned => String -> String -> Maybe Version -> [(String, String, String)] -> (ScriptPackageData -> IO a) -> IO a
 withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = do
-  withTempDir $ \dir -> do
+  -- withTempDir $ \dir -> do
+  (dir, _) <- newTempDir
+  do
     withCurrentDirectory dir $ do
       let projDir = toNormalizedFilePath' dir
           -- Bring in daml-script as previously installed by withDamlScriptDep, must include package db
@@ -276,6 +278,9 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
             , getBondTradingTestFiles
             , getCantSkipPreprocessorTestFiles
             ]
+
+    d <- getCurrentDirectory
+    putStrLn d
 
     let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
