@@ -1259,11 +1259,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(EExperimental(experimental.getName, typ))
           }
 
-        case PLF.Expr.SumCase.INTERNED =>
+        case PLF.Expr.SumCase.INTERNED_EXPR =>
           assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
           Ret(
             internedExprs.applyOrElse(
-              lfExpr.getInterned,
+              lfExpr.getInternedExpr,
               (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
             )
           )

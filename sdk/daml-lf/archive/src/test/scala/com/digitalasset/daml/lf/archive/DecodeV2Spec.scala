@@ -922,7 +922,7 @@ class DecodeV2Spec
     "reject Expr if INTERNED is set" in {
       val input = DamlLf2.Expr
         .newBuilder()
-        .setInterned(32)
+        .setInternedExpr(32)
         .build()
 
       // TODO: when added, convert to forEveryVersion
