@@ -3,7 +3,7 @@
 ## Overview
 
 We run our CI on Azure Pipelines. Azure Pipelines uses its own variant of YAML
-for its ocnfiguration; it's worth getting familiar with their [YAML
+for its configuration; it's worth getting familiar with their [YAML
 documentation][YAML], as well as with their [expression syntax].
 
 [YAML]: https://learn.microsoft.com/en-us/azure/devops/pipelines/yaml-schema/?view=azure-pipelines
