@@ -37,6 +37,7 @@ library
       vector,
     exposed-modules:
       DA.Daml.LF.Mangling
+      DA.Daml.LF.Proto3.DerivingData
       DA.Daml.LF.Proto3.Error
       DA.Daml.LF.Proto3.Util
     default-extensions:
