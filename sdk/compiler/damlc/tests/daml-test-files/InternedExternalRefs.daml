@@ -2,8 +2,11 @@
 -- All rights reserved.
 
 -- @ SINCE-LF 2.1
--- @QUERY-LF [$pkg | .modules[] | .values[] | .expr.val.module.package_id | select(has("imported_package_id_interned_str"))] | length == 2
+-- @QUERY-LF [$pkg | .interned_exprs[] | .val.module.package_id | select(has("imported_package_id_interned_str"))] | length == 2
 -- @QUERY-LF $pkg | .interned_strings | length >= 2
+
+-- @ SINCE-LF 2.dev
+-- @QUERY-LF [$pkg | .interned_exprs[] | .val.module.package_id | select(has("imported_package_id_interned_str"))] | length == 2
 
 -- We test that interning of package ids works. The two packages we reference are
 -- daml-prim and daml-stdlib.
