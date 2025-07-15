@@ -6,7 +6,7 @@
 -- uses actors as a sanity check.
 
 -- @SINCE-LF 2.1
--- @QUERY-LF [$pkg | .modules[] | .values[] | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not] | (length > 0 and all)
+-- @QUERY-LF [$pkg | .modules[] | .values[] | .expr  | lf::norm_interned($pkg) | .. | objects | select(has("exercise")) | .exercise | has("actor") | not] | (length > 0 and all)
 
 module ExerciseWithoutActors where
 

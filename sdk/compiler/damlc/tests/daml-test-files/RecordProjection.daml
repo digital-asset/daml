@@ -14,18 +14,18 @@ foo: Foo
 foo = Foo with quux = 1
 
 
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSyntax"]) | .expr.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSyntax"]) | .expr | lf::norm_interned($pkg) | .rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
 dotSyntax: Int
 dotSyntax = foo.quux
 
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSection"]) | .expr.abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["dotSection"]) | .expr | lf::norm_interned($pkg) | .abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
 dotSection: Foo -> Int
 dotSection = (.quux)
 
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldFull"]) | .expr.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldFull"]) | .expr | lf::norm_interned($pkg) | .rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
 getFieldFull: Int
 getFieldFull = getField @"quux" foo
 
--- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldPartial"]) | .expr.abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
+-- @QUERY-LF $pkg | .modules[] | .values[] | select(.name_with_type | lf::get_value_name($pkg) == ["getFieldPartial"]) | .expr | lf::norm_interned($pkg) | .abs.body.rec_proj | (lf::get_field($pkg) == "quux") and (.tycon.tycon | lf::get_dotted_name($pkg) == ["Foo"])
 getFieldPartial: Foo -> Int
 getFieldPartial = getField @"quux"
