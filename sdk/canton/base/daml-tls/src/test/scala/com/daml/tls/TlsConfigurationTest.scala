@@ -5,7 +5,7 @@ package com.daml.tls
 
 import com.daml.tls.TlsVersion.TlsVersion
 import com.digitalasset.canton.util.JarResourceUtils
-import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{OpenSslServerContext, SslContext}
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Inside.inside
