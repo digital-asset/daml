@@ -1041,7 +1041,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           )
           val reassigned = inspectContracts.filter(c => c.cid == reassignedCid)
           val reassignedCounter =
-            incompleteUnassignment.contracts.contractIdCounters.toMap.apply(reassignedCid)
+            incompleteUnassignment.contractsBatch.contractIdCounters.toMap.apply(reassignedCid)
           reassigned.size shouldBe 2
           reassigned.filter(states =>
             states.activeOnExpectedSynchronizer &&

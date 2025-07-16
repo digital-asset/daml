@@ -101,7 +101,7 @@ trait Sequencer
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
 
-  def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
+  def read(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 

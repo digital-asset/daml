@@ -667,7 +667,7 @@ abstract class SequencerClientImpl(
 
       linkDetailsO match {
         case Some(LinkDetails(sequencerAlias, sequencerId, transportOrPoolConnection)) =>
-          synchronizeWithClosing(s"sending message $messageId to sequencer $sequencerId") {
+          synchronizeWithClosingF(s"sending message $messageId to sequencer $sequencerId") {
             NonEmpty.from(previousSequencers) match {
               case None =>
                 logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
@@ -682,11 +682,26 @@ abstract class SequencerClientImpl(
               metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
             )
 
-            transportOrPoolConnection match {
+            val sendResultETUS = transportOrPoolConnection match {
               case Right(connection) => connection.sendAsync(signedRequest, timeout)
               case Left(transport) => transport.sendAsyncSigned(signedRequest, timeout)
             }
-          }.value.map {
+
+            // We are treating a shutdown result in the same way as a normal result, instead of propagating it up.
+            // Note that this is the shutdown of the transport, not the sequencer client (see `performUnlessClosingF` above).
+            // It can happen outside a regular shutdown when closing a connection for a fatal reason.
+            //
+            // If this send attempt is happening outside the application handler (e.g. a confirmation request),
+            // we don't want to abort amplification just because this particular transport has shut down, as others
+            // might be fine.
+            //
+            // If the send attempt is happening within the application handler (e.g. a confirmation response), propagating
+            // the shutdown has devastating consequences: the application handler will be marked as shutdown, and since
+            // this information is global to the sequencer client, the reception of a new event on any sequencer subscription
+            // will result in shutting down that subscription (because the handler has shut down), eventually leading to a
+            // disconnect from the synchronizer when the trust threshold is no longer satisfied.
+            sendResultETUS.value.onShutdown(Either.unit)
+          }.map {
             case Right(()) =>
               // Do not await the patience. This would defeat the point of asynchronous send.
               scheduleAmplification()

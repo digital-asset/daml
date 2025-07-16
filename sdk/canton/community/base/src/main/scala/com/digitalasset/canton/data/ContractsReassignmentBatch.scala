@@ -22,7 +22,7 @@ final case class ContractsReassignmentBatch private (
   def contractIds: NonEmpty[Seq[LfContractId]] = contracts.map(_.contract.contractId)
 
   def contractIdCounters: NonEmpty[Seq[(LfContractId, ReassignmentCounter)]] = contracts.map {
-    case item => (item.contract.contractId, item.counter)
+    item => (item.contract.contractId, item.counter)
   }
 
   def packageIds: Set[LfPackageId] = contracts.view.map(_.templateId.packageId).toSet

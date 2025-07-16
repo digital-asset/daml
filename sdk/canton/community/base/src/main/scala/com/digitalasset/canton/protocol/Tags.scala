@@ -240,6 +240,14 @@ object ReassignmentId {
       contractIdCounters: Iterable[(LfContractId, ReassignmentCounter)],
   ): ReassignmentId = V0(source, target, unassignmentTs, contractIdCounters.toMap)
 
+  def single(
+      source: Source[SynchronizerId],
+      target: Target[SynchronizerId],
+      unassignmentTs: CantonTimestamp,
+      contractId: LfContractId,
+      reassignmentCounter: ReassignmentCounter,
+  ): ReassignmentId = apply(source, target, unassignmentTs, Seq((contractId, reassignmentCounter)))
+
   final case class V0 private[ReassignmentId] (override val payload: ByteString)
       extends ReassignmentId {
     override val version = V0.version

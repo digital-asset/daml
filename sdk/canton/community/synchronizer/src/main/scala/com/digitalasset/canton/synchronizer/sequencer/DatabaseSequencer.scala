@@ -325,10 +325,10 @@ class DatabaseSequencer(
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
-  override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+  override def readInternal(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
-    reader.readV2(member, timestamp)
+    reader.read(member, timestamp)
 
   /** Internal method to be used in the sequencer integration.
     */

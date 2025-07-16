@@ -695,6 +695,7 @@ class TopologyAdministrationGroup(
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
         store: TopologyStoreId,
+        mediatorThreshold: PositiveInt,
     ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
       val isSynchronizerOwner = synchronizerOwners.contains(instance.id)
       require(isSynchronizerOwner, s"Only synchronizer owners should call $functionFullName.")
@@ -742,7 +743,7 @@ class TopologyAdministrationGroup(
           .when(isSynchronizerCollectivelyOwned || maybeExistingMediatorState.isEmpty)(
             instance.topology.mediators.propose(
               synchronizerId.logical,
-              threshold = PositiveInt.one,
+              threshold = mediatorThreshold,
               group = NonNegativeInt.zero,
               active = mediators,
               signedBy = None,
@@ -796,6 +797,7 @@ class TopologyAdministrationGroup(
         mediators: Seq[MediatorId],
         outputFile: String,
         store: TopologyStoreId,
+        mediatorThreshold: PositiveInt = PositiveInt.one,
     ): Unit = {
 
       val transactions =
@@ -805,6 +807,7 @@ class TopologyAdministrationGroup(
           sequencers,
           mediators,
           store,
+          mediatorThreshold,
         )
 
       SignedTopologyTransactions(transactions, synchronizerId.protocolVersion).writeToFile(
@@ -2389,6 +2392,13 @@ class TopologyAdministrationGroup(
       runAdminCommand(command).discard
     }
 
+    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Description(
+      """
+     synchronizerId: the optional target synchronizer
+     proposals: if true then proposals are shown, otherwise actual validated state
+     """
+    )
     def list(
         store: Option[TopologyStoreId] = None,
         proposals: Boolean = false,

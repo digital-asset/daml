@@ -8,8 +8,8 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
@@ -91,7 +91,7 @@ object SimulationModuleSystem {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
           collector.addOpenConnection(node, plaintextEndpoint, p2pConnectionEventListener)
           SimulationP2PNetworkRef(node, collector, timeouts, loggerFactory)
-        case _: GrpcNetworking.TlsP2PEndpoint =>
+        case _: P2PGrpcNetworking.TlsP2PEndpoint =>
           throw new UnsupportedOperationException("TLS is not supported in simulation")
       }
     }

@@ -4,9 +4,9 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.syntax.either.*
-import com.digitalasset.canton.data.{FullUnassignmentTree, Offset}
+import com.digitalasset.canton.data.UnassignmentData.ReassignmentGlobalOffset
+import com.digitalasset.canton.data.{Offset, UnassignmentData}
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 
@@ -35,7 +35,7 @@ object IncompleteReassignmentData {
 
   final case class InternalIncompleteReassignmentData(
       reassignmentId: ReassignmentId,
-      unassignmentRequest: Option[FullUnassignmentTree],
+      unassignmentData: Option[UnassignmentData],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       contracts: Seq[ContractInstance],
   ) {
@@ -51,7 +51,7 @@ object IncompleteReassignmentData {
         .map(
           IncompleteReassignmentData(
             reassignmentId,
-            unassignmentRequest.map(_.reassigningParticipants),
+            unassignmentData.map(_.reassigningParticipants),
             _,
             queryOffset,
           )
@@ -60,7 +60,7 @@ object IncompleteReassignmentData {
 
   private def create(
       reassignmentId: ReassignmentId,
-      unassignmentRequest: Option[FullUnassignmentTree],
+      unassignmentData: Option[UnassignmentData],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
   ): Either[String, IncompleteReassignmentData] = {
@@ -74,7 +74,7 @@ object IncompleteReassignmentData {
     reassignmentEventGlobalOffsetE.map { reassignmentEventGlobalOffset =>
       IncompleteReassignmentData(
         reassignmentId,
-        unassignmentRequest.map(_.reassigningParticipants),
+        unassignmentData.map(_.reassigningParticipants),
         reassignmentEventGlobalOffset,
         queryOffset,
       )
@@ -83,13 +83,13 @@ object IncompleteReassignmentData {
 
   def tryCreate(
       reassignmentId: ReassignmentId,
-      unassignmentRequest: Option[FullUnassignmentTree],
+      unassignmentData: Option[UnassignmentData],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       queryOffset: Offset,
   ): IncompleteReassignmentData =
     create(
       reassignmentId,
-      unassignmentRequest,
+      unassignmentData,
       reassignmentGlobalOffset,
       queryOffset,
     )

@@ -230,7 +230,7 @@ create table par_reassignments (
 
     reassignment_id varchar not null,
 
-    unassignment_request binary large object,
+    unassignment_data binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
 
@@ -793,7 +793,7 @@ create table ord_pbft_messages_in_progress(
     epoch_number bigint not null,
 
     -- view number
-    view_number smallint not null,
+    view_number bigint not null,
 
     -- pbft message for the block
     message binary large object not null,
@@ -869,7 +869,7 @@ create table ord_leader_selection_state (
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
   address varchar not null,
-  port smallint not null,
+  port integer not null,
   transport_security bool not null,
   custom_server_trust_certificates binary large object null, -- PEM string
   client_certificate_chain binary large object null, -- PEM string

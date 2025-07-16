@@ -7,7 +7,7 @@ import better.files.File
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{PemFile, PemString, TlsClientConfig, TlsServerConfig}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
   TlsP2PEndpoint,

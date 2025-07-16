@@ -32,7 +32,7 @@ class SequencerApiRateLimitingIntegrationTest
           _.focus(_.parameters.sequencerApiLimits).replace(
             Map(
               com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_DOWNLOAD_TOPOLOGY_STATE_FOR_INIT.getFullMethodName -> NonNegativeInt.one,
-              com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_SUBSCRIBE_V2.getFullMethodName -> NonNegativeInt.maxValue,
+              com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.METHOD_SUBSCRIBE.getFullMethodName -> NonNegativeInt.maxValue,
             )
           )
         )

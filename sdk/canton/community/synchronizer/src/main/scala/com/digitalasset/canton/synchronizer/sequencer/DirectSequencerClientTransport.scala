@@ -33,7 +33,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequestV2,
+  SubscriptionRequest,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -109,7 +109,7 @@ class DirectSequencerClientTransport(
       }
       .leftMap(_.toString)
 
-  override def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequest, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
 
@@ -124,7 +124,7 @@ class DirectSequencerClientTransport(
     {
       val subscriptionET =
         subscriptionFactory
-          .createV2(
+          .create(
             request.timestamp,
             request.member,
             {
@@ -178,11 +178,11 @@ class DirectSequencerClientTransport(
 
   override type SubscriptionError = DirectSequencerClientTransport.SubscriptionError
 
-  override def subscribe(request: SubscriptionRequestV2)(implicit
+  override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = {
     val sourceF = sequencer
-      .readV2(request.member, request.timestamp)
+      .read(request.member, request.timestamp)
       .value
       .unwrap
       .map {

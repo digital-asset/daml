@@ -130,7 +130,7 @@ class SequencerReader(
   private val psid = syncCryptoApi.psid
   private val protocolVersion: ProtocolVersion = psid.protocolVersion
 
-  def readV2(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
+  def read(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     synchronizeWithClosing(functionFullName)(for {

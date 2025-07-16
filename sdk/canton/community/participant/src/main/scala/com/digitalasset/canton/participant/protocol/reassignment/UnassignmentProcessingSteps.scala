@@ -602,11 +602,7 @@ private[reassignment] class UnassignmentProcessingSteps(
         case (_: Verdict.Approve, _) =>
           val commitSet = unassignmentValidationResult.commitSet
           val commitSetFO = Some(FutureUnlessShutdown.pure(commitSet))
-          val unassignmentData = UnassignmentData(
-            reassignmentId = unassignmentValidationResult.reassignmentId,
-            unassignmentRequest = unassignmentValidationResult.fullTree,
-            unassignmentTs = unassignmentValidationResult.unassignmentTs,
-          )
+          val unassignmentData = unassignmentValidationResult.unassignmentData
           for {
             _ <- ifThenET(isReassigningParticipant) {
               reassignmentCoordination
@@ -663,7 +659,7 @@ private[reassignment] class UnassignmentProcessingSteps(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
     val targetSynchronizer = pendingRequestData.unassignmentValidationResult.targetSynchronizer
-    val t0 = pendingRequestData.unassignmentValidationResult.targetTimeProof.timestamp
+    val t0 = pendingRequestData.unassignmentValidationResult.targetTimestamp
 
     for {
       targetStaticSynchronizerParameters <- reassignmentCoordination

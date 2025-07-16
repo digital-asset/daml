@@ -7,12 +7,11 @@ import cats.data.{Chain, EitherT}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, UnassignmentData}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentData,
   IncompleteReassignmentData,
-  UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.memory.ReassignmentCacheTest.HookReassignmentStore
@@ -30,12 +29,11 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
-class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutorService {
+final class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutorService {
   import ReassignmentStoreTest.*
 
   private val reassignmentData =
     mkUnassignmentDataForSynchronizer(
-      reassignment10,
       mediator1,
       sourceSynchronizerId = sourceSynchronizer1,
       targetSynchronizerId = targetSynchronizerId,
@@ -51,15 +49,15 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
 
     for {
       _ <- valueOrFail(store.addUnassignmentData(reassignmentData).failOnShutdown)("add failed")
-      _ <- valueOrFail(store.lookup(reassignment10).failOnShutdown)(
+      _ <- valueOrFail(store.lookup(reassignmentData.reassignmentId).failOnShutdown)(
         "lookup did not find reassignment"
       )
       lookup11 <- cache.lookup(reassignment11).value.failOnShutdown
-      _ <- store.deleteReassignment(reassignment10).failOnShutdown
-      deleted <- cache.lookup(reassignment10).value.failOnShutdown
+      _ <- store.deleteReassignment(reassignmentData.reassignmentId).failOnShutdown
+      deleted <- cache.lookup(reassignmentData.reassignmentId).value.failOnShutdown
     } yield {
       lookup11 shouldBe Left(UnknownReassignmentId(reassignment11))
-      deleted shouldBe Left(UnknownReassignmentId(reassignment10))
+      deleted shouldBe Left(UnknownReassignmentId(reassignmentData.reassignmentId))
     }
   }
 
@@ -71,18 +69,21 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       for {
         _ <- valueOrFail(store.addUnassignmentData(reassignmentData))("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == reassignment10)
+          assert(reassignmentId == reassignmentData.reassignmentId)
           CheckedT(
-            cache.lookup(reassignment10).value.failOnShutdown.map {
-              case Left(ReassignmentCompleted(`reassignment10`, toc)) => Checked.result(())
+            cache.lookup(reassignmentData.reassignmentId).value.failOnShutdown.map {
+              case Left(ReassignmentCompleted(id, _toc)) if id == reassignmentData.reassignmentId =>
+                Checked.result(())
               case result => fail(s"Invalid lookup result $result")
             }
           )
         }
-        _ <- valueOrFail(cache.completeReassignment(reassignment10, ts))("first completion failed")
-        storeLookup <- store.lookup(reassignment10).value
+        _ <- valueOrFail(cache.completeReassignment(reassignmentData.reassignmentId, ts))(
+          "first completion failed"
+        )
+        storeLookup <- store.lookup(reassignmentData.reassignmentId).value
       } yield assert(
-        storeLookup == Left(ReassignmentCompleted(reassignment10, ts)),
+        storeLookup == Left(ReassignmentCompleted(reassignmentData.reassignmentId, ts)),
         s"reassignment is gone from store when completeReassignment finished",
       )
     }.failOnShutdown
@@ -92,9 +93,12 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val cache = new ReassignmentCache(store, futureSupervisor, timeouts, loggerFactory)
 
       for {
-        missing <- cache.completeReassignment(reassignment10, ts).value.failOnShutdown
+        missing <- cache
+          .completeReassignment(reassignmentData.reassignmentId, ts)
+          .value
+          .failOnShutdown
       } yield {
-        assert(missing == Checked.continue(UnknownReassignmentId(reassignment10)))
+        assert(missing == Checked.continue(UnknownReassignmentId(reassignmentData.reassignmentId)))
       }
     }
 
@@ -110,24 +114,31 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       for {
         _ <- valueOrFail(store.addUnassignmentData(reassignmentData))("add failed").failOnShutdown
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == reassignment10)
+          assert(reassignmentId == reassignmentData.reassignmentId)
           promise.completeWith(
-            cache.completeReassignment(reassignment10, ts2).value.failOnShutdown
+            cache.completeReassignment(reassignmentData.reassignmentId, ts2).value.failOnShutdown
           )
           CheckedT.resultT(())
         }
-        _ <- valueOrFail(cache.completeReassignment(reassignment10, ts))(
+        _ <- valueOrFail(cache.completeReassignment(reassignmentData.reassignmentId, ts))(
           "first completion failed"
         ).failOnShutdown
-        complete3 <- cache.completeReassignment(reassignment10, ts3).value.failOnShutdown
+        complete3 <- cache
+          .completeReassignment(reassignmentData.reassignmentId, ts3)
+          .value
+          .failOnShutdown
         complete2 <- promise.future
       } yield {
         assert(
-          complete2 == Checked.continue(ReassignmentAlreadyCompleted(reassignment10, ts2)),
+          complete2 == Checked.continue(
+            ReassignmentAlreadyCompleted(reassignmentData.reassignmentId, ts2)
+          ),
           s"second completion fails",
         )
         assert(
-          complete3 == Checked.continue(ReassignmentAlreadyCompleted(reassignment10, ts3)),
+          complete3 == Checked.continue(
+            ReassignmentAlreadyCompleted(reassignmentData.reassignmentId, ts3)
+          ),
           "third completion refers back to first",
         )
       }
@@ -143,21 +154,25 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
 
       for {
         _ <- valueOrFail(store.addUnassignmentData(reassignmentData))("add failed")
-        _ <- valueOrFail(store.completeReassignment(reassignment10, ts2))(
+        _ <- valueOrFail(store.completeReassignment(reassignmentData.reassignmentId, ts2))(
           "first completion failed"
         )
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == reassignment10)
-          promise.completeWith(cache.completeReassignment(reassignment10, ts).value.failOnShutdown)
+          assert(reassignmentId == reassignmentData.reassignmentId)
+          promise.completeWith(
+            cache.completeReassignment(reassignmentData.reassignmentId, ts).value.failOnShutdown
+          )
           CheckedT.resultT(())
         }
-        complete1 <- cache.completeReassignment(reassignment10, ts).value
+        complete1 <- cache.completeReassignment(reassignmentData.reassignmentId, ts).value
         complete2 <- FutureUnlessShutdown.outcomeF(promise.future)
       } yield {
         complete1.nonaborts.toList.toSet shouldBe Set(
-          ReassignmentAlreadyCompleted(reassignment10, ts)
+          ReassignmentAlreadyCompleted(reassignmentData.reassignmentId, ts)
         )
-        complete2 shouldBe Checked.continue(ReassignmentAlreadyCompleted(reassignment10, ts))
+        complete2 shouldBe Checked.continue(
+          ReassignmentAlreadyCompleted(reassignmentData.reassignmentId, ts)
+        )
       }
     }.failOnShutdown
 
@@ -171,17 +186,17 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       for {
         _ <- valueOrFail(store.addUnassignmentData(reassignmentData))("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == reassignment10)
+          assert(reassignmentId == reassignmentData.reassignmentId)
           val f = for {
-            _ <- valueOrFail(cache.completeReassignment(reassignment10, ts))(
+            _ <- valueOrFail(cache.completeReassignment(reassignmentData.reassignmentId, ts))(
               "second completion should be idempotent"
             )
-            lookup <- store.lookup(reassignment10).value
-          } yield lookup shouldBe Left(ReassignmentCompleted(reassignment10, ts))
+            lookup <- store.lookup(reassignmentData.reassignmentId).value
+          } yield lookup shouldBe Left(ReassignmentCompleted(reassignmentData.reassignmentId, ts))
           promise.completeWith(f.failOnShutdown)
           CheckedT.resultT(())
         }
-        _ <- valueOrFail(cache.completeReassignment(reassignment10, ts))(
+        _ <- valueOrFail(cache.completeReassignment(reassignmentData.reassignmentId, ts))(
           "first completion succeeds"
         )
         _ <- FutureUnlessShutdown.outcomeF(promise.future)
@@ -197,16 +212,26 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
 
       for {
         _ <- valueOrFail(store.addUnassignmentData(reassignmentData))("add failed")
-        _ <- valueOrFail(cache.completeReassignment(reassignment10, laterTimestampedCompletion))(
+        _ <- valueOrFail(
+          cache.completeReassignment(reassignmentData.reassignmentId, laterTimestampedCompletion)
+        )(
           "first completion fails"
         )
-        complete <- cache.completeReassignment(reassignment10, earlierTimestampedCompletion).value
-        lookup <- leftOrFail(store.lookup(reassignment10))("lookup succeeded")
+        complete <- cache
+          .completeReassignment(reassignmentData.reassignmentId, earlierTimestampedCompletion)
+          .value
+        lookup <- leftOrFail(store.lookup(reassignmentData.reassignmentId))("lookup succeeded")
       } yield {
         complete.nonaborts shouldBe Chain(
-          ReassignmentAlreadyCompleted(reassignment10, earlierTimestampedCompletion)
+          ReassignmentAlreadyCompleted(
+            reassignmentData.reassignmentId,
+            earlierTimestampedCompletion,
+          )
         )
-        lookup shouldBe ReassignmentCompleted(reassignment10, laterTimestampedCompletion)
+        lookup shouldBe ReassignmentCompleted(
+          reassignmentData.reassignmentId,
+          laterTimestampedCompletion,
+        )
       }
     }.failOnShutdown
 
@@ -229,8 +254,14 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
         )
       ] =
         for {
-          complete <- cache.completeReassignment(reassignment10, ts).value.failOnShutdown
-          lookup <- (store.lookup(reassignment10)(traceContext)).value.failOnShutdown
+          complete <- cache
+            .completeReassignment(reassignmentData.reassignmentId, ts)
+            .value
+            .failOnShutdown
+          lookup <- (store
+            .lookup(reassignmentData.reassignmentId)(traceContext))
+            .value
+            .failOnShutdown
         } yield {
           complete -> lookup
         }

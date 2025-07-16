@@ -7,21 +7,18 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.*
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.Future
-
-class GrpcBftOrderingService(
-    tryCreateServerEndpoint: StreamObserver[BftOrderingServiceReceiveResponse] => StreamObserver[
+class P2PGrpcBftOrderingService(
+    tryCreateServerSidePeerReceiver: StreamObserver[
+      BftOrderingServiceReceiveResponse
+    ] => StreamObserver[
       BftOrderingServiceReceiveRequest
     ],
     override val loggerFactory: NamedLoggerFactory,
 ) extends BftOrderingServiceGrpc.BftOrderingService
     with NamedLogging {
 
-  override def ping(request: PingRequest): Future[PingResponse] =
-    Future.successful(PingResponse.defaultInstance)
-
   override def receive(
-      clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]
+      peerSender: StreamObserver[BftOrderingServiceReceiveResponse]
   ): StreamObserver[BftOrderingServiceReceiveRequest] =
-    tryCreateServerEndpoint(clientEndpoint)
+    tryCreateServerSidePeerReceiver(peerSender)
 }

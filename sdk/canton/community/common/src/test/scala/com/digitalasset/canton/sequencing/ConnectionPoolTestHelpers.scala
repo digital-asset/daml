@@ -501,8 +501,8 @@ private object ConnectionPoolTestHelpers {
           request: SequencerService.SendAsyncRequest
       ): Future[SequencerService.SendAsyncResponse] = ???
 
-      override def subscribeV2(
-          request: SequencerService.SubscriptionRequestV2,
+      override def subscribe(
+          request: SequencerService.SubscriptionRequest,
           responseObserver: StreamObserver[SequencerService.SubscriptionResponse],
       ): Unit = ???
 

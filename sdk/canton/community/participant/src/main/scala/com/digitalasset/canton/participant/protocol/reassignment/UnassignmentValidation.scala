@@ -7,7 +7,7 @@ import cats.data.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
+import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef, UnassignmentData}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
@@ -83,11 +83,10 @@ private[reassignment] class UnassignmentValidation(
       }
 
     } yield UnassignmentValidationResult(
-      fullTree = fullTree,
-      reassignmentId = parsedRequest.reassignmentId,
+      unassignmentData = UnassignmentData(fullTree, parsedRequest.requestTimestamp),
+      rootHash = parsedRequest.rootHash,
       hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
       assignmentExclusivity = assignmentExclusivity,
-      unassignmentTs = parsedRequest.requestTimestamp,
       commonValidationResult = commonValidationResult,
       reassigningParticipantValidationResult = reassigningParticipantValidationResult,
     )

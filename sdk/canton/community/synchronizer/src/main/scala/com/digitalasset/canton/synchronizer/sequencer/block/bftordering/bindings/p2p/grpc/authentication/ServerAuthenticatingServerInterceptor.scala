@@ -21,7 +21,7 @@ import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationTokenProvider,
 }
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.ChannelTokenFetcher
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerFilter.ServerAuthenticatingSimpleForwardingServerCall
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerInterceptor.ServerAuthenticatingSimpleForwardingServerCall
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -32,7 +32,7 @@ import java.util.concurrent.Executor
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-private[bftordering] class ServerAuthenticatingServerFilter(
+private[bftordering] class ServerAuthenticatingServerInterceptor(
     synchronizerId: PhysicalSynchronizerId,
     member: Member,
     crypto: SynchronizerCrypto,
@@ -95,7 +95,7 @@ private[bftordering] class ServerAuthenticatingServerFilter(
     Seq(SyncCloseable("tokenProvider.close()", tokenProvider.close()))
 }
 
-object ServerAuthenticatingServerFilter {
+object ServerAuthenticatingServerInterceptor {
 
   private class ServerAuthenticatingSimpleForwardingServerCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
@@ -123,7 +123,8 @@ object ServerAuthenticatingServerFilter {
             tokenFetcher.apply
               .fold(
                 error => logger.warn(s"Failed to fetch P2P server authentication token: $error"),
-                tokenWithExpiry =>
+                { tokenWithExpiry =>
+                  logger.debug("Adding P2P server authentication token to response headers")
                   SequencerClientTokenAuthentication
                     .authenticationMetadata(
                       synchronizerId,
@@ -131,7 +132,8 @@ object ServerAuthenticatingServerFilter {
                       tokenWithExpiry.token,
                       into = responseHeaders,
                     )
-                    .discard,
+                    .discard
+                },
               )
           ) match {
           case UnlessShutdown.AbortedDueToShutdown =>

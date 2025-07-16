@@ -248,7 +248,6 @@ final class GeneratorsProtocol(
       overrideContractId: Option[LfContractId] = None,
   ): Arbitrary[ContractInstance] = Arbitrary(
     for {
-      templateId <- Arbitrary.arbitrary[LfTemplateId]
       metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
       createdAt <- Arbitrary.arbitrary[CreationTime.CreatedAt]
     } yield ExampleContractFactory.build(
@@ -366,5 +365,4 @@ final class GeneratorsProtocol(
         key <- Arbitrary.arbitrary[SymmetricKey]
       } yield ProtocolSymmetricKey(key, protocolVersion)
     )
-
 }

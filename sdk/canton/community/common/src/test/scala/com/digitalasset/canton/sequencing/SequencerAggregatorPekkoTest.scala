@@ -172,9 +172,6 @@ class SequencerAggregatorPekkoTest
         _.warningMessage should include(
           s"Sequencer subscription for $sequencerAlice failed with $UnretryableError"
         ),
-        _.errorMessage should include(
-          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
-        ),
       )
       killSwitch.shutdown()
       sink.expectComplete()
@@ -211,9 +208,6 @@ class SequencerAggregatorPekkoTest
           (handle, sink)
         },
         _.errorMessage should include(s"Sequencer subscription for $sequencerAlice failed"),
-        _.errorMessage should include(
-          s"Sequencer subscription for synchronizer $synchronizerId is now stuck. Needs operator intervention to reconfigure the sequencer connections."
-        ),
       )
       killSwitch.shutdown()
       sink.expectComplete()

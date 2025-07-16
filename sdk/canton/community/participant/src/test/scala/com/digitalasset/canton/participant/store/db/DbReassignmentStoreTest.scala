@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.BatchingConfig
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest
 import com.digitalasset.canton.protocol.ExampleContractFactory
@@ -36,7 +35,6 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
         storage,
         ReassignmentTag.Target(synchronizerId),
         indexStore,
-        new SymbolicPureCrypto,
         futureSupervisor,
         exitOnFatalFailures = true,
         BatchingConfig(),

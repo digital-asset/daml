@@ -187,7 +187,7 @@ class DbSequencerStateManagerStore(
 }
 
 object DbSequencerStateManagerStore {
-  private final case class AggregatedSignaturesOfSender(signaturesByEnvelope: Seq[Seq[Signature]])(
+  final case class AggregatedSignaturesOfSender(signaturesByEnvelope: Seq[Seq[Signature]])(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         AggregatedSignaturesOfSender.type
       ]
@@ -203,7 +203,7 @@ object DbSequencerStateManagerStore {
       )
   }
 
-  private object AggregatedSignaturesOfSender
+  object AggregatedSignaturesOfSender
       extends VersioningCompanion[AggregatedSignaturesOfSender]
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"

@@ -826,7 +826,6 @@ final class UnassignmentProcessingStepsTest
 
   "get commit set and contracts to be stored and event" should {
     val state = mkState
-    val reassignmentId = ReassignmentId.tryCreate("00")
     val rootHash = TestHash.dummyRootHash
     val reassignmentResult =
       ConfirmationResultMessage.create(
@@ -875,8 +874,8 @@ final class UnassignmentProcessingStepsTest
     val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
     val unassignmentValidationResult = UnassignmentValidationResult(
-      fullTree = fullUnassignmentTree,
-      reassignmentId = reassignmentId,
+      unassignmentData = UnassignmentData(fullUnassignmentTree, CantonTimestamp.Epoch),
+      rootHash = fullUnassignmentTree.rootHash,
       assignmentExclusivity = Some(Target(assignmentExclusivity)),
       hostedConfirmingReassigningParties = Set(party1),
       commonValidationResult = CommonValidationResult(
@@ -886,7 +885,6 @@ final class UnassignmentProcessingStepsTest
         submitterCheckResult = None,
       ),
       reassigningParticipantValidationResult = ReassigningParticipantValidationResult(errors = Nil),
-      unassignmentTs = CantonTimestamp.Epoch,
     )
 
     val pendingUnassignment = PendingUnassignment(

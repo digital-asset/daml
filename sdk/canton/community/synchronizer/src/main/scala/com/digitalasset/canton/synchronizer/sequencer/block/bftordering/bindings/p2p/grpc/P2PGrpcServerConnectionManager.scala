@@ -7,10 +7,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
-  completeHandle,
-  mutex,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.completeGrpcStreamObserver
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.mutex
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.stub.StreamObserver
@@ -26,24 +24,24 @@ final class P2PGrpcServerConnectionManager(
 
   import TraceContext.Implicits.Empty.emptyTraceContext
 
-  private val clientHandles = mutable.Set[StreamObserver[BftOrderingServiceReceiveResponse]]()
+  private val peerSenders = mutable.Set[StreamObserver[BftOrderingServiceReceiveResponse]]()
 
   def startServer(): Unit = maybeServerUS.foreach(_.foreach(_.server.start().discard)).discard
 
   // Called by the gRPC server when receiving a connection
-  def addClientHandle(clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]): Unit =
+  def addPeerSender(peerSender: StreamObserver[BftOrderingServiceReceiveResponse]): Unit =
     mutex(this) {
-      clientHandles.add(clientEndpoint).discard
+      peerSenders.add(peerSender).discard
     }
 
   // Called by the gRPC server endpoint when receiving an error or a completion from a client
-  def cleanupClientHandle(
-      clientEndpoint: StreamObserver[BftOrderingServiceReceiveResponse]
+  def cleanupPeerSender(
+      peerSender: StreamObserver[BftOrderingServiceReceiveResponse]
   ): Unit = {
     logger.debug("Completing and removing client endpoint")
-    completeHandle(clientEndpoint)
+    completeGrpcStreamObserver(peerSender)
     mutex(this) {
-      clientHandles.remove(clientEndpoint).discard
+      peerSenders.remove(peerSender).discard
     }
   }
 
@@ -63,7 +61,7 @@ final class P2PGrpcServerConnectionManager(
 
   override def onClosed(): Unit = {
     logger.debug("Closing P2P networking (server role)")
-    clientHandles.foreach(cleanupClientHandle)
+    peerSenders.foreach(cleanupPeerSender)
     shutdownGrpcServers()
     logger.debug("Closed P2P networking (server role)")
   }

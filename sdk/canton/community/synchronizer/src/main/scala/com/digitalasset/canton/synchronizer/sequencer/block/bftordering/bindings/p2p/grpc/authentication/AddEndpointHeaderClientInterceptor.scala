@@ -9,7 +9,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   endpointFromProto,
   endpointToProto,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import io.grpc.Metadata.BinaryMarshaller
 import io.grpc.{
@@ -23,7 +23,7 @@ import io.grpc.{
 }
 
 private[p2p] class AddEndpointHeaderClientInterceptor(
-    serverEndpoint: P2PEndpoint,
+    peerEndpoint: P2PEndpoint,
     override val loggerFactory: NamedLoggerFactory,
 ) extends ClientInterceptor
     with NamedLogging {
@@ -40,8 +40,8 @@ private[p2p] class AddEndpointHeaderClientInterceptor(
     ) {
       override def start(responseListener: ClientCall.Listener[RespT], headers: Metadata): Unit = {
         implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-        logger.debug(s"Adding server endpoint header to outgoing call: $serverEndpoint")
-        headers.put(ENDPOINT_METADATA_KEY, serverEndpoint)
+        logger.debug(s"Adding server endpoint header to outgoing call: $peerEndpoint")
+        headers.put(ENDPOINT_METADATA_KEY, peerEndpoint)
         super.start(responseListener, headers)
       }
     }

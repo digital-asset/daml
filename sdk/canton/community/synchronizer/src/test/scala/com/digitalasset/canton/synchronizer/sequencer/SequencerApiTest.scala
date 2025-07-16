@@ -963,7 +963,7 @@ abstract class SequencerApiTest
             .sendAsyncSigned(sign(request))
             .leftOrFail("Send successful, expected error")
           subscribeError <- sequencer
-            .readV2(sender, timestampInclusive = None)
+            .read(sender, timestampInclusive = None)
             .leftOrFail("Read successful, expected error")
         } yield {
           sendError.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
@@ -999,7 +999,7 @@ trait SequencerApiTestUtils
       .parTraverseFilter { member =>
         for {
           source <- valueOrFail(
-            sequencer.readV2(member, startTimestamp)
+            sequencer.read(member, startTimestamp)
           )(
             s"Read for $member"
           )

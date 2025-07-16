@@ -153,7 +153,7 @@ private[reassignment] class AssignmentProcessingSteps(
           s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
         )
 
-      stakeholders = unassignmentData.unassignmentRequest.stakeholders
+      stakeholders = unassignmentData.stakeholders
       _ <- ReassignmentValidation
         .checkSubmitter(
           ReassignmentRef(reassignmentId),
@@ -173,13 +173,13 @@ private[reassignment] class AssignmentProcessingSteps(
           seed,
           reassignmentId,
           submitterMetadata,
-          unassignmentData.contracts,
+          unassignmentData.contractsBatch,
           sourceSynchronizer,
           targetSynchronizer,
           mediator,
           assignmentUuid,
           protocolVersion,
-          unassignmentData.unassignmentRequest.reassigningParticipants,
+          unassignmentData.reassigningParticipants,
         )
       )
 
@@ -192,7 +192,7 @@ private[reassignment] class AssignmentProcessingSteps(
         staticSynchronizerParameters.map(_.protocolVersion),
       )
       recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq)
-      contractIds = unassignmentData.contracts.contractIds.toSeq
+      contractIds = unassignmentData.contractsBatch.contractIds.toSeq
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)

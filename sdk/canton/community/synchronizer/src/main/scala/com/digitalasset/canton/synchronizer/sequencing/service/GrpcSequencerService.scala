@@ -428,18 +428,18 @@ class GrpcSequencerService(
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
     )
 
-  override def subscribeV2(
-      request: v30.SubscriptionRequestV2,
+  override def subscribe(
+      request: v30.SubscriptionRequest,
       responseObserver: StreamObserver[v30.SubscriptionResponse],
   ): Unit =
-    subscribeInternalV2[v30.SubscriptionResponse](
+    subscribeInternal[v30.SubscriptionResponse](
       request,
       responseObserver,
       toVersionSubscriptionResponseV0,
     )
 
-  private def subscribeInternalV2[T](
-      request: v30.SubscriptionRequestV2,
+  private def subscribeInternal[T](
+      request: v30.SubscriptionRequest,
       responseObserver: StreamObserver[T],
       toSubscriptionResponse: SequencedSerializedEvent => T,
   ): Unit = {
@@ -447,11 +447,11 @@ class GrpcSequencerService(
     withServerCallStreamObserver(responseObserver) { observer =>
       val resultE = for {
         subscriptionRequest <-
-          SubscriptionRequestV2
+          SubscriptionRequest
             .fromProtoV30(request)
             .left
             .map(err => invalidRequest(err.toString))
-        SubscriptionRequestV2(member, timestamp) = subscriptionRequest
+        SubscriptionRequest(member, timestamp) = subscriptionRequest
         _ = logger.debug(
           s"Received subscription request from $member for timestamp (inclusive) $timestamp"
         )
@@ -577,7 +577,7 @@ class GrpcSequencerService(
 
     logger.info(s"$member subscribes from timestamp=$timestamp")
     val subscription = new GrpcManagedSubscription(
-      handler => directSequencerSubscriptionFactory.createV2(timestamp, member, handler),
+      handler => directSequencerSubscriptionFactory.create(timestamp, member, handler),
       observer,
       member,
       expireAt,
