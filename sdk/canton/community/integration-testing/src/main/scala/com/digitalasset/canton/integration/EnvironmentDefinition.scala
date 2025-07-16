@@ -499,6 +499,13 @@ object EnvironmentDefinition extends LazyLogging {
       numMediators = 1,
     )
 
+  lazy val P2S4M1_Config: EnvironmentDefinition =
+    buildBaseEnvironmentDefinition(
+      numParticipants = 2,
+      numSequencers = 4,
+      numMediators = 1,
+    )
+
   lazy val P2S2M2_Config: EnvironmentDefinition =
     buildBaseEnvironmentDefinition(
       numParticipants = 2,
@@ -527,6 +534,14 @@ object EnvironmentDefinition extends LazyLogging {
     */
   lazy val P2S2M1_Manual: EnvironmentDefinition =
     P2S2M1_Config.withManualStart
+
+  /**   - 2 participants
+    *   - 4 sequencers
+    *   - 1 mediators
+    *   - no initialized synchronizer
+    */
+  lazy val P2S4M1_Manual: EnvironmentDefinition =
+    P2S4M1_Config.withManualStart
 
   /**   - 2 participants '''not''' connected to the synchronizer
     *   - 1 synchronizer with 2 sequencers and 2 mediators

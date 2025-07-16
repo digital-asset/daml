@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.{
   CantonTimestamp,
   ContractsReassignmentBatch,
   ReassignmentSubmitterMetadata,
+  UnassignmentData,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

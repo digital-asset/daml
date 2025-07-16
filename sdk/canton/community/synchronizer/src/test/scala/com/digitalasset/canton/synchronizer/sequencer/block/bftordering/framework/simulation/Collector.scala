@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.PlainTextP2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.PlainTextP2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv

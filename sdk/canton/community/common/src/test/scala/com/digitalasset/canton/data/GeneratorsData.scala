@@ -644,6 +644,26 @@ final class GeneratorsData(
     )
   )
 
+  implicit val unassignmentDataArb: Arbitrary[UnassignmentData] = Arbitrary(
+    for {
+      submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
+      contracts <- Arbitrary.arbitrary[ContractsReassignmentBatch]
+      reassigningParticipants <- boundedSetGen[ParticipantId]
+      sourceSynchronizer <- Arbitrary.arbitrary[PhysicalSynchronizerId].map(Source(_))
+      targetSynchronizer <- Arbitrary.arbitrary[PhysicalSynchronizerId].map(Target(_))
+      targetTimestamp <- Arbitrary.arbitrary[CantonTimestamp]
+      unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
+    } yield UnassignmentData(
+      submitterMetadata,
+      contracts,
+      reassigningParticipants,
+      sourceSynchronizer,
+      targetSynchronizer,
+      targetTimestamp,
+      unassignmentTs,
+    )
+  )
+
   private val fullyBlindedTransactionViewWithEmptyTransactionSubviewArb
       : Arbitrary[TransactionView] = Arbitrary(
     for {

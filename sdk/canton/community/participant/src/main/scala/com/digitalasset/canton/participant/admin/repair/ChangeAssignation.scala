@@ -11,12 +11,11 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch}
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, UnassignmentData}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changes
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.protocol.*
@@ -57,7 +56,7 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val contractIdCounters = unassignmentData.payload.contracts.contractIdCounters.toSeq
+    val contractIdCounters = unassignmentData.payload.contractsBatch.contractIdCounters.toSeq
     val contractIds = contractIdCounters.map(_._1)
 
     for {
@@ -82,7 +81,7 @@ private final class ChangeAssignation(
         .toEitherT
 
       _ <- persistAssignments(
-        unassignmentData.payload.contracts.contractIdCounters,
+        unassignmentData.payload.contractsBatch.contractIdCounters,
         unassignmentData.targetTimeOfRepair,
       ).toEitherT
 

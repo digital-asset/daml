@@ -9,6 +9,7 @@ import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "com/digitalasset/canton/protocol/v30/common_stable.proto";
 import "com/digitalasset/canton/protocol/v30/merkle.proto";
 import "com/digitalasset/canton/time/v30/time_proof.proto";
+import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
 // Messages sent by a participant as part of the reassignment protocol
@@ -88,6 +89,18 @@ message UnassignmentView {
   string target_physical_synchronizer_id = 2;
   com.digitalasset.canton.time.v30.TimeProof target_time_proof = 3;
   repeated ActiveContract contracts = 4;
+}
+
+message UnassignmentData {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";
+
+  com.digitalasset.canton.protocol.v30.ReassignmentSubmitterMetadata submitter_metadata = 1;
+  repeated com.digitalasset.canton.protocol.v30.ActiveContract contracts = 2;
+  repeated string reassigning_participant_uids = 3;
+  string source_physical_synchronizer_id = 4;
+  string target_physical_synchronizer_id = 5;
+  google.protobuf.Timestamp target_timestamp = 6;
+  google.protobuf.Timestamp unassignment_ts = 7;
 }
 
 message AssignmentView {

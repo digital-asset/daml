@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
-import com.digitalasset.canton.sequencing.protocol.SubscriptionRequestV2
+import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.{RetrySourcePolicy, WithKillSwitch}
@@ -313,7 +313,7 @@ object SequencerSubscriptionFactoryPekko {
       override def create(startingTimestamp: Option[CantonTimestamp])(implicit
           traceContext: TraceContext
       ): SequencerSubscriptionPekko[E] = {
-        val request = SubscriptionRequestV2(member, startingTimestamp, protocolVersion)
+        val request = SubscriptionRequest(member, startingTimestamp, protocolVersion)
         transport.subscribe(request)
       }
 

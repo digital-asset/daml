@@ -136,11 +136,11 @@ final class GeneratorsProtocol(
     } yield TopologyStateForInitRequest(member, protocolVersion)
   )
 
-  implicit val subscriptionRequestV2Arb: Arbitrary[SubscriptionRequestV2] = Arbitrary(
+  implicit val subscriptionRequestV2Arb: Arbitrary[SubscriptionRequest] = Arbitrary(
     for {
       member <- Arbitrary.arbitrary[Member]
       timestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
-    } yield SubscriptionRequestV2.apply(member, timestamp, protocolVersion)
+    } yield SubscriptionRequest.apply(member, timestamp, protocolVersion)
   )
 
   implicit val sequencerChannelMetadataArb: Arbitrary[SequencerChannelMetadata] =

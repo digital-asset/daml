@@ -683,10 +683,10 @@ class ConnectedSynchronizer(
                 Target(psid),
                 Target(staticSynchronizerParameters),
                 reassignmentCoordination,
-                data.contracts.stakeholders.all,
-                data.unassignmentRequest.submitterMetadata,
+                data.contractsBatch.stakeholders.all,
+                data.submitterMetadata,
                 participantId,
-                data.unassignmentRequest.targetTimeProof.timestamp,
+                data.targetTimestamp,
               )
             )
             eitherF.leftMap(err => data.reassignmentId -> err).value

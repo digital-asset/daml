@@ -44,7 +44,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.concurrent.Future
 
-class AssignmentValidationTest
+final class AssignmentValidationTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
@@ -172,8 +172,7 @@ class AssignmentValidationTest
         sourceMediator,
       )(reassigningParticipants = reassigningParticipants)
 
-    val unassignmentData =
-      reassignmentDataHelpers.unassignmentData(reassignmentId, unassignmentRequest)
+    val unassignmentData = reassignmentDataHelpers.unassignmentData(unassignmentRequest)
 
     val assignmentRequest = makeFullAssignmentTree(
       reassignmentId,
@@ -211,7 +210,7 @@ class AssignmentValidationTest
     }
 
     "complain about inconsistent reassignment counters" in {
-      val rightCounters = unassignmentData.contracts.contractIdCounters.toMap
+      val rightCounters = unassignmentData.contractsBatch.contractIdCounters.toMap
       val wrongCounters = rightCounters.view.mapValues(_ + 1).toMap
       val assignmentTreeWrongCounter = makeFullAssignmentTree(
         unassignmentData.reassignmentId,
@@ -231,7 +230,7 @@ class AssignmentValidationTest
       result.isSuccessful.futureValueUS shouldBe false
       result.reassigningParticipantValidationResult.errors should contain(
         InconsistentReassignmentCounters(
-          reassignmentId,
+          assignmentTreeWrongCounter.reassignmentId,
           wrongCounters,
           rightCounters,
         )

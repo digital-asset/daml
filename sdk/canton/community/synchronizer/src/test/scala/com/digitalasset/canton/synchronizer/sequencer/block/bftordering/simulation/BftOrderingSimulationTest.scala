@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }

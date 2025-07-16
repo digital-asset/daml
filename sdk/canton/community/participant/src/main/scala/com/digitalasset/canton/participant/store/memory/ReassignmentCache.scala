@@ -9,7 +9,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, UnassignmentData}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -17,10 +17,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.reassignment.{
-  IncompleteReassignmentData,
-  UnassignmentData,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData
 import com.digitalasset.canton.participant.store.ReassignmentStore.{
   ReassignmentAlreadyCompleted,
   ReassignmentCompleted,

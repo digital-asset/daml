@@ -657,7 +657,7 @@ final class RepairService(
         contractIdsData <- EitherT.fromEither[FutureUnlessShutdown](
           ChangeAssignation.Data
             .from[Seq[(LfContractId, Option[ReassignmentCounter])]](
-              reassignmentData.contracts.contractIds.map(_ -> None).toSeq,
+              reassignmentData.contractsBatch.contractIds.map(_ -> None).toSeq,
               changeAssignationBack,
             )
             .incrementRepairCounter

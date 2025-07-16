@@ -150,7 +150,9 @@ final class AsynchronousReassignmentProtocolIntegrationTest
       val entries =
         reassignmentIds.map(id => reassignmentStore.findReassignmentEntry(id).futureValueUS.value)
       // make sure that Bob's unassignment completed before Alice's one
-      entries.loneElement.unassignmentRequest.map(_.submitter) should contain(bobId.toLf)
+      entries.loneElement.unassignmentData.map(_.submitterMetadata.submitter) should contain(
+        bobId.toLf
+      )
 
     }
     until.trySuccess(())

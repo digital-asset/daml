@@ -417,7 +417,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     // return to caller a subscription that will resolve the unsubscribe promise on close
     when(
       sequencerSubscriptionFactory
-        .createV2(
+        .create(
           any[Option[CantonTimestamp]],
           any[Member],
           any[SequencedEventOrErrorHandler[NotUsed]],

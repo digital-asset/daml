@@ -284,7 +284,7 @@ create or replace view debug.par_reassignments as
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
-    unassignment_request,
+    unassignment_data,
     contracts,
     debug.canton_timestamp(assignment_timestamp) as assignment_timestamp
   from par_reassignments;

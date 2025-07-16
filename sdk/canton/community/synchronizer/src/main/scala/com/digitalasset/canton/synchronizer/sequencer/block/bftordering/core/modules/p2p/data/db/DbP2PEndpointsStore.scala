@@ -10,8 +10,8 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
   PekkoEnv,
   PekkoFutureUnlessShutdown,
@@ -58,7 +58,7 @@ final class DbP2PEndpointsStore(
       }
 
       if (transportSecurity) {
-        GrpcNetworking.TlsP2PEndpoint(
+        P2PGrpcNetworking.TlsP2PEndpoint(
           P2PEndpointConfig(
             address,
             port,
@@ -72,7 +72,7 @@ final class DbP2PEndpointsStore(
           )
         )
       } else {
-        GrpcNetworking.PlainTextP2PEndpoint(address, port)
+        P2PGrpcNetworking.PlainTextP2PEndpoint(address, port)
       }
     }
 
@@ -132,8 +132,8 @@ final class DbP2PEndpointsStore(
     val port = endpoint.port.unwrap
     val (customServerTrustCertificates, clientCertificateChain, clientPrivateKeyFile) =
       endpoint match {
-        case GrpcNetworking.PlainTextP2PEndpoint(_, _) => (None, None, None)
-        case GrpcNetworking.TlsP2PEndpoint(clientConfig) =>
+        case P2PGrpcNetworking.PlainTextP2PEndpoint(_, _) => (None, None, None)
+        case P2PGrpcNetworking.TlsP2PEndpoint(clientConfig) =>
           (
             clientConfig.tlsConfig.flatMap(_.trustCollectionFile).map(_.pemBytes),
             clientConfig.tlsConfig.flatMap(_.clientCert).map(_.certChainFile).map(_.pemBytes),

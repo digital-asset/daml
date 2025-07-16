@@ -13,24 +13,9 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import io.grpc.stub.StreamObserver
 
-import scala.concurrent.blocking
 import scala.util.control.NonFatal
 
-object GrpcNetworking {
-
-  private[grpc] def mutex[T](lock: AnyRef)(action: => T): T =
-    blocking {
-      lock.synchronized {
-        action
-      }
-    }
-
-  private[grpc] def completeHandle(endpoint: StreamObserver[?]): Unit =
-    try {
-      endpoint.onCompleted()
-    } catch {
-      case NonFatal(_) => () // Already completed
-    }
+object P2PGrpcNetworking {
 
   /** The BFT orderer's internal representation of a P2P network endpoint.
     *
@@ -137,11 +122,18 @@ object GrpcNetworking {
   }
 
   private[bftordering] final case class AuthenticationInitialState(
-      psid: PhysicalSynchronizerId,
+      psId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       authenticationServices: AuthenticationServices,
       authTokenConfig: AuthenticationTokenManagerConfig,
       serverToClientAuthenticationEndpoint: Option[P2PEndpoint],
       clock: Clock,
   )
+
+  private[grpc] def completeGrpcStreamObserver(endpoint: StreamObserver[?]): Unit =
+    try {
+      endpoint.onCompleted()
+    } catch {
+      case NonFatal(_) => () // Already completed
+    }
 }

@@ -10,15 +10,18 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
+import com.digitalasset.canton.data.UnassignmentData.{
+  AssignmentGlobalOffset,
+  ReassignmentGlobalOffset,
+  UnassignmentGlobalOffset,
+}
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, UnassignmentData}
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.*
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentData,
   IncompleteReassignmentData,
-  UnassignmentData,
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateLookup
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
@@ -265,13 +268,11 @@ object ReassignmentStore {
       reassignmentId: ReassignmentId,
       sourceSynchronizer: Source[SynchronizerId],
       contracts: NonEmpty[Seq[ContractInstance]],
-      unassignmentRequest: Option[FullUnassignmentTree],
+      unassignmentData: Option[UnassignmentData],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       unassignmentTs: CantonTimestamp,
       assignmentTs: Option[CantonTimestamp],
   ) {
-    def unassignmentDataO: Option[UnassignmentData] =
-      unassignmentRequest.map(UnassignmentData(reassignmentId, _, unassignmentTs))
     def unassignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.unassignment)
     def assignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.assignment)
 
@@ -280,18 +281,17 @@ object ReassignmentStore {
 
   object ReassignmentEntry {
     def apply(
-        reassignmentData: UnassignmentData,
+        unassignmentData: UnassignmentData,
         reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
-        unassignmentTs: CantonTimestamp,
         tsCompletion: Option[CantonTimestamp],
     ): ReassignmentEntry =
       ReassignmentEntry(
-        reassignmentData.reassignmentId,
-        reassignmentData.sourceSynchronizer.map(_.logical),
-        reassignmentData.contracts.contracts.map(_.contract),
-        Some(reassignmentData.unassignmentRequest),
+        unassignmentData.reassignmentId,
+        unassignmentData.sourceSynchronizer.map(_.logical),
+        unassignmentData.contractsBatch.contracts.map(_.contract),
+        Some(unassignmentData),
         reassignmentGlobalOffset,
-        unassignmentTs,
+        unassignmentData.unassignmentTs,
         tsCompletion,
       )
 

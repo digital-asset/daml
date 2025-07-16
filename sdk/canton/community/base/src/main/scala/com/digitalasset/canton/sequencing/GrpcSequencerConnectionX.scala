@@ -36,7 +36,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequestV2,
+  SubscriptionRequest,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -244,7 +244,7 @@ class GrpcSequencerConnectionX(
   }
 
   override def subscribe[E](
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit

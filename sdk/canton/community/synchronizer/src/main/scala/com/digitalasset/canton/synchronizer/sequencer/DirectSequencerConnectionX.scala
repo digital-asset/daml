@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SendAsyncError,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequestV2,
+  SubscriptionRequest,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -112,7 +112,7 @@ class DirectSequencerConnectionX(
     EitherTUtil.unitUS
 
   override def subscribe[E](
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit

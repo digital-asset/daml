@@ -158,5 +158,9 @@ class P2PNetworkInModule[E <: Env[E]](
               ),
           )
         metrics.p2p.receive.labels.source.values.StateTransfer(from)
+
+      case Message.ConnectionOpened(_) =>
+        logger.debug(s"Received connection opener from $from")
+        metrics.p2p.receive.labels.source.values.ConnectionOpener(from)
     }
 }

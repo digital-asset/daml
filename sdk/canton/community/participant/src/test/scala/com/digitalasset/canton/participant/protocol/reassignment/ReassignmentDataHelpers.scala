@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.{
   CantonTimestamp,
   ContractsReassignmentBatch,
   ReassignmentSubmitterMetadata,
+  UnassignmentData,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
@@ -69,7 +70,6 @@ final case class ReassignmentDataHelpers(
     )
 
   def unassignmentData(
-      reassignmentId: ReassignmentId,
       unassignmentRequest: UnassignmentRequest,
       unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
@@ -85,7 +85,6 @@ final case class ReassignmentDataHelpers(
       )
 
     UnassignmentData(
-      reassignmentId = reassignmentId,
       unassignmentRequest = fullUnassignmentViewTree,
       unassignmentTs = unassignmentTs,
     )

@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol.validation
 import cats.data.OptionT
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.data.{ViewPosition, ViewTree}
@@ -360,7 +359,7 @@ class RecipientsValidator[I](
       context: Context,
       mainRecipients: Recipients,
       mainViewPosition: List[MerklePathElement],
-      recipientsPathViewToRoot: NonEmpty[Seq[NonEmpty[Set[Recipient]]]],
+      recipientsPathViewToRoot: Seq[Set[Recipient]],
       errorBuilder: mutable.Builder[Error, Seq[Error]],
   )(implicit traceContext: TraceContext): Option[BadViewPosition] = {
     val Context(requestId, informeeParticipantsOfPositionAndParty) =

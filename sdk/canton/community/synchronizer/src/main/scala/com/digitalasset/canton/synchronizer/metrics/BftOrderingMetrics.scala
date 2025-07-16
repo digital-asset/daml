@@ -1036,6 +1036,7 @@ class BftOrderingMetrics private[metrics] (
             sealed trait SourceValue extends PrettyNameOnlyCase
             case object SourceParsingFailed extends SourceValue
             case class Empty(from: BftNodeId) extends SourceValue
+            case class ConnectionOpener(from: BftNodeId) extends SourceValue
             case class Availability(from: BftNodeId) extends SourceValue
             case class Consensus(from: BftNodeId) extends SourceValue
             case class Retransmissions(from: BftNodeId) extends SourceValue

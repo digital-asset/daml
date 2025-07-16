@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequestV2,
+  SubscriptionRequest,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -68,7 +68,7 @@ trait UserSequencerConnectionXStub extends NamedLogging {
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse]
 
   def subscribe[E](
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit

@@ -4,7 +4,11 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.*
+import com.digitalasset.canton.data.UnassignmentData.{
+  AssignmentGlobalOffset,
+  ReassignmentGlobalOffsets,
+  UnassignmentGlobalOffset,
+}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec

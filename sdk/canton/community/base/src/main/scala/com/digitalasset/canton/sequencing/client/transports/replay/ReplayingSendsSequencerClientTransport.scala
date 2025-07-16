@@ -271,7 +271,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
   }
 
   protected def subscribe(
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable
 
@@ -388,7 +388,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     val idleF: Future[EventsReceivedReport] = idleP.future
 
     private val subscription =
-      subscribe(SubscriptionRequestV2(member, readFrom, protocolVersion), handle)
+      subscribe(SubscriptionRequest(member, readFrom, protocolVersion), handle)
 
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
       Seq(
@@ -456,7 +456,7 @@ class ReplayingSendsSequencerClientTransportImpl(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
-  override def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequest, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
     override protected def loggerFactory: NamedLoggerFactory =
@@ -474,14 +474,14 @@ class ReplayingSendsSequencerClientTransportImpl(
     SubscriptionErrorRetryPolicy.never
 
   override protected def subscribe(
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable =
     underlyingTransport.subscribe(request, handler)
 
   override type SubscriptionError = underlyingTransport.SubscriptionError
 
-  override def subscribe(request: SubscriptionRequestV2)(implicit
+  override def subscribe(request: SubscriptionRequest)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = underlyingTransport.subscribe(request)
 
@@ -515,7 +515,7 @@ class ReplayingSendsSequencerClientTransportPekko(
     with SequencerClientTransportPekko {
 
   override protected def subscribe(
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source

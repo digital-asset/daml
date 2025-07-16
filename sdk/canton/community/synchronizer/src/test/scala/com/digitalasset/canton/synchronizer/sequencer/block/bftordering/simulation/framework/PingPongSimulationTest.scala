@@ -8,7 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }

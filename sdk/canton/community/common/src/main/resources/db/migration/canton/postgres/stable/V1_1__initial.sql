@@ -245,7 +245,7 @@ create table par_reassignments (
 
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_timestamp bigint not null,
-  unassignment_request bytea,
+  unassignment_data bytea,
 
   -- defined if reassignment was completed
   -- UTC timestamp in microseconds relative to EPOCH
@@ -798,7 +798,7 @@ create table ord_pbft_messages_in_progress(
   epoch_number bigint not null,
 
   -- view number
-  view_number smallint not null,
+  view_number bigint not null,
 
   -- pbft message for the block
   message bytea not null,
@@ -869,7 +869,7 @@ create table ord_leader_selection_state (
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
   address varchar collate "C" not null,
-  port smallint not null,
+  port integer not null,
   transport_security bool not null,
   custom_server_trust_certificates bytea null, -- PEM string
   client_certificate_chain bytea null, -- PEM string

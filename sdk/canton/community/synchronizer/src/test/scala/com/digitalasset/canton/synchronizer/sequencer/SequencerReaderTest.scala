@@ -51,7 +51,7 @@ import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.*
 import scala.concurrent.{Future, Promise}
 
-class SequencerReaderTestV2
+class SequencerReaderTest
     extends FixtureAsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksFixtureAsyncWordSpec
@@ -91,7 +91,7 @@ class SequencerReaderTestV2
       .buffer(1, OverflowStrategy.dropHead)
       .preMaterialize()
 
-    override protected def timeouts: ProcessingTimeout = SequencerReaderTestV2.this.timeouts
+    override protected def timeouts: ProcessingTimeout = SequencerReaderTest.this.timeouts
 
     def signalRead(): Unit = queue.offer(ReadSignal).discard[QueueOfferResult]
 
@@ -105,7 +105,7 @@ class SequencerReaderTestV2
       SyncCloseable("queue", queue.complete())
     )
 
-    override protected def logger: TracedLogger = SequencerReaderTestV2.this.logger
+    override protected def logger: TracedLogger = SequencerReaderTest.this.logger
 
     override def notifyOfLocalWrite(notification: WriteNotification)(implicit
         traceContext: TraceContext
@@ -113,11 +113,11 @@ class SequencerReaderTestV2
   }
 
   class Env extends FlagCloseableAsync {
-    protected val timeouts: ProcessingTimeout = SequencerReaderTestV2.this.timeouts
-    protected val logger: TracedLogger = SequencerReaderTestV2.this.logger
+    protected val timeouts: ProcessingTimeout = SequencerReaderTest.this.timeouts
+    protected val logger: TracedLogger = SequencerReaderTest.this.logger
     val autoPushLatestTimestamps =
       new AtomicBoolean(true) // should the latest timestamp be added to the signaller when stored
-    val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTestV2].getSimpleName)
+    val actorSystem: ActorSystem = ActorSystem(classOf[SequencerReaderTest].getSimpleName)
     implicit val materializer: Materializer = Materializer(actorSystem)
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
@@ -159,7 +159,7 @@ class SequencerReaderTestV2
     ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
         FutureUnlessShutdown.outcomeF(
-          valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
+          valueOrFail(reader.read(member, timestampInclusive).failOnShutdown)(
             s"Events source for $member"
           ) flatMap { eventSource =>
             eventSource
@@ -183,7 +183,7 @@ class SequencerReaderTestV2
         timestampInclusive: Option[CantonTimestamp],
     ): FutureUnlessShutdown[SinkQueueWithCancel[SequencedSerializedEvent]] = {
 
-      val subscribeF = valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
+      val subscribeF = valueOrFail(reader.read(member, timestampInclusive).failOnShutdown)(
         s"Events source for $member"
       )
 
@@ -209,7 +209,7 @@ class SequencerReaderTestV2
     ): SinkQueueWithCancel[SequencedSerializedEvent] =
       Source
         .future(
-          valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
+          valueOrFail(reader.read(member, timestampInclusive).failOnShutdown)(
             s"Events source for $member"
           )
         )
@@ -407,7 +407,7 @@ class SequencerReaderTestV2
       for {
         _ <- store.registerMember(topologyClientMember, ts0)
         // we haven't registered alice
-        error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
+        error <- leftOrFail(reader.read(alice, requestedTimestampInclusive = None))(
           "read unknown member"
         )
       } yield error shouldBe CreateSubscriptionError.UnknownMember(alice)
@@ -419,7 +419,7 @@ class SequencerReaderTestV2
         for {
           // we haven't registered the topology client member
           _ <- store.registerMember(alice, ts0)
-          error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
+          error <- leftOrFail(reader.read(alice, requestedTimestampInclusive = None))(
             "read unknown topology client"
           )
         } yield error shouldBe CreateSubscriptionError.UnknownMember(topologyClientMember)
@@ -432,7 +432,7 @@ class SequencerReaderTestV2
         _ <- store.registerMember(topologyClientMember, ts0)
         _ <- store.registerMember(alice, ts0)
         _ <- store.disableMember(alice)
-        error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
+        error <- leftOrFail(reader.read(alice, requestedTimestampInclusive = None))(
           "read disabled member"
         )
       } yield error shouldBe CreateSubscriptionError.MemberDisabled(alice)
@@ -522,7 +522,7 @@ class SequencerReaderTestV2
               .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
-              leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))("read"),
+              leftOrFail(reader.read(alice, requestedTimestampInclusive = None))("read"),
               _.errorMessage shouldBe expectedMessage,
             )
           } yield inside(error) {
@@ -552,7 +552,7 @@ class SequencerReaderTestV2
             .valueOrFail("saveLowerBound")
           error <- loggerFactory.assertLogs(
             leftOrFail(
-              reader.readV2(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
+              reader.read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
             )(
               "read succeeded"
             ),
@@ -580,7 +580,7 @@ class SequencerReaderTestV2
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
           _ <- reader
-            .readV2(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(13)))
+            .read(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(13)))
             .valueOrFail("read")
         } yield succeed // the above not failing is enough of an assertion
       }

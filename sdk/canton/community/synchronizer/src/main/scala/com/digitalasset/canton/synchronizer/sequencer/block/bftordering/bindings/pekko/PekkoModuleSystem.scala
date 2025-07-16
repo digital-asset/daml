@@ -10,7 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoGrpcP2PNetworking.PekkoP2PNetworkRefFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkRefFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.{
@@ -385,7 +385,7 @@ object PekkoModuleSystem {
       actorSystem: ActorSystem[ModuleControl[PekkoEnv, Unit]],
       initResult: SystemInitializationResult[
         PekkoEnv,
-        PekkoP2PNetworkRefFactory,
+        PekkoP2PGrpcNetworkRefFactory,
         BftOrderingServiceReceiveRequest,
         InputMessageT,
       ],
@@ -436,11 +436,11 @@ object PekkoModuleSystem {
       name: String,
       systemInitializer: SystemInitializer[
         PekkoEnv,
-        PekkoP2PNetworkRefFactory,
+        PekkoP2PGrpcNetworkRefFactory,
         BftOrderingServiceReceiveRequest,
         InputMessageT,
       ],
-      createP2PNetworkRefFactory: P2PConnectionEventListener => PekkoP2PNetworkRefFactory,
+      createP2PNetworkRefFactory: P2PConnectionEventListener => PekkoP2PGrpcNetworkRefFactory,
       metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -449,7 +449,7 @@ object PekkoModuleSystem {
     val resultPromise =
       Promise[SystemInitializationResult[
         PekkoEnv,
-        PekkoP2PNetworkRefFactory,
+        PekkoP2PGrpcNetworkRefFactory,
         BftOrderingServiceReceiveRequest,
         InputMessageT,
       ]]()

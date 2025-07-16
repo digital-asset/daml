@@ -11,15 +11,23 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, Offset}
+import com.digitalasset.canton.data.UnassignmentData.{
+  AssignmentGlobalOffset,
+  ReassignmentGlobalOffsets,
+  UnassignmentGlobalOffset,
+}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ContractsReassignmentBatch,
+  Offset,
+  UnassignmentData,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.*
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentData,
   IncompleteReassignmentData,
   ReassignmentDataHelpers,
-  UnassignmentData,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
@@ -42,7 +50,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, ReassignmentCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -214,7 +222,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
       val assignmentData = AssignmentData(
         data.reassignmentId,
         data.sourceSynchronizer,
-        data.contracts,
+        data.contractsBatch,
       )
 
       "be idempotent" in {
@@ -246,7 +254,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
             store.addAssignmentDataIfAbsent(updatedAssignmentData)
           )("addAssignmentDataIfAbsent")
           entry <- store.findReassignmentEntry(data.reassignmentId).value
-        } yield entry.map(_.contracts) shouldBe Right(data.contracts.contracts.map(_.contract))
+        } yield entry.map(_.contracts) shouldBe Right(data.contractsBatch.contracts.map(_.contract))
       }
 
       "AddAssignmentData doesn't update the entry once the reassignment data is inserted" in {
@@ -274,18 +282,17 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
         val store = mk(indexedTargetSynchronizer)
         for {
           _ <- store.addAssignmentDataIfAbsent(assignmentData).value
-          modifiedReassignmentData = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
-            data.reassignmentId,
-            data.sourceMediator,
-            data.unassignmentRequest.submitter,
+          modifiedUnassignmentData = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
+            sourceMediator = mediator1,
+            data.submitterMetadata.submitter,
             data.sourceSynchronizer,
             targetSynchronizer,
             contract,
           )
-          _ <- store.addUnassignmentData(modifiedReassignmentData).value
+          _ <- store.addUnassignmentData(modifiedUnassignmentData).value
           entry <- store.findReassignmentEntry(data.reassignmentId).value
         } yield entry shouldBe Right(
-          ReassignmentEntry(modifiedReassignmentData, None, CantonTimestamp.Epoch, None)
+          ReassignmentEntry(modifiedUnassignmentData, None, None)
         )
       }
 
@@ -335,7 +342,6 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
         ReassignmentEntry(
           unassignmentData,
           Some(UnassignmentGlobalOffset(unassignmentOffset.offset)),
-          CantonTimestamp.Epoch,
           None,
         )
 
@@ -582,7 +588,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
         val expectedIncomplete = expectedReassignmentEntries.map { expectedReassignmentEntry =>
           IncompleteReassignmentData.tryCreate(
             expectedReassignmentEntry.reassignmentId,
-            expectedReassignmentEntry.unassignmentRequest,
+            expectedReassignmentEntry.unassignmentData,
             expectedReassignmentEntry.reassignmentGlobalOffset,
             queryOffset,
           )
@@ -668,13 +674,11 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
               ReassignmentEntry(
                 unassignmentData,
                 Some(UnassignmentGlobalOffset(unassignmentOsset)),
-                CantonTimestamp.Epoch,
                 None,
               ),
               ReassignmentEntry(
                 unassignmentData2,
                 Some(UnassignmentGlobalOffset(unassignmentOsset)),
-                CantonTimestamp.Epoch,
                 None,
               ),
             ),
@@ -687,13 +691,11 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
               ReassignmentEntry(
                 unassignmentData,
                 Some(UnassignmentGlobalOffset(unassignmentOsset)),
-                CantonTimestamp.Epoch,
                 None,
               ),
               ReassignmentEntry(
                 unassignmentData2,
                 Some(UnassignmentGlobalOffset(unassignmentOsset)),
-                CantonTimestamp.Epoch,
                 None,
               ),
             ),
@@ -714,7 +716,7 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
         val assignmentData = AssignmentData(
           unassignmentData.reassignmentId,
           unassignmentData.sourceSynchronizer,
-          unassignmentData.contracts,
+          unassignmentData.contractsBatch,
         )
 
         for {
@@ -795,7 +797,6 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
               ReassignmentEntry(
                 unassignmentData,
                 Some(AssignmentGlobalOffset(assignmentOffset)),
-                CantonTimestamp.Epoch,
                 None,
               )
             ),
@@ -866,10 +867,10 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
             _.reassignmentId
           )
           lookupAlice.map(_.reassignmentId) should contain theSameElementsAs reassignmentsData
-            .filter(_.contracts.contracts.map(_.contract).contains(aliceContract))
+            .filter(_.contractsBatch.contracts.map(_.contract).contains(aliceContract))
             .map(_.reassignmentId)
           lookupBob.map(_.reassignmentId) should contain theSameElementsAs reassignmentsData
-            .filter(_.contracts.contracts.map(_.contract).contains(bobContract))
+            .filter(_.contractsBatch.contracts.map(_.contract).contains(bobContract))
             .map(_.reassignmentId)
         }
       }
@@ -1144,23 +1145,17 @@ trait ReassignmentStoreTest extends AsyncWordSpec with FailOnShutdown with BaseT
       "detect modified reassignment data" in {
         val store = mk(indexedTargetSynchronizer)
 
-        val reassignmentDataModified =
-          unassignmentData2.copy(reassignmentId = unassignmentData.reassignmentId)
-
+        val updatedUnassignmentData =
+          unassignmentData2.focus(_.unassignmentTs).modify(_.immediateSuccessor)
         for {
           _ <- valueOrFail(store.addUnassignmentData(unassignmentData))(
             "first add failed"
           )
-          _ <- store.addUnassignmentData(reassignmentDataModified).value
+          _ <- store.addUnassignmentData(updatedUnassignmentData).value
           entry <- store
             .findReassignmentEntry(unassignmentData.reassignmentId)
             .valueOrFail("lookup")
-        } yield entry shouldBe ReassignmentEntry(
-          unassignmentData,
-          None,
-          CantonTimestamp.Epoch,
-          None,
-        )
+        } yield entry shouldBe ReassignmentEntry(unassignmentData, None, None)
       }
 
       "add several reassignments" in {
@@ -1461,7 +1456,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   def mkUnassignmentDataForSynchronizer(
-      reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       sourceSynchronizerId: Source[PhysicalSynchronizerId],
@@ -1487,7 +1481,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       sourceMediator,
     )()
 
-    helpers.unassignmentData(reassignmentId, unassignmentRequest, unassignmentTs)
+    helpers.unassignmentData(unassignmentRequest, unassignmentTs)
   }
 
   private def mkUnassignmentData(
@@ -1496,16 +1490,8 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
       contract: ContractInstance = contract,
-  ): UnassignmentData = {
-    val reassignmentId =
-      ReassignmentId(
-        sourceSynchronizer.map(_.logical),
-        targetSynchronizer,
-        unassignmentTs,
-        Seq(contract.contractId -> ReassignmentCounter(0)),
-      )
+  ): UnassignmentData =
     mkUnassignmentDataForSynchronizer(
-      reassignmentId,
       sourceMediator,
       submitter,
       sourceSynchronizer,
@@ -1513,5 +1499,4 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       contract,
       unassignmentTs = unassignmentTs,
     )
-  }
 }

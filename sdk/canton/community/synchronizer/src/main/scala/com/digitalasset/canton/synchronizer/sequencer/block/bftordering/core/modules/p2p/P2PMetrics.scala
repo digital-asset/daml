@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody.Message
@@ -47,7 +47,7 @@ private[p2p] object P2PMetrics {
     type TargetModule = metrics.p2p.send.labels.targetModule.values.TargetModuleValue
     val targetModule: Option[TargetModule] = // Help type inference
       message.message match {
-        case Message.Empty => None
+        case Message.Empty | Message.ConnectionOpened(_) => None
         case Message.AvailabilityMessage(_) =>
           Some(metrics.p2p.send.labels.targetModule.values.Availability)
         case Message.ConsensusMessage(_) =>
@@ -90,6 +90,7 @@ private[p2p] object P2PMetrics {
       case metrics.p2p.receive.labels.source.values.Consensus(from) => Some(from)
       case metrics.p2p.receive.labels.source.values.Retransmissions(from) => Some(from)
       case metrics.p2p.receive.labels.source.values.StateTransfer(from) => Some(from)
+      case metrics.p2p.receive.labels.source.values.ConnectionOpener(from) => Some(from)
     }
     val mc1 = mc.withExtraLabels(
       metrics.p2p.receive.labels.source.Key -> source

@@ -3,9 +3,21 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils
 
-import scala.collection.mutable
+import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.tracing.TraceContext
 
-object Miscellaneous {
+import scala.collection.mutable
+import scala.concurrent.blocking
+
+private[bftordering] object Miscellaneous {
+
+  def abort(logger: TracedLogger, message: String)(implicit traceContext: TraceContext): Nothing = {
+    logger.error(s"FATAL: $message", new RuntimeException(message))
+    throw new RuntimeException(message)
+  }
+
+  def mutex[T](lock: AnyRef)(action: => T): T =
+    blocking(lock.synchronized(action))
 
   def dequeueN[ElementT, NumberT](
       queue: mutable.Queue[ElementT],
