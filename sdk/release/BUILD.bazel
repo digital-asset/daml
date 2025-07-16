@@ -53,6 +53,7 @@ da_haskell_binary(
         "yaml",
         "mtl",
         "xml-conduit",
+        "zip-archive",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
