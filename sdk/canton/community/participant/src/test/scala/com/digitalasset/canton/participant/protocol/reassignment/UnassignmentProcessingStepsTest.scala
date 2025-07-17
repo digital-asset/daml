@@ -58,8 +58,11 @@ import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingStartingPoints,
 }
-import com.digitalasset.canton.participant.store.AcsCounterParticipantConfigStore
 import com.digitalasset.canton.participant.store.memory.*
+import com.digitalasset.canton.participant.store.{
+  AcsCounterParticipantConfigStore,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
@@ -160,25 +163,33 @@ final class UnassignmentProcessingStepsTest
 
   private lazy val clock = new WallClock(timeouts, loggerFactory)
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
-  private lazy val persistentState =
-    new InMemorySyncPersistentState(
-      submittingParticipant,
-      clock,
-      SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
-      IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
+  private lazy val logicalPersistentState =
+    new InMemoryLogicalSyncPersistentState(
       IndexedSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
-      defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
       contractStore = contractStore,
       acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
-      exitOnFatalFailures = true,
-      packageDependencyResolver = mock[PackageDependencyResolver],
       Eval.now(mock[LedgerApiStore]),
       loggerFactory,
-      timeouts,
-      futureSupervisor,
     )
+  private lazy val physicalSyncPersistentState = new InMemoryPhysicalSyncPersistentState(
+    submittingParticipant,
+    clock,
+    SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+    IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
+    defaultStaticSynchronizerParameters,
+    exitOnFatalFailures = true,
+    packageDependencyResolver = mock[PackageDependencyResolver],
+    Eval.now(mock[LedgerApiStore]),
+    logicalPersistentState,
+    loggerFactory,
+    timeouts,
+    futureSupervisor,
+  )
+
+  val persistentState =
+    new SyncPersistentState(logicalPersistentState, physicalSyncPersistentState, loggerFactory)
 
   private def mkState: SyncEphemeralState =
     new SyncEphemeralState(

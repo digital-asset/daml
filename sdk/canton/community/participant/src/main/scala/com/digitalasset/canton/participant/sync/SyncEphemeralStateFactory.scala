@@ -143,7 +143,7 @@ class SyncEphemeralStateFactoryImpl(
         exitOnFatalFailures = exitOnFatalFailures,
         sessionKeyCacheConfig,
         timeouts,
-        persistentState.loggerFactory,
+        loggerFactory.append("synchronizerId", persistentState.psid.toString),
         futureSupervisor,
         clock,
       )

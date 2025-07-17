@@ -180,25 +180,32 @@ final class AssignmentProcessingStepsTest
   private def statefulDependencies: Future[(SyncPersistentState, SyncEphemeralState)] = {
     val ledgerApiIndexer = mock[LedgerApiIndexer]
     val contractStore = mock[ContractStore]
-    val persistentState =
-      new InMemorySyncPersistentState(
-        participant,
-        clock,
-        SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
-        IndexedPhysicalSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
+    val logical =
+      new InMemoryLogicalSyncPersistentState(
         IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
-        defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         contractStore = contractStore,
         acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore],
-        packageDependencyResolver = mock[PackageDependencyResolver],
         ledgerApiStore = Eval.now(mock[LedgerApiStore]),
         loggerFactory = loggerFactory,
-        exitOnFatalFailures = true,
-        timeouts = timeouts,
-        futureSupervisor = futureSupervisor,
       )
+
+    val physical = new InMemoryPhysicalSyncPersistentState(
+      participant,
+      clock,
+      SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+      IndexedPhysicalSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
+      defaultStaticSynchronizerParameters,
+      packageDependencyResolver = mock[PackageDependencyResolver],
+      ledgerApiStore = Eval.now(mock[LedgerApiStore]),
+      logicalSyncPersistentState = logical,
+      loggerFactory = loggerFactory,
+      exitOnFatalFailures = true,
+      timeouts = timeouts,
+      futureSupervisor = futureSupervisor,
+    )
+    val persistentState = new SyncPersistentState(logical, physical, loggerFactory)
 
     (for {
       _ <- persistentState.parameterStore.setParameters(defaultStaticSynchronizerParameters)
@@ -528,7 +535,7 @@ final class AssignmentProcessingStepsTest
           "model conformance error",
         )
       )
-    )
+    ) _
     "succeed without errors" in {
       for {
         deps <- statefulDependencies

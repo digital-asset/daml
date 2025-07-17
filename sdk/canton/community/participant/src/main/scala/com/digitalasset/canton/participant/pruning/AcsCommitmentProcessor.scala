@@ -1593,7 +1593,7 @@ class AcsCommitmentProcessor private (
   /** Checks whether a participant whose processing timestamp is the end of the given period lags
     * too far behind a counter participant. Lagging "too far behind" means that a received
     * counter-commitment has a timestamp ahead of the participant's current timestamp by at least
-    * reconciliation interval len * [[catchIpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
+    * reconciliation interval len * [[catchUpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
     * reconciliation intervals are dynamic, the reconciliation interval len represents the interval
     * len at the time when the catch-up decision is taken.
     * @return

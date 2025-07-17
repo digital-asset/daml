@@ -24,7 +24,6 @@ import com.digitalasset.canton.participant.store.{
   AcsCommitmentStore,
   AcsCounterParticipantConfigStore,
   ParticipantNodePersistentState,
-  SyncPersistentState,
 }
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
@@ -136,7 +135,6 @@ sealed trait SyncStateInspectionTest
       synchronizerId: PhysicalSynchronizerId,
       synchronizerAlias: SynchronizerAlias,
   ): AcsCommitmentStore = {
-    val syncPersistentState = mock[SyncPersistentState]
     val acsCounterParticipantConfigStore = mock[AcsCounterParticipantConfigStore]
 
     val acsCommitmentStore = new DbAcsCommitmentStore(
@@ -151,7 +149,6 @@ sealed trait SyncStateInspectionTest
       .thenReturn(Some(acsCommitmentStore))
 
     when(stateManager.aliasForSynchronizerId(synchronizerId)).thenReturn(Some(synchronizerAlias))
-    when(stateManager.get(synchronizerId)).thenReturn(Some(syncPersistentState))
 
     acsCommitmentStore
   }
