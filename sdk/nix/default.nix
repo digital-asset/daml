@@ -22,6 +22,14 @@ let
   # Add all packages that are used by Bazel builds here
   bazel_dependencies = import ./bazel.nix { inherit system pkgs; };
 
+  hls_pkgs = (let
+                spec = builtins.fromJSON (builtins.readFile ./nixpkgs/hls.src.json);
+              in
+                import (builtins.fetchTarball {
+                  url = "https://github.com/${spec.owner}/${spec.repo}/archive/${spec.rev}.tar.gz";
+                  sha256 = spec.sha256;
+              }) {});
+
 in rec {
   inherit pkgs;
 
@@ -62,6 +70,7 @@ in rec {
                        }) {}).haskellPackages.ghcid;
     hlint           = bazel_dependencies.hlint;
     ghci            = bazel_dependencies.ghc;
+    haskell-language-server = hls_pkgs.haskell.packages.native-bignum.ghc902.haskell-language-server;
 
     # Hazel’s configure step currently searches for the C compiler in
     # PATH instead of taking it from our cc toolchain so we have to add
