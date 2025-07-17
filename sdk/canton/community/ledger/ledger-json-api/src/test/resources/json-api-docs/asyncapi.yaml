@@ -861,7 +861,7 @@ components:
         contractKey:
           description: |-
             The key of the created contract.
-            This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+            This will be set if and only if ``template_id`` defines a contract key.
             Optional
         createArgument: {}
         createdEventBlob:
@@ -1764,7 +1764,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the archived contract.
+            Identifies the template that defines the choice that archived the contract.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required
@@ -1839,7 +1842,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the target contract.
+            Identifies the template that defines the executed choice.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required

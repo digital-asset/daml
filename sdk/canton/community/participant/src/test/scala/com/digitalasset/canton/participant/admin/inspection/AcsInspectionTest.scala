@@ -175,17 +175,20 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
           }
       }
 
-    val rjs = mock[RequestJournalStore]
+    val logicalState = mock[LogicalSyncPersistentState]
+    when(logicalState.activeContractStore).thenAnswer(acs)
+    when(logicalState.synchronizerIdx).thenAnswer(
+      IndexedSynchronizer.tryCreate(fakeSynchronizerId, 1)
+    )
 
-    val state = mock[SyncPersistentState]
     val acsInspection = new AcsInspection(fakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
+    when(logicalState.acsInspection).thenAnswer(acsInspection)
 
-    when(state.activeContractStore).thenAnswer(acs)
-    when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.synchronizerIdx).thenAnswer(IndexedSynchronizer.tryCreate(fakeSynchronizerId, 1))
-    when(state.acsInspection).thenAnswer(acsInspection)
+    val physicalState = mock[PhysicalSyncPersistentState]
+    val rjs = mock[RequestJournalStore]
+    when(physicalState.requestJournalStore).thenAnswer(rjs)
 
-    state
+    new SyncPersistentState(logicalState, physicalState, loggerFactory)
   }
 
   private val mockLedgerApiStore: LedgerApiStore = {
