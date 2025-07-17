@@ -63,10 +63,8 @@ object RejectionGenerators {
           languageVersion,
           allowedLanguageVersions,
         )
-      case e: Package.SelfConsistency =>
+      case e: Package.DarSelfConsistency =>
         LedgerApiErrors.InternalError.PackageSelfConsistency(e)
-      case Package.DarSelfConsistency(_, _, _, _) =>
-        LedgerApiErrors.InternalError.Generic("DarSelfConsistency not yet implemented")
     }
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): RpcError = err match {
