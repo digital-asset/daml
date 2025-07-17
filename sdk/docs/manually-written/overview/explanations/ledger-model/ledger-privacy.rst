@@ -218,28 +218,27 @@ as it hides who is involved in the hidden parts of the transaction.
 Ledger projection
 =================
 
-Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of transactions obtained as follows:
+Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of updates obtained as follows:
 
-* Project the transaction of each commit in `l` for `P`.
+* Project the transaction of each commit in `l` for `P`, but retain the update ID.
 
-* Remove empty transactions from the result.
+* Remove updates with empty transactions from the result.
 
-* Add an edge between two (non-empty projected) transactions `tx`:sub:`1` and `tx`:sub:`2`
-  if `tx2` uses a contract created by or used in `tx`:sub:`1` whose stakeholders overlap with `P`.
+* Add an edge between two (non-empty projected) updates `u`:sub:`1` and `u`:sub:`2`
+  if there is a non-empty path from `u`:sub:`1` to `u`:sub:`2` in `l`.
 
-The edges of the DAG are a subset of the edges between the commits in the original ledger.
-The subtleties of this subset construction are discussed in the :ref:`causality section <local-ledger>`.
+The edges of the DAG ensure that the projected updates have the same happens-before relationship as the original updates.
+This construction will be refined in the :ref:`causality section <local-ledger>`.
 Until then, we pretend that the ledger is totally ordered and projections retain the same ordering.
 
-Notably, the projection of a ledger is not a ledger, but a DAG of transactions.
+Notably, the projection of a ledger is not a ledger, but a DAG of updates.
 The requesters from the commit cannot be retained because they are typically witnesses of the actions in the projection,
 but not informees.
 Yet, the informees of the action must not know all the witnesses.
 For example, if Bank 1's projection did mention Bob as the requester of the last commit,
 then Bank 1 could infer that Bob is a witness of Alice exercising the ``Transfer`` choice on contract #1.
 
-Projecting the ledger of the complete DvP example yields the following projections for each
-party:
+Projecting the ledger of the complete DvP example yields the following projections for each party.
 
 .. _da-dvp-ledger-projections:
 
@@ -269,6 +268,10 @@ Examine each party's projection in turn:
 #. Banks 1 and 2 only see the commits in which they create their ``SimpleAsset`` and the ``Transfer`` Exercises on them.
    Additionally, Bank 2 sees the Fetch of the ``SimpleAsset`` in the last commit, as already discussed above for transaction projections.
 
+The update IDs enable correlation across the different projections.
+For example, Bank 1 and Bank 2 both see the update ID ``TX 3``.
+They can therefore infer that their projections have happened in the same atomic transaction even though their projections do not share a single node.
+   
 .. note::
    A user of a Participant Node can request the Ledger projection for the user's parties via the
    :externalref:`updates tree stream <com.daml.ledger.api.v2.UpdateService.GetUpdateTrees>`.
