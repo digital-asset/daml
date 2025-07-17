@@ -49,7 +49,6 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Flow
 
 import java.io.InputStream
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContextExecutor, Future}
 
 /** Manages our admin workflow applications (ping, party management). Currently, each is an
@@ -114,7 +113,7 @@ class AdminWorkflowServices(
 
   val partyManagementO
       : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)] =
-    parameters.unsafeOnlinePartyReplication.map(_ =>
+    parameters.unsafeOnlinePartyReplication.map(config =>
       createService(
         "party-management",
         // TODO(#20637): Don't resubscribe if the ledger api has been pruned as that would mean missing updates that
@@ -129,6 +128,7 @@ class AdminWorkflowServices(
             participantId,
             syncService,
             clock,
+            config,
             futureSupervisor,
             parameters.exitOnFatalFailures,
             parameters.processingTimeouts,
@@ -279,8 +279,6 @@ class AdminWorkflowServices(
     )
   }
 
-  // TODO(#26455) remove suppression of deprecation warnings
-  @nowarn("cat=deprecation")
   private def createService[S <: AdminWorkflowService](
       userId: String,
       resubscribeIfPruned: Boolean,
@@ -293,7 +291,11 @@ class AdminWorkflowServices(
     val startupF =
       client.stateService.getLedgerEndOffset().flatMap { offset =>
         client.stateService
-          .getActiveContracts(filter = service.filters, validAtOffset = offset)
+          .getActiveContracts(
+            eventFormat = service.eventFormat,
+            validAtOffset = offset,
+            token = None,
+          )
           .map { acs =>
             logger.debug(s"Loading $acs $service")
             service.processAcs(acs)
@@ -301,7 +303,7 @@ class AdminWorkflowServices(
               makeSource = subscribeOffset =>
                 client.updateService.getUpdatesSource(
                   begin = subscribeOffset,
-                  filter = service.filters,
+                  eventFormat = service.eventFormat,
                 ),
               consumingFlow = Flow[GetUpdatesResponse]
                 .map(_.update)

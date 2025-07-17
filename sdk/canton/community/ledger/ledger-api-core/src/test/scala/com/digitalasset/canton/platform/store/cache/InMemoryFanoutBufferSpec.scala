@@ -554,6 +554,7 @@ class InMemoryFanoutBufferSpec
       commandId = "",
       synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Time.Timestamp.Epoch,
+      externalTransactionHash = None,
     )
 
   private def txRejected(idx: Long, offset: Offset) =
@@ -578,7 +579,7 @@ class InMemoryFanoutBufferSpec
         sourceSynchronizer = ReassignmentTag.Source(someSynchronizerId),
         targetSynchronizer = ReassignmentTag.Target(someSynchronizerId),
         submitter = None,
-        reassignmentId = ReassignmentId.tryCreate("1"),
+        reassignmentId = ReassignmentId.tryCreate("0001"),
         isReassigningParticipant = false,
       ),
       reassignment = null,

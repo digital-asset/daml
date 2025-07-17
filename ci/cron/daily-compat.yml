@@ -202,9 +202,6 @@ jobs:
               if [ "main" = "$(Build.SourceBranchName)" ]; then
                   git add build.sh canton
                   open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
-                  az extension add --name azure-devops
-                  trap "az devops logout" EXIT
-                  echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
                   az pipelines build queue --branch "$branch" \
                                            --definition-name "PRs" \
                                            --org "https://dev.azure.com/digitalasset" \
@@ -215,6 +212,7 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: compat_versions_pr
     condition: or(eq(variables['Build.SourceBranchName'], 'main'),
@@ -338,15 +336,11 @@ jobs:
       - bash: |
           cd sdk
           eval "$(./dev-env/bin/dade-assist)"
-
-          for branch in main; do
-            sha=$(git rev-parse origin/$branch)
-            az extension add --name azure-devops
-            trap "az devops logout" EXIT
-            echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-            az pipelines run --org "https://dev.azure.com/digitalasset" \
-                             --project daml \
-                             --name "snapshot" \
-                             --commit-id main \
-                             --parameters "commit=$sha"
-          done
+          sha=$(git rev-parse origin/main)
+          az pipelines run --org "https://dev.azure.com/digitalasset" \
+                            --project daml \
+                            --name "snapshot" \
+                            --commit-id main \
+                            --parameters "commit=$sha"
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

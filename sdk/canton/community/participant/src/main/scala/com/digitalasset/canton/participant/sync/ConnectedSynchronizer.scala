@@ -327,12 +327,9 @@ class ConnectedSynchronizer(
         f: FutureUnlessShutdown[A]
     ): EitherT[FutureUnlessShutdown, ConnectedSynchronizerInitializationError, A] = EitherT.right(f)
 
-    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[SerializableContract]] =
+    def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[ContractInstance]] =
       participantNodePersistentState.value.contractStore
         .lookupManyExistingUncached(cids)
-        .map(
-          _.map(_.serializable)
-        ) // TODO(#26348) - use fat contract downstream
         .valueOr { missingContractId =>
           ErrorUtil.internalError(
             new IllegalStateException(
@@ -361,7 +358,7 @@ class ConnectedSynchronizer(
           activations = storedActivatedContracts
             .map(c =>
               c.contractId -> ContractStakeholdersAndReassignmentCounter(
-                c.metadata.stakeholders,
+                c.stakeholders,
                 change.activations(c.contractId).reassignmentCounter,
               )
             )
@@ -370,7 +367,7 @@ class ConnectedSynchronizer(
             .map(c =>
               c.contractId ->
                 ContractStakeholdersAndReassignmentCounter(
-                  c.metadata.stakeholders,
+                  c.stakeholders,
                   change.deactivations(c.contractId).reassignmentCounter,
                 )
             )
@@ -686,10 +683,10 @@ class ConnectedSynchronizer(
                 Target(psid),
                 Target(staticSynchronizerParameters),
                 reassignmentCoordination,
-                data.contracts.stakeholders.all,
-                data.unassignmentRequest.submitterMetadata,
+                data.contractsBatch.stakeholders.all,
+                data.submitterMetadata,
                 participantId,
-                data.unassignmentRequest.targetTimeProof.timestamp,
+                data.targetTimestamp,
               )
             )
             eitherF.leftMap(err => data.reassignmentId -> err).value
@@ -771,7 +768,7 @@ class ConnectedSynchronizer(
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
       topologySnapshot: TopologySnapshot,
   )(implicit
       traceContext: TraceContext

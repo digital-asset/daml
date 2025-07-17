@@ -134,7 +134,8 @@ class SequencerTest
         DefaultProcessingTimeouts.testing,
         storage,
         sequencerStore,
-        minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+        sequencingTimeLowerBoundExclusive =
+          SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
         clock,
         topologyClientMember,
         crypto,
@@ -148,7 +149,7 @@ class SequencerTest
         startingTimestamp: Option[CantonTimestamp] = None,
     ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
       FutureUnlessShutdown.outcomeF(
-        valueOrFail(sequencer.readInternalV2(member, startingTimestamp).failOnShutdown)(
+        valueOrFail(sequencer.readInternal(member, startingTimestamp).failOnShutdown)(
           s"read for $member"
         ) flatMap {
           _.take(limit.toLong)

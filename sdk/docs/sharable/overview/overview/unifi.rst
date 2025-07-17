@@ -1,5 +1,5 @@
-The enterprise suite for Canton
-###############################
+Enterprise
+##########
 
 .. wip::
    * CREATE A VIDEO / ANIMATED RECORDING
@@ -90,5 +90,3 @@ Obtain the open source distribution
 ***********************************
 
 The open source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
-You can also use our Canton Docker images by following our :brokenref:`Docker instructions <docker-instructions>`.
-

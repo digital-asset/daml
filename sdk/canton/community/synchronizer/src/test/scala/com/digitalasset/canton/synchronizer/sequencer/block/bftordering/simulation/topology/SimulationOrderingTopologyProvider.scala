@@ -7,7 +7,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto.FingerprintKeyId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.{
   OrderingTopologyProvider,
@@ -40,6 +40,7 @@ class SimulationOrderingTopologyProvider(
         getEndpointsToTopologyData().view
           .filter { case (_, topologyData) =>
             topologyData.onboardingTime.value <= activationTime.value
+            && topologyData.offboardingTime.forall(activationTime.value <= _)
           }
           .map { case (endpoint, topologyData) =>
             endpointToTestBftNodeId(endpoint) -> topologyData

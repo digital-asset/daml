@@ -38,7 +38,6 @@ import scala.collection.immutable.SortedMap
   */
 final case class InFlightAggregation private (
     aggregatedSenders: SortedMap[Member, AggregationBySender],
-    firstSequencingTimestamp: CantonTimestamp,
     maxSequencingTimestamp: CantonTimestamp,
     rule: AggregationRule,
 ) extends PrettyPrinting
@@ -87,11 +86,11 @@ final case class InFlightAggregation private (
   }
 
   def asUpdate: InFlightAggregationUpdate = InFlightAggregationUpdate(
-    Some(FreshInFlightAggregation(firstSequencingTimestamp, maxSequencingTimestamp, rule)),
+    Some(FreshInFlightAggregation(maxSequencingTimestamp, rule)),
     Chain(
       aggregatedSenders
         .map { case (sender, aggregationBySender) =>
-          AggregatedSender(sender, maxSequencingTimestamp, aggregationBySender)
+          AggregatedSender(sender, aggregationBySender)
         }
         .to(Seq)*
     ),
@@ -119,7 +118,6 @@ final case class InFlightAggregation private (
       _ <- Option.when(projectedSenders.nonEmpty)(())
     } yield new InFlightAggregation(
       projectedSenders,
-      firstSequencingTimestamp,
       maxSequencingTimestamp,
       rule,
     )
@@ -134,13 +132,11 @@ final case class InFlightAggregation private (
   @VisibleForTesting
   def copy(
       aggregatedSenders: SortedMap[Member, AggregationBySender] = this.aggregatedSenders,
-      firstSequencingTimestamp: CantonTimestamp = this.firstSequencingTimestamp,
       maxSequencingTimestamp: CantonTimestamp = this.maxSequencingTimestamp,
       rule: AggregationRule = this.rule,
   ): InFlightAggregation =
     InFlightAggregation.tryCreate(
       aggregatedSenders,
-      firstSequencingTimestamp,
       maxSequencingTimestamp,
       rule,
     )
@@ -155,14 +151,12 @@ final case class InFlightAggregation private (
 object InFlightAggregation {
   def create(
       aggregatedSenders: Map[Member, AggregationBySender],
-      firstSequencingTimestamp: CantonTimestamp,
       maxSequencingTimestamp: CantonTimestamp,
       rule: AggregationRule,
   ): Either[String, InFlightAggregation] =
     checkInvariant(aggregatedSenders, maxSequencingTimestamp, rule).map(_ =>
       new InFlightAggregation(
         SortedMap.from(aggregatedSenders),
-        firstSequencingTimestamp,
         maxSequencingTimestamp,
         rule,
       )
@@ -170,30 +164,27 @@ object InFlightAggregation {
 
   def tryCreate(
       aggregatedSenders: Map[Member, AggregationBySender],
-      firstSequencingTimestamp: CantonTimestamp,
       maxSequencingTimestamp: CantonTimestamp,
       rule: AggregationRule,
   ): InFlightAggregation =
-    create(aggregatedSenders, firstSequencingTimestamp, maxSequencingTimestamp, rule)
+    create(aggregatedSenders, maxSequencingTimestamp, rule)
       .valueOr(err => throw new IllegalArgumentException(err))
 
   @VisibleForTesting
   def apply(
       rule: AggregationRule,
-      firstSequencingTimestamp: CantonTimestamp,
       maxSequencingTimestamp: CantonTimestamp,
       aggregatedSenders: (Member, AggregationBySender)*
   ): InFlightAggregation =
     InFlightAggregation.tryCreate(
       aggregatedSenders = Map.from(aggregatedSenders),
-      firstSequencingTimestamp,
       maxSequencingTimestamp,
       rule,
     )
 
   def initial(fresh: FreshInFlightAggregation): InFlightAggregation =
     checked(
-      tryCreate(Map.empty, fresh.firstSequencingTimestamp, fresh.maxSequencingTimestamp, fresh.rule)
+      tryCreate(Map.empty, fresh.maxSequencingTimestamp, fresh.rule)
     )
 
   private def checkInvariant(
@@ -268,7 +259,6 @@ object InFlightAggregation {
       case Some(inFlightAggregation) =>
         freshO.foreach { fresh =>
           val existing = FreshInFlightAggregation(
-            inFlightAggregation.firstSequencingTimestamp,
             inFlightAggregation.maxSequencingTimestamp,
             inFlightAggregation.rule,
           )

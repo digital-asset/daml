@@ -37,6 +37,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  * refer to the <a href="https://github.com/grpc/grpc-java/blob/master/SECURITY.md">section on
  * security</a> in the grpc-java documentation.
  */
+@Deprecated
 public final class DamlLedgerClient implements LedgerClient {
 
   public static final class Builder {

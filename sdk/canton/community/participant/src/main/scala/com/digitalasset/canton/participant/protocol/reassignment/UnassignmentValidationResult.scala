@@ -7,7 +7,12 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ContractsReassignmentBatch,
+  ReassignmentSubmitterMetadata,
+  UnassignmentData,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   Reassignment,
@@ -21,39 +26,38 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
-import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.protocol.{ReassignmentId, RootHash}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
 final case class UnassignmentValidationResult(
-    // TODO(i25233): Right now we write the full tree as part of the unassignment data in the reassignment store.
-    // we don't need all the tree to validate the assignment request
-    fullTree: FullUnassignmentTree,
-    reassignmentId: ReassignmentId,
-    hostedStakeholders: Set[LfPartyId],
-    assignmentExclusivity: Option[
-      Target[CantonTimestamp]
-    ], // Defined iff the participant is reassigning
-    unassignmentTs: CantonTimestamp,
+    unassignmentData: UnassignmentData,
+    override val rootHash: RootHash,
+    hostedConfirmingReassigningParties: Set[LfPartyId],
+    // Defined iff the participant is reassigning
+    assignmentExclusivity: Option[Target[CantonTimestamp]],
     commonValidationResult: UnassignmentValidationResult.CommonValidationResult,
     reassigningParticipantValidationResult: UnassignmentValidationResult.ReassigningParticipantValidationResult,
 ) extends ReassignmentValidationResult {
-  val rootHash = fullTree.rootHash
-  val submitterMetadata = fullTree.submitterMetadata
-  val sourceSynchronizer = fullTree.sourceSynchronizer
-  val targetSynchronizer = fullTree.targetSynchronizer
-  val stakeholders = fullTree.stakeholders.all
-  val targetTimeProof = fullTree.targetTimeProof
+  val submitterMetadata: ReassignmentSubmitterMetadata = unassignmentData.submitterMetadata
+  val sourceSynchronizer: ReassignmentTag.Source[PhysicalSynchronizerId] =
+    unassignmentData.sourceSynchronizer
+  val targetSynchronizer: Target[PhysicalSynchronizerId] = unassignmentData.targetSynchronizer
+  val stakeholders: Set[LfPartyId] = unassignmentData.stakeholders.all
+  val targetTimestamp: CantonTimestamp = unassignmentData.targetTimestamp
+
+  override def reassignmentId: ReassignmentId = unassignmentData.reassignmentId
 
   def isReassigningParticipant: Boolean = assignmentExclusivity.isDefined
 
   override def activenessResultIsSuccessful: Boolean =
     commonValidationResult.activenessResult.isSuccessful
 
-  def contracts = fullTree.contracts
+  def contracts: ContractsReassignmentBatch = unassignmentData.contractsBatch
 
-  def commitSet = CommitSet(
+  def commitSet: CommitSet = CommitSet(
     archivals = Map.empty,
     creations = Map.empty,
     assignments = Map.empty,

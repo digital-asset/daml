@@ -41,9 +41,12 @@ final case class SequencerSnapshot(
     def serializeInFlightAggregation(
         args: (AggregationId, InFlightAggregation)
     ): v30.SequencerSnapshot.InFlightAggregationWithId = {
+      // firstSequencingTimestamp is not serialized, because the sequencer that uses the sequencer snapshot to
+      // initialize itself, takes the lowest sequencing timestamp from aggregated senders and stores it as the first
+      // sequencing time for the aggregation.
       val (
         aggregationId,
-        InFlightAggregation(aggregatedSenders, _firstSequencingTimestamp, maxSequencingTime, rule),
+        InFlightAggregation(aggregatedSenders, maxSequencingTime, rule),
       ) = args
       v30.SequencerSnapshot.InFlightAggregationWithId(
         aggregationId.toProtoPrimitive,
@@ -188,19 +191,9 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
               } yield sender -> AggregationBySender(sequencingTimestamp, signatures)
           }
           .map(_.toMap)
-        firstSequencingTimestamp <- aggregatedSenders.values
-          .minByOption(_.sequencingTimestamp)
-          .map(_.sequencingTimestamp)
-          .toRight(
-            ProtoDeserializationError.InvariantViolation(
-              field = Some("aggregatedSenders"),
-              "Aggregated senders must not be empty",
-            )
-          )
         inFlightAggregation <- InFlightAggregation
           .create(
             aggregatedSenders,
-            firstSequencingTimestamp,
             maxSequencingTime,
             aggregationRule,
           )

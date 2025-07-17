@@ -64,7 +64,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -452,7 +452,7 @@ class LocalParticipantTestingGroup(
       // only include active contracts
       activeSet: Boolean = false,
       limit: PositiveInt = defaultLimit,
-  ): List[(Boolean, SerializableContract)] = {
+  ): List[(Boolean, ContractInstance)] = {
     def toOpt(str: String) = OptionUtil.emptyStringAsNone(str)
 
     val pcs = state_inspection
@@ -475,9 +475,9 @@ class LocalParticipantTestingGroup(
       filterTemplate: String = "",
       filterStakeholder: Option[PartyId] = None,
       limit: PositiveInt = defaultLimit,
-  ): List[SerializableContract] = {
-    val predicate = (c: SerializableContract) =>
-      filterStakeholder.forall(s => c.metadata.stakeholders.contains(s.toLf))
+  ): List[ContractInstance] = {
+    val predicate = (c: ContractInstance) =>
+      filterStakeholder.forall(s => c.stakeholders.contains(s.toLf))
 
     check(FeatureFlag.Testing) {
       pcs_search(
@@ -785,7 +785,7 @@ class LocalCommitmentsAdministrationGroup(
 }
 
 class CommitmentsAdministrationGroup(
-    runner: AdminCommandRunner with BaseInspection[ParticipantNode],
+    runner: AdminCommandRunner,
     val consoleEnvironment: ConsoleEnvironment,
     val loggerFactory: NamedLoggerFactory,
 ) extends FeatureFlagFilter
@@ -1147,7 +1147,7 @@ class CommitmentsAdministrationGroup(
                     config.distinguishedParticipants ++ participantSeq,
                     config.thresholdDistinguished,
                     config.thresholdDefault,
-                    config.participantsMetrics,
+                    config.individuallyMonitored,
                   )
                 )
             }
@@ -1170,7 +1170,7 @@ class CommitmentsAdministrationGroup(
       | from a synchronizer can be done with Seq.empty for 'counterParticipantsDistinguished' and Seq(SynchronizerId) for synchronizers.
       | Leaving both sequences empty clears all configs on all synchronizers.
       |""")
-  def remove_config_for_slow_counter_participants(
+  def remove_config_distinguished_slow_counter_participants(
       counterParticipantsDistinguished: Seq[ParticipantId],
       synchronizers: Seq[SynchronizerId],
   ): Unit = consoleEnvironment.run {
@@ -1206,7 +1206,7 @@ class CommitmentsAdministrationGroup(
                   config.distinguishedParticipants.diff(participantSeq),
                   config.thresholdDistinguished,
                   config.thresholdDefault,
-                  config.participantsMetrics,
+                  config.individuallyMonitored,
                 )
               )
           }
@@ -1241,7 +1241,7 @@ class CommitmentsAdministrationGroup(
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
-              slowCp.synchronizerIds.contains(synchronizerId) && !slowCp.participantsMetrics
+              slowCp.synchronizerIds.contains(synchronizerId) && !slowCp.individuallyMonitored
                 .contains(
                   participantId
                 )
@@ -1263,7 +1263,7 @@ class CommitmentsAdministrationGroup(
                   config.distinguishedParticipants,
                   config.thresholdDistinguished,
                   config.thresholdDefault,
-                  config.participantsMetrics ++ participantSeq,
+                  config.individuallyMonitored ++ participantSeq,
                 )
               )
           }
@@ -1299,7 +1299,7 @@ class CommitmentsAdministrationGroup(
           .zip(individualMetrics)
           .filter { case (synchronizerId, participantId) =>
             configs.exists(slowCp =>
-              slowCp.synchronizerIds.contains(synchronizerId) && slowCp.participantsMetrics
+              slowCp.synchronizerIds.contains(synchronizerId) && slowCp.individuallyMonitored
                 .contains(
                   participantId
                 )
@@ -1321,7 +1321,7 @@ class CommitmentsAdministrationGroup(
                   config.distinguishedParticipants,
                   config.thresholdDistinguished,
                   config.thresholdDefault,
-                  config.participantsMetrics.diff(participantSeq),
+                  config.individuallyMonitored.diff(participantSeq),
                 )
               )
           }
@@ -1362,7 +1362,7 @@ class CommitmentsAdministrationGroup(
       counterParticipants: Seq[ParticipantId],
   ): Seq[SlowCounterParticipantSynchronizerConfig] =
     get_config_for_slow_counter_participants(synchronizers).filter(config =>
-      config.participantsMetrics.exists(metricParticipant =>
+      config.individuallyMonitored.exists(metricParticipant =>
         counterParticipants.contains(metricParticipant) ||
           config.distinguishedParticipants.exists(distinguished =>
             counterParticipants.contains(distinguished)

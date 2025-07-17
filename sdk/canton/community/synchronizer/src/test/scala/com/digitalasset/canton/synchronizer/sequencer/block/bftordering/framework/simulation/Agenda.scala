@@ -70,7 +70,7 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
   ): Unit = {
     require(at >= clock.now)
     queue.addOne(ScheduledCommand(command, at, nextCommandSequencerNumber, priority))
-    updateCache(command, at)
+    updateCache(command, at, priority)
     nextCommandSequencerNumber += 1
   }
 
@@ -84,16 +84,23 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
   private def updateCache(
       command: Command,
       at: CantonTimestamp,
+      priority: ScheduledCommand.Priority,
   ): Unit =
     command match {
       case i: InternalEvent[_] =>
         i.from match {
           case EventOriginator.FromInternalModule(from) =>
-            latestScheduledMessageCache
-              .put(LatestScheduledMessageKey(i.node, from = from, to = i.to), at)
-              .foreach { oldValue =>
-                require(oldValue.isBefore(at) || oldValue == at)
-              }
+            val key = LatestScheduledMessageKey(i.node, from = from, to = i.to)
+            latestScheduledMessageCache.updateWith(key) {
+              case Some(oldValue) if oldValue.isBefore(at) || oldValue == at => Some(at)
+              case Some(oldValue) =>
+                require(
+                  priority == ScheduledCommand.HighestPriority,
+                  "only highest priority is allowed to be scheduled before other commands",
+                )
+                Some(oldValue)
+              case None => Some(at)
+            }
           case _ =>
         }
       case _ =>

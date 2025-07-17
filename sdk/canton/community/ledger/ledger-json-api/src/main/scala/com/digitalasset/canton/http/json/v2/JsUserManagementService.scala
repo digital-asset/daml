@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.user_management_service
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -24,7 +25,8 @@ import scala.concurrent.Future
 class JsUserManagementService(
     userManagementClient: UserManagementClient,
     val loggerFactory: NamedLoggerFactory,
-) extends Endpoints
+)(implicit val authInterceptor: AuthInterceptor)
+    extends Endpoints
     with NamedLogging {
   import JsUserManagementService.*
 
@@ -153,7 +155,7 @@ class JsUserManagementService(
     UserId.fromString(req.in) match {
       case Right(userId) =>
         userManagementClient
-          .deleteUser(userId, callerContext.jwt.map(_.token))(req.traceContext)
+          .deleteUser(userId, callerContext.token())(req.traceContext)
           .resultToRight
       case Left(errorMsg) =>
         malformedUserId(errorMsg)(req.traceContext)

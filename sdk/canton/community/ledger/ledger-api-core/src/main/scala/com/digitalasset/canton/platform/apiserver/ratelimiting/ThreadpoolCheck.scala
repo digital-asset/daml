@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.ratelimiting
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.ThreadpoolOverloaded
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
-import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
+import com.digitalasset.canton.networking.grpc.ratelimiting.LimitResult.{
   LimitResultCheck,
   OverLimit,
   UnderLimit,

@@ -620,7 +620,6 @@ trait MessageDispatcher { this: NamedLogging =>
         ts,
         s"Received messages with wrong synchronizer ids ${wrongMsgs.map(_.protocolMessage.synchronizerId)}. Discarding them.",
       ).discard
-      ()
     }
 
   protected def alarm(sc: SequencerCounter, ts: CantonTimestamp, msg: String)(implicit

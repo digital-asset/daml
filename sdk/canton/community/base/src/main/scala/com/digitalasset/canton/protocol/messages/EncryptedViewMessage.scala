@@ -169,7 +169,8 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       EncryptedViewMessage.type
     ]
-) extends UnsignedProtocolMessage {
+) extends UnsignedProtocolMessage
+    with HasProtocolVersionedWrapper[EncryptedViewMessage[ViewType]] {
 
   @transient override protected lazy val companionObj: EncryptedViewMessage.type =
     EncryptedViewMessage

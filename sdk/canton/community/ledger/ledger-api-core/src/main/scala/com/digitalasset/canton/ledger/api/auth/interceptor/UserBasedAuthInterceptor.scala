@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.ledger.api.auth.interceptor
 
-import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.*
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
@@ -15,7 +14,6 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.UserId
-import io.grpc.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -29,21 +27,20 @@ import scala.concurrent.{ExecutionContext, Future}
 class UserBasedAuthInterceptor(
     authServices: Seq[AuthService],
     userManagementStoreO: Option[UserManagementStore],
-    telemetry: Telemetry,
     loggerFactory: NamedLoggerFactory,
     override implicit val ec: ExecutionContext,
-) extends AuthInterceptor(authServices, telemetry, loggerFactory, ec)
+) extends AuthInterceptor(authServices, loggerFactory, ec)
     with NamedLogging {
 
   import UserBasedAuthInterceptor.*
 
   override def headerToClaims(
-      headers: Metadata,
+      authToken: Option[String],
       serviceName: String,
   )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] = {
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
     super
-      .headerToClaims(headers, serviceName)
+      .headerToClaims(authToken, serviceName)
       .flatMap(resolveAuthenticatedUserRights)
   }
 
@@ -164,7 +161,6 @@ class UserBasedAuthInterceptor(
       case Right(userId) =>
         Future.successful(userId)
     }
-
 }
 
 object UserBasedAuthInterceptor {

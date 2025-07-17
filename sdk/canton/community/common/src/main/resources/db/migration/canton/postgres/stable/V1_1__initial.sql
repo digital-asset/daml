@@ -238,14 +238,14 @@ create table par_reassignments (
   source_synchronizer_idx integer not null,
   reassignment_id varchar collate "C" not null,
 
-  primary key (target_synchronizer_idx, source_synchronizer_idx, reassignment_id),
+  primary key (target_synchronizer_idx, reassignment_id),
 
   unassignment_global_offset bigint,
   assignment_global_offset bigint,
 
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_timestamp bigint not null,
-  unassignment_request bytea,
+  unassignment_data bytea,
 
   -- defined if reassignment was completed
   -- UTC timestamp in microseconds relative to EPOCH
@@ -328,7 +328,7 @@ create table par_commitment_snapshot (
   -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
   -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
   stakeholders_hash varchar collate "C" not null,
-  stakeholders bytea not null,
+  stakeholders varchar[] collate "C" not null,
   commitment bytea not null,
   primary key (synchronizer_idx, stakeholders_hash)
 );
@@ -518,6 +518,23 @@ create table sequencer_events (
   base_traffic_remainder bigint
 );
 
+-- Normalized table for sequencer event recipients to allow indexed lookups of previous and sequencer-addressed events
+create table sequencer_event_recipients (
+    ts bigint not null,
+    recipient_id integer not null,
+    node_index smallint not null,
+    is_topology_event boolean not null,
+    primary key (node_index, recipient_id, ts)
+);
+
+-- temporal first dimension index used for pruning
+create index sequencer_event_recipients_ts_idx on sequencer_event_recipients(ts);
+
+-- a partial index for when we specifically query only for topology relevant events
+create index sequencer_event_recipients_node_recipient_topology_ts
+    on sequencer_event_recipients (node_index, recipient_id, is_topology_event, ts)
+    where is_topology_event is true;
+
 -- Sequence of local offsets used by the participant event publisher
 create sequence participant_event_publisher_local_offsets minvalue 0 start with 0;
 
@@ -640,34 +657,22 @@ create table common_pruning_schedules(
 create table seq_in_flight_aggregation(
   aggregation_id varchar collate "C" not null primary key,
   -- UTC timestamp in microseconds relative to EPOCH
-  first_sequencing_timestamp bigint not null,
-  -- UTC timestamp in microseconds relative to EPOCH
   max_sequencing_time bigint not null,
   -- serialized aggregation rule,
   aggregation_rule bytea not null
 );
 
--- NB: Do not add other indexes to this table, as this will confuse the planner to ignore the BRIN index
-create index idx_seq_in_flight_aggregation_temporal_brin
-    on seq_in_flight_aggregation
-    using brin (first_sequencing_timestamp, max_sequencing_time);
+create index seq_in_flight_aggregation_max_sequencing_time_idx on seq_in_flight_aggregation(max_sequencing_time);
 
 create table seq_in_flight_aggregated_sender(
   aggregation_id varchar collate "C" not null,
   sender varchar collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
   sequencing_timestamp bigint not null,
-  -- UTC timestamp in microseconds relative to EPOCH
-  max_sequencing_time bigint not null,
   signatures bytea not null,
   primary key (aggregation_id, sender),
   constraint foreign_key_seq_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
-
--- NB: Do not add other indexes to this table, as this will confuse the planner to ignore the BRIN index
-create index idx_seq_in_flight_aggregated_sender_temporal_brin
-    on seq_in_flight_aggregated_sender
-        using brin (sequencing_timestamp, max_sequencing_time);
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (
@@ -793,7 +798,7 @@ create table ord_pbft_messages_in_progress(
   epoch_number bigint not null,
 
   -- view number
-  view_number smallint not null,
+  view_number bigint not null,
 
   -- pbft message for the block
   message bytea not null,
@@ -864,7 +869,7 @@ create table ord_leader_selection_state (
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
   address varchar collate "C" not null,
-  port smallint not null,
+  port integer not null,
   transport_security bool not null,
   custom_server_trust_certificates bytea null, -- PEM string
   client_certificate_chain bytea null, -- PEM string
@@ -872,7 +877,7 @@ create table ord_p2p_endpoints (
   primary key (address, port, transport_security)
 );
 
--- Auto-vacuum settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment
+-- Auto vacuum/analyze settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment
 alter table sequencer_events
     set (
         autovacuum_vacuum_scale_factor = 0.0,
@@ -881,6 +886,20 @@ alter table sequencer_events
         autovacuum_vacuum_cost_delay = 5,
         autovacuum_vacuum_insert_scale_factor = 0.0,
         autovacuum_vacuum_insert_threshold = 100000
+        );
+
+-- Note: *_threshold is 10x of the other tables, since this table has many more rows.
+alter table sequencer_event_recipients
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 100000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 1000000,
+        -- Note: auto vacuuming this table is too slow, so we need to run analyze more often than vacuuming completes:
+        autovacuum_analyze_scale_factor = 0.0,
+        autovacuum_analyze_threshold = 10000000
         );
 
 alter table sequencer_payloads

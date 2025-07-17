@@ -75,10 +75,10 @@ object SequencerConfig {
   }
 
   final case class BftSequencer(
-      block: BlockSequencerConfig =
-        // To avoid having to include an empty "block" config element if defaults are fine
-        BlockSequencerConfig(),
-      config: BftBlockOrdererConfig,
+      // To avoid having to include an empty "block" node if defaults are fine
+      block: BlockSequencerConfig = BlockSequencerConfig(),
+      // To avoid having to include an empty "config" node if defaults are fine
+      config: BftBlockOrdererConfig = BftBlockOrdererConfig(),
   ) extends SequencerConfig
       with UniformCantonConfigValidation {
     override def supportsReplicas: Boolean = false

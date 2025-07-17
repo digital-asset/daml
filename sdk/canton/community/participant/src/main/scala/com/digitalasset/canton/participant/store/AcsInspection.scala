@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.store.AcsInspection.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
 import com.digitalasset.canton.protocol.messages.HasSynchronizerId
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
@@ -44,14 +44,12 @@ class AcsInspection(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[List[(Boolean, SerializableContract)]] =
+  ): FutureUnlessShutdown[List[(Boolean, ContractInstance)]] =
     getCurrentSnapshot()
       .flatMap(_.traverse { acs =>
         contractStore
           .find(exactId, filterPackage, filterTemplate, limit)
-          .map(
-            _.map(sc => (acs.snapshot.contains(sc.contractId), sc.serializable))
-          ) // TODO(#26348) - use fat contract downstream
+          .map(_.map(c => (acs.snapshot.contains(c.contractId), c)))
       })
       .map(_.getOrElse(Nil))
 
@@ -61,11 +59,11 @@ class AcsInspection(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[
-    Map[LfContractId, SerializableContract]
+    Map[LfContractId, ContractInstance]
   ] =
     contractStore.findWithPayload(contractIds).map { contracts =>
       contracts.view.map { case (cid, contract) =>
-        cid -> contract.serializable
+        cid -> contract
       }.toMap
     }
 
@@ -242,7 +240,7 @@ class AcsInspection(
       parties: Set[LfPartyId],
       timeOfSnapshotO: Option[TimeOfChange],
       skipCleanTocCheck: Boolean = false,
-  )(f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit])(implicit
+  )(f: (ContractInstance, ReassignmentCounter) => Either[AcsInspectionError, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, AcsInspectionError, Option[(Set[LfPartyId], TimeOfChange)]] =
@@ -270,7 +268,7 @@ class AcsInspection(
   private def forEachBatch(
       synchronizerId: SynchronizerId,
       parties: Set[LfPartyId],
-      f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit],
+      f: (ContractInstance, ReassignmentCounter) => Either[AcsInspectionError, Unit],
   )(batch: Seq[(LfContractId, ReassignmentCounter)])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -292,10 +290,7 @@ class AcsInspection(
         .traverse_ { case (contract, reassignmentCounter) =>
           if (parties.exists(contract.stakeholders)) {
             allStakeholders ++= contract.stakeholders
-            f(
-              contract.serializable,
-              reassignmentCounter,
-            ) // TODO(#26348) - use fat contract downstream
+            f(contract, reassignmentCounter)
           } else
             Either.unit
         }

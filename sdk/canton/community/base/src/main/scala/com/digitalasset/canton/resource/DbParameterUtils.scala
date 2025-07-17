@@ -132,4 +132,47 @@ object DbParameterUtils {
       .andThen(_.map(deserialize))
   }
 
+  /** Sets an Iterable of String as an array of string database parameter.
+    *
+    * @param items
+    *   the strings to store in the column.
+    * @param pp
+    *   A `PositionedParameters` object, which is used to set the database parameter.
+    */
+  def setArrayStringParameterDb(
+      items: Iterable[String],
+      pp: PositionedParameters,
+  ): Unit = {
+    val jdbcArray = pp.ps.getConnection.createArrayOf(
+      "varchar",
+      items.toArray[AnyRef],
+    )
+    pp.setObject(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
+  }
+
+  /** Retrieves an array strings from the database.
+    */
+  def getStringArrayResultsDb: GetResult[Array[String]] = {
+
+    def anyRefToString(obj: AnyRef): String = obj match {
+      case str: String => str
+      case invalid =>
+        throw new SQLNonTransientException(
+          s"Cannot convert object array element (of type ${invalid.getClass.getName}) to String"
+        )
+    }
+
+    GetResult(r => r.rs.getArray(r.skip.currentPos))
+      .andThen { case (sqlArr: java.sql.Array) =>
+        sqlArr.getArray match {
+          case arr: Array[String] => arr // Postgres
+          case arr: Array[AnyRef] => arr.map(anyRefToString) // H2
+          case other =>
+            throw new SQLNonTransientException(
+              s"Cannot convert object (of type ${other.getClass.getName}) to byte array array"
+            )
+        }
+      }
+  }
+
 }

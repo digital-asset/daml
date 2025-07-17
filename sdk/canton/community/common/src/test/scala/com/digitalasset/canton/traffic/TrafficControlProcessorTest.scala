@@ -70,7 +70,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       case Some(signature) =>
         SignedProtocolMessage.from(
           setTrafficPurchased,
-          testedProtocolVersion,
           signature,
         )
 
@@ -79,7 +78,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
           .trySignAndCreate(
             setTrafficPurchased,
             synchronizerCrypto.currentSnapshotApproximation,
-            testedProtocolVersion,
           )
           .failOnShutdown
           .futureValue
@@ -129,7 +127,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       None,
       batch,
       None,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 
@@ -142,7 +139,6 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       synchronizerId,
       MessageId.fromUuid(new UUID(0, 1)),
       SequencerErrors.SubmissionRequestRefused("Some error"),
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 

@@ -8,12 +8,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.sequencing.protocol.{AllMembersOfSynchronizer, Recipients}
 import com.digitalasset.canton.synchronizer.HasTopologyTransactionTestFactory
+import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.{Acknowledgment, Send}
+import com.digitalasset.canton.synchronizer.block.RawLedgerBlock.RawBlockEvent
 import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGenerator.{
   EndOfBlock,
   NextChunk,
   TopologyTickChunk,
 }
-import com.digitalasset.canton.synchronizer.block.update.BlockUpdateGeneratorImpl
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
@@ -43,6 +44,99 @@ class BlockUpdateGeneratorImplTest
     CantonTimestamp.assertFromInstant(Instant.parse("2024-03-08T12:00:00.000Z"))
 
   "BlockUpdateGeneratorImpl.extractBlockEvents" should {
+    "filter out events" when {
+      "the sequencing time is before or at the minimum sequencing time" in {
+        val rateLimitManagerMock = mock[SequencerRateLimitManager]
+        val memberValidatorMock = mock[SequencerMemberValidator]
+        val syncCryptoApiFake =
+          TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
+            sequencerId,
+            physicalSynchronizerId,
+            aTimestamp,
+          )
+        val sequencingTimeLowerBoundExclusive = CantonTimestamp.Epoch.plusSeconds(10)
+
+        val blockUpdateGenerator =
+          new BlockUpdateGeneratorImpl(
+            testedProtocolVersion,
+            syncCryptoApiFake,
+            sequencerId,
+            rateLimitManagerMock,
+            OrderingTimeFixMode.ValidateOnly,
+            sequencingTimeLowerBoundExclusive = Some(sequencingTimeLowerBoundExclusive),
+            SequencerTestMetrics,
+            loggerFactory,
+            memberValidatorMock,
+          )
+
+        val signedSubmissionRequest = sequencerSignedAndSenderSignedSubmissionRequest(
+          topologyTransactionFactory.participant1,
+          Recipients.cc(AllMembersOfSynchronizer),
+        ).futureValue
+        val acknowledgeRequest =
+          senderSignedAcknowledgeRequest(topologyTransactionFactory.participant1).futureValue
+
+        blockUpdateGenerator.extractBlockEvents(
+          RawLedgerBlock(
+            1L,
+            Seq(
+              RawBlockEvent.Send(
+                signedSubmissionRequest.toByteString,
+                sequencingTimeLowerBoundExclusive.minusSeconds(5).toMicros,
+              ),
+              RawBlockEvent
+                .Acknowledgment(
+                  acknowledgeRequest.toByteString,
+                  sequencingTimeLowerBoundExclusive.minusSeconds(4).toMicros,
+                ),
+            ).map(Traced(_)(TraceContext.empty)),
+            tickTopologyAtMicrosFromEpoch = None,
+          )
+        ) shouldBe BlockEvents(1L, Seq.empty, None)
+
+        blockUpdateGenerator.extractBlockEvents(
+          RawLedgerBlock(
+            1L,
+            Seq(
+              RawBlockEvent
+                .Acknowledgment(
+                  acknowledgeRequest.toByteString,
+                  sequencingTimeLowerBoundExclusive.immediatePredecessor.toMicros,
+                ),
+              RawBlockEvent
+                .Send(
+                  signedSubmissionRequest.toByteString,
+                  sequencingTimeLowerBoundExclusive.immediateSuccessor.toMicros,
+                ),
+              RawBlockEvent
+                .Acknowledgment(
+                  acknowledgeRequest.toByteString,
+                  sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor.toMicros,
+                ),
+            ).map(Traced(_)(TraceContext.empty)),
+            None,
+          )
+        ) shouldBe BlockEvents(
+          1L,
+          Seq(
+            Send(
+              sequencingTimeLowerBoundExclusive.immediateSuccessor,
+              signedSubmissionRequest,
+              signedSubmissionRequest.toByteString.size(),
+            ),
+            Acknowledgment(
+              sequencingTimeLowerBoundExclusive.immediateSuccessor.immediateSuccessor,
+              acknowledgeRequest,
+            ),
+          ).map(
+            Traced(_)(TraceContext.empty)
+          ),
+          None,
+        )
+
+      }
+    }
+
     "append a topology tick event only" when {
       "the block requires one" in {
         val rateLimitManagerMock = mock[SequencerRateLimitManager]
@@ -61,7 +155,8 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+            sequencingTimeLowerBoundExclusive =
+              SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,
@@ -103,7 +198,8 @@ class BlockUpdateGeneratorImplTest
             sequencerId,
             rateLimitManagerMock,
             OrderingTimeFixMode.ValidateOnly,
-            minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+            sequencingTimeLowerBoundExclusive =
+              SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
             SequencerTestMetrics,
             loggerFactory,
             memberValidatorMock,

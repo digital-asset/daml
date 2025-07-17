@@ -96,8 +96,11 @@ object StaticSynchronizerParameters {
     StaticSynchronizerParameters(internal)
   }
 
-  def defaultsWithoutKMS(protocolVersion: ProtocolVersion): StaticSynchronizerParameters =
-    defaults(CryptoConfig(), protocolVersion)
+  def defaultsWithoutKMS(
+      protocolVersion: ProtocolVersion,
+      serial: NonNegativeInt = NonNegativeInt.zero,
+  ): StaticSynchronizerParameters =
+    defaults(CryptoConfig(), protocolVersion, serial)
 
   // This method is unsafe. Not prefixing by `try` to have nicer docs snippets.
   def defaults(

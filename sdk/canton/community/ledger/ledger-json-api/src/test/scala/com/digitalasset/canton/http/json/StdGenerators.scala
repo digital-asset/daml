@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http.json
 
+import com.google.protobuf.timestamp.Timestamp
 import org.scalacheck.{Arbitrary, Gen}
 
 import java.time.Instant
@@ -27,12 +28,9 @@ object StdGenerators {
   def smallSeqArbitrary[T](implicit arbT: Arbitrary[T]): Arbitrary[Seq[T]] =
     Arbitrary(Gen.choose(0, maxSeqSize).flatMap(n => Gen.listOfN(n, arbT.arbitrary)))
 
-  implicit val arbTimestamp: Arbitrary[com.google.protobuf.timestamp.Timestamp] = Arbitrary {
-    // get random time instant
-    val randomInstantArb: Arbitrary[Instant] = implicitly[Arbitrary[Instant]]
-    val instant = randomInstantArb.arbitrary.sample.getOrElse(Instant.now())
-    com.google.protobuf.timestamp.Timestamp(instant.getEpochSecond, instant.getNano)
-  }
+  implicit val arbTimestamp: Arbitrary[Timestamp] =
+    Arbitrary(Arbitrary.arbitrary[Instant].map(i => Timestamp(i.getEpochSecond, i.getNano)))
+
   implicit val arbUfs: Arbitrary[scalapb.UnknownFieldSet] = Arbitrary {
     scalapb.UnknownFieldSet()
   }

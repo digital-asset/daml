@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.ledger.participant.state.{
   RepairIndex,
   SequencerIndex,
@@ -560,7 +560,7 @@ class SyncEphemeralStateFactoryTest
         val ts0 = CantonTimestamp.ofEpochSecond(0)
         val predecessor = SynchronizerPredecessor(
           psid = DefaultTestIdentities.physicalSynchronizerId,
-          upgradeTime = ts0.plusSeconds(1),
+          upgradeTime = ts0,
         )
 
         for {

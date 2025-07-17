@@ -8,6 +8,7 @@ import com.daml.ledger.javaapi.data.CommandsSubmission;
 import io.reactivex.Single;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandSubmissionServiceGrpc} */
+@Deprecated
 public interface CommandSubmissionClient {
 
   Single<SubmitResponse> submit(CommandsSubmission submission);

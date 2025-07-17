@@ -45,7 +45,7 @@ private[event] final class EventBuffer(
     bufferedEvents.add(event).discard
   }
 
-  /** Mark the OPR ACS chunk event with the buffer begin timestamp as record time.
+  /** Mark the OPR ACS batch event with the buffer begin timestamp as record time.
     */
   def markEventsWithRecordTime(buildEventsWithRecordTime: CantonTimestamp => Update)(implicit
       traceContext: TraceContext

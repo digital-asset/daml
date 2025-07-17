@@ -8,6 +8,7 @@ module DA.Test.Util (
     assertInfixOf,
     withTempFileResource,
     withTempDirResource,
+    withCurrentTempDir,
     withEnv,
     withResourceCps,
     nullDevice,
@@ -54,6 +55,9 @@ withTempFileResource f = withResource newTempFile snd (f . fmap fst)
 withTempDirResource :: (IO FilePath -> TestTree) -> TestTree
 withTempDirResource f = withResource newTempDir delete (f . fmap fst)
   where delete (d, _delete) = removePathForcibly d
+
+withCurrentTempDir :: IO a -> IO a
+withCurrentTempDir = withTempDir . flip withCurrentDirectory
 
 -- | Like Tasty's @withResource@, but instead of accepting setup and teardown
 -- functions, it accepts a continuation-passing style function that encapsulates

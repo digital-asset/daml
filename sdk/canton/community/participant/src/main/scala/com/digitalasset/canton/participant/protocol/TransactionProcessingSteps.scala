@@ -56,16 +56,17 @@ import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissio
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory.*
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ContractInstanceOfId,
   ContractLookupError,
-  SerializableContractOfId,
   UnknownPackageError,
 }
 import com.digitalasset.canton.participant.protocol.validation.*
+import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator.AuthenticationValidatorResult
 import com.digitalasset.canton.participant.protocol.validation.ContractConsistencyChecker.ReferenceToFutureContractError
 import com.digitalasset.canton.participant.protocol.validation.InternalConsistencyChecker.ErrorWithInternalConsistencyCheck
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
   ErrorWithSubTransaction,
-  LazyAsyncReInterpretation,
+  LazyAsyncReInterpretationMap,
 }
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.TimeCheckFailure
 import com.digitalasset.canton.participant.store.*
@@ -224,7 +225,7 @@ class TransactionProcessingSteps(
       mediator: MediatorGroupRecipient,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
   )(implicit traceContext: TraceContext)
       extends TrackedSubmission {
 
@@ -330,7 +331,7 @@ class TransactionProcessingSteps(
               )
           )
 
-        lookupContractsWithDisclosed: SerializableContractOfId =
+        lookupContractsWithDisclosed: ContractInstanceOfId =
           (contractId: LfContractId) =>
             disclosedContracts
               .get(contractId)
@@ -818,7 +819,7 @@ class TransactionProcessingSteps(
       // and save us some work.
       // Note that we keep this asynchronous and lazy on purpose here, such that the authentication checks will only access the result
       // if they need to (for external submissions). For classic submissions the behavior remains the same.
-      val reInterpretedTopLevelViews: LazyAsyncReInterpretation =
+      val reInterpretedTopLevelViews: LazyAsyncReInterpretationMap =
         parsedRequest.rootViewTrees.forgetNE
           .filter(_.isTopLevel)
           .map { viewTree =>
@@ -840,7 +841,6 @@ class TransactionProcessingSteps(
           parsedRequest,
           reInterpretedTopLevelViews,
           psid,
-          protocolVersion,
           transactionEnricher,
           createNodeEnricher,
           logger,
@@ -985,6 +985,8 @@ class TransactionProcessingSteps(
         timeValidationResultE = parallelChecksResult.timeValidationResultE,
         hostedWitnesses = usedAndCreated.hostedWitnesses,
         replayCheckResult = parallelChecksResult.replayCheckResult,
+        validatedExternalTransactionHash =
+          parallelChecksResult.authenticationValidatorResult.externalHash,
       )
     }
 
@@ -1113,7 +1115,7 @@ class TransactionProcessingSteps(
 
   @VisibleForTesting
   private[protocol] def authenticateInputContractsInternal(
-      inputContracts: Map[LfContractId, SerializableContract]
+      inputContracts: Map[LfContractId, ContractInstance]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
@@ -1121,7 +1123,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticateSerializable(contract)
+            .authenticateFat(contract.inst)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )
@@ -1153,9 +1155,9 @@ class TransactionProcessingSteps(
   )(implicit
       traceContext: TraceContext
   ): PendingTransaction = {
-    // We consider that we rejected if at least one of the responses is not "approve"
+    // We consider that we rejected if at least one of the responses is a "reject"
     val locallyRejectedF =
-      responsesF.map(_.exists(_.responses.exists(response => !response.localVerdict.isApprove)))
+      responsesF.map(_.exists(_.responses.exists(_.localVerdict.isReject)))
 
     // The request was aborted if the model conformance check ended with an abort error, due to either a timeout
     // or a negative mediator verdict concurrently received in Phase 7
@@ -1200,6 +1202,8 @@ class TransactionProcessingSteps(
       witnessed = txValidationResult.witnessed,
       completionInfoO = completionInfoO,
       lfTx = modelConformanceResult.suffixedTransaction,
+      externalTransactionHash =
+        pendingRequestData.transactionValidationResult.validatedExternalTransactionHash,
     )
   }
 
@@ -1208,10 +1212,11 @@ class TransactionProcessingSteps(
       txId: TransactionId,
       workflowIdO: Option[WorkflowId],
       commitSet: CommitSet,
-      createdContracts: Map[LfContractId, SerializableContract],
-      witnessed: Map[LfContractId, SerializableContract],
+      createdContracts: Map[LfContractId, ContractInstance],
+      witnessed: Map[LfContractId, ContractInstance],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
+      externalTransactionHash: Option[Hash],
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -1230,11 +1235,8 @@ class TransactionProcessingSteps(
       contractMetadata =
         // We deliberately do not forward the driver metadata
         // for divulged contracts since they are not visible on the Ledger API
-        (createdContracts ++ witnessed).view.map {
-          case (contractId, SerializableContract(_, _, _, _, salt)) =>
-            contractId -> DriverContractMetadata(salt).toLfBytes(
-              CantonContractIdVersion.tryCantonContractIdVersion(contractId)
-            )
+        (createdContracts ++ witnessed).view.map { case (contractId, contract) =>
+          contractId -> contract.inst.cantonData
         }.toMap
 
       acceptedEvent =
@@ -1257,6 +1259,7 @@ class TransactionProcessingSteps(
           contractMetadata = contractMetadata,
           synchronizerId = psid.logical,
           recordTime = requestTime,
+          externalTransactionHash = externalTransactionHash,
         )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
@@ -1308,6 +1311,8 @@ class TransactionProcessingSteps(
         witnessed = usedAndCreated.contracts.witnessed,
         completionInfoO = completionInfoO,
         lfTx = validSubTransaction,
+        externalTransactionHash =
+          pendingRequestData.transactionValidationResult.validatedExternalTransactionHash,
       )
     } yield commitAndContractsAndEvent
 
@@ -1500,7 +1505,7 @@ object TransactionProcessingSteps {
       transactionMeta: TransactionMeta,
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
-      disclosedContracts: Map[LfContractId, SerializableContract],
+      disclosedContracts: Map[LfContractId, ContractInstance],
   )
 
   final case class ParsedTransactionRequest(
@@ -1540,7 +1545,7 @@ object TransactionProcessingSteps {
   }
 
   private final case class ParallelChecksResult(
-      authenticationResult: Map[ViewPosition, AuthenticationError],
+      authenticationValidatorResult: AuthenticationValidatorResult,
       consistencyResultE: Either[List[ReferenceToFutureContractError], Unit],
       authorizationResult: Map[ViewPosition, String],
       conformanceResultET: EitherT[
@@ -1551,7 +1556,9 @@ object TransactionProcessingSteps {
       internalConsistencyResultE: Either[ErrorWithInternalConsistencyCheck, Unit],
       timeValidationResultE: Either[TimeCheckFailure, Unit],
       replayCheckResult: Option[String],
-  )
+  ) {
+    val authenticationResult = authenticationValidatorResult.viewAuthenticationErrors
+  }
 
   final case class RejectionArgs(
       pendingTransaction: PendingTransaction,

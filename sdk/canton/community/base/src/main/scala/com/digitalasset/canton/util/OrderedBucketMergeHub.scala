@@ -173,9 +173,9 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
     // We do not need to worry about inter-thread synchronization
     // provided that all accesses are only from within the handlers.
 
-    /** The [[OrderedSource]]s that have been created and not yet fully stopped An [[OrderedSource]]
-      * gets added to this map when it is created in [[createActiveSource]]. It gets removed when it
-      * has completed and all its elements have been emitted or evicted.
+    /** The [[OrderedSource]]s that have been created and not yet fully stopped. An
+      * [[OrderedSource]] gets added to this map when it is created in [[createActiveSource]]. It
+      * gets removed when it has completed and all its elements have been emitted or evicted.
       */
     private[this] val orderedSources: mutable.Map[OrderedSourceId, OrderedSource] =
       mutable.Map.empty[OrderedSourceId, OrderedSource]
@@ -196,17 +196,8 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
       * The `remove` arrows going nowhere indicate that the ordered source ends its lifecycle by
       * being removed from [[orderedSources]].
       *
-      * <pre> │start ┌─────┐ stop ┌──▼──┐ ┌─────┐ ┌───┤ ◄────────────────────────┤ │ │ │ │ │ !A │ │
-      * A │ complete │ A │ emit ActiveSourceTermination next│ │ !B │ │ !B ├─────────────────► !B
-      * ├─────────────────────────────► element│ │ !C │ │ !C │ │ C │ remove │ │ P │ │ P │ │ │ └───►
-      * ◄────────┐ ┌────► ◄────────┐ │ │ └──┬──┘ │ emit│ └──┬─┬┘ │ └──▲──┘ │ │ bucket│ │ │ │ │ │ │
-      * if not│ │ └─────────┘ │ │ │ rejected│ │ next element │ │ │ │ │ with smaller │ │ │ │ │ offset
-      * │ │ │ ┌──┴──┐ │ │ │ │ │ │ │ │ │ │ │ A │ │next │emit bucket │complete │ │ !B │ │element │if
-      * not rejected │ │ │ !C │ │with │ │ │ │ !P │ │higher │ │ │ │ │ │offset │ │ │ └──▲──┘ │ │ │ │ │
-      * │ │ │ │ │ │ │ │ │ remove│ │ │ │ │ bucket│ │ │ ┌──▼──┐ │ │ ┌──▼──┐ ┌──┴──┐ ┌─────┐ │ │ │
-      * └────┤ │ │ │ │ │ │ !A │ │ │ A │ │ A │ │ !A │ │ !B │ │ stop │ B │ complete │ B │ stop │ !B │
-      * ◄───────┤ C │ └───────────────┤ !C ├─────────────────► C ├────────► C ├───────► remove │ │ │
-      * !P │ │ !P │ │ !P │ remove │ │ │ │ │ │ │ │ └─────┘ └─────┘ └─────┘ └─────┘ </pre>
+      * See the diagram below in the //-comment section (moved to avoid scaladoc whitespace
+      * reformatting).
       *
       * @param inlet
       *   The inlet through which the source's elements are passed. We pull the inlet immediately
@@ -219,6 +210,40 @@ class OrderedBucketMergeHub[Name: Pretty, A, Config, Offset: Pretty, M](
         val inlet: SubSinkInlet[A],
         val killSwitchCell: SingleUseCell[KillSwitch],
     ) {
+      //                                              │start
+      //            ┌─────┐         stop           ┌──▼──┐                 ┌─────┐
+      //        ┌───┤     ◄────────────────────────┤     │                 │     │
+      //        │   │ !A  │                        │  A  │    complete     │  A  │ emit ActiveSourceTermination
+      //    next│   │ !B  │                        │ !B  ├─────────────────► !B  ├─────────────────────────────►
+      // element│   │ !C  │                        │ !C  │                 │  C  │ remove
+      //        │   │  P  │                        │  P  │                 │     │
+      //        └───►     ◄────────┐          ┌────►     ◄────────┐        │     │
+      //            └──┬──┘        │      emit│    └──┬─┬┘        │        └──▲──┘
+      //               │           │    bucket│       │ │         │           │
+      //               │           │    if not│       │ └─────────┘           │
+      //               │           │  rejected│       │   next element        │
+      //               │           │          │       │   with smaller        │
+      //               │           │          │       │   offset              │
+      //               │           │       ┌──┴──┐    │                       │
+      //               │           │       │     │    │                       │
+      //               │           │       │  A  │    │next                   │emit bucket
+      //               │complete   │       │ !B  │    │element                │if not rejected
+      //               │           │       │ !C  │    │with                   │
+      //               │           │       │ !P  │    │higher                 │
+      //               │           │       │     │    │offset                 │
+      //               │           │       └──▲──┘    │                       │
+      //               │           │          │       │                       │
+      //               │           │          │       │                       │
+      //               │           │    remove│       │                       │
+      //               │           │    bucket│       │                       │
+      //            ┌──▼──┐        │          │    ┌──▼──┐                 ┌──┴──┐        ┌─────┐
+      //            │     │        │          └────┤     │                 │     │        │     │
+      //            │ !A  │        │               │  A  │                 │  A  │        │ !A  │
+      //            │ !B  │        │    stop       │  B  │    complete     │  B  │  stop  │ !B  │
+      //    ◄───────┤  C  │        └───────────────┤ !C  ├─────────────────►  C  ├────────►  C  ├───────►
+      //     remove │     │                        │ !P  │                 │ !P  │        │ !P  │ remove
+      //            │     │                        │     │                 │     │        │     │
+      //            └─────┘                        └─────┘                 └─────┘        └─────┘
       import TraceContext.Implicits.Empty.*
 
       /** Whether the [[OrderedSource]] is active, i.e., it has not yet been stopped due to a

@@ -26,8 +26,13 @@ trait SequencerOffboardingIntegrationTest
     with SharedEnvironment
     with OffboardsSequencerNode {
 
+  // For full correctness we need to use >= 4 sequencers to test off-boarding because, when using the BFT sequencer,
+  //  if the P2P gRPC channel crashes after the sequencer is off-boarded from Canton topology, but
+  //  before it is removed from the ordering topology, its reconnection to the P2P network
+  //  may fail due to failed authentication, rendering the BFT network stuck if there is
+  //  no fault tolerance at all.
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2S2M1_Manual
+    EnvironmentDefinition.P2S4M1_Manual
 
   private var synchronizerId: SynchronizerId = _
   private var staticParameters: StaticSynchronizerParameters = _
@@ -55,7 +60,7 @@ trait SequencerOffboardingIntegrationTest
     synchronizerId = clue("bootstrapping the synchronizer") {
       bootstrap.synchronizer(
         "test-synchronizer",
-        sequencers = Seq(sequencer1, sequencer2),
+        sequencers = sequencers.local,
         // Bootstrapping the synchronizer with the mediator only connected to sequencer1
         //  because changing a mediator's connection is currently unsupported and
         //  the goal of this test is not to check sequencer connection fail-over.
@@ -64,6 +69,7 @@ trait SequencerOffboardingIntegrationTest
         synchronizerThreshold = PositiveInt.two,
         staticParameters,
         mediatorRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+        mediatorThreshold = PositiveInt.one,
       )
     }
   }

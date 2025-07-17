@@ -162,7 +162,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
         prefix :+ "grpc-latency",
         summary = "Latency of a gRPC message send",
         description =
-          "Records the rate of gRPC message sands and their latency (up to receiving them on the other side).",
+          "Records the rate of gRPC message sends and their latency (up to receiving them on the other side).",
         qualification = MetricQualification.Latency,
       )
     }
@@ -1036,6 +1036,7 @@ class BftOrderingMetrics private[metrics] (
             sealed trait SourceValue extends PrettyNameOnlyCase
             case object SourceParsingFailed extends SourceValue
             case class Empty(from: BftNodeId) extends SourceValue
+            case class ConnectionOpener(from: BftNodeId) extends SourceValue
             case class Availability(from: BftNodeId) extends SourceValue
             case class Consensus(from: BftNodeId) extends SourceValue
             case class Retransmissions(from: BftNodeId) extends SourceValue

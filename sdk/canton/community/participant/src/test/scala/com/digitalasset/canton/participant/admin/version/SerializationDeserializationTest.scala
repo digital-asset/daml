@@ -6,12 +6,14 @@ package com.digitalasset.canton.participant.admin.version
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.admin.data.{ActiveContractOld, GeneratorsData}
 import com.digitalasset.canton.version.{
-  AllGenerators,
+  CommonGenerators,
   ProtocolVersion,
   SerializationDeserializationTestHelpers,
 }
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+
+import scala.concurrent.duration.*
 
 class SerializationDeserializationTest
     extends AnyWordSpec
@@ -20,13 +22,13 @@ class SerializationDeserializationTest
     with SerializationDeserializationTestHelpers {
 
   forAll(Table("protocol version", ProtocolVersion.supported*)) { version =>
-    val generators = new AllGenerators(version)
+    val generators = new CommonGenerators(version)
     val generatorsAdminData = new GeneratorsData(version, generators.protocol, generators.topology)
     import generatorsAdminData.*
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        test(ActiveContractOld, version)
+        test(ActiveContractOld, version, warnWhenTestRunsLongerThan = 2.seconds)
       }
     }
   }

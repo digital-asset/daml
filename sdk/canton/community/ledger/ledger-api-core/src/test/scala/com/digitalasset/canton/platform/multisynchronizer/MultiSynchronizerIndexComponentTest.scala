@@ -85,7 +85,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           sourceSynchronizer = Source(synchronizer1),
           targetSynchronizer = Target(synchronizer2),
           submitter = Option(party),
-          reassignmentId = ReassignmentId.tryCreate("0"),
+          reassignmentId = ReassignmentId.tryCreate("00"),
           isReassigningParticipant = true,
         ),
         reassignment = Reassignment.Batch(

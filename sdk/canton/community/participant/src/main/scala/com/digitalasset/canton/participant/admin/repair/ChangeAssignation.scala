@@ -11,12 +11,11 @@ import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch}
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, UnassignmentData}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changes
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.protocol.*
@@ -57,7 +56,7 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val contractIdCounters = unassignmentData.payload.contracts.contractIdCounters.toSeq
+    val contractIdCounters = unassignmentData.payload.contractsBatch.contractIdCounters.toSeq
     val contractIds = contractIdCounters.map(_._1)
 
     for {
@@ -82,7 +81,7 @@ private final class ChangeAssignation(
         .toEitherT
 
       _ <- persistAssignments(
-        unassignmentData.payload.contracts.contractIdCounters,
+        unassignmentData.payload.contractsBatch.contractIdCounters,
         unassignmentData.targetTimeOfRepair,
       ).toEitherT
 
@@ -280,12 +279,9 @@ private final class ChangeAssignation(
       contractIds: Seq[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, List[SerializableContract]] =
+  ): EitherT[FutureUnlessShutdown, String, List[ContractInstance]] =
     contractStore
       .lookupManyExistingUncached(contractIds)
-      .map(
-        _.map(_.serializable)
-      ) // TODO(#26348) - use fat contract downstream
       .leftMap(contractId =>
         s"Failed to look up contract $contractId in synchronizer $sourceSynchronizerAlias"
       )
@@ -302,9 +298,8 @@ private final class ChangeAssignation(
             serializedTargetO <- EitherT.right(
               contractStore
                 .lookupContract(contractId)
-                .map(_.serializable)
                 .value
-            ) // TODO(#26348) - use fat contract downstream
+            )
             _ <- serializedTargetO
               .map { serializedTarget =>
                 EitherTUtil.condUnitET[FutureUnlessShutdown](
@@ -333,17 +328,12 @@ private final class ChangeAssignation(
   private def persistContracts(changes: Changes)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-
-    val batchesE = changes.batches.traverse { batch =>
-      val s = batch.contracts.collect {
+    val batches = changes.batches.map { batch =>
+      batch.contracts.collect {
         case c if changes.isNew(c.contract.contractId) => c.contract
       }
-      s.traverse(ContractInstance.apply)
     }
-    batchesE match {
-      case Left(err) => EitherT.leftT(err)
-      case Right(batches) => EitherT.right(batches.parTraverse_(contractStore.storeContracts))
-    }
+    EitherT.right(batches.parTraverse_(contractStore.storeContracts))
   }
 
   private def persistAssignments(
@@ -477,7 +467,7 @@ private final class ChangeAssignation(
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>
           Reassignment.Assign(
-            ledgerEffectiveTime = reassign.contract.ledgerCreateTime.time,
+            ledgerEffectiveTime = reassign.contract.inst.createdAt.time,
             createNode = reassign.contract.toLf,
             contractMetadata = Bytes.fromByteString(
               reassign.contract.metadata

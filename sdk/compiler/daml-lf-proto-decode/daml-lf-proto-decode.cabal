@@ -31,6 +31,8 @@ library
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
+      -- //compiler/daml-lf-proto-decode:daml-lf-proto-decode-internal
+      daml-lf-proto-decode-internal,
       -- //daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
@@ -54,7 +56,6 @@ library
     exposed-modules:
       DA.Daml.LF.Proto3.Archive.Decode
       DA.Daml.LF.Proto3.Decode
-      DA.Daml.LF.Proto3.DecodeV2
     default-extensions:
       BangPatterns
       DeriveDataTypeable

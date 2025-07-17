@@ -84,9 +84,10 @@ object AuthenticateServerClientInterceptor {
       MemberAuthenticator
         .extractAuthenticationCredentials(headers)
         .fold {
-          val errorMessage = "Authentication headers are not set"
+          val errorMessage =
+            "Authentication headers have not been set by server, cancelling the gRPC call"
           val exception = unauthenticatedException(errorMessage)
-          logger.error(errorMessage, exception)
+          logger.info(errorMessage, exception)
           onAuthenticationFailure(exception)
           clientCall.cancel(errorMessage, exception)
         } { authenticationCredentials =>
@@ -106,7 +107,9 @@ object AuthenticateServerClientInterceptor {
                     clientCall.cancel(errorMessage, exception)
                   },
                   { sequencerId =>
-                    logger.debug(s"Successfully authenticated server $sequencerId")
+                    logger.debug(
+                      s"Successfully authenticated P2P peer in server role ${sequencerId.toProtoPrimitive}"
+                    )
                     onAuthenticationSuccess(sequencerId)
                     super.onHeaders(headers)
                   },

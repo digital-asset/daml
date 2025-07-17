@@ -292,7 +292,8 @@ class NonEmptySpec extends AnyWordSpec with Matchers with WordSpecCheckLaws {
 
   "reverse" should {
     "work" in {
-      NonEmpty(Seq, 1, 3, 2).reverse should ===(NonEmpty(Seq, 2, 3, 1))
+      val reversed: NonEmpty[Seq[Int]] = NonEmpty(Seq, 1, 3, 2).reverse
+      reversed should ===(NonEmpty(Seq, 2, 3, 1))
     }
   }
 

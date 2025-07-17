@@ -60,7 +60,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         implicit lc => {
           logFuture(SubmitAndWaitForTransactionLog) {
             client.commandService
-              .deprecatedSubmitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
+              .submitAndWaitForTransactionForJsonApi(req, token = bearer(jwt))
           }
             .requireHandling(submitErrors)
         }

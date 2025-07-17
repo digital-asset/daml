@@ -33,12 +33,14 @@ import magnolify.scalacheck.auto.genArbitrary
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
+import scala.jdk.CollectionConverters.*
 import scala.util.Random
 
 final class GeneratorsInteractiveSubmission(
     generatorsLf: GeneratorsLf,
     generatorsTopology: GeneratorsTopology,
 ) {
+  import com.digitalasset.canton.Generators.*
   import generatorsLf.*
   import generatorsTopology.*
 
@@ -183,13 +185,8 @@ final class GeneratorsInteractiveSubmission(
     optByKeyNodeO,
   )
 
-  private val globalKeyMappingEntryGen: Gen[(GlobalKey, Option[Value.ContractId])] = for {
-    globalKey <- Arbitrary.arbitrary[GlobalKey]
-    valueO <- Gen.option(Arbitrary.arbitrary[Value.ContractId])
-  } yield (globalKey, valueO)
-
   private val globalKeyMappingGen: Gen[Map[GlobalKey, Option[Value.ContractId]]] =
-    Gen.mapOf(globalKeyMappingEntryGen)
+    boundedMapGen[GlobalKey, Option[Value.ContractId]]
 
   private def inputContractsGen(overrideCid: Value.ContractId): Gen[LfFatContractInst] = for {
     create <- ValueGenerators
@@ -209,9 +206,9 @@ final class GeneratorsInteractiveSubmission(
     transaction <- versionedTransactionGenerator.map(SubmittedTransaction(_))
     transactionMeta <- transactionMetaGen(transaction)
     globalKeyMapping <- globalKeyMappingGen
-    coids <- Gen.listOf(ValueGenerators.coidGen)
-    inputContracts = coids.flatMap(inputContractsGen(_).sample)
-    enrichedInputContracts = coids.flatMap(inputContractsGen(_).sample)
+    coids <- boundedListGen(ValueGenerators.coidGen)
+    inputContracts <- Gen.sequence(coids.map(inputContractsGen))
+    enrichedInputContracts <- Gen.sequence(coids.map(inputContractsGen))
     mediatorGroup <- Arbitrary.arbitrary[PositiveInt]
     transactionUUID <- Gen.uuid
   } yield PrepareTransactionData(
@@ -219,8 +216,8 @@ final class GeneratorsInteractiveSubmission(
     transactionMeta,
     transaction,
     globalKeyMapping,
-    inputContracts
-      .zip(enrichedInputContracts)
+    inputContracts.asScala
+      .zip(enrichedInputContracts.asScala)
       .map { case (originalFci, enrichedFci) =>
         originalFci.contractId -> ExternalInputContract(originalFci, enrichedFci)
       }

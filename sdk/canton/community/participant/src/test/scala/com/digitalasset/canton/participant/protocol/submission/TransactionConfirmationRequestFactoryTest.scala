@@ -22,8 +22,8 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionConfir
   TransactionTreeFactoryError,
 }
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.{
+  ContractInstanceOfId,
   ContractLookupError,
-  SerializableContractOfId,
   TransactionTreeConversionError,
 }
 import com.digitalasset.canton.protocol.*
@@ -139,7 +139,7 @@ class TransactionConfirmationRequestFactoryTest
           transactionSeed: SaltSeed,
           transactionUuid: UUID,
           _topologySnapshot: TopologySnapshot,
-          _contractOfId: SerializableContractOfId,
+          _contractOfId: ContractInstanceOfId,
           _keyResolver: LfKeyResolver,
           _maxSequencingTime: CantonTimestamp,
           validatePackageVettings: Boolean,
@@ -173,7 +173,7 @@ class TransactionConfirmationRequestFactoryTest
           salts: Iterable[Salt],
           transactionUuid: UUID,
           topologySnapshot: TopologySnapshot,
-          contractOfId: SerializableContractOfId,
+          contractOfId: ContractInstanceOfId,
           _rbContext: RollbackContext,
           _keyResolver: LfKeyResolver,
       )(implicit traceContext: TraceContext): EitherT[
@@ -198,7 +198,7 @@ class TransactionConfirmationRequestFactoryTest
     )(executorService)
   }
 
-  private val contractInstanceOfId: SerializableContractOfId = { (id: LfContractId) =>
+  private val contractInstanceOfId: ContractInstanceOfId = { (id: LfContractId) =>
     EitherT.leftT(ContractLookupError(id, "Error in test: argument should not be used"))
   }
   // This isn't used because the transaction tree factory is mocked

@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.block.update
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -23,7 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.{
   InvalidLedgerEvent,
-  SequencedBeforeLowerBound,
+  SequencedBeforeOrAtLowerBound,
 }
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
@@ -98,7 +98,7 @@ class BlockUpdateGeneratorImpl(
     sequencerId: SequencerId,
     rateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    minimumSequencingTime: CantonTimestamp,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
     memberValidator: SequencerMemberValidator,
@@ -139,14 +139,20 @@ class BlockUpdateGeneratorImpl(
         case Left(error) =>
           InvalidLedgerEvent.Error(block.blockHeight, error).discard
           None
+
         case Right(event) =>
-          if (event.timestamp < minimumSequencingTime) {
-            SequencedBeforeLowerBound
-              .Error(event.timestamp, minimumSequencingTime, event.toString)
-              .log()
-            None
-          } else {
-            Some(Traced(event))
+          sequencingTimeLowerBoundExclusive match {
+            case Some(boundExclusive)
+                if !LogicalUpgradeTime.canProcessKnowingPastUpgrade(
+                  upgradeTime = Some(boundExclusive),
+                  sequencingTime = event.timestamp,
+                ) =>
+              SequencedBeforeOrAtLowerBound
+                .Error(event.timestamp, boundExclusive, event.toString)
+                .log()
+              None
+
+            case _ => Some(Traced(event))
           }
       }
     }

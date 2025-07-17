@@ -115,6 +115,7 @@ class SequencerWriter(
     rateLimitManagerO: Option[SequencerRateLimitManager],
     clock: Clock,
     expectedCommitMode: Option[CommitMode],
+    blockSequencerMode: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -284,9 +285,16 @@ class SequencerWriter(
                         runRecovery(writerStore, resetWatermarkToValue)
                       )
                       _ <- EitherT.right(generalStore.resetAndPreloadBuffer())
-                      _ <- EitherT
-                        .right[WriterStartupError](waitForOnline(onlineTimestamp))
-                        .mapK(FutureUnlessShutdown.outcomeK)
+                      _ <-
+                        if (blockSequencerMode) {
+                          // In blockSequencerMode, time is determined by the underlying ordering service, so we can't
+                          // reliably wait here for the online timestamp.
+                          EitherTUtil.unitUS[WriterStartupError]
+                        } else {
+                          EitherT
+                            .right[WriterStartupError](waitForOnline(onlineTimestamp))
+                            .mapK(FutureUnlessShutdown.outcomeK)
+                        }
                     } yield ()
                   }
               } yield writerStore
@@ -364,7 +372,7 @@ class SequencerWriter(
       onlineTimestamp <- store.goOnline(
         goOnlineAt
       ) // actual online timestamp depends on other instances
-      _ = if (clock.isSimClock && clock.now < onlineTimestamp) {
+      _ = if (clock.isSimClock && clock.now < onlineTimestamp && !blockSequencerMode) {
         logger.debug(s"The sequencer will not start unless sim clock moves to $onlineTimestamp")
         logger.debug(
           s"In order to prevent deadlocking in tests the clock's timestamp will now be advanced to $onlineTimestamp"
@@ -518,7 +526,7 @@ object SequencerWriter {
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
       blockSequencerMode: Boolean,
-      minimumSequencingTime: CantonTimestamp,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     implicit val loggingContext: ErrorLoggingContext = ErrorLoggingContext(
@@ -542,7 +550,7 @@ object SequencerWriter {
           protocolVersion,
           metrics,
           blockSequencerMode,
-          minimumSequencingTime,
+          sequencingTimeLowerBoundExclusive,
         )
           .toMat(Sink.ignore)(Keep.both)
           .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void))
@@ -563,6 +571,7 @@ object SequencerWriter {
       rateLimitManagerO,
       clock,
       writerConfig.commitModeValidation,
+      blockSequencerMode,
       processingTimeout,
       loggerFactory,
     )

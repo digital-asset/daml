@@ -18,7 +18,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerSubscriptionPekko,
   SubscriptionErrorRetryPolicyPekko,
 }
-import com.digitalasset.canton.sequencing.protocol.{SubscriptionRequestV2, SubscriptionResponse}
+import com.digitalasset.canton.sequencing.protocol.{SubscriptionRequest, SubscriptionResponse}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
@@ -59,19 +59,19 @@ class GrpcSequencerClientTransportPekko(
 
   override type SubscriptionError = GrpcSequencerSubscriptionError
 
-  override def subscribe(subscriptionRequest: SubscriptionRequestV2)(implicit
+  override def subscribe(subscriptionRequest: SubscriptionRequest)(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SubscriptionError] = {
 
     val subscriptionRequestP = subscriptionRequest.toProtoV30
 
     def mkSubscription[Resp: HasProtoTraceContext](
-        subscriber: (v30.SubscriptionRequestV2, StreamObserver[Resp]) => Unit
+        subscriber: (v30.SubscriptionRequest, StreamObserver[Resp]) => Unit
     )(
         parseResponse: (Resp, TraceContext) => ParsingResult[SubscriptionResponse]
     ): SequencerSubscriptionPekko[SubscriptionError] = {
       val source = ClientAdapter
-        .serverStreaming[v30.SubscriptionRequestV2, Resp](
+        .serverStreaming[v30.SubscriptionRequest, Resp](
           subscriptionRequestP,
           stubWithFreshContext(subscriber),
         )
@@ -119,7 +119,7 @@ class GrpcSequencerClientTransportPekko(
       )
     }
 
-    val subscriber = sequencerServiceClient.service.subscribeV2 _
+    val subscriber = sequencerServiceClient.service.subscribe _
 
     mkSubscription(subscriber)(SubscriptionResponse.fromVersionedProtoV30(protocolVersion)(_)(_))
   }

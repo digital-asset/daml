@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
   Added,
@@ -55,15 +55,25 @@ class ParticipantTopologyTerminateProcessingTest
 
   protected def mkStore: TopologyStore[TopologyStoreId.SynchronizerStore] =
     new InMemoryTopologyStore(
-      TopologyStoreId.SynchronizerStore(DefaultTestIdentities.physicalSynchronizerId),
+      TopologyStoreId.SynchronizerStore(psid2),
       testedProtocolVersion,
       loggerFactory,
       timeouts,
     )
 
+  private lazy val psid1 = DefaultTestIdentities.physicalSynchronizerId
+  private lazy val psid2 = PhysicalSynchronizerId(
+    psid1.logical,
+    psid1.protocolVersion,
+    psid1.serial.increment.toNonNegative,
+  )
+  private def synchronizerPredecessor(upgradeTime: CantonTimestamp) =
+    SynchronizerPredecessor(psid1, upgradeTime)
+
   private def mk(
       store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore,
       initialRecordTime: CantonTimestamp = CantonTimestamp.MinValue,
+      synchronizerPredecessor: Option[SynchronizerPredecessor] = None,
   ): (
       ParticipantTopologyTerminateProcessing,
       TopologyStore[TopologyStoreId.SynchronizerStore],
@@ -84,12 +94,12 @@ class ParticipantTopologyTerminateProcessingTest
       .thenReturn(Outcome(Right(())))
 
     val proc = new ParticipantTopologyTerminateProcessing(
-      DefaultTestIdentities.physicalSynchronizerId,
       recordOrderPublisher,
       store,
-      initialRecordTime,
+      initialRecordTime = initialRecordTime,
       DefaultTestIdentities.participant1,
       pauseSynchronizerIndexingDuringPartyReplication = false,
+      synchronizerPredecessor = synchronizerPredecessor,
       loggerFactory,
     )
     (proc, store, eventCaptor, recordOrderPublisher)
@@ -303,6 +313,42 @@ class ParticipantTopologyTerminateProcessingTest
       }
     }
 
+    "terminate processing should take upgrade time into account" in {
+      val (cts0, _) = timestampWithCounter(0)
+      val (cts1, sc1) = timestampWithCounter(1)
+
+      def test(
+          synchronizerPredecessor: Option[SynchronizerPredecessor],
+          expectedEventsCount: Int,
+      ) = {
+        val (proc, store, eventCaptor, rop) = mk(synchronizerPredecessor = synchronizerPredecessor)
+
+        for {
+          _ <- add(store, cts0, List(party1participant1))
+          _ <- add(store, cts1, List(party1participant1_2))
+          _ <- proc.terminate(
+            sc1,
+            SequencedTime(cts1),
+            EffectiveTime(cts1),
+          )
+        } yield {
+          verify(rop, times(expectedEventsCount)).scheduleFloatingEventPublication(
+            any[CantonTimestamp],
+            any[CantonTimestamp => Option[FloatingUpdate]],
+          )(any[TraceContext])
+          val events = eventCaptor.getAllValues.asScala.flatMap(_(CantonTimestamp.MinValue))
+          events.size shouldBe expectedEventsCount
+        }
+      }
+
+      for {
+        _ <- test(None, expectedEventsCount = 1)
+        _ <- test(Some(synchronizerPredecessor(cts1)), expectedEventsCount = 0)
+        // event is before the upgrade time
+        _ <- test(Some(synchronizerPredecessor(cts1.immediateSuccessor)), expectedEventsCount = 0)
+      } yield succeed
+    }
+
     "notify of the party rights revocation from the second participant" in {
       val (proc, store, eventCaptor, rop) = mk()
       val (cts0, _) = timestampWithCounter(0)
@@ -342,7 +388,7 @@ class ParticipantTopologyTerminateProcessingTest
     }
 
     "no events if the party rights threshold change" in {
-      val (proc, store, eventCaptor, rop) = mk()
+      val (proc, store, eventCaptor, _rop) = mk()
       val (cts0, _) = timestampWithCounter(0)
       val (cts1, sc1) = timestampWithCounter(1)
 
@@ -361,7 +407,7 @@ class ParticipantTopologyTerminateProcessingTest
     }
 
     "no events if no change" in {
-      val (proc, store, eventCaptor, rop) = mk()
+      val (proc, store, eventCaptor, _rop) = mk()
       val (cts0, _) = timestampWithCounter(0)
       val (cts1, sc1) = timestampWithCounter(1)
 
@@ -456,10 +502,7 @@ class ParticipantTopologyTerminateProcessingTest
         .zip(traceContexts)
         .toMap
       def traceContextLookup: CantonTimestamp => FutureUnlessShutdown[Option[TraceContext]] =
-        t =>
-          FutureUnlessShutdown.pure(
-            traceContextMap.get(t)
-          )
+        t => FutureUnlessShutdown.pure(traceContextMap.get(t))
       def extractFromUpdates(
           updates: List[Update]
       ): List[(Set[LfPartyId], CantonTimestamp, TraceContext)] =

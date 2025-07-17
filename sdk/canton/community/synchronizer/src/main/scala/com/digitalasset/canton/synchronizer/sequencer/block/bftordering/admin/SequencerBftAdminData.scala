@@ -22,8 +22,8 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   TlsPeerEndpoint as ProtoTlsPeerEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.P2PEndpointConfig
 import com.digitalasset.canton.topology.SequencerId
 
@@ -36,9 +36,9 @@ object SequencerBftAdminData {
       endpoint.address,
       endpoint.port.unwrap,
       endpoint match {
-        case _: GrpcNetworking.PlainTextP2PEndpoint =>
+        case _: P2PGrpcNetworking.PlainTextP2PEndpoint =>
           ProtoPeerEndpoint.Security.PlainText(ProtoPlainTextPeerEndpoint())
-        case GrpcNetworking.TlsP2PEndpoint(clientConfig) =>
+        case P2PGrpcNetworking.TlsP2PEndpoint(clientConfig) =>
           ProtoPeerEndpoint.Security.Tls(
             ProtoTlsPeerEndpoint(
               clientConfig.tlsConfig.flatMap(_.trustCollectionFile).map(_.pemBytes),
@@ -67,13 +67,13 @@ object SequencerBftAdminData {
       port <- Port.create(peerEndpoint.port).fold(e => Left(e.message), Right(_))
       peerEndpointOrError: Either[String, P2PEndpoint] = peerEndpoint.security match {
         case _: Security.PlainText =>
-          Right(GrpcNetworking.PlainTextP2PEndpoint(address, port))
+          Right(P2PGrpcNetworking.PlainTextP2PEndpoint(address, port))
         case Security.Tls(tls) =>
           def rightTlsP2PEndpoint(
               clientCertificate: Option[TlsClientCertificate]
-          ): Right[String, GrpcNetworking.TlsP2PEndpoint] =
+          ): Right[String, P2PGrpcNetworking.TlsP2PEndpoint] =
             Right(
-              GrpcNetworking.TlsP2PEndpoint(
+              P2PGrpcNetworking.TlsP2PEndpoint(
                 P2PEndpointConfig(
                   address,
                   port,
@@ -122,6 +122,7 @@ object SequencerBftAdminData {
   sealed trait PeerEndpointHealthStatus extends PrettyNameOnlyCase with Serializable
   object PeerEndpointHealthStatus {
     case object UnknownEndpoint extends PeerEndpointHealthStatus
+    case object Disconnected extends PeerEndpointHealthStatus
     case object Unauthenticated extends PeerEndpointHealthStatus
     final case class Authenticated(sequencerId: SequencerId) extends PeerEndpointHealthStatus {
       override val pretty: Pretty[Authenticated.this.type] =
@@ -158,6 +159,14 @@ object SequencerBftAdminData {
                   ProtoPeerEndpointHealthStatus(
                     ProtoPeerEndpointHealthStatus.Status.UnknownEndpoint(
                       ProtoPeerEndpointHealthStatus.UnknownEndpoint()
+                    )
+                  )
+                )
+              case PeerEndpointHealthStatus.Disconnected =>
+                Some(
+                  ProtoPeerEndpointHealthStatus(
+                    ProtoPeerEndpointHealthStatus.Status.Disconnected(
+                      ProtoPeerEndpointHealthStatus.Disconnected()
                     )
                   )
                 )

@@ -150,7 +150,6 @@ class TrafficPurchasedSubmissionHandler(
           SignedProtocolMessage.trySignAndCreate(
             setTrafficPurchasedMessage,
             topology,
-            protocolVersion,
           )
         )
       batch = Batch.of(

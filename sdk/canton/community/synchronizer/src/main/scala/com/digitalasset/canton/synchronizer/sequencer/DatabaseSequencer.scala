@@ -69,7 +69,7 @@ object DatabaseSequencer {
       timeouts: ProcessingTimeout,
       storage: Storage,
       sequencerStore: SequencerStore,
-      minimumSequencingTime: CantonTimestamp,
+      sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
       clock: Clock,
       topologyClientMember: Member,
       cryptoApi: SynchronizerCryptoClient,
@@ -110,7 +110,7 @@ object DatabaseSequencer {
       metrics,
       loggerFactory,
       blockSequencerMode = false,
-      minimumSequencingTime = minimumSequencingTime,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       rateLimitManagerO = None,
     )
   }
@@ -135,7 +135,7 @@ class DatabaseSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     blockSequencerMode: Boolean,
-    minimumSequencingTime: CantonTimestamp,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     rateLimitManagerO: Option[SequencerRateLimitManager],
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
@@ -168,7 +168,7 @@ class DatabaseSequencer(
     protocolVersion,
     loggerFactory,
     blockSequencerMode,
-    minimumSequencingTime,
+    sequencingTimeLowerBoundExclusive,
     metrics,
   )
 
@@ -325,10 +325,10 @@ class DatabaseSequencer(
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
-  override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+  override def readInternal(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
-    reader.readV2(member, timestamp)
+    reader.read(member, timestamp)
 
   /** Internal method to be used in the sequencer integration.
     */

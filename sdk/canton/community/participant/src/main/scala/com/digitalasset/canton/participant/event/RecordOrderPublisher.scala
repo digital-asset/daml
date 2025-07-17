@@ -7,17 +7,31 @@ import cats.implicits.catsSyntaxOptionId
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.data.{CantonTimestamp, TaskScheduler, TaskSchedulerMetrics}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  LogicalUpgradeTime,
+  SynchronizerSuccessor,
+  TaskScheduler,
+  TaskSchedulerMetrics,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
-import com.digitalasset.canton.ledger.participant.state.{FloatingUpdate, SequencedUpdate, Update}
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  EmptyAcsPublicationRequired,
+  LogicalSynchronizerUpgradeTimeReached,
+}
+import com.digitalasset.canton.ledger.participant.state.{
+  FloatingUpdate,
+  SequencedUpdate,
+  SynchronizerUpdate,
+  Update,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
@@ -60,8 +74,8 @@ sealed trait PublishesOnlinePartyReplicationEvents {
   * @param executionContextForPublishing
   *   Execution context for publishing the events
   */
-class RecordOrderPublisher(
-    synchronizerId: SynchronizerId,
+class RecordOrderPublisher private (
+    psid: PhysicalSynchronizerId,
     initSc: SequencerCounter,
     val initTimestamp: CantonTimestamp,
     ledgerApiIndexer: LedgerApiIndexer,
@@ -93,6 +107,9 @@ class RecordOrderPublisher(
 
   private val ledgerApiIndexerBuffer =
     new AtomicReference[Option[EventBuffer]](None)
+
+  private val synchronizerSuccessor: AtomicReference[Option[SynchronizerSuccessor]] =
+    new AtomicReference(None)
 
   private def onlyForTestingRecordAcceptedTransactions(event: SequencedUpdate): Unit =
     for {
@@ -254,7 +271,7 @@ class RecordOrderPublisher(
       if (sequencerCounter >= initSc) {
         scheduleFloatingEventPublication(
           timestamp = timestamp,
-          eventFactory = EmptyAcsPublicationRequired(synchronizerId, _).some,
+          eventFactory = EmptyAcsPublicationRequired(psid.logical, _).some,
         ).foreach(
           _.toOption.getOrElse(
             ErrorUtil.invalidState(
@@ -285,7 +302,7 @@ class RecordOrderPublisher(
         .map(_ => ())
     }
 
-  /** Schedules publishing of an Online Party Replication ACS chunk as soon as possible.
+  /** Schedules publishing of an Online Party Replication ACS batch as soon as possible.
     *
     * Meant to be called only between enclosing [[scheduleEventBuffering]] and
     * [[publishBufferedEvents]] calls.
@@ -329,6 +346,10 @@ class RecordOrderPublisher(
             }
       }
     }
+
+  // TODO(#26580) More validation and setting should be done in case of cancelled upgrade (and when attempting the next one)
+  def setSuccessor(successor: SynchronizerSuccessor): Unit =
+    synchronizerSuccessor.set(Some(successor))
 
   private def scheduleBufferingEventTaskImmediately(
       perform: CantonTimestamp => FutureUnlessShutdown[Unit]
@@ -465,8 +486,39 @@ class RecordOrderPublisher(
         FutureUnlessShutdown.unit
     }
 
-  private def publishLedgerApiIndexerEvent(event: Update): FutureUnlessShutdown[Unit] =
-    ledgerApiIndexer.enqueue(event).map(_ => ())
+  private def publishLedgerApiIndexerEvent(
+      event: Update
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val successorO = synchronizerSuccessor.get()
+
+    successorO match {
+      // If the event's record time is at or after the upgrade time,
+      // replace the event with a notification that the upgrade time has been reached
+      case Some(successor)
+          if !LogicalUpgradeTime.canProcessKnowingSuccessor(successorO, event.recordTime) =>
+        event match {
+          case synchronizerUpdate: SynchronizerUpdate =>
+            val upgradeTimeReached = LogicalSynchronizerUpgradeTimeReached(
+              synchronizerUpdate.synchronizerId,
+              successor.upgradeTime,
+            )
+            logger.debug(
+              s"Not publishing event whose record time ${event.recordTime} is greater than upgrade time ${successor.upgradeTime} $event but publishing $upgradeTimeReached instead"
+            )
+
+            ledgerApiIndexer.enqueue(upgradeTimeReached).map(_ => ())
+
+          case other =>
+            logger.debug(
+              s"Not publishing event whose record time ${other.recordTime} is greater than upgrade time ${successor.upgradeTime}: $other"
+            )
+
+            FutureUnlessShutdown.unit
+        }
+
+      case _ => ledgerApiIndexer.enqueue(event).map(_ => ())
+    }
+  }
 
   override def closeAsync(): Seq[AsyncOrSyncCloseable] = {
     import TraceContext.Implicits.Empty.emptyTraceContext
@@ -478,5 +530,41 @@ class RecordOrderPublisher(
       ),
       SyncCloseable("taskScheduler", taskScheduler.close()),
     )
+  }
+}
+
+object RecordOrderPublisher {
+
+  /** The apply methods ensures that the successor gets initialized.
+    */
+  def apply(
+      psid: PhysicalSynchronizerId,
+      synchronizerSuccessor: Option[SynchronizerSuccessor],
+      initSc: SequencerCounter,
+      initTimestamp: CantonTimestamp,
+      ledgerApiIndexer: LedgerApiIndexer,
+      metrics: TaskSchedulerMetrics,
+      exitOnFatalFailures: Boolean,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+      futureSupervisor: FutureSupervisor,
+      clock: Clock,
+  )(implicit executionContextForPublishing: ExecutionContext): RecordOrderPublisher = {
+    val rop = new RecordOrderPublisher(
+      psid,
+      initSc,
+      initTimestamp,
+      ledgerApiIndexer,
+      metrics,
+      exitOnFatalFailures,
+      timeouts,
+      loggerFactory,
+      futureSupervisor,
+      clock,
+    )
+
+    synchronizerSuccessor.foreach(rop.setSuccessor)
+
+    rop
   }
 }

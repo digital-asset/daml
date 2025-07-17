@@ -59,6 +59,11 @@ Functions
 `fromListWith <function-da-textmap-fromlistwith-41741_>`_
   \: (a \-\> a \-\> a) \-\> \[(:ref:`Text <type-ghc-types-text-51952>`, a)\] \-\> :ref:`TextMap <type-da-internal-lf-textmap-11691>` a
 
+  .. warning::
+    **DEPRECATED**\:
+
+    | Daml compatibility helper, use 'fromListWithR' instead of 'fromListWith'
+
 .. _function-da-textmap-tolist-95168:
 
 `toList <function-da-textmap-tolist-95168_>`_

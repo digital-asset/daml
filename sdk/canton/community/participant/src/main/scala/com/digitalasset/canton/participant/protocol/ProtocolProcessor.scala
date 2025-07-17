@@ -1044,6 +1044,7 @@ abstract class ProtocolProcessor[
         )
         .leftMap(err => steps.embedRequestError(RequestTrackerError(err)))
 
+      // TODO(i12928): non-authenticated contracts will crash the participant
       _ <- steps
         .authenticateInputContracts(parsedRequest)
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -1145,16 +1146,17 @@ abstract class ProtocolProcessor[
         } else {
           signedResponsesTo match {
             case Some((spm, recipients)) =>
+              lazy val (approved, rejected, abstained) = spm.message.responses.foldLeft((0, 0, 0)) {
+                case ((app, rej, abst), response) =>
+                  response.localVerdict match {
+                    case LocalApprove() => (app + 1, rej, abst)
+                    case _: LocalReject => (app, rej + 1, abst)
+                    case _: LocalAbstain => (app, rej, abst + 1)
+                  }
+              }
               val messageId = sequencerClient.generateMessageId
               logger.info(
-                s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId ${val (approved, rejected) =
-                    spm.message.responses.foldLeft((0, 0)) { case ((app, rej), response) =>
-                      response.localVerdict match {
-                        case LocalApprove() => (app + 1, rej)
-                        case _: LocalReject => (app, rej + 1)
-                      }
-                    }
-                  s"approved=$approved, rejected=$rejected" }"
+                s"Phase 4: Sending for request=${requestId.unwrap} with msgId=$messageId approved=$approved, rejected=$rejected, abstained=$abstained"
               )
               EitherT.right[steps.RequestError](
                 sendResponses(requestId, Seq(spm -> recipients), Some(messageId))
@@ -1280,12 +1282,20 @@ abstract class ProtocolProcessor[
     val snapshotTs = requestId.unwrap
 
     for {
-      snapshot <- EitherT.right(
+      // Check against future-dated request IDs to prevent a deadlock due to waiting for a topology snapshot in the future.
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        requestId.unwrap < resultTs,
+        (),
+        steps.embedResultError(
+          FutureRequestId(requestId, resultTs)
+        ),
+      )
+      requestSnapshot <- EitherT.right(
         crypto.ips.awaitSnapshotUSSupervised(s"await crypto snapshot $snapshotTs")(snapshotTs)
       )
 
       synchronizerParameters <- EitherT(
-        snapshot
+        requestSnapshot
           .findDynamicSynchronizerParameters()
           .map(
             _.leftMap(_ =>
@@ -1548,15 +1558,7 @@ abstract class ProtocolProcessor[
         synchronizerParameters,
       ).leftMap(err => steps.embedResultError(RequestTrackerError(err)))
 
-      _ <- EitherT(
-        contractsToBeStored
-          .traverse(c =>
-            ContractInstance(c).leftMap(err =>
-              steps.embedResultError(FailedToConstructInstance(err))
-            )
-          )
-          .traverse(ephemeral.contractStore.storeContracts)
-      )
+      _ <- EitherT.right(ephemeral.contractStore.storeContracts(contractsToBeStored))
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
@@ -1911,13 +1913,6 @@ object ProtocolProcessor {
     )
   }
 
-  // TODO(#26348) - only needed until ContractInstance is constructed upstream
-  final case class FailedToConstructInstance(error: String) extends ResultProcessingError {
-    override protected def pretty: Pretty[FailedToConstructInstance] = prettyOfClass(
-      param("error", _.error.unquoted)
-    )
-  }
-
   final case class DecisionTimeElapsed(requestId: RequestId, timestamp: CantonTimestamp)
       extends ResultProcessingError {
     override protected def pretty: Pretty[DecisionTimeElapsed] = prettyOfClass(
@@ -1941,6 +1936,14 @@ object ProtocolProcessor {
   final case class TimeoutResultTooEarly(requestId: RequestId) extends ResultProcessingError {
     override protected def pretty: Pretty[TimeoutResultTooEarly] = prettyOfClass(
       unnamedParam(_.requestId)
+    )
+  }
+
+  final case class FutureRequestId(requestId: RequestId, resultTs: CantonTimestamp)
+      extends ResultProcessingError {
+    override protected def pretty: Pretty[FutureRequestId] = prettyOfClass(
+      param("request id", _.requestId),
+      param("result timestamp", _.resultTs),
     )
   }
 

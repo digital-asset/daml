@@ -53,6 +53,7 @@ getTemplateDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
       { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
       , td_descr = ad_descr tmplADT
+      , td_warns = ad_warns tmplADT
       , td_signatory = MS.lookup name $ signatoryMap templateMaps 
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
@@ -88,6 +89,7 @@ getInterfaceDocs DocCtx{..} typeMap interfaceInstanceMap templateMaps =
       { if_anchor = ad_anchor ifADT
       , if_name = ad_name ifADT
       , if_descr = ad_descr ifADT
+      , if_warns = ad_warns ifADT
       -- TODO Should replace signatories map here with `const "<Instance templates signatories>"`
       , if_choices = map (mkChoiceDoc typeMap (updatedTemplateMaps name) name) choices
       , if_methods = [] -- filled by distributeInstanceDocs
@@ -217,7 +219,7 @@ isSignatoryTy ty
 
 getSignatoriesBody :: DeclData -> Maybe (Typename, [String])
 getSignatoriesBody decl
-  | DeclData (L _ (InstD _ (ClsInstD _ inst))) _ <- decl
+  | DeclData (L _ (InstD _ (ClsInstD _ inst))) _ _ <- decl
   , HsIB _ (L _ t) <- cid_poly_ty inst
   , Just templateName <- isSignatoryTy t
   , [L _ (FunBind _ _ matchGroup _ _)] <- bagToList $ cid_binds inst
@@ -272,7 +274,7 @@ getChoiceControllerMap = MS.fromList . mapMaybe getChoiceControllerData
 
 getChoiceControllerData :: DeclData -> Maybe ((Typename, Typename), [String])
 getChoiceControllerData decl
-  | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ <- decl
+  | DeclData (L _ (ValD _ (FunBind _ (L _ name) matchGroup _ _))) _ _ <- decl
   -- Check the name of the def starts with _choice$_
   , ("_choice$_", name) <- T.splitAt 9 $ packRdrName name
   , [templateName, choiceName] <- Typename <$> T.split (=='$') name
@@ -325,13 +327,14 @@ getInstanceDocs ctx@DocCtx{dc_decls} ClsInst{..} =
   let ty = varType is_dfun
       srcSpan = getLoc $ idName is_dfun
       modname = Modulename $ T.pack $ moduleNameString $ moduleName $ nameModule is_cls_nm
-      instDocMap = MS.fromList [(l, doc) | (DeclData (L l (InstD _x _i)) (Just doc)) <- dc_decls]
+      instDocAndWarnsMap = MS.fromList [(l, (docs, warns)) | (DeclData (L l (InstD _x _i)) docs warns) <- dc_decls]
   in InstanceDoc
       { id_context = typeToContext ctx ty
       , id_module = modname
       , id_type = typeToType ctx ty
       , id_isOrphan = isOrphan is_orphan
-      , id_descr = MS.lookup srcSpan instDocMap
+      , id_descr = maybe [] fst $ MS.lookup srcSpan instDocAndWarnsMap
+      , id_warns = maybe [] snd $ MS.lookup srcSpan instDocAndWarnsMap
       }
 
 -- Utilities common to templates and interfaces
@@ -345,7 +348,8 @@ asADT typeMap n = fromMaybe dummyDT $ MS.lookup n typeMap
       ADTDoc
         { ad_anchor = Nothing
         , ad_name = dummyName n
-        , ad_descr = Nothing
+        , ad_descr = []
+        , ad_warns = []
         , ad_args = []
         , ad_constrs = []
         , ad_instances = Nothing
@@ -369,6 +373,7 @@ mkChoiceDoc typeMap templateMaps templateName choiceName =
     { cd_anchor = ad_anchor choiceADT
     , cd_name = ad_name choiceADT
     , cd_descr = ad_descr choiceADT
+    , cd_warns = ad_warns choiceADT
     -- Attempt controller lookup, fallback to signatories
     , cd_controller =
         MS.lookup (templateName, choiceName) (choiceControllerMap templateMaps) 

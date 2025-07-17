@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
@@ -78,7 +79,7 @@ class BlockSequencer(
     clock: Clock,
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
-    minimumSequencingTime: CantonTimestamp,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -109,7 +110,7 @@ class BlockSequencer(
       metrics,
       loggerFactory,
       blockSequencerMode = true,
-      minimumSequencingTime = minimumSequencingTime,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       rateLimitManagerO = Some(blockRateLimitManager),
     )
     with DatabaseSequencerIntegration
@@ -135,7 +136,17 @@ class BlockSequencer(
     new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
 
   override protected def resetWatermarkTo: SequencerWriter.ResetWatermark =
-    SequencerWriter.ResetWatermarkToTimestamp(stateManager.getHeadState.block.lastTs)
+    sequencingTimeLowerBoundExclusive match {
+      case Some(boundExclusive) =>
+        SequencerWriter.ResetWatermarkToTimestamp(
+          stateManager.getHeadState.block.lastTs.max(boundExclusive)
+        )
+
+      case None =>
+        SequencerWriter.ResetWatermarkToTimestamp(
+          stateManager.getHeadState.block.lastTs
+        )
+    }
 
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
@@ -147,7 +158,7 @@ class BlockSequencer(
       sequencerId,
       blockRateLimitManager,
       orderingTimeFixMode,
-      minimumSequencingTime = minimumSequencingTime,
+      sequencingTimeLowerBoundExclusive = sequencingTimeLowerBoundExclusive,
       metrics,
       loggerFactory,
       memberValidator = memberValidator,
@@ -294,6 +305,32 @@ class BlockSequencer(
           )
       }
 
+  /** This method rejects submissions before or at the lower bound of sequencing time. It compares
+    * clock.now against the configured sequencingTimeLowerBoundExclusive. It cannot use the time
+    * from the head state, because any blocks before sequencingTimeLowerBoundExclusive are filtered
+    * out and therefore the time would never advance. The ordering service is expected to lag a bit
+    * behind the (synchronized) wall clock, therefore this method does not reject submissions that
+    * would be sequenced after sequencingTimeLowerBoundExclusive. It could however pass through
+    * submissions that then get dropped, because they end up getting sequenced before
+    * sequencingTimeLowerBoundExclusive.
+    */
+  private def rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
+      : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] = {
+    val currentTime = clock.now
+
+    sequencingTimeLowerBoundExclusive match {
+      case Some(boundExclusive) =>
+        EitherTUtil.condUnitET[FutureUnlessShutdown](
+          currentTime > boundExclusive,
+          SubmissionRequestRefused(
+            s"Cannot submit before or at the lower bound for sequencing time $boundExclusive; time is currently at $currentTime"
+          ),
+        )
+
+      case None => EitherTUtil.unitUS
+    }
+  }
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit
@@ -314,6 +351,7 @@ class BlockSequencer(
     )
 
     for {
+      _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
@@ -348,9 +386,14 @@ class BlockSequencer(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val req = signedAcknowledgeRequest.content
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
-    val waitForAcknowledgementF =
-      stateManager.waitForAcknowledgementToComplete(req.member, req.timestamp)
     for {
+      _ <- EitherTUtil.toFutureUnlessShutdown(
+        rejectSubmissionsBeforeOrAtSequencingTimeLowerBound().leftMap(_.asGrpcError)
+      )
+      waitForAcknowledgementF = stateManager.waitForAcknowledgementToComplete(
+        req.member,
+        req.timestamp,
+      )
       _ <- FutureUnlessShutdown.outcomeF(blockOrderer.acknowledge(signedAcknowledgeRequest))
       _ <- FutureUnlessShutdown.outcomeF(waitForAcknowledgementF)
     } yield ()
@@ -425,8 +468,17 @@ class BlockSequencer(
           info.checkedToByteString,
         )
       )
+
+      topologySnapshot <- EitherT.right(cryptoApi.awaitSnapshot(timestamp))
+      parameterChanges <- EitherT.right(
+        topologySnapshot.ipsSnapshot.listDynamicSynchronizerParametersChanges()
+      )
+      maxSequencingTimeBound = SequencerUtils.maxSequencingTimeUpperBoundAt(
+        timestamp,
+        parameterChanges,
+      )
       blockState <- store
-        .readStateForBlockContainingTimestamp(timestamp)
+        .readStateForBlockContainingTimestamp(timestamp, maxSequencingTimeBound)
       // Look up traffic info at the latest timestamp from the block,
       // because that's where the onboarded sequencer will start reading
       trafficPurchased <- EitherT

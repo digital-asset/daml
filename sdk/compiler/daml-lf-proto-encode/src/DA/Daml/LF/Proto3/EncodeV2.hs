@@ -5,13 +5,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 -- | Encoding of the LF package into LF version 1 format.
-module DA.Daml.LF.Proto3.EncodeV2
-  ( encodeSinglePackageModule
-  , encodePackage
-  , initEncodeEnv
-  , encodeKind
-  , EncodeEnv(..)
-  ) where
+module DA.Daml.LF.Proto3.EncodeV2 (
+  module DA.Daml.LF.Proto3.EncodeV2
+) where
 
 import           Control.Lens ((^.), matching, makeLensesFor, zoom)
 import           Control.Lens.Ast (rightSpine)
@@ -22,7 +18,6 @@ import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Set as S
-import qualified Data.Map.Strict as Map
 import           Data.Maybe (fromMaybe, fromJust)
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
@@ -44,6 +39,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 type Just a = Maybe a
 
 type InternedKindsMap = IM.InternedMap P.KindSum Int32
+type InternedTypesMap = IM.InternedMap P.TypeSum Int32
 
 type Encode a = State EncodeEnv a
 
@@ -55,13 +51,11 @@ data EncodeEnv = EncodeEnv
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
     , nextInternedDottedNameId :: !Int32
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
-    , internedTypes :: !(Map.Map P.TypeSum Int32)
-    , nextInternedTypeId :: !Int32
-
     , internedKindsMap :: InternedKindsMap
+    , internedTypesMap :: InternedTypesMap
     }
 
-makeLensesFor [("internedKindsMap", "internedKindsMapLens")] ''EncodeEnv
+makeLensesFor [("internedKindsMap", "internedKindsMapLens"), ("internedTypesMap", "internedTypesMapLens")] ''EncodeEnv
 
 
 initEncodeEnv :: Version -> EncodeEnv
@@ -71,9 +65,8 @@ initEncodeEnv version =
     , internedStrings = HMS.empty
     , internedDottedNames = HMS.empty
     , nextInternedDottedNameId = 0
-    , internedTypes = Map.empty
-    , nextInternedTypeId = 0
     , internedKindsMap = IM.empty
+    , internedTypesMap = IM.empty
     , ..
     }
 
@@ -172,9 +165,9 @@ encodeValueName valName = do
 -- names are interned.
 encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPackageId)
 encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
-    SelfPackageId -> 
+    SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-    ImportedPackageId (PackageId pkgId) -> 
+    ImportedPackageId (PackageId pkgId) ->
         P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId
 
 -- | Interface method names are always interned, since interfaces were
@@ -350,18 +343,14 @@ encodeType :: Type -> Encode (Just P.Type)
 encodeType = (Just <$>) . encodeType'
 
 allocType :: P.TypeSum -> Encode P.Type
-allocType ptyp = fmap (P.Type . Just) $ do
-    env@EncodeEnv{internedTypes, nextInternedTypeId = n} <- get
-    case ptyp `Map.lookup` internedTypes of
-        Just n -> pure (P.TypeSumInterned n)
-        Nothing -> do
-            when (n == maxBound) $
-                error "Type interning table grew too large"
-            put $! env
-                { internedTypes = Map.insert ptyp n internedTypes
-                , nextInternedTypeId = n + 1
-                }
-            pure (P.TypeSumInterned n)
+allocType = internType . P.Type . Just
+
+internType :: P.Type -> Encode P.Type
+internType = \case
+  (P.Type (Just t')) -> do
+    n <- zoom internedTypesMapLens $ IM.internState t'
+    return $ (P.Type . Just . P.TypeSumInterned) n
+  (P.Type Nothing) -> error "nothing type during encoding"
 
 ------------------------------------------------------------------------
 -- Encoding of expressions
@@ -975,23 +964,27 @@ encodePackageMetadata PackageMetadata{..} = do
     packageMetadataUpgradedPackageId <- traverse encodeUpgradedPackageId upgradedPackageId
     pure P.PackageMetadata{..}
 
+packInternedStrings :: HMS.HashMap T.Text Int32 -> V.Vector TL.Text
+packInternedStrings =
+  V.fromList . map (encodeString . fst) . L.sortOn snd . HMS.toList
+
+packInternedKinds :: InternedMap P.KindSum key -> V.Vector P.Kind
+packInternedKinds = V.map (P.Kind . Just) . IM.toVec
+
+packInternedTypes :: InternedMap P.TypeSum key -> V.Vector P.Type
+packInternedTypes = V.map (P.Type . Just) . IM.toVec
+
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version
         ( (packageModules, packageMetadata),
-          EncodeEnv{internedStrings, internedDottedNames, internedTypes, nextInternedTypeId, internedKindsMap}) =
+          EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
-        packageInternedStrings =
-            V.fromList $ map (encodeString . fst) $ L.sortOn snd $ HMS.toList internedStrings
+        packageInternedStrings = packInternedStrings internedStrings
         packageInternedDottedNames =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
-        -- map -> list -> vector, since we must do the sorting in list representation
-        packageInternedTypes =
-          let pIT = V.fromList $ map (P.Type . Just . fst) $ L.sortOn snd $ Map.toList internedTypes
-          in if (fromIntegral $ V.length pIT) == nextInternedTypeId
-               then pIT
-               else error "internedTypes of incorrect length"
-        packageInternedKinds = V.map (P.Kind . Just) $ IM.toVec internedKindsMap
+        packageInternedKinds = packInternedKinds internedKindsMap
+        packageInternedTypes = packInternedTypes internedTypesMap
     in
     P.Package{..}
 

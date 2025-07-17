@@ -326,17 +326,21 @@ final class RepairService(
               )
             )
 
-            storedContracts <- logOnFailureWithInfoLevel(
-              contractStore.value.lookupManyUncached(
-                contracts.map(_.contract.contractId)
-              ),
-              "Unable to lookup contracts in contract store",
+            contractInstances <-
+              logOnFailureWithInfoLevel(
+                contractStore.value.lookupManyUncached(contracts.map(_.contract.contractId)),
+                "Unable to lookup contracts in contract store",
+              ).map(_.flatten)
+
+            storedContracts <- EitherT.fromEither[FutureUnlessShutdown](
+              contractInstances
+                .traverse { contract =>
+                  SerializableContract
+                    .fromLfFatContractInst(contract.inst)
+                    .map(c => c.contractId -> c)
+                }
+                .map(_.toMap)
             )
-              .map { contracts =>
-                contracts.view
-                  .flatMap(_.map(c => c.contractId -> c.serializable))
-                  .toMap // TODO(#26348) - use fat contract downstream
-              }
 
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
@@ -456,6 +460,7 @@ final class RepairService(
               .synchronizerIdForAlias(synchronizerAlias)
               .toRight(s"Could not find $synchronizerAlias")
           )
+
           repair <- initRepairRequestAndVerifyPreconditions(synchronizerId)
 
           contractStates <- EitherT.right[String](
@@ -465,16 +470,21 @@ final class RepairService(
             )
           )
 
-          storedContracts <-
+          contractInstances <-
             logOnFailureWithInfoLevel(
               contractStore.value.lookupManyUncached(contractIds),
               "Unable to lookup contracts in contract store",
-            )
-              .map { contracts =>
-                contracts.view
-                  .flatMap(_.map(c => c.contractId -> c.serializable))
-                  .toMap // TODO(#26348) - use fat contract downstream
+            ).map(_.flatten)
+
+          storedContracts <- EitherT.fromEither[FutureUnlessShutdown](
+            contractInstances
+              .traverse { contract =>
+                SerializableContract
+                  .fromLfFatContractInst(contract.inst)
+                  .map(c => c.contractId -> c)
               }
+              .map(_.toMap)
+          )
 
           toc = repair.tryExactlyOneTimeOfRepair.toToc
 
@@ -647,7 +657,7 @@ final class RepairService(
         contractIdsData <- EitherT.fromEither[FutureUnlessShutdown](
           ChangeAssignation.Data
             .from[Seq[(LfContractId, Option[ReassignmentCounter])]](
-              reassignmentData.contracts.contractIds.map(_ -> None).toSeq,
+              reassignmentData.contractsBatch.contractIds.map(_ -> None).toSeq,
               changeAssignationBack,
             )
             .incrementRepairCounter

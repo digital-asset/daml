@@ -153,7 +153,7 @@ private[reassignment] class AssignmentProcessingSteps(
           s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
         )
 
-      stakeholders = unassignmentData.unassignmentRequest.stakeholders
+      stakeholders = unassignmentData.stakeholders
       _ <- ReassignmentValidation
         .checkSubmitter(
           ReassignmentRef(reassignmentId),
@@ -164,23 +164,6 @@ private[reassignment] class AssignmentProcessingSteps(
         )
         .leftMap(_.toSubmissionValidationError)
 
-      exclusivityTimeoutErrorO <- AssignmentValidation
-        .checkExclusivityTimeout(
-          reassignmentCoordination,
-          synchronizerId,
-          staticSynchronizerParameters,
-          unassignmentData,
-          topologySnapshot.unwrap.timestamp,
-          submitter,
-          reassignmentId,
-        )
-
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        exclusivityTimeoutErrorO
-          .toLeft(())
-          .leftMap(_.toSubmissionValidationError)
-      )
-
       assignmentUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
 
@@ -190,13 +173,13 @@ private[reassignment] class AssignmentProcessingSteps(
           seed,
           reassignmentId,
           submitterMetadata,
-          unassignmentData.contracts,
+          unassignmentData.contractsBatch,
           sourceSynchronizer,
           targetSynchronizer,
           mediator,
           assignmentUuid,
           protocolVersion,
-          unassignmentData.unassignmentRequest.reassigningParticipants,
+          unassignmentData.reassigningParticipants,
         )
       )
 
@@ -209,7 +192,7 @@ private[reassignment] class AssignmentProcessingSteps(
         staticSynchronizerParameters.map(_.protocolVersion),
       )
       recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq)
-      contractIds = unassignmentData.contracts.contractIds.toSeq
+      contractIds = unassignmentData.contractsBatch.contractIds.toSeq
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
@@ -383,31 +366,51 @@ private[reassignment] class AssignmentProcessingSteps(
         )(parsedRequest)
 
     } yield {
-      val responseF = if (isReassigningParticipant) {
+      val confirmationResponseF =
         if (
-          !assignmentValidationResult.reassigningParticipantValidationResult.isUnassignmentDataNotFound
-        )
+          assignmentValidationResult.reassigningParticipantValidationResult.isUnassignmentDataNotFound && isReassigningParticipant
+        ) {
+          logger.info(
+            s"Sending an abstain verdict for ${assignmentValidationResult.hostedConfirmingReassigningParties} because unassignment data is not found in the reassignment store"
+          )
+          val confirmationResponses = checked(
+            ConfirmationResponses.tryCreate(
+              parsedRequest.requestId,
+              assignmentValidationResult.rootHash,
+              synchronizerId.unwrap,
+              participantId,
+              NonEmpty.mk(
+                Seq,
+                ConfirmationResponse
+                  .tryCreate(
+                    Some(ViewPosition.root),
+                    LocalAbstainError.CannotPerformAllValidations
+                      .Abstain(
+                        s"Unassignment data not found when processing assignment $reassignmentId."
+                      )
+                      .toLocalAbstain(protocolVersion.unwrap),
+                    assignmentValidationResult.hostedConfirmingReassigningParties,
+                  ),
+              ),
+              protocolVersion.unwrap,
+            )
+          )
+          FutureUnlessShutdown.pure(Some(confirmationResponses))
+        } else {
           createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.malformedPayloads,
-            parsedRequest.snapshot.ipsSnapshot,
             protocolVersion.unwrap,
-            parsedRequest.fullViewTree.confirmingParties,
             assignmentValidationResult,
-          ).map(_.map((_, Recipients.cc(parsedRequest.mediator))))
-        else {
-          logger.info(
-            "Not sending a confirmation response because unassignment data is not found in the reassignment store"
           )
-          FutureUnlessShutdown.pure(None)
         }
-      } else // TODO(i24532): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
-        FutureUnlessShutdown.pure(None)
 
-      // We consider that we rejected if we fail to process or if at least one of the responses is not "approve"
+      val responseF = confirmationResponseF.map(_.map((_, Recipients.cc(parsedRequest.mediator))))
+
+      // We consider that we rejected if we fail to process or if at least one of the responses is a "reject"
       val locallyRejectedF = responseF.map(
         _.exists { case (confirmation, _) =>
-          confirmation.responses.exists(response => !response.localVerdict.isApprove)
+          confirmation.responses.exists(_.localVerdict.isReject)
         }
       )
 

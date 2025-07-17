@@ -44,7 +44,7 @@ class ExtendedContractLookup(
     lookup(coid).transform {
       case Some(contract) =>
         authenticator
-          .verifyMetadata(contract.serializable, metadata)
+          .verifyMetadata(contract, metadata)
           .left
           .toOption
       case None =>

@@ -23,7 +23,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -130,7 +130,7 @@ class SequencerReader(
   private val psid = syncCryptoApi.psid
   private val protocolVersion: ProtocolVersion = psid.protocolVersion
 
-  def readV2(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
+  def read(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     synchronizeWithClosing(functionFullName)(for {
@@ -532,7 +532,6 @@ class SequencerReader(
               psid,
               unvalidatedEvent.event.messageId,
               error,
-              protocolVersion,
               trafficReceiptForNonSequencerSender(
                 unvalidatedEvent.event.sender,
                 unvalidatedEvent.event.trafficReceiptO,
@@ -546,7 +545,6 @@ class SequencerReader(
               None,
               emptyBatch,
               None,
-              protocolVersion,
               None,
             )
           }
@@ -752,10 +750,7 @@ class SequencerReader(
                 )
                 .map(_.ipsSnapshot)
             )(FutureUnlessShutdown.pure)
-            upgradeTimeO <- topologySnapshot.isSynchronizerUpgradeOngoing()
-            isEventBeforeUpgradeTime = upgradeTimeO.forall { case (_, upgradeTime) =>
-              timestamp < upgradeTime
-            }
+            successorO <- topologySnapshot.isSynchronizerUpgradeOngoing()
             resolvedGroupAddresses <- {
               groupRecipients match {
                 case x if x.isEmpty =>
@@ -785,11 +780,13 @@ class SequencerReader(
               messageIdO,
               filteredBatch,
               topologyTimestampO,
-              protocolVersion,
               // deliver events should only retain the traffic state for the sender's subscription
               trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
-            if (isEventBeforeUpgradeTime || TimeProof.isTimeProofDeliver(deliver)) deliver
+            if (
+              LogicalUpgradeTime.canProcessKnowingSuccessor(successorO, timestamp) ||
+              TimeProof.isTimeProofDeliver(deliver)
+            ) deliver
             else {
               logger.info(
                 "Delivering an empty event instead of the original, because it was sequenced at or after the upgrade time."
@@ -801,7 +798,6 @@ class SequencerReader(
                 None,
                 emptyBatch,
                 None,
-                protocolVersion,
                 None,
               )
             }
@@ -822,7 +818,6 @@ class SequencerReader(
               Some(messageId),
               emptyBatch,
               topologyTimestampO,
-              protocolVersion,
               trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
           )
@@ -837,7 +832,6 @@ class SequencerReader(
               psid,
               messageId,
               status,
-              protocolVersion,
               trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
           )

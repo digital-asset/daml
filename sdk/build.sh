@@ -94,15 +94,40 @@ if has_regenerate_stackage_trailer; then
   exit 1
 fi
 
-echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
-$bazel build //... \
-  --build_tag_filters "${tag_filter}" \
-  --profile build-profile.json \
-  --experimental_profile_include_target_label \
-  --build_event_json_file build-events.json \
-  --build_event_publish_all_actions \
-  --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
+run_build() {
+  bazel build "$@" //... \
+    --build_tag_filters "${tag_filter}" \
+    --profile build-profile.json \
+    --experimental_profile_include_target_label \
+    --build_event_json_file build-events.json \
+    --build_event_publish_all_actions \
+    --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
+}
+
+if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+  echo "Running on Apple Silicon (arm64). Building with --keep-going and retry on fail."
+
+  max_tries=10
+  build_succeeded=false
+
+  for i in $(seq 1 $max_tries); do
+    echo "Build attempt ${i}/${max_tries}..."
+    if run_build -k; then
+      build_succeeded=true
+      break
+    fi
+  done
+
+  if [ "$build_succeeded" = false ]; then
+    echo "Build failed after ${max_tries} attempts. Exiting."
+    exit 1
+  fi
+
+else
+  echo "Running on linux or non-arm Apple. Building without retry logic."
+  run_build
+fi
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"

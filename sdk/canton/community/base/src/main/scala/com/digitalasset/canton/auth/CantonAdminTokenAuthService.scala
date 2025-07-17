@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.auth
 
-import com.digitalasset.canton.auth.AuthService.AUTHORIZATION_KEY
 import com.digitalasset.canton.crypto.RandomOps
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
-import io.grpc.Metadata
+import com.digitalasset.canton.util.TimingSafeComparisonUtil.constantTimeEquals
 
 import scala.concurrent.Future
 
@@ -28,18 +27,18 @@ object CantonAdminToken {
   * Therefore, we create on each startup a master token which is only ever shared internally.
   */
 class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken]) extends AuthService {
-  override def decodeMetadata(
-      headers: Metadata,
+  override def decodeToken(
+      authToken: Option[String],
       serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] = {
     val bearerTokenRegex = "Bearer (.*)".r
-    val authToken = for {
+    val authTokenOpt = for {
       adminToken <- adminTokenO
-      authKey <- Option(headers.get(AUTHORIZATION_KEY))
+      authKey <- authToken
       token <- bearerTokenRegex.findFirstMatchIn(authKey).map(_.group(1))
-      _ <- if (token == adminToken.secret) Some(()) else None
+      _ <- if (constantTimeEquals(token, adminToken.secret)) Some(()) else None
     } yield ()
-    authToken
+    authTokenOpt
       .fold(deny)(_ => wildcard)
   }
 

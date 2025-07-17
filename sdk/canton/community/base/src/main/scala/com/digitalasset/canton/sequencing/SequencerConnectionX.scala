@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequestV2,
+  SubscriptionRequest,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -69,7 +69,7 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
   ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse]
 
   def subscribe[E](
-      request: SubscriptionRequestV2,
+      request: SubscriptionRequest,
       handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit

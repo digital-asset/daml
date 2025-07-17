@@ -45,7 +45,12 @@ import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.{
   Matched,
   fromIntValidSentPeriodState,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  LfContractId,
+  ReassignmentId,
+  SerializableContract,
+}
 import com.digitalasset.canton.pruning.{
   ConfigForSlowCounterParticipants,
   ConfigForSynchronizerThresholds,
@@ -174,7 +179,7 @@ final class SyncStateInspection(
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
-  )(implicit traceContext: TraceContext): List[(Boolean, SerializableContract)] =
+  )(implicit traceContext: TraceContext): List[(Boolean, ContractInstance)] =
     getOrFail(
       timeouts.inspection.await("findContracts") {
         syncPersistentStateManager
@@ -190,14 +195,14 @@ final class SyncStateInspection(
       contractIds: Seq[LfContractId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[LfContractId, SerializableContract]] = {
+  ): FutureUnlessShutdown[Map[LfContractId, ContractInstance]] = {
     val synchronizerAlias = syncPersistentStateManager
       .aliasForSynchronizerId(synchronizerId)
       .getOrElse(throw new IllegalArgumentException(s"no such synchronizer [$synchronizerId]"))
 
     NonEmpty.from(contractIds) match {
       case None =>
-        FutureUnlessShutdown.pure(Map.empty[LfContractId, SerializableContract])
+        FutureUnlessShutdown.pure(Map.empty[LfContractId, ContractInstance])
       case Some(neCids) =>
         val synchronizerAcsInspection =
           getOrFail(
@@ -305,22 +310,24 @@ final class SyncStateInspection(
                   parties,
                   timeOfSnapshotO,
                   skipCleanTocCheck = skipCleanTimestampCheck,
-                ) { case (contract, reassignmentCounter) =>
-                  val activeContract =
-                    ActiveContractOld.create(
-                      synchronizerIdForExport,
-                      contract,
-                      reassignmentCounter,
-                    )(
-                      protocolVersion
-                    )
-
-                  activeContract.writeDelimitedTo(outputStream) match {
+                ) { case (contractInst, reassignmentCounter) =>
+                  (for {
+                    contract <- SerializableContract.fromLfFatContractInst(contractInst.inst)
+                    activeContract =
+                      ActiveContractOld.create(
+                        synchronizerIdForExport,
+                        contract,
+                        reassignmentCounter,
+                      )(
+                        protocolVersion
+                      )
+                    _ <- activeContract.writeDelimitedTo(outputStream)
+                  } yield ()) match {
                     case Left(errorMessage) =>
                       Left(
                         AcsInspectionError.SerializationIssue(
                           synchronizerId.logical,
-                          contract.contractId,
+                          contractInst.contractId,
                           errorMessage,
                         )
                       )
@@ -393,7 +400,7 @@ final class SyncStateInspection(
       parties: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Set[(LfContractId, ReassignmentCounter)]] =
+  ): FutureUnlessShutdown[Set[(ContractInstance, ReassignmentCounter)]] =
     for {
       state <- FutureUnlessShutdown.fromTry(
         syncPersistentStateManager
@@ -430,7 +437,7 @@ final class SyncStateInspection(
 
       filteredByParty = contractsWithReassignmentCounter.collect {
         case (contract, reassignmentCounter) if parties.intersect(contract.stakeholders).nonEmpty =>
-          (contract.contractId, reassignmentCounter)
+          (contract, reassignmentCounter)
       }
     } yield filteredByParty.toSet
 
@@ -821,7 +828,7 @@ final class SyncStateInspection(
     val filteredStates = synchronizersFilter match {
       case Some(synchronizers) =>
         syncPersistentStateManager.getAllLatest.values.filter { state =>
-          synchronizers.contains(state.logicalSynchronizerId)
+          synchronizers.contains(state.lsid)
         }
 
       case None => syncPersistentStateManager.getAllLatest.values
@@ -851,7 +858,7 @@ final class SyncStateInspection(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[CounterParticipantIntervalsBehind]] = {
-    val synchronizerId = syncPersistentState.logicalSynchronizerId
+    val synchronizerId = syncPersistentState.lsid
 
     for {
       lastSent <- syncPersistentState.acsCommitmentStore.lastComputedAndSent(traceContext)
@@ -883,7 +890,7 @@ final class SyncStateInspection(
 
       sortedReconciliationProvider <- EitherTUtil.toFutureUnlessShutdown(
         sortedReconciliationIntervalsProviderFactory
-          .get(syncPersistentState.physicalSynchronizerId, lastSentFinal)
+          .get(syncPersistentState.psid, lastSentFinal)
           .leftMap(string =>
             new IllegalStateException(
               s"failed to retrieve reconciliationIntervalProvider: $string"
@@ -956,7 +963,7 @@ final class SyncStateInspection(
   ): EitherT[FutureUnlessShutdown, String, InFlightCount] =
     for {
       state <- EitherT.fromEither[FutureUnlessShutdown](getPersistentState(psid))
-      synchronizerId = state.physicalSynchronizerId
+      synchronizerId = state.psid
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())
@@ -1055,7 +1062,7 @@ final class SyncStateInspection(
     val filteredSynchronizerIds = syncPersistentStateManager.getAllLatest.toSeq
       .mapFilter { case (synchronizerId, state) =>
         Option.when(synchronizerFilter.fold(true)(_.contains(synchronizerId)))(
-          state.physicalSynchronizerId
+          state.psid
         )
       }
 

@@ -15,21 +15,22 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   ActivenessChangeDetail,
   ReassignmentType,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
+import com.digitalasset.canton.protocol.{
+  ContractInstance,
+  LfContractId,
+  ReassignmentId,
+  SerializableContract,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.{
-  HasProtocolVersionedWrapper,
   HasVersionedMessageCompanion,
   HasVersionedWrapper,
   ProtoVersion,
   ProtocolVersion,
-  RepresentativeProtocolVersion,
-  VersionedProtoCodec,
-  VersioningCompanion,
 }
 import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes
@@ -40,11 +41,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final case class CommitmentContractMetadata(
     cid: LfContractId,
     reassignmentCounter: ReassignmentCounter,
-)(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      CommitmentContractMetadata.type
-    ]
-) extends HasProtocolVersionedWrapper[CommitmentContractMetadata]
+) extends HasVersionedWrapper[CommitmentContractMetadata]
     with PrettyPrinting {
 
   @transient override protected lazy val companionObj: CommitmentContractMetadata.type =
@@ -62,16 +59,18 @@ final case class CommitmentContractMetadata(
 }
 
 object CommitmentContractMetadata
-    extends VersioningCompanion[
+    extends HasVersionedMessageCompanion[
       CommitmentContractMetadata,
     ] {
 
-  override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.CommitmentContractMeta)(
-      supportedProtoVersion(_)(fromProtoV30),
-      _.toProtoV30,
+  override def supportedProtoVersions: SupportedProtoVersions =
+    SupportedProtoVersions(
+      ProtoVersion(30) -> ProtoCodec(
+        ProtocolVersion.v34,
+        supportedProtoVersion(v30.CommitmentContractMeta)(fromProtoV30),
+        _.toProtoV30,
+      )
     )
-  )
 
   private def fromProtoV30(
       contract: v30.CommitmentContractMeta
@@ -80,20 +79,15 @@ object CommitmentContractMetadata
       cid <- LfContractId
         .fromBytes(Bytes.fromByteString(contract.cid))
         .leftMap(ProtoDeserializationError.StringConversionError.apply(_, field = Some("cid")))
-      reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommitmentContractMetadata(cid, ReassignmentCounter(contract.reassignmentCounter))(
-      reprProtocolVersion
-    )
+    } yield CommitmentContractMetadata(cid, ReassignmentCounter(contract.reassignmentCounter))
 
   override def name: String = "commitment contract metadata"
 
   def create(
       cid: LfContractId,
       reassignmentCounter: ReassignmentCounter,
-  )(protocolVersion: ProtocolVersion): CommitmentContractMetadata =
-    CommitmentContractMetadata(cid, reassignmentCounter)(
-      protocolVersionRepresentativeFor(protocolVersion)
-    )
+  ): CommitmentContractMetadata =
+    CommitmentContractMetadata(cid, reassignmentCounter)
 
   def compare(
       first: Seq[CommitmentContractMetadata],
@@ -114,7 +108,6 @@ object CommitmentContractMetadata
 
     CompareCmtContracts(cidsOnlyFirst.toSeq, cidsOnlySecond.toSeq, diffReassignmentCounters.toSeq)
   }
-
 }
 
 final case class CompareCmtContracts(
@@ -126,7 +119,7 @@ final case class CompareCmtContracts(
 final case class CommitmentInspectContract(
     cid: LfContractId,
     activeOnExpectedSynchronizer: Boolean,
-    contract: Option[SerializableContract],
+    contract: Option[ContractInstance],
     state: Seq[ContractStateOnSynchronizer],
 ) extends HasVersionedWrapper[CommitmentInspectContract]
     with PrettyPrinting {
@@ -144,7 +137,7 @@ final case class CommitmentInspectContract(
   private def toProtoV30: v30.CommitmentContract = v30.CommitmentContract(
     cid.toBytes.toByteString,
     activeOnExpectedSynchronizer,
-    contract.map(_.toAdminProtoV30),
+    contract.map(_.encoded),
     state.map(_.toProtoV30),
   )
 }
@@ -167,7 +160,9 @@ object CommitmentInspectContract extends HasVersionedMessageCompanion[Commitment
       cid <- LfContractId
         .fromBytes(Bytes.fromByteString(cmtContract.cid))
         .leftMap(ProtoDeserializationError.StringConversionError.apply(_))
-      contract <- cmtContract.serializedContract.traverse(SerializableContract.fromAdminProtoV30)
+      contract <- cmtContract.contract
+        .traverse(ContractInstance.decode)
+        .leftMap(e => ProtoDeserializationError.ContractDeserializationError(e))
       states <- cmtContract.states.traverse(ContractStateOnSynchronizer.fromProtoV30)
       activeOnExpectedSynchronizer = cmtContract.activeOnExpectedSynchronizer
     } yield CommitmentInspectContract(cid, activeOnExpectedSynchronizer, contract, states)
@@ -317,7 +312,7 @@ object CommitmentInspectContract extends HasVersionedMessageCompanion[Commitment
             .map(_.toMap)
         else
           FutureUnlessShutdown.pure(
-            Map.empty[SynchronizerId, Map[LfContractId, SerializableContract]]
+            Map.empty[SynchronizerId, Map[LfContractId, ContractInstance]]
           )
 
       statesPerSynchronizer <-

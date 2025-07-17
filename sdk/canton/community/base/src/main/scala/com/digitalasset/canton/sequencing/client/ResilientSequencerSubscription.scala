@@ -25,7 +25,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionErro
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.HandlerException
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransport
 import com.digitalasset.canton.sequencing.handlers.{EventTimestampCapture, HasReceivedEvent}
-import com.digitalasset.canton.sequencing.protocol.SubscriptionRequestV2
+import com.digitalasset.canton.sequencing.protocol.SubscriptionRequest
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -352,7 +352,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       )(implicit
           traceContext: TraceContext
       ): UnlessShutdown[(SequencerSubscription[E], SubscriptionErrorRetryPolicy)] = {
-        val request = SubscriptionRequestV2(member, startingTimestamp, protocolVersion)
+        val request = SubscriptionRequest(member, startingTimestamp, protocolVersion)
         getTransport
           .map { transport =>
             val subscription =

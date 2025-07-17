@@ -66,7 +66,7 @@ sealed trait BaseCrypto extends NamedLogging {
     * as well.
     */
   def generateSigningKey(
-      keySpec: SigningKeySpec = privateCrypto.defaultSigningKeySpec,
+      keySpec: SigningKeySpec = privateCrypto.signingKeySpecs.default,
       usage: NonEmpty[Set[SigningKeyUsage]],
       name: Option[KeyName] = None,
   )(implicit
@@ -81,7 +81,7 @@ sealed trait BaseCrypto extends NamedLogging {
     * store as well.
     */
   def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = privateCrypto.defaultEncryptionKeySpec,
+      keySpec: EncryptionKeySpec = privateCrypto.encryptionKeySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext

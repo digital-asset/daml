@@ -145,5 +145,6 @@ class BufferedTransactionPointwiseReaderSpec extends AsyncFlatSpec with MockitoS
       completionStreamResponse = None,
       synchronizerId = someSynchronizerId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
+      externalTransactionHash = None,
     )
 }

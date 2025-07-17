@@ -43,7 +43,7 @@ class DirectSequencerSubscriptionFactory(
     * @return
     *   A running subscription
     */
-  def createV2[E](
+  def create[E](
       timestamp: Option[CantonTimestamp],
       member: Member,
       handler: SequencedEventOrErrorHandler[E],
@@ -53,7 +53,7 @@ class DirectSequencerSubscriptionFactory(
     val timestampString = timestamp.map(_.toString).getOrElse("the beginning")
     logger.debug(show"Creating subscription for $member from $timestampString...")
     for {
-      source <- sequencer.readV2(member, timestamp)
+      source <- sequencer.read(member, timestamp)
     } yield {
       val subscription =
         new DirectSequencerSubscription[E](member, source, handler, timeouts, loggerFactory)

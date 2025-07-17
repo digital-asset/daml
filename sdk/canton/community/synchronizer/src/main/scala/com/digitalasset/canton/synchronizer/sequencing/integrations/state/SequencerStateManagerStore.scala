@@ -20,8 +20,14 @@ trait SequencerStateManagerStore {
     *
     * @param timestamp
     *   The timestamp for which the state is computed
+    * @param maxSequencingTimeUpperBound
+    *   The maximum sequencing time upper bound, i.e. computed by
+    *   `SequencerUtils.maxSequencingTimeUpperBoundAt`, helps to speed up the database query
     */
-  def readInFlightAggregations(timestamp: CantonTimestamp)(implicit
+  def readInFlightAggregations(
+      timestamp: CantonTimestamp,
+      maxSequencingTimeUpperBound: CantonTimestamp,
+  )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[InFlightAggregations]
 

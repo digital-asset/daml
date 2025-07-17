@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.{ReplicationConfig, *}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
+import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig.DefaultRateLimit
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.ApiServiceOwner
@@ -486,9 +487,22 @@ object ContractLoaderConfig {
 
 /** Parameters for the Online Party Replication (OPR) preview feature (unsafe for production)
   */
-final case class UnsafeOnlinePartyReplicationConfig() extends UniformCantonConfigValidation
+final case class UnsafeOnlinePartyReplicationConfig(
+    testInterceptor: Option[UnsafeOnlinePartyReplicationConfig.TestInterceptor] = None
+) extends UniformCantonConfigValidation
 object UnsafeOnlinePartyReplicationConfig {
+
+  /** The PartyReplicator supports adding a test interceptor for manipulating behavior during tests.
+    * This is used for delaying and/or dropping messages to verify the behavior in abnormal
+    * scenarios in a deterministic way. It is not expected to be used at runtime in any capacity and
+    * is not possible to set through pureconfig.
+    */
+  type TestInterceptor = () => PartyReplicationTestInterceptor
+
   implicit val unsafeOnlinePartyReplicationConfigCantonConfigValidator
-      : CantonConfigValidator[UnsafeOnlinePartyReplicationConfig] =
+      : CantonConfigValidator[UnsafeOnlinePartyReplicationConfig] = {
+    implicit val testingInterceptorCantonConfigValidator: CantonConfigValidator[TestInterceptor] =
+      CantonConfigValidator.validateAll
     CantonConfigValidatorDerivation[UnsafeOnlinePartyReplicationConfig]
+  }
 }

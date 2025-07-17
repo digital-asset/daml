@@ -14,6 +14,7 @@ import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
@@ -84,6 +85,7 @@ class CommandCompletionClientImplTest
 
   behavior of "Authorization"
 
+  @nowarn("cat=deprecation")
   def toAuthenticatedServer(fn: CommandCompletionClient => Any): Any = {
     val completion1 = Completion("cid1", Option(new Status(0)), offset = offset1)
     val completionResponse =

@@ -179,7 +179,6 @@ class ProtocolProcessorTest
                 Some(messageId),
                 Batch.filterOpenEnvelopesFor(batch, participant, Set.empty),
                 None,
-                testedProtocolVersion,
                 Option.empty[TrafficReceipt],
               )
             )
@@ -219,7 +218,7 @@ class ProtocolProcessorTest
     new AsymmetricEncrypted[SecureRandomness](
       ByteString.EMPTY,
       // this is only a placeholder, the data is not encrypted
-      crypto.pureCrypto.defaultEncryptionAlgorithmSpec,
+      crypto.pureCrypto.encryptionAlgorithmSpecs.default,
       Fingerprint.tryFromString("dummy"),
     ),
   )
@@ -275,25 +274,32 @@ class ProtocolProcessorTest
 
     val contractStore = new InMemoryContractStore(timeouts, loggerFactory)
 
-    val persistentState =
-      new InMemorySyncPersistentState(
+    val logical = new InMemoryLogicalSyncPersistentState(
+      IndexedSynchronizer.tryCreate(psid.logical, 1),
+      enableAdditionalConsistencyChecks = true,
+      new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one synchronizer needed
+      contractStore,
+      nodePersistentState.acsCounterParticipantConfigStore,
+      Eval.now(nodePersistentState.ledgerApiStore),
+      loggerFactory,
+    )
+    val physical =
+      new InMemoryPhysicalSyncPersistentState(
         participant,
         clock,
         crypto.crypto,
         IndexedPhysicalSynchronizer.tryCreate(psid, 1),
-        IndexedSynchronizer.tryCreate(psid, 1),
         defaultStaticSynchronizerParameters,
-        enableAdditionalConsistencyChecks = true,
-        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one synchronizer needed
-        contractStore,
-        nodePersistentState.acsCounterParticipantConfigStore,
         exitOnFatalFailures = true,
         packageDependencyResolver,
         Eval.now(nodePersistentState.ledgerApiStore),
+        logical,
         loggerFactory,
         timeouts,
         futureSupervisor,
       )
+
+    val persistentState = new SyncPersistentState(logical, physical, loggerFactory)
 
     val ephemeralState = new AtomicReference[SyncEphemeralState]()
 
@@ -303,8 +309,9 @@ class ProtocolProcessorTest
     when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
     val timeTracker = mock[SynchronizerTimeTracker]
-    val recordOrderPublisher = new RecordOrderPublisher(
-      synchronizerId = psid,
+    val recordOrderPublisher = RecordOrderPublisher(
+      psid = psid,
+      synchronizerSuccessor = None,
       initSc = SequencerCounter.Genesis,
       initTimestamp = CantonTimestamp.MinValue,
       ledgerApiIndexer = ledgerApiIndexer,

@@ -69,7 +69,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val ledgerTimeRecordTimeTolerance: Duration = Duration.ofSeconds(10)
 
   def validateContractOk(
-      @unused _contract: SerializableContract,
+      @unused _contract: ContractInstance,
       @unused _getEngineAbortStatus: GetEngineAbortStatus,
       @unused _context: TraceContext,
   ): EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit] = EitherT.pure(())
@@ -165,7 +165,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       Either.unit
     override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = Either.unit
     override def verifyMetadata(
-        contract: SerializableContract,
+        contract: ContractInstance,
         metadata: ContractMetadata,
     ): Either[String, Unit] = Either.unit
   }
@@ -190,7 +190,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       mcc: ModelConformanceChecker,
       views: NonEmpty[Seq[(FullTransactionViewTree, Seq[(TransactionView, LfKeyResolver)])]],
       ips: TopologySnapshot = factory.topologySnapshot,
-      reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretation = Map.empty,
+      reInterpretedTopLevelViews: ModelConformanceChecker.LazyAsyncReInterpretationMap = Map.empty,
   ): EitherT[Future, ErrorWithSubTransaction, Result] = {
     val rootViewTrees = views.map(_._1)
     val commonData = TransactionProcessingSteps.tryCommonData(rootViewTrees)

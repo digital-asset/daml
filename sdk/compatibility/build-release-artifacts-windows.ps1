@@ -37,7 +37,8 @@ function bazel() {
 
 bazel shutdown
 bazel build `
-  `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
+  `-`-execution_log_binary_file ${ARTIFACT_DIRS}/build_execution_windows.log `
+  `-`-noexecution_log_sort `
   //release:sdk-release-tarball `
   //daml-assistant:daml
 

@@ -39,9 +39,12 @@ class SymbolicPrivateCrypto(
   override protected val encryptionOps: EncryptionOps = pureCrypto
 
   // NOTE: These schemes are not really used by Symbolic crypto
-  override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec = SigningAlgorithmSpec.Ed25519
-  override val defaultSigningKeySpec: SigningKeySpec = SigningKeySpec.EcCurve25519
-  override val defaultEncryptionKeySpec: EncryptionKeySpec = EncryptionKeySpec.EcP256
+  override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec] =
+    CryptoScheme(SigningAlgorithmSpec.Ed25519, NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519))
+  override val signingKeySpecs: CryptoScheme[SigningKeySpec] =
+    CryptoScheme(SigningKeySpec.EcCurve25519, NonEmpty.mk(Set, SigningKeySpec.EcCurve25519))
+  override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec] =
+    CryptoScheme(EncryptionKeySpec.EcP256, NonEmpty.mk(Set, EncryptionKeySpec.EcP256))
 
   @VisibleForTesting
   def setRandomKeysFlag(newValue: Boolean): Unit =

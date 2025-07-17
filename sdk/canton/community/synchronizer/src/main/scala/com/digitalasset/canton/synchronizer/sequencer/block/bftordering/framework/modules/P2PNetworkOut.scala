@@ -4,12 +4,17 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  Env,
+  Module,
+  P2PNetworkRefFactory,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 
 object P2PNetworkOut {
 
@@ -25,10 +30,9 @@ object P2PNetworkOut {
 
   sealed trait Network extends Message
   object Network {
-    final case class Authenticated(
-        endpointId: P2PEndpoint.Id,
-        node: BftNodeId,
-    ) extends Message
+    final case class Connected(endpointId: P2PEndpoint.Id) extends Network
+    final case class Disconnected(endpointId: P2PEndpoint.Id) extends Network
+    final case class Authenticated(endpointId: P2PEndpoint.Id, node: BftNodeId) extends Network
   }
 
   sealed trait Admin extends Message
@@ -102,6 +106,9 @@ object P2PNetworkOut {
     Multicast(message, Set(to))
 }
 
-trait P2PNetworkOut[E <: Env[E]] extends Module[E, P2PNetworkOut.Message] {
-  val dependencies: P2PNetworkOutModuleDependencies[E]
+trait P2PNetworkOut[
+    E <: Env[E],
+    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+] extends Module[E, P2PNetworkOut.Message] {
+  val dependencies: P2PNetworkOutModuleDependencies[E, P2PNetworkRefFactoryT]
 }

@@ -12,16 +12,14 @@ import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.UnassignmentData.ReassignmentGlobalOffset
+import com.digitalasset.canton.data.{CantonTimestamp, Offset, UnassignmentData}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.reassignment
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.ReassignmentGlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.{
   AssignmentData,
   IncompleteReassignmentData,
-  UnassignmentData,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
@@ -63,7 +61,7 @@ class InMemoryReassignmentStore(
     logger.debug(s"Add reassignment request in the store: ${unassignmentData.reassignmentId}")
 
     val reassignmentId = unassignmentData.reassignmentId
-    val newEntry = ReassignmentEntry(unassignmentData, None, unassignmentData.unassignmentTs, None)
+    val newEntry = ReassignmentEntry(unassignmentData, None, None)
 
     val result: Either[ReassignmentStoreError, Unit] = MapsUtil
       .updateWithConcurrentlyM_[Checked[
@@ -86,14 +84,13 @@ class InMemoryReassignmentStore(
       otherUnassignmentData: UnassignmentData,
   ): Checked[ReassignmentStoreError, ReassignmentAlreadyCompleted, ReassignmentEntry] =
     for {
-      reassignmentData <- reassignmentEntry.unassignmentDataO match {
+      reassignmentData <- reassignmentEntry.unassignmentData match {
         case None => Checked.result(otherUnassignmentData)
         case Some(oldUnassignmentData) => Checked.result(oldUnassignmentData)
       }
     } yield ReassignmentEntry(
       reassignmentData,
       reassignmentEntry.reassignmentGlobalOffset,
-      reassignmentEntry.unassignmentTs,
       reassignmentEntry.assignmentTs,
     )
 
@@ -117,7 +114,7 @@ class InMemoryReassignmentStore(
   }
 
   override def addReassignmentsOffsets(
-      offsets: Map[ReassignmentId, reassignment.UnassignmentData.ReassignmentGlobalOffset]
+      offsets: Map[ReassignmentId, UnassignmentData.ReassignmentGlobalOffset]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = offsets.toList
@@ -227,7 +224,7 @@ class InMemoryReassignmentStore(
           .get(reassignmentId)
           .toRight(UnknownReassignmentId(reassignmentId))
         _ <- entry.assignmentTs.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
-        data <- entry.unassignmentDataO.toRight(
+        data <- entry.unassignmentData.toRight(
           AssignmentStartingBeforeUnassignment(reassignmentId)
         )
       } yield data
@@ -280,14 +277,14 @@ class InMemoryReassignmentStore(
         requestAfter.forall { case (ts, sourceSynchronizerID) =>
           (
             entry.unassignmentTs,
-            entry.unassignmentDataO.map(_.sourceSynchronizer.map(_.logical)),
+            entry.unassignmentData.map(_.sourceSynchronizer.map(_.logical)),
           ) > (ts, Some(sourceSynchronizerID))
         }
 
     reassignmentEntryMap.values
       .to(LazyList)
       .filter(filter)
-      .flatMap(_.unassignmentDataO)
+      .flatMap(_.unassignmentData)
       .sortBy(t => (t.unassignmentTs, t.sourceSynchronizer.unwrap))
       .take(limit)
   }
@@ -323,7 +320,7 @@ class InMemoryReassignmentStore(
           IncompleteReassignmentData
             .tryCreate(
               entry.reassignmentId,
-              entry.unassignmentRequest,
+              entry.unassignmentData,
               entry.reassignmentGlobalOffset,
               validAt,
             )
@@ -379,11 +376,11 @@ class InMemoryReassignmentStore(
       Future.successful(
         reassignmentEntryMap
           .filter { case (_reassignmentId, entry) =>
-            entry.unassignmentRequest
-              .map(_.contracts.contractIds)
+            entry.unassignmentData
+              .map(_.contractsBatch.contractIds)
               .exists(contractIds.contains) &&
             sourceSynchronizer.forall(source =>
-              entry.unassignmentDataO.exists(_.sourceSynchronizer == source)
+              entry.unassignmentData.exists(_.sourceSynchronizer == source)
             ) &&
             unassignmentTs.forall(
               _ == entry.unassignmentTs
@@ -391,7 +388,7 @@ class InMemoryReassignmentStore(
             completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
           .collect { case (reassignmentId, ReassignmentEntry(_, _, _, Some(request), _, _, _)) =>
-            request.contracts.contractIds.map(_ -> reassignmentId)
+            request.contractsBatch.contractIds.map(_ -> reassignmentId)
           }
           .flatten
           .groupBy(_._1)

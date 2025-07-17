@@ -3,14 +3,8 @@
 
 package com.digitalasset.canton.ledger.error
 
-import com.digitalasset.base.error.{
-  ContextualizedDamlError,
-  ErrorCategory,
-  ErrorCode,
-  ErrorGroup,
-  Explanation,
-  Resolution,
-}
+import com.digitalasset.base.error.{ContextualizedDamlError, ErrorCategory, ErrorCode, ErrorGroup, Explanation, Resolution}
+import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.DarSelfConsistency
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
@@ -224,8 +218,18 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           languageVersion,
           allowedLanguageVersions,
         )
-      case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-        SelfConsistency.Error(packageIds, missingDependencies)
+      case Error.Package.DarSelfConsistency(
+          mainPackageId,
+          transitiveDependencies,
+          missingDependencies,
+          extraDependencies,
+        ) =>
+        DarSelfConsistency.Error(
+          mainPackageId,
+          transitiveDependencies,
+          missingDependencies,
+          extraDependencies,
+        )
     }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
@@ -263,27 +267,31 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         ) // reuse error code of ledger api server
 
     @Explanation(
-      """This error indicates that the uploaded Dar is broken because it is missing internal dependencies."""
+      """This error indicates that the uploaded Dar is broken because it is missing internal dependencies or has unused internal dependencies."""
     )
     @Resolution("Contact the supplier of the Dar.")
-    object SelfConsistency
-        extends ErrorCode(
-          id = "DAR_NOT_SELF_CONSISTENT",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
+    object DarSelfConsistency
+      extends ErrorCode(
+        id = "DAR_DEPENDENCIES_NOT_VALID",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
       final case class Error(
-          packageIds: Set[Ref.PackageId],
-          missingDependencies: Set[Ref.PackageId],
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends ContextualizedDamlError(
-            cause =
-              "The set of packages in the dar is not self-consistent and is missing dependencies",
-            extraContext = Map(
-              "packageIds" -> packageIds,
-              "missingDependencies" -> missingDependencies,
-            ),
-          )
+                              mainPackageId: Ref.PackageId,
+                              transitiveDependencies: Set[Ref.PackageId],
+                              missingDependencies: Set[Ref.PackageId],
+                              extraDependencies: Set[Ref.PackageId],
+                            )(implicit
+                              val loggingContext: ErrorLoggingContext
+                            ) extends ContextualizedDamlError(
+        cause =
+          "The set of packages in the dar is not self-consistent and is missing dependencies or has extra dependencies",
+        extraContext = Map(
+          "mainPackageId" -> mainPackageId,
+          "transitiveDependencies" -> transitiveDependencies,
+          "missingDependencies" -> missingDependencies,
+          "extraDependencies" -> extraDependencies,
+        ),
+      )
     }
 
     @Explanation(

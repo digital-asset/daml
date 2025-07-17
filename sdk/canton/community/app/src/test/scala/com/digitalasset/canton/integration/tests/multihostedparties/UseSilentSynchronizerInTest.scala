@@ -29,7 +29,7 @@ private[multihostedparties] trait UseSilentSynchronizerInTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
-  private val loweredTimeout = config.NonNegativeFiniteDuration.ofSeconds(3)
+  private val loweredTimeout = config.NonNegativeFiniteDuration.ofSeconds(4)
   private val bufferTime = config.NonNegativeFiniteDuration.ofMillis(100)
   private val mediatorReactionTimeout = loweredTimeout
   private val confirmationResponseTimeout = loweredTimeout

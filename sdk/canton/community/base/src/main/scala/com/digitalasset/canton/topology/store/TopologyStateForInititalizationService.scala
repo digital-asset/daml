@@ -24,7 +24,7 @@ trait TopologyStateForInitializationService {
 
 final class StoreBasedTopologyStateForInitializationService(
     synchronizerTopologyStore: TopologyStore[SynchronizerStore],
-    minimumSequencingTime: CantonTimestamp,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp],
     val loggerFactory: NamedLoggerFactory,
 ) extends TopologyStateForInitializationService
     with NamedLogging {
@@ -86,8 +86,9 @@ final class StoreBasedTopologyStateForInitializationService(
           // snapshot, because the member only receives transactions that are sequenced:
           // * after the onboarding transaction has become effective
           // * with minimum sequencing time or later
-          val referenceSequencedTime =
-            SequencedTime(effectiveFrom.value.max(minimumSequencingTime.immediatePredecessor))
+          val referenceSequencedTime = SequencedTime(
+            sequencingTimeLowerBoundExclusive.fold(effectiveFrom.value)(_.max(effectiveFrom.value))
+          )
           logger.debug(
             s"Fetching initial topology state at ${referenceSequencedTime.value} for $member active at $effectiveFrom"
           )

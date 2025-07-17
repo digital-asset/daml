@@ -140,6 +140,7 @@ private[backend] object AppendOnlySchema {
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "external_transaction_hash" -> fieldStrategy.byteaOptional(_ => _.external_transaction_hash),
       )
 
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
@@ -189,6 +190,7 @@ private[backend] object AppendOnlySchema {
         ),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
+        "external_transaction_hash" -> fieldStrategy.byteaOptional(_ => _.external_transaction_hash),
       )
 
     val consumingExerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =

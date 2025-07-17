@@ -575,15 +575,15 @@ class IssSegmentModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     // Persist ordered block to epochStore and then self-send ack message.
-    pipeToSelf(
+    pipeToSelfWithFutureTracking(
       epochStore.addOrderedBlock(
         commitCertificate.prePrepare,
         commitCertificate.commits,
       )
     ) {
-      case Failure(exception) => ConsensusSegment.Internal.AsyncException(exception)
+      case Failure(exception) => Some(ConsensusSegment.Internal.AsyncException(exception))
       case Success(_) =>
-        ConsensusSegment.Internal.OrderedBlockStored(commitCertificate, viewNumber)
+        Some(ConsensusSegment.Internal.OrderedBlockStored(commitCertificate, viewNumber))
     }
 
   private def logAsyncException(exception: Throwable)(implicit traceContext: TraceContext): Unit =

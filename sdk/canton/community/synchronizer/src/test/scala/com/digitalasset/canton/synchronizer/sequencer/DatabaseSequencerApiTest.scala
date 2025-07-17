@@ -54,7 +54,8 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       DefaultProcessingTimeouts.testing,
       storage,
       sequencerStore,
-      minimumSequencingTime = SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+      sequencingTimeLowerBoundExclusive =
+        SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
       clock,
       sequencerId,
       crypto,

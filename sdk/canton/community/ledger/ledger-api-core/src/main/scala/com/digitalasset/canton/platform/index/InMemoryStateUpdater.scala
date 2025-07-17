@@ -150,6 +150,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                     Some((tt.synchronizerId, tt.recordTime))
                   case sim: Update.SequencerIndexMoved => Some((sim.synchronizerId, sim.recordTime))
                   case _: Update.EmptyAcsPublicationRequired => None
+                  case _: Update.LogicalSynchronizerUpgradeTimeReached => None
                   case _: Update.CommitRepair => None
                 }
 
@@ -525,6 +526,7 @@ private[platform] object InMemoryStateUpdater {
       completionStreamResponse = completionStreamResponse,
       synchronizerId = txAccepted.synchronizerId.toProtoPrimitive,
       recordTime = txAccepted.recordTime.toLf,
+      externalTransactionHash = txAccepted.externalTransactionHash,
     )(txAccepted.traceContext)
   }
 

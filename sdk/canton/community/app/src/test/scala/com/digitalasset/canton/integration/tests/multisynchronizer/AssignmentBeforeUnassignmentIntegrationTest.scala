@@ -202,7 +202,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
         .value
 
       reassignmentEntry.assignmentTs should not be empty
-      reassignmentEntry.unassignmentRequest should not be empty
+      reassignmentEntry.unassignmentData should not be empty
     }
 
   }

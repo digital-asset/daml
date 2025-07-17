@@ -15,6 +15,8 @@ import com.digitalasset.canton.participant.admin.PackageService.{DarDescription,
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
   ContractStore,
+  LogicalSyncPersistentState,
+  PhysicalSyncPersistentState,
   SyncPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
@@ -23,7 +25,7 @@ import com.digitalasset.canton.participant.topology.{
   PackageOpsImpl,
   TopologyComponentFactory,
 }
-import com.digitalasset.canton.store.IndexedSynchronizer
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
@@ -128,8 +130,17 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
       UniqueIdentifier.tryCreate("synchronizer", "two")
     ).toPhysical
 
-    val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
-    when(syncPersistentState.physicalSynchronizerId).thenReturn(synchronizerId1)
+    val physicalSyncPersistentState = mock[PhysicalSyncPersistentState]
+    val logicalSyncPersistentState = mock[LogicalSyncPersistentState]
+    val syncPersistentState: SyncPersistentState =
+      new SyncPersistentState(
+        logicalSyncPersistentState,
+        physicalSyncPersistentState,
+        loggerFactory,
+      )
+    when(physicalSyncPersistentState.physicalSynchronizerIdx).thenReturn(
+      IndexedPhysicalSynchronizer.tryCreate(synchronizerId1, index = 1)
+    )
 
     when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
     when(stateManager.getAllLatest).thenReturn(Map(synchronizerId1.logical -> syncPersistentState))
@@ -147,7 +158,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
 
     val activeContractStore = mock[ActiveContractStore]
 
-    when(syncPersistentState.activeContractStore).thenReturn(activeContractStore)
+    when(logicalSyncPersistentState.activeContractStore).thenReturn(activeContractStore)
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
       .thenReturn(FutureUnlessShutdown.pure(None))
 

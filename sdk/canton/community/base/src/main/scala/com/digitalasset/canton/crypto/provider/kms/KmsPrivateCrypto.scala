@@ -36,9 +36,9 @@ class KmsPrivateCrypto(
     kms: Kms,
     private[kms] val privateStore: KmsCryptoPrivateStore,
     private[kms] val publicStore: CryptoPublicStore,
-    override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec,
-    override val defaultSigningKeySpec: SigningKeySpec,
-    override val defaultEncryptionKeySpec: EncryptionKeySpec,
+    override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
+    override val signingKeySpecs: CryptoScheme[SigningKeySpec],
+    override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -89,6 +89,13 @@ class KmsPrivateCrypto(
           SigningKeyGenerationError.GeneralKmsError(err.show)
         )
         .toEitherT[FutureUnlessShutdown]
+      _ <- CryptoKeyValidation
+        .ensureCryptoKeySpec(
+          publicKey.keySpec,
+          signingKeySpecs.allowed,
+          SigningKeyGenerationError.UnsupportedKeySpec.apply,
+        )
+        .toEitherT[FutureUnlessShutdown]
       _ <- EitherT.right(publicStore.storeSigningKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(
         KmsMetadata(publicKey.id, keyId, KeyPurpose.Signing, Some(publicKey.usage))
@@ -103,6 +110,13 @@ class KmsPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
+      _ <- CryptoKeyValidation
+        .ensureCryptoKeySpec(
+          keySpec,
+          signingKeySpecs.allowed,
+          SigningKeyGenerationError.UnsupportedKeySpec.apply,
+        )
+        .toEitherT[FutureUnlessShutdown]
       keyId <- kms
         .generateSigningKeyPair(keySpec, name)
         .leftMap[SigningKeyGenerationError](err =>
@@ -202,6 +216,13 @@ class KmsPrivateCrypto(
           EncryptionKeyGenerationError.GeneralKmsError(err.show)
         )
         .toEitherT[FutureUnlessShutdown]
+      _ <- CryptoKeyValidation
+        .ensureCryptoKeySpec(
+          publicKey.keySpec,
+          encryptionKeySpecs.allowed,
+          EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
+        )
+        .toEitherT[FutureUnlessShutdown]
       _ <- EitherT.right(publicStore.storeEncryptionKey(publicKey, keyName))
       _ = privateStore.storeKeyMetadata(KmsMetadata(publicKey.id, keyId, KeyPurpose.Encryption))
     } yield publicKey
@@ -213,6 +234,13 @@ class KmsPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionPublicKey] =
     for {
+      _ <- CryptoKeyValidation
+        .ensureCryptoKeySpec(
+          keySpec,
+          encryptionKeySpecs.allowed,
+          EncryptionKeyGenerationError.UnsupportedKeySpec.apply,
+        )
+        .toEitherT[FutureUnlessShutdown]
       keyId <- kms
         .generateAsymmetricEncryptionKeyPair(keySpec, name)
         .leftMap[EncryptionKeyGenerationError](err =>
@@ -335,9 +363,9 @@ object KmsPrivateCrypto {
         kms,
         kmsCryptoPrivateStore,
         cryptoPublicStore,
-        cryptoSchemes.signingAlgoSpecs.default,
-        cryptoSchemes.signingKeySpecs.default,
-        cryptoSchemes.encryptionKeySpecs.default,
+        cryptoSchemes.signingAlgoSpecs,
+        cryptoSchemes.signingKeySpecs,
+        cryptoSchemes.encryptionKeySpecs,
         timeouts,
         loggerFactory,
       )
@@ -349,9 +377,9 @@ object KmsPrivateCrypto {
           kms,
           kmsCryptoPrivateStore,
           cryptoPublicStore,
-          cryptoSchemes.signingAlgoSpecs.default,
-          cryptoSchemes.signingKeySpecs.default,
-          cryptoSchemes.encryptionKeySpecs.default,
+          cryptoSchemes.signingAlgoSpecs,
+          cryptoSchemes.signingKeySpecs,
+          cryptoSchemes.encryptionKeySpecs,
           timeouts,
           loggerFactory,
         )

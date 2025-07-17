@@ -8,8 +8,8 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
@@ -24,7 +24,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.OnboardingManager.ReasonForProvide
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
-  ClientP2PNetworkManager,
   Env,
   FutureContext,
   Module,
@@ -32,7 +31,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleName,
   ModuleRef,
   ModuleSystem,
+  P2PConnectionEventListener,
   P2PNetworkRef,
+  P2PNetworkRefFactory,
   PureFun,
 }
 import com.digitalasset.canton.time.SimClock
@@ -73,25 +74,24 @@ object SimulationModuleSystem {
       collector.addNetworkEvent(node, createMessage(None))
   }
 
-  private[simulation] final case class SimulationP2PNetworkManager[P2PMessageT](
+  final case class SimulationP2PNetworkRefFactory[P2PMessageT](
       collector: NodeCollector,
+      p2pConnectionEventListener: P2PConnectionEventListener,
       timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends ClientP2PNetworkManager[SimulationEnv, P2PMessageT]
+  ) extends P2PNetworkRefFactory[SimulationEnv, P2PMessageT]
       with NamedLogging {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
         endpoint: P2PEndpoint,
-    )(
-        onNode: (P2PEndpoint.Id, BftNodeId) => Unit
     ): P2PNetworkRef[P2PMessageT] = {
       val node = endpointToTestBftNodeId(endpoint)
       endpoint match {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
-          collector.addOpenConnection(node, plaintextEndpoint, onNode)
+          collector.addOpenConnection(node, plaintextEndpoint, p2pConnectionEventListener)
           SimulationP2PNetworkRef(node, collector, timeouts, loggerFactory)
-        case _: GrpcNetworking.TlsP2PEndpoint =>
+        case _: P2PGrpcNetworking.TlsP2PEndpoint =>
           throw new UnsupportedOperationException("TLS is not supported in simulation")
       }
     }
@@ -359,6 +359,7 @@ object SimulationModuleSystem {
   ](
       systemInitializerFactory: OnboardingDataT => SystemInitializer[
         SimulationEnv,
+        SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
         SystemNetworkMessageT,
         SystemInputMessageT,
       ],
@@ -380,6 +381,7 @@ object SimulationModuleSystem {
     )(
         systemInitializer: SystemInitializer[
           SimulationEnv,
+          SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
           SystemNetworkMessageT,
           SystemInputMessageT,
         ]
@@ -504,11 +506,18 @@ object SimulationModuleSystem {
         val collector = new NodeCollector()
         val system = new SimulationModuleSystem(collector, loggerFactory)
 
-        val simulationP2PNetworkManager =
-          SimulationP2PNetworkManager[SystemNetworkMessageT](collector, timeouts, loggerFactory)
         val resultFromInit = simulationInitializer
           .systemInitializerFactory(onboardingData)
-          .initialize(system, simulationP2PNetworkManager)
+          .initialize(
+            system,
+            p2pConnectionEventListener =>
+              SimulationP2PNetworkRefFactory[SystemNetworkMessageT](
+                collector,
+                p2pConnectionEventListener,
+                timeouts,
+                loggerFactory,
+              ),
+          )
         val clientCollector = new ClientCollector(getSimulationName(resultFromInit.inputModuleRef))
         val client = simulationInitializer.clientInitializer.createClient(
           SimulatedRefForClient(clientCollector)
@@ -533,7 +542,7 @@ object SimulationModuleSystem {
           simulationInitializer,
           onboardingManager,
           loggerFactory,
-          simulationP2PNetworkManager,
+          resultFromInit.p2pNetworkRefFactory,
         )
       }
     }

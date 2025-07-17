@@ -18,6 +18,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.logging.{
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -35,6 +36,7 @@ import com.digitalasset.canton.platform.store.dao.events.{CompressionStrategy, L
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueue, PekkoSourceQueueToFutureQueue}
 import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
@@ -137,8 +139,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
           monotonicityValidator(
             initialOffset = initialLedgerEnd.map(_.lastOffset),
             loadPreviousState = loadPreviousSynchronizerIndexF,
-            logger = logger,
-          )
+          )(logger)
       )
       .via(
         BatchingParallelIngestionPipe(
@@ -310,14 +311,13 @@ object ParallelIndexerSubscription {
   def monotonicityValidator(
       initialOffset: Option[Offset],
       loadPreviousState: SynchronizerId => Future[Option[SynchronizerIndex]],
-      logger: TracedLogger,
-  ): Flow[(Offset, Update), (Offset, Update), NotUsed] = {
+  )(implicit logger: TracedLogger): Flow[(Offset, Update), (Offset, Update), NotUsed] = {
     implicit val directExecutionContext: ExecutionContext = DirectExecutionContext(logger)
     val stateRef = new AtomicReference[Map[SynchronizerId, SynchronizerIndex]](Map.empty)
     val lastOffset = new AtomicReference[Option[Offset]](initialOffset)
 
-    def checkAndUpdateOffset(offset: Offset): Unit = {
-      assert(
+    def checkAndUpdateOffset(offset: Offset)(implicit traceContext: TraceContext): Unit = {
+      assertMonotonicityCondition(
         lastOffset.get() < Some(offset),
         s"Monotonic Offset violation detected from ${lastOffset.get().getOrElse("participant begin")} to $offset",
       )
@@ -327,7 +327,7 @@ object ParallelIndexerSubscription {
     def checkAndUpdateSynchronizerIndex(offset: Offset)(
         synchronizerId: SynchronizerId,
         synchronizerIndex: SynchronizerIndex,
-    ): Future[Unit] =
+    )(implicit traceContext: TraceContext): Future[Unit] =
       stateRef
         .get()
         .get(synchronizerId)
@@ -347,13 +347,14 @@ object ParallelIndexerSubscription {
         }
 
     Flow[(Offset, Update)].mapAsync(1) { case (offset, update) =>
+      implicit val traceContext: TraceContext = update.traceContext
       checkAndUpdateOffset(offset)
 
       Option(update)
         .collect { case synchronizerIndexUpdate: SynchronizerIndexUpdate =>
           synchronizerIndexUpdate.synchronizerIndex
         }
-        .map(checkAndUpdateSynchronizerIndex(offset).tupled)
+        .map(idAndIndex => checkAndUpdateSynchronizerIndex(offset)(idAndIndex._1, idAndIndex._2))
         .getOrElse(Future.unit)
         .map(_ => (offset, update))
     }
@@ -364,30 +365,37 @@ object ParallelIndexerSubscription {
       synchronizerIndex: SynchronizerIndex,
       offset: Offset,
       synchronizerId: SynchronizerId,
-  ): Unit =
+  )(implicit traceContext: TraceContext, tracedLogger: TracedLogger): Unit =
     prevSynchronizerIndex match {
       case None => ()
 
       case Some(prevIndex) =>
-        assert(
+        assertMonotonicityCondition(
           prevIndex.recordTime <= synchronizerIndex.recordTime,
           s"Monotonicity violation detected: record time decreases from ${prevIndex.recordTime} to ${synchronizerIndex.recordTime} at offset $offset and synchronizer $synchronizerId",
         )
         prevIndex.sequencerIndex.zip(synchronizerIndex.sequencerIndex).foreach {
           case (prevSeqIndex, currSeqIndex) =>
-            assert(
+            assertMonotonicityCondition(
               prevSeqIndex.sequencerTimestamp < currSeqIndex.sequencerTimestamp,
               s"Monotonicity violation detected: sequencer timestamp did not increase from ${prevSeqIndex.sequencerTimestamp} to ${currSeqIndex.sequencerTimestamp} at offset $offset and synchronizer $synchronizerId",
             )
         }
         prevIndex.repairIndex.zip(synchronizerIndex.repairIndex).foreach {
           case (prevRepairIndex, currRepairIndex) =>
-            assert(
+            assertMonotonicityCondition(
               prevRepairIndex <= currRepairIndex,
               s"Monotonicity violation detected: repair index decreases from $prevRepairIndex to $currRepairIndex at offset $offset and synchronizer $synchronizerId",
             )
         }
     }
+
+  private def assertMonotonicityCondition(
+      condition: Boolean,
+      errorMessage: => String,
+  )(implicit traceContext: TraceContext, tracedLogger: TracedLogger): Unit =
+    if (!condition)
+      ErrorUtil.invalidState(errorMessage)(ErrorLoggingContext.fromTracedLogger(tracedLogger))
 
   def inputMapper(
       metrics: LedgerApiServerMetrics,

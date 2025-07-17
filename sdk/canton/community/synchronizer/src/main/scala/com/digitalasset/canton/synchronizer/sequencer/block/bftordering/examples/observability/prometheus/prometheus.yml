@@ -19,6 +19,16 @@ scrape_configs:
           namespace: static_local
           pod: canton
           container: canton
+  - job_name: sequencer4
+    static_configs:
+      - targets:
+          # Docker compose service
+          - sequencer4:19091
+  - job_name: sequencer5
+    static_configs:
+      - targets:
+          # Docker compose service
+          - sequencer5:19092
   - job_name: grafana
     static_configs:
       - targets:

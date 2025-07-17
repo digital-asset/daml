@@ -170,6 +170,12 @@ class SimpleExecutionQueue(
   private val queueHead: AtomicReference[TaskCell] =
     new AtomicReference[TaskCell](TaskCell.sentinel(queueName = name, directExecutionContext))
 
+  /** Check if any task is queued skipping the sentinel */
+  def isEmpty: Boolean = queueHead.get().predecessor.isEmpty
+
+  /** Check if at most one task is queued */
+  def isAtMostOneTaskScheduled: Boolean = queueHead.get().predecessor.flatMap(_.predecessor).isEmpty
+
   /** slow and in-efficient queue size, to be used for inspection */
   def queueSize: Int = {
     @tailrec

@@ -24,7 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   endpointIdToProto,
   endpointToProto,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future

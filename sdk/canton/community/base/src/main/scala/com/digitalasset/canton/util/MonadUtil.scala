@@ -5,6 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.syntax.parallel.*
 import cats.{Monad, Monoid, Parallel}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 
 import scala.annotation.tailrec
@@ -109,6 +110,19 @@ object MonadUtil {
         _.parFlatTraverse(processChunk)
       )(M.monad)
     )(_.flatten)
+
+  /** Batched version of sequential traverse
+    *
+    * Can be used to avoid overloading the database queue. Use e.g. maxDbConnections * 2 as
+    * parameter for parallelism to not overload the database queue but to make sufficient use of the
+    * existing resources.
+    */
+  def batchedSequentialTraverseNE[X, M[_], S](parallelism: PositiveInt, chunkSize: PositiveInt)(
+      xs: NonEmpty[Seq[X]]
+  )(processChunk: NonEmpty[Seq[X]] => M[Seq[S]])(implicit M: Parallel[M]): M[Seq[S]] =
+    batchedSequentialTraverse(parallelism, chunkSize)(xs) { chunk =>
+      NonEmpty.from(chunk).fold(M.monad.pure(Seq.empty[S]))(processChunk)
+    }
 
   /** Parallel traverse with limited parallelism
     */

@@ -450,9 +450,14 @@ class IssSegmentModuleTest
         // Upon receiving storage confirmation from the consensus store, Consensus should forward
         // the orderedBlock to the Output module, and request a new proposal from Availability, since
         // there are still more slots to assign in the local Segment for this epoch
-        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node)),
-          ViewNumber.First,
+        val orderedBlockStored = MessageFromPipeToSelf(
+          Some(
+            ConsensusSegment.Internal.OrderedBlockStored(
+              CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node)),
+              ViewNumber.First,
+            )
+          ),
+          FutureId(3),
         )
         consensus.receive(orderedBlockStored)
         parentCell.get() shouldBe defined
@@ -600,9 +605,14 @@ class IssSegmentModuleTest
           expectedPrePrepare.fakeSign,
           Seq(baseCommit(BftNodeId("toBeReplaced"))),
         )
-        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          commitCertificate,
-          ViewNumber.First,
+        val orderedBlockStored = MessageFromPipeToSelf(
+          Some(
+            ConsensusSegment.Internal.OrderedBlockStored(
+              commitCertificate,
+              ViewNumber.First,
+            )
+          ),
+          FutureId(3),
         )
         consensus.receive(orderedBlockStored)
         val expectedOrderedBlock = orderedBlockFromPrePrepare(expectedPrePrepare)
@@ -729,9 +739,14 @@ class IssSegmentModuleTest
         )
         val commitCertificate = CommitCertificate(remotePrePrepare, commits)
         consensus.receive(
-          ConsensusSegment.Internal.OrderedBlockStored(
-            commitCertificate,
-            ViewNumber.First,
+          MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal.OrderedBlockStored(
+                commitCertificate,
+                ViewNumber.First,
+              )
+            ),
+            FutureId(2),
           )
         )
         val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
@@ -821,9 +836,14 @@ class IssSegmentModuleTest
         val commitCertificate =
           CommitCertificate(block10PrePrepare1Node, Seq(expectedBlock10Commit1Node))
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
-          msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            commitCertificate,
-            ViewNumber.First,
+          msg shouldBe MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal.OrderedBlockStored(
+                commitCertificate,
+                ViewNumber.First,
+              )
+            ),
+            FutureId(3),
           )
         }
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
@@ -955,9 +975,14 @@ class IssSegmentModuleTest
           Seq(commitFromPrePrepare(bottomBlock2.message)(from = myId)),
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
-          msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            commitCertificateBottom2,
-            nextView,
+          msg shouldBe MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal.OrderedBlockStored(
+                commitCertificateBottom2,
+                nextView,
+              )
+            ),
+            FutureId(11),
           )
         }
         // after each non-final segment block confirmation, expect delayCount to advance; here, it should be 5
@@ -972,9 +997,14 @@ class IssSegmentModuleTest
             .PreparesStored(bottomBlock1.message.blockMetadata, nextView)
         )
         context.runPipedMessagesThenVerifyAndReceiveOnModule(consensus) { msg =>
-          msg shouldBe ConsensusSegment.Internal.OrderedBlockStored(
-            commitCertificateBottom1,
-            nextView,
+          msg shouldBe MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal.OrderedBlockStored(
+                commitCertificateBottom1,
+                nextView,
+              )
+            ),
+            FutureId(12),
           )
         }
         // since this was the last block in the epoch; no additional delayedEvent occurs
@@ -1158,11 +1188,16 @@ class IssSegmentModuleTest
             .PreparesStored(commitBottomBlock0.message.blockMetadata, SecondViewNumber)
         )
         consensus.receive(
-          ConsensusSegment.Internal
-            .OrderedBlockStored(
-              CommitCertificate(bottomBlock0, Seq(commitBottomBlock0)),
-              SecondViewNumber,
-            )
+          MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal
+                .OrderedBlockStored(
+                  CommitCertificate(bottomBlock0, Seq(commitBottomBlock0)),
+                  SecondViewNumber,
+                )
+            ),
+            FutureId(5),
+          )
         )
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
           orderedBlock0,
@@ -1264,11 +1299,16 @@ class IssSegmentModuleTest
 
         // Finish block1 and epoch1
         consensus.receive(
-          ConsensusSegment.Internal
-            .OrderedBlockStored(
-              CommitCertificate(epoch1PrePrepare, Seq(epoch1Commit)),
-              ViewNumber.First,
-            )
+          MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal
+                .OrderedBlockStored(
+                  CommitCertificate(epoch1PrePrepare, Seq(epoch1Commit)),
+                  ViewNumber.First,
+                )
+            ),
+            FutureId(3),
+          )
         )
         parentBuffer should contain theSameElementsInOrderAs Seq(
           Consensus.ConsensusMessage.BlockOrdered(
@@ -1423,11 +1463,16 @@ class IssSegmentModuleTest
         val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
         events should have size 1
         events shouldBe Seq(
-          ConsensusSegment.Internal
-            .OrderedBlockStored(
-              CommitCertificate(remotePrePrepare, commits),
-              remotePrePrepare.message.viewNumber,
-            )
+          MessageFromPipeToSelf(
+            Some(
+              ConsensusSegment.Internal
+                .OrderedBlockStored(
+                  CommitCertificate(remotePrePrepare, commits),
+                  remotePrePrepare.message.viewNumber,
+                )
+            ),
+            FutureId(4),
+          )
         )
         events.foreach(consensus.receive)
         parentBuffer should contain only Consensus.ConsensusMessage.BlockOrdered(
@@ -1555,9 +1600,14 @@ class IssSegmentModuleTest
           baseCommit(from = myId),
         )
         val commitCertificate = CommitCertificate(prePrepare.fakeSign, commits)
-        val orderedBlockStored = ConsensusSegment.Internal.OrderedBlockStored(
-          commitCertificate,
-          ViewNumber.First,
+        val orderedBlockStored = MessageFromPipeToSelf(
+          Some(
+            ConsensusSegment.Internal.OrderedBlockStored(
+              commitCertificate,
+              ViewNumber.First,
+            )
+          ),
+          FutureId(1),
         )
 
         val pipedMessages = context.runPipedMessages()

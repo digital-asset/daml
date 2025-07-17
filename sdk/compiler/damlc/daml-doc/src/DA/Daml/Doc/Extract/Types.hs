@@ -70,9 +70,9 @@ data DocCtx = DocCtx
 -- | Parsed declaration with associated docs.
 data DeclData = DeclData
     { _dd_decl :: LHsDecl GhcPs
-    , _dd_docs :: Maybe DocText
+    , _dd_docs :: [DocText]
+    , _dd_warns :: [WarnOrDeprecatedData]
     }
-
 
 -- | Set of module exports.
 --

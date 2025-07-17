@@ -6,7 +6,8 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
+import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef, UnassignmentData}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
@@ -42,6 +43,7 @@ private[reassignment] class UnassignmentValidation(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, UnassignmentValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
     val sourceTopology = Source(parsedRequest.snapshot.ipsSnapshot)
+    val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
 
     for {
       commonValidationResult <- EitherT.right(
@@ -59,10 +61,14 @@ private[reassignment] class UnassignmentValidation(
           EitherT.right(FutureUnlessShutdown.pure(ReassigningParticipantValidationResult(Nil)))
       }
 
-      hostedStakeholders <- EitherT.right(
-        sourceTopology.unwrap
-          .hostedOn(fullTree.stakeholders.all, participantId)
-          .map(_.keySet)
+      hostedConfirmingReassigningParties <- EitherT.right(
+        if (isReassigningParticipant)
+          sourceTopology.unwrap.canConfirm(
+            participantId,
+            parsedRequest.fullViewTree.confirmingParties,
+          )
+        else
+          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
       )
 
       assignmentExclusivity <- targetTopology.traverse { targetTopology =>
@@ -77,11 +83,10 @@ private[reassignment] class UnassignmentValidation(
       }
 
     } yield UnassignmentValidationResult(
-      fullTree = fullTree,
-      reassignmentId = parsedRequest.reassignmentId,
-      hostedStakeholders = hostedStakeholders,
+      unassignmentData = UnassignmentData(fullTree, parsedRequest.requestTimestamp),
+      rootHash = parsedRequest.rootHash,
+      hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
       assignmentExclusivity = assignmentExclusivity,
-      unassignmentTs = parsedRequest.requestTimestamp,
       commonValidationResult = commonValidationResult,
       reassigningParticipantValidationResult = reassigningParticipantValidationResult,
     )

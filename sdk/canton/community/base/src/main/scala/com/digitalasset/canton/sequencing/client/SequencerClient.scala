@@ -20,7 +20,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerPredecessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.FatalError
 import com.digitalasset.canton.health.{
@@ -179,6 +179,10 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
+
+  /** For participant nodes, the predecessor synchronizer if any.
+    */
+  protected def synchronizerPredecessor: Option[SynchronizerPredecessor]
 }
 
 trait RichSequencerClient extends SequencerClient {
@@ -381,7 +385,6 @@ abstract class SequencerClientImpl(
                 messageIdO = None,
                 Batch(List.empty, protocolVersion),
                 topologyTimestampO = None,
-                protocolVersion,
                 Option.empty[TrafficReceipt],
               )
             )
@@ -664,7 +667,7 @@ abstract class SequencerClientImpl(
 
       linkDetailsO match {
         case Some(LinkDetails(sequencerAlias, sequencerId, transportOrPoolConnection)) =>
-          synchronizeWithClosing(s"sending message $messageId to sequencer $sequencerId") {
+          synchronizeWithClosingF(s"sending message $messageId to sequencer $sequencerId") {
             NonEmpty.from(previousSequencers) match {
               case None =>
                 logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
@@ -679,11 +682,26 @@ abstract class SequencerClientImpl(
               metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
             )
 
-            transportOrPoolConnection match {
+            val sendResultETUS = transportOrPoolConnection match {
               case Right(connection) => connection.sendAsync(signedRequest, timeout)
               case Left(transport) => transport.sendAsyncSigned(signedRequest, timeout)
             }
-          }.value.map {
+
+            // We are treating a shutdown result in the same way as a normal result, instead of propagating it up.
+            // Note that this is the shutdown of the transport, not the sequencer client (see `performUnlessClosingF` above).
+            // It can happen outside a regular shutdown when closing a connection for a fatal reason.
+            //
+            // If this send attempt is happening outside the application handler (e.g. a confirmation request),
+            // we don't want to abort amplification just because this particular transport has shut down, as others
+            // might be fine.
+            //
+            // If the send attempt is happening within the application handler (e.g. a confirmation response), propagating
+            // the shutdown has devastating consequences: the application handler will be marked as shutdown, and since
+            // this information is global to the sequencer client, the reception of a new event on any sequencer subscription
+            // will result in shutting down that subscription (because the handler has shut down), eventually leading to a
+            // disconnect from the synchronizer when the trust threshold is no longer satisfied.
+            sendResultETUS.value.onShutdown(Either.unit)
+          }.map {
             case Right(()) =>
               // Do not await the patience. This would defeat the point of asynchronous send.
               scheduleAmplification()
@@ -837,20 +855,28 @@ abstract class SequencerClientImpl(
       }
     }
 
-    val request = AcknowledgeRequest(member, timestamp, protocolVersion)
-    for {
-      signedRequest <- requestSigner.signRequest(
-        request,
-        HashPurpose.AcknowledgementSignature,
-        Some(syncCryptoClient.currentSnapshotApproximation),
+    if (LogicalUpgradeTime.canProcessKnowingPredecessor(synchronizerPredecessor, timestamp)) {
+      val request = AcknowledgeRequest(member, timestamp, protocolVersion)
+      for {
+        signedRequest <- requestSigner.signRequest(
+          request,
+          HashPurpose.AcknowledgementSignature,
+          Some(syncCryptoClient.currentSnapshotApproximation),
+        )
+        result <-
+          if (config.useNewConnectionPool) {
+            acknowledgeWithConnectionPool(signedRequest)
+          } else {
+            sequencersTransportState.transport.acknowledgeSigned(signedRequest)
+          }
+      } yield result
+    } else {
+      logger.debug(
+        s"Not acknowledging timestamp $timestamp which is before upgrade time ${synchronizerPredecessor
+            .map(_.upgradeTime)}"
       )
-      result <-
-        if (config.useNewConnectionPool) {
-          acknowledgeWithConnectionPool(signedRequest)
-        } else {
-          sequencersTransportState.transport.acknowledgeSigned(signedRequest)
-        }
-    } yield result
+      EitherT.pure(true)
+    }
   }
 
   override def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
@@ -931,6 +957,7 @@ object SequencerClientImpl {
   */
 class RichSequencerClientImpl(
     override val psid: PhysicalSynchronizerId,
+    override val synchronizerPredecessor: Option[SynchronizerPredecessor],
     member: Member,
     sequencerTransports: SequencerTransports[?],
     connectionPool: SequencerConnectionXPool,
@@ -1686,6 +1713,8 @@ class SequencerClientImplPekko[E: Pretty](
       loggerFactory,
       futureSupervisor,
     ) {
+
+  override protected def synchronizerPredecessor: Option[SynchronizerPredecessor] = None
 
   import SequencerClientImplPekko.*
 

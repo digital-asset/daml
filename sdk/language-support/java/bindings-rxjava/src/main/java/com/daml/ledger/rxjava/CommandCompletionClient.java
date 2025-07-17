@@ -8,6 +8,7 @@ import io.reactivex.Flowable;
 import java.util.List;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandCompletionServiceGrpc} */
+@Deprecated
 public interface CommandCompletionClient {
 
   Flowable<CompletionStreamResponse> completionStream(

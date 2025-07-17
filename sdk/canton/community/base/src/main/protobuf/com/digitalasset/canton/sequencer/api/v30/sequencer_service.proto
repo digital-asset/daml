@@ -81,7 +81,7 @@ service SequencerService {
   // The call fails synchronously, if the request is invalid, i.e., some field violates a documented validity condition.
   // The call fails asynchronously, if the sequencer does not have a key to sign the event; this may occur if
   // event.topology_timestamp refers to a time before the sequencer has been onboarded.
-  rpc SubscribeV2(SubscriptionRequestV2) returns (stream SubscriptionResponse);
+  rpc Subscribe(SubscriptionRequest) returns (stream SubscriptionResponse);
 
   // Allows a member to acknowledge that they have read all events up to and including the provided timestamp,
   // and that they will never re-read these events again. This information is currently only used for informational
@@ -121,7 +121,7 @@ message TrafficControlErrorReason {
 
 message SendAsyncResponse {}
 
-message SubscriptionRequestV2 {
+message SubscriptionRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   string member = 1;

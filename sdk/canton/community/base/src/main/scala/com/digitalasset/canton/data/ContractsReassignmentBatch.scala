@@ -5,15 +5,15 @@ package com.digitalasset.canton.data
 
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract, Stakeholders}
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId, Stakeholders}
 import com.digitalasset.canton.{LfPackageId, ReassignmentCounter}
 
 final case class ContractReassignment(
-    contract: SerializableContract,
+    contract: ContractInstance,
     counter: ReassignmentCounter,
 ) {
-  def templateId = contract.rawContractInstance.contractInstance.unversioned.template
-  def packageName = contract.rawContractInstance.contractInstance.unversioned.packageName
+  def templateId = contract.inst.templateId
+  def packageName = contract.inst.packageName
 }
 
 final case class ContractsReassignmentBatch private (
@@ -22,7 +22,7 @@ final case class ContractsReassignmentBatch private (
   def contractIds: NonEmpty[Seq[LfContractId]] = contracts.map(_.contract.contractId)
 
   def contractIdCounters: NonEmpty[Seq[(LfContractId, ReassignmentCounter)]] = contracts.map {
-    case item => (item.contract.contractId, item.counter)
+    item => (item.contract.contractId, item.counter)
   }
 
   def packageIds: Set[LfPackageId] = contracts.view.map(_.templateId.packageId).toSet
@@ -37,14 +37,14 @@ object ContractsReassignmentBatch {
       extends InvalidReassignmentBatch
 
   def apply(
-      contract: SerializableContract,
+      contract: ContractInstance,
       reassignmentCounter: ReassignmentCounter,
   ): ContractsReassignmentBatch = new ContractsReassignmentBatch(
     NonEmpty.mk(Seq, ContractReassignment(contract, reassignmentCounter))
   )
 
   def partition(
-      contractCounters: Seq[(SerializableContract, ReassignmentCounter)]
+      contractCounters: Seq[(ContractInstance, ReassignmentCounter)]
   ): Seq[ContractsReassignmentBatch] =
     contractCounters
       .groupBy1 { case (contract, _) => Stakeholders(contract.metadata) }
@@ -56,7 +56,7 @@ object ContractsReassignmentBatch {
       .toSeq
 
   def create(
-      contractCounters: Seq[(SerializableContract, ReassignmentCounter)]
+      contractCounters: Seq[(ContractInstance, ReassignmentCounter)]
   ): Either[InvalidReassignmentBatch, ContractsReassignmentBatch] =
     partition(contractCounters) match {
       case Nil => Left(EmptyBatch)

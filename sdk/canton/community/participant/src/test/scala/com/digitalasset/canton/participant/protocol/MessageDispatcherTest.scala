@@ -300,7 +300,6 @@ trait MessageDispatcherTest {
       messageId,
       batch,
       topologyTimestampO,
-      testedProtocolVersion,
       Option.empty[TrafficReceipt],
     )
 
@@ -350,7 +349,6 @@ trait MessageDispatcherTest {
         TestHash.dummyRootHash,
         Verdict.Approve(testedProtocolVersion),
       ),
-      testedProtocolVersion,
       dummySignature,
     )
   private val otherTestMediatorResult =
@@ -362,7 +360,6 @@ trait MessageDispatcherTest {
         TestHash.dummyRootHash,
         Verdict.Approve(testedProtocolVersion),
       ),
-      testedProtocolVersion,
       dummySignature,
     )
 
@@ -408,7 +405,7 @@ trait MessageDispatcherTest {
     when(rawCommitment.pretty).thenReturn(PrettyUtil.prettyOfString(_ => "test"))
 
     val commitment =
-      SignedProtocolMessage.from(rawCommitment, testedProtocolVersion, dummySignature)
+      SignedProtocolMessage.from(rawCommitment, dummySignature)
 
     def malformedVerdict(protocolVersion: ProtocolVersion): Verdict.MediatorReject =
       MediatorReject.tryCreate(
@@ -427,7 +424,6 @@ trait MessageDispatcherTest {
           TestHash.dummyRootHash,
           reject,
         ),
-        testedProtocolVersion,
         dummySignature,
       )
 
@@ -578,7 +574,6 @@ trait MessageDispatcherTest {
             NonNegativeLong.tryCreate(1000),
             psid,
           ),
-          testedProtocolVersion,
           dummySignature,
         )
 
@@ -773,7 +768,6 @@ trait MessageDispatcherTest {
             TestHash.dummyRootHash,
             Verdict.Approve(testedProtocolVersion),
           ),
-          testedProtocolVersion,
           dummySignature,
         )
       val event =
@@ -1230,7 +1224,6 @@ trait MessageDispatcherTest {
           psid,
           messageId3,
           SequencerErrors.SubmissionRequestRefused("invalid batch"),
-          testedProtocolVersion,
           Option.empty[TrafficReceipt],
         )
 

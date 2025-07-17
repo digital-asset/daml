@@ -27,6 +27,9 @@ type DamlLedgerState = {
 
 /**
  * React props to initiate a connect to a Daml ledger.
+ *
+ * @deprecated
+ *
  */
 export type LedgerProps = {
   token: string;
@@ -39,6 +42,8 @@ export type LedgerProps = {
 
 /**
  * The result of a ``fetch`` against the ledger.
+ *
+ * @deprecated
  *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
@@ -54,6 +59,8 @@ export type FetchResult<T extends object, K, I extends string> = {
 /**
  * The result of a streaming ``fetchByKeys`` against the ledger.
  *
+ * @deprecated
+ *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
@@ -68,6 +75,9 @@ export type FetchByKeysResult<T extends object, K, I extends string> = {
 /**
  * A LedgerContext is a React context that stores information about a Daml Ledger
  * and hooks necessary to use it.
+ *
+ * @deprecated
+ *
  */
 export type LedgerContext = {
   DamlLedger: React.FC<LedgerProps>;
@@ -119,6 +129,8 @@ export type LedgerContext = {
  * Create a [[LedgerContext]]. One should use this function, instead of the default [[DamlLedger]],
  * where one needs to be able to nest ledger interactions, by different parties or connections, within
  * one React application.
+ *
+ * @deprecated
  *
  * @param contextName Used to refer to a context in case of errors.
  */

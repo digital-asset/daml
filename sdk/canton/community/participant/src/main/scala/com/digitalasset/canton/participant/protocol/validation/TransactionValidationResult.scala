@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{SubmitterMetadata, ViewPosition}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -28,14 +29,15 @@ final case class TransactionValidationResult(
     ],
     internalConsistencyResultE: Either[ErrorWithInternalConsistencyCheck, Unit],
     consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
-    witnessed: Map[LfContractId, SerializableContract],
-    createdContracts: Map[LfContractId, SerializableContract],
+    witnessed: Map[LfContractId, ContractInstance],
+    createdContracts: Map[LfContractId, ContractInstance],
     transient: Map[LfContractId, Set[LfPartyId]],
     activenessResult: ActivenessResult,
     viewValidationResults: Map[ViewPosition, ViewValidationResult],
     timeValidationResultE: Either[TimeCheckFailure, Unit],
     hostedWitnesses: Set[LfPartyId],
     replayCheckResult: Option[String],
+    validatedExternalTransactionHash: Option[Hash],
 ) {
 
   def commitSet(

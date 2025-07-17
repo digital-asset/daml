@@ -109,6 +109,7 @@ private[store] object StorageBackendTestValues {
       createKeyMaintainer: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
+      externalTransactionHash: Option[Array[Byte]] = None,
   ): DbDto.EventCreate = {
     val updateId = updateIdFromOffset(offset)
     val stakeholders = Set(signatory, observer)
@@ -140,6 +141,7 @@ private[store] object StorageBackendTestValues {
       synchronizer_id = synchronizerId,
       trace_context = traceContext,
       record_time = recordTime.micros,
+      external_transaction_hash = externalTransactionHash,
     )
   }
 
@@ -161,6 +163,7 @@ private[store] object StorageBackendTestValues {
       synchronizerId: String = "x::sourcesynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
       recordTime: Timestamp = someTime,
+      externalTransactionHash: Option[Array[Byte]] = None,
   ): DbDto.EventExercise = {
     val updateId = updateIdFromOffset(offset)
     DbDto.EventExercise(
@@ -191,6 +194,7 @@ private[store] object StorageBackendTestValues {
       synchronizer_id = synchronizerId,
       trace_context = traceContext,
       record_time = recordTime.micros,
+      external_transaction_hash = externalTransactionHash,
     )
   }
 

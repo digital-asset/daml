@@ -23,7 +23,9 @@ renderMd env = \case
     RenderList items -> spaced (map (bullet . renderMd env) items)
     RenderRecordFields fields -> renderMdFields env fields
     RenderParagraph text -> [renderMdText env text]
-    RenderDocs docText -> T.lines . unDocText $ docText
+    RenderDocs docText -> unDocText docText
+    RenderWarnOrDeprecated (WarnData txts) -> "**WARNING**: " : txts
+    RenderWarnOrDeprecated (DeprecatedData txts) -> "**DEPRECATED**: " : txts
     RenderAnchor anchor -> [anchorTag anchor]
     RenderIndex moduleNames ->
         [ "*" <-> renderMdLink env
@@ -56,7 +58,7 @@ renderMdText env = \case
     RenderStrong text -> T.concat ["**", escapeMd text, "**"]
     RenderLink ref text -> renderMdLink env ref text
     RenderDocsInline docText ->
-        T.unwords . T.lines . unDocText $ docText
+        T.unwords . unDocText $ docText
 
 renderMdLink :: RenderEnv -> Reference -> T.Text -> T.Text
 renderMdLink env ref text =

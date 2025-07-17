@@ -67,6 +67,7 @@ object JsSchema {
       synchronizerId: String,
       traceContext: Option[TraceContext],
       recordTime: com.google.protobuf.timestamp.Timestamp,
+      externalTransactionHash: Option[String],
   )
 
   final case class JsTransactionTree(
@@ -290,6 +291,8 @@ object JsSchema {
   object JsCantonError {
     import DirectScalaPbRwImplicits.*
     implicit val rw: Codec[JsCantonError] = deriveCodec
+    val ledgerApiErrorContext: String = "ledger_api_error"
+    val tokenProblemError: (String, String) = (ledgerApiErrorContext -> "invalid token")
 
     def fromErrorCode(damlError: RpcError): JsCantonError = JsCantonError(
       code = damlError.code.id,

@@ -319,7 +319,7 @@ class ProgrammableSequencer(
       baseSequencer.sendAsyncSigned(toSend)
     }
 
-  override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+  override def read(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     blockedMemberReads.get.get(member) match {
@@ -330,7 +330,7 @@ class ProgrammableSequencer(
             Source
               .lazyFutureSource(() =>
                 promise.future
-                  .flatMap(_ => baseSequencer.readV2(member, timestamp).value.unwrap)
+                  .flatMap(_ => baseSequencer.read(member, timestamp).value.unwrap)
                   .map(
                     _.onShutdown(throw new IllegalStateException("Sequencer shutting down")).left
                       .map(err => throw new IllegalStateException(s"Sequencer failed with $err"))
@@ -344,7 +344,7 @@ class ProgrammableSequencer(
 
       case None =>
         logger.debug(s"Member $member is not blocked, emitting sequencer source")
-        baseSequencer.readV2(member, timestamp)
+        baseSequencer.read(member, timestamp)
     }
 
   override def pruningStatus(implicit

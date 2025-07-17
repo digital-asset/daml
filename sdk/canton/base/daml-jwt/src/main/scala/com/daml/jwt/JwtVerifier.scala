@@ -22,6 +22,7 @@ class JwtVerifier(val verifier: com.auth0.jwt.interfaces.JWTVerifier) extends Jw
     // The auth0 library verification already fails if the token has expired,
     // but we still need to do manual expiration checks in ongoing streams
     \/.attempt(verifier.verify(jwt.value))(e => Error(Symbol("verify"), e.getMessage))
+      // TODO (i26199)- possible place to add expiration time check
       .map(a => DecodedJwt(header = a.getHeader, payload = a.getPayload))
       .flatMap(base64Decode)
 

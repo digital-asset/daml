@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import com.digitalasset.canton.ledger.participant.state.Update.EmptyAcsPublicationRequired
+import com.digitalasset.canton.ledger.participant.state.Update.{
+  EmptyAcsPublicationRequired,
+  LogicalSynchronizerUpgradeTimeReached,
+}
 import com.digitalasset.canton.ledger.participant.state.{
   CommitSetRepairUpdate,
   CommitSetSequencedUpdate,
@@ -72,7 +75,28 @@ class AcsCommitmentPublicationPostProcessor(
 
       case emptyAcsPublicationRequired: EmptyAcsPublicationRequired =>
         val (synchronizerId, synchronizerIndex) = emptyAcsPublicationRequired.synchronizerIndex
-        publishAcsCommitment(synchronizerId, synchronizerIndex, commitSetO = None)
+        publishAcsCommitment(
+          synchronizerId,
+          synchronizerIndex,
+          commitSetO = None,
+        )
+
+      case upgradeTimeReached: LogicalSynchronizerUpgradeTimeReached =>
+        val (synchronizerId, synchronizerIndex) = upgradeTimeReached.synchronizerIndex
+
+        connectedSynchronizersLookupContainer
+          // not publishing if not connected to synchronizer: it means subsequent crash recovery will establish consistency again
+          .get(synchronizerId)
+          // not publishing anything if the AcsCommitmentProcessor initialization succeeded with AbortedDueToShutdown or failed
+          .foreach(
+            _.acsCommitmentProcessor.publishForUpgradeTime(
+              synchronizerIndex.recordTime
+            )(
+              // The trace context is deliberately generated here instead of continuing the one for the Update
+              // to unlink the asynchronous acs commitment processing from message processing trace.
+              TraceContext.createNew("publish_acs_commitment_upgrade_time")
+            )
+          )
 
       // not publishing otherwise
       case _ => ()

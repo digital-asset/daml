@@ -1,0 +1,16 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.synchronizer.v30;
+
+import "google/protobuf/timestamp.proto";
+
+message SynchronizerPredecessor {
+  // Id of the predecessor.
+  string predecessor_physical_id = 1;
+
+  // When the upgrade happened/is supposed to happen.
+  google.protobuf.Timestamp upgrade_time = 2;
+}

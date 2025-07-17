@@ -247,11 +247,12 @@ public class TestHelpers {
     }
 
     static final Map<String, Suit> damlNames = new LinkedHashMap<String, Suit>();
+
     static {
-        damlNames.put("Spades", Suit.SPADES);
-        damlNames.put("Hearts", Suit.HEARTS);
-        damlNames.put("Diamonds", Suit.DIAMONDS);
-        damlNames.put("Clubs", Suit.CLUBS);
+      damlNames.put("Spades", Suit.SPADES);
+      damlNames.put("Hearts", Suit.HEARTS);
+      damlNames.put("Diamonds", Suit.DIAMONDS);
+      damlNames.put("Clubs", Suit.CLUBS);
     }
 
     @Override

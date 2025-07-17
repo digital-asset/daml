@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
@@ -33,6 +33,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   Module,
   ModuleName,
+  P2PConnectionEventListener,
+  P2PNetworkRefFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.framework.PipeTest.{
   Reporter,
@@ -113,29 +115,40 @@ object PipeTest {
     }
   }
 
-  def mkNode[E <: Env[E]](
+  def mkNode[
+      E <: Env[E],
+      P2PNetworkRefFactoryT
+        <: P2PNetworkRefFactory[
+          E,
+          String,
+        ],
+  ](
       pipeStore: PipeStore[E],
       reporter: Reporter,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
-  ): SystemInitializer[E, String, String] = (system, _) => {
-    val module = new PipeNode[E](pipeStore, reporter, loggerFactory, timeouts)
-    val ref = system.newModuleRef[String](ModuleName("module"))()
-    system.setModule(ref, module)
-    val p2PAdminModuleRef = system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
-    val consensusAdminModuleRef =
-      system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
-    val outputModuleRef =
-      system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
-    ref.asyncSend("init")
-    SystemInitializationResult(
-      ref,
-      ref,
-      p2PAdminModuleRef,
-      consensusAdminModuleRef,
-      outputModuleRef,
-    )
-  }
+  ): SystemInitializer[E, P2PNetworkRefFactoryT, String, String] =
+    (system, createP2PNetworkRefFactory) => {
+      val p2pNetworkRefFactory = createP2PNetworkRefFactory(P2PConnectionEventListener.NoOp)
+      val module = new PipeNode[E](pipeStore, reporter, loggerFactory, timeouts)
+      val ref = system.newModuleRef[String](ModuleName("module"))()
+      system.setModule(ref, module)
+      val p2PAdminModuleRef =
+        system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
+      val consensusAdminModuleRef =
+        system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
+      val outputModuleRef =
+        system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
+      ref.asyncSend("init")
+      SystemInitializationResult(
+        ref,
+        ref,
+        p2PAdminModuleRef,
+        consensusAdminModuleRef,
+        outputModuleRef,
+        p2pNetworkRefFactory,
+      )
+    }
 }
 
 class PipeTest extends AnyFlatSpec with BaseTest {
@@ -144,7 +157,6 @@ class PipeTest extends AnyFlatSpec with BaseTest {
     val simSettings = SimulationSettings(
       localSettings = LocalSettings(randomSeed = 4),
       networkSettings = NetworkSettings(randomSeed = 4),
-      topologySettings = TopologySettings(randomSeed = 4),
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 

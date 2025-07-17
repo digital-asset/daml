@@ -47,13 +47,18 @@ class DbSequencerStateManagerStore(
   import storage.converters.*
 
   override def readInFlightAggregations(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeUpperBound: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] =
-    storage.query(readInFlightAggregationsDBIO(timestamp), functionFullName)
+    storage.query(
+      readInFlightAggregationsDBIO(timestamp, maxSequencingTimeUpperBound),
+      functionFullName,
+    )
 
   /** Compute the state up until (inclusive) the given timestamp. */
   def readInFlightAggregationsDBIO(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeUpperBound: CantonTimestamp,
   ): DBIOAction[
     InFlightAggregations,
     NoStream,
@@ -62,7 +67,6 @@ class DbSequencerStateManagerStore(
     val aggregationsQ =
       sql"""
             select aggregation.aggregation_id,
-                   aggregation.first_sequencing_timestamp,
                    aggregation.max_sequencing_time,
                    aggregation.aggregation_rule,
                    sender.sender,
@@ -72,13 +76,11 @@ class DbSequencerStateManagerStore(
               seq_in_flight_aggregation aggregation inner join seq_in_flight_aggregated_sender sender
                 on aggregation.aggregation_id = sender.aggregation_id
             where
-            -- Note: filter and field duplication on both tables are necessary to make the query efficient
-              aggregation.max_sequencing_time > $timestamp and aggregation.first_sequencing_timestamp <= $timestamp
-                and sender.max_sequencing_time > $timestamp and sender.sequencing_timestamp <= $timestamp
+              aggregation.max_sequencing_time > $timestamp and aggregation.max_sequencing_time <= $maxSequencingTimeUpperBound
+                and sender.sequencing_timestamp <= $timestamp
           """.as[
         (
             AggregationId,
-            CantonTimestamp,
             CantonTimestamp,
             AggregationRule,
             Member,
@@ -87,21 +89,20 @@ class DbSequencerStateManagerStore(
         )
       ]
     aggregationsQ.map { aggregations =>
-      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _, _) =>
+      val byAggregationId = aggregations.groupBy { case (aggregationId, _, _, _, _, _) =>
         aggregationId
       }
       byAggregationId.fmap { aggregationsForId =>
         val aggregationsNE = NonEmptyUtil.fromUnsafe(aggregationsForId)
-        val (_, firstSequencingTimestamp, maxSequencingTimestamp, aggregationRule, _, _, _) =
+        val (_, maxSequencingTimestamp, aggregationRule, _, _, _) =
           aggregationsNE.head1
         val aggregatedSenders = aggregationsNE.map {
-          case (_, _, _, _, sender, sequencingTimestamp, signatures) =>
+          case (_, _, _, sender, sequencingTimestamp, signatures) =>
             sender -> AggregationBySender(sequencingTimestamp, signatures.signaturesByEnvelope)
         }.toMap
         InFlightAggregation
           .create(
             aggregatedSenders,
-            firstSequencingTimestamp,
             maxSequencingTimestamp,
             aggregationRule,
           )
@@ -125,8 +126,8 @@ class DbSequencerStateManagerStore(
     // then add the information about the aggregated senders.
 
     val addAggregationIdsQ =
-      """insert into seq_in_flight_aggregation(aggregation_id, first_sequencing_timestamp, max_sequencing_time, aggregation_rule)
-         values (?, ?, ?, ?)
+      """insert into seq_in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
+         values (?, ?, ?)
          on conflict do nothing"""
     implicit val setParameterAggregationRule: SetParameter[AggregationRule] =
       AggregationRule.getVersionedSetParameter
@@ -140,17 +141,16 @@ class DbSequencerStateManagerStore(
         pp => agg =>
           val (
             aggregationId,
-            FreshInFlightAggregation(firstSequencingTimestamp, maxSequencingTimestamp, rule),
+            FreshInFlightAggregation(maxSequencingTimestamp, rule),
           ) = agg
           pp.>>(aggregationId)
-          pp.>>(firstSequencingTimestamp)
           pp.>>(maxSequencingTimestamp)
           pp.>>(rule)
       }
 
     val addSendersQ =
-      """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, max_sequencing_time, signatures)
-         values (?, ?, ?, ?, ?)
+      """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
+         values (?, ?, ?, ?)
          on conflict do nothing"""
     implicit val setParameterAggregatedSignaturesOfSender
         : SetParameter[AggregatedSignaturesOfSender] =
@@ -161,11 +161,10 @@ class DbSequencerStateManagerStore(
       }
     val addSendersDbIO = DbStorage.bulkOperation_(addSendersQ, aggregatedSenders, storage.profile) {
       pp => item =>
-        val (aggregationId, AggregatedSender(sender, maxSequencingTime, aggregation)) = item
+        val (aggregationId, AggregatedSender(sender, aggregation)) = item
         pp.>>(aggregationId)
         pp.>>(sender)
         pp.>>(aggregation.sequencingTimestamp)
-        pp.>>(maxSequencingTime)
         pp.>>(
           AggregatedSignaturesOfSender(aggregation.signatures)(
             AggregatedSignaturesOfSender.protocolVersionRepresentativeFor(protocolVersion)
@@ -188,7 +187,7 @@ class DbSequencerStateManagerStore(
 }
 
 object DbSequencerStateManagerStore {
-  private final case class AggregatedSignaturesOfSender(signaturesByEnvelope: Seq[Seq[Signature]])(
+  final case class AggregatedSignaturesOfSender(signaturesByEnvelope: Seq[Seq[Signature]])(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         AggregatedSignaturesOfSender.type
       ]
@@ -204,7 +203,7 @@ object DbSequencerStateManagerStore {
       )
   }
 
-  private object AggregatedSignaturesOfSender
+  object AggregatedSignaturesOfSender
       extends VersioningCompanion[AggregatedSignaturesOfSender]
       with ProtocolVersionedCompanionDbHelpers[AggregatedSignaturesOfSender] {
     override def name: String = "AggregatedSignaturesOfSender"

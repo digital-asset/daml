@@ -35,8 +35,8 @@ final case class BlockInfo(
 }
 
 object BlockInfo {
-  def initial(lastTs: CantonTimestamp): BlockInfo =
-    BlockInfo(UninitializedBlockHeight, lastTs = lastTs, None)
+  val initial: BlockInfo =
+    BlockInfo(UninitializedBlockHeight, lastTs = CantonTimestamp.Epoch, None)
 
   implicit val getResultBlockInfo: GetResult[BlockInfo] = GetResult { r =>
     val height = r.<<[Long]
@@ -87,8 +87,7 @@ final case class BlockEphemeralState(
 }
 
 object BlockEphemeralState {
-  def empty(lastTs: CantonTimestamp): BlockEphemeralState =
-    BlockEphemeralState(BlockInfo.initial(lastTs), Map.empty)
+  val empty: BlockEphemeralState = BlockEphemeralState(BlockInfo.initial, Map.empty)
 
   def fromSequencerInitialState(
       initialState: SequencerInitialState

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.crypto.{
   AsymmetricEncrypted,
   Encrypted,
@@ -102,7 +101,7 @@ final class GeneratorsMessages(
         if (localVerdict.isMalformed) Gen.const(Set.empty[LfPartyId])
         else nonEmptySet(implicitly[Arbitrary[LfPartyId]]).arbitrary.map(_.forgetNE)
       viewPositionO <- localVerdict match {
-        case _: LocalApprove | _: LocalReject =>
+        case _: LocalApprove | _: LocalReject | _: LocalAbstain =>
           Gen.some(Arbitrary.arbitrary[ViewPosition])
         case _ => Gen.option(Arbitrary.arbitrary[ViewPosition])
       }
@@ -119,8 +118,7 @@ final class GeneratorsMessages(
       rootHash <- Arbitrary.arbitrary[RootHash]
       synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       sender <- Arbitrary.arbitrary[ParticipantId]
-      responses <- Gen.nonEmptyListOf(confirmationResponseArb.arbitrary)
-      responsesNE = NonEmptyUtil.fromUnsafe(responses)
+      responsesNE <- nonEmptyListGen[ConfirmationResponse]
       confirmationResponses = ConfirmationResponses.tryCreate(
         requestId,
         rootHash,
@@ -144,7 +142,7 @@ final class GeneratorsMessages(
   implicit val typedSignedProtocolMessageContent
       : Arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = Arbitrary(for {
     content <- Arbitrary.arbitrary[SignedProtocolMessageContent]
-  } yield TypedSignedProtocolMessageContent(content, protocolVersion))
+  } yield TypedSignedProtocolMessageContent(content))
 
   implicit val signedProtocolMessageArb
       : Arbitrary[SignedProtocolMessage[SignedProtocolMessageContent]] = Arbitrary(
@@ -153,9 +151,7 @@ final class GeneratorsMessages(
         .arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]]
 
       signatures <- nonEmptyListGen(implicitly[Arbitrary[Signature]])
-    } yield SignedProtocolMessage(typedMessage, signatures)(
-      SignedProtocolMessage.protocolVersionRepresentativeFor(protocolVersion)
-    )
+    } yield SignedProtocolMessage(typedMessage, signatures)
   )
 
   implicit val serializedRootHashMessagePayloadArb: Arbitrary[SerializedRootHashMessagePayload] =
@@ -210,7 +206,7 @@ final class GeneratorsMessages(
     )
   )
 
-  private val assignmentMediatorMessageArb: Arbitrary[AssignmentMediatorMessage] = Arbitrary(
+  val assignmentMediatorMessageArb: Arbitrary[AssignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[AssignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
@@ -219,7 +215,7 @@ final class GeneratorsMessages(
     )
   )
 
-  private val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
+  val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[UnassignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
@@ -247,9 +243,7 @@ final class GeneratorsMessages(
   implicit val topologyTransactionsBroadcast: Arbitrary[TopologyTransactionsBroadcast] = Arbitrary(
     for {
       psid <- Arbitrary.arbitrary[PhysicalSynchronizerId]
-      transactions <- Gen.listOf(
-        Arbitrary.arbitrary[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
-      )
+      transactions <- boundedListGen[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]]
     } yield TopologyTransactionsBroadcast(psid, transactions)
   )
 

@@ -4,6 +4,7 @@
 package com.daml.ledger.rxjava;
 
 /** Contains the set of services provided by a Ledger implementation */
+@Deprecated
 public interface LedgerClient {
 
   /** @return The identifier of the Ledger connected to this {@link LedgerClient} */

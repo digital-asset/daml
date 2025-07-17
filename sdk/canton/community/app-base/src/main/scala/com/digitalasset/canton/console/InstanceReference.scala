@@ -44,7 +44,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   OrderingTopology,
   PeerNetworkStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
@@ -555,6 +555,12 @@ abstract class ParticipantReference(
   private lazy val repair_ =
     new ParticipantRepairAdministration(consoleEnvironment, this, loggerFactory)
 
+  private lazy val commitments_ =
+    new CommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
+  @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
+  @Help.Group("Commitments")
+  def commitments: CommitmentsAdministrationGroup = commitments_
+
   @Help.Summary("Commands to repair the participant contract state", FeatureFlag.Repair)
   @Help.Group("Repair")
   def repair: ParticipantRepairAdministration = repair_
@@ -738,7 +744,7 @@ class LocalParticipantReference(
     new LocalCommitmentsAdministrationGroup(this, consoleEnvironment, loggerFactory)
   @Help.Summary("Commands to inspect and extract bilateral commitments", FeatureFlag.Preview)
   @Help.Group("Commitments")
-  def commitments: LocalCommitmentsAdministrationGroup = commitments_
+  override def commitments: LocalCommitmentsAdministrationGroup = commitments_
 
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[?, ?, Result]
@@ -1383,8 +1389,11 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
   @Help.Group("Testing")
   def pruning: MediatorPruningAdministrationGroup = pruning_
 
-  private lazy val scan_ = new MediatorScanGroup(runner, consoleEnvironment, name, loggerFactory)
-  def scan: MediatorScanGroup = scan_
+  private lazy val inspection_ =
+    new MediatorInspectionGroup(runner, consoleEnvironment, name, loggerFactory)
+
+  @Help.Summary("Inspection functionality for the mediator")
+  def inspection: MediatorInspectionGroup = inspection_
 }
 
 class LocalMediatorReference(consoleEnvironment: ConsoleEnvironment, val name: String)

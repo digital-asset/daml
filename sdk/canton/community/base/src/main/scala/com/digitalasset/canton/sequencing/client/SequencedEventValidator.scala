@@ -449,8 +449,7 @@ object SequencedEventValidatorFactory {
 
 /** Validate whether a received event is valid for processing. */
 class SequencedEventValidatorImpl(
-    synchronizerId: PhysicalSynchronizerId,
-    protocolVersion: ProtocolVersion,
+    psid: PhysicalSynchronizerId,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
@@ -529,7 +528,7 @@ class SequencedEventValidatorImpl(
       // Otherwise, this is a fresh subscription and we will get the topology state with the first transaction
       // TODO(#4933) Upon a fresh subscription, retrieve the keys via the topology API and validate immediately or
       //  validate the signature after processing the initial event
-      _ <- verifySignature(priorEventO, event, sequencerId, protocolVersion)
+      _ <- verifySignature(priorEventO, event, sequencerId, psid.protocolVersion)
       _ = logger.debug("Successfully verified signature")
     } yield ()
   }
@@ -594,7 +593,12 @@ class SequencedEventValidatorImpl(
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         checkFork
       )
-      _ <- verifySignature(Some(priorEvent), reconnectEvent, sequencerId, protocolVersion)
+      _ <- verifySignature(
+        Some(priorEvent),
+        reconnectEvent,
+        sequencerId,
+        psid.protocolVersion,
+      )
     } yield ()
     // do not update the priorEvent because if it was ignored, then it was ignored for a reason.
   }
@@ -602,9 +606,9 @@ class SequencedEventValidatorImpl(
   private def checkSynchronizerId(event: SequencedSerializedEvent): ValidationResult = {
     val receivedSynchronizerId = event.signedEvent.content.synchronizerId
     Either.cond(
-      receivedSynchronizerId == synchronizerId,
+      receivedSynchronizerId == psid,
       (),
-      BadSynchronizerId(synchronizerId, receivedSynchronizerId),
+      BadSynchronizerId(psid, receivedSynchronizerId),
     )
   }
 

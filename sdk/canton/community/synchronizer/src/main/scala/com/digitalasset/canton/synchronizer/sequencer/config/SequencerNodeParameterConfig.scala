@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.config
 
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.config.RequireTypes.PositiveDouble
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.data.CantonTimestamp
 
@@ -19,8 +19,14 @@ import com.digitalasset.canton.data.CantonTimestamp
   * @param maxConfirmationRequestsBurstFactor
   *   how forgiving the rate limit is in case of bursts (so rate limit starts after observing an
   *   initial burst of factor * max_rate commands)
-  * @param minimumSequencingTime
-  *   the sequencer will only send events with at least the minimumSequencingTime to subscribers
+  * @param sequencingTimeLowerBoundExclusive
+  *   if defined, the sequencer will only send events with to subscribers with sequencing time
+  *   strictly greater than sequencingTimeLowerBoundExclusive
+  * @param sequencerApiLimits
+  *   map of service name to maximum number of parallel open streams
+  * @param warnOnUndefinedLimits
+  *   if true, then this sequencer will emit a warning once if there is no limit configured for a
+  *   particular stream
   */
 final case class SequencerNodeParameterConfig(
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
@@ -32,8 +38,10 @@ final case class SequencerNodeParameterConfig(
     override val caching: CachingConfigs = CachingConfigs(),
     override val watchdog: Option[WatchdogConfig] = None,
     unsafeEnableOnlinePartyReplication: Boolean = false,
-    minimumSequencingTime: CantonTimestamp =
-      SequencerNodeParameterConfig.DefaultMinimumSequencingTime,
+    sequencingTimeLowerBoundExclusive: Option[CantonTimestamp] =
+      SequencerNodeParameterConfig.DefaultSequencingTimeLowerBoundExclusive,
+    sequencerApiLimits: Map[String, NonNegativeInt] = Map.empty,
+    warnOnUndefinedLimits: Boolean = true,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig
     with UniformCantonConfigValidation
@@ -45,5 +53,5 @@ object SequencerNodeParameterConfig {
     CantonConfigValidatorDerivation[SequencerNodeParameterConfig]
   }
 
-  val DefaultMinimumSequencingTime: CantonTimestamp = CantonTimestamp.Epoch
+  val DefaultSequencingTimeLowerBoundExclusive: Option[CantonTimestamp] = None
 }

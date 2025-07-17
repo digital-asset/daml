@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -68,6 +69,7 @@ object V2Routes {
       esf: ExecutionSequencerFactory,
       ws: WebsocketConfig,
       materializer: Materializer,
+      authInterceptor: AuthInterceptor,
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 
@@ -96,9 +98,6 @@ object V2Routes {
         ledgerClient.packageService,
         ledgerClient.packageManagementClient,
         loggerFactory,
-      )(
-        executionContext,
-        materializer,
       )
 
     val updateService =

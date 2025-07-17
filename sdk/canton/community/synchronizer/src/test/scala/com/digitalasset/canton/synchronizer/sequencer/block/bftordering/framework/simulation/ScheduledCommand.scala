@@ -4,14 +4,17 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.GrpcNetworking.{
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  ModuleName,
+  P2PConnectionEventListener,
+}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.util.Try
@@ -83,7 +86,7 @@ final case class EstablishConnection(
     from: BftNodeId,
     to: BftNodeId,
     endpoint: PlainTextP2PEndpoint,
-    continuation: (P2PEndpoint.Id, BftNodeId) => Unit,
+    p2pConnectionEventListener: P2PConnectionEventListener,
 ) extends Command
 final case class CrashNode(node: BftNodeId) extends Command
 final case class RestartNode(node: BftNodeId) extends Command

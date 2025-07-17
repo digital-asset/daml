@@ -41,16 +41,12 @@ trait SendTrackerStore extends AutoCloseable {
 object SendTrackerStore {
   def apply(storage: Storage)(implicit executionContext: ExecutionContext): SendTrackerStore =
     storage match {
-      // Always use an in-memory send tracker store.
-      // This is a temporary fix to avoid performance problems, because we block on accessing the send tracker store
+      // Always use an in-memory send tracker store, because we block on accessing the send tracker store
       // from the hot loop of the sequencer client.
-      // TODO(i5660): Use the db-based send tracker store
       case _: MemoryStorage => new InMemorySendTrackerStore()
       case _: DbStorage => new InMemorySendTrackerStore()
     }
 }
-
-final case class SendTrackerDatabaseError(exception: Throwable)
 
 sealed trait SavePendingSendError
 object SavePendingSendError {

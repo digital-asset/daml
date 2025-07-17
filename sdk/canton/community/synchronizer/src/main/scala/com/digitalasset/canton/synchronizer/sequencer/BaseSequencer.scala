@@ -134,12 +134,12 @@ abstract class BaseSequencer(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
 
-  override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+  override def read(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
-    readInternalV2(member, timestamp)
+    readInternal(member, timestamp)
 
-  protected def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
+  protected def readInternal(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 

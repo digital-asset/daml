@@ -107,10 +107,14 @@ private[reassignment] class AssignmentValidation(
           )
       }
 
-      hostedStakeholders <- EitherT.right(
-        targetSnapshot.unwrap
-          .hostedOn(assignmentRequest.stakeholders.all, participantId)
-          .map(_.keySet)
+      hostedConfirmingReassigningParties <- EitherT.right(
+        if (isReassigningParticipant)
+          targetSnapshot.unwrap.canConfirm(
+            participantId,
+            parsedRequest.fullViewTree.confirmingParties,
+          )
+        else
+          FutureUnlessShutdown.pure(Set.empty[LfPartyId])
       )
 
     } yield AssignmentValidationResult(
@@ -120,7 +124,7 @@ private[reassignment] class AssignmentValidation(
       reassignmentId = reassignmentId,
       sourcePSId = sourcePSId,
       isReassigningParticipant = isReassigningParticipant,
-      hostedStakeholders = hostedStakeholders,
+      hostedConfirmingReassigningParties = hostedConfirmingReassigningParties,
       commonValidationResult = commonValidationResult,
       reassigningParticipantValidationResult = reassigningParticipantValidationResult,
     )
@@ -214,31 +218,27 @@ private[reassignment] class AssignmentValidation(
       unassignmentData: UnassignmentData,
   ): Seq[ReassignmentValidationError] = {
 
-    val UnassignmentData(
-      reassignmentId,
-      unassignmentRequest,
-      _unassignmentTs,
-    ) = unassignmentData
+    val reassignmentId = unassignmentData.reassignmentId
 
     val reassigningParticipants = Validated.condNec(
-      unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
+      unassignmentData.reassigningParticipants == assignmentRequest.reassigningParticipants,
       (),
       ReassignmentValidationError.ReassigningParticipantsMismatch(
         ReassignmentRef(reassignmentId),
-        expected = unassignmentData.unassignmentRequest.reassigningParticipants,
+        expected = unassignmentData.reassigningParticipants,
         declared = assignmentRequest.reassigningParticipants,
       ),
     )
 
     val contract = Validated.condNec(
-      unassignmentRequest.contracts.contracts.toSeq == assignmentRequest.contracts.contracts.toSeq,
+      unassignmentData.contractsBatch.contracts.toSeq == assignmentRequest.contracts.contracts.toSeq,
       (),
       ContractDataMismatch(reassignmentId),
     )
 
     val reassignmentCounter = {
       val declaredCounters = assignmentRequest.contracts.contractIdCounters
-      val expectedCounters = unassignmentData.unassignmentRequest.contracts.contractIdCounters
+      val expectedCounters = unassignmentData.contractsBatch.contractIdCounters
       Validated.condNec(
         declaredCounters == expectedCounters,
         (),
@@ -278,7 +278,7 @@ object AssignmentValidation {
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[
     ReassignmentValidationError
   ]] = {
-    val targetTimeProof = unassignmentData.unassignmentRequest.targetTimeProof.timestamp
+    val targetTimeProof = unassignmentData.targetTimestamp
     for {
       // TODO(i26479): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       cryptoSnapshotTargetTs <- reassignmentCoordination
@@ -299,11 +299,11 @@ object AssignmentValidation {
         )
 
       validationError = Option.when(
-        requestTimestamp < exclusivityLimit.unwrap && unassignmentData.unassignmentRequest.submitter != submitter
+        requestTimestamp < exclusivityLimit.unwrap && unassignmentData.submitterMetadata.submitter != submitter
       )(
         NonInitiatorSubmitsBeforeExclusivityTimeout(
           reassignmentId,
-          unassignmentData.unassignmentRequest.submitter,
+          unassignmentData.submitterMetadata.submitter,
           currentTimestamp = requestTimestamp,
           timeout = exclusivityLimit,
         )

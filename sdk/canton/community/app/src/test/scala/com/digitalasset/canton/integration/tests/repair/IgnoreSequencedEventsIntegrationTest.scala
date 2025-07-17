@@ -350,7 +350,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           daId,
           MessageId.tryCreate("schnitzel"),
           SequencerErrors.SubmissionRequestRefused(""),
-          testedProtocolVersion,
           Option.empty[TrafficReceipt],
         )
         val tracedSignedTamperedEvent =

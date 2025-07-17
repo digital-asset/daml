@@ -16,14 +16,17 @@ import com.google.protobuf.ByteString
 case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent] private (
     content: M
 )(
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TypedSignedProtocolMessageContent.type
-    ],
-    override val deserializedFrom: Option[ByteString],
+    override val deserializedFrom: Option[ByteString]
 ) extends HasProtocolVersionedWrapper[
       TypedSignedProtocolMessageContent[SignedProtocolMessageContent]
     ]
     with ProtocolVersionedMemoizedEvidence {
+
+  override val representativeProtocolVersion: RepresentativeProtocolVersion[
+    TypedSignedProtocolMessageContent.type
+  ] = TypedSignedProtocolMessageContent.protocolVersionRepresentativeFor(
+    content.synchronizerId.protocolVersion
+  )
 
   @transient override protected lazy val companionObj: TypedSignedProtocolMessageContent.type =
     TypedSignedProtocolMessageContent
@@ -40,7 +43,7 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
   def copy[MM <: SignedProtocolMessageContent](
       content: MM = this.content
   ): TypedSignedProtocolMessageContent[MM] =
-    TypedSignedProtocolMessageContent(content)(representativeProtocolVersion, None)
+    new TypedSignedProtocolMessageContent(content)(None)
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[messages] def traverse[F[_], MM <: SignedProtocolMessageContent](
@@ -49,17 +52,14 @@ case class TypedSignedProtocolMessageContent[+M <: SignedProtocolMessageContent]
     F.map(f(content)) { newContent =>
       if (newContent eq content) this.asInstanceOf[TypedSignedProtocolMessageContent[MM]]
       else
-        TypedSignedProtocolMessageContent(newContent)(
-          representativeProtocolVersion,
-          deserializedFrom,
-        )
+        new TypedSignedProtocolMessageContent(newContent)(deserializedFrom)
     }
 }
 
 object TypedSignedProtocolMessageContent
     extends VersioningCompanionContextMemoization[
       TypedSignedProtocolMessageContent[SignedProtocolMessageContent],
-      ProtocolVersion,
+      ProtocolVersionValidation,
     ] {
   override def name: String = "TypedSignedProtocolMessageContent"
 
@@ -73,23 +73,12 @@ object TypedSignedProtocolMessageContent
   )
 
   def apply[M <: SignedProtocolMessageContent](
-      content: M,
-      protocolVersion: ProtocolVersion,
+      content: M
   ): TypedSignedProtocolMessageContent[M] =
-    TypedSignedProtocolMessageContent(content)(
-      protocolVersionRepresentativeFor(protocolVersion),
-      None,
-    )
-
-  def apply[M <: SignedProtocolMessageContent](
-      content: M,
-      protoVersion: ProtoVersion,
-  ): ParsingResult[TypedSignedProtocolMessageContent[M]] = protocolVersionRepresentativeFor(
-    protoVersion
-  ).map(TypedSignedProtocolMessageContent(content)(_, None))
+    new TypedSignedProtocolMessageContent(content)(None)
 
   private def fromProtoV30(
-      expectedProtocolVersion: ProtocolVersion,
+      expectedProtocolVersion: ProtocolVersionValidation,
       proto: v30.TypedSignedProtocolMessageContent,
   )(
       bytes: ByteString
@@ -97,7 +86,6 @@ object TypedSignedProtocolMessageContent
     import v30.TypedSignedProtocolMessageContent.SomeSignedProtocolMessage as Sm
     val v30.TypedSignedProtocolMessageContent(messageBytes) = proto
     for {
-      rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       message <- (messageBytes match {
         case Sm.ConfirmationResponses(confirmationResponsesBytes) =>
           ConfirmationResponses.fromByteString(expectedProtocolVersion, confirmationResponsesBytes)
@@ -116,6 +104,6 @@ object TypedSignedProtocolMessageContent
         case Sm.Empty =>
           Left(OtherError("Deserialization of a SignedMessage failed due to a missing message"))
       }): ParsingResult[SignedProtocolMessageContent]
-    } yield TypedSignedProtocolMessageContent(message)(rpv, Some(bytes))
+    } yield new TypedSignedProtocolMessageContent(message)(Some(bytes))
   }
 }

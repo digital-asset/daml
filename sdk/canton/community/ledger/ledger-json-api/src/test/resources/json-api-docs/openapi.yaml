@@ -1825,7 +1825,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the archived contract.
+            Identifies the template that defines the choice that archived the contract.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required
@@ -2301,7 +2304,7 @@ components:
         contractKey:
           description: |-
             The key of the created contract.
-            This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+            This will be set if and only if ``template_id`` defines a contract key.
             Optional
         createArgument: {}
         createdEventBlob:
@@ -2724,9 +2727,10 @@ components:
       properties:
         templateId:
           description: |-
-            The template of contract the client wants to exercise.
+            The template or interface of the contract the client wants to exercise.
             Both package-name and package-id reference identifier formats for the template-id are supported.
             Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+            To exercise a choice on an interface, specify the interface identifier in the template_id field.
 
             Required
           type: string
@@ -2786,7 +2790,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the target contract.
+            Identifies the template that defines the executed choice.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required
@@ -3199,8 +3206,8 @@ components:
             $ref: '#/components/schemas/PackageVettingRequirement'
         synchronizerId:
           description: |-
-            The synchronizer whose vetting state to use for resolving this query.
-            If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+            The synchronizer whose vetting state should be used for resolving this query.
+            If not specified, the vetting states of all synchronizers to which the participant is connected are used.
             Optional
           type: string
         vettingValidAt:
@@ -4483,6 +4490,12 @@ components:
             The time at which the transaction was recorded. The record time refers to the synchronizer
             which synchronized the transaction.
             Required
+          type: string
+        externalTransactionHash:
+          description: |-
+            For transaction externally signed, contains the external transaction hash
+            signed by the external party. Can be used to correlate an external submission with a committed transaction.
+            Optional
           type: string
     JsTransactionTree:
       title: JsTransactionTree

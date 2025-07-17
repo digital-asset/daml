@@ -56,7 +56,7 @@ private[protocol] trait ConflictDetectionHelpers {
       parallelExecutionContext
     )
 
-  def mkAcs(
+  protected def mkAcs(
       entries: (LfContractId, TimeOfRequest, ActiveContractStore.Status)*
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ActiveContractStore] = {
     val acs = mkEmptyAcs()
@@ -66,31 +66,34 @@ private[protocol] trait ConflictDetectionHelpers {
     ).map(_ => acs)
   }
 
-  def mkReassignmentCache(
+  protected def mkReassignmentCache(
       loggerFactory: NamedLoggerFactory,
       store: ReassignmentStore = new InMemoryReassignmentStore(
         ReassignmentStoreTest.targetSynchronizerId,
         loggerFactory,
       ),
   )(
-      entries: (ReassignmentId, Source[PhysicalSynchronizerId], MediatorGroupRecipient)*
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[ReassignmentCache] =
+      entries: (Source[PhysicalSynchronizerId], MediatorGroupRecipient)*
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[(ReassignmentCache, Seq[ReassignmentId])] =
     MonadUtil
-      .sequentialTraverse(entries) { case (reassignmentId, sourceSynchronizer, sourceMediator) =>
+      .sequentialTraverse(entries) { case (sourceSynchronizer, sourceMediator) =>
         val unassignmentData = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
-          reassignmentId,
           sourceMediator,
           sourceSynchronizerId = sourceSynchronizer,
           targetSynchronizerId = ReassignmentStoreTest.targetSynchronizerId,
         )
 
-        store.addUnassignmentData(unassignmentData).value
+        store.addUnassignmentData(unassignmentData).value.map(_ => unassignmentData.reassignmentId)
       }
-      .map(_ =>
-        new ReassignmentCache(store, futureSupervisor, timeouts, loggerFactory)(
+      .map { reassignmentIds =>
+        val cache = new ReassignmentCache(store, futureSupervisor, timeouts, loggerFactory)(
           parallelExecutionContext
         )
-      )
+
+        (cache, reassignmentIds)
+      }
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {

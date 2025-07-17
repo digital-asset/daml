@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.{HashOps, Salt, TestSalt}
+import com.digitalasset.canton.crypto.{HashOps, Salt}
 import com.digitalasset.canton.data.ViewParticipantData.InvalidViewParticipantData
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.v30.ActionDescription.FetchActionDescription
@@ -160,20 +160,15 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     def create(
         actionDescription: ActionDescription = defaultActionDescription,
         consumed: Set[LfContractId] = Set.empty,
-        coreInputs: Map[LfContractId, SerializableContract] = Map.empty,
+        coreInputs: Map[LfContractId, ContractInstance] = Map.empty,
         createdIds: Seq[LfContractId] = Seq(createdId),
         archivedInSubviews: Set[LfContractId] = Set.empty,
         resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]] = Map.empty,
     ): Either[String, ViewParticipantData] = {
 
       val created = createdIds.map { id =>
-        val serializable = ExampleTransactionFactory.asSerializable(
-          id,
-          contractInstance = ExampleTransactionFactory.contractInstance(),
-          metadata = ContractMetadata.empty,
-          salt = TestSalt.generateSalt(1),
-        )
-        CreatedContract.tryCreate(serializable, consumed.contains(id), rolledBack = false)
+        val contract = ExampleContractFactory.build(overrideContractId = Some(id))
+        CreatedContract.tryCreate(contract, consumed.contains(id), rolledBack = false)
       }
       val coreInputs2 = coreInputs.transform { (id, contract) =>
         InputContract(contract, consumed.contains(id))
@@ -206,12 +201,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     }
     "a used contract has an inconsistent id" must {
       "reject creation" in {
-        val usedContract =
-          ExampleTransactionFactory.asSerializable(
-            otherAbsoluteId,
-            metadata = ContractMetadata.empty,
-          )
-
+        val usedContract = ExampleContractFactory.build(overrideContractId = Some(otherAbsoluteId))
         create(coreInputs = Map(absoluteId -> usedContract)).left.value should startWith(
           "Inconsistent ids for used contract: "
         )
@@ -229,9 +219,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     }
     "an overlap between archivedInSubview and coreInputs" must {
       "reject creation" in {
-        val usedContract =
-          ExampleTransactionFactory.asSerializable(absoluteId, metadata = ContractMetadata.empty)
-
+        val usedContract = ExampleContractFactory.build(overrideContractId = Some(absoluteId))
         create(
           coreInputs = Map(absoluteId -> usedContract),
           archivedInSubviews = Set(absoluteId),
@@ -307,16 +295,11 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
     "deserialized" must {
       "reconstruct the original view participant data" in {
-        val usedContract =
-          ExampleTransactionFactory.asSerializable(
-            absoluteId,
-            metadata = ContractMetadata.tryCreate(
-              Set.empty,
-              Set.empty,
-              Some(ExampleTransactionFactory.globalKeyWithMaintainers()),
-            ),
-          )
 
+        val usedContract = ExampleContractFactory.build(
+          overrideContractId = Some(absoluteId),
+          keyOpt = Some(ExampleTransactionFactory.globalKeyWithMaintainers().unversioned),
+        )
         val vpd = create(
           consumed = Set(absoluteId),
           createdIds = Seq(createdId),

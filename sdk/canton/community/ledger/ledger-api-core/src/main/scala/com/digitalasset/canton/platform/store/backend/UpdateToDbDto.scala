@@ -91,8 +91,8 @@ object UpdateToDbDto {
         // nothing to persist, this is only a synthetic DbDto to facilitate updating the StringInterning
         Iterator(DbDto.SequencerIndexMoved(u.synchronizerId.toProtoPrimitive))
 
-      case _: EmptyAcsPublicationRequired =>
-        Iterator.empty
+      case _: EmptyAcsPublicationRequired => Iterator.empty
+      case _: LogicalSynchronizerUpgradeTimeReached => Iterator.empty
 
       case _: CommitRepair =>
         Iterator.empty
@@ -366,6 +366,8 @@ object UpdateToDbDto {
         synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
+        external_transaction_hash =
+          transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
       )
     ) ++ stakeholders.iterator.map(stakeholder =>
       DbDto.IdFilterCreateStakeholder(
@@ -432,6 +434,8 @@ object UpdateToDbDto {
         synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.toMicros,
+        external_transaction_hash =
+          transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
       )
     ) ++ {
       if (exercise.consuming) {

@@ -284,7 +284,7 @@ create or replace view debug.par_reassignments as
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
-    unassignment_request,
+    unassignment_data,
     contracts,
     debug.canton_timestamp(assignment_timestamp) as assignment_timestamp
   from par_reassignments;
@@ -471,6 +471,14 @@ create or replace view debug.sequencer_events as
     base_traffic_remainder
   from sequencer_events;
 
+create or replace view debug.sequencer_event_recipients as
+select
+    debug.canton_timestamp(ts) as ts,
+    debug.resolve_sequencer_member(recipient_id) as recipient_id,
+    node_index,
+    is_topology_event
+from sequencer_event_recipients;
+
 create or replace view debug.par_pruning_schedules as
   select
     lock,
@@ -551,7 +559,6 @@ create or replace view debug.common_pruning_schedules as
 create or replace view debug.seq_in_flight_aggregation as
   select
     aggregation_id,
-    debug.canton_timestamp(first_sequencing_timestamp) as first_sequencing_timestamp,
     debug.canton_timestamp(max_sequencing_time) as max_sequencing_time,
     aggregation_rule
   from seq_in_flight_aggregation;
@@ -561,7 +568,6 @@ create or replace view debug.seq_in_flight_aggregated_sender as
     aggregation_id,
     sender,
     debug.canton_timestamp(sequencing_timestamp) as sequencing_timestamp,
-    debug.canton_timestamp(max_sequencing_time) as max_sequencing_time,
     signatures
   from seq_in_flight_aggregated_sender;
 

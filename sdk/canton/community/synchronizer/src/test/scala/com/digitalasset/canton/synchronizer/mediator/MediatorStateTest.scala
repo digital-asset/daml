@@ -20,9 +20,12 @@ import com.digitalasset.canton.synchronizer.mediator.store.{
 }
 import com.digitalasset.canton.synchronizer.metrics.MediatorTestMetrics
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantAttributes
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
+import com.digitalasset.canton.topology.{DefaultTestIdentities, ParticipantId}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -105,9 +108,22 @@ class MediatorStateTest
     val informeeMessage =
       InformeeMessage(fullInformeeTree, Signature.noSignature)(testedProtocolVersion)
     val mockTopologySnapshot = mock[TopologySnapshot]
-    when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
-      .thenAnswer { (parties: Set[LfPartyId]) =>
-        FutureUnlessShutdown.pure(parties.map(x => x -> PositiveInt.one).toMap)
+    when(
+      mockTopologySnapshot.activeParticipantsOfPartiesWithInfo(any[Seq[LfPartyId]])(
+        anyTraceContext
+      )
+    )
+      .thenAnswer { (parties: Seq[LfPartyId]) =>
+        FutureUnlessShutdown.pure(
+          parties
+            .map(party =>
+              party -> PartyInfo(
+                PositiveInt.one,
+                Map(ParticipantId("one") -> ParticipantAttributes(Confirmation)),
+              )
+            )
+            .toMap
+        )
       }
     val currentVersion =
       ResponseAggregation

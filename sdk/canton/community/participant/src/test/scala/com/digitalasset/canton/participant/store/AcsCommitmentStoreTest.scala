@@ -173,7 +173,7 @@ trait CommitmentStoreBaseTest
       testedProtocolVersion,
     )
   lazy val dummySigned: SignedProtocolMessage[AcsCommitment] =
-    SignedProtocolMessage.from(dummyCommitmentMsg, testedProtocolVersion, dummySignature)
+    SignedProtocolMessage.from(dummyCommitmentMsg, dummySignature)
 
   lazy val alice: LfPartyId = LfPartyId.assertFromString("Alice")
   lazy val bob: LfPartyId = LfPartyId.assertFromString("bob")
@@ -628,7 +628,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned2 =
-        SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg2, dummySignature)
       val dummyMsg3 = AcsCommitment.create(
         synchronizerId,
         remoteId2,
@@ -638,7 +638,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned3 =
-        SignedProtocolMessage.from(dummyMsg3, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg3, dummySignature)
 
       for {
         _ <- store.storeReceived(dummySigned).failOnShutdown
@@ -711,7 +711,7 @@ trait AcsCommitmentStoreTest
         testedProtocolVersion,
       )
       val dummySigned2 =
-        SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
+        SignedProtocolMessage.from(dummyMsg2, dummySignature)
 
       for {
         _ <- store.storeReceived(dummySigned).failOnShutdown

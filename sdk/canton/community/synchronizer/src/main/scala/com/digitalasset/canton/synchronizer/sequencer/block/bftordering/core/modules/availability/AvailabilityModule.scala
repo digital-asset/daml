@@ -68,6 +68,7 @@ import com.google.protobuf.ByteString
 
 import java.time.Instant
 import scala.collection.mutable
+import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Random, Success, Try}
 
 import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessage}
@@ -83,7 +84,6 @@ final class AvailabilityModule[E <: Env[E]](
     initialEpochNumber: EpochNumber,
     initialCryptoProvider: CryptoProvider[E],
     availabilityStore: data.AvailabilityStore[E],
-    moduleConfig: AvailabilityModuleConfig,
     clock: Clock,
     random: Random,
     metrics: BftOrderingMetrics,
@@ -94,7 +94,9 @@ final class AvailabilityModule[E <: Env[E]](
     outputFetchProtocolState: MainOutputFetchProtocolState = new MainOutputFetchProtocolState(),
 )(
     // Only passed in tests
-    private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology
+    private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology,
+    private val jitterConstructor: (BftBlockOrdererConfig, Random) => JitterStream =
+      JitterStream.create,
 )(implicit
     override val config: BftBlockOrdererConfig,
     synchronizerProtocolVersion: ProtocolVersion,
@@ -566,7 +568,7 @@ final class AvailabilityModule[E <: Env[E]](
       s"$actingOnMessageType: recording block request from local consensus and reviewing progress"
     )
     disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
-      moduleConfig.maxBatchesPerProposal,
+      config.maxBatchesPerBlockProposal,
       forEpochNumber,
     )
     updateActiveTopology(actingOnMessageType, orderingTopology, cryptoProvider)
@@ -999,17 +1001,17 @@ final class AvailabilityModule[E <: Env[E]](
               logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $node")
               (node, status.remainingNodesToTry.drop(1))
           }
+        val missingBatchStatus =
+          status.copy(
+            remainingNodesToTry = remainingNodes,
+            numberOfAttempts =
+              status.numberOfAttempts + (if (status.remainingNodesToTry.isEmpty) 1 else 0),
+          )
         outputFetchProtocolState.localOutputMissingBatches.update(
           batchId,
-          MissingBatchStatus(
-            batchId,
-            status.originalProof,
-            remainingNodes,
-            status.numberOfAttempts + (if (status.remainingNodesToTry.isEmpty) 1 else 0),
-            status.mode,
-          ),
+          missingBatchStatus,
         )
-        startDownload(batchId, node)
+        startDownload(batchId, node, missingBatchStatus.calculateTimeout())
 
       // This message is only used for tests
       case Availability.LocalOutputFetch.FetchBatchDataFromNodes(proofOfAvailability, mode) =>
@@ -1125,17 +1127,19 @@ final class AvailabilityModule[E <: Env[E]](
       s"$actingOnMessageType: fetch of ${proofOfAvailability.batchId} " +
         s"requested from local store, trying to fetch from $node"
     )
+    val missingBatchStatus = MissingBatchStatus(
+      proofOfAvailability.batchId,
+      proofOfAvailability,
+      remainingNodes,
+      numberOfAttempts = 1,
+      jitterStream = jitterConstructor(config, random),
+      mode,
+    )
     outputFetchProtocolState.localOutputMissingBatches.update(
       proofOfAvailability.batchId,
-      MissingBatchStatus(
-        proofOfAvailability.batchId,
-        proofOfAvailability,
-        remainingNodes,
-        numberOfAttempts = 1,
-        mode,
-      ),
+      missingBatchStatus,
     )
-    startDownload(proofOfAvailability.batchId, node)
+    startDownload(proofOfAvailability.batchId, node, missingBatchStatus.calculateTimeout())
   }
 
   private def updateOutputFetchStatus(
@@ -1173,6 +1177,7 @@ final class AvailabilityModule[E <: Env[E]](
   private def startDownload(
       batchId: BatchId,
       node: BftNodeId,
+      timeout: FiniteDuration,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
@@ -1182,7 +1187,7 @@ final class AvailabilityModule[E <: Env[E]](
     //  strategy in a majority of situations.
     context
       .delayedEventTraced(
-        moduleConfig.outputFetchTimeout,
+        timeout,
         Availability.LocalOutputFetch.FetchRemoteBatchDataTimeout(batchId),
       )
       .discard
@@ -1253,7 +1258,7 @@ final class AvailabilityModule[E <: Env[E]](
     recordStartWaitIfIdle()
     // we tell mempool we want enough batches to fill up a proposal in order to make up for the one we just created
     // times the multiplier in order to try to disseminate-ahead batches for a following proposal
-    val atMost = moduleConfig.maxBatchesPerProposal * DisseminateAheadMultiplier -
+    val atMost = config.maxBatchesPerBlockProposal * DisseminateAheadMultiplier -
       // if we have pending batches for ordering we subtract them in order for this buffer to not grow indefinitely
       (disseminationProtocolState.batchesReadyForOrdering.size + disseminationProtocolState.disseminationProgress.size)
 
@@ -1342,11 +1347,11 @@ final class AvailabilityModule[E <: Env[E]](
       )
 
       _ <- Either.cond(
-        batch.requests.sizeIs <= moduleConfig.maxRequestsInBatch.toInt,
+        batch.requests.sizeIs <= config.maxRequestsInBatch.toInt,
         (), {
           emitInvalidMessage(metrics, from)
           s"Batch $batchId from '$from' contains more requests (${batch.requests.size}) than allowed " +
-            s"(${moduleConfig.maxRequestsInBatch}), skipping"
+            s"(${config.maxRequestsInBatch}), skipping"
         },
       )
 
@@ -1395,10 +1400,10 @@ final class AvailabilityModule[E <: Env[E]](
       from: BftNodeId,
   ): Either[String, Unit] = Either.cond(
     disseminationProtocolState.disseminationQuotas
-      .canAcceptForNode(from, batchId, moduleConfig.maxNonOrderedBatchesPerNode.toInt),
+      .canAcceptForNode(from, batchId, config.availabilityMaxNonOrderedBatchesPerNode.toInt),
     (), {
       emitInvalidMessage(metrics, from)
-      s"Batch $batchId from '$from' cannot be taken because we have reached the limit of ${moduleConfig.maxNonOrderedBatchesPerNode} unordered and unexpired batches from " +
+      s"Batch $batchId from '$from' cannot be taken because we have reached the limit of ${config.availabilityMaxNonOrderedBatchesPerNode} unordered and unexpired batches from " +
         s"this node that we can hold on to, skipping"
     },
   )

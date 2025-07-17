@@ -135,7 +135,7 @@ object Verdict
     *   from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
   final case class ParticipantReject(
-      reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]]
+      reasons: NonEmpty[List[(Set[LfPartyId], NonPositiveLocalVerdict)]]
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
@@ -161,7 +161,7 @@ object Verdict
 
     /** Returns the rejection reason with the highest [[com.digitalasset.base.error.ErrorCategory]]
       */
-    def keyEvent(implicit loggingContext: ErrorLoggingContext): LocalReject = {
+    def keyEvent(implicit loggingContext: ErrorLoggingContext): TransactionRejection = {
       if (reasons.lengthCompare(1) > 0) {
         val message = show"Request was rejected with multiple reasons. $reasons"
         loggingContext.info(message)
@@ -174,7 +174,7 @@ object Verdict
 
   object ParticipantReject {
     def apply(
-        reasons: NonEmpty[List[(Set[LfPartyId], LocalReject)]],
+        reasons: NonEmpty[List[(Set[LfPartyId], NonPositiveLocalVerdict)]],
         protocolVersion: ProtocolVersion,
     ): ParticipantReject =
       ParticipantReject(reasons)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
@@ -219,16 +219,18 @@ object Verdict
 
   private def fromProtoReasonV30(
       protoReason: v30.RejectionReason
-  ): ParsingResult[(Set[LfPartyId], LocalReject)] = {
+  ): ParsingResult[(Set[LfPartyId], NonPositiveLocalVerdict)] = {
     val v30.RejectionReason(partiesP, rejectP) = protoReason
     for {
       parties <- partiesP.traverse(ProtoConverter.parseLfPartyId(_, "parties")).map(_.toSet)
       localVerdict <- ProtoConverter.parseRequired(LocalVerdict.fromProtoV30, "reject", rejectP)
-      localReject <- localVerdict match {
+      nonPositiveVerdict <- localVerdict match {
         case localReject: LocalReject => Right(localReject)
         case LocalApprove() =>
           Left(InvariantViolation("reject", "must not be approve"))
+        case abstain: LocalAbstain =>
+          Right(abstain)
       }
-    } yield (parties, localReject)
+    } yield (parties, nonPositiveVerdict)
   }
 }

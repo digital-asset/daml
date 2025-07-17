@@ -3,22 +3,52 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability
 
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.{
   BatchId,
   ProofOfAvailability,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput
+import com.digitalasset.canton.util.retry.Jitter
 
 import scala.collection.mutable
+import scala.concurrent.duration.FiniteDuration
+import scala.util.Random
+
+@SuppressWarnings(Array("org.wartremover.warts.Var"))
+final case class JitterStream(jitter: Jitter, initialDelay: FiniteDuration) {
+  private var lastDelay: FiniteDuration = initialDelay
+  private var lastAttempt: Int = 1
+
+  def next(attempt: Int): FiniteDuration = {
+    require(attempt >= lastAttempt)
+    if (attempt >= lastAttempt) {
+      lastDelay = jitter(initialDelay, lastDelay, attempt)
+      lastAttempt = attempt
+    }
+    lastDelay
+  }
+}
+
+object JitterStream {
+  def create(config: BftBlockOrdererConfig, random: Random): JitterStream =
+    JitterStream(
+      Jitter.full(config.outputFetchTimeoutCap, Jitter.randomSource(random.self)),
+      config.outputFetchTimeout,
+    )
+}
 
 final case class MissingBatchStatus(
     batchId: BatchId,
     originalProof: ProofOfAvailability,
     remainingNodesToTry: Seq[BftNodeId],
     numberOfAttempts: Int,
+    jitterStream: JitterStream,
     mode: OrderedBlockForOutput.Mode,
-)
+) {
+  def calculateTimeout(): FiniteDuration = jitterStream.next(numberOfAttempts)
+}
 
 final class MainOutputFetchProtocolState {
   val localOutputMissingBatches: mutable.SortedMap[BatchId, MissingBatchStatus] =

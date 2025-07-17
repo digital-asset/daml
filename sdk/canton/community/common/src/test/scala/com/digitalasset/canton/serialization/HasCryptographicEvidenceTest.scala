@@ -103,7 +103,8 @@ sealed case class MemoizedEvidenceSUT(b: Byte)(
 }
 
 object MemoizedEvidenceSUT
-    extends BaseVersioningCompanion[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit] {
+    extends BaseVersioningCompanion[MemoizedEvidenceSUT, Nothing, MemoizedEvidenceSUT, Unit]
+    with IgnoreInSerializationTestExhaustivenessCheck {
 
   val name: String = "MemoizedEvidenceSUT"
 

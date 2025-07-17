@@ -230,14 +230,14 @@ create table par_reassignments (
 
     reassignment_id varchar not null,
 
-    unassignment_request binary large object,
+    unassignment_data binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
 
     -- defined if reassignment was completed
     -- UTC timestamp in microseconds relative to EPOCH
     assignment_timestamp bigint,
-    primary key (target_synchronizer_idx, source_synchronizer_idx, reassignment_id)
+    primary key (target_synchronizer_idx, reassignment_id)
 );
 
 -- stores all requests for the request journal
@@ -314,7 +314,7 @@ create table par_commitment_snapshot (
     -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
     -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
     stakeholders_hash varchar not null,
-    stakeholders binary large object not null,
+    stakeholders varchar array not null,
     commitment binary large object not null,
     primary key (synchronizer_idx, stakeholders_hash)
 );
@@ -508,6 +508,19 @@ create table sequencer_events (
     base_traffic_remainder bigint
 );
 
+-- Normalized table for sequencer event recipients to allow indexed lookups of previous and sequencer-addressed events
+create table sequencer_event_recipients (
+    ts bigint not null,
+    recipient_id integer not null,
+    node_index smallint not null,
+    is_topology_event boolean not null,
+    primary key (node_index, recipient_id, ts)
+);
+
+-- an index for when we specifically query for topology relevant events
+create index sequencer_event_recipients_node_recipient_topology_ts
+    on sequencer_event_recipients (node_index, recipient_id, is_topology_event, ts);
+
 -- Sequence of local offsets used by the participant event publisher
 create sequence participant_event_publisher_local_offsets minvalue 0 start with 0;
 
@@ -636,28 +649,24 @@ create table par_pruning_schedules (
 create table seq_in_flight_aggregation(
     aggregation_id varchar not null primary key,
     -- UTC timestamp in microseconds relative to EPOCH
-    first_sequencing_timestamp bigint not null,
-    -- UTC timestamp in microseconds relative to EPOCH
     max_sequencing_time bigint not null,
     -- serialized aggregation rule,
     aggregation_rule binary large object not null
 );
 
-create index idx_seq_in_flight_aggregation_temporal on seq_in_flight_aggregation(first_sequencing_timestamp, max_sequencing_time);
+create index idx_seq_in_flight_aggregation_temporal on seq_in_flight_aggregation(max_sequencing_time);
 
 create table seq_in_flight_aggregated_sender(
     aggregation_id varchar not null,
     sender varchar not null,
     -- UTC timestamp in microseconds relative to EPOCH
     sequencing_timestamp bigint not null,
-    -- UTC timestamp in microseconds relative to EPOCH
-    max_sequencing_time bigint not null,
     signatures binary large object not null,
     primary key (aggregation_id, sender),
     constraint foreign_key_in_flight_aggregated_sender foreign key (aggregation_id) references seq_in_flight_aggregation(aggregation_id) on delete cascade
 );
 
-create index idx_seq_in_flight_aggregated_sender_temporal on seq_in_flight_aggregated_sender(sequencing_timestamp, max_sequencing_time);
+create index idx_seq_in_flight_aggregated_sender_temporal on seq_in_flight_aggregated_sender(sequencing_timestamp);
 
 -- stores the topology-x state transactions
 create table common_topology_transactions (
@@ -784,7 +793,7 @@ create table ord_pbft_messages_in_progress(
     epoch_number bigint not null,
 
     -- view number
-    view_number smallint not null,
+    view_number bigint not null,
 
     -- pbft message for the block
     message binary large object not null,
@@ -860,7 +869,7 @@ create table ord_leader_selection_state (
 -- Stores P2P endpoints from the configuration or admin command
 create table ord_p2p_endpoints (
   address varchar not null,
-  port smallint not null,
+  port integer not null,
   transport_security bool not null,
   custom_server_trust_certificates binary large object null, -- PEM string
   client_certificate_chain binary large object null, -- PEM string

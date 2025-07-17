@@ -18,7 +18,7 @@ abstract class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegration
       val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
       val cantonBinRel = offlineExampleDir.relativize(File(cantonBin))
       Process(
-        s"$cantonBinRel run --config external-init-example.conf bootstrap.canton",
+        s"$cantonBinRel run --config manual-init-example.conf bootstrap.canton",
         cwd = offlineExampleDir.toJava,
       ).!(processLogger) shouldBe 0
       checkOutput(

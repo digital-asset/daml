@@ -1094,6 +1094,8 @@ export class Ledger {
    * https://docs.daml.com/json-api/search-query-language.html for a description of the query
    * language.
    *
+   * @deprecated
+   *
    * @param template The contract template of the contracts to be matched against.
    * @param query The contract query for the contracts to be matched against.
    *
@@ -1118,6 +1120,8 @@ export class Ledger {
 
   /**
    * Fetch a contract identified by its contract ID.
+   *
+   * @deprecated
    *
    * @param template The template of the contract to be fetched.
    * @param contractId The contract id of the contract to be fetched.
@@ -1146,6 +1150,8 @@ export class Ledger {
    *
    * Same as [[fetch]], but the contract to be fetched is identified by its contract key instead of
    * its contract id.
+   *
+   * @deprecated
    *
    * @param template The template of the contract to be fetched.
    * @param key The contract key of the contract to be fetched.
@@ -1176,6 +1182,8 @@ export class Ledger {
   /**
    * Create a contract for a given template.
    *
+   * @deprecated
+   *
    * @param template The template of the contract to be created.
    * @param payload The template arguments for the contract to be created.
    * @param meta Optional meta fields to specify additional data on a command submission.
@@ -1201,6 +1209,8 @@ export class Ledger {
 
   /**
    * Exercise a choice on a contract identified by its contract ID.
+   *
+   * @deprecated
    *
    * @param choice The choice to exercise.
    * @param contractId The contract id of the contract to exercise.
@@ -1243,7 +1253,9 @@ export class Ledger {
   }
 
   /**
-   * Exercse a choice on a newly-created contract, in a single transaction.
+   * Exercise a choice on a newly-created contract, in a single transaction.
+   *
+   * @deprecated
    *
    * @param choice The choice to exercise.
    * @param payload The template arguments for the newly-created contract.
@@ -1294,6 +1306,8 @@ export class Ledger {
    *
    * Same as [[exercise]], but the contract is identified by its contract key instead of its
    * contract id.
+   *
+   * @deprecated
    *
    * @param choice The choice to exercise.
    * @param key The contract key of the contract to exercise.
@@ -1346,6 +1360,8 @@ export class Ledger {
   /**
    * Archive a contract identified by its contract ID.
    *
+   * @deprecated
+   *
    * @param template The template of the contract to archive.
    * @param contractId The contract id of the contract to archive.
    * @param meta Optional meta fields to specify additional data on a command submission.
@@ -1368,6 +1384,8 @@ export class Ledger {
   /**
    * Archive a contract identified by its contract key.
    * Same as [[archive]], but the contract to be archived is identified by its contract key.
+   *
+   * @deprecated
    *
    * @param template The template of the contract to be archived.
    * @param key The contract key of the contract to be archived.
@@ -1529,7 +1547,7 @@ export class Ledger {
    * https://docs.daml.com/json-api/search-query-language.html for a description of the query
    * language.
    *
-   * @deprecated Prefer `streamQueries`.
+   * @deprecated
    *
    * @param template The contract template to match contracts against.
    * @param query The query to match contracts agains.
@@ -1609,6 +1627,8 @@ export class Ledger {
    * See https://docs.daml.com/json-api/search-query-language.html for a
    * description of the query language.
    *
+   * @deprecated
+   *
    * @param template The contract template to match contracts against.
    * @param queries A query to match contracts against.
    *
@@ -1629,7 +1649,7 @@ export class Ledger {
    * The accumulated state is either the current active contract for the given
    * key, or null if there is no active contract for the given key.
    *
-   * @deprecated Prefer `streamFetchByKeys`.
+   * @deprecated
    *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
@@ -1735,6 +1755,8 @@ export class Ledger {
    * `encodeDecimalAsString` and `encodeInt64AsString`. See [the JSON API docs
    * for details](https://docs.daml.com/json-api/lf-value-specification.html).
    *
+   * @deprecated
+   *
    * @typeparam T The contract template type.
    * @typeparam K The contract key type.
    * @typeparam I The contract id type.
@@ -1809,6 +1831,8 @@ export class Ledger {
   /**
    * Fetch parties by identifier.
    *
+   * @deprecated
+   *
    * @param parties An array of Party identifiers.
    *
    * @returns An array of the same length, where each element corresponds to
@@ -1836,6 +1860,8 @@ export class Ledger {
   /**
    * Fetch all parties on the ledger.
    *
+   * @deprecated
+   *
    * @returns All parties on the ledger, in no particular order.
    *
    */
@@ -1846,6 +1872,8 @@ export class Ledger {
 
   /**
    * Get the current user details obtained by the currently used JWT.
+   *
+   * @deprecated
    *
    * @param userId The user id
    *
@@ -1862,6 +1890,8 @@ export class Ledger {
   /**
    * Lists the users on the ledger
    *
+   * @deprecated
+   *
    * @returns user list
    *
    */
@@ -1872,6 +1902,8 @@ export class Ledger {
 
   /**
    * Lists the rights associated with the given user id
+   *
+   * @deprecated
    *
    * @param userId, if empty then the user id will obtained by the currently used JWT.
    *
@@ -1886,6 +1918,8 @@ export class Ledger {
 
   /**
    * Grants rights to a user
+   *
+   * @deprecated
    *
    * @param userId The user to which rights shall be granted
    *
@@ -1907,6 +1941,8 @@ export class Ledger {
   /**
    * Revokes rights from a user
    *
+   * @deprecated
+   *
    * @param userId The user from which rights shall be revoked
    *
    * @param rights The rights which shall be revoked
@@ -1926,6 +1962,8 @@ export class Ledger {
 
   /**
    * Creates a user
+   *
+   * @deprecated
    *
    * @param userId The user ID
    * @param rights The initial rights the user should have
@@ -1947,9 +1985,9 @@ export class Ledger {
   /**
    * Deletes a user
    *
+   * @deprecated
+   *
    * @param userId The user ID
-   * @param rights The initial rights the user should have
-   * @param primaryParty The primary party the user should have
    *
    */
   async deleteUser(userId: string): Promise<void> {
@@ -1958,6 +1996,8 @@ export class Ledger {
 
   /**
    * Allocate a new party.
+   *
+   * @deprecated
    *
    * @param partyOpt Parameters for party allocation.
    *
@@ -1974,6 +2014,8 @@ export class Ledger {
   /**
    * Fetch a list of all package IDs from the ledger.
    *
+   * @deprecated
+   *
    * @returns List of package IDs.
    *
    */
@@ -1984,6 +2026,8 @@ export class Ledger {
 
   /**
    * Fetch a binary package.
+   *
+   * @deprecated
    *
    * @returns The content of the package as a raw ArrayBuffer.
    *
@@ -1999,6 +2043,8 @@ export class Ledger {
 
   /**
    * Upload a binary archive. Note that this requires admin privileges.
+   *
+   * @deprecated
    *
    * @returns No return value on success; throws on error.
    *

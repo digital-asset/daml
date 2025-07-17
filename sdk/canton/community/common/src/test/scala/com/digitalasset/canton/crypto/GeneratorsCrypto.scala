@@ -58,9 +58,7 @@ object GeneratorsCrypto {
     key <- Arbitrary.arbitrary[ByteString]
     keySpec <- Arbitrary.arbitrary[SigningKeySpec]
     format = CryptoKeyFormat.Symbolic
-    usage <- Gen
-      .nonEmptyListOf(Gen.oneOf(SigningKeyUsage.All.toList))
-      .map(usages => NonEmptyUtil.fromUnsafe(usages.toSet))
+    usage <- nonEmptySetGen(Arbitrary(Gen.oneOf(SigningKeyUsage.All.toList)))
       .suchThat(usagesNE => SigningKeyUsage.isUsageValid(usagesNE))
   } yield SigningPublicKey.create(format, key, keySpec, usage).value)
 

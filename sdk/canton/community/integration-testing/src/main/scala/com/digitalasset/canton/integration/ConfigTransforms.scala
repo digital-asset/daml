@@ -127,6 +127,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
+      // TODO(i25218): adjust when the new connection pool is stable
       ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
     )
 
@@ -817,11 +818,23 @@ object ConfigTransforms {
     ),
   )
 
-  def unsafeEnableOnlinePartyReplication: Seq[ConfigTransform] = Seq(
-    updateAllParticipantConfigs_(
-      _.focus(_.parameters.unsafeOnlinePartyReplication)
-        .replace(Some(UnsafeOnlinePartyReplicationConfig()))
-    ),
+  def unsafeEnableOnlinePartyReplication(
+      participantsWithOnPRInterceptor: Map[
+        String,
+        UnsafeOnlinePartyReplicationConfig.TestInterceptor,
+      ] = Map.empty
+  ): Seq[ConfigTransform] = Seq(
+    updateAllParticipantConfigs { case (name, config) =>
+      config
+        .focus(_.parameters.unsafeOnlinePartyReplication)
+        .replace(
+          Some(
+            UnsafeOnlinePartyReplicationConfig(
+              testInterceptor = participantsWithOnPRInterceptor.get(name)
+            )
+          )
+        )
+    },
     updateAllSequencerConfigs_(
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),

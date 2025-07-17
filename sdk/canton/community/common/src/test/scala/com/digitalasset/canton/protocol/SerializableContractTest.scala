@@ -25,6 +25,9 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
   private val templateId = ExampleTransactionFactory.templateId
 
+  def fromFatContract(inst: LfFatContractInst): Either[String, SerializableContract] =
+    ContractInstance.toSerializableContract(inst)
+
   "SerializableContractInstance" should {
 
     forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
@@ -104,9 +107,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
     "provided a valid disclosed contract" should {
       "succeed" in {
-        val actual = SerializableContract
-          .fromFatContract(disclosedContract)
-          .value
+        val actual = fromFatContract(disclosedContract).value
 
         actual shouldBe SerializableContract(
           contractId = authenticatedContractId,
@@ -131,31 +132,25 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
     "provided a disclosed contract with unknown contract id format" should {
       "fail" in {
-        SerializableContract
-          .fromFatContract(
-            FatContractInstance.fromCreateNode(
-              createNode.mapCid(_ => invalidFormatContractId),
-              CreationTime.CreatedAt(createdAt),
-              driverMetadata,
-            )
+        fromFatContract(
+          FatContractInstance.fromCreateNode(
+            createNode.mapCid(_ => invalidFormatContractId),
+            CreationTime.CreatedAt(createdAt),
+            driverMetadata,
           )
-          .left
-          .value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 is not a supported contract-id prefix"
+        ).left.value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 is not a supported contract-id prefix"
       }
     }
 
     "provided a disclosed contract with missing driver contract metadata" should {
       "fail" in {
-        SerializableContract
-          .fromFatContract(
-            FatContractInstance.fromCreateNode(
-              createNode,
-              CreationTime.CreatedAt(createdAt),
-              cantonData = Bytes.Empty,
-            )
+        fromFatContract(
+          FatContractInstance.fromCreateNode(
+            createNode,
+            CreationTime.CreatedAt(createdAt),
+            cantonData = Bytes.Empty,
           )
-          .left
-          .value shouldBe "Missing driver contract metadata in provided disclosed contract"
+        ).left.value shouldBe "Missing driver contract metadata in provided disclosed contract"
       }
     }
   }

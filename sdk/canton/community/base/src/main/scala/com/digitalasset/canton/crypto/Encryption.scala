@@ -57,23 +57,22 @@ trait EncryptionOps {
       scheme: SymmetricKeyScheme = defaultSymmetricKeyScheme,
   ): Either[EncryptionKeyCreationError, SymmetricKey]
 
-  def defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec
-  def supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]]
+  def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec]
 
   /** Encrypts the bytes of the serialized message using the given public key. */
   def encryptWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Deterministically encrypts the given bytes using the given public key. This is unsafe for
-    * general use and it's only used to encrypt the decryption key of each view
+    * general use, and it's only used to encrypt the decryption key of each view
     */
   def encryptDeterministicWith[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
-      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = defaultEncryptionAlgorithmSpec,
+      encryptionAlgorithmSpec: EncryptionAlgorithmSpec = encryptionAlgorithmSpecs.default,
   )(implicit traceContext: TraceContext): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Decrypts a message encrypted using `encryptWith` */
@@ -116,7 +115,7 @@ trait EncryptionOps {
 /** Encryption operations that require access to stored private keys. */
 trait EncryptionPrivateOps {
 
-  def defaultEncryptionKeySpec: EncryptionKeySpec
+  def encryptionKeySpecs: CryptoScheme[EncryptionKeySpec]
 
   /** Decrypts an encrypted message using the referenced private encryption key */
   def decrypt[M](encrypted: AsymmetricEncrypted[M])(
@@ -129,7 +128,7 @@ trait EncryptionPrivateOps {
     * private key and returns the public key.
     */
   def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = defaultEncryptionKeySpec,
+      keySpec: EncryptionKeySpec = encryptionKeySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -163,7 +162,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair]
 
   override def generateEncryptionKey(
-      keySpec: EncryptionKeySpec = defaultEncryptionKeySpec,
+      keySpec: EncryptionKeySpec = encryptionKeySpecs.default,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
@@ -537,6 +536,11 @@ final case class EncryptionKeyPair private (
     publicKey: EncryptionPublicKey,
     privateKey: EncryptionPrivateKey,
 ) extends CryptoKeyPair[EncryptionPublicKey, EncryptionPrivateKey] {
+
+  require(
+    publicKey.keySpec == privateKey.keySpec,
+    s"Public [${publicKey.keySpec}] and private[${privateKey.keySpec}] key must have the same key spec",
+  )
 
   def toProtoV30: v30.EncryptionKeyPair =
     v30.EncryptionKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
@@ -978,6 +982,16 @@ object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup 
   final case class FingerprintError(error: String) extends EncryptionKeyGenerationError {
     override protected def pretty: Pretty[FingerprintError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
+    )
+  }
+
+  final case class UnsupportedKeySpec(
+      keySpec: EncryptionKeySpec,
+      supportedKeySpecs: Set[EncryptionKeySpec],
+  ) extends EncryptionKeyGenerationError {
+    override protected def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
+      param("keySpec", _.keySpec),
+      param("supportedKeySpecs", _.supportedKeySpecs),
     )
   }
 

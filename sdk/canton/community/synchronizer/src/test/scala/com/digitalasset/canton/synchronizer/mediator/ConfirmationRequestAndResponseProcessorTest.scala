@@ -27,8 +27,10 @@ import com.digitalasset.canton.synchronizer.metrics.MediatorTestMetrics
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -45,6 +47,7 @@ import scala.language.reflectiveCalls
 
 import ResponseAggregation.ConsortiumVotingState
 
+//TODO(i26453): Add a test for abstain verdict.
 @nowarn("msg=match may not be exhaustive")
 class ConfirmationRequestAndResponseProcessorTest
     extends AsyncWordSpec
@@ -289,7 +292,6 @@ class ConfirmationRequestAndResponseProcessorTest
         participantCrypto
           .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
-        testedProtocolVersion,
       )
   }
 
@@ -312,7 +314,6 @@ class ConfirmationRequestAndResponseProcessorTest
         participantCrypto
           .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
           .currentSnapshotApproximation,
-        testedProtocolVersion,
       )
   }
 
@@ -468,9 +469,8 @@ class ConfirmationRequestAndResponseProcessorTest
           testedProtocolVersion,
         )
         signedResponse = SignedProtocolMessage(
-          TypedSignedProtocolMessageContent(response, testedProtocolVersion),
+          TypedSignedProtocolMessageContent(response),
           NonEmpty(Seq, Signature.noSignature),
-          testedProtocolVersion,
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
@@ -878,9 +878,22 @@ class ConfirmationRequestAndResponseProcessorTest
         .thenAnswer { (_: ParticipantId, parties: Set[LfPartyId]) =>
           FutureUnlessShutdown.pure(parties)
         }
-      when(mockTopologySnapshot.consortiumThresholds(any[Set[LfPartyId]])(anyTraceContext))
-        .thenAnswer { (parties: Set[LfPartyId]) =>
-          FutureUnlessShutdown.pure(parties.map(x => x -> PositiveInt.one).toMap)
+      when(
+        mockTopologySnapshot.activeParticipantsOfPartiesWithInfo(any[Seq[LfPartyId]])(
+          anyTraceContext
+        )
+      )
+        .thenAnswer { (parties: Seq[LfPartyId]) =>
+          FutureUnlessShutdown.pure(
+            parties
+              .map(party =>
+                party -> PartyInfo(
+                  PositiveInt.one,
+                  Map(ParticipantId("one") -> ParticipantAttributes(Confirmation)),
+                )
+              )
+              .toMap
+          )
         }
 
       for {
@@ -964,7 +977,7 @@ class ConfirmationRequestAndResponseProcessorTest
           }
           val completedView = ResponseAggregation.ViewState(
             Map(
-              submitter -> ConsortiumVotingState(approvals =
+              submitter -> ConsortiumVotingState.withDefaultValues(approvals =
                 Set(ExampleTransactionFactory.submittingParticipant)
               )
             ),
@@ -989,27 +1002,27 @@ class ConfirmationRequestAndResponseProcessorTest
               view1Position ->
                 ResponseAggregation.ViewState(
                   Map(
-                    submitter -> ConsortiumVotingState(approvals =
+                    submitter -> ConsortiumVotingState.withDefaultValues(approvals =
                       Set(ExampleTransactionFactory.submittingParticipant)
                     ),
-                    signatory -> ConsortiumVotingState(),
+                    signatory -> ConsortiumVotingState.withDefaultValues(),
                   ),
                   Seq(signatoryQuorum),
                   Nil,
                 ),
               view10Position ->
                 ResponseAggregation.ViewState(
-                  Map(signatory -> ConsortiumVotingState()),
+                  Map(signatory -> ConsortiumVotingState.withDefaultValues()),
                   Seq(signatoryQuorum),
                   Nil,
                 ),
               view11Position ->
                 ResponseAggregation.ViewState(
                   Map(
-                    submitter -> ConsortiumVotingState(approvals =
+                    submitter -> ConsortiumVotingState.withDefaultValues(approvals =
                       Set(ExampleTransactionFactory.submittingParticipant)
                     ),
-                    signatory -> ConsortiumVotingState(),
+                    signatory -> ConsortiumVotingState.withDefaultValues(),
                   ),
                   Seq(signatoryQuorum),
                   Nil,
@@ -1157,7 +1170,6 @@ class ConfirmationRequestAndResponseProcessorTest
             participantCrypto
               .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
               .currentSnapshotApproximation,
-            testedProtocolVersion,
           )
           .failOnShutdown
       }

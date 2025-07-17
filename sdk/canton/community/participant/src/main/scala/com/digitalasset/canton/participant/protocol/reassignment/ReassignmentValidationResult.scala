@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.ContractsReassignmentBatch
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
@@ -17,10 +18,17 @@ import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
+/** Represents the result of validating an unassignment or assignment request on a participant.
+  * hostedConfirmingReassigningParties: This is an empty set if the participant is not a reassigning
+  * participant. Otherwise, it represents the set of confirming parties currently hosted on this
+  * participant that have at least confirmation rights.
+  */
 private[reassignment] trait ReassignmentValidationResult {
+  // TODO(#26277) Should that one be computed instead of passed?
   def reassignmentId: ReassignmentId
   def rootHash: RootHash
   def contracts: ContractsReassignmentBatch
+  def hostedConfirmingReassigningParties: Set[LfPartyId]
   def isReassigningParticipant: Boolean
   def commonValidationResult: CommonValidationResult
   def reassigningParticipantValidationResult: ReassigningParticipantValidationResult

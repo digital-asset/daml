@@ -61,8 +61,8 @@ class FirstUnsafeOffsetComputation(
     // Keep only one persistent state per logical id
     // TODO(#24716) See comment at the the of the class. This should be revisited.
     val synchronizers: Map[SynchronizerId, SyncPersistentState] = allSynchronizers
-      .groupBy1(_.physicalSynchronizerId)
-      .map { case (psid, states) => psid.logical -> states.maxBy1(_.physicalSynchronizerId) }
+      .groupBy1(_.psid)
+      .map { case (psid, states) => psid.logical -> states.maxBy1(_.psid) }
 
     val allActiveSynchronizersE = {
       // Check that no migration is running concurrently.
@@ -128,7 +128,7 @@ class FirstUnsafeOffsetComputation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
-    val synchronizerId = persistent.physicalSynchronizerId
+    val synchronizerId = persistent.psid
     for {
       synchronizerIndex <- EitherT
         .right(
@@ -231,7 +231,7 @@ class FirstUnsafeOffsetComputation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
-    val synchronizerId = persistent.physicalSynchronizerId.logical
+    val synchronizerId = persistent.psid.logical
 
     for {
       earliestIncompleteReassignmentO <- EitherT

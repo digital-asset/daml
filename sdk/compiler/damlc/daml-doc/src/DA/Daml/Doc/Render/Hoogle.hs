@@ -10,6 +10,7 @@ module DA.Daml.Doc.Render.Hoogle
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
 
+import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text as T
@@ -19,13 +20,19 @@ newtype HoogleEnv = HoogleEnv
     }
 
 -- | Convert a markdown comment into hoogle text.
-hooglify :: Maybe DocText -> [T.Text]
-hooglify Nothing = []
-hooglify (Just md) =
-    case T.lines (unDocText md) of
-        [] -> []
-        (x:xs) -> ("-- | " <>  x)
-            : map ("--   " <>) xs
+hooglify :: [DocText] -> [T.Text]
+hooglify docs = case intercalate [""] $ unDocText <$> docs of
+  [] -> []
+  (x:xs) -> ("-- | " <> x) : map ("--   " <>) xs
+
+hooglifyWithWarns :: [DocText] -> [WarnOrDeprecatedData] -> [T.Text]
+hooglifyWithWarns docs warns = hooglify $ mapMaybe renderWarnOrDeprecated warns ++ docs
+  where
+    renderWarnOrDeprecated :: WarnOrDeprecatedData -> Maybe DocText
+    renderWarnOrDeprecated (WarnData []) = Nothing -- An empty warning shouldn't happen and doesn't really have any meaning
+    renderWarnOrDeprecated (DeprecatedData []) = Just $ DocText ["DEPRECATED"]
+    renderWarnOrDeprecated (WarnData (x:xs)) = Just $ DocText $ ("WARNING: " <> x) : xs
+    renderWarnOrDeprecated (DeprecatedData (x:xs)) = Just $ DocText $ ("DEPRECATED: " <> x) : xs
 
 urlTag :: HoogleEnv -> Maybe Anchor -> T.Text
 urlTag env anchorM = fromMaybe "" $ do
@@ -39,7 +46,7 @@ renderSimpleHoogle _env ModuleDoc{..}
     null md_functions && isNothing md_descr &&
     null md_templates && null md_interfaces = T.empty
 renderSimpleHoogle env ModuleDoc{..} = T.unlines . concat $
-  [ hooglify md_descr
+  [ hooglifyWithWarns (maybeToList md_descr) (maybeToList md_warn)
   , [ urlTag env md_anchor
     , "module " <> unModulename md_name
     , "" ]
@@ -52,14 +59,14 @@ renderSimpleHoogle env ModuleDoc{..} = T.unlines . concat $
 
 adt2hoogle :: HoogleEnv -> Maybe T.Text -> ADTDoc -> [T.Text]
 adt2hoogle env _ TypeSynDoc{..} = concat
-    [ hooglify ad_descr
+    [ hooglifyWithWarns ad_descr ad_warns
     , [ urlTag env ad_anchor
       , T.unwords ("type" : unwrapTypename ad_name :
           ad_args ++ ["=", type2hoogle ad_rhs])
       , "" ]
     ]
 adt2hoogle env dataConstraints ADTDoc{..} = concat
-    [ hooglify ad_descr
+    [ hooglifyWithWarns ad_descr ad_warns
     , [ urlTag env ad_anchor
       , T.unwords ("data" : (constraintsText <> (unwrapTypename ad_name : ad_args)))
       , "" ]
@@ -94,7 +101,7 @@ adtConstr2hoogle env typename RecordC{..} = concat
 
 fieldDoc2hoogle :: Typename -> FieldDoc -> [T.Text]
 fieldDoc2hoogle typename FieldDoc{..} = concat
-    [ hooglify fd_descr
+    [ hooglify $ maybeToList fd_descr
     , [ T.unwords
             [ wrapOp (unFieldname fd_name)
             , "::"
@@ -108,7 +115,7 @@ fieldDoc2hoogle typename FieldDoc{..} = concat
 
 cls2hoogle :: HoogleEnv -> ClassDoc -> [T.Text]
 cls2hoogle env ClassDoc{..} = concat
-    [ hooglify cl_descr
+    [ hooglifyWithWarns cl_descr cl_warns
     , [ urlTag env cl_anchor
       , T.unwords $ ["class"]
                  ++ contextToHoogle cl_super
@@ -120,7 +127,7 @@ cls2hoogle env ClassDoc{..} = concat
 classMethod2hoogle :: HoogleEnv -> ClassMethodDoc -> [T.Text]
 classMethod2hoogle _env ClassMethodDoc{..} | cm_isDefault = [] -- hide default methods from hoogle search
 classMethod2hoogle env ClassMethodDoc{..} = concat
-    [ hooglify cm_descr
+    [ hooglifyWithWarns cm_descr cm_warns
     , [ urlTag env cm_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname cm_name), "::"]
@@ -132,7 +139,7 @@ classMethod2hoogle env ClassMethodDoc{..} = concat
 
 fct2hoogle :: HoogleEnv -> FunctionDoc -> [T.Text]
 fct2hoogle env FunctionDoc{..} = concat
-    [ hooglify fct_descr
+    [ hooglifyWithWarns fct_descr fct_warns
     , [ urlTag env fct_anchor
       , T.unwords . concat $
           [ [wrapOp (unFieldname fct_name), "::"]
@@ -152,6 +159,7 @@ template2hoogle env TemplateDoc {..} = concat
       td_anchor
       td_name
       td_descr
+      td_warns
       []
       [RecordC td_anchor td_name td_descr td_payload]
       Nothing
@@ -163,7 +171,7 @@ interface2hoogle env InterfaceDoc {..} = concat
     , concatMap (choice2hoogle env typeName) if_choices
     ]
   where
-    adtDoc = ADTDoc if_anchor if_name if_descr [] [] Nothing
+    adtDoc = ADTDoc if_anchor if_name if_descr if_warns [] [] Nothing
     typeName = unwrapTypename if_name
     constraintType = TypeApp Nothing "HasInterfaceView" [TypeLit typeName, maybe (TypeTuple []) unInterfaceViewtypeDoc if_viewtype]
 
@@ -174,6 +182,7 @@ choice2hoogle env templateName ChoiceDoc {..} =
       cd_anchor
       cd_name
       cd_descr
+      cd_warns
       []
       [RecordC cd_anchor cd_name cd_descr cd_fields]
       Nothing
