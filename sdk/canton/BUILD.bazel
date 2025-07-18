@@ -216,12 +216,21 @@ da_scala_library(
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
+        ":community_lib_wartremover-annotations",
         "@maven//:com_google_guava_guava",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
         "@maven//:org_wartremover_wartremover_2_13_11",
     ],
+)
+
+### community/lib/wartremover-annotations ###
+
+da_scala_library(
+    name = "community_lib_wartremover-annotations",
+    srcs = glob(["community/lib/wartremover-annotations/src/main/**/*.scala"]),
+    scalacopts = canton_scalacopts,
 )
 
 ### community/lib/magnolify-addon
@@ -538,7 +547,7 @@ scala_library(
         ":community_buildinfo",
         ":community_kms-driver-api",
         ":community_lib_slick_slick-fork",
-        ":community_lib_wartremover",
+        ":community_lib_wartremover-annotations",
         ":community_magnolify-addon",
         ":community_util-logging",
         ":ledger_api_proto_scala",
@@ -634,7 +643,7 @@ scala_library(
         ":community_buildinfo",
         ":community_lib_Blake2b",
         ":community_lib_slick_slick-fork",
-        ":community_lib_wartremover",
+        ":community_lib_wartremover-annotations",
         ":community_magnolify-addon",
         ":community_util-logging",
         ":ledger_api_proto_scala",
@@ -1005,7 +1014,7 @@ scala_library(
         ":community_base_proto_scala",
         ":community_common",
         ":community_lib_slick_slick-fork",
-        ":community_lib_wartremover",
+        ":community_lib_wartremover-annotations",
         ":community_magnolify-addon",
         ":community_reference-driver",
         ":community_sequencer-driver",
@@ -1159,7 +1168,7 @@ scala_library(
         ":community_ledger_ledger-common",
         ":community_ledger_ledger-json-api",
         ":community_lib_slick_slick-fork",
-        ":community_lib_wartremover",
+        ":community_lib_wartremover-annotations",
         ":community_magnolify-addon",
         ":community_participant_admin-workflows_java",
         ":community_participant_party-replication_java",
@@ -1354,7 +1363,7 @@ scala_library(
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
         ":community_ledger_ledger-json-api",
-        ":community_lib_wartremover",
+        ":community_lib_wartremover-annotations",
         ":community_magnolify-addon",
         ":community_participant",
         ":community_sequencer-driver",
