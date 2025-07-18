@@ -73,10 +73,10 @@ object P2PNetworkOut {
     }
 
     final case class RetransmissionMessage(
-        signedMessage: SignedMessage[Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage]
+        message: Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
     ) extends BftOrderingNetworkMessage {
       override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody(
-        v30.BftOrderingMessageBody.Message.RetransmissionMessage(signedMessage.toProtoV1)
+        v30.BftOrderingMessageBody.Message.RetransmissionMessage(message.toProto)
       )
     }
 

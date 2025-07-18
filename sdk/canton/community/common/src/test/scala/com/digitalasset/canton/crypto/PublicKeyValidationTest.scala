@@ -5,6 +5,11 @@ package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config.PositiveFiniteDuration
+import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
+import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
@@ -50,15 +55,16 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       }
     }
 
-  /** Test public key validation
+  /** Test key validation
     */
-  def publicKeyValidationProvider(
+  def keyValidationProvider(
       supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
+      javaPrivateKeyRetentionTime: PositiveFiniteDuration,
   ): Unit =
-    "Validate public keys" should {
+    "Validate keys" should {
       forAll(supportedSigningKeySpecs) { signingKeySpec =>
         keyValidationTest[SigningPublicKey](
           supportedCryptoKeyFormats,
@@ -81,6 +87,66 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           newCrypto,
           crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
         )
+      }
+
+      "retain parsed Java keys in cache for the correct amount of time" in {
+        for {
+          crypto <- newCrypto
+          _ = assume(
+            crypto.pureCrypto.isInstanceOf[JcePureCrypto],
+            "Test only runs with JcePureCrypto",
+          )
+          jcePureCrypto = crypto.pureCrypto.asInstanceOf[JcePureCrypto]
+          privateStore = crypto.cryptoPrivateStore match {
+            case extended: CryptoPrivateStoreExtended => extended
+            case _ => fail("incorrect crypto private store type")
+          }
+          publicKey <- getSigningPublicKey(
+            crypto,
+            SigningKeyUsage.ProtocolOnly,
+            supportedSigningKeySpecs.head,
+          ).failOnShutdown
+          privateKey <- privateStore
+            .exportPrivateKey(publicKey.id)
+            .valueOrFail("export private key")
+            .failOnShutdown
+          signingPrivateKey = privateKey
+            .valueOrFail("no private key")
+            .asInstanceOf[SigningPrivateKey]
+
+          // indirectly converts the private key to a Java key and stores it in the cache
+          signature = jcePureCrypto
+            .signBytes(
+              ByteString.copyFromUtf8("test"),
+              signingPrivateKey,
+              SigningKeyUsage.ProtocolOnly,
+            )
+            .valueOrFail("sign message")
+
+          // indirectly converts the public key to a Java key and stores it in the cache
+          _ = crypto.pureCrypto
+            .verifySignature(
+              ByteString.copyFromUtf8("test"),
+              publicKey,
+              signature,
+              SigningKeyUsage.ProtocolOnly,
+            )
+            .valueOrFail("verify signature")
+
+          inCache = jcePureCrypto.isJavaPublicKeyInCache(publicKey.id) &&
+            jcePureCrypto.isJavaPrivateKeyInCache(publicKey.id)
+
+          // ensure enough time has passed for the Java keys to be removed from their respective caches
+          _ = Threading.sleep(javaPrivateKeyRetentionTime.underlying.toMillis + 1000)
+
+          inPublicCache = jcePureCrypto.isJavaPublicKeyInCache(publicKey.id)
+          inPrivateCache = jcePureCrypto.isJavaPrivateKeyInCache(publicKey.id)
+
+        } yield {
+          inCache shouldBe true
+          inPublicCache shouldBe false
+          inPrivateCache shouldBe false
+        }
       }
     }
 

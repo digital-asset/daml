@@ -210,7 +210,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, psid.logical)
+    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, psid)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]

@@ -295,7 +295,7 @@ object AssignmentValidation {
           targetTimeProof,
         )
         .leftMap[ReassignmentProcessorError](
-          ReassignmentParametersError(synchronizerId.unwrap.logical, _)
+          ReassignmentParametersError(synchronizerId.unwrap, _)
         )
 
       validationError = Option.when(

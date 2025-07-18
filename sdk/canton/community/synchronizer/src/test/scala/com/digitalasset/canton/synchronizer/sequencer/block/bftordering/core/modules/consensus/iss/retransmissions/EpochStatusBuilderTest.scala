@@ -55,7 +55,7 @@ class EpochStatusBuilderTest extends AnyWordSpec with BftSequencerBaseTest {
         Consensus.RetransmissionsMessage.SegmentStatus(epoch0, segmentIndex = 0, inProgressSegment)
       )
       epochStatusBuilder.epochStatus shouldBe Some(
-        ConsensusStatus.EpochStatus(
+        ConsensusStatus.EpochStatus.create(
           myId,
           epoch0,
           Seq(inProgressSegment, completeSegment, inViewChangeSegment),

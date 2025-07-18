@@ -128,6 +128,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
       stores.outputStore,
       timeouts,
       msg => implicit context => failBootstrap(msg),
+      metrics,
       loggerFactory,
     )
     val (initialEpoch, bootstrapTopologyInfo, blacklistLeaderSelectionState) =

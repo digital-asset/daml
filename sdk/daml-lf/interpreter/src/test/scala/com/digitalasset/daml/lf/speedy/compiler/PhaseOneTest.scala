@@ -168,7 +168,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def app3of3 = (x: Expr) => EApp(exp, EApp(exp, x))
   private def tyApp = (x: Expr) => ETyApp(x, ty)
   private def esome = (x: Expr) => ESome(ty, x)
-  private def eabs = (x: Expr) => EAbs(binder, x, None)
+  private def eabs = (x: Expr) => EAbs(binder, x)
   private def etyabs = (x: Expr) => ETyAbs(tvBinder, x)
   private def struct1 = (x: Expr) => EStructCon(ImmArray((field, x), (field2, exp)))
   private def struct2 = (x: Expr) => EStructCon(ImmArray((field, exp), (field2, x)))

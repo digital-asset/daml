@@ -6,12 +6,24 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.SupportedVersions
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.MessageFrom
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
+import com.digitalasset.canton.version.{
+  HasProtocolVersionedWrapper,
+  HasRepresentativeProtocolVersion,
+  ProtocolVersion,
+  RepresentativeProtocolVersion,
+  VersionedProtoCodec,
+  VersioningCompanionContextMemoization,
+}
+import com.google.protobuf.ByteString
 
 /** Status messages that describe how far into the consensus process a node is. This is used as part
   * of retransmissions such that receiving nodes can tell if there are messages they can retransmit
@@ -19,26 +31,66 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
   */
 object ConsensusStatus {
 
-  final case class EpochStatus(
+  final case class EpochStatus private (
       from: BftNodeId,
       epochNumber: EpochNumber,
       segments: Seq[SegmentStatus],
-  ) {
+  )(
+      override val representativeProtocolVersion: RepresentativeProtocolVersion[
+        EpochStatus.type
+      ],
+      override val deserializedFrom: Option[ByteString],
+  ) extends HasRepresentativeProtocolVersion
+      with ProtocolVersionedMemoizedEvidence
+      with MessageFrom
+      with HasProtocolVersionedWrapper[EpochStatus] {
     def toProto: v30.EpochStatus = v30.EpochStatus(epochNumber, segments.map(_.toProto))
+
+    override protected val companionObj: EpochStatus.type = EpochStatus
+
+    override protected[this] def toByteStringUnmemoized: ByteString =
+      super[HasProtocolVersionedWrapper].toByteString
   }
 
-  object EpochStatus {
+  object EpochStatus
+      extends VersioningCompanionContextMemoization[
+        EpochStatus,
+        BftNodeId,
+      ] {
+    override def name: String = "EpochStatus"
+
+    def create(
+        from: BftNodeId,
+        epochNumber: EpochNumber,
+        segments: Seq[SegmentStatus],
+    )(implicit
+        synchronizerProtocolVersion: ProtocolVersion
+    ): EpochStatus =
+      EpochStatus(from, epochNumber, segments)(
+        protocolVersionRepresentativeFor(synchronizerProtocolVersion),
+        None,
+      )
+
     def fromProto(
         from: BftNodeId,
         protoEpochStatus: v30.EpochStatus,
-    ): ParsingResult[EpochStatus] =
+    )(originalByteString: ByteString): ParsingResult[EpochStatus] =
       for {
         segments <- protoEpochStatus.segments.traverse(SegmentStatus.fromProto)
+        rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
       } yield EpochStatus(
         from,
         EpochNumber(protoEpochStatus.epochNumber),
         segments,
-      )
+      )(rpv, Some(originalByteString))
+
+    override def versioningTable: VersioningTable = VersioningTable(
+      SupportedVersions.ProtoData ->
+        VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.EpochStatus)(
+          supportedProtoVersionMemoized(_)(fromProto),
+          _.toProto,
+        )
+    )
   }
 
   sealed trait SegmentStatus {

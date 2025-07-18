@@ -3,7 +3,13 @@
 
 package com.digitalasset.canton.crypto.provider.jce
 
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  CacheConfig,
+  CryptoConfig,
+  CryptoProvider,
+  ProcessingTimeout,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
 import com.digitalasset.canton.crypto.{Crypto, CryptoSchemes}
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -14,6 +20,8 @@ object JceCrypto {
 
   def create(
       config: CryptoConfig,
+      sessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
+      publicKeyConversionCacheConfig: CacheConfig,
       cryptoPrivateStore: CryptoPrivateStore,
       cryptoPublicStore: CryptoPublicStore,
       timeouts: ProcessingTimeout,
@@ -30,7 +38,12 @@ object JceCrypto {
           s"The crypto private store does not implement all the functions necessary " +
             s"for the chosen provider ${config.provider}"
         )
-      pureCrypto <- JcePureCrypto.create(config, loggerFactory)
+      pureCrypto <- JcePureCrypto.create(
+        config,
+        sessionEncryptionKeyCacheConfig,
+        publicKeyConversionCacheConfig,
+        loggerFactory,
+      )
       privateCrypto =
         new JcePrivateCrypto(
           pureCrypto,

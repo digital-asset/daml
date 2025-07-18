@@ -32,6 +32,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusStatus,
@@ -44,7 +45,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
@@ -65,7 +65,7 @@ class RetransmissionsManager[E <: Env[E]](
     metrics: BftOrderingMetrics,
     clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+)(implicit mc: MetricsContext)
     extends NamedLogging {
   private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
@@ -156,7 +156,7 @@ class RetransmissionsManager[E <: Env[E]](
   ): Unit = message match {
     case Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message) =>
       // do cheap validations before checking signature to potentially save ourselves from doing the expensive signature check
-      validateUnverifiedNetworkMessage(message.message) match {
+      validateUnverifiedNetworkMessage(message) match {
         case Left(error) => logger.info(error)
         case Right(()) =>
           context.pipeToSelf(
@@ -164,24 +164,25 @@ class RetransmissionsManager[E <: Env[E]](
           ) {
             case Failure(exception) =>
               logger.error(
-                s"Can't verify ${shortType(message.message)} from ${message.from}",
+                s"Can't verify ${shortType(message)} from ${message.from}",
                 exception,
               )
               None
             case Success(Left(errors)) =>
               // Info because it can also happen at epoch boundaries
               logger.info(
-                s"Verification of ${shortType(message.message)} from ${message.from} failed: $errors"
+                s"Verification of ${shortType(message)} from ${message.from} failed: $errors"
               )
               None
             case Success(Right(())) =>
-              Some(Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message.message))
+              Some(Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message))
           }
       }
-    // message from the network from a node requesting retransmissions of messages
     case Consensus.RetransmissionsMessage.VerifiedNetworkMessage(msg) =>
       msg match {
-        case Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus) =>
+        // message from the network from a node requesting retransmissions of messages
+        case Consensus.RetransmissionsMessage.RetransmissionRequest(signedMessage) =>
+          val epochStatus = signedMessage.message
           currentEpoch.filter(_.epoch.info.number == epochStatus.epochNumber) match {
             case Some(currentEpoch) =>
               logger.debug(
@@ -200,7 +201,6 @@ class RetransmissionsManager[E <: Env[E]](
                     s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
                   )
                   retransmitCommitCertificates(
-                    topologyInfo.currentCryptoProvider,
                     epochStatus.from,
                     commitCertsToRetransmit,
                   )
@@ -263,17 +263,17 @@ class RetransmissionsManager[E <: Env[E]](
         if (requestRateLimiter.checkAndUpdateRate(status.from)) {
           currentEpoch.zip(validator) match {
             case Some((epochState, validator))
-                if epochState.epoch.info.number == status.epochNumber =>
-              validator.validateRetransmissionRequest(req)
+                if epochState.epoch.info.number == status.message.epochNumber =>
+              validator.validateRetransmissionRequest(status.message)
             case _ =>
               previousEpochsRetransmissionsTracker
-                .processRetransmissionsRequest(status)
+                .processRetransmissionsRequest(status.message)
                 .map(_ => ())
           }
         } else {
           discardedRateLimitedRetransmissionRequestCount += 1
           Left(
-            s"Dropped a retransmission request from ${status.from} for epoch ${status.epochNumber} due to rate limiting"
+            s"Dropped a retransmission request from ${status.from} for epoch ${status.message.epochNumber} due to rate limiting"
           )
         }
       case response: Consensus.RetransmissionsMessage.RetransmissionResponse =>
@@ -317,41 +317,37 @@ class RetransmissionsManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = signRetransmissionNetworkMessage(
     activeCryptoProvider,
-    Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus),
+    epochStatus,
   ) { signedMessage =>
     outgoingRetransmissionsRequestCount += 1
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(
-        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
+        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
+          Consensus.RetransmissionsMessage.RetransmissionRequest(signedMessage)
+        ),
         roundRobin.nextNode(membership),
       )
     )
   }
 
   private def retransmitCommitCertificates(
-      activeCryptoProvider: CryptoProvider[E],
       receiver: BftNodeId,
       commitCertificates: Seq[CommitCertificate],
-  )(implicit
-      context: E#ActorContextT[Consensus.Message[E]],
-      traceContext: TraceContext,
-  ): Unit = signRetransmissionNetworkMessage(
-    activeCryptoProvider,
-    Consensus.RetransmissionsMessage.RetransmissionResponse.create(thisNode, commitCertificates),
-  ) { signedMessage =>
+  ): Unit =
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(
-        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
+        P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
+          Consensus.RetransmissionsMessage.RetransmissionResponse(thisNode, commitCertificates)
+        ),
         to = receiver,
       )
     )
-  }
 
-  private def signRetransmissionNetworkMessage[Message <: RetransmissionsNetworkMessage](
+  private def signRetransmissionNetworkMessage(
       activeCryptoProvider: CryptoProvider[E],
-      message: Message,
+      message: EpochStatus,
   )(
-      continuation: SignedMessage[Message] => Unit
+      continuation: SignedMessage[EpochStatus] => Unit
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,

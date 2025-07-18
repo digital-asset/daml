@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.{catsSyntaxAlternativeSeparate, catsSyntaxValidatedId}
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CacheConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
@@ -58,8 +59,10 @@ class SyncCryptoVerifier(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     verifyPublicApiWithLongTermKeys: SynchronizerCryptoPureApi,
     verificationParallelismLimit: PositiveInt,
+    publicKeyConversionCacheConfig: CacheConfig,
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit executionContext: ExecutionContext)
+    extends NamedLogging {
 
   /** The software-based crypto public API that is used to verify signatures with a session signing
     * key (generated in software). Except for the supported signing schemes, all other schemes are
@@ -78,6 +81,10 @@ class SyncCryptoVerifier(
         CryptoScheme(RsaOaepSha256, NonEmpty.mk(Set, RsaOaepSha256)), // not used
       defaultHashAlgorithm = Sha256, // not used
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1, // not used
+      publicKeyConversionCacheConfig = publicKeyConversionCacheConfig,
+      // passing None here is fine because this JcePureCrypto is only used for verifying signatures
+      // with a public signing key, and the private key conversion cache is never used.
+      privateKeyConversionCacheTtl = None,
       loggerFactory = loggerFactory,
     )
 
@@ -99,6 +106,7 @@ class SyncCryptoVerifier(
       )
       // allow the JVM garbage collector to remove entries from it when there is pressure on memory
       .softValues()
+      .executor(executionContext.execute(_))
       .build()
 
   private def loadSigningKeysForMember(
@@ -106,8 +114,7 @@ class SyncCryptoVerifier(
       topologySnapshot: TopologySnapshot,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Map[Fingerprint, SigningPublicKey]] =
     EitherT.right[SignatureCheckError](
       topologySnapshot
@@ -120,8 +127,7 @@ class SyncCryptoVerifier(
       topologySnapshot: TopologySnapshot,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Map[
     Member,
     Map[Fingerprint, SigningPublicKey],
@@ -146,8 +152,7 @@ class SyncCryptoVerifier(
       signers: Seq[Member],
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Map[Fingerprint, SigningPublicKey]] =
     signers match {
       case Seq(singleSigner) => loadSigningKeysForMember(singleSigner, topologySnapshot, usage)
@@ -163,8 +168,7 @@ class SyncCryptoVerifier(
       signerStr: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     (for {
       _ <- Either.cond(
@@ -195,8 +199,7 @@ class SyncCryptoVerifier(
       signerStr: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] = {
     val SignatureDelegation(sessionKey, validityPeriod, _) = signatureDelegation
     val currentTimestamp = topologySnapshot.timestamp
@@ -300,8 +303,7 @@ class SyncCryptoVerifier(
       signerStr: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     signature.signatureDelegation match {
       case Some(signatureDelegation) =>
@@ -339,8 +341,7 @@ class SyncCryptoVerifier(
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     verifySignatureInternal(
       topologySnapshot,
@@ -362,8 +363,7 @@ class SyncCryptoVerifier(
       signatures: NonEmpty[Seq[Signature]],
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     MonadUtil.parTraverseWithLimit_(verificationParallelismLimit)(signatures.forgetNE)(signature =>
       verifySignatureInternal(
@@ -393,8 +393,7 @@ class SyncCryptoVerifier(
       signatures: NonEmpty[Seq[Signature]],
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
     for {
       validKeysWithMembers <- loadSigningKeysForMembers(signers, topologySnapshot, usage)
@@ -449,13 +448,15 @@ object SyncCryptoVerifier {
       staticSynchronizerParameters: StaticSynchronizerParameters,
       pureCrypto: SynchronizerCryptoPureApi,
       verificationParallelismLimit: PositiveInt,
+      publicKeyConversionCacheConfig: CacheConfig,
       loggerFactory: NamedLoggerFactory,
-  ) =
+  )(implicit executionContext: ExecutionContext) =
     new SyncCryptoVerifier(
       synchronizerId,
       staticSynchronizerParameters,
       pureCrypto,
       verificationParallelismLimit,
+      publicKeyConversionCacheConfig: CacheConfig,
       loggerFactory,
     )
 

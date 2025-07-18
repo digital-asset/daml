@@ -259,7 +259,7 @@ final class AssignmentValidationTest
       }
 
       val unauthenticatedContractId = ExampleTransactionFactory
-        .authenticatedSerializableContract(
+        .authenticatedContractInstance(
           metadata = ContractMetadata
             .tryCreate(
               signatories = Set(signatory),

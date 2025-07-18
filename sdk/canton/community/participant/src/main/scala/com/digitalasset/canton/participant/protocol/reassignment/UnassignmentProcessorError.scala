@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 trait UnassignmentProcessorError extends ReassignmentProcessorError
 
@@ -21,7 +21,7 @@ object UnassignmentProcessorError {
   }
 
   final case class TargetSynchronizerIsSourceSynchronizer(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       contractIds: Seq[LfContractId],
   ) extends UnassignmentProcessorError {
     override def message: String =

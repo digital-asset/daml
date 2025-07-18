@@ -485,7 +485,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     private val ETyApps = LeftRecMatcher[Expr, Type]({ case ETyApp(exp, typ) =>
       exp -> typ
     })
-    private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({ case EAbs(binder, body, _) =>
+    private val EAbss = RightRecMatcher[(ExprVarName, Type), Expr]({ case EAbs(binder, body) =>
       binder -> body
     })
     private val ETyAbss = RightRecMatcher[(TypeVarName, Kind), Expr]({ case ETyAbs(binder, body) =>

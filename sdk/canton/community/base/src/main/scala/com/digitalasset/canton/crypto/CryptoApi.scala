@@ -8,7 +8,13 @@ import cats.syntax.either.*
 import cats.syntax.show.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  CacheConfig,
+  CryptoConfig,
+  CryptoProvider,
+  ProcessingTimeout,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.kms.KmsFactory
 import com.digitalasset.canton.crypto.provider.jce.{JceCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.provider.kms.KmsPrivateCrypto
@@ -335,6 +341,8 @@ object Crypto {
 
   def create(
       config: CryptoConfig,
+      sessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
+      publicKeyConversionCacheConfig: CacheConfig,
       storage: Storage,
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
       kmsFactory: KmsFactory,
@@ -362,6 +370,8 @@ object Crypto {
           JceCrypto
             .create(
               config,
+              sessionEncryptionKeyCacheConfig,
+              publicKeyConversionCacheConfig,
               cryptoPrivateStore,
               cryptoPublicStore,
               timeouts,
@@ -398,6 +408,8 @@ object Crypto {
               )
               pureCrypto <- JcePureCrypto.create(
                 config.copy(provider = CryptoProvider.Jce),
+                sessionEncryptionKeyCacheConfig,
+                publicKeyConversionCacheConfig,
                 loggerFactory,
               )
             } yield new Crypto(

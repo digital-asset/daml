@@ -126,7 +126,7 @@ private[participant] object AutomaticAssignment {
           .fromEither[FutureUnlessShutdown](
             targetSynchronizerParameters.unwrap
               .assignmentExclusivityLimitFor(t0)
-              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap.logical, _))
+              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap, _))
           )
           .leftWiden[ReassignmentProcessorError]
 

@@ -210,7 +210,7 @@ private[lf] final class PhaseOne(
         Return(compileBuiltinCon(con))
       case EBuiltinLit(lit) =>
         Return(compileBuiltinLit(lit))
-      case EAbs(_, _, _) | ETyAbs(_, _) =>
+      case EAbs(_, _) | ETyAbs(_, _) =>
         compileAbss(env, exp, arity = 0)
       case EApp(_, _) | ETyApp(_, _) =>
         compileApps(env, exp, args = List.empty)
@@ -758,7 +758,7 @@ private[lf] final class PhaseOne(
   @tailrec
   private[this] def compileAbss(env: Env, exp: Expr, arity: Int): Work = {
     exp match {
-      case EAbs((binder, typ @ _), body, ref @ _) =>
+      case EAbs((binder, typ @ _), body) =>
         compileAbss(env.pushExprVar(binder), body, arity + 1)
       case ETyAbs(_, body) =>
         compileAbss(env, body, arity)

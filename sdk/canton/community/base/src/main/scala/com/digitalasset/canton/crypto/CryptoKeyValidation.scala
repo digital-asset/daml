@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
@@ -12,13 +13,18 @@ import com.digitalasset.canton.crypto.provider.jce.JceJavaKeyConverter
 import java.security.PublicKey as JPublicKey
 import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
+import scala.concurrent.blocking
 
 object CryptoKeyValidation {
 
-  // TODO(#15632): Make this a real cache with an eviction rule
-  // keeps track of the public keys that have been validated
+  // Keeps track of the public keys that have been validated.
+  // TODO(#15634): Once the crypto provider is available in the validation context, move this to the provider object
+  // and replace it with a proper cache.
   private lazy val validatedPublicKeys: TrieMap[PublicKey, Either[KeyParseAndValidateError, Unit]] =
     TrieMap.empty
+
+  // To prevent concurrent cache cleanups
+  private val cacheLock = new Object
 
   private[crypto] def parseAndValidateDerKey(
       publicKey: PublicKey
@@ -48,6 +54,17 @@ object CryptoKeyValidation {
         Left(KeyParseAndValidateError(s"Invalid format for public key: $format"))
     }
 
+    // Temporary workaround to clear this TrieMap and prevent memory leaks.
+    // TODO(#15634): Remove this once `validatedPublicKeys` uses a proper cache.
+    blocking(
+      cacheLock.synchronized {
+        if (
+          validatedPublicKeys.size > CachingConfigs.defaultPublicKeyConversionCache.maximumSize.value
+        ) {
+          validatedPublicKeys.clear()
+        }
+      }
+    )
     // If the result is already in the cache it means the key has already been validated.
     validatedPublicKeys
       .getOrElseUpdate(publicKey, parseRes)

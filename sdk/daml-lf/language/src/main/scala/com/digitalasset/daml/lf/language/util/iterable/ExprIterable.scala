@@ -35,7 +35,7 @@ private[lf] object ExprIterable {
         Iterator(fun, arg)
       case ETyApp(expr, typ @ _) =>
         Iterator(expr)
-      case EAbs(binder @ _, body, ref @ _) =>
+      case EAbs(binder @ _, body) =>
         Iterator(body)
       case ETyAbs(binder @ _, body) =>
         Iterator(body)

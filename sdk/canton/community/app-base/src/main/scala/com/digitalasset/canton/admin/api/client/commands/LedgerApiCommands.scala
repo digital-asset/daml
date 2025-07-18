@@ -205,7 +205,7 @@ object LedgerApiCommands {
         partyIdHint: String,
         annotations: Map[String, String],
         identityProviderId: String,
-        synchronizerId: String,
+        synchronizerId: Option[SynchronizerId],
         userId: String,
     ) extends BaseCommand[AllocatePartyRequest, AllocatePartyResponse, PartyDetails] {
       override protected def createRequest(): Either[String, AllocatePartyRequest] =
@@ -214,7 +214,7 @@ object LedgerApiCommands {
             partyIdHint = partyIdHint,
             localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.map(_.toProtoPrimitive).getOrElse(""),
             userId = userId,
           )
         )

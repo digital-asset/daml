@@ -367,7 +367,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       val activeSynchronizer =
         if (
           activeSynchronizers
-            .map(alias => participant.synchronizers.id_of(alias).logical)
+            .map(alias => participant.synchronizers.id_of(alias))
             .contains(synchronizerId)
         ) {
           synchronizerId

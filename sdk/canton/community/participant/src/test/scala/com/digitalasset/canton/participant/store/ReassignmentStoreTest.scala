@@ -31,15 +31,12 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
-  asSerializable,
-  contractInstance,
-  suffixedId,
-}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.{contractInstance, suffixedId}
 import com.digitalasset.canton.protocol.{
   ContractInstance,
   ContractMetadata,
   ExampleContractFactory,
+  ExampleTransactionFactory,
   LfContractId,
   ReassignmentId,
 }
@@ -1379,20 +1376,20 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   val bob = LfPartyId.assertFromString("bob")
 
   private def contract(id: LfContractId, signatory: LfPartyId): ContractInstance =
-    asSerializable(
+    ExampleTransactionFactory.asContractInstance(
       contractId = id,
       contractInstance = contractInstance(),
       ledgerTime = CantonTimestamp.Epoch,
       metadata = ContractMetadata.tryCreate(Set(signatory), Set(signatory), None),
-    ).tryToContractInstance()
+    )
 
   val coidAbs1 = suffixedId(1, 0)
   val coidAbs2 = suffixedId(2, 0)
-  val contract = asSerializable(
+  val contract = ExampleTransactionFactory.asContractInstance(
     contractId = coidAbs1,
     contractInstance = contractInstance(),
     ledgerTime = CantonTimestamp.Epoch,
-  ).tryToContractInstance()
+  )
 
   val synchronizer1 = SynchronizerId(
     UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1")
