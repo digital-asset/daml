@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.archive
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
+import com.digitalasset.daml.lf.archive.{DamlLf2 => PLF}
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
@@ -85,7 +86,7 @@ class DecodeV2Spec
       dottedNameTable: ImmArraySeq[Ref.DottedName] = ImmArraySeq.empty,
       kindTable: ImmArraySeq[Ast.Kind] = ImmArraySeq.empty,
       typeTable: ImmArraySeq[Ast.Type] = ImmArraySeq.empty,
-      exprTable: ImmArraySeq[Ast.Expr] = ImmArraySeq.empty,
+      exprTable: ImmArraySeq[PLF.Expr] = ImmArraySeq.empty,
   ) = {
     new DecodeV2(version.minor).Env(
       Ref.PackageId.assertFromString("noPkgId"),
