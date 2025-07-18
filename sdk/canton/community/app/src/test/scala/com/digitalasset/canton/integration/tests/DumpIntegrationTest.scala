@@ -30,6 +30,7 @@ import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter, con
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
 
 import java.nio.file.NoSuchFileException
+import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
 sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
@@ -54,9 +55,14 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
         participants.all.dars.upload(CantonExamplesPath)
       }
 
-  def cryptoPureApi(config: LocalNodeConfig): CryptoPureApi =
+  def cryptoPureApi(config: LocalNodeConfig)(implicit ec: ExecutionContext): CryptoPureApi =
     JcePureCrypto
-      .create(config.crypto, loggerFactory)
+      .create(
+        config.crypto,
+        config.parameters.caching.sessionEncryptionKeyCache,
+        config.parameters.caching.publicKeyConversionCache,
+        loggerFactory,
+      )
       .valueOr(err => throw new RuntimeException(s"Failed to create pure crypto api: $err"))
 
   "create a dump file" in { implicit env =>

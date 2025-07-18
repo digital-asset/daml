@@ -91,33 +91,37 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   )
 
   private val retransmissionRequest =
-    Consensus.RetransmissionsMessage.RetransmissionRequest.create(
-      ConsensusStatus.EpochStatus(
-        self,
-        EpochNumber.First,
-        Seq(
-          ConsensusStatus.SegmentStatus.Complete,
-          ConsensusStatus.SegmentStatus.Complete,
-        ),
-      )
+    Consensus.RetransmissionsMessage.RetransmissionRequest(
+      ConsensusStatus.EpochStatus
+        .create(
+          self,
+          EpochNumber.First,
+          Seq(
+            ConsensusStatus.SegmentStatus.Complete,
+            ConsensusStatus.SegmentStatus.Complete,
+          ),
+        )
+        .fakeSign
     )
 
   private val validRetransmissionRequest =
-    Consensus.RetransmissionsMessage.RetransmissionRequest.create(
-      ConsensusStatus.EpochStatus(
-        self,
-        EpochNumber.First,
-        Seq(
-          ConsensusStatus.SegmentStatus.InProgress(
-            ViewNumber.First,
-            Seq(BlockStatus.InProgress(prePrepared = false, Seq(false, false), Seq(false, false))),
-          )
-        ),
-      )
+    Consensus.RetransmissionsMessage.RetransmissionRequest(
+      ConsensusStatus.EpochStatus
+        .create(
+          self,
+          EpochNumber.First,
+          Seq(
+            ConsensusStatus.SegmentStatus.InProgress(
+              ViewNumber.First,
+              Seq(BlockStatus.InProgress(prePrepared = false, Seq(false, false), Seq(false, false))),
+            )
+          ),
+        )
+        .fakeSign
     )
 
   private val epochStatus =
-    ConsensusStatus.EpochStatus(
+    ConsensusStatus.EpochStatus.create(
       other1,
       EpochNumber.First,
       Seq(
@@ -136,13 +140,13 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       wantedNumberOfInvocations: Int,
   ): Unit = {
     verify(cryptoProvider, times(wantedNumberOfInvocations)).signMessage(
-      retransmissionRequest,
+      retransmissionRequest.signedEpochStatus.message,
       AuthenticatedMessageType.BftSignedRetransmissionMessage,
     )
     verify(networkOut, times(wantedNumberOfInvocations)).asyncSend(
       P2PNetworkOut.Multicast(
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-          retransmissionRequest.fakeSign
+          retransmissionRequest
         ),
         others,
       )
@@ -247,14 +251,14 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
         when(
           cryptoProvider.verifySignedMessage(
-            message.fakeSign,
+            message.signedEpochStatus,
             AuthenticatedMessageType.BftSignedRetransmissionMessage,
           )
         ).thenReturn(() => Right(()))
 
         manager.handleMessage(
           orderingTopologyInfo(cryptoProvider),
-          Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
+          Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message),
         )
 
         context.runPipedMessages() shouldBe List(
@@ -275,7 +279,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
         manager.handleMessage(
           orderingTopologyInfo(cryptoProvider),
-          Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
+          Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message),
         )
 
         // manager has not started any epochs yet, so it cannot process the request
@@ -300,14 +304,14 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       when(
         cryptoProvider.verifySignedMessage(
-          message.fakeSign,
+          message.signedEpochStatus,
           AuthenticatedMessageType.BftSignedRetransmissionMessage,
         )
       ).thenReturn(() => Left(SignatureCheckError.InvalidKeyError("failed to verify")))
 
       manager.handleMessage(
         orderingTopologyInfo(cryptoProvider),
-        Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
+        Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message),
       )
 
       assertLogs(
@@ -428,7 +432,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       manager.handleMessage(
         orderingTopologyInfo(cryptoProvider),
         Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
-          Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus)
+          Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus.fakeSign)
         ),
       )
 
@@ -466,26 +470,22 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       manager.handleMessage(
         orderingTopologyInfo(cryptoProvider),
         Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
-          Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus)
+          Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus.fakeSign)
         ),
       )
 
       context.runPipedMessages() shouldBe empty
 
       val retransmissionResponse =
-        Consensus.RetransmissionsMessage.RetransmissionResponse.create(
+        Consensus.RetransmissionsMessage.RetransmissionResponse(
           self,
           Seq(commitCertificate),
         )
 
-      verify(cryptoProvider, times(1)).signMessage(
-        retransmissionResponse,
-        AuthenticatedMessageType.BftSignedRetransmissionMessage,
-      )
       verify(networkOut, times(1)).asyncSend(
         P2PNetworkOut.Multicast(
           P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-            retransmissionResponse.fakeSign
+            retransmissionResponse
           ),
           Set(other1),
         )

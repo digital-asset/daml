@@ -396,14 +396,12 @@ final class AssignmentProcessingStepsTest
     "fail when submitting party not hosted on the participant" in {
 
       // We need to change the contract instance otherwise we get another error (AssignmentSubmitterMustBeStakeholder)
-      val contract = ExampleTransactionFactory
-        .asSerializable(
-          contractId = coidAbs1,
-          contractInstance = ExampleTransactionFactory.contractInstance(),
-          ledgerTime = CantonTimestamp.Epoch,
-          metadata = ContractMetadata.tryCreate(Set(party3), Set(party3), None),
-        )
-        .tryToContractInstance()
+      val contract = ExampleTransactionFactory.asContractInstance(
+        contractId = coidAbs1,
+        contractInstance = ExampleTransactionFactory.contractInstance(),
+        ledgerTime = CantonTimestamp.Epoch,
+        metadata = ContractMetadata.tryCreate(Set(party3), Set(party3), None),
+      )
 
       val unassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         sourceMediator,
@@ -624,31 +622,39 @@ final class AssignmentProcessingStepsTest
       val baseMetadata = testMetadata()
 
       // party2 is incorrectly registered as a stakeholder
-      val contractWrongStakeholders: ContractInstance =
-        ExampleTransactionFactory
-          .authenticatedSerializableContract(
-            metadata = baseMetadata
+      val contractWrongStakeholders: ContractInstance = {
+        val fci = ExampleTransactionFactory
+          .authenticatedContractInstance(metadata = baseMetadata)
+          .inst
+        ContractInstance(
+          LfFatContractInst.fromCreateNode(
+            fci.toCreateNode
+              .focus(_.stakeholders)
+              .modify(_ incl party2),
+            fci.createdAt,
+            fci.cantonData,
           )
-          .focus(_.metadata)
-          .replace(
-            testMetadata(stakeholders = baseMetadata.stakeholders + party2)
-          )
-          .tryToContractInstance()
+        ).value
+      }
 
       // party2 is incorrectly registered as a signatory
-      val contractWrongSignatories: ContractInstance =
-        ExampleTransactionFactory
-          .authenticatedSerializableContract(
+      val contractWrongSignatories: ContractInstance = {
+        val fci = ExampleTransactionFactory
+          .authenticatedContractInstance(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
-          .focus(_.metadata)
-          .replace(
-            testMetadata(
-              stakeholders = baseMetadata.stakeholders + party2,
-              signatories = baseMetadata.signatories + party2,
-            )
+          .inst
+
+        ContractInstance(
+          LfFatContractInst.fromCreateNode(
+            fci.toCreateNode
+              .focus(_.signatories)
+              .modify(_ incl party2),
+            fci.createdAt,
+            fci.cantonData,
           )
-          .tryToContractInstance()
+        ).value
+      }
 
       val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
         ExampleTransactionFactory.defaultGlobalKey,
@@ -656,18 +662,22 @@ final class AssignmentProcessingStepsTest
       )
 
       // Metadata has incorrect key
-      val contractWrongKey: ContractInstance =
-        ExampleTransactionFactory
-          .authenticatedSerializableContract(
+      val contractWrongKey: ContractInstance = {
+        val fci = ExampleTransactionFactory
+          .authenticatedContractInstance(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
-          .focus(_.metadata)
-          .replace(
-            testMetadata(
-              maybeKeyWithMaintainersVersioned = Some(incorrectKey)
-            )
+          .inst
+        ContractInstance(
+          LfFatContractInst.fromCreateNode(
+            fci.toCreateNode
+              .focus(_.keyOpt)
+              .replace(Some(incorrectKey.unversioned)),
+            fci.createdAt,
+            fci.cantonData,
           )
-          .tryToContractInstance()
+        ).value
+      }
 
       for {
         _ <- test(contractWrongStakeholders)

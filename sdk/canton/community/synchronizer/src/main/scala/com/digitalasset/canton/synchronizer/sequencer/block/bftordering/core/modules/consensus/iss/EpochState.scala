@@ -125,7 +125,11 @@ class EpochState[E <: Env[E]](
         ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex)
       )
     }
-    new EpochStatusBuilder(epoch.currentMembership.myId, epoch.info.number, epoch.segments.size)
+    new EpochStatusBuilder(
+      epoch.currentMembership.myId,
+      epoch.info.number,
+      epoch.segments.size,
+    )
   }
 
   def processRetransmissionsRequest(

@@ -609,9 +609,8 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Synchronizer $synchronizerId is not ready when $context"
   }
 
-  // TODO(#25483) Errors should be physical
   final case class ReassignmentParametersError(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       context: String,
   ) extends ReassignmentProcessorError {
     override def message: String =

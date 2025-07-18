@@ -8,7 +8,12 @@ import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CryptoConfig,
+  CryptoProvider,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.KeyName
 import com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverFactory
 import com.digitalasset.canton.crypto.kms.driver.v1.KmsDriverSpecsConverter
@@ -87,6 +92,8 @@ class MockKmsDriverFactory extends KmsDriverFactory {
       crypto <- JceCrypto
         .create(
           cryptoConfig,
+          CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+          CachingConfigs.defaultPublicKeyConversionCache,
           cryptoPrivateStore,
           cryptoPublicStore,
           timeouts,

@@ -91,7 +91,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
         new PreviousEpochsRetransmissionsTracker(howManyEpochsToKeep = 5, loggerFactory)
 
       tracker.processRetransmissionsRequest(
-        ConsensusStatus.EpochStatus(
+        ConsensusStatus.EpochStatus.create(
           anotherId,
           epoch0,
           Seq(
@@ -115,7 +115,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       inside(
         tracker.processRetransmissionsRequest(
-          ConsensusStatus.EpochStatus(
+          ConsensusStatus.EpochStatus.create(
             anotherId,
             epoch0,
             Seq(
@@ -153,7 +153,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       inside(
         tracker.processRetransmissionsRequest(
-          ConsensusStatus.EpochStatus(
+          ConsensusStatus.EpochStatus.create(
             anotherId,
             epoch0,
             Seq(
@@ -173,7 +173,7 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
       )
 
       tracker.processRetransmissionsRequest(
-        ConsensusStatus.EpochStatus(
+        ConsensusStatus.EpochStatus.create(
           anotherId,
           epoch0,
           Seq(

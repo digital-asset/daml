@@ -149,6 +149,7 @@ object CantonServerBuilder {
       tracing: TracingConfig,
       grpcMetrics: GrpcServerMetrics,
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerBuilder = {
     val builder =
       NettyServerBuilder
@@ -174,6 +175,7 @@ object CantonServerBuilder {
         adminToken,
         config.jwtTimestampLeeway,
         telemetry,
+        additionalInterceptors,
       ),
     )
   }

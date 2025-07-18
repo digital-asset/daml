@@ -341,11 +341,13 @@ class PackageUploaderTest
       initialize: Boolean = true,
       damlPackageStore: DamlPackageStore = new InMemoryDamlPackageStore(loggerFactory),
       upgradeValidation: Boolean = true,
+      enableStrictDarValidation: Boolean = false,
   )(test: WithInitializedTestEnv => Assertion): Assertion = {
     val testEnv = new WithInitializedTestEnv(
       initialize,
       damlPackageStore,
       upgradeValidation,
+      enableStrictDarValidation,
     ) {
       override def run(): Assertion = {
         super.run()
@@ -361,6 +363,7 @@ class PackageUploaderTest
       initialize: Boolean,
       val packageStore: DamlPackageStore,
       upgradeValidation: Boolean,
+      enableStrictDarValidation: Boolean,
   ) extends AutoCloseable {
     val clockNow: CantonTimestamp = CantonTimestamp.ofEpochMilli(1337L)
     private val clock = new SimClock(start = clockNow, loggerFactory = loggerFactory)
@@ -386,6 +389,7 @@ class PackageUploaderTest
         paranoidMode = true,
       ),
       enableUpgradeValidation = upgradeValidation,
+      enableStrictDarValidation = enableStrictDarValidation,
       futureSupervisor = FutureSupervisor.Noop,
       packageMetadataView = mutablePackageMetadataViewImpl,
       packageUpgradeValidator = packageUpgradeValidator,

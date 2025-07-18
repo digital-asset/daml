@@ -23,6 +23,7 @@ import com.digitalasset.canton.networking.grpc.{
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TracingConfig
+import io.grpc.ServerInterceptor
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
@@ -96,6 +97,7 @@ trait ServerConfig extends Product with Serializable {
       adminToken: Option[CantonAdminToken],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
@@ -105,6 +107,7 @@ trait ServerConfig extends Product with Serializable {
     adminToken,
     jwtTimestampLeeway,
     telemetry,
+    additionalInterceptors,
   )
 
 }

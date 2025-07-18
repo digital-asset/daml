@@ -16,12 +16,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.{
-  RetransmissionRequest,
-  RetransmissionResponse,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionResponse
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.{
   BlockStatus,
+  EpochStatus,
   SegmentStatus,
 }
 
@@ -34,9 +32,8 @@ class RetransmissionMessageValidator(epoch: Epoch) {
   private val numberOfNodes = epoch.currentMembership.sortedNodes.size
   private val segments = epoch.segments
 
-  def validateRetransmissionRequest(request: RetransmissionRequest): Either[String, Unit] = {
-    val from = request.from
-    val status = request.epochStatus
+  def validateRetransmissionRequest(status: EpochStatus): Either[String, Unit] = {
+    val from = status.from
     val validateNumberOfSegments = Either.cond(
       segments.sizeIs == status.segments.size,
       (),

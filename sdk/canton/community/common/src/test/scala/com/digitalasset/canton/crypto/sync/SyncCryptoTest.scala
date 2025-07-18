@@ -6,7 +6,12 @@ package com.digitalasset.canton.crypto.sync
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.KmsConfig.Driver
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  CryptoConfig,
+  CryptoProvider,
+  SessionSigningKeysConfig,
+}
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
@@ -108,6 +113,8 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
   protected lazy val crypto: Crypto = Crypto
     .create(
       cryptoConfig,
+      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      CachingConfigs.defaultPublicKeyConversionCache,
       new MemoryStorage(loggerFactory, timeouts),
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       CommunityKmsFactory,

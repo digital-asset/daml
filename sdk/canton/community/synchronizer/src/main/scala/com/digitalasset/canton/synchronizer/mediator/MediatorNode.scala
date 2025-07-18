@@ -630,6 +630,7 @@ class MediatorNodeBootstrap(
         crypto,
         cryptoConfig,
         parameters.batchingConfig.parallelism,
+        parameters.cachingConfigs.publicKeyConversionCache,
         timeouts,
         futureSupervisor,
         synchronizerLoggerFactory,

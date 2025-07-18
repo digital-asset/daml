@@ -474,6 +474,7 @@ final case class CantonConfig(
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
+        enableStrictDarValidation = participantParameters.enableStrictDarValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
         unsafeOnlinePartyReplication = participantParameters.unsafeOnlinePartyReplication,
         automaticallyConnectToUpgradedSynchronizer =

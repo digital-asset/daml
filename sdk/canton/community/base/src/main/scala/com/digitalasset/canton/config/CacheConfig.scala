@@ -134,6 +134,7 @@ final case class CachingConfigs(
     keyCache: CacheConfig = CachingConfigs.defaultKeyCache,
     sessionEncryptionKeyCache: SessionEncryptionKeyCacheConfig =
       CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+    publicKeyConversionCache: CacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
     packageVettingCache: CacheConfig = CachingConfigs.defaultPackageVettingCache,
     packageDependencyCache: CacheConfig = CachingConfigs.defaultPackageDependencyCache,
     memberCache: CacheConfig = CachingConfigs.defaultMemberCache,
@@ -159,6 +160,10 @@ object CachingConfigs {
   val defaultParticipantCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   val defaultKeyCache: CacheConfig = CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
+  val defaultPublicKeyConversionCache: CacheConfig = CacheConfig(
+    maximumSize = PositiveNumeric.tryCreate(10000),
+    expireAfterAccess = NonNegativeFiniteDuration.ofMinutes(60),
+  )
   val defaultSessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig =
     SessionEncryptionKeyCacheConfig(
       enabled = true,
