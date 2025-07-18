@@ -65,7 +65,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val env1 = env0.copy(internedKinds = internedKinds)
     val internedTypes = Work.run(decodeInternedTypes(env1, lfPackage))
     val env2 = env1.copy(internedTypes = internedTypes)
-    val internedExprs = Work.run(decodeInternedExprs(env2, lfPackage))
+    val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
@@ -136,7 +136,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     // val env1 = env0
     val internedTypes = Work.run(decodeInternedTypes(env1, lfSingleModule))
     val env2 = env1.copy(internedTypes = internedTypes)
-    val internedExprs = Work.run(decodeInternedExprs(env2, lfSingleModule))
+    val internedExprs = lfSingleModule.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
     env.decodeModule(lfSingleModule.getModules(0))
 
@@ -208,26 +208,26 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       .toIndexedSeq
   }
 
-  private[archive] def decodeInternedExprsForTest( // test entry point
-      env: Env,
-      lfPackage: PLF.Package,
-  ): IndexedSeq[Expr] = {
-    Work.run(decodeInternedExprs(env, lfPackage))
-  }
+  // private[archive] def decodeInternedExprsForTest( // test entry point
+  //     env: Env,
+  //     lfPackage: PLF.Package,
+  // ): IndexedSeq[Expr] = {
+  //   Work.run(decodeInternedExprs(env, lfPackage))
+  // }
 
-  private def decodeInternedExprs(
-      env: Env,
-      lfPackage: PLF.Package,
-  ): Work[IndexedSeq[Expr]] = Ret {
-    val lfExprs = lfPackage.getInternedExprsList
-    lfExprs.iterator.asScala
-      .foldLeft(new mutable.ArrayBuffer[Expr](lfExprs.size)) { (buf, typ) =>
-        buf += env
-          .copy(internedExprs = buf)
-          .decodeExprForTest(typ, "interning") // TODO[RB]: give proper tag(?)
-      }
-      .toIndexedSeq
-  }
+  // private def decodeInternedExprs(
+  //     env: Env,
+  //     lfPackage: PLF.Package,
+  // ): Work[IndexedSeq[Expr]] = Ret {
+  //   val lfExprs = lfPackage.getInternedExprsList
+  //   lfExprs.iterator.asScala
+  //     .foldLeft(new mutable.ArrayBuffer[Expr](lfExprs.size)) { (buf, typ) =>
+  //       buf += env
+  //         .copy(internedExprs = buf)
+  //         .decodeExprForTest(typ, "interning") // TODO[RB]: give proper tag(?)
+  //     }
+  //     .toIndexedSeq
+  // }
 
   private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
@@ -245,7 +245,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames: ImmArraySeq[DottedName],
       internedKinds: collection.IndexedSeq[Kind],
       internedTypes: collection.IndexedSeq[Type],
-      internedExprs: collection.IndexedSeq[Expr],
+      internedExprs: collection.IndexedSeq[PLF.Expr],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
@@ -1254,14 +1254,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.INTERNED_EXPR =>
           assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
-          Ret(
+          decodeExpr(
             internedExprs.applyOrElse(
               lfExpr.getInternedExpr,
               (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
-            )
-          )
+            ),
+            definition,
+          ) { expr =>
+            Ret(expr) // RB: idk how to write id here
+          }
 
-      }) { expr =>
+      }) { (expr: Expr) =>
         decodeLocation(lfExpr, definition) match {
           case None => Ret(expr)
           case Some(loc) => Ret(ELocation(loc, expr))

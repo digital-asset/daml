@@ -40,19 +40,30 @@ da_haskell_test(
     ],
     hackage_deps = [
         "base",
+        "bytestring",
         "mtl",
+        "filepath",
+        "pretty-simple",
         "tasty",
         "tasty-hunit",
+        "text",
+        "zip-archive",
     ],
     main_function = "DA.Daml.LF.Proto3.EncodeDecodeTest.entry",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/bazel-runfiles",
+        "//compiler/damlc/daml-ide-core",
+    ],
+    data = [
+        "//daml-script/test:script-test-v2.dev.dar",
     ],
 )
 
