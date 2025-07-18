@@ -38,6 +38,9 @@ da_haskell_test(
     srcs = [
         "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
     ],
+    data = [
+        "//daml-script/test:script-test-v2.dev.dar",
+    ],
     hackage_deps = [
         "base",
         "bytestring",
@@ -56,13 +59,10 @@ da_haskell_test(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-proto-decode",
         "//compiler/daml-lf-proto-encode",
-        "//daml-lf/archive:daml_lf_archive_haskell_proto",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/bazel-runfiles",
         "//compiler/damlc/daml-ide-core",
-    ],
-    data = [
-        "//daml-script/test:script-test-v2.dev.dar",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
 )
 
