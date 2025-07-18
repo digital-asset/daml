@@ -104,6 +104,7 @@ object LanguageVersion {
     val crypto = v2_1
 
     val kindInterning = v2_dev
+    val exprInterning = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate

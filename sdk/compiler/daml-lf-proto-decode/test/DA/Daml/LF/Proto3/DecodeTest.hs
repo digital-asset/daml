@@ -7,6 +7,7 @@ module DA.Daml.LF.Proto3.DecodeTest (
 
 
 import qualified Data.Vector                              as V
+import           Data.Vector                              (empty)
 
 import           DA.Daml.LF.Proto3.DecodeV2
 
@@ -33,13 +34,10 @@ decTests :: TestTree
 decTests = testGroup "decoding tests"
   [ decPureTests
   , decInterningTests
-  -- TODO[RB]: add tests that feature kinds occurring in types occuring in
-  -- expressions (will be done when type- and expression interning will be
-  -- implemented)
   ]
 
 emptyDecodeEnv :: DecodeEnv
-emptyDecodeEnv = DecodeEnv V.empty V.empty V.empty V.empty SelfPackageId testVersion
+emptyDecodeEnv = DecodeEnv empty empty empty empty empty SelfPackageId testVersion
 
 decodeKindAssert :: P.Kind -> Kind -> Assertion
 decodeKindAssert pk k =
