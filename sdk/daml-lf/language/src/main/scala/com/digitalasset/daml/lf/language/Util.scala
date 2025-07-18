@@ -322,7 +322,6 @@ object Util {
     def identifiersInExpr(expr: Expr): Iterator[Ref.Identifier] = {
       val ids = expr match {
         case EVal(valRef) => Iterator.single(valRef)
-        case EAbs(binder @ _, body @ _, ref) => ref.iterator
         case otherwise @ _ => Iterator.empty
       }
       ids ++ ExprIterable(expr).flatMap(identifiersInExpr)

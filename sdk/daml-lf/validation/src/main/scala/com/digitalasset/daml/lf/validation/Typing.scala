@@ -1445,7 +1445,7 @@ private[validation] object Typing {
         // only substitute once which is a bit faster.
         val (expr, typs) = destructETyApp(expr0, List(typ))
         typeOfTyApp(expr, typs)
-      case EAbs((varName, typ), body, _) =>
+      case EAbs((varName, typ), body) =>
         typeOfTmLam(varName, typ, body)
       case ETyAbs((vName, kind), body) =>
         typeofTyLam(vName, kind, body)

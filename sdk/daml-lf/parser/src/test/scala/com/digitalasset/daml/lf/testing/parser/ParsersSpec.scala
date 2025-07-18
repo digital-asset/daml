@@ -299,12 +299,9 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "x @Int64 @Bool" ->
           ETyApp(ETyApp(e"x", t"Int64"), t"Bool"),
         """\ (x:Int64) -> x""" ->
-          EAbs((x.value, t"Int64"), e"x", None),
-        """\ (x:Int64) (y:Bool) -> <f1=x, f2=y>""" -> EAbs(
-          (x.value, t"Int64"),
-          e"""\ (y:Bool) -> <f1=x, f2=y>""",
-          None,
-        ),
+          EAbs((x.value, t"Int64"), e"x"),
+        """\ (x:Int64) (y:Bool) -> <f1=x, f2=y>""" ->
+          EAbs((x.value, t"Int64"), e"""\ (y:Bool) -> <f1=x, f2=y>"""),
         """/\ (a:*). x @a""" ->
           ETyAbs(n"a" -> KStar, e"x @a"),
         "Nil @a" ->

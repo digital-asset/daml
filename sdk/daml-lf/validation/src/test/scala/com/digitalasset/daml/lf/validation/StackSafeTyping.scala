@@ -161,7 +161,7 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
     def app2 = (x: Expr) => EApp(mk(arrow(theType, theType)), x)
     def tyApp = (x: Expr) => ETyApp(embed(x, TForall((tyvar, KStar), theType)), theType)
     def esome = (x: Expr) => consume(optional(theType), ESome(theType, x))
-    def eabs = (x: Expr) => EAbs((var1, theType), x, None)
+    def eabs = (x: Expr) => EAbs((var1, theType), x)
     def etyabs = (x: Expr) => ETyAbs((tyvar, KStar), x)
     def struct1 = (x: Expr) => EStructCon(ImmArray((field, x), (field2, theExp)))
     def struct2 = (x: Expr) => EStructCon(ImmArray((field, theExp), (field2, x)))
