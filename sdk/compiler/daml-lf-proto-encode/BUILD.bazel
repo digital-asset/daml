@@ -64,6 +64,7 @@ da_haskell_test(
         "mtl",
         "tasty",
         "tasty-hunit",
+        "pretty-simple",
         "proto3-suite",
         "text",
         "syb",

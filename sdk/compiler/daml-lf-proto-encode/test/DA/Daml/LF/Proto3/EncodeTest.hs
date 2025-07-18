@@ -86,9 +86,6 @@ countConcreteConstrs =
   let
     countKinds (k :: P.KindSum) = case k of
       (P.KindSumInternedKind _) -> mempty
-      -- kind-specific ignoring of leafs
-      (P.KindSumStar     _)     -> mempty
-      (P.KindSumNat      _)     -> mempty
       _                         -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
 
     countTypes (t :: P.TypeSum) = case t of
@@ -255,6 +252,7 @@ data EncodeTestEnv = EncodeTestEnv
     , iExprs   :: V.Vector P.Expr
     }
 
+deriving instance Show EncodeTestEnv
 deriving instance Data EncodeTestEnv
 
 envToTestEnv :: EncodeEnv -> EncodeTestEnv
@@ -281,23 +279,6 @@ encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
 
 kindTests :: TestTree
 kindTests = testGroup "Kind tests"
-  [ kindPureTests
-  , kindInterningTests
-  ]
-
-kindPureTests :: TestTree
-kindPureTests = testGroup "Kind tests (non-interning)" $
-  map (uncurry3 encodeKindTest)
-    [ ("Kind star", KStar, pkstar)
-    , ("Kind Nat", KNat, pknat)
-    ]
-  where
-    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-    uncurry3 f (a, b, c) = f a b c
-
-
-kindInterningTests :: TestTree
-kindInterningTests = testGroup "Kind tests (interning)"
   [ kindInterningStarToStar
   , kindInterningStarToNatToStar
   , kindInterningAssertSharing
@@ -312,8 +293,9 @@ kindInterningStarToStar =
   in  testCase "star to star" $ do
       assertInterned pk
       assertInternedEnv e
-      pk @?= pkinterned 0
-      iKinds V.! 0 @?= pkarr pkstar pkstar
+      pk @?= pkinterned 1
+      iKinds V.! 0 @?= pkstar
+      iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
 
 kindInterningStarToNatToStar :: TestTree
 kindInterningStarToNatToStar =
@@ -321,20 +303,22 @@ kindInterningStarToNatToStar =
   in  testCase "(star to nat) to star" $ do
       assertInterned pk
       assertInternedEnv e
-      pk @?= pkinterned 1
-      iKinds V.! 0 @?= pkarr pkstar pknat
-      iKinds V.! 1 @?= pkarr (pkinterned 0) pkstar
+      pk @?= pkinterned 3
+      iKinds V.! 0 @?= pkstar
+      iKinds V.! 1 @?= pknat
+      iKinds V.! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
+      iKinds V.! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
 
--- Verify that non-leafs ARE shared
 kindInterningAssertSharing :: TestTree
 kindInterningAssertSharing =
   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KStar) (KArrow KStar KStar))
   in  testCase "Sharing: (* -> *) -> (* -> *)" $ do
       assertInterned pk
       assertInternedEnv e
-      pk @?= pkinterned 1
-      iKinds V.! 0 @?= pkarr pkstar pkstar
+      pk @?= pkinterned 2
+      iKinds V.! 0 @?= pkstar
       iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
+      iKinds V.! 2 @?= pkarr (pkinterned 1) (pkinterned 1)
 
 -- Types
 typeInterningTests :: TestTree
@@ -415,9 +399,10 @@ typeInterningForall =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 2
-      (iKinds V.! 0) @?= pkarr pkstar pkstar
+      (iKinds V.! 0) @?= pkstar
+      (iKinds V.! 1) @?= pkarr (pkinterned 0) (pkinterned 0)
       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
-      (iTypes V.! 2) @?= ptforall 0 (pkinterned 0) (ptinterned 1)
+      (iTypes V.! 2) @?= ptforall 0 (pkinterned 1) (ptinterned 1)
 
 typeInterningTStruct :: TestTree
 typeInterningTStruct =
@@ -489,3 +474,39 @@ exprInterningBool =
       assertInternedEnv e
       pe @?= peInterned 0
       iExprs V.! 0 @?= peTrue
+
+mkIdLam :: Expr
+mkIdLam = mkETmLams [(x, TUnit)] (EVar x)
+  where
+    x = ExprVarName "x"
+
+
+mkIdLocLam :: Expr
+mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)
+  where
+    x = ExprVarName "x"
+
+    loc1, loc2 :: SourceLoc
+    loc1 = SourceLoc{..}
+      where
+        slocModuleRef = Just (SelfPackageId, ModuleName ["loc1"])
+        slocStartLine = 1
+        slocStartCol = 1
+        slocEndLine = 11
+        slocEndCol = 11
+    loc2 = SourceLoc{..}
+      where
+        slocModuleRef = Just (SelfPackageId, ModuleName ["loc2"])
+        slocStartLine = 2
+        slocStartCol = 2
+        slocEndLine = 22
+        slocEndCol = 22
+
+-- exprInterningLam :: TestTree
+-- exprInterningLam =
+--   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest ETrue
+--   in  testCase "True" $ do
+--       assertInterned pe
+--       assertInternedEnv e
+--       pe @?= peInterned 0
+--       iExprs V.! 0 @?= peTrue
