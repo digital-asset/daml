@@ -43,7 +43,6 @@ da_haskell_test(
         "bytestring",
         "mtl",
         "filepath",
-        "pretty-simple",
         "tasty",
         "tasty-hunit",
         "text",
