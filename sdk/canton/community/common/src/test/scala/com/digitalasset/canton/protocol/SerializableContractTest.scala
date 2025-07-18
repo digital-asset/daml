@@ -54,13 +54,14 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             ),
           )
 
-          val sci = ExampleTransactionFactory.asSerializable(
+          val ci = ExampleTransactionFactory.asContractInstance(
             contractId,
             ExampleTransactionFactory.contractInstance(Seq(contractId)),
             metadata,
             CantonTimestamp.now(),
             someContractSalt,
           )
+          val sci = SerializableContract.fromLfFatContractInst(ci.inst).value
           SerializableContract.fromProtoVersioned(
             sci.toProtoVersioned(testedProtocolVersion)
           ) shouldEqual Right(sci)

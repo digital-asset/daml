@@ -66,7 +66,7 @@ trait ConsoleCommandIntegrationTest
     "succeed when party name has length at most 185" in { implicit env =>
       // see commands in `UniqueIdentifier` for why this will fail with party names of length >185
       import env.*
-      participant1.ledger_api.parties.allocate("a" * 185)
+      participant1.ledger_api.parties.allocate("a" * 185, synchronizerId = daId.logical)
     }
   }
 

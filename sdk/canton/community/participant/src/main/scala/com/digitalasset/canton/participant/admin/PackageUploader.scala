@@ -39,7 +39,7 @@ import com.digitalasset.canton.util.SimpleExecutionQueue
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
-import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.daml.lf.engine.{Engine, Error as EngineError}
 import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
@@ -52,6 +52,7 @@ class PackageUploader(
     packageStore: DamlPackageStore,
     engine: Engine,
     enableUpgradeValidation: Boolean,
+    enableStrictDarValidation: Boolean,
     futureSupervisor: FutureSupervisor,
     packageMetadataView: MutablePackageMetadataView,
     packageUpgradeValidator: PackageUpgradeValidator,
@@ -84,7 +85,8 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
-        _ <- validatePackages(mainPackage :: dependencies)
+        lfDar = LfDar(mainPackage, dependencies)
+        _ <- validateLfDarPackages(lfDar)
       } yield DarMainPackageId.tryCreate(mainPackage._1)
     }
 
@@ -194,7 +196,8 @@ class PackageUploader(
           DarDescription(mainPackageId, persistedDescription, mainInfo.name, mainInfo.version),
           darPayload.toByteArray,
         )
-      _ <- validatePackages(allPackages.map(_._2))
+      lfDar = LfDar(mainPackage._2, dependencies.map(_._2))
+      _ <- validateLfDarPackages(lfDar)
       toUpload <- EitherT.fromEither[FutureUnlessShutdown](
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
@@ -220,19 +223,29 @@ class PackageUploader(
       case success: Success[UnlessShutdown[Unit]] => FutureUnlessShutdown.lift(success.value)
     }
 
-  private def validatePackages(
-      packages: List[(LfPackageId, Ast.Package)]
+  private def validateLfDarPackages(
+      dar: LfDar[(LfPackageId, Ast.Package)]
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     for {
-      _ <- EitherT.fromEither[FutureUnlessShutdown](
-        engine
-          .validatePackages(packages.toMap)
-          .leftMap(
-            PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
-          )
-      )
+      _ <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          engine
+            .validateDar(dar)
+            .fold(
+              {
+                case err: EngineError.Package.DarSelfConsistency
+                    if !enableStrictDarValidation && err.logReportingEnabled =>
+                  logger.warn(err.message)
+                  Right(())
+                case err: EngineError.Package.Error =>
+                  Left(PackageServiceErrors.Validation.handleLfEnginePackageError(err))
+              },
+              (value: Unit) => Right(value),
+            )
+        )
+      packages = dar.all
       _ <-
         if (enableUpgradeValidation) {
           val packageMetadataSnapshot = packageMetadataView.getSnapshot
@@ -265,6 +278,7 @@ object PackageUploader {
       clock: Clock,
       engine: Engine,
       enableUpgradeValidation: Boolean,
+      enableStrictDarValidation: Boolean,
       futureSupervisor: FutureSupervisor,
       packageDependencyResolver: PackageDependencyResolver,
       packageMetadataView: MutablePackageMetadataView,
@@ -284,6 +298,7 @@ object PackageUploader {
       packageStore,
       engine,
       enableUpgradeValidation,
+      enableStrictDarValidation,
       futureSupervisor,
       packageMetadataView,
       packageUpgradeValidator,

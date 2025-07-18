@@ -1466,6 +1466,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
     @Help.Group("Party Management")
     object parties extends Helpful {
 
+      // TODO(i26846): document the userId parameter here and in the parties.rst documentation.
       @Help.Summary("Allocate a new party", FeatureFlag.Testing)
       @Help.Description(
         """Allocates a new party on the ledger.
@@ -1480,7 +1481,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           party: String,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
-          synchronizerId: String = "",
+          synchronizerId: Option[SynchronizerId] = None,
           userId: String = "",
       ): PartyDetails = {
         val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {

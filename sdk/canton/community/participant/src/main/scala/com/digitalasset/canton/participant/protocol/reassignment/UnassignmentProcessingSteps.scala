@@ -139,7 +139,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     for {
       _ <- condUnitET[FutureUnlessShutdown](
         targetSynchronizer.unwrap != synchronizerId.unwrap,
-        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap.logical, contractIds),
+        TargetSynchronizerIsSourceSynchronizer(synchronizerId.unwrap, contractIds),
       )
 
       targetStaticSynchronizerParameters <- reassignmentCoordination

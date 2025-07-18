@@ -226,8 +226,18 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         )
       case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
         SelfConsistency.Error(packageIds, missingDependencies)
-      case Error.Package.DarSelfConsistency(_, _, _, _) =>
-        InternalError.Generic("DarSelfConsistency not yet implemented")
+      case Error.Package.DarSelfConsistency(
+            mainPackageId,
+            transitiveDependencies,
+            missingDependencies,
+            extraDependencies,
+          ) =>
+        DarSelfConsistency.Error(
+          mainPackageId,
+          transitiveDependencies,
+          missingDependencies,
+          extraDependencies,
+        )
     }
 
     @Explanation("""This error indicates that the validation of the uploaded dar failed.""")
@@ -284,6 +294,34 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             extraContext = Map(
               "packageIds" -> packageIds,
               "missingDependencies" -> missingDependencies,
+            ),
+          )
+    }
+
+    @Explanation(
+      """This error indicates that the uploaded Dar is broken because it is missing internal dependencies or has unused internal dependencies."""
+    )
+    @Resolution("Contact the supplier of the Dar.")
+    object DarSelfConsistency
+        extends ErrorCode(
+          id = "DAR_DEPENDENCIES_NOT_VALID",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          mainPackageId: Ref.PackageId,
+          transitiveDependencies: Set[Ref.PackageId],
+          missingDependencies: Set[Ref.PackageId],
+          extraDependencies: Set[Ref.PackageId],
+      )(implicit
+          val loggingContext: ErrorLoggingContext
+      ) extends ContextualizedDamlError(
+            cause =
+              "The set of packages in the dar is not self-consistent and is missing dependencies or has extra dependencies",
+            extraContext = Map(
+              "mainPackageId" -> mainPackageId,
+              "transitiveDependencies" -> transitiveDependencies,
+              "missingDependencies" -> missingDependencies,
+              "extraDependencies" -> extraDependencies,
             ),
           )
     }

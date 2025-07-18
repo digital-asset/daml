@@ -364,6 +364,7 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,
+    enableStrictDarValidation: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),

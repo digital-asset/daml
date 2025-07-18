@@ -466,6 +466,8 @@ abstract class CantonNodeBootstrapImpl[
         Crypto
           .create(
             cryptoConfig,
+            arguments.parameterConfig.cachingConfigs.sessionEncryptionKeyCache,
+            arguments.parameterConfig.cachingConfigs.publicKeyConversionCache,
             storage,
             arguments.cryptoPrivateStoreFactory,
             arguments.kmsFactory,

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.kms.driver.testing.v1
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.crypto.kms.driver.api.v1.{
   EncryptionAlgoSpec,
   EncryptionKeySpec,
@@ -30,6 +31,7 @@ import io.scalaland.chimney.dsl.*
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 
 import java.security.Security
+import scala.concurrent.ExecutionContext
 
 object KmsDriverTestUtils extends FutureHelpers {
 
@@ -50,7 +52,7 @@ object KmsDriverTestUtils extends FutureHelpers {
   def newPureCrypto(
       supportedDriverSigningAlgoSpecs: Set[SigningAlgoSpec],
       supportedDriverEncryptionAlgoSpecs: Set[EncryptionAlgoSpec],
-  ): JcePureCrypto = {
+  )(implicit ec: ExecutionContext): JcePureCrypto = {
 
     // Register BC as security provider, typically done by the crypto factory
     Security.addProvider(new BouncyCastleProvider)
@@ -75,6 +77,8 @@ object KmsDriverTestUtils extends FutureHelpers {
         CryptoScheme(supportedCryptoEncryptionAlgoSpecs.head1, supportedCryptoEncryptionAlgoSpecs),
       defaultHashAlgorithm = HashAlgorithm.Sha256,
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1,
+      publicKeyConversionCacheConfig = CachingConfigs.defaultPublicKeyConversionCache,
+      privateKeyConversionCacheTtl = None,
       loggerFactory = NamedLoggerFactory.root,
     )
   }
