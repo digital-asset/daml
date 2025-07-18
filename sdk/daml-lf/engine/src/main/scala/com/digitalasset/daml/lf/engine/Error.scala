@@ -66,15 +66,6 @@ object Error {
           s"Expected version between ${allowedLanguageVersions.min.pretty} and ${allowedLanguageVersions.max.pretty} but got ${languageVersion.pretty}"
     }
 
-    final case class SelfConsistency(
-        packageIds: Set[Ref.PackageId],
-        missingDependencies: Set[Ref.PackageId],
-    ) extends Error {
-      def message: String =
-        s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
-          s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
-    }
-
     final case class DarSelfConsistency(
         mainPackageId: Ref.PackageId,
         transitiveDependencies: Set[Ref.PackageId],

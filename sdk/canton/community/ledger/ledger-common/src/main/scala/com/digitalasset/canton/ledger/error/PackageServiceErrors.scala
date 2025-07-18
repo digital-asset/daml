@@ -224,8 +224,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           languageVersion,
           allowedLanguageVersions,
         )
-      case Error.Package.SelfConsistency(packageIds, missingDependencies) =>
-        SelfConsistency.Error(packageIds, missingDependencies)
       case Error.Package.DarSelfConsistency(
             mainPackageId,
             transitiveDependencies,
@@ -273,30 +271,6 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           CommandExecutionErrors.Package.AllowedLanguageVersions,
           loggingContext,
         ) // reuse error code of ledger api server
-
-    @Explanation(
-      """This error indicates that the uploaded Dar is broken because it is missing internal dependencies."""
-    )
-    @Resolution("Contact the supplier of the Dar.")
-    object SelfConsistency
-        extends ErrorCode(
-          id = "DAR_NOT_SELF_CONSISTENT",
-          ErrorCategory.InvalidIndependentOfSystemState,
-        ) {
-      final case class Error(
-          packageIds: Set[Ref.PackageId],
-          missingDependencies: Set[Ref.PackageId],
-      )(implicit
-          val loggingContext: ErrorLoggingContext
-      ) extends ContextualizedDamlError(
-            cause =
-              "The set of packages in the dar is not self-consistent and is missing dependencies",
-            extraContext = Map(
-              "packageIds" -> packageIds,
-              "missingDependencies" -> missingDependencies,
-            ),
-          )
-    }
 
     @Explanation(
       """This error indicates that the uploaded Dar is broken because it is missing internal dependencies or has unused internal dependencies."""
