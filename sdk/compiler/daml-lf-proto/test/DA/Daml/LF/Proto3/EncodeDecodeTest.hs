@@ -10,7 +10,7 @@ module DA.Daml.LF.Proto3.EncodeDecodeTest (
 
 
 import qualified Data.NameMap                             as NM
-import           Data.Text
+import           Data.Text                                hiding (map)
 
 
 import           DA.Daml.LF.Proto3.Encode
@@ -30,36 +30,18 @@ import           Text.Pretty.Simple                       as PP
 import           Test.Tasty.HUnit
 import           Test.Tasty
 
--- import           DA.Bazel.Runfiles
+import           DA.Bazel.Runfiles
 import           System.FilePath
 
 entry :: IO ()
-entry = defaultMain $ testGroup "All tests" [ rttTests ]
+entry = defaultMain $ testGroup "Round-trip tests"
+    [ rttEmpty
+    , rttTyLam
+    , rttTyLamAndLet
+    , rttDeepLetWithLoc
+    , darTests
+    ]
 
-
-
-------------------------------------------------------------------------
--- .daml files tests
-------------------------------------------------------------------------
-bla :: IO ()
-bla = do
-  -- scriptDar <- locateRunfiles $ mainWorkspace </> darPath
-  let scriptDar = "/home/roger.bosman/Downloads/thedar.dar"
-  PP.pPrint scriptDar
-
-  dar <- extractDar scriptDar
-
-  let mainDalf = edMain dar
-
-  let bs = BSL.toStrict $ ZipArchive.fromEntry mainDalf
-  let (_pkgId, pkg) = case Archive.decodeArchive Archive.DecodeAsMain bs of
-        Right x -> x
-        Left _ -> error "d'oh"
-
-  defaultMain $ testCase "bla" $ roundTripAssert pkg
-
-  where
-    _darPath = "daml-script" </> "test" </> "script-test-v2.dev.dar"
 
 ------------------------------------------------------------------------
 -- Round-trip
@@ -80,14 +62,6 @@ roundTripAssert p =
     (\val -> p @=? val)
     (roundTripPackage p)
 
-rttTests :: TestTree
-rttTests = testGroup "Round-trip tests"
-    [ rttEmpty
-    , rttTyLam
-    , rttTyLamAndLet
-    , rttDeepLetWithLoc
-    ]
-
 rttEmpty :: TestTree
 rttEmpty = testCase "empty package" $ roundTripAssert $ mkOneModulePackage mkEmptyModule
 
@@ -99,6 +73,28 @@ rttTyLamAndLet = testCase "tylam and let package" $ roundTripAssert $ mkOneModul
 
 rttDeepLetWithLoc :: TestTree
 rttDeepLetWithLoc = testCase "deep let with location package" $ roundTripAssert $ mkOneModulePackage mkDeepLetWithLocModule
+
+------------------------------------------------------------------------
+-- .dar tests
+------------------------------------------------------------------------
+darTests :: TestTree
+darTests = testGroup ".dar tests" $ rttDar <$>
+    [ "script-test-v2.dev.dar"
+    ]
+
+
+rttDar :: String -> TestTree
+rttDar darname = testCase darname $ do
+  scriptDar <- locateRunfiles $ mainWorkspace </> darPath
+
+  dar <- extractDar scriptDar
+  let mainDalf = edMain dar
+  let bs = BSL.toStrict $ ZipArchive.fromEntry mainDalf
+  case Archive.decodeArchive Archive.DecodeAsMain bs of
+    Right (_, p) -> roundTripAssert p
+    _            -> error "decodeArchive failiure"
+  where
+    darPath = "daml-script" </> "test" </> darname
 
 ------------------------------------------------------------------------
 -- Examples
@@ -154,22 +150,6 @@ elet x t e1 e2 = ELet (Binding (ExprVarName x, t) e1) e2
 
 mkLet :: DefValue
 mkLet = DefValue (Just testLoc) (lt, TUnit) (elet "id" tyLamTyp tyLam (EVal $ eQual lt))
-
-test :: IO ()
-test = PP.pPrint $ encodePackage $ mkOneModulePackage tyLamAndLetModule
-
-orig :: IO ()
-orig = PP.pPrint $ mkOneModulePackage mkDeepLetWithLocModule
-
-enc :: IO ()
-enc = PP.pPrint $ encodePackage $ mkOneModulePackage mkDeepLetWithLocModule
-
-rtt :: IO ()
-rtt = case roundTripPackage $ mkOneModulePackage mkDeepLetWithLocModule of
-  Right p -> PP.pPrint p
-  _ -> error "foo"
-
-
 
 mkDeepLetWithLoc :: DefValue
 mkDeepLetWithLoc = DefValue (Just testLoc) (lt, TUnit) (letOfDepthWithLoc 1)
