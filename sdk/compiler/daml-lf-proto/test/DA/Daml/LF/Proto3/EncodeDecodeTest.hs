@@ -5,7 +5,6 @@
 
 module DA.Daml.LF.Proto3.EncodeDecodeTest (
         module DA.Daml.LF.Proto3.EncodeDecodeTest
-      , pPrint
 ) where
 
 
@@ -24,8 +23,6 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 
 import           DA.Daml.LF.Ast
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
-
-import           Text.Pretty.Simple                       as PP
 
 import           Test.Tasty.HUnit
 import           Test.Tasty
