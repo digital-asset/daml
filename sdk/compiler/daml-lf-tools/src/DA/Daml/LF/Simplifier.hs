@@ -207,6 +207,16 @@ safetyStep = \case
   EChoiceObserverF _ _ s1 s2 -> s1 <> s2 <> Safe 0
   EExperimentalF _ _ -> Unsafe
 
+isAtomic :: Expr  -> Bool
+isAtomic = \case
+    EVar _ -> True
+    EVal _ -> True
+    EBuiltinFun _ -> True
+    EEnumCon _ _ -> True
+    ENil _ -> True
+    ENone _ -> True
+    _ -> False
+
 isTypeClassDictionary :: DefValue -> Bool
 isTypeClassDictionary DefValue{..}
     = T.isPrefixOf "$f" (unExprValName (fst dvalBinder)) -- generic dictionary
@@ -472,6 +482,8 @@ simplifyExpr = fmap fst . cata go'
           go world $ ELetF (BindingF (x, t) (e1, s1)) (go world $ ETmAppF (e2, s2) e3)
           where
             (s1, s2) = infoUnstepELet x s0
+
+      ELocationF _ e | isAtomic (fst e) -> e
 
       -- e    ==>    e
       e -> (embed (fmap fst e), infoStep world (fmap snd e))
