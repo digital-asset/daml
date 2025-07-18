@@ -18,6 +18,12 @@ package object logging {
   implicit val `TypeConRef to LoggingValue`: ToLoggingValue[TypeConRef] =
     typeConRef => LoggingValue.OfString(typeConRef.toString)
 
+  implicit val `IdTypeConRef to LoggingValue`: ToLoggingValue[IdTypeConRef] =
+    idTypeConRef => LoggingValue.OfString(idTypeConRef.toString)
+
+  implicit val `NameTypeConRef to LoggingValue`: ToLoggingValue[NameTypeConRef] =
+    nameTypeConRef => LoggingValue.OfString(nameTypeConRef.toString)
+
   // The party name can grow quite long, so we offer ledger implementors the opportunity to truncate
   // it in structured log output.
   implicit val `Party to LoggingKey and LoggingValue`
