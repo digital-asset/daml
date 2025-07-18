@@ -64,7 +64,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
             .requireHandling(submitErrors)
         }
 
-  @deprecated("Use submitAndWaitForTransaction instead", "3.4.0")
+  @deprecated("Use submitAndWaitForTransaction instead", "3.3.0")
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
   )(implicit ec: EC, traceContext: TraceContext): SubmitAndWaitForTransactionTree =
@@ -308,7 +308,7 @@ object LedgerClientJwt {
       SubmitAndWaitForTransactionResponse,
     ]
 
-  @deprecated("Use SubmitAndWaitForTransaction instead", "3.4.0")
+  @deprecated("Use SubmitAndWaitForTransaction instead", "3.3.0")
   type SubmitAndWaitForTransactionTree =
     (
         Jwt,
