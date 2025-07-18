@@ -323,26 +323,45 @@ These aspects are discussed in more detail in the remaining sections of the Ledg
 Ledger
 ******
 
-The transaction structure records the contents of the changes, but not *who requested them*.
-This information is added by the notion of a **commit**:
-It consists of a single transaction and the one or more parties that requested it.
+The transaction structure records the contents of the changes.
+The ledger data records two more aspects of a change:
+
+* An identifier to uniquely refer a particular change.
+
+* The parties who requested a particular change.
+
+Due to the :ref:`privacy model <da-model-privacy>`, not everyone sees all parts of a change.
+A unique identifier for a change allows different parties to correlate the changes they see.
+The notion of an **update** adds such an identifier.
+It consists of a single transaction and the so-called **update ID**, a string.
+Examples in the ledger model use update IDs of the form ``TX i`` like the transaction view in Daml Studio,
+whereas the update IDs on the Ledger API are hex strings.
+
+A **commit** adds the information *who requested a change*.
+It consists of an update and the one or more parties that requested it.
 Those parties called the **requesters** of the commit.
 In Daml Script, the requesters correspond to the ``actAs`` parties given to the ``submit`` commands.
 
 Definition **Ledger**:
-  A **Ledger** is a directed acyclic graph (DAG) of commits,
-  where an edge `(c`:sub:`1`\ `, c`:sub:`2`\ `)` connects a commit `c`:sub:`1` to another commit `c`:sub:`2`
-  if and only if the transaction of `c`:sub:`1` uses a contract ID created by or used in the transaction in `c`:sub:`2`.
+  A **Ledger** is a finite directed acyclic graph (DAG) of commits, where the update IDs are unique.
 
 Definition **top-level action**:
   For a commit, the root actions of its transaction are called the **top-level actions**.
   A top-level action of any ledger commit is also a top-level action of the ledger.
 
 A Canton Ledger thus represents the full history of all actions taken by parties.
-The graph structure of the Ledger induces an *order* on the commits in the ledger.
+The graph structure of the Ledger induces an **happens-before order** on the commits in the ledger.
+We say that commit `c`:sub:`1` *happens before* `c`:sub:`2` if and only if the ledger contains a non-empty path from `c`:sub:`1` to `c`:sub:`2`,
+or equivalently, the transitive closure of the graph contains an edge from `c`:sub:`1` to `c`:sub:`2`.
+
+.. note::
+   The :ref:`integrity conditions <da-model-integrity>` on a ledger require that the happens-before order respects the lifecycle of contracts.
+   For example, the commit that creates a contract must happen before the commit that spends the contract unless they are the same.
+   For the next few sections, we will consider only ledgers that meet these conditions.
+
 Visually, a ledger can be represented as a sequence growing from left to right as time progresses.
 Below, dashed vertical lines in purple mark the boundaries of commits,
-and each commit is annotated with its requester(s).
+and each commit is annotated with its requester(s) and the update ID.
 Blue arrows link each Exercise and Fetch action to the Create action of the input contract.
 These arrows highlight that the ledger forms a **transaction graph**.
 
@@ -369,15 +388,12 @@ This workflow gives rise to the ledger shown below with four commits:
    :alt: The sequence of commits for the whole DvP workflow. First, banks 1 and 2 issue the assets, then Alice proposes the DvP, and finally Bob accepts and settles it.
 
 .. note::
-   The Ledger does not impose an order between independent commits.
-   In this example, there are no edges among the first three commits,
+   The integrity constraints do not impose an order between independent commits.
+   In this example, there need not be edges among the first three commits ``TX 0``, ``TX 1``, and ``TX 2``,
    so they could be presented in any order.
 
    As the Ledger is a DAG, one can always extend the order into a linear sequence via a topological sort.
    For the next sections, we pretend that the Ledger is totally ordered (unless otherwise specified).
    We discuss the more general partial orders in the :ref:`causality section <local-ledger>`.
-
-.. todo::
-   Link to causality section
 
 
