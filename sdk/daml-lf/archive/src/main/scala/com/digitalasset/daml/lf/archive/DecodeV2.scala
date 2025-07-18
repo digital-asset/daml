@@ -208,27 +208,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       .toIndexedSeq
   }
 
-  // private[archive] def decodeInternedExprsForTest( // test entry point
-  //     env: Env,
-  //     lfPackage: PLF.Package,
-  // ): IndexedSeq[Expr] = {
-  //   Work.run(decodeInternedExprs(env, lfPackage))
-  // }
-
-  // private def decodeInternedExprs(
-  //     env: Env,
-  //     lfPackage: PLF.Package,
-  // ): Work[IndexedSeq[Expr]] = Ret {
-  //   val lfExprs = lfPackage.getInternedExprsList
-  //   lfExprs.iterator.asScala
-  //     .foldLeft(new mutable.ArrayBuffer[Expr](lfExprs.size)) { (buf, typ) =>
-  //       buf += env
-  //         .copy(internedExprs = buf)
-  //         .decodeExprForTest(typ, "interning") // TODO[RB]: give proper tag(?)
-  //     }
-  //     .toIndexedSeq
-  // }
-
   private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
 
@@ -687,7 +666,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    // TODO[RB]: figure out exact interning parameters
     private def decodeKind(lfKind: PLF.Kind): Work[Kind] = {
       Work.Delay { () =>
         lfKind.getSumCase match {
@@ -717,16 +695,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    /** Roger: [decodeType()]] is the checked version of [[uncheckedDecodeType()]]
-      * in the sense that [[decodeType()]] allows only references to interned
-      * kinds, meant to be used to parse the ast (after the interning table was
+    /** [decodeType()]] is the checked version of [[uncheckedDecodeType()]] in the
+      * sense that [[decodeType()]] allows only references to interned kinds,
+      * meant to be used to parse the ast (after the interning table was
       * parsed). It is meant to disallow any concrete types (any
-      * non-interned-referencing) types.
-      *
-      * TODO[RB]: figure out exact interning parameters. Decide on whehter to
-      * intern everything, everything but leaf nodes, or allow trees of depth n.
-      * Alternatively: intern everything, but allow leaf nodes and/or trees of
-      * depth n _in the interning table only_.
+      * non-interned-referencing) types. depth n _in the interning table only_.
       */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
@@ -749,7 +722,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       )
     }
 
-    // TODO[RB]: figure out exact interning parameters
     private def uncheckedDecodeType(lfType: PLF.Type): Work[Type] = {
       lfType.getSumCase match {
         case PLF.Type.SumCase.VAR =>
@@ -866,12 +838,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    // TODO[RB]: figure out exact interning parameters
     private def decodeExpr[T](lfExpr: PLF.Expr, definition: String)(k: Expr => Work[T]): Work[T] = {
       Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
     }
 
-    // TODO[RB]: figure out exact interning parameters
     private def decodeExpr1(lfExpr: PLF.Expr, definition: String): Work[Expr] = {
       Work.bind(lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR_INTERNED_STR =>
