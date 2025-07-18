@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   LifeCycle,
+  PromiseUnlessShutdown,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -46,7 +47,7 @@ import org.slf4j.event.Level
 import java.time.Duration
 import java.util.concurrent.{Executor, Executors}
 import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.control.NonFatal
@@ -59,7 +60,7 @@ final class GrpcNetworking(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
-    with FlagCloseable {
+    with FlagCloseable { self =>
 
   import TraceContext.Implicits.Empty.emptyTraceContext
 
@@ -130,62 +131,68 @@ final class GrpcNetworking(
         connectWorkers.get(serverEndpoint) match {
           case Some(task) if !task.isCompleted => ()
           case _ =>
-            connectWorkers
-              .put(
-                serverEndpoint,
-                connect(serverEndpoint),
-              )
-              .discard
+            connect(serverEndpoint)(connectExecutionContext)
+              .foreach(worker => connectWorkers.put(serverEndpoint, worker).discard)
         }
       }
 
-    private def connect(serverEndpoint: P2PEndpoint): FutureUnlessShutdown[Unit] =
-      performUnlessClosingF("p2p-connect") {
+    private def connect(
+        serverEndpoint: P2PEndpoint
+    )(implicit executionContext: ExecutionContext): Option[FutureUnlessShutdown[Unit]] =
+      performUnlessClosing("open-grpc-channel") {
         logger.debug(
           s"Creating a gRPC channel and connecting to endpoint in server role $serverEndpoint"
         )
-        val OpenChannel(
-          channel,
-          maybeSequencerIdFromAuthenticationFuture,
-          asyncStub,
-          blockingStub,
-        ) =
-          openGrpcChannel(serverEndpoint)
-
-        val serverHandleOptionT =
-          createServerHandle(serverEndpoint, channel, asyncStub, blockingStub)
-        maybeSequencerIdFromAuthenticationFuture match {
-          case Some(sequencerIdFromAuthenticationFuture) =>
-            sequencerIdFromAuthenticationFuture.flatMap { sequencerIdFromAuthentication =>
-              toUnitFuture(
-                serverHandleOptionT
-                  .map { case (_, streamFromServer) =>
-                    // We don't care about the communicated sequencer ID if authentication is enabled
-                    logger.info(
-                      s"Successfully connected to endpoint in server role $serverEndpoint " +
-                        s"authenticated as sequencer with ID $sequencerIdFromAuthentication"
-                    )
-                    addServerEndpoint(
-                      serverEndpoint,
-                      sequencerIdFromAuthentication,
-                      streamFromServer,
-                    )
-                  }
-              )
-            }
-          case _ =>
-            toUnitFuture(
-              serverHandleOptionT
-                .map { case (communicatedSequencerId, streamFromServer) =>
-                  logger.info(
-                    s"Successfully connected to endpoint in server role $serverEndpoint " +
-                      s"claiming to be sequencer with ID $communicatedSequencerId (authentication is disabled)"
-                  )
-                  addServerEndpoint(serverEndpoint, communicatedSequencerId, streamFromServer)
-                }
-            )
+        Some(openGrpcChannel(serverEndpoint))
+      }
+        .onShutdown {
+          logger.info(
+            s"Not attempting to create a gRPC channel and connect to endpoint in server role $serverEndpoint " +
+              "due to shutdown"
+          )
+          None
         }
-      }(connectExecutionContext, TraceContext.empty)
+        .map {
+          case OpenChannel(
+                channel,
+                maybeSequencerIdFromAuthenticationFutureUS,
+                asyncStub,
+                blockingStub,
+              ) =>
+            val serverHandleOptionT =
+              createServerHandle(serverEndpoint, channel, asyncStub, blockingStub)
+            maybeSequencerIdFromAuthenticationFutureUS match {
+              case Some(sequencerIdFromAuthenticationFutureUS) =>
+                sequencerIdFromAuthenticationFutureUS.flatMap { sequencerIdFromAuthentication =>
+                  toUnitFutureUS(
+                    serverHandleOptionT
+                      .map { case (_, streamFromServer) =>
+                        // We don't care about the communicated sequencer ID if authentication is enabled
+                        logger.info(
+                          s"Successfully connected to endpoint in server role $serverEndpoint " +
+                            s"authenticated as sequencer with ID $sequencerIdFromAuthentication"
+                        )
+                        addServerEndpoint(
+                          serverEndpoint,
+                          sequencerIdFromAuthentication,
+                          streamFromServer,
+                        )
+                      }
+                  )
+                }
+              case _ =>
+                toUnitFutureUS(
+                  serverHandleOptionT
+                    .map { case (communicatedSequencerId, streamFromServer) =>
+                      logger.info(
+                        s"Successfully connected to endpoint in server role $serverEndpoint " +
+                          s"claiming to be sequencer with ID $communicatedSequencerId (authentication is disabled)"
+                      )
+                      addServerEndpoint(serverEndpoint, communicatedSequencerId, streamFromServer)
+                    }
+                )
+            }
+        }
 
     private def addServerEndpoint(
         serverEndpoint: P2PEndpoint,
@@ -249,12 +256,12 @@ final class GrpcNetworking(
             }
         }
 
-      val (checkedChannel, maybeSequencerIdFromAuthenticationPromise) =
+      val (checkedChannel, maybeSequencerIdFromAuthenticationPromiseUS) =
         checkServerAuthentication(channel)
 
       OpenChannel(
         channel,
-        maybeSequencerIdFromAuthenticationPromise.map(_.future),
+        maybeSequencerIdFromAuthenticationPromiseUS.map(_.futureUS),
         maybeAuthenticateStub(BftOrderingServiceGrpc.stub(checkedChannel)),
         maybeAuthenticateStub(BftOrderingServiceGrpc.blockingStub(checkedChannel)),
       )
@@ -262,28 +269,29 @@ final class GrpcNetworking(
 
     private def checkServerAuthentication(
         channel: Channel
-    ): (Channel, Option[Promise[SequencerId]]) =
-      authenticationInitialState.fold[(Channel, Option[Promise[SequencerId]])](channel -> None) {
-        auth =>
+    ): (Channel, Option[PromiseUnlessShutdown[SequencerId]]) =
+      authenticationInitialState
+        .fold[(Channel, Option[PromiseUnlessShutdown[SequencerId]])](channel -> None) { auth =>
           val memberAuthenticationService = auth.authenticationServices.memberAuthenticationService
-          val sequencerIdFromAuthenticationPromise = Promise[SequencerId]()
+          val sequencerIdFromAuthenticationPromiseUS =
+            PromiseUnlessShutdown.unsupervised[SequencerId]()
           val interceptor =
             new AuthenticateServerClientInterceptor(
               memberAuthenticationService,
               // Authentication runs on both the ping and the bidi stream,
               //  but we must complete the sequencer ID promise only once.
               onAuthenticationSuccess = sequencerId =>
-                if (!sequencerIdFromAuthenticationPromise.isCompleted)
-                  sequencerIdFromAuthenticationPromise.success(sequencerId),
+                if (!sequencerIdFromAuthenticationPromiseUS.isCompleted)
+                  sequencerIdFromAuthenticationPromiseUS.outcome(sequencerId),
               onAuthenticationFailure = throwable =>
-                if (!sequencerIdFromAuthenticationPromise.isCompleted)
-                  sequencerIdFromAuthenticationPromise.failure(throwable),
+                if (!sequencerIdFromAuthenticationPromiseUS.isCompleted)
+                  sequencerIdFromAuthenticationPromiseUS.failure(throwable),
               loggerFactory,
             )
           ClientInterceptors.intercept(channel, List(interceptor).asJava) -> Some(
-            sequencerIdFromAuthenticationPromise
+            sequencerIdFromAuthenticationPromiseUS
           )
-      }
+        }
 
     @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
     private def createServerHandle(
@@ -293,87 +301,95 @@ final class GrpcNetworking(
         blockingStub: BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
         connectRetryDelay: NonNegativeFiniteDuration = InitialConnectRetryDelay,
         attemptNumber: Int = 1,
-    ): OptionT[Future, (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])] = {
+    ): OptionT[
+      FutureUnlessShutdown,
+      (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+    ] =
+      performUnlessClosingOptionUSF("create-server-handle") {
 
-      def retry(
-          failureDescription: String,
-          exception: Throwable,
-          previousRetryDelay: NonNegativeFiniteDuration,
-          attemptNumber: Int,
-      ): OptionT[Future, (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])] = {
-        def log(msg: => String, exc: Throwable): Unit =
-          if (attemptNumber <= MaxConnectionAttemptsBeforeWarning)
-            logger.info(msg, exc)
-          else
-            logger.warn(msg, exc)
-        val retryDelay = MaxConnectRetryDelay.min(previousRetryDelay * NonNegativeInt.tryCreate(2))
-        log(
-          s"in client role failed to $failureDescription during attempt $attemptNumber, retrying in $retryDelay",
-          exception,
-        )
-        for {
-          _ <- OptionT[Future, Unit](
-            DelayUtil.delay(retryDelay.toScala).map(Some(_))
-          ) // Wait for the retry delay
-          result <-
-            if (
-              !isClosing && mutex(this) {
-                connectWorkers.contains(serverEndpoint)
-              }
-            ) {
-              createServerHandle(
-                serverEndpoint,
-                channel,
-                asyncStub,
-                blockingStub,
-                retryDelay,
-                attemptNumber,
-              ) // Async-trampolined
-            } else {
-              logger.info(
-                s"in client role failed to $failureDescription during attempt $attemptNumber, " +
-                  "but not retrying because the connection is being closed",
-                exception,
-              )
-              OptionT.none[Future, (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest])]
-            }
-        } yield result
-      }
-
-      Try {
-        // Unfortunately the async client fails asynchronously, so a synchronous ping comes in useful to check that
-        //  at least the initial connection can be established.
-        blockingStub.ping(PingRequest.defaultInstance).discard
-        val sequencerIdPromise = Promise[SequencerId]()
-        val streamFromServer = asyncStub.receive(
-          new GrpcClientHandle(
-            serverEndpoint,
-            sequencerIdPromise,
-            closeConnection,
-            authenticationEnabled = authenticationInitialState.isDefined,
-            loggerFactory,
+        def retry(
+            failureDescription: String,
+            exception: Throwable,
+            previousRetryDelay: NonNegativeFiniteDuration,
+            attemptNumber: Int,
+        ): OptionT[
+          FutureUnlessShutdown,
+          (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+        ] = {
+          def log(msg: => String, exc: Throwable): Unit =
+            if (attemptNumber <= MaxConnectionAttemptsBeforeWarning)
+              logger.info(msg, exc)
+            else
+              logger.warn(msg, exc)
+          val retryDelay =
+            MaxConnectRetryDelay.min(previousRetryDelay * NonNegativeInt.tryCreate(2))
+          log(
+            s"in client role failed to $failureDescription during attempt $attemptNumber, retrying in $retryDelay",
+            exception,
           )
-        )
-        sequencerIdPromise.future.map(sequencerId => (sequencerId, streamFromServer))
-      } match {
-        case Success(futureResult) =>
-          OptionT(
-            futureResult.transformWith {
-              case Success(value) =>
-                Future.successful(Option(value))
-              case Failure(exception) =>
-                retry(
-                  s"create a stream to '$serverEndpoint''",
+          for {
+            _ <- OptionT[FutureUnlessShutdown, Unit](
+              DelayUtil.delayIfNotClosing("grpc-networking", retryDelay.toScala, self).map(Some(_))
+            ) // Wait for the retry delay
+            result <-
+              if (mutex(this)(connectWorkers.contains(serverEndpoint))) {
+                createServerHandle(
+                  serverEndpoint,
+                  channel,
+                  asyncStub,
+                  blockingStub,
+                  retryDelay,
+                  attemptNumber,
+                ) // Async-trampolined
+              } else {
+                logger.info(
+                  s"in client role failed to $failureDescription during attempt $attemptNumber, " +
+                    "but not retrying because the connection is being closed",
                   exception,
-                  connectRetryDelay,
-                  attemptNumber + 1,
-                ).value
-            }
+                )
+                OptionT
+                  .none[
+                    FutureUnlessShutdown,
+                    (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+                  ]
+              }
+          } yield result
+        }
+
+        Try {
+          // Unfortunately the async client fails asynchronously, so a synchronous ping comes in useful to check that
+          //  at least the initial connection can be established.
+          blockingStub.ping(PingRequest.defaultInstance).discard
+          val sequencerIdPromiseUS = PromiseUnlessShutdown.unsupervised[SequencerId]()
+          val streamFromServer = asyncStub.receive(
+            new GrpcClientHandle(
+              serverEndpoint,
+              sequencerIdPromiseUS,
+              closeConnection,
+              authenticationEnabled = authenticationInitialState.isDefined,
+              loggerFactory,
+            )
           )
-        case Failure(exception) =>
-          retry(s"ping endpoint $serverEndpoint", exception, connectRetryDelay, attemptNumber + 1)
+          sequencerIdPromiseUS.futureUS.map(sequencerId => (sequencerId, streamFromServer))
+        } match {
+          case Success(futureUSResult) =>
+            OptionT(
+              futureUSResult.transformWith {
+                case Success(value) =>
+                  FutureUnlessShutdown.lift(value.map(Option(_)))
+                case Failure(exception) =>
+                  retry(
+                    s"create a stream to '$serverEndpoint''",
+                    exception,
+                    connectRetryDelay,
+                    attemptNumber + 1,
+                  ).value
+              }
+            )
+          case Failure(exception) =>
+            retry(s"ping endpoint $serverEndpoint", exception, connectRetryDelay, attemptNumber + 1)
+        }
       }
-    }
 
     private def shutdownGrpcChannel(
         serverEndpoint: P2PEndpoint,
@@ -595,13 +611,13 @@ object GrpcNetworking {
 
   private final case class OpenChannel(
       channel: ManagedChannel,
-      maybeSequencerIdFromAuthenticationFuture: Option[Future[SequencerId]],
+      maybeSequencerIdFromAuthenticationFutureUS: Option[FutureUnlessShutdown[SequencerId]],
       asyncStub: BftOrderingServiceGrpc.BftOrderingServiceStub,
       blockingStub: BftOrderingServiceGrpc.BftOrderingServiceBlockingStub,
   )
 
-  private def toUnitFuture[X](optionT: OptionT[Future, X])(implicit
+  private def toUnitFutureUS[X](optionT: OptionT[FutureUnlessShutdown, X])(implicit
       ec: ExecutionContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     optionT.value.map(_ => ())
 }

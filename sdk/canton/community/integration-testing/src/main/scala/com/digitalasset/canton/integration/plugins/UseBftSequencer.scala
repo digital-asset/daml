@@ -14,24 +14,88 @@ import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBas
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig.BftSequencer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.P2PNetworkConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.util.SingleUseCell
+import monocle.macros.GenLens
 import monocle.macros.syntax.lens.*
 
 import scala.collection.mutable
 
+/** @param dynamicallyOnboardedSequencerNames
+  *   Names of sequencers that are not part of the initial network config, and can be added later as
+  *   part of a test.
+  * @param shouldGenerateEndpointsOnly
+  *   If true, replaces addresses and ports only (instead of building a full config) to avoid their
+  *   clashes. Useful for config file integration tests.
+  */
 final class UseBftSequencer(
     override protected val loggerFactory: NamedLoggerFactory,
     val sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
     dynamicallyOnboardedSequencerNames: Seq[InstanceName] = Seq.empty,
+    shouldGenerateEndpointsOnly: Boolean = false,
 ) extends EnvironmentSetupPlugin {
 
   val sequencerEndpoints
       : SingleUseCell[Map[InstanceName, BftBlockOrdererConfig.P2PEndpointConfig]] =
     new SingleUseCell()
 
-  override def beforeEnvironmentCreated(config: CantonConfig): CantonConfig = {
+  override def beforeEnvironmentCreated(config: CantonConfig): CantonConfig =
+    if (shouldGenerateEndpointsOnly) generateEndpoints(config)
+    else createFullConfig(config)
+
+  private def generateEndpoints(config: CantonConfig) = {
+    val instanceNameToPort = config.sequencers.keys.map(_ -> UniquePortGenerator.next).toMap
+
+    val sequencers = config.sequencers.map { case (instanceName, sequencerNodeConfig) =>
+      val sequencer = sequencerNodeConfig.sequencer match {
+        case BftSequencer(blockSequencerConfig, bftOrdererConfig) =>
+          BftSequencer(
+            blockSequencerConfig,
+            bftOrdererConfig
+              // server endpoint's lens
+              .focus(_.initialNetwork)
+              .some
+              .andThen(GenLens[P2PNetworkConfig](_.serverEndpoint))
+              .modify(
+                _.focus(_.address)
+                  .replace("localhost")
+                  .focus(_.internalPort)
+                  .replace(Some(instanceNameToPort(instanceName)))
+                  .focus(_.externalAddress)
+                  .replace("localhost")
+                  .focus(_.externalPort)
+                  .replace(instanceNameToPort(instanceName))
+              )
+              // peer endpoints' lens
+              .focus(_.initialNetwork)
+              .some
+              .andThen(GenLens[P2PNetworkConfig](_.peerEndpoints))
+              .modify { peerEndpoints =>
+                val otherPeerPorts =
+                  instanceNameToPort.filterNot { case (name, _) => name == instanceName }
+                peerEndpoints
+                  .zip(otherPeerPorts.values)
+                  .map { case (p2pEndpointConfig, port) =>
+                    p2pEndpointConfig
+                      .focus(_.address)
+                      .replace("localhost")
+                      .focus(_.port)
+                      .replace(port)
+                  }
+              },
+          )
+
+        case otherSequencerConfig => otherSequencerConfig
+      }
+      instanceName -> sequencerNodeConfig.focus(_.sequencer).replace(sequencer)
+    }
+    config.focus(_.sequencers).replace(sequencers)
+  }
+
+  private def createFullConfig(config: CantonConfig): CantonConfig = {
     // Contains all sequencers from the environment definition. Typically, the environment definition also contains
     //  sequencers that are onboarded dynamically by tests (i.e, not initialized from the very beginning).
     val groups = sequencerGroups match {
@@ -54,7 +118,7 @@ final class UseBftSequencer(
           val otherInitialEndpoints =
             if (dynamicallyOnboardedSequencerNames.contains(selfInstanceName))
               // Dynamically onboarded peers' endpoints are not part of the initial network but are added later
-              // by the concrete test case.
+              //  by the concrete test case.
               Seq.empty
             else
               endpoints.view

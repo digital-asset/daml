@@ -10,11 +10,13 @@ import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v2.command_service._
 import io.grpc.ServerServiceDefinition
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class CommandServiceImpl(
     submitAndWaitResponse: Future[SubmitAndWaitResponse],
     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
+    @deprecated("Use submitAndWaitForTransactionResponse instead", "3.3.0")
     submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
     submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
 ) extends CommandService
@@ -34,6 +36,7 @@ final class CommandServiceImpl(
     submitAndWaitForTransactionResponse
   }
 
+  @deprecated("Use submitAndWaitForTransaction instead", "3.3.0")
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
@@ -52,6 +55,8 @@ final class CommandServiceImpl(
 
 object CommandServiceImpl {
 
+  // TODO remove submitAndWaitForTransactionTreeResponse
+  @nowarn("cat=deprecation")
   def createWithRef(
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],

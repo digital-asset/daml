@@ -41,6 +41,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.*
 import scalaz.{-\/, OneAnd, \/}
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext as EC, Future}
 
 final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends NamedLogging {
@@ -63,6 +64,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
             .requireHandling(submitErrors)
         }
 
+  @deprecated("Use submitAndWaitForTransaction instead", "3.3.0")
   def submitAndWaitForTransactionTree(
       client: DamlLedgerClient
   )(implicit ec: EC, traceContext: TraceContext): SubmitAndWaitForTransactionTree =
@@ -76,6 +78,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       }
 
   // TODO(#13364) test this function with a token or do not pass the token to getActiveContractsSource if it is not needed
+  @nowarn("cat=deprecation")
   def getActiveContracts(client: DamlLedgerClient)(implicit
       traceContext: TraceContext
   ): GetActiveContracts =
@@ -92,6 +95,7 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         }
       }
 
+  @nowarn("cat=deprecation")
   def getCreatesAndArchivesSince(
       client: DamlLedgerClient
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
@@ -304,6 +308,7 @@ object LedgerClientJwt {
       SubmitAndWaitForTransactionResponse,
     ]
 
+  @deprecated("Use SubmitAndWaitForTransaction instead", "3.3.0")
   type SubmitAndWaitForTransactionTree =
     (
         Jwt,
@@ -313,6 +318,7 @@ object LedgerClientJwt {
       SubmitAndWaitForTransactionTreeResponse,
     ]
 
+  @nowarn("cat=deprecation")
   type GetActiveContracts =
     (
         Jwt,
@@ -327,6 +333,7 @@ object LedgerClientJwt {
   type GetLedgerEnd =
     Jwt => LoggingContextOf[InstanceUUID] => Source[Long, NotUsed]
 
+  @nowarn("cat=deprecation")
   type GetCreatesAndArchivesSince =
     (
         Jwt,

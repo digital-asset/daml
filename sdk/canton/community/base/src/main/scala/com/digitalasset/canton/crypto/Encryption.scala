@@ -597,6 +597,9 @@ final case class EncryptionPublicKey private[crypto] (
 
   protected override val dataForFingerprintO: Option[ByteString] = None
 
+  @VisibleForTesting
+  private[canton] def rawKey: ByteString = key
+
   // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
     CryptoKeyValidation

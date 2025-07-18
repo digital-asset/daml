@@ -47,13 +47,15 @@ class DbSequencerStateManagerStore(
   import storage.converters.*
 
   override def readInFlightAggregations(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeBound: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] =
-    storage.query(readInFlightAggregationsDBIO(timestamp), functionFullName)
+    storage.query(readInFlightAggregationsDBIO(timestamp, maxSequencingTimeBound), functionFullName)
 
   /** Compute the state up until (inclusive) the given timestamp. */
   def readInFlightAggregationsDBIO(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeBound: CantonTimestamp,
   ): DBIOAction[
     InFlightAggregations,
     NoStream,
@@ -73,7 +75,7 @@ class DbSequencerStateManagerStore(
                 on aggregation.aggregation_id = sender.aggregation_id
             where
             -- Note: filter and field duplication on both tables are necessary to make the query efficient
-              aggregation.max_sequencing_time > $timestamp and aggregation.first_sequencing_timestamp <= $timestamp
+              aggregation.max_sequencing_time > $timestamp and aggregation.max_sequencing_time <= $maxSequencingTimeBound and aggregation.first_sequencing_timestamp <= $timestamp
                 and sender.max_sequencing_time > $timestamp and sender.sequencing_timestamp <= $timestamp
           """.as[
         (

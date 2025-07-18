@@ -77,6 +77,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       eitherUserListsOrPrivilegedTokensOnParticipants,
       sessionSigningKeysOnlyWithKms,
       distinctScopesAndAudiencesOnAuthServices,
+      engineAdditionalConsistencyChecksParticipants,
     )
 
   /** Group node configs by db access to find matching db storage configs. Overcomplicated types
@@ -243,6 +244,19 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
         )
       )(
         s"if both ledger-api.admin-token and admin-api.admin-token provided, they must match for participant ${name.unwrap}"
+      )
+    }
+    toValidated(errors)
+  }
+
+  private def engineAdditionalConsistencyChecksParticipants(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.participants.toSeq.mapFilter { case (name, participantConfig) =>
+      Option.when(
+        participantConfig.parameters.engine.enableAdditionalConsistencyChecks && !config.parameters.nonStandardConfig
+      )(
+        s"Enabling additional consistency checks on the Daml Engine for participant ${name.unwrap} requires to explicitly set canton.parameters.non-standard-config = true"
       )
     }
     toValidated(errors)

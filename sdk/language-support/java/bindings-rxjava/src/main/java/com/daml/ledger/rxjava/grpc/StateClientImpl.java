@@ -33,6 +33,8 @@ public class StateClientImpl implements StateClient {
         StubHelper.authenticating(StateServiceGrpc.newFutureStub(channel), accessToken);
   }
 
+  // TransactionFilter will be removed in 3.4, remove
+  @SuppressWarnings("deprecation")
   private Flowable<GetActiveContractsResponse> getActiveContracts(
       @NonNull TransactionFilter filter,
       boolean verbose,
@@ -47,12 +49,16 @@ public class StateClientImpl implements StateClient {
         .map(GetActiveContractsResponse::fromProto);
   }
 
+  // TransactionFilter will be removed in 3.4, use the corresponding method with eventFormat
+  @Deprecated
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
       @NonNull TransactionFilter filter, boolean verbose, Long activeAtOffset) {
     return getActiveContracts(filter, verbose, activeAtOffset, Optional.empty());
   }
 
+  // TransactionFilter will be removed in 3.4, use the corresponding method with eventFormat
+  @Deprecated
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
       @NonNull TransactionFilter filter,
@@ -87,6 +93,8 @@ public class StateClientImpl implements StateClient {
         .map(GetActiveContractsResponse::fromProto);
   }
 
+  // TransactionFilter will be removed in 3.4, use the corresponding method with eventFormat
+  @SuppressWarnings("deprecation")
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,

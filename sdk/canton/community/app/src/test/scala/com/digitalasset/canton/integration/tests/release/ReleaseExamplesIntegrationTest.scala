@@ -14,6 +14,22 @@ import scala.sys.process.Process
   */
 abstract class ReleaseExamplesIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   "The release examples" should {
+
+    "successfully run the debug encryption script" in { processLogger =>
+      val debugExampleDir = File(s"$cantonDir/examples/99-debug-encryption")
+      val cantonBinRel = debugExampleDir.relativize(File(cantonBin))
+      Process(
+        s"$cantonBinRel run -v --config simple-topology.conf bootstrap.sc",
+        cwd = debugExampleDir.toJava,
+      ).!(processLogger) shouldBe 0
+      checkOutput(
+        processLogger,
+        shouldContain = Seq(
+          "Encryption test completed"
+        ),
+      )
+    }
+
     "successfully initialize participant with offline root namespace key" in { processLogger =>
       val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
       val cantonBinRel = offlineExampleDir.relativize(File(cantonBin))

@@ -773,8 +773,8 @@ class ParticipantNodeBootstrap(
           )
         adminServerRegistry
           .addServiceU(
-            v30.InspectionServiceGrpc.bindService(
-              new GrpcInspectionService(
+            v30.ParticipantInspectionServiceGrpc.bindService(
+              new GrpcParticipantInspectionService(
                 sync.stateInspection,
                 ips,
                 indexedStringStore,

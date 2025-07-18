@@ -32,8 +32,10 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+@nowarn("cat=deprecation")
 class ApiCommandServiceSpec
     extends AsyncWordSpec
     with MockitoSugar
@@ -158,6 +160,7 @@ class ApiCommandServiceSpec
   }
 }
 
+@nowarn("cat=deprecation")
 object ApiCommandServiceSpec {
   private val aCommand = Command.of(
     Command.Command.Create(

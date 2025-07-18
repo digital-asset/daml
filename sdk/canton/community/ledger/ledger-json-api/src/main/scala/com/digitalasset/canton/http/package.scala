@@ -87,6 +87,8 @@ package http {
   import com.digitalasset.canton.fetchcontracts.`fc ErrorOps`
   import com.digitalasset.canton.topology.SynchronizerId
 
+  import scala.annotation.nowarn
+
   sealed trait SubmissionIdTag
 
   sealed trait CompletionOffsetTag
@@ -390,6 +392,7 @@ package http {
 
   object Contract {
 
+    @nowarn("cat=deprecation")
     def fromTransactionTree(
         tx: lav2.transaction.TransactionTree
     ): Error \/ Vector[Contract[lav2.value.Value]] = {
@@ -397,6 +400,7 @@ package http {
       fromTreeEvents(events)
     }
 
+    @nowarn("cat=deprecation")
     private[this] def fromTreeEvents(
         events: Vector[lav2.transaction.TreeEvent]
     ): Error \/ Vector[Contract[lav2.value.Value]] = {

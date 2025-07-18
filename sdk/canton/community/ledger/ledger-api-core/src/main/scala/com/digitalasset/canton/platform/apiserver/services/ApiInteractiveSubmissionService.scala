@@ -9,7 +9,10 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse,
   GetPreferredPackageVersionRequest,
   GetPreferredPackageVersionResponse,
+  GetPreferredPackagesRequest,
+  GetPreferredPackagesResponse,
   PackagePreference,
+  PackageVettingRequirement,
   PrepareSubmissionRequest as PrepareRequestP,
   PrepareSubmissionResponse as PrepareResponseP,
 }
@@ -22,10 +25,11 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.PrepareRequest
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
-  GetPreferredPackageVersionRequestValidator,
+  GetPreferredPackagesRequestValidator,
   SubmitRequestValidator,
 }
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
+import com.digitalasset.canton.ledger.error.LedgerApiErrors.NoPreferredPackagesFound
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.{
@@ -70,7 +74,7 @@ class ApiInteractiveSubmissionService(
     prepareWithTraceContext(Traced(request)).asGrpcResponse
   }
 
-  def prepareWithTraceContext(
+  private def prepareWithTraceContext(
       request: Traced[PrepareRequestP]
   ): FutureUnlessShutdown[PrepareResponseP] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
@@ -146,32 +150,81 @@ class ApiInteractiveSubmissionService(
 
     implicit val traceContext: TraceContext = loggingContextWithTrace.traceContext
 
-    val responseFUS = for {
-      (parties, packageName, synchronizerIdO, vettingValidAtO) <-
-        FutureUnlessShutdown.fromTry(
-          GetPreferredPackageVersionRequestValidator.validate(request).toTry
-        )
-      preferenceO <- interactiveSubmissionService.getPreferredPackageVersion(
-        parties = parties,
-        packageName = packageName,
-        synchronizerId = synchronizerIdO,
-        vettingValidAt = vettingValidAtO,
+    getPreferredPackagesInternal(
+      GetPreferredPackagesRequest(
+        packageVettingRequirements =
+          Seq(PackageVettingRequirement(request.parties, request.packageName)),
+        synchronizerId = request.synchronizerId,
+        vettingValidAt = request.vettingValidAt,
       )
-      protoPreference = preferenceO.map { case (packageReference, synchronizerId) =>
-        PackagePreference(
-          packageReference = Some(
+    ).map {
+      case Right((Seq(packageReference), synchronizerId)) =>
+        GetPreferredPackageVersionResponse(
+          packagePreference = Some(PackagePreference(Some(packageReference), synchronizerId))
+        )
+      case Right((unexpectedPackageReferences, _)) =>
+        throw new RuntimeException(
+          s"Expected exactly one package reference but got: $unexpectedPackageReferences"
+        )
+      case Left(failureReason) =>
+        logger.debug(s"Could not compute the preferred package versions: $failureReason")
+        GetPreferredPackageVersionResponse(packagePreference = None)
+    }
+  }
+
+  override def getPreferredPackages(
+      request: GetPreferredPackagesRequest
+  ): Future[GetPreferredPackagesResponse] = {
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+
+    implicit val traceContext: TraceContext = loggingContextWithTrace.traceContext
+
+    for {
+      preferencesEUS <- getPreferredPackagesInternal(request)
+      response <- preferencesEUS.fold(
+        preferenceSelectionFailed =>
+          Future.failed(NoPreferredPackagesFound.Reject(preferenceSelectionFailed).asGrpcError),
+        { case (packageReferences, synchronizerId) =>
+          Future.successful(GetPreferredPackagesResponse(packageReferences, synchronizerId))
+        },
+      )
+    } yield response
+  }
+
+  private def getPreferredPackagesInternal(
+      request: GetPreferredPackagesRequest
+  ): Future[Either[String, (Seq[PackageReference], String)]] = {
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
+
+    implicit val traceContext: TraceContext = loggingContextWithTrace.traceContext
+
+    GetPreferredPackagesRequestValidator
+      .validate(request)
+      .fold(
+        t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        { case (packageVettingRequirements, synchronizerIdO, vettingValidAtO) =>
+          interactiveSubmissionService.getPreferredPackages(
+            packageVettingRequirements = packageVettingRequirements,
+            synchronizerId = synchronizerIdO,
+            vettingValidAt = vettingValidAtO,
+          )
+        },
+      )
+      .map(_.map { case (domainPackageReferences, synchronizerId) =>
+        (
+          domainPackageReferences.map(packageReference =>
             PackageReference(
-              packageId = packageReference.pkdId,
+              packageId = packageReference.pkgId,
               packageName = packageReference.packageName,
               packageVersion = packageReference.version.toString(),
             )
           ),
-          synchronizerId = synchronizerId.toProtoPrimitive,
+          synchronizerId.toProtoPrimitive,
         )
-      }
-    } yield GetPreferredPackageVersionResponse(protoPreference)
-
-    responseFUS.asGrpcResponse
+      })
+      .asGrpcResponse
   }
 
   override def close(): Unit = {}

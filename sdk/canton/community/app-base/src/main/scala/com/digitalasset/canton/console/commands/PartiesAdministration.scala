@@ -21,7 +21,6 @@ import com.digitalasset.canton.admin.api.client.data.{
   AddPartyStatus,
   ListConnectedSynchronizersResult,
   ListPartiesResult,
-  PartyDetails,
 }
 import com.digitalasset.canton.admin.participant.v30.{
   ExportAcsAtTimestampResponse,
@@ -343,22 +342,6 @@ class ParticipantPartiesAdministrationGroup(
       )
       .discard
 
-  @Help.Summary("Update participant-local party details")
-  @Help.Description(
-    """Currently you can update only the annotations.
-           |You cannot update other user attributes.
-          party: party to be updated,
-          modifier: a function to modify the party details, e.g.: `partyDetails => { partyDetails.copy(annotations = partyDetails.annotations.updated("a", "b").removed("c")) }`"""
-  )
-  def update(
-      party: PartyId,
-      modifier: PartyDetails => PartyDetails,
-  ): PartyDetails =
-    reference.ledger_api.parties.update(
-      party = party,
-      modifier = modifier,
-    )
-
   @Help.Summary("Add a previously existing party to the local participant", FeatureFlag.Preview)
   @Help.Description(
     """Initiate adding a previously existing party to this participant on the specified synchronizer.
@@ -570,6 +553,41 @@ class ParticipantPartiesAdministrationGroup(
             "3) The ledger has not yet processed the relevant topology transaction. (Solution: Retry after delay, ensuring the ledger (end) has advanced)."
         )
       )
+  }
+
+  @Help.Summary("Find highest ledger offset by timestamp.")
+  @Help.Description(
+    """This command attempts to find the highest ledger offset among all events belonging
+      |to a synchronizer that have a record time before or at the given timestamp.
+      |
+      |Returns the highest ledger offset, or an error.
+      |
+      |Possible failure causes:
+      |- The requested timestamp is too far in the past for which no events exist anymore.
+      |- There are no events for the given synchronizer.
+      |- Not all events have been processed fully and/or published to the Ledger API DB
+      |  until the requested timestamp.
+      |
+      |Depending on the failure cause, this command can be tried to get a ledger offset.
+      |For example, if not all events have been processed fully and/or published to the
+      |Ledger API DB, a retry makes sense.
+      |
+      |The arguments are:
+      |- synchronizerId: Restricts the query to a particular synchronizer.
+      |- timestamp: A point in time.
+      |- force: Defaults to false. If true, returns the highest currently known ledger offset
+      |  with a record time before or at the given timestamp.
+      |"""
+  )
+  def find_highest_offset_by_timestamp(
+      synchronizerId: SynchronizerId,
+      timestamp: Instant,
+      force: Boolean = false,
+  ): NonNegativeLong = consoleEnvironment.run {
+    reference.adminCommand(
+      ParticipantAdminCommands.PartyManagement
+        .GetHighestOffsetByTimestamp(synchronizerId, timestamp, force)
+    )
   }
 
   @Help.Summary("Export active contracts for the given set of parties to a file.")

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
 
+import com.digitalasset.canton.lifecycle.PromiseUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc.GrpcClientHandle.AuthenticationTimeout
@@ -12,13 +13,13 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
 import io.grpc.stub.StreamObserver
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Promise}
-import scala.util.{Failure, Success}
+import scala.util.Failure
 
 final class GrpcClientHandle(
     server: P2PEndpoint,
-    sequencerIdPromise: Promise[SequencerId],
+    sequencerIdPromiseUS: PromiseUnlessShutdown[SequencerId],
     cleanupClientConnectionToServer: P2PEndpoint => Unit,
     authenticationEnabled: Boolean,
     override val loggerFactory: NamedLoggerFactory,
@@ -32,15 +33,15 @@ final class GrpcClientHandle(
 
   override def onNext(response: BftOrderingServiceReceiveResponse): Unit = {
     logger.debug(s"in client role received initial gRPC message from '$server' in server role")
-    if (!sequencerIdPromise.isCompleted) {
+    if (!sequencerIdPromiseUS.isCompleted) {
       SequencerId.fromProtoPrimitive(response.from, "from") match {
         case Left(e) =>
           val msg = s"received unparseable sequencer ID from '$server' in server role: $e"
           logger.warn(msg)
           val error = new RuntimeException(msg)
-          sequencerIdPromise.complete(Failure(error))
+          sequencerIdPromiseUS.complete(Failure(error))
           onError(error)
-        case Right(sequencerId) => sequencerIdPromise.complete(Success(sequencerId))
+        case Right(sequencerId) => sequencerIdPromiseUS.outcome(sequencerId)
       }
     } else {
       logger.warn(
@@ -69,12 +70,12 @@ final class GrpcClientHandle(
   private def setupFakeAuthenticationTimeout(): Unit =
     if (!authenticationEnabled)
       DelayUtil.delay(AuthenticationTimeout).onComplete { _ =>
-        if (!sequencerIdPromise.isCompleted) {
+        if (!sequencerIdPromiseUS.isCompleted) {
           val msg =
             s"client role did not receive initial gRPC message from '$server' in server role within $AuthenticationTimeout"
           logger.warn(msg)
           val error = new RuntimeException(msg)
-          sequencerIdPromise.complete(Failure(error))
+          sequencerIdPromiseUS.complete(Failure(error))
           onError(error)
         }
       }

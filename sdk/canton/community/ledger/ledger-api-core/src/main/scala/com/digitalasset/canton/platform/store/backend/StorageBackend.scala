@@ -346,22 +346,28 @@ trait EventStorageBackend {
 
   def firstSynchronizerOffsetAfterOrAt(
       synchronizerId: SynchronizerId,
-      afterOrAtRecordTimeInclusive: Timestamp,
+      afterOrAtRecordTime: Timestamp,
   )(connection: Connection): Option[SynchronizerOffset]
 
   def lastSynchronizerOffsetBeforeOrAt(
       synchronizerIdO: Option[SynchronizerId],
-      beforeOrAtOffsetInclusive: Offset,
+      beforeOrAtOffset: Offset,
   )(connection: Connection): Option[SynchronizerOffset]
 
   def synchronizerOffset(offset: Offset)(connection: Connection): Option[SynchronizerOffset]
 
   def firstSynchronizerOffsetAfterOrAtPublicationTime(
-      afterOrAtPublicationTimeInclusive: Timestamp
+      afterOrAtPublicationTime: Timestamp
   )(connection: Connection): Option[SynchronizerOffset]
 
   def lastSynchronizerOffsetBeforeOrAtPublicationTime(
-      beforeOrAtPublicationTimeInclusive: Timestamp
+      beforeOrAtPublicationTime: Timestamp
+  )(connection: Connection): Option[SynchronizerOffset]
+
+  // Note: Added for offline party replication as CN is using it.
+  def lastSynchronizerOffsetBeforeOrAtRecordTime(
+      synchronizerId: SynchronizerId,
+      beforeOrAtRecordTime: Timestamp,
   )(connection: Connection): Option[SynchronizerOffset]
 
   def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(

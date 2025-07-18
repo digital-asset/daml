@@ -1667,6 +1667,39 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/interactive-submission/preferred-packages:
+    get:
+      description: Get the version of preferred packages for constructing a command
+        submission
+      operationId: getV2Interactive-submissionPreferred-packages
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetPreferredPackagesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetPreferredPackagesResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
 components:
   schemas:
     AllocatePartyRequest:
@@ -3089,6 +3122,57 @@ components:
           description: |-
             Not populated when no preferred package is found
             Optional
+    GetPreferredPackagesRequest:
+      title: GetPreferredPackagesRequest
+      type: object
+      required:
+      - synchronizerId
+      properties:
+        packageVettingRequirements:
+          description: |-
+            The package-name vetting requirements for which the preferred packages should be resolved.
+
+            Generally it is enough to provide the requirements for the intended command's root package-names.
+            Additional package-name requirements can be provided when additional Daml transaction informees need to use
+            package dependencies of the command's root packages.
+
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageVettingRequirement'
+        synchronizerId:
+          description: |-
+            The synchronizer whose vetting state to use for resolving this query.
+            If not specified, the vetting state of all the synchronizers the participant is connected to will be used.
+            Optional
+          type: string
+        vettingValidAt:
+          description: |-
+            The timestamp at which the package vetting validity should be computed
+            on the latest topology snapshot as seen by the participant.
+            If not provided, the participant's current clock time is used.
+            Optional
+          type: string
+    GetPreferredPackagesResponse:
+      title: GetPreferredPackagesResponse
+      type: object
+      required:
+      - synchronizerId
+      properties:
+        packageReferences:
+          description: |-
+            The package references of the preferred packages.
+            Must contain one package reference for each requested package-name.
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/PackageReference'
+        synchronizerId:
+          description: |-
+            The synchronizer for which the package preferences are computed.
+            If the synchronizer_id was specified in the request, then it matches the request synchronizer_id.
+            Required
+          type: string
     GetTransactionByIdRequest:
       title: GetTransactionByIdRequest
       description: Provided for backwards compatibility, it will be removed in the
@@ -4706,6 +4790,26 @@ components:
           type: string
         packageVersion:
           description: Required
+          type: string
+    PackageVettingRequirement:
+      title: PackageVettingRequirement
+      description: Defines a package-name for which the commonly vetted package with
+        the highest version must be found.
+      type: object
+      required:
+      - packageName
+      properties:
+        parties:
+          description: |-
+            The parties whose participants' vetting state should be considered when resolving the preferred package.
+            Required
+          type: array
+          items:
+            type: string
+        packageName:
+          description: |-
+            The package-name for which the preferred package should be resolved.
+            Required
           type: string
     ParticipantAdmin:
       title: ParticipantAdmin

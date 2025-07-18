@@ -29,9 +29,11 @@ import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import org.scalatest.LoneElement.convertToCollectionLoneElementWrapper
 
 import java.util.{List as JList, Optional}
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 
+@nowarn("cat=deprecation")
 trait SynchronizerRouterIntegrationTestSetup
     extends CommunityIntegrationTest
     with SharedEnvironment
@@ -256,6 +258,7 @@ private[tests] object SynchronizerRouterIntegrationTestSetup {
     )
   }
 
+  @nowarn("cat=deprecation")
   def exerciseCountAll(
       participant: ParticipantReference,
       submitter: PartyId,

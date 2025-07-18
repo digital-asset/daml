@@ -63,6 +63,10 @@ class JsInteractiveSubmissionService(
       JsInteractiveSubmissionService.preferredPackageVersionEndpoint,
       preferredPackageVersion,
     ),
+    withServerLogic(
+      JsInteractiveSubmissionService.preferredPackagesEndpoint,
+      preferredPackages,
+    ),
   )
 
   def prepare(callerContext: CallerContext): TracedInput[JsPrepareSubmissionRequest] => Future[
@@ -107,6 +111,19 @@ class JsInteractiveSubmissionService(
       )
       .resultToRight
   }
+
+  private def preferredPackages(
+      callerContext: CallerContext
+  ): TracedInput[interactive_submission_service.GetPreferredPackagesRequest] => Future[
+    Either[JsCantonError, interactive_submission_service.GetPreferredPackagesResponse]
+  ] = { (tracedInput: TracedInput[interactive_submission_service.GetPreferredPackagesRequest]) =>
+    implicit val tc: TraceContext = tracedInput.traceContext
+    val token: Option[String] = callerContext.token()
+    val getPreferredPackagesRequest = tracedInput.in
+    interactiveSubmissionServiceClient(token)
+      .getPreferredPackages(getPreferredPackagesRequest)
+      .resultToRight
+  }
 }
 
 final case class JsPrepareSubmissionRequest(
@@ -143,7 +160,6 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
   import JsInteractiveSubmissionServiceCodecs.*
   private lazy val interactiveSubmission =
     v2Endpoint.in(sttp.tapir.stringToPath("interactive-submission"))
-
   private lazy val preferredPackageVersion =
     interactiveSubmission.in(sttp.tapir.stringToPath("preferred-package-version"))
 
@@ -151,6 +167,9 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
   private val packageNameQueryParam = "package-name"
   private val timestampVettingValidityQueryParam = "vetting_valid_at"
   private val synchronizerIdQueryParam = "synchronizer-id"
+
+  private lazy val preferredPackages =
+    interactiveSubmission.in(sttp.tapir.stringToPath("preferred-packages"))
 
   val prepareEndpoint = interactiveSubmission.post
     .in(stringToPath("prepare"))
@@ -175,8 +194,21 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
         "Get the preferred package version for constructing a command submission"
       )
 
+  val preferredPackagesEndpoint =
+    preferredPackages.get
+      .in(jsonBody[interactive_submission_service.GetPreferredPackagesRequest])
+      .out(jsonBody[interactive_submission_service.GetPreferredPackagesResponse])
+      .description(
+        "Get the version of preferred packages for constructing a command submission"
+      )
+
   override def documentation: Seq[AnyEndpoint] =
-    Seq(prepareEndpoint, executeEndpoint, preferredPackageVersionEndpoint)
+    Seq(
+      prepareEndpoint,
+      executeEndpoint,
+      preferredPackageVersionEndpoint,
+      preferredPackagesEndpoint,
+    )
 }
 
 object JsInteractiveSubmissionServiceCodecs {
@@ -257,6 +289,18 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveRelaxedCodec
   implicit val getPreferredPackageVersionResponse
       : Codec[interactive_submission_service.GetPreferredPackageVersionResponse] =
+    deriveRelaxedCodec
+
+  implicit val packageVettingRequirement
+      : Codec[interactive_submission_service.PackageVettingRequirement] =
+    deriveRelaxedCodec
+
+  implicit val getPreferredPackagesRequest
+      : Codec[interactive_submission_service.GetPreferredPackagesRequest] =
+    deriveRelaxedCodec
+
+  implicit val getPreferredPackagesResponse
+      : Codec[interactive_submission_service.GetPreferredPackagesResponse] =
     deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs

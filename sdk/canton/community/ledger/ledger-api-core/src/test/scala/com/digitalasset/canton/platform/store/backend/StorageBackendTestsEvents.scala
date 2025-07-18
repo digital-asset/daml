@@ -701,7 +701,7 @@ private[backend] trait StorageBackendTestsEvents
           executeSql(
             backend.event.firstSynchronizerOffsetAfterOrAt(
               synchronizerId = synchronizerId,
-              afterOrAtRecordTimeInclusive = afterOrAtRecordTimeInclusive,
+              afterOrAtRecordTime = afterOrAtRecordTimeInclusive,
             )
           ) shouldBe expectation
         }
@@ -900,7 +900,7 @@ private[backend] trait StorageBackendTestsEvents
           executeSql(
             backend.event.lastSynchronizerOffsetBeforeOrAt(
               synchronizerIdO = synchronizerIdO,
-              beforeOrAtOffsetInclusive = beforeOrAtOffsetInclusive,
+              beforeOrAtOffset = beforeOrAtOffsetInclusive,
             )
           ) shouldBe expectation
         }
@@ -984,7 +984,7 @@ private[backend] trait StorageBackendTestsEvents
       ) {
         executeSql(
           backend.event.firstSynchronizerOffsetAfterOrAtPublicationTime(
-            afterOrAtPublicationTimeInclusive = afterOrAtPublicationTimeInclusive
+            afterOrAtPublicationTime = afterOrAtPublicationTimeInclusive
           )
         ) shouldBe expectation
       }
@@ -1043,15 +1043,202 @@ private[backend] trait StorageBackendTestsEvents
       ),
     ).zipWithIndex.foreach { case ((beforeOrAtPublicationTimeInclusive, expectation), index) =>
       withClue(
-        s"test $index lastSynchronizerOffsetBeforerOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
+        s"test $index lastSynchronizerOffsetBeforeOrAtPublicationTime($beforeOrAtPublicationTimeInclusive)"
       ) {
         executeSql(
           backend.event.lastSynchronizerOffsetBeforeOrAtPublicationTime(
-            beforeOrAtPublicationTimeInclusive = beforeOrAtPublicationTimeInclusive
+            beforeOrAtPublicationTime = beforeOrAtPublicationTimeInclusive
           )
         ) shouldBe expectation
       }
     }
+    Vector(
+      startRecordTimeSynchronizer2 -> None,
+      startRecordTimeSynchronizer2.addMicros(499) -> None,
+      startRecordTimeSynchronizer2.addMicros(500) -> Some(
+        SynchronizerOffset(
+          offset = offset(3),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startRecordTimeSynchronizer2.addMicros(501) -> Some(
+        SynchronizerOffset(
+          offset = offset(3),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(500),
+          publicationTime = startPublicationTime.addMicros(500),
+        )
+      ),
+      startRecordTimeSynchronizer2.addMicros(2000) -> Some(
+        SynchronizerOffset(
+          offset = offset(11),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startRecordTimeSynchronizer2.addMicros(2001) -> Some(
+        SynchronizerOffset(
+          offset = offset(11),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startRecordTimeSynchronizer2.addMicros(2000) -> Some(
+        SynchronizerOffset(
+          offset = offset(11),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(2000),
+          publicationTime = startPublicationTime.addMicros(1000),
+        )
+      ),
+      startRecordTimeSynchronizer2.addMicros(4000) -> Some(
+        SynchronizerOffset(
+          offset = offset(15),
+          synchronizerId = someSynchronizerId2,
+          recordTime = startRecordTimeSynchronizer2.addMicros(3000),
+          publicationTime = startPublicationTime.addMicros(2000),
+        )
+      ),
+    ).zipWithIndex.foreach { case ((beforeOrAtRecordTime, expectation), index) =>
+      withClue(
+        s"test $index lastSynchronizerOffsetBeforeOrAtRecordTime($beforeOrAtRecordTime)"
+      ) {
+        executeSql(
+          backend.event.lastSynchronizerOffsetBeforeOrAtRecordTime(
+            synchronizerId = someSynchronizerId2,
+            beforeOrAtRecordTime = beforeOrAtRecordTime,
+          )
+        ) shouldBe expectation
+      }
+    }
+  }
+
+  it should "work with multiple transaction_metadata entries sharing the same record_time - firstSynchronizerOffsetAfterOrAt" in {
+    val startRecordTimeSynchronizer = Timestamp.now().addMicros(10000)
+    val startPublicationTime = Timestamp.now().addMicros(100000)
+    val dbDtos = Vector(
+      dtoTransactionMeta(
+        offset = offset(3),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(500),
+        publicationTime = startPublicationTime.addMicros(500),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoTransactionMeta(
+        offset = offset(7),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(700),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoTransactionMeta(
+        offset = offset(9),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(800),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      // insertion is out of order for this entry, for testing result is not reliant on insertion order, but rather on index order (regression for bug #26434)
+      dtoTransactionMeta(
+        offset = offset(5),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(600),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+      dtoTransactionMeta(
+        offset = offset(11),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(600),
+        publicationTime = startPublicationTime.addMicros(900),
+        event_sequential_id_first = 1,
+        event_sequential_id_last = 1,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(12), 2L, CantonTimestamp(startPublicationTime.addMicros(1000)))
+    )
+
+    executeSql(
+      backend.event.firstSynchronizerOffsetAfterOrAt(
+        synchronizerId = someSynchronizerId,
+        afterOrAtRecordTime = startRecordTimeSynchronizer.addMicros(540),
+      )
+    ).value.offset shouldBe offset(5)
+    executeSql(
+      backend.event.firstSynchronizerOffsetAfterOrAt(
+        synchronizerId = someSynchronizerId,
+        afterOrAtRecordTime = startRecordTimeSynchronizer.addMicros(550),
+      )
+    ).value.offset shouldBe offset(5)
+  }
+
+  it should "work with multiple completion entries sharing the same record_time - firstSynchronizerOffsetAfterOrAt" in {
+    val startRecordTimeSynchronizer = Timestamp.now().addMicros(10000)
+    val startPublicationTime = Timestamp.now().addMicros(100000)
+    val dbDtos = Vector(
+      dtoCompletion(
+        offset = offset(3),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(500),
+        publicationTime = startPublicationTime.addMicros(500),
+      ),
+      dtoCompletion(
+        offset = offset(7),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(700),
+      ),
+      dtoCompletion(
+        offset = offset(9),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(800),
+      ),
+      // insertion is out of order for this entry, for testing result is not reliant on insertion order, but rather on index order (regression for bug #26434)
+      dtoCompletion(
+        offset = offset(5),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(550),
+        publicationTime = startPublicationTime.addMicros(600),
+      ),
+      dtoCompletion(
+        offset = offset(11),
+        synchronizerId = someSynchronizerId.toProtoPrimitive,
+        recordTime = startRecordTimeSynchronizer.addMicros(600),
+        publicationTime = startPublicationTime.addMicros(900),
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(
+      updateLedgerEnd(offset(12), 2L, CantonTimestamp(startPublicationTime.addMicros(1000)))
+    )
+
+    executeSql(
+      backend.event.firstSynchronizerOffsetAfterOrAt(
+        synchronizerId = someSynchronizerId,
+        afterOrAtRecordTime = startRecordTimeSynchronizer.addMicros(540),
+      )
+    ).value.offset shouldBe offset(5)
+    executeSql(
+      backend.event.firstSynchronizerOffsetAfterOrAt(
+        synchronizerId = someSynchronizerId,
+        afterOrAtRecordTime = startRecordTimeSynchronizer.addMicros(550),
+      )
+    ).value.offset shouldBe offset(5)
   }
 
   it should "work properly for archivals query" in {

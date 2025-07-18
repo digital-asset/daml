@@ -3,30 +3,36 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
 import com.daml.ledger.javaapi.data.Command
+import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-  TestConsoleEnvironment,
-}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
+import com.digitalasset.canton.integration.{EnvironmentDefinition, TestConsoleEnvironment}
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
+import java.time.Instant
 import java.util.Collections
 
-sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment {
+sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
+    extends UseSilentSynchronizerInTest
+    with HasTempDirectory {
 
-  private val acsFilename = s"${getClass.getSimpleName}.gz"
+  private val acsSnapshot = tempDirectory.toTempFile(s"${getClass.getSimpleName}.gz")
+  private val acsSnapshotPath: String = acsSnapshot.toString
+
+  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to one year.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M2.withSetup { implicit env =>
@@ -37,6 +43,12 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
       participant3.synchronizers.connect_local(sequencer2, alias = daName)
 
       participants.all.dars.upload(CantonTestsPath)
+
+      sequencers.all.foreach { s =>
+        adjustTimeouts(s)
+        s.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
+      }
     }
 
   "Migrations are grouped by ledger time and can be correlated through the workflow ID" in {
@@ -55,10 +67,44 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
           .submit(actAs = Seq(alice), commands = commands)
       }
 
-      migrate(
+      PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
+        participant1,
+        alice,
+        PositiveInt.one,
+        Set(
+          (participant1, PP.Submission),
+          (participant2, PP.Observation),
+        ),
+      )
+
+      val onboardingTx = participant1.topology.party_to_participant_mappings
+        .list(
+          synchronizerId = daId,
+          filterParty = alice.filterString,
+          filterParticipant = participant2.filterString,
+        )
+        .loneElement
+        .context
+
+      silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+      replicate(
         party = alice,
         source = participant1,
         target = participant2,
+        onboardingTx.validFrom,
+      )
+
+      resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+      PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
+        participant1,
+        alice,
+        PositiveInt.one,
+        Set(
+          (participant1, PP.Submission),
+          (participant2, PP.Submission),
+        ),
       )
 
       // Check that the transactions generated for the migration are actually grouped as
@@ -104,11 +150,45 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
         .submit(actAs = Seq(bob), commands = commands)
     }
 
-    migrate(
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
+      participant1,
+      bob,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Observation),
+      ),
+    )
+
+    val onboardingTx = participant1.topology.party_to_participant_mappings
+      .list(
+        synchronizerId = daId,
+        filterParty = bob.filterString,
+        filterParticipant = participant3.filterString,
+      )
+      .loneElement
+      .context
+
+    silenceSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+    replicate(
       party = bob,
       source = participant1,
       target = participant3,
+      onboardingTx.validFrom,
       workflowIdPrefix = workflowIdPrefix,
+    )
+
+    resumeSynchronizerAndAwaitEffectiveness(daId, Seq(sequencer1, sequencer2), participant1)
+
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
+      participant1,
+      bob,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Submission),
+      ),
     )
 
     // Check that the workflow ID prefix is set as specified
@@ -120,31 +200,29 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
 
   }
 
-  private def migrate(
+  private def replicate(
       party: PartyId,
       source: ParticipantReference,
       target: ParticipantReference,
+      topologyTransactionEffectiveTime: Instant,
       workflowIdPrefix: String = "",
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
-    try {
-      repair.party_migration.step1_hold_and_store_acs(
-        party,
-        partiesOffboarding = false,
-        source,
-        target.id,
-        acsFilename,
-      )
-      repair.party_migration.step2_import_acs(party, target, acsFilename, workflowIdPrefix)
-      source.synchronizers.disconnect_all()
-      repair.party_migration.step4_clean_up_source(party, source, acsFilename)
-      source.synchronizers.reconnect_all()
-    } finally {
-      val acsExport = File(acsFilename)
-      if (acsExport.exists) {
-        acsExport.delete()
-      }
-    }
+    repair.party_replication.step1_hold_and_store_acs(
+      party,
+      daId,
+      source,
+      target.id,
+      acsSnapshotPath,
+      topologyTransactionEffectiveTime,
+    )
+    repair.party_replication.step2_import_acs(
+      party,
+      daId,
+      target,
+      acsSnapshotPath,
+      workflowIdPrefix,
+    )
   }
 
   private def ious(party: PartyId, n: Int): Seq[Command] = {
@@ -161,8 +239,8 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
 
 }
 
-final class OfflinePartyMigrationWorkflowIdsIntegrationTestPostgres
-    extends OfflinePartyMigrationWorkflowIdsIntegrationTest {
+final class OfflinePartyReplicationWorkflowIdsIntegrationTestPostgres
+    extends OfflinePartyReplicationWorkflowIdsIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

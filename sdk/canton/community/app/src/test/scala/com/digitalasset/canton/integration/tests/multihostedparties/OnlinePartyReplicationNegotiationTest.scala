@@ -54,6 +54,7 @@ import com.digitalasset.canton.{SequencerAlias, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
 /** Objective: Test the negotiation of party replication via the PartyReplication.daml workflow.
@@ -65,6 +66,7 @@ import scala.jdk.CollectionConverters.*
   *     connectivityMap), and only sequencer1, sequencer2, and sequencer4 support channels (see
   *     selectivelyEnablePartyReplicationOnSequencers).
   */
+@nowarn("cat=deprecation")
 sealed trait OnlinePartyReplicationNegotiationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {

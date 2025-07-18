@@ -203,7 +203,9 @@ private[backend] class ParameterStorageBackendImpl(
     SQL"select #$ParticipantIdColumnName from #$TableName"
       .as(LedgerIdentityParser.singleOpt)(connection)
 
-  def updatePrunedUptoInclusive(prunedUpToInclusive: Offset)(connection: Connection): Unit =
+  override def updatePrunedUptoInclusive(
+      prunedUpToInclusive: Offset
+  )(connection: Connection): Unit =
     discard(
       SQL"""
         update lapi_parameters set participant_pruned_up_to_inclusive=$prunedUpToInclusive
@@ -211,7 +213,7 @@ private[backend] class ParameterStorageBackendImpl(
         """
         .execute()(connection)
     )
-  def updatePrunedAllDivulgedContractsUpToInclusive(
+  override def updatePrunedAllDivulgedContractsUpToInclusive(
       prunedUpToInclusive: Offset
   )(connection: Connection): Unit =
     discard(
@@ -224,14 +226,14 @@ private[backend] class ParameterStorageBackendImpl(
   private val SqlSelectMostRecentPruning =
     SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
 
-  def prunedUpToInclusive(connection: Connection): Option[Offset] =
+  override def prunedUpToInclusive(connection: Connection): Option[Offset] =
     SqlSelectMostRecentPruning
       .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
 
   private val SqlSelectMostRecentPruningAllDivulgedContracts =
     SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from lapi_parameters"
 
-  def participantAllDivulgedContractsPrunedUpToInclusive(
+  override def participantAllDivulgedContractsPrunedUpToInclusive(
       connection: Connection
   ): Option[Offset] =
     SqlSelectMostRecentPruningAllDivulgedContracts

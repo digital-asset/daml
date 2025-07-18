@@ -13,6 +13,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /** Filter used in the state and update service stream queries. Class will be removed in 3.4.0. */
+@Deprecated
 public final class TransactionFilter {
 
   private Map<String, Filter> partyToFilters;

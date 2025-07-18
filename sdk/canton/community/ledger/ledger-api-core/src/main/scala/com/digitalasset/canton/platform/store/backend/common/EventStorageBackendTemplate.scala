@@ -1538,9 +1538,9 @@ abstract class EventStorageBackendTemplate(
         """
       .asVectorOf(long("event_sequential_id"))(connection)
 
-  def firstSynchronizerOffsetAfterOrAt(
+  override def firstSynchronizerOffsetAfterOrAt(
       synchronizerId: SynchronizerId,
-      afterOrAtRecordTimeInclusive: Timestamp,
+      afterOrAtRecordTime: Timestamp,
   )(connection: Connection): Option[SynchronizerOffset] =
     List(
       SQL"""
@@ -1548,8 +1548,8 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_command_completions
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
-            record_time >= ${afterOrAtRecordTimeInclusive.micros}
-          ORDER BY synchronizer_id ASC, record_time ASC
+            record_time >= ${afterOrAtRecordTime.micros}
+          ORDER BY synchronizer_id ASC, record_time ASC, completion_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
       SQL"""
@@ -1557,8 +1557,8 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_transaction_meta
           WHERE
             synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
-            record_time >= ${afterOrAtRecordTimeInclusive.micros}
-          ORDER BY synchronizer_id ASC, record_time ASC
+            record_time >= ${afterOrAtRecordTime.micros}
+          ORDER BY synchronizer_id ASC, record_time ASC, event_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
     ).flatten
@@ -1567,14 +1567,14 @@ abstract class EventStorageBackendTemplate(
         Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if the first is after LedgerEnd, then we have none
 
-  def lastSynchronizerOffsetBeforeOrAt(
+  override def lastSynchronizerOffsetBeforeOrAt(
       synchronizerIdO: Option[SynchronizerId],
-      beforeOrAtOffsetInclusive: Offset,
+      beforeOrAtOffset: Offset,
   )(connection: Connection): Option[SynchronizerOffset] = {
     val ledgerEndOffset = ledgerEndCache().map(_.lastOffset)
     val safeBeforeOrAtOffset =
-      if (Option(beforeOrAtOffsetInclusive) > ledgerEndOffset) ledgerEndOffset
-      else Some(beforeOrAtOffsetInclusive)
+      if (Option(beforeOrAtOffset) > ledgerEndOffset) ledgerEndOffset
+      else Some(beforeOrAtOffset)
     val (synchronizerIdFilter, synchronizerIdOrdering) = synchronizerIdO match {
       case Some(synchronizerId) =>
         (
@@ -1613,7 +1613,38 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def synchronizerOffset(offset: Offset)(connection: Connection): Option[SynchronizerOffset] =
+  // Note: Added for offline party replication as CN is using it.
+  override def lastSynchronizerOffsetBeforeOrAtRecordTime(
+      synchronizerId: SynchronizerId,
+      beforeOrAtRecordTime: Timestamp,
+  )(connection: Connection): Option[SynchronizerOffset] =
+    List(
+      SQL"""
+          SELECT completion_offset, record_time, publication_time, synchronizer_id
+          FROM lapi_command_completions
+          WHERE
+            synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
+            record_time <= ${beforeOrAtRecordTime.micros}
+          ORDER BY record_time DESC, completion_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
+      SQL"""
+          SELECT event_offset, record_time, publication_time, synchronizer_id
+          FROM lapi_transaction_meta
+          WHERE
+            synchronizer_id = ${stringInterning.synchronizerId.internalize(synchronizerId)} AND
+            record_time <= ${beforeOrAtRecordTime.micros}
+          ORDER BY record_time DESC, event_offset DESC
+          ${QueryStrategy.limitClause(Some(1))}
+          """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
+    ).flatten
+      .sortBy(_.offset)
+      .reverse
+      .headOption
+
+  override def synchronizerOffset(offset: Offset)(
+      connection: Connection
+  ): Option[SynchronizerOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
@@ -1632,15 +1663,15 @@ abstract class EventStorageBackendTemplate(
         Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // only offset allow before or at ledger end
 
-  def firstSynchronizerOffsetAfterOrAtPublicationTime(
-      afterOrAtPublicationTimeInclusive: Timestamp
+  override def firstSynchronizerOffsetAfterOrAtPublicationTime(
+      afterOrAtPublicationTime: Timestamp
   )(connection: Connection): Option[SynchronizerOffset] =
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
           FROM lapi_command_completions
           WHERE
-            publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
+            publication_time >= ${afterOrAtPublicationTime.micros}
           ORDER BY publication_time ASC, completion_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(completionSynchronizerOffsetParser(stringInterning))(connection),
@@ -1648,7 +1679,7 @@ abstract class EventStorageBackendTemplate(
           SELECT event_offset, record_time, publication_time, synchronizer_id
           FROM lapi_transaction_meta
           WHERE
-            publication_time >= ${afterOrAtPublicationTimeInclusive.micros}
+            publication_time >= ${afterOrAtPublicationTime.micros}
           ORDER BY publication_time ASC, event_offset ASC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaSynchronizerOffsetParser(stringInterning))(connection),
@@ -1658,16 +1689,16 @@ abstract class EventStorageBackendTemplate(
         Option(synchronizerOffset.offset) <= ledgerEndCache().map(_.lastOffset)
       ) // if first offset is beyond the ledger-end then we have no such
 
-  def lastSynchronizerOffsetBeforeOrAtPublicationTime(
-      beforeOrAtPublicationTimeInclusive: Timestamp
+  override def lastSynchronizerOffsetBeforeOrAtPublicationTime(
+      beforeOrAtPublicationTime: Timestamp
   )(connection: Connection): Option[SynchronizerOffset] = {
     val ledgerEndPublicationTime =
       ledgerEndCache().map(_.lastPublicationTime).getOrElse(CantonTimestamp.MinValue).underlying
     val safePublicationTime =
-      if (beforeOrAtPublicationTimeInclusive > ledgerEndPublicationTime)
+      if (beforeOrAtPublicationTime > ledgerEndPublicationTime)
         ledgerEndPublicationTime
       else
-        beforeOrAtPublicationTimeInclusive
+        beforeOrAtPublicationTime
     List(
       SQL"""
           SELECT completion_offset, record_time, publication_time, synchronizer_id
@@ -1691,7 +1722,7 @@ abstract class EventStorageBackendTemplate(
       .headOption
   }
 
-  def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
+  override def archivals(fromExclusive: Option[Offset], toInclusive: Offset)(
       connection: Connection
   ): Set[ContractId] = {
     val fromExclusiveSeqId =
@@ -1836,7 +1867,7 @@ abstract class EventStorageBackendTemplate(
       .asVectorOf(rawTreeEventParser(internedAllParties, stringInterning))(connection)
   }
 
-  def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
+  override def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
       eventSequentialIds: Iterable[Long],
       requestingParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] =

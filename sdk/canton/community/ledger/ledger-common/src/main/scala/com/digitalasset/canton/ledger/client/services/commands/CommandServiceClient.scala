@@ -50,6 +50,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       getSubmitAndWaitForTransactionRequest(request.commands)
     )
 
+  @deprecated("TransactionTrees are deprecated", "3.3.0")
   def deprecatedSubmitAndWaitForTransactionTreeForJsonApi(
       request: SubmitAndWaitRequest,
       timeout: Option[Duration] = None,
@@ -72,6 +73,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       _.submitAndWaitForTransaction(getSubmitAndWaitForTransactionRequest(Some(commands))),
     )
 
+  @deprecated("TransactionTrees are deprecated", "3.3.0")
   def submitAndWaitForTransactionTree(
       commands: Commands,
       timeout: Option[Duration] = None,

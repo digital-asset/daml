@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
+import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.ParticipantInspectionServiceErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -19,6 +19,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.{GrpcFUSExtended, 
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.pruning.{
+  AcsCommitmentProcessor,
   CommitmentContractMetadata,
   CommitmentInspectContract,
 }
@@ -48,7 +49,7 @@ import io.grpc.stub.StreamObserver
 import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcInspectionService(
+class GrpcParticipantInspectionService(
     syncStateInspection: SyncStateInspection,
     ips: IdentityProvidingServiceClient,
     indexedStringStore: IndexedStringStore,
@@ -56,7 +57,7 @@ class GrpcInspectionService(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
-) extends v30.InspectionServiceGrpc.InspectionService
+) extends v30.ParticipantInspectionServiceGrpc.ParticipantInspectionService
     with NamedLogging {
 
   override def lookupOffsetByTime(
@@ -101,7 +102,7 @@ class GrpcInspectionService(
       mappedDistinct <- EitherT.cond[FutureUnlessShutdown](
         allSynchronizerIds.distinct.lengthIs == allSynchronizerIds.length,
         mapped,
-        InspectionServiceError.IllegalArgumentError.Error(
+        ParticipantInspectionServiceError.IllegalArgumentError.Error(
           "synchronizerIds are not distinct"
         ),
       )
@@ -118,7 +119,7 @@ class GrpcInspectionService(
             mappedDistinct,
             mappedThreshold,
           ),
-          err => InspectionServiceError.InternalServerError.Error(err.toString),
+          err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[RpcError]
     } yield v30.SetConfigForSlowCounterParticipantsResponse()
@@ -209,7 +210,7 @@ class GrpcInspectionService(
         .fromFuture(
           syncStateInspection
             .getIntervalsBehindForParticipants(synchronizers, participants),
-          err => InspectionServiceError.InternalServerError.Error(err.toString),
+          err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[RpcError]
 
@@ -423,6 +424,7 @@ class GrpcInspectionService(
       out: OutputStream,
   ): Future[Unit] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
     val result =
       for {
         // 1. Check that the commitment to open matches a sent local commitment
@@ -433,7 +435,7 @@ class GrpcInspectionService(
         synchronizerAlias <- EitherT
           .fromOption[FutureUnlessShutdown](
             synchronizerAliasManager.aliasForSynchronizerId(synchronizerId),
-            InspectionServiceError.IllegalArgumentError
+            ParticipantInspectionServiceError.IllegalArgumentError
               .Error(s"Unknown synchronizer id $synchronizerId"),
           )
           .leftWiden[RpcError]
@@ -441,7 +443,7 @@ class GrpcInspectionService(
         pv <- EitherTUtil
           .fromFuture(
             syncStateInspection.getProtocolVersion(synchronizerAlias),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -472,7 +474,7 @@ class GrpcInspectionService(
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
           ips.forSynchronizer(synchronizerId),
-          InspectionServiceError.InternalServerError.Error(
+          ParticipantInspectionServiceError.InternalServerError.Error(
             s"Failed to retrieve ips for synchronizer: $synchronizerId"
           ),
         )
@@ -480,7 +482,7 @@ class GrpcInspectionService(
         snapshot <- EitherTUtil
           .fromFuture(
             topologySnapshot.awaitSnapshot(cantonTickTs),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -497,7 +499,7 @@ class GrpcInspectionService(
                 loggerFactory,
               )
               .get(cantonTickTs, warnOnUsingDefaults = false),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -512,10 +514,10 @@ class GrpcInspectionService(
               )
             )
             .leftMap[RpcError](_ =>
-              InspectionServiceError.IllegalArgumentError.Error(
-                s"""The participant cannot open commitment ${request.commitment} for participant
-                   | ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} because the given
-                   | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
+              ParticipantInspectionServiceError.IllegalArgumentError.Error(
+                s"""|The participant cannot open commitment ${request.commitment} for participant
+                   |${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} because the given
+                   |period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
               )
             )
         )
@@ -524,7 +526,7 @@ class GrpcInspectionService(
           AcsCommitment
             .hashedCommitmentTypeFromByteString(request.commitment)
             .leftMap[RpcError](err =>
-              InspectionServiceError.IllegalArgumentError
+              ParticipantInspectionServiceError.IllegalArgumentError
                 .Error(s"Failed to parse commitment hash: $err")
             )
         )
@@ -534,10 +536,10 @@ class GrpcInspectionService(
             period.fromExclusive < cantonTickTs && period.toInclusive >= cantonTickTs && participant == counterParticipant && cmt == requestCommitment
           },
           (),
-          InspectionServiceError.IllegalArgumentError.Error(
-            s"""The participant cannot open commitment ${request.commitment} for participant
-            ${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} and period end
-            ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
+          ParticipantInspectionServiceError.IllegalArgumentError.Error(
+            s"""|The participant cannot open commitment ${request.commitment} for participant
+            |${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} and period end
+            |${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
           ): RpcError,
         )
 
@@ -548,7 +550,7 @@ class GrpcInspectionService(
                 filterParty = "",
                 filterParticipant = counterParticipant.filterString,
               ),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -559,13 +561,29 @@ class GrpcInspectionService(
               TimeOfChange(cantonTickTs),
               counterParticipantParties.map(_.toLf),
             ),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
+        // consistency check that the sent commitment corresponded to the ACS state at the timestamp it was computed
+        _ <- EitherT.cond[FutureUnlessShutdown](
+          AcsCommitmentProcessor.checkCommitmentMatchesContracts(
+            requestCommitment,
+            cantonTickTs,
+            contractsAndTransferCounter,
+            counterParticipant,
+          ),
+          (),
+          ParticipantInspectionServiceError.IllegalArgumentError.Error(
+            s"""|The participant computed commitment ${request.commitment} for participant
+                |${request.computedForCounterParticipantUid} on synchronizer ${request.synchronizerId} and period end
+                |${request.periodEndTick} does not correspond to the ACS contents at that time""".stripMargin
+          ): RpcError,
+        )
+
         commitmentContractsMetadata = contractsAndTransferCounter.map {
-          case (cid, transferCounter) =>
-            CommitmentContractMetadata.create(cid, transferCounter)(pv)
+          case (contract, reassignmentCounter) =>
+            CommitmentContractMetadata.create(contract.contractId, reassignmentCounter)(pv)
         }
 
       } yield {
@@ -601,7 +619,7 @@ class GrpcInspectionService(
         expectedSynchronizerAlias <- EitherT
           .fromOption[FutureUnlessShutdown](
             synchronizerAliasManager.aliasForSynchronizerId(expectedSynchronizerId),
-            InspectionServiceError.IllegalArgumentError
+            ParticipantInspectionServiceError.IllegalArgumentError
               .Error(s"Synchronizer alias not found for $expectedSynchronizerId"),
           )
           .leftWiden[RpcError]
@@ -617,7 +635,7 @@ class GrpcInspectionService(
         pv <- EitherTUtil
           .fromFuture(
             syncStateInspection.getProtocolVersion(expectedSynchronizerAlias),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -625,7 +643,7 @@ class GrpcInspectionService(
           EitherT.fromEither[FutureUnlessShutdown](
             request.cids
               .traverse(cid => LfContractId.fromBytes(Bytes.fromByteString(cid)))
-              .leftMap(InspectionServiceError.IllegalArgumentError.Error(_))
+              .leftMap(ParticipantInspectionServiceError.IllegalArgumentError.Error(_))
               .leftWiden[RpcError]
           )
 
@@ -641,7 +659,7 @@ class GrpcInspectionService(
                 indexedStringStore,
                 pv,
               ),
-            err => InspectionServiceError.InternalServerError.Error(err.toString),
+            err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
@@ -684,21 +702,21 @@ class GrpcInspectionService(
 
 }
 
-object InspectionServiceError extends InspectionServiceErrorGroup {
-  sealed trait InspectionServiceError extends ContextualizedCantonError
+object ParticipantInspectionServiceError extends ParticipantInspectionServiceErrorGroup {
+  sealed trait ParticipantInspectionServiceError extends ContextualizedCantonError
 
   @Explanation("""Inspection has failed because of an internal server error.""")
   @Resolution("Identify the error in the server log.")
   object InternalServerError
       extends ErrorCode(
-        id = "INTERNAL_INSPECTION_ERROR",
+        id = "PARTICIPANT_INSPECTION_INTERNAL_ERROR",
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
-          cause = "An error occurred in the inspection service: " + reason
+          cause = "An error occurred in the participant inspection service: " + reason
         )
-        with InspectionServiceError
+        with ParticipantInspectionServiceError
   }
 
   @Explanation("""Inspection has failed because of an illegal argument.""")
@@ -707,13 +725,13 @@ object InspectionServiceError extends InspectionServiceErrorGroup {
   )
   object IllegalArgumentError
       extends ErrorCode(
-        id = "ILLEGAL_ARGUMENT_INSPECTION_ERROR",
+        id = "PARTICIPANT_INSPECTION_ILLEGAL_ARGUMENT_ERROR",
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
-          cause = "The inspection service received an illegal argument: " + reason
+          cause = "The participant inspection service received an illegal argument: " + reason
         )
-        with InspectionServiceError
+        with ParticipantInspectionServiceError
   }
 }

@@ -18,8 +18,10 @@ import org.scalatest.*
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
+@nowarn("cat=deprecation")
 private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     extends OptionValues
     with Inside

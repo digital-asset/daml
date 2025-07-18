@@ -20,6 +20,15 @@ object TraceContextGrpc {
 
   def fromGrpcContext: TraceContext = TraceContextKey.get()
 
+  def fromGrpcContextOrNew: TraceContext = {
+    val grpcTraceContext = TraceContextGrpc.fromGrpcContext
+    if (grpcTraceContext.traceId.isDefined) {
+      grpcTraceContext
+    } else {
+      TraceContext.withNewTraceContext(identity)
+    }
+  }
+
   def withGrpcTraceContext[A](f: TraceContext => A): A = f(fromGrpcContext)
 
   def withGrpcContext[A](traceContext: TraceContext)(fn: => A): A = {

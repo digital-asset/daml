@@ -37,6 +37,7 @@ import io.grpc.stub.StreamObserver
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiStateService(
@@ -55,6 +56,7 @@ final class ApiStateService(
     with GrpcApiService
     with NamedLogging {
 
+  @nowarn("cat=deprecation")
   override def getActiveContracts(
       request: GetActiveContractsRequest,
       responseObserver: StreamObserver[GetActiveContractsResponse],

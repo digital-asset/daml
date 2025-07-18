@@ -117,7 +117,6 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
               .replace(minObservationDuration.toConfig)
           )
         }
-
         connect(participant1, minObservationDuration)
         connect(participant2, minObservationDuration)
         participants.all.foreach(_.dars.upload(CantonExamplesPath))

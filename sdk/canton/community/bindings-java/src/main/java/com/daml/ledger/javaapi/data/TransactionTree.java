@@ -20,6 +20,7 @@ import java.util.stream.Collectors;
  * GetTransactionTreeByOffset, and SubmitAndWaitForTransactionTree calls. Class will be removed in
  * 3.4.0.
  */
+@Deprecated
 public final class TransactionTree {
 
   @NonNull private final String updateId;

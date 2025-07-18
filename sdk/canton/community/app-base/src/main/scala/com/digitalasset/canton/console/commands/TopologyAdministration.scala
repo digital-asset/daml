@@ -8,6 +8,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
 import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, TopologyAdminCommands}
@@ -40,6 +41,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
@@ -81,6 +83,8 @@ class TopologyAdministrationGroup(
     with Helpful
     with FeatureFlagFilter {
 
+  import TopologyAdministrationGroup.*
+
   protected val runner: AdminCommandRunner = instance
   import runner.*
   private def timeouts: ConsoleCommandTimeout = consoleEnvironment.commandTimeouts
@@ -88,7 +92,7 @@ class TopologyAdministrationGroup(
     consoleEnvironment.environment.executionContext
 
   /** run a topology change command */
-  private[console] def runAdminCommand[T](grpcCommand: => GrpcAdminCommand[_, _, T]): T =
+  private[console] def runAdminCommand[T](grpcCommand: => GrpcAdminCommand[?, ?, T]): T =
     consoleEnvironment.run(adminCommand(grpcCommand))
 
   @Help.Summary("Initialize the node with a unique identifier")
@@ -660,11 +664,14 @@ class TopologyAdministrationGroup(
         sequencers: Seq[SequencerId],
         mediators: Seq[MediatorId],
         store: TopologyStoreId,
+        mediatorThreshold: PositiveInt,
     ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
       val isSynchronizerOwner = synchronizerOwners.contains(instance.id)
       require(isSynchronizerOwner, s"Only synchronizer owners should call $functionFullName.")
 
-      def latest[M <: TopologyMapping: ClassTag](hash: MappingHash) =
+      def latest[M <: TopologyMapping: ClassTag](
+          hash: MappingHash
+      ): Option[SignedTopologyTransaction[TopologyChangeOp, M]] =
         instance.topology.transactions
           .find_latest_by_mapping_hash[M](
             hash,
@@ -673,10 +680,16 @@ class TopologyAdministrationGroup(
           )
           .map(_.transaction)
 
+      val isSynchronizerCollectivelyOwned = synchronizerOwners.sizeIs > 1
+
       // create and sign the initial synchronizer parameters
-      val synchronizerParameterState =
-        latest[SynchronizerParametersState](SynchronizerParametersState.uniqueKey(synchronizerId))
-          .getOrElse(
+      val maybeExistingSynchronizerParameterState =
+        latest[SynchronizerParametersState](
+          SynchronizerParametersState.uniqueKey(synchronizerId)
+        )
+      val maybeProposedSynchronizerParameterState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingSynchronizerParameterState.isEmpty)(
             instance.topology.synchronizer_parameters.propose(
               synchronizerId,
               ConsoleDynamicSynchronizerParameters
@@ -690,14 +703,16 @@ class TopologyAdministrationGroup(
             )
           )
 
-      val mediatorState =
+      val maybeExistingMediatorState =
         latest[MediatorSynchronizerState](
           MediatorSynchronizerState.uniqueKey(synchronizerId, NonNegativeInt.zero)
         )
-          .getOrElse(
+      val maybeProposedMediatorState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingMediatorState.isEmpty)(
             instance.topology.mediators.propose(
               synchronizerId,
-              threshold = PositiveInt.one,
+              threshold = mediatorThreshold,
               group = NonNegativeInt.zero,
               active = mediators,
               signedBy = None,
@@ -705,9 +720,11 @@ class TopologyAdministrationGroup(
             )
           )
 
-      val sequencerState =
+      val maybeExistingSequencerState =
         latest[SequencerSynchronizerState](SequencerSynchronizerState.uniqueKey(synchronizerId))
-          .getOrElse(
+      val maybeProposedSequencerState =
+        Option
+          .when(isSynchronizerCollectivelyOwned || maybeExistingSequencerState.isEmpty)(
             instance.topology.sequencers.propose(
               synchronizerId,
               threshold = PositiveInt.one,
@@ -717,7 +734,19 @@ class TopologyAdministrationGroup(
             )
           )
 
-      Seq(synchronizerParameterState, sequencerState, mediatorState)
+      val genesisTopology =
+        NonEmpty.from(
+          Seq(
+            maybeExistingSynchronizerParameterState,
+            maybeProposedSynchronizerParameterState,
+            maybeExistingMediatorState,
+            maybeProposedMediatorState,
+            maybeExistingSequencerState,
+            maybeProposedSequencerState,
+          ).flatten
+        )
+
+      genesisTopology.map(merge(_)).getOrElse(Seq.empty)
     }
 
     @Help.Summary(
@@ -732,6 +761,7 @@ class TopologyAdministrationGroup(
         mediators: Seq[MediatorId],
         outputFile: String,
         store: TopologyStoreId,
+        mediatorThreshold: PositiveInt = PositiveInt.one,
     ): Unit = {
 
       val transactions =
@@ -741,6 +771,7 @@ class TopologyAdministrationGroup(
           sequencers,
           mediators,
           store,
+          mediatorThreshold,
         )
 
       SignedTopologyTransactions(transactions, ProtocolVersion.latest).writeToFile(outputFile)
@@ -2022,7 +2053,7 @@ class TopologyAdministrationGroup(
             mustFullyAuthorize = mustFullyAuthorize,
             change = TopologyChangeOp.Remove,
           )
-        case otherwise =>
+        case _ =>
           throw new IllegalStateException(
             s"Found more than one ParticipantSynchronizerPermission for participant $participantId on synchronizer $synchronizerId"
           ) with NoStackTrace
@@ -2331,6 +2362,14 @@ class TopologyAdministrationGroup(
   @Help.Summary("Inspect mediator synchronizer state")
   @Help.Group("Mediator Synchronizer State")
   object mediators extends Helpful {
+
+    @Help.Summary("List mediator synchronizer topology state")
+    @Help.Description(
+      """
+     synchronizerId: the optional target synchronizer
+     proposals: if true then proposals are shown, otherwise actual validated state
+     """
+    )
     def list(
         synchronizerId: Option[SynchronizerId] = None,
         proposals: Boolean = false,
@@ -2645,6 +2684,35 @@ class TopologyAdministrationGroup(
           ),
           filterSynchronizer,
         )
+      )
+    }
+
+    @Help.Summary("Latest dynamic synchronizer parameters")
+    def latest(
+        store: TopologyStoreId,
+        filterSynchronizer: String = "",
+        filterSigningKey: String = "",
+        protocolVersion: Option[String] = None,
+    ): DynamicSynchronizerParameters = consoleEnvironment.run {
+      val commandResult = adminCommand(
+        TopologyAdminCommands.Read.SynchronizerParametersState(
+          BaseQuery(
+            store,
+            proposals = false,
+            TimeQuery.HeadState,
+            Some(TopologyChangeOp.Replace),
+            filterSigningKey,
+            protocolVersion.map(ProtocolVersion.tryCreate),
+          ),
+          filterSynchronizer,
+        )
+      )
+      commandResult.map(
+        _.headOption
+          .getOrElse(
+            consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
+          )
+          .item
       )
     }
 
@@ -3017,4 +3085,32 @@ class TopologyAdministrationGroup(
   private def expectExactlyOneResult[R](seq: Seq[R]): R = expectAtMostOneResult(seq).getOrElse(
     throw new IllegalStateException(s"Expected exactly one result, but found none")
   )
+}
+
+object TopologyAdministrationGroup {
+
+  private[console] def merge(
+      txs: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
+      updateIsProposal: Option[Boolean] = None,
+  ): Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]] = {
+    // remember order of transactions in the initial topology state
+    // so we don't mess up certificate chains
+    val orderingMap =
+      txs.zipWithIndex.map { case (tx, idx) =>
+        (tx.mapping.uniqueKey, idx)
+      }.toMap
+
+    txs
+      .groupBy1(_.hash)
+      .values
+      .map { txs =>
+        // combine signatures of transactions with the same hash
+        val result = txs.reduceLeft { (a, b) =>
+          a.addSignaturesFromTransaction(b)
+        }
+        updateIsProposal.fold(result)(result.updateIsProposal)
+      }
+      .toSeq
+      .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
+  }
 }

@@ -23,8 +23,8 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.admin.participant.v30.EnterpriseParticipantReplicationServiceGrpc.EnterpriseParticipantReplicationServiceStub
-import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionServiceStub
 import com.digitalasset.canton.admin.participant.v30.PackageServiceGrpc.PackageServiceStub
+import com.digitalasset.canton.admin.participant.v30.ParticipantInspectionServiceGrpc.ParticipantInspectionServiceStub
 import com.digitalasset.canton.admin.participant.v30.ParticipantRepairServiceGrpc.ParticipantRepairServiceStub
 import com.digitalasset.canton.admin.participant.v30.ParticipantStatusServiceGrpc.ParticipantStatusServiceStub
 import com.digitalasset.canton.admin.participant.v30.PartyManagementServiceGrpc.PartyManagementServiceStub
@@ -523,6 +523,42 @@ object ParticipantAdminCommands {
       override protected def handleResponse(
           response: v30.GetAddPartyStatusResponse
       ): Either[String, AddPartyStatus] = AddPartyStatus.fromProtoV30(response).leftMap(_.toString)
+    }
+
+    final case class GetHighestOffsetByTimestamp(
+        synchronizerId: SynchronizerId,
+        timestamp: Instant,
+        force: Boolean,
+    ) extends GrpcAdminCommand[
+          v30.GetHighestOffsetByTimestampRequest,
+          v30.GetHighestOffsetByTimestampResponse,
+          NonNegativeLong,
+        ] {
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest()
+          : Either[String, v30.GetHighestOffsetByTimestampRequest] =
+        Right(
+          v30.GetHighestOffsetByTimestampRequest(
+            synchronizerId.toProtoPrimitive,
+            Some(Timestamp(timestamp)),
+            force,
+          )
+        )
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.GetHighestOffsetByTimestampRequest,
+      ): Future[v30.GetHighestOffsetByTimestampResponse] =
+        service.getHighestOffsetByTimestamp(request)
+
+      override protected def handleResponse(
+          response: v30.GetHighestOffsetByTimestampResponse
+      ): Either[String, NonNegativeLong] =
+        NonNegativeLong.create(response.ledgerOffset).leftMap(_.toString)
     }
 
     final case class ExportAcs(
@@ -1410,10 +1446,10 @@ object ParticipantAdminCommands {
   object Inspection {
 
     abstract class Base[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-      override type Svc = InspectionServiceStub
+      override type Svc = ParticipantInspectionServiceStub
 
-      override def createService(channel: ManagedChannel): InspectionServiceStub =
-        v30.InspectionServiceGrpc.stub(channel)
+      override def createService(channel: ManagedChannel): ParticipantInspectionServiceStub =
+        v30.ParticipantInspectionServiceGrpc.stub(channel)
     }
 
     final case class LookupOffsetByTime(ts: Timestamp)
@@ -1425,7 +1461,7 @@ object ParticipantAdminCommands {
       override protected def createRequest() = Right(v30.LookupOffsetByTimeRequest(Some(ts)))
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.LookupOffsetByTimeRequest,
       ): Future[v30.LookupOffsetByTimeResponse] =
         service.lookupOffsetByTime(request)
@@ -1458,7 +1494,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.OpenCommitmentRequest,
       ): Future[CancellableContext] = {
         val context = Context.current().withCancellation()
@@ -1497,7 +1533,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.InspectCommitmentContractsRequest,
       ): Future[CancellableContext] = {
         val context = Context.current().withCancellation()
@@ -1545,7 +1581,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.LookupReceivedAcsCommitmentsRequest,
       ): Future[v30.LookupReceivedAcsCommitmentsResponse] =
         service.lookupReceivedAcsCommitments(request)
@@ -1669,7 +1705,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.LookupSentAcsCommitmentsRequest,
       ): Future[v30.LookupSentAcsCommitmentsResponse] =
         service.lookupSentAcsCommitments(request)
@@ -1741,7 +1777,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.SetConfigForSlowCounterParticipantsRequest,
       ): Future[v30.SetConfigForSlowCounterParticipantsResponse] =
         service.setConfigForSlowCounterParticipants(request)
@@ -1805,7 +1841,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.GetConfigForSlowCounterParticipantsRequest,
       ): Future[v30.GetConfigForSlowCounterParticipantsResponse] =
         service.getConfigForSlowCounterParticipants(request)
@@ -1842,7 +1878,7 @@ object ParticipantAdminCommands {
       )
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.GetIntervalsBehindForCounterParticipantsRequest,
       ): Future[v30.GetIntervalsBehindForCounterParticipantsResponse] =
         service.getIntervalsBehindForCounterParticipants(request)
@@ -1884,7 +1920,7 @@ object ParticipantAdminCommands {
         Right(v30.CountInFlightRequest(synchronizerId.toProtoPrimitive))
 
       override protected def submitRequest(
-          service: InspectionServiceStub,
+          service: ParticipantInspectionServiceStub,
           request: v30.CountInFlightRequest,
       ): Future[v30.CountInFlightResponse] =
         service.countInFlight(request)

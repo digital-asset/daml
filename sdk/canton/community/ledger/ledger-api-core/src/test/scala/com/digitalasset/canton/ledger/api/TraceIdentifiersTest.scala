@@ -8,6 +8,9 @@ import com.daml.tracing.SpanAttribute
 import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class TraceIdentifiersTest extends AnyWordSpec {
   val expected = Map(
     (SpanAttribute.TransactionId, "transaction-id"),

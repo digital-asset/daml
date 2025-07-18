@@ -84,7 +84,7 @@ import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, WithKillSwitch}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
-import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
@@ -176,9 +176,9 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   ): EitherT[FutureUnlessShutdown, String, Boolean]
 
   /** Download the topology state for initializing the member */
-  def downloadTopologyStateForInit()(implicit
+  def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, GenericStoredTopologyTransactions]
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
 
   def protocolVersion: ProtocolVersion
 }
@@ -618,7 +618,7 @@ abstract class SequencerClientImpl(
             )
         }
 
-      performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
+      performUnlessClosingF(s"sending message $messageId to sequencer $sequencerId") {
         NonEmpty.from(previousSequencers) match {
           case None =>
             logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
@@ -632,8 +632,24 @@ abstract class SequencerClientImpl(
         metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(
           metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
         )
-        transport.sendAsyncSigned(signedRequest, timeout)
-      }.value.map {
+        transport
+          .sendAsyncSigned(signedRequest, timeout)
+          .value
+          // We are treating a shutdown result in the same way as a normal result, instead of propagating it up.
+          // Note that this is the shutdown of the transport, not the sequencer client (see `performUnlessClosingF` above).
+          // It can happen outside a regular shutdown when closing a connection for a fatal reason.
+          //
+          // If this send attempt is happening outside the application handler (e.g. a confirmation request),
+          // we don't want to abort amplification just because this particular transport has shut down, as others
+          // might be fine.
+          //
+          // If the send attempt is happening within the application handler (e.g. a confirmation response), propagating
+          // the shutdown has devastating consequences: the application handler will be marked as shutdown, and since
+          // this information is global to the sequencer client, the reception of a new event on any sequencer subscription
+          // will result in shutting down that subscription (because the handler has shut down), eventually leading to a
+          // disconnect from the synchronizer when the trust threshold is no longer satisfied.
+          .onShutdown(Either.unit)
+      }.map {
         case Right(()) =>
           // Do not await the patience. This would defeat the point of asynchronous send.
           scheduleAmplification()
@@ -768,13 +784,42 @@ abstract class SequencerClientImpl(
     } yield result
   }
 
-  override def downloadTopologyStateForInit()(implicit
+  override def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, GenericStoredTopologyTransactions] =
-    // TODO(i12076): Download topology state from one of the sequencers based on the health
-    sequencersTransportState.transport
-      .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
-      .map(_.topologyTransactions.value)
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+    val triedSequencersRef = new AtomicReference[Set[SequencerId]](Set.empty)
+
+    def downloadSnapshot
+        : EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+      val triedSequencers = triedSequencersRef.get
+
+      // We ignore the amplification part
+      val (_, sequencerId, transport, _) =
+        sequencersTransportState.nextAmplifiedTransport(triedSequencers.toSeq)
+      triedSequencersRef.updateAndGet(_ + sequencerId).discard
+
+      logger.debug(
+        s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
+      )
+      transport
+        .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
+        .map(_.topologyTransactions.value)
+        .mapK(FutureUnlessShutdown.outcomeK)
+    }
+
+    val resultFUS = retry
+      .Pause(
+        logger = logger,
+        performUnlessClosing = closeContext.context,
+        maxRetries = maxRetries,
+        delay = 1.second,
+        operationName = "Download topology state for init",
+        retryLogLevel = retryLogLevel,
+      )
+      .unlessShutdown(downloadSnapshot.value, NoExceptionRetryPolicy)
+
+    EitherT(resultFUS)
+  }
 
   protected val periodicAcknowledgementsRef =
     new AtomicReference[Option[PeriodicAcknowledgements]](None)

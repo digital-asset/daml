@@ -18,6 +18,8 @@ public interface CommandClient {
   Single<Transaction> submitAndWaitForTransaction(
       CommandsSubmission submission, TransactionFormat transactionFormat);
 
+  // Method will be removed in 3.4
+  @Deprecated
   Single<TransactionTree> submitAndWaitForTransactionTree(CommandsSubmission submission);
 
   <U> Single<U> submitAndWaitForResult(

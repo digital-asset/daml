@@ -188,7 +188,10 @@ trait PrettyInstances {
     prettyOfString(id => show"${id.packageId}:${id.qualifiedName}")
 
   implicit def prettyLfPackageName: Pretty[com.digitalasset.daml.lf.data.Ref.PackageName] =
-    prettyOfString(packageName => show"$packageName")
+    prettyOfString(identity)
+
+  implicit def prettyLfPackageVersion: Pretty[com.digitalasset.daml.lf.data.Ref.PackageVersion] =
+    prettyOfString(_.toString())
 
   implicit def prettyLfContractId: Pretty[LfContractId] = prettyOfString {
 

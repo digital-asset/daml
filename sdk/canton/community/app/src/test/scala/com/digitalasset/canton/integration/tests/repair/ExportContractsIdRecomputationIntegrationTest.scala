@@ -38,6 +38,7 @@ import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.Assertion
 import org.slf4j.event.Level.WARN
 
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 
 sealed trait ExportContractsIdRecomputationIntegrationTest
@@ -223,6 +224,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
     participant.ledger_api.javaapi.commands
       .submit_flat(Seq(party), ref.id.exerciseArchive().commands.asScala.toSeq)
 
+  @nowarn("cat=deprecation")
   private def extractNestedRefs(e: TreeEvent): Seq[Refs.ContractId] =
     e.toProtoTreeEvent.getExercised.getExerciseResult.getList.getElementsList
       .iterator()

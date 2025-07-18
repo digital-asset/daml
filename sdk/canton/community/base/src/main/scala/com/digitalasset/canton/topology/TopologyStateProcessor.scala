@@ -188,6 +188,10 @@ class TopologyStateProcessor private (
             }
 
         case None =>
+          // Clear caches if they become too large
+          // TODO(#26009): this is a bit arbitrary, we should probably use a more sophisticated approach
+          if (txForMapping.sizeCompare(1000) > 0)
+            clearCaches()
           EitherT
             .right[Lft](
               store.update(
@@ -356,6 +360,8 @@ class TopologyStateProcessor private (
         effective,
         tx_deduplicatedAndMerged,
         tx_inStore,
+        // TODO(#26009): this creates a new data structure for every check. this is very inefficient.
+        //    even more, we never shrink the map and we keep on iterating through it.
         txForMapping.view.mapValues { pending =>
           require(
             !pending.expireImmediately.get() && pending.rejection.get.isEmpty,

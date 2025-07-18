@@ -14,7 +14,7 @@ import org.slf4j.event.Level
 import java.lang.management.{MemoryMXBean, MemoryPoolMXBean, MemoryType, MemoryUsage}
 import scala.concurrent.duration.DurationInt
 
-/** Note that most of the check functionality is tested via [[RateLimitingInterceptorSpec]] */
+/** Note that most of the check functionality is tested via [[RateLimitingInterceptorChecksSpec]] */
 class MemoryCheckSpec extends AnyFlatSpec with BaseTest {
 
   private val config = RateLimitingConfig(100, 10, 75, 100 * RateLimitingConfig.Megabyte, 100)

@@ -66,7 +66,8 @@ trait SequencerStateManagerStoreTest
         val store = mk()
         (for {
           lowerBoundAndInFlightAggregations <- store.readInFlightAggregations(
-            CantonTimestamp.Epoch
+            CantonTimestamp.Epoch,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
           )
         } yield {
           val inFlightAggregations = lowerBoundAndInFlightAggregations
@@ -134,11 +135,26 @@ trait SequencerStateManagerStoreTest
               aggregationId3 -> inFlightAggregation3.asUpdate,
             )
           )
-          head2pred <- store.readInFlightAggregations(t2.immediatePredecessor)
-          head2 <- store.readInFlightAggregations(t2)
-          head3 <- store.readInFlightAggregations(t3)
-          head4pred <- store.readInFlightAggregations(t4.immediatePredecessor)
-          head4 <- store.readInFlightAggregations(t4)
+          head2pred <- store.readInFlightAggregations(
+            t2.immediatePredecessor,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
+          head2 <- store.readInFlightAggregations(
+            t2,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
+          head3 <- store.readInFlightAggregations(
+            t3,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
+          head4pred <- store.readInFlightAggregations(
+            t4.immediatePredecessor,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
+          head4 <- store.readInFlightAggregations(
+            t4,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
         } yield {
           // All aggregations by sender have later timestamps and the in-flight aggregations are therefore considered inexistent
           head2pred shouldBe Map.empty
@@ -214,12 +230,21 @@ trait SequencerStateManagerStoreTest
             )
           )
           _ <- store.pruneExpiredInFlightAggregations(t2)
-          head2 <- store.readInFlightAggregations(t2)
+          head2 <- store.readInFlightAggregations(
+            t2,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
           _ <- store.pruneExpiredInFlightAggregations(t3)
-          head3 <- store.readInFlightAggregations(t3)
+          head3 <- store.readInFlightAggregations(
+            t3,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
           // We're using here the ability to read actually inconsistent data (for crash recovery)
           // for an already expired block to check that the expiry actually deletes the data.
-          head2expired <- store.readInFlightAggregations(t2)
+          head2expired <- store.readInFlightAggregations(
+            t2,
+            maxSequencingTimeBound = CantonTimestamp.MaxValue,
+          )
         } yield {
           head2 shouldBe Map(
             aggregationId1 -> inFlightAggregation1,

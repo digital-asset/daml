@@ -14,7 +14,7 @@ public final class GetActiveContractsRequest {
 
   @NonNull private final Long activeAtOffset;
 
-  // TODO(i23504) remove
+  @Deprecated
   public GetActiveContractsRequest(
       @NonNull TransactionFilter transactionFilter, boolean verbose, @NonNull Long activeAtOffset) {
     this.eventFormat =

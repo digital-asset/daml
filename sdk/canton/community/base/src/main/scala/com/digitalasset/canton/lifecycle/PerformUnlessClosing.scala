@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.lifecycle
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,7 +46,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
     * [[performUnlessClosingEitherT]]). The tasks are assumed to take less than [[closingTimeout]]
     * to complete.
     *
-    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
+    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock. DO NOT PUT
+    * retries, especially indefinite ones, inside `f`.
     *
     * @param f
     *   The task to perform
@@ -74,7 +75,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
     * variants ([[performUnlessClosing]] and [[performUnlessClosingEitherT]]). The tasks are assumed
     * to take less than [[closingTimeout]] to complete.
     *
-    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
+    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock. DO NOT PUT
+    * retries, especially indefinite ones, inside `f`.
     *
     * @param f
     *   The task to perform
@@ -139,7 +141,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
     * [[performUnlessClosingF]]). The tasks are assumed to take less than [[closingTimeout]] to
     * complete.
     *
-    * DO NOT CALL `this.close` as part of `etf`, because it will result in a deadlock.
+    * DO NOT CALL `this.close` as part of `etf`, because it will result in a deadlock. DO NOT PUT
+    * retries, especially indefinite ones, inside `f`.
     *
     * @param etf
     *   The task to perform
@@ -188,6 +191,14 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
         _.map(asyncResultToWaitForF).getOrElse(FutureUnlessShutdown.unit)
       )
     )
+
+  def performUnlessClosingOptionUSF[R](name: String)(
+      otf: => OptionT[FutureUnlessShutdown, R]
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): OptionT[FutureUnlessShutdown, R] =
+    OptionT(performUnlessClosingUSF(name)(otf.value))
 
   def performUnlessClosingCheckedT[A, N, R](name: String, onClosing: => Checked[A, N, R])(
       etf: => CheckedT[Future, A, N, R]

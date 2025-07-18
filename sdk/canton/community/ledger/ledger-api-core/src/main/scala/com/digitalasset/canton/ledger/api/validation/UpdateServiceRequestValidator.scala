@@ -17,6 +17,8 @@ import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
+import scala.annotation.nowarn
+
 object UpdateServiceRequestValidator {
   type Result[X] = Either[StatusRuntimeException, X]
 
@@ -40,6 +42,7 @@ object UpdateServiceRequestValidator {
       end,
     )
 
+  @nowarn("cat=deprecation")
   def validate(
       req: GetUpdatesRequest,
       ledgerEnd: Option[Offset],
@@ -91,6 +94,7 @@ object UpdateServiceRequestValidator {
     }
 
   // TODO(#23504) cleanup
+  @nowarn("cat=deprecation")
   def validateForTrees(
       req: GetUpdatesRequest,
       ledgerEnd: Option[Offset],
@@ -129,6 +133,7 @@ object UpdateServiceRequestValidator {
     }
 
   // TODO(#23504) remove when the GetTransactionById endpoint is removed
+  @nowarn("cat=deprecation")
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
@@ -164,6 +169,7 @@ object UpdateServiceRequestValidator {
     }
 
   // TODO(#23504) cleanup
+  @nowarn("cat=deprecation")
   def validateTransactionByIdForTrees(
       req: GetTransactionByIdRequest
   )(implicit
@@ -190,6 +196,7 @@ object UpdateServiceRequestValidator {
     }
 
   // TODO(#23504) remove when the GetTransactionByOffset endpoint is removed
+  @nowarn("cat=deprecation")
   def validateTransactionByOffset(
       req: GetTransactionByOffsetRequest
   )(implicit
@@ -224,6 +231,7 @@ object UpdateServiceRequestValidator {
     }
 
   // TODO(#23504) cleanup
+  @nowarn("cat=deprecation")
   def validateTransactionByOffsetForTrees(
       req: GetTransactionByOffsetRequest
   )(implicit

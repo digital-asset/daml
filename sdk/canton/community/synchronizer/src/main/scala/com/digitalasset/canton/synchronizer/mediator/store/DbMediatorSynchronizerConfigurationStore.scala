@@ -85,6 +85,31 @@ class DbMediatorSynchronizerConfigurationStore(
       )
   }
 
+  override def setTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage
+      .update_(
+        sqlu"""update mediator_synchronizer_configuration
+              set is_topology_initialized = true
+              where lock = $singleRowLockValue""",
+        "set-topology-initialized",
+      )
+
+  override def isTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    for {
+      rowO <-
+        storage
+          .query(
+            sql"""select is_topology_initialized
+            from mediator_synchronizer_configuration #${storage
+                .limit(1)}""".as[Boolean].headOption,
+            "is-topology-initialized",
+          )
+    } yield rowO.getOrElse(false)
+
   private def serialize(config: MediatorSynchronizerConfiguration): SerializedRow = {
     val MediatorSynchronizerConfiguration(
       synchronizerId,

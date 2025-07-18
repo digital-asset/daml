@@ -18,6 +18,7 @@ import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -33,7 +34,6 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.InterfaceViewUpgrade
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -46,6 +46,7 @@ import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
+import com.digitalasset.canton.platform.index.IndexServiceOwner.GetPackagePreferenceForViewsUpgrading
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.{
@@ -64,7 +65,6 @@ import com.digitalasset.canton.platform.{
   PruneBuffers,
   TemplatePartiesFilter,
 }
-import com.digitalasset.canton.{config, logging}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.transaction.GlobalKey
@@ -75,6 +75,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
+import scala.annotation.nowarn
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -91,11 +92,7 @@ private[index] class IndexServiceImpl(
     getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
-    getPreferredPackageVersion: logging.LoggingContextWithTrace => Ref.PackageName => Set[
-      Ref.PackageId
-    ] => FutureUnlessShutdown[
-      Option[Ref.PackageId]
-    ],
+    getPreferredPackages: GetPackagePreferenceForViewsUpgrading,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
@@ -217,6 +214,7 @@ private[index] class IndexServiceImpl(
         elem
       }
 
+  @nowarn("cat=deprecation")
   override def transactionTrees(
       startExclusive: Option[Offset],
       endInclusive: Option[Offset],
@@ -381,6 +379,7 @@ private[index] class IndexServiceImpl(
   ): Future[Option[VersionedContractInstance]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
+  @nowarn("cat=deprecation")
   override def getTransactionById(
       updateId: UpdateId,
       transactionFormat: TransactionFormat,
@@ -413,6 +412,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Ref.Party],
@@ -433,6 +433,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionByOffset(
       offset: Offset,
       transactionFormat: TransactionFormat,
@@ -493,6 +494,7 @@ private[index] class IndexServiceImpl(
       )
   }
 
+  @nowarn("cat=deprecation")
   override def getTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Ref.Party],
@@ -644,20 +646,18 @@ private[index] class IndexServiceImpl(
     implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
 
     def handlePreferredPackageVersionError(
-        computeUpgradeResult: Try[Option[Ref.PackageId]],
+        computeUpgradeResult: Try[Either[String, Ref.PackageId]],
         packageName: Ref.PackageName,
     ): Try[Either[Status, PackageId]] =
-      computeUpgradeResult match {
-        case Success(Some(value)) => Success(Right[Status, Ref.PackageId](value))
-        case Success(None) =>
-          Success(
-            Left[Status, Ref.PackageId](
-              LedgerApiErrors.NoVettedInterfaceImplementationPackage
-                .Reject(packageName)
-                .asGrpcStatus
-            )
+      computeUpgradeResult
+        .map(
+          _.left.map(reason =>
+            LedgerApiErrors.NoVettedInterfaceImplementationPackage
+              .Reject(packageName, reason)
+              .asGrpcStatus
           )
-        case Failure(sre: StatusRuntimeException) =>
+        )
+        .recoverWith { case sre: StatusRuntimeException =>
           DecodedCantonError
             .fromStatusRuntimeException(sre)
             .fold(
@@ -669,13 +669,10 @@ private[index] class IndexServiceImpl(
                 // TODO(#25385): Make the NotConnectedToAnySynchronizer error available to this module
                 //               and use its reference code id directly instead of the String representation
                 if (decodedError.code.id == "NOT_CONNECTED_TO_ANY_SYNCHRONIZER") {
-                  Success(
-                    Left(InterfaceViewUpgradeFailureWrapper(decodedError).asGrpcStatus)
-                  )
+                  Success(Left(InterfaceViewUpgradeFailureWrapper(decodedError).asGrpcStatus))
                 } else Failure(sre),
             )
-        case Failure(otherFailure) => Failure(otherFailure)
-      }
+        }
 
     def computeUpgradeViewPackage(
         packageName: Ref.PackageName,
@@ -683,8 +680,11 @@ private[index] class IndexServiceImpl(
     )(implicit
         loggingContextWithTrace: LoggingContextWithTrace
     ): Future[Either[Status, Ref.PackageId]] =
-      getPreferredPackageVersion(loggingContextWithTrace)(packageName)(
-        packageIdsWithInterfaceInstance
+      getPreferredPackages(
+        packageName,
+        packageIdsWithInterfaceInstance,
+        "Package-ids with interface instances for the requested interface",
+        loggingContextWithTrace,
       )
         .failOnShutdownToAbortException("getPackagePreference for stream construction")
         .transform(handlePreferredPackageVersionError(_, packageName))
@@ -1257,6 +1257,7 @@ object IndexServiceImpl {
   ): GetUpdatesResponse =
     GetUpdatesResponse.defaultInstance.withOffsetCheckpoint(offsetCheckpoint.toApi)
 
+  @nowarn("cat=deprecation")
   private def updateTreesResponse(
       offsetCheckpoint: OffsetCheckpoint
   ): GetUpdateTreesResponse =

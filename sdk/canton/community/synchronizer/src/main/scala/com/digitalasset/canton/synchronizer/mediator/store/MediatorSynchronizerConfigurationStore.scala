@@ -27,6 +27,9 @@ trait MediatorSynchronizerConfigurationStore extends AutoCloseable {
   def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
+
+  def setTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  def isTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 }
 
 object MediatorSynchronizerConfigurationStore {

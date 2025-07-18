@@ -50,6 +50,7 @@ class NetworkBootstrapper(networks: NetworkTopologyDescription*)(implicit
       synchronizerThreshold = desc.synchronizerThreshold,
       staticSynchronizerParameters = desc.staticSynchronizerParameters,
       mediatorRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+      mediatorThreshold = desc.mediatorThreshold,
     )
 
     val synchronizerAlias = SynchronizerAlias.tryCreate(desc.synchronizerName)
@@ -85,6 +86,7 @@ final case class NetworkTopologyDescription(
     overrideMediatorToSequencers: Option[
       Map[MediatorReference, (Seq[SequencerReference], PositiveInt)]
     ],
+    mediatorThreshold: PositiveInt,
 )
 
 object NetworkTopologyDescription {
@@ -101,6 +103,7 @@ object NetworkTopologyDescription {
       overrideMediatorToSequencers: Option[
         Map[MediatorReference, (Seq[SequencerReference], PositiveInt)]
       ] = None,
+      mediatorThreshold: PositiveInt = PositiveInt.one,
   ): NetworkTopologyDescription =
     NetworkTopologyDescription(
       synchronizerName = synchronizerAlias.unwrap,
@@ -111,6 +114,7 @@ object NetworkTopologyDescription {
       staticSynchronizerParameters,
       mediatorRequestAmplification,
       overrideMediatorToSequencers,
+      mediatorThreshold,
     )
 }
 
