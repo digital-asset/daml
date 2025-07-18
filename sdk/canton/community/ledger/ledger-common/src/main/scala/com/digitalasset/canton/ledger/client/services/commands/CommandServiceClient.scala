@@ -56,7 +56,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     )
 
   // TODO(#23504) remove when json/v1 api is removed
-  @deprecated("TransactionTrees are deprecated", "3.4.0")
+  @deprecated("TransactionTrees are deprecated", "3.3.0")
   def deprecatedSubmitAndWaitForTransactionTreeForJsonApi(
       request: SubmitAndWaitRequest,
       timeout: Option[Duration] = None,
@@ -83,7 +83,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     )
 
   // TODO(#23504) remove method
-  @deprecated("TransactionTrees are deprecated", "3.4.0")
+  @deprecated("TransactionTrees are deprecated", "3.3.0")
   def submitAndWaitForTransactionTree(
       commands: Commands,
       timeout: Option[Duration] = None,
