@@ -11,19 +11,15 @@ import qualified Data.Text.Lazy                           as TL
 import qualified Data.Vector                              as V
 import           Text.Printf
 
--- generic depth test
 import           Data.Data
 import           Data.Generics.Aliases
 
-import           DA.Daml.LF.Proto3.EncodeV2
-
-
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Proto3.EncodeV2
 import           DA.Daml.LF.Proto3.Util
 import           DA.Daml.LF.Proto3.DerivingData           ()
 
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
-
 
 import           Test.Tasty.HUnit                               (Assertion, testCase, assertBool, (@?=))
 import           Test.Tasty
@@ -440,6 +436,7 @@ exprInterningTests = testGroup "Expr tests (interning)"
   [ exprInterningVar
   , exprInterningVal
   , exprInterningBool
+  , exprInterningLocLam
   ]
 
 runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
@@ -475,12 +472,6 @@ exprInterningBool =
       pe @?= peInterned 0
       iExprs V.! 0 @?= peTrue
 
-mkIdLam :: Expr
-mkIdLam = mkETmLams [(x, TUnit)] (EVar x)
-  where
-    x = ExprVarName "x"
-
-
 mkIdLocLam :: Expr
 mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)
   where
@@ -502,11 +493,9 @@ mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)
         slocEndLine = 22
         slocEndCol = 22
 
--- exprInterningLam :: TestTree
--- exprInterningLam =
---   let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest ETrue
---   in  testCase "True" $ do
---       assertInterned pe
---       assertInternedEnv e
---       pe @?= peInterned 0
---       iExprs V.! 0 @?= peTrue
+exprInterningLocLam :: TestTree
+exprInterningLocLam =
+  let (pe, e) = runEncodeExprTest mkIdLocLam
+  in  testCase "IdLocLam" $ do
+      assertInterned pe
+      assertInternedEnv e
