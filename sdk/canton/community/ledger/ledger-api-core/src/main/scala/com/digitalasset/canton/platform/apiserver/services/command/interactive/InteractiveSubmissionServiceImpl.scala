@@ -10,7 +10,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service as prot
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
@@ -18,6 +17,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   ExecuteRequest,
   PrepareRequest as PrepareRequestInternal,
 }
+import com.digitalasset.canton.ledger.api.validation.GetPreferredPackagesRequestValidator.PackageVettingRequirements
 import com.digitalasset.canton.ledger.api.{Commands as ApiCommands, PackageReference, SubmissionId}
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.InteractiveSubmissionExecuteError
 import com.digitalasset.canton.ledger.participant.state
@@ -52,7 +52,6 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
-import com.digitalasset.daml.lf.data.Ref.PackageName
 import io.opentelemetry.api.trace.Tracer
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -300,19 +299,18 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     }
   }
 
-  override def getPreferredPackageVersion(
-      parties: Set[LfPartyId],
-      packageName: PackageName,
+  override def getPreferredPackages(
+      packageVettingRequirements: PackageVettingRequirements,
       synchronizerId: Option[SynchronizerId],
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] =
-    packagePreferenceService.getPreferredPackageVersion(
-      parties = parties,
-      packageName = packageName,
-      supportedPackageIds = None,
-      synchronizerId = synchronizerId,
-      vettingValidAt = vettingValidAt,
-    )
+  ): FutureUnlessShutdown[Either[String, (Seq[PackageReference], SynchronizerId)]] =
+    packagePreferenceService
+      .getPreferredPackages(
+        packageVettingRequirements = packageVettingRequirements,
+        packageFilter = PackagePreferenceBackend.AllowAllPackageIds,
+        synchronizerId = synchronizerId,
+        vettingValidAt = vettingValidAt,
+      )
 }

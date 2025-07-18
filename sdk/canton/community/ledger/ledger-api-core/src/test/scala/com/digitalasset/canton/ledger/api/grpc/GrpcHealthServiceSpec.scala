@@ -330,7 +330,7 @@ final class GrpcHealthServiceSpec
 
   private def assertErrorCode(throwable: Throwable) =
     throwable match {
-      case GrpcException.INVALID_ARGUMENT() => succeed
+      case GrpcException.NOT_FOUND() => succeed
       case ex => fail(s"Expected a NOT_FOUND error, but got $ex")
     }
 }

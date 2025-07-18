@@ -384,7 +384,7 @@ final class SyncStateInspection(
       parties: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Set[(LfContractId, ReassignmentCounter)]] =
+  ): FutureUnlessShutdown[Set[(SerializableContract, ReassignmentCounter)]] =
     for {
       state <- FutureUnlessShutdown.fromTry(
         syncPersistentStateManager
@@ -422,7 +422,7 @@ final class SyncStateInspection(
       filteredByParty = contractsWithReassignmentCounter.collect {
         case (contract, reassignmentCounter)
             if parties.intersect(contract.metadata.stakeholders).nonEmpty =>
-          (contract.contractId, reassignmentCounter)
+          (contract, reassignmentCounter)
       }
     } yield filteredByParty.toSet
 

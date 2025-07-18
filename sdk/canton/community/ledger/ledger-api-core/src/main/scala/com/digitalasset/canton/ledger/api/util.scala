@@ -165,10 +165,14 @@ final case class DisclosedContract(
 // TODO(#25385): Deduplicate with logic from TopologyAwareCommandExecutor
 // Wrapper used for ordering package ids by version
 final case class PackageReference(
-    pkdId: LfPackageId,
+    pkgId: LfPackageId,
     version: LfPackageVersion,
     packageName: LfPackageName,
-)
+) extends PrettyPrinting {
+
+  override protected def pretty: Pretty[PackageReference] =
+    prettyOfString(_ => show"pkg:$packageName:$version/$pkgId")
+}
 
 object PackageReference {
   implicit val packageReferenceOrdering: Ordering[PackageReference] =
@@ -179,7 +183,25 @@ object PackageReference {
         )
       } else
         Ordering[(LfPackageVersion, LfPackageId)]
-          .compare(x.version -> x.pkdId, y.version -> y.pkdId)
+          .compare(x.version -> x.pkgId, y.version -> y.pkgId)
+
+  implicit class PackageReferenceOps(val pkgId: LfPackageId) extends AnyVal {
+    def toPackageReference(
+        packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+    ): Option[PackageReference] =
+      packageIdVersionMap.get(pkgId).map { case (packageName, packageVersion) =>
+        PackageReference(pkgId, packageVersion, packageName)
+      }
+
+    def unsafeToPackageReference(
+        packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+    ): PackageReference =
+      toPackageReference(packageIdVersionMap).getOrElse {
+        throw new NoSuchElementException(
+          s"Package id $pkgId not found in packageIdVersionMap"
+        )
+      }
+  }
 }
 
 object Logging {

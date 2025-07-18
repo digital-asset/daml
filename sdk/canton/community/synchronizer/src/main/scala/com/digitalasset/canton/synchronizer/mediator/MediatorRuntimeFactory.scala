@@ -14,7 +14,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, L
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.mediator.admin.v30.{
   MediatorAdministrationServiceGrpc,
-  MediatorScanServiceGrpc,
+  MediatorInspectionServiceGrpc,
 }
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.resource.Storage
@@ -22,7 +22,7 @@ import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
 import com.digitalasset.canton.synchronizer.mediator.service.{
   GrpcMediatorAdministrationService,
-  GrpcMediatorScanService,
+  GrpcMediatorInspectionService,
 }
 import com.digitalasset.canton.synchronizer.mediator.store.{
   FinalizedResponseStore,
@@ -75,8 +75,8 @@ final class MediatorRuntime(
       ec,
     )
 
-  val scanService: ServerServiceDefinition = MediatorScanServiceGrpc.bindService(
-    new GrpcMediatorScanService(
+  val inspectionService: ServerServiceDefinition = MediatorInspectionServiceGrpc.bindService(
+    new GrpcMediatorInspectionService(
       mediator.state.finalizedResponseStore,
       mediator.state.recordOrderTimeAwaiter,
       batchingConfig.maxItemsInBatch,

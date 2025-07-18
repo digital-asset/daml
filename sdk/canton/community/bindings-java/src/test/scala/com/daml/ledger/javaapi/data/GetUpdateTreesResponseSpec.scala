@@ -8,6 +8,9 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.annotation.nowarn
+
+@nowarn("cat=deprecation")
 class GetUpdateTreesResponseSpec
     extends AnyFlatSpec
     with Matchers

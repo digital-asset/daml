@@ -25,6 +25,8 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.TransactionShape
+import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -38,6 +40,8 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 
+import scala.annotation.nowarn
+
 object EventsTable {
 
   object TransactionConversions {
@@ -50,35 +54,57 @@ object EventsTable {
         .collectFirst { case Some(tc) => tc }
         .map(DamlTraceContext.parseFrom)
 
-    def toTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
-      events.headOption.flatMap { first =>
-        val flatEvents =
-          TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
-
-        // Allows emitting flat transactions with no events, a use-case needed
-        // for the functioning of Daml triggers.
-        // (more details in https://github.com/digital-asset/daml/issues/6975)
-        if (flatEvents.nonEmpty || first.commandId.nonEmpty)
-          Some(
-            ApiTransaction(
-              updateId = first.updateId,
-              commandId = first.commandId.getOrElse(""),
-              effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
-              workflowId = first.workflowId.getOrElse(""),
-              offset = first.offset,
-              events = flatEvents,
-              synchronizerId = first.synchronizerId,
-              traceContext = extractTraceContext(events),
-              recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+    def toTransaction(
+        entries: Seq[Entry[Event]],
+        transactionShape: TransactionShape,
+    ): Option[ApiTransaction] =
+      entries.headOption.flatMap { first =>
+        val events = entries.iterator.map(_.event).toVector
+        transactionShape match {
+          case AcsDelta =>
+            val nonTransient = TransactionConversion.removeTransient(events)
+            // Allows emitting AcsDelta transactions with no events for providing completion evidence for submitter-witnesses.
+            Option.when(nonTransient.nonEmpty || first.commandId.nonEmpty)(
+              toApiTransaction(
+                first = first,
+                events = nonTransient,
+                traceContext = extractTraceContext(entries),
+              )
             )
-          )
-        else None
+
+          case LedgerEffects =>
+            Option.when(events.nonEmpty)(
+              toApiTransaction(
+                first = first,
+                events = events,
+                traceContext = extractTraceContext(entries),
+              )
+            )
+        }
       }
 
+    private def toApiTransaction(
+        first: Entry[Event],
+        events: Seq[Event],
+        traceContext: Option[DamlTraceContext],
+    ): ApiTransaction =
+      ApiTransaction(
+        updateId = first.updateId,
+        commandId = first.commandId.getOrElse(""),
+        effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
+        workflowId = first.workflowId.getOrElse(""),
+        offset = first.offset,
+        events = events,
+        synchronizerId = first.synchronizerId,
+        traceContext = traceContext,
+        recordTime = Some(TimestampConversion.fromLf(first.recordTime)),
+      )
+
     def toGetTransactionsResponse(
-        events: Seq[Entry[Event]]
+        events: Seq[Entry[Event]],
+        transactionShape: TransactionShape,
     ): List[(Long, GetUpdatesResponse)] =
-      toTransaction(events).toList.map(tx =>
+      toTransaction(events, transactionShape).toList.map(tx =>
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
           .withPrecomputedSerializedSize()
       )
@@ -144,6 +170,7 @@ object EventsTable {
           )
       }
 
+    @nowarn("cat=deprecation")
     private def treeOf(
         events: Seq[Entry[TreeEvent]]
     ): (Map[Int, TreeEvent], Option[DamlTraceContext]) = {
@@ -160,6 +187,7 @@ object EventsTable {
 
     }
 
+    @nowarn("cat=deprecation")
     private def transactionTree(
         events: Seq[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
@@ -178,6 +206,7 @@ object EventsTable {
         )
       }
 
+    @nowarn("cat=deprecation")
     def toGetTransactionTreesResponse(
         events: Seq[Entry[TreeEvent]]
     ): List[(Long, GetUpdateTreesResponse)] =
@@ -186,6 +215,7 @@ object EventsTable {
           .withPrecomputedSerializedSize()
       )
 
+    @nowarn("cat=deprecation")
     def toGetTransactionTreeResponse(
         events: Seq[Entry[TreeEvent]]
     ): Option[GetTransactionTreeResponse] =

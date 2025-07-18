@@ -7,19 +7,11 @@ import better.files.*
 import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{
-  CantonConfig,
-  DbConfig,
-  EnterpriseCantonEdition,
-  TestingConfigInternal,
-}
+import com.digitalasset.canton.config.{CantonConfig, EnterpriseCantonEdition, TestingConfigInternal}
 import com.digitalasset.canton.console.{LocalInstanceReference, RemoteInstanceReference}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.referenceConfiguration
 import com.digitalasset.canton.metrics.MetricsFactoryType
 import com.digitalasset.canton.util.ResourceUtil
@@ -31,9 +23,10 @@ class ReferenceConfigSandboxExampleIntegrationTest
     with HasExecutionContext {
 
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer.tryCreate(Set("local")),
+      shouldGenerateEndpointsOnly = true,
     )
   )
 
@@ -85,9 +78,10 @@ class ReferenceConfigExampleIntegrationTest
 
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](
+    new UseBftSequencer(
       loggerFactory,
       sequencerGroups = MultiSynchronizer.tryCreate(Set("sequencer")),
+      shouldGenerateEndpointsOnly = true,
     )
   )
 

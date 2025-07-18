@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import better.files.File
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
@@ -13,23 +13,21 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.AcsInspection
-import com.digitalasset.canton.integration.{
-  CommunityIntegrationTest,
-  EnvironmentDefinition,
-  SharedEnvironment,
-}
+import com.digitalasset.canton.integration.util.{AcsInspection, PartyToParticipantDeclarative}
+import com.digitalasset.canton.integration.{ConfigTransforms, EnvironmentDefinition}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.{ReassignmentCounter, config}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
+import com.digitalasset.canton.{HasTempDirectory, ReassignmentCounter, config}
 
 import scala.jdk.CollectionConverters.*
 
-trait OfflinePartyMigrationIntegrationTest
-    extends CommunityIntegrationTest
-    with SharedEnvironment
-    with AcsInspection {
+trait OfflinePartyReplicationRepairMacroIntegrationTest
+    extends UseSilentSynchronizerInTest
+    with AcsInspection
+    with HasTempDirectory {
 
   private val aliceName = "Alice"
   private val bobName = "Bob"
@@ -39,8 +37,14 @@ trait OfflinePartyMigrationIntegrationTest
   private var bob: PartyId = _
   private var charlie: PartyId = _
 
+  // Party replication to the target participant may trigger ACS commitment mismatch warnings.
+  // This is expected behavior. To reduce the frequency of these warnings and avoid associated
+  // test flakes, `reconciliationInterval` is set to one year.
+  private val reconciliationInterval = PositiveSeconds.tryOfDays(365 * 10)
+
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M1_S2M1
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
 
@@ -67,14 +71,14 @@ trait OfflinePartyMigrationIntegrationTest
           charlieName,
           synchronizeParticipants = Seq(participant1, participant2),
         )
+
+        adjustTimeouts(sequencer1)
+        sequencer1.topology.synchronizer_parameters
+          .propose_update(daId, _.update(reconciliationInterval = reconciliationInterval.toConfig))
       }
 
-  private val acsFilename: String = "alize.gz"
-
-  override def afterAll(): Unit =
-    try {
-      File(acsFilename).delete()
-    } finally super.afterAll()
+  private val acsSnapshot = tempDirectory.toTempFile("alize.gz")
+  private val acsSnapshotPath: String = acsSnapshot.toString
 
   "setup our test scenario: create archived and active contracts" in { implicit env =>
     import env.*
@@ -129,8 +133,10 @@ trait OfflinePartyMigrationIntegrationTest
       )
   }
 
-  "move alice from p1 to p3, step 1" in { implicit env =>
+  "replicate alice from p1 to p3, step 1" in { implicit env =>
     import env.*
+
+    val simClock = Some(env.environment.simClock.value)
 
     // disable ACS commitments by having a large reconciliation interval
     // do this on all synchronizers with participants connected that perform party migrations
@@ -152,43 +158,54 @@ trait OfflinePartyMigrationIntegrationTest
       )
     )
 
-    repair.party_migration.step1_hold_and_store_acs(
-      alice,
-      partiesOffboarding = true,
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
       participant1,
-      participant3.id,
-      acsFilename,
+      alice,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Observation),
+      ),
     )
 
-    // delegation should exist
-    participant1.topology.party_to_participant_mappings
-      .list(synchronizerId = daId, filterParty = alice.filterString, proposals = true)
-      .flatMap(result =>
-        result.item.participants.map(p => (result.item.partyId, p.participantId))
-      ) should contain((alice, participant3.id))
+    val onboardingTx = participant1.topology.party_to_participant_mappings
+      .list(
+        synchronizerId = daId,
+        filterParty = alice.filterString,
+        filterParticipant = participant3.filterString,
+      )
+      .loneElement
+      .context
 
-    // but party should not be hosted anymore
-    participant1.parties.hosted(aliceName) shouldBe empty
+    silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
 
-    participant1.health.ping(participant3.id)
-
+    repair.party_replication.step1_hold_and_store_acs(
+      alice,
+      daId,
+      participant1,
+      participant3.id,
+      acsSnapshotPath,
+      onboardingTx.validFrom,
+    )
   }
 
-  "move alice from p1 to p3, step 2" in { implicit env =>
+  "replicate alice from p1 to p3, step 2" in { implicit env =>
     import env.*
-    repair.party_migration.step2_import_acs(alice, participant3, acsFilename)
-
-    participant1.health.ping(participant3.id)
+    repair.party_replication.step2_import_acs(alice, daId, participant3, acsSnapshotPath)
   }
 
-  "move alice from p1 to p3, step 3" in { implicit env =>
+  "replicate alice from p1 to p3, step 3" in { implicit env =>
     import env.*
+
+    val simClock = Some(env.environment.simClock.value)
+
+    resumeSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant3, simClock)
 
     participant3.parties
       .list(aliceName)
       .flatMap(_.participants.map(_.participant))
       .distinct
-      .toList shouldBe Seq(participant3.id)
+      .toList should contain allOf (participant1.id, participant3.id)
 
     val contracts = participant3.ledger_api.state.acs.of_party(alice)
 
@@ -213,6 +230,16 @@ trait OfflinePartyMigrationIntegrationTest
       synchronizeParticipants = Seq(participant3),
     )
 
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
+      participant1,
+      alice,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant3, PP.Submission),
+      ),
+    )
+
     participant3.ledger_api.javaapi.commands
       .submit_flat(
         Seq(alice),
@@ -222,23 +249,10 @@ trait OfflinePartyMigrationIntegrationTest
 
     participant1.ledger_api.state.acs.of_party(boris) should have length 1
   }
-
-  "move alice from p1 to p3, step 4" in { implicit env =>
-    import env.*
-
-    val alice = participant1.parties.find(aliceName)
-    participant1.synchronizers.disconnect_all()
-    repair.party_migration.step4_clean_up_source(alice, participant1, acsFilename)
-    participant1.synchronizers.reconnect_all()
-
-    eventually() {
-      participant1.ledger_api.state.acs.of_party(alice) shouldBe empty
-    }
-  }
-
 }
 
-class OfflinePartyMigrationIntegrationTestPostgres extends OfflinePartyMigrationIntegrationTest {
+class OfflinePartyReplicationRepairMactroIntegrationTestPostgres
+    extends OfflinePartyReplicationRepairMacroIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](

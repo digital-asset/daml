@@ -33,6 +33,7 @@ import com.digitalasset.canton.logging.{
 import io.grpc.ServerServiceDefinition
 
 import java.time.{Duration, Instant}
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiCommandService(
@@ -65,6 +66,7 @@ class ApiCommandService(
   ): Future[SubmitAndWaitForReassignmentResponse] =
     enrichRequestAndSubmit(request = request)(service.submitAndWaitForReassignment)
 
+  @nowarn("cat=deprecation")
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =

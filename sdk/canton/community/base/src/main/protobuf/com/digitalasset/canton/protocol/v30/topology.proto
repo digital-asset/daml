@@ -87,6 +87,7 @@ message NamespaceDelegation {
     CanSignSpecificMappings can_sign_specific_mapings = 6;
   }
 
+  // [start-docs-entry: namespace delegation restrictions]
   // the key can sign all currently known mappings and all mappings that will be added in future releases
   message CanSignAllMappings {}
   // the key can sign all currently known mappings and all mappings that will be added in future releases, except for
@@ -96,6 +97,7 @@ message NamespaceDelegation {
   message CanSignSpecificMappings {
     repeated Enums.TopologyMappingCode mappings = 1;
   }
+  // [end-docs-entry: namespace delegation restrictions]
 }
 // [end NamespaceDelegation definition]
 
@@ -134,6 +136,7 @@ message OwnerToKeyMapping {
   reserved 3; // was synchronizer = 3;
 }
 
+// [doc-entry-start: PartyToKeyMapping]
 // mapping a party to a key
 // authorization: whoever controls the party uid
 // UNIQUE(party)
@@ -147,6 +150,7 @@ message PartyToKeyMapping {
 
   reserved 2; // was synchronizer_id = 2
 }
+// [doc-entry-end: PartyToKeyMapping]
 
 // the trust certificate issued by the participant confirming that the participant
 // wishes to be present on the given synchronizer

@@ -1167,6 +1167,9 @@ final case class VettedPackage(
     validUntil: Option[CantonTimestamp],
 ) extends PrettyPrinting {
 
+  private def isUnbounded: Boolean = validFrom.isEmpty && validUntil.isEmpty
+  def asUnbounded: VettedPackage = if (isUnbounded) this else VettedPackage(packageId, None, None)
+
   def validAt(ts: CantonTimestamp): Boolean = validFrom.forall(_ <= ts) && validUntil.forall(_ > ts)
 
   def toProtoV30: v30.VettedPackages.VettedPackage = v30.VettedPackages.VettedPackage(

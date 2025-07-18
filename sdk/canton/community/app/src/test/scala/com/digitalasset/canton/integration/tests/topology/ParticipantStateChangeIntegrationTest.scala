@@ -8,7 +8,6 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.FuncTest
 import com.daml.test.evidence.tag.Security.SecurityTest.Property
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
-import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalInstanceReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -210,8 +209,7 @@ trait ParticipantStateChangeIntegrationTest
     import env.*
 
     // try to start participant3 with an invalid synchronizer id
-    val conConfig = SynchronizerConnectionConfig.grpc(
-      SequencerAlias.Default,
+    val conConfig = SynchronizerConnectionConfig.tryGrpcSingleConnection(
       daName,
       s"http://localhost:${sequencer1.config.publicApi.port}",
       manualConnect = true,

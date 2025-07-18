@@ -39,12 +39,15 @@ import scalaz.std.either.*
 import scalaz.std.list.*
 import scalaz.syntax.traverse.*
 
+import scala.annotation.nowarn
+
 object FormatValidator {
 
   import FieldValidator.*
   import ValidationErrors.*
 
   // TODO(i23504) Cleanup
+  @nowarn("cat=deprecation")
   def validate(
       txFilter: ProtoTransactionFilter,
       verbose: Boolean,
@@ -54,6 +57,7 @@ object FormatValidator {
     validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
 
   // TODO(i23504) Cleanup
+  @nowarn("cat=deprecation")
   def validateLegacyToUpdateFormat(
       txFilter: ProtoTransactionFilter,
       verbose: Boolean,
@@ -70,6 +74,7 @@ object FormatValidator {
     )
 
   // TODO(i23504) Cleanup
+  @nowarn("cat=deprecation")
   def validateLegacyToTransactionFormat(
       requestingParties: Seq[String]
   )(implicit

@@ -21,8 +21,8 @@ trait SequencerStateManagerStore {
     * @param timestamp
     *   The timestamp for which the state is computed
     */
-  def readInFlightAggregations(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
+  def readInFlightAggregations(timestamp: CantonTimestamp, maxSequencingTimeBound: CantonTimestamp)(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[InFlightAggregations]
 
   /** Updates the in-flight aggregations for the given aggregation IDs. Only adds or updates

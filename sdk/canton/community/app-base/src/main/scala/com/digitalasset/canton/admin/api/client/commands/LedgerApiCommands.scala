@@ -84,10 +84,13 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse,
   GetPreferredPackageVersionRequest,
   GetPreferredPackageVersionResponse,
+  GetPreferredPackagesRequest,
+  GetPreferredPackagesResponse,
   HashingSchemeVersion,
   InteractiveSubmissionServiceGrpc,
   MinLedgerTime,
   PackagePreference,
+  PackageVettingRequirement,
   PartySignatures,
   PrepareSubmissionRequest,
   PrepareSubmissionResponse,
@@ -192,9 +195,11 @@ import io.grpc.stub.StreamObserver
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ScheduledExecutorService
+import scala.annotation.nowarn
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 
+@nowarn("cat=deprecation")
 object LedgerApiCommands {
 
   final val defaultUserId = "CantonConsole"
@@ -1689,6 +1694,39 @@ object LedgerApiCommands {
       override protected def handleResponse(
           response: GetPreferredPackageVersionResponse
       ): Either[String, Option[PackagePreference]] = Right(response.packagePreference)
+    }
+
+    final case class PreferredPackages(
+        packageVettingRequirements: Map[LfPackageName, Set[LfPartyId]],
+        synchronizerIdO: Option[SynchronizerId],
+        vettingValidAt: Option[CantonTimestamp],
+    ) extends BaseCommand[
+          GetPreferredPackagesRequest,
+          GetPreferredPackagesResponse,
+          GetPreferredPackagesResponse,
+        ] {
+
+      override protected def submitRequest(
+          service: InteractiveSubmissionServiceStub,
+          request: GetPreferredPackagesRequest,
+      ): Future[GetPreferredPackagesResponse] =
+        service.getPreferredPackages(request)
+
+      override protected def createRequest(): Either[String, GetPreferredPackagesRequest] =
+        Right(
+          GetPreferredPackagesRequest(
+            packageVettingRequirements =
+              packageVettingRequirements.view.map { case (packageName, parties) =>
+                PackageVettingRequirement(packageName = packageName, parties = parties.toSeq)
+              }.toSeq,
+            synchronizerId = synchronizerIdO.map(_.toProtoPrimitive).getOrElse(""),
+            vettingValidAt = vettingValidAt.map(_.toProtoTimestamp),
+          )
+        )
+
+      override protected def handleResponse(
+          response: GetPreferredPackagesResponse
+      ): Either[String, GetPreferredPackagesResponse] = Right(response)
     }
   }
 

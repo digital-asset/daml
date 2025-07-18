@@ -13,14 +13,14 @@ import com.digitalasset.canton.mediator.admin.v30
 import io.grpc.ManagedChannel
 import io.grpc.stub.StreamObserver
 
-object MediatorScanCommands {
+object MediatorInspectionCommands {
   abstract class BaseScanCommand[Req, Res, Ret] extends GrpcAdminCommand[Req, Res, Ret] {
-    override type Svc = v30.MediatorScanServiceGrpc.MediatorScanServiceStub
+    override type Svc = v30.MediatorInspectionServiceGrpc.MediatorInspectionServiceStub
 
     override def createService(
         channel: ManagedChannel
-    ): v30.MediatorScanServiceGrpc.MediatorScanServiceStub =
-      v30.MediatorScanServiceGrpc.stub(channel)
+    ): v30.MediatorInspectionServiceGrpc.MediatorInspectionServiceStub =
+      v30.MediatorInspectionServiceGrpc.stub(channel)
 
     //  command will potentially take a long time
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout

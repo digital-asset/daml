@@ -70,4 +70,30 @@ object PartyManagementServiceError extends PartyManagementServiceErrorGroup {
         with PartyManagementServiceError
   }
 
+  @Explanation(
+    """The participant does not (yet) support serving a ledger offset at the requested timestamp. This may have happened
+      |because the ledger state processing has not yet caught up."""
+  )
+  @Resolution(
+    """Ensure the requested timestamp is valid. If so, retry after some time (possibly repeatedly)."""
+  )
+  object InvalidTimestamp
+      extends ErrorCode(
+        id = "INVALID_TIMESTAMP_PARTY_MANAGEMENT_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
+      ) {
+    final case class Error(
+        synchronizerId: SynchronizerId,
+        requestedTimestamp: CantonTimestamp,
+        force: Boolean,
+        reason: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"No ledger offset found for the requested timestamp $requestedTimestamp on synchronizer $synchronizerId (using force flag = $force): $reason"
+        )
+        with PartyManagementServiceError
+  }
+
 }

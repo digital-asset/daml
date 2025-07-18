@@ -186,11 +186,12 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         category = ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(
-        packageName: Ref.PackageName
+        packageName: Ref.PackageName,
+        reason: String,
     )(implicit errorLoggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause =
-            s"Could not resolve a vetted package-id for rendering the interface view for $packageName"
+            s"No vetted package for rendering the interface view for package-name '$packageName'. Reason: $reason"
         )
   }
 
@@ -201,6 +202,23 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         cause =
           s"Could not compute a package-id for rendering the interface view. Root cause: ${root.cause}"
       )(root.code, errorLoggingContext)
+
+  @Explanation(
+    """This error occurs if the topology state of the participant's connected synchronizers cannot satisfy the vetting requirements provided in the request."""
+  )
+  @Resolution(
+    """Inspect the error message and refine the request or retry again later. If the error persists, inform the involved counterparties about their invalid topology state."""
+  )
+  object NoPreferredPackagesFound
+      extends ErrorCode(
+        id = "NO_PREFERRED_PACKAGES_FOUND",
+        category = ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(reason: String)(implicit errorLoggingContext: ErrorLoggingContext)
+        extends DamlErrorWithDefiniteAnswer(
+          cause = s"Could not compute valid package preferences. Reason: $reason"
+        )
+  }
 
   @Explanation("""This error occurs if there was an unexpected error in the Ledger API.""")
   @Resolution("Contact support.")

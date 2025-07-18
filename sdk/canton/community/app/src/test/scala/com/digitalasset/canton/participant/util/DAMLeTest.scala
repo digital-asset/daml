@@ -71,6 +71,7 @@ trait DAMLeTest
       // Increase granularity of interruptions so that command reinterpretation gets
       // some `ResultInterruption`s during its execution before completing.
       iterationsBetweenInterruptions = 10,
+      paranoidMode = true,
     )
 
   private val packageService = DAMLeTest.packageService(engine, loggerFactory)

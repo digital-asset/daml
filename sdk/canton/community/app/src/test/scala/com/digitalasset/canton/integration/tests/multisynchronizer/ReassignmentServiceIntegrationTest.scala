@@ -55,9 +55,11 @@ import com.google.rpc.status.Status
 import monocle.macros.syntax.lens.*
 import org.scalatest.Tag
 
+import scala.annotation.nowarn
 import scala.concurrent.duration.DurationInt
 import scala.language.implicitConversions
 
+@nowarn("cat=deprecation")
 abstract class ReassignmentServiceIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment

@@ -8,6 +8,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
+@Deprecated
 public final class GetTransactionTreeResponse {
 
   @NonNull private final TransactionTree transactionTree;

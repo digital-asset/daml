@@ -99,7 +99,6 @@ class UniqueBoundedCounterTest
 
   it should "generate unique counters concurrently without lock exceptions" in {
     val numThreads = Threading.detectNumberOfThreads(noTracingLogger).unwrap
-    numThreads should be > 1
     val incrementsPerThread = 10000
     val totalIncrements = numThreads * incrementsPerThread
     val startValue = 1000

@@ -80,8 +80,10 @@ object BftSender {
       logger: TracedLogger,
       operators: Map[I, O],
       threshold: PositiveInt,
-      performRequest: O => EitherT[FutureUnlessShutdown, E, A],
-      resultHashKey: A => K,
+  )(
+      performRequest: O => EitherT[FutureUnlessShutdown, E, A]
+  )(
+      resultHashKey: A => K
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,

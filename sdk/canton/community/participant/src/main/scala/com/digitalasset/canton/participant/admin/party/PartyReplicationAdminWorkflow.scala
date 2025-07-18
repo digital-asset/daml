@@ -35,6 +35,7 @@ import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, Sy
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 
+import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters.*
 
@@ -103,6 +104,7 @@ class PartyReplicationAdminWorkflow(
     ).mapK(FutureUnlessShutdown.outcomeK)
   }
 
+  @nowarn("cat=deprecation")
   override private[admin] def filters: TransactionFilter =
     // we can't filter by template id as we don't know when the admin workflow package is loaded
     LedgerConnection.transactionFilterByParty(Map(participantId.adminParty -> Seq.empty))

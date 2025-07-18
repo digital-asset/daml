@@ -58,6 +58,7 @@ import org.apache.pekko.stream.Attributes
 import org.apache.pekko.stream.scaladsl.Source
 
 import java.sql.Connection
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
@@ -361,11 +362,15 @@ class UpdatesStreamReader(
         )
       )
       .mapConcat { (groupOfPayloads: Seq[Entry[Event]]) =>
-        val responses = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
+        val responses = TransactionConversions.toGetTransactionsResponse(
+          events = groupOfPayloads,
+          transactionShape = AcsDelta,
+        )
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
   }
 
+  @nowarn("cat=deprecation")
   private def doStreamTxsLedgerEffects(
       queryRange: EventsRange,
       internalEventFormat: InternalEventFormat,
@@ -511,7 +516,11 @@ class UpdatesStreamReader(
         }
       )
       .mapConcat { events =>
-        val responses = TransactionConversions.toGetTransactionsResponse(events)
+        val responses =
+          TransactionConversions.toGetTransactionsResponse(
+            events = events,
+            transactionShape = LedgerEffects,
+          )
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
   }
@@ -597,6 +606,7 @@ class UpdatesStreamReader(
       .mapConcat(identity)
   }
 
+  @nowarn("cat=deprecation")
   private def deserializeLfValuesTree(
       rawEvents: Vector[Entry[RawTreeEvent]],
       eventProjectionProperties: EventProjectionProperties,

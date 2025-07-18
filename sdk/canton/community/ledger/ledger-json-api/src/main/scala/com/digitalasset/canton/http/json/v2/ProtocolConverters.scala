@@ -27,6 +27,7 @@ import com.google.rpc.status.Status
 import ujson.StringRenderer
 import ujson.circe.CirceJson
 
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
@@ -445,6 +446,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         }
   }
 
+  @nowarn("cat=deprecation")
   object TransactionTree
       extends ProtocolConverter[lapi.transaction.TransactionTree, JsTransactionTree] {
     def toJson(
@@ -519,6 +521,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     }
   }
 
+  @nowarn("cat=deprecation")
   object SubmitAndWaitTransactionTreeResponse
       extends ProtocolConverter[
         lapi.command_service.SubmitAndWaitForTransactionTreeResponse,
@@ -1275,6 +1278,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdateResponse(_))
   }
 
+  @nowarn("cat=deprecation")
   object GetUpdateTreesResponse
       extends ProtocolConverter[
         lapi.update_service.GetUpdateTreesResponse,
@@ -1317,6 +1321,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }).map(lapi.update_service.GetUpdateTreesResponse(_))
   }
 
+  @nowarn("cat=deprecation")
   object GetTransactionTreeResponse
       extends ProtocolConverter[
         lapi.update_service.GetTransactionTreeResponse,
@@ -1338,6 +1343,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
   }
 
+  @nowarn("cat=deprecation")
   object GetTransactionResponse
       extends ProtocolConverter[
         lapi.update_service.GetTransactionResponse,

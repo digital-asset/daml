@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.transaction.{
 }
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -49,8 +50,7 @@ class StoreBasedSynchronizerTopologyInitializationCallback(
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] =
     for {
       topologyTransactions <- sequencerClient
-        .downloadTopologyStateForInit()
-        .mapK(FutureUnlessShutdown.outcomeK)
+        .downloadTopologyStateForInit(maxRetries = retry.Forever, retryLogLevel = None)
 
       _ <- topologyStoreInitialization.validateAndApplyInitialTopologySnapshot(topologyTransactions)
 

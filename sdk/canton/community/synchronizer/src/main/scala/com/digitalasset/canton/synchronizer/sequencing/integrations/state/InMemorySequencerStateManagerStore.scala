@@ -27,7 +27,8 @@ class InMemorySequencerStateManagerStore(
     new AtomicReference[State](State.empty)
 
   override def readInFlightAggregations(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeBound: CantonTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[InFlightAggregations] = {
     val snapshot = state.get()
     val inFlightAggregations = snapshot.inFlightAggregations.mapFilter(_.project(timestamp))

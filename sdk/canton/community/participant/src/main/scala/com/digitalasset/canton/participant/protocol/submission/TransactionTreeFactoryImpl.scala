@@ -155,7 +155,7 @@ class TransactionTreeFactoryImpl(
         val numRootViews = rootViewDecompositions.length
         val numViews = TransactionViewDecomposition.countNestedViews(rootViewDecompositions)
         logger.debug(
-          s"Computed transaction tree with total=$numViews for #root-nodes=$numRootViews"
+          s"Computed transaction tree with total=$numViews views for #root-nodes=$numRootViews"
         )
       }
 

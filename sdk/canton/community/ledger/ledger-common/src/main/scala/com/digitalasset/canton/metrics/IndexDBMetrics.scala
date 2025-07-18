@@ -495,6 +495,9 @@ class MainIndexDBMetrics(
   val lastSynchronizerOffsetBeforeOrAtPublicationTime: DatabaseMetrics = createDbMetrics(
     "last_synchronizer_offset_before_or_at_publication_time"
   )
+  val lastSynchronizerOffsetBeforeOrAtRecordTime: DatabaseMetrics = createDbMetrics(
+    "last_synchronizer_offset_before_or_at_record_time"
+  )
 
   val archivals: DatabaseMetrics = createDbMetrics("archivals")
 

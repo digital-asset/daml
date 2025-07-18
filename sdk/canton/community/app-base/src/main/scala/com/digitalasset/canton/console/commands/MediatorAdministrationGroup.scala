@@ -9,7 +9,7 @@ import com.digitalasset.canton.admin.api.client.commands.MediatorAdministrationC
   Prune,
 }
 import com.digitalasset.canton.admin.api.client.commands.{
-  MediatorScanCommands,
+  MediatorInspectionCommands,
   PruningSchedulerCommands,
   SynchronizerTimeCommands,
 }
@@ -156,7 +156,7 @@ class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Im
 
 }
 
-class MediatorScanGroup(
+class MediatorInspectionGroup(
     runner: AdminCommandRunner,
     override protected val consoleEnvironment: ConsoleEnvironment,
     override protected val name: String,
@@ -170,7 +170,7 @@ class MediatorScanGroup(
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
   ): Seq[Verdict] = {
     val observer = new RecordingStreamObserver[v30.Verdict](completeAfter = maxItems)
-    val cmd = MediatorScanCommands.MediatorVerdicts(
+    val cmd = MediatorInspectionCommands.MediatorVerdicts(
       mostRecentlyReceivedRecordTimeOfRequest = Some(fromRecordTimeOfRequestExclusive),
       observer,
     )

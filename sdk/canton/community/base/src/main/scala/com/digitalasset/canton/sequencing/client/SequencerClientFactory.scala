@@ -164,14 +164,13 @@ object SequencerClientFactory {
                 )
                 .unlessShutdown(
                   BftSender
-                    .makeRequest[SequencerAlias, String, SequencerClientTransport, Option[
-                      TrafficState
-                    ], Option[TrafficState]](
+                    .makeRequest(
                       s"Retrieving traffic state from synchronizer for $member at $ts",
                       futureSupervisor,
                       logger,
                       sequencerTransportsMap.forgetNE,
                       sequencerConnections.sequencerTrustThreshold,
+                    )(
                       _.getTrafficStateForMember(
                         // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
                         // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
@@ -183,9 +182,8 @@ object SequencerClientFactory {
                           ts.immediateSuccessor,
                           synchronizerParameters.protocolVersion,
                         )
-                      ).map(_.trafficState),
-                      identity,
-                    )
+                      ).map(_.trafficState)
+                    )(identity)
                     .leftMap { err =>
                       s"Failed to retrieve traffic state from synchronizer for $member: $err"
                     }

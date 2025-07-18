@@ -501,11 +501,7 @@ trait SynchronizerParametersChangeIntegrationTest
         // participant needs a bit more time before seeing the changes
         ConsoleDynamicSynchronizerParameters(
           participant1.topology.synchronizer_parameters
-            .list(
-              store = daSynchronizer.synchronizerId
-            )
-            .head
-            .item
+            .latest(store = daSynchronizer.synchronizerId)
         ) shouldBe getCurrentSynchronizerParameters(daSynchronizer)
       }
     }

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.{ComponentHealthState, ComponentStatus}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.DbConfig
@@ -65,15 +64,7 @@ trait SequencerOnboardingTombstoneTest
       import env.*
 
       clue("participant1 connects to sequencer1") {
-        participant1.synchronizers.connect_local_bft(
-          NonEmpty
-            .mk(
-              Seq,
-              SequencerAlias.tryCreate("seq1x") -> sequencer1,
-            )
-            .toMap,
-          alias = daName,
-        )
+        participant1.synchronizers.connect_local_bft(Seq(sequencer1), synchronizerAlias = daName)
       }
 
       participant1.health.ping(participant1.id)

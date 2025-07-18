@@ -132,11 +132,13 @@ trait KeyManagementIntegrationTestHelper extends KeyManagementTestHelper {
 
     val newSigningKey = kmsRotationKeyIdO match {
       case Some(kmsKeyId) =>
+        // user-manual-entry-begin: register_kms_signing_key
         node.keys.secret.register_kms_signing_key(
           kmsKeyId,
-          SigningKeyUsage.ProtocolOnly,
-          s"${node.name}-signing-new",
+          usage = SigningKeyUsage.ProtocolOnly,
+          name = s"${node.name}-signing-new",
         )
+      // user-manual-entry-end: register_kms_signing_key
       case None =>
         node.keys.secret
           .generate_signing_key(s"${node.name}-signing-new", SigningKeyUsage.ProtocolOnly)

@@ -14,7 +14,7 @@ class BftSequencerMinimalConfigIntegrationTest
     with SharedEnvironment
     with HasExecutionContext {
 
-  registerPlugin(new UseBftSequencer(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory, shouldGenerateEndpointsOnly = true))
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.fromFiles(bftSequencerConfigurationFolder / "minimal.conf")

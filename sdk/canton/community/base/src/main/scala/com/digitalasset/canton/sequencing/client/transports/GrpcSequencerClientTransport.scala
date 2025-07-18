@@ -52,6 +52,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 private[transports] abstract class GrpcSequencerClientTransportCommon(
     channel: ManagedChannel,
@@ -241,23 +242,25 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         )
         TopologyStateForInitResponse(Traced(storedTxs))
       }
+      .transformWith {
+        case Success(value) => Future.successful(Right(value))
 
-    EitherTUtil
-      .fromFuture(
-        resultF,
-        {
-          case grpcExc: StatusRuntimeException =>
-            logger.debug(s"Downloading topology state for initialization failed with $grpcExc")
-            grpcExc.getStatus.toString
+        case Failure(grpcExc: StatusRuntimeException) =>
+          logger.debug(
+            s"Downloading topology state for initialization failed with gRPC exception",
+            grpcExc,
+          )
+          Future.successful(Left(grpcExc.getStatus.toString))
 
-          case exc =>
-            logger.warn(
-              s"Downloading topology state for initialization failed with unexpected exception $exc",
-              exc,
-            )
-            exc.toString
-        },
-      )
+        case Failure(exc) =>
+          logger.warn(
+            s"Downloading topology state for initialization failed with unexpected exception",
+            exc,
+          )
+          Future.failed(exc)
+      }
+
+    EitherT(resultF)
   }
 }
 

@@ -14,6 +14,7 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 
 import java.time.{Duration, Instant, LocalDate}
+import scala.annotation.nowarn
 import scala.jdk.CollectionConverters.*
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -237,6 +238,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def treeEventGen: Gen[v2.TransactionOuterClass.TreeEvent] = {
     import v2.TransactionOuterClass.TreeEvent
     for {
@@ -285,6 +287,45 @@ object Generators {
     minor <- Gen.choose(0, 100)
     patch <- Gen.choose(0, 100)
   } yield new PackageVersion(Array(major, minor, patch)).toString
+
+  val packageVettingRequirementsGen
+      : Gen[v2.interactive.InteractiveSubmissionServiceOuterClass.PackageVettingRequirement] =
+    for {
+      packageName <- packageNameGen
+      parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+    } yield v2.interactive.InteractiveSubmissionServiceOuterClass.PackageVettingRequirement
+      .newBuilder()
+      .addAllParties(parties.asJavaCollection)
+      .setPackageName(packageName)
+      .build()
+
+  val packageReferenceGen: Gen[v2.PackageReferenceOuterClass.PackageReference] =
+    for {
+      packageId <- Arbitrary.arbString.arbitrary
+      packageVersion <- packageVersionGen
+      packageName <- packageNameGen
+    } yield {
+      v2.PackageReferenceOuterClass.PackageReference
+        .newBuilder()
+        .setPackageId(packageId)
+        .setPackageName(packageName)
+        .setPackageVersion(packageVersion)
+        .build()
+    }
+
+  val getPreferredPackagesResponseGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesResponse
+  ] =
+    for {
+      packageReferences <- Gen.listOf(packageReferenceGen)
+      synchronizerId <- Arbitrary.arbString.arbitrary
+    } yield {
+      v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesResponse
+        .newBuilder()
+        .addAllPackageReferences(packageReferences.asJavaCollection)
+        .setSynchronizerId(synchronizerId)
+        .build()
+    }
 
   val packagePreferenceGen: Gen[
     v2.interactive.InteractiveSubmissionServiceOuterClass.PackagePreference
@@ -441,6 +482,7 @@ object Generators {
       .setParticipantId(participantId)
       .build()
 
+  @nowarn("cat=deprecation")
   def transactionFilterGen: Gen[v2.TransactionFilterOuterClass.TransactionFilter] =
     for {
       filtersByParty <- Gen.mapOf(partyWithFiltersGen)
@@ -528,6 +570,7 @@ object Generators {
         .build()
     }
 
+  @nowarn("cat=deprecation")
   def getActiveContractRequestGen: Gen[v2.StateServiceOuterClass.GetActiveContractsRequest] =
     for {
       transactionFilter <- transactionFilterGen
@@ -730,6 +773,24 @@ object Generators {
       .build()
   }
 
+  def getPreferredPackagesRequestGen: Gen[
+    v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesRequest
+  ] = {
+    import v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackagesRequest as Request
+    for {
+      packageVettingRequirements <- Gen.listOf(packageVettingRequirementsGen)
+      synchronizerId <- Arbitrary.arbOption[String].arbitrary
+      vettingValidAt <- protoTimestampGen
+    } yield {
+      val intermediate = Request
+        .newBuilder()
+        .setVettingValidAt(vettingValidAt)
+      synchronizerId.foreach(intermediate.setSynchronizerId)
+      packageVettingRequirements.foreach(intermediate.addPackageVettingRequirements)
+      intermediate.build()
+    }
+  }
+
   def getPreferredPackageVersionRequestGen: Gen[
     v2.interactive.InteractiveSubmissionServiceOuterClass.GetPreferredPackageVersionRequest
   ] = {
@@ -903,6 +964,7 @@ object Generators {
     getDescendants(node, 0)._1
   }
 
+  @nowarn("cat=deprecation")
   def transactionTreeGenWithIdsInPreOrder: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def treeEventGen(nodeId: Int, lastDescendantNodeId: Int): Gen[(Integer, TreeEvent)] =
@@ -1002,6 +1064,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}
     def idTreeEventPairGen =
@@ -1092,6 +1155,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionByOffsetRequestGen
       : Gen[v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByOffsetRequest as Request
@@ -1131,6 +1195,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByIdRequest as Request
     for {
@@ -1145,6 +1210,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getTransactionResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionResponse] =
     transactionGen.map(
       v2.UpdateServiceOuterClass.GetTransactionResponse
@@ -1153,6 +1219,7 @@ object Generators {
         .build()
     )
 
+  @nowarn("cat=deprecation")
   def getTransactionTreeResponseGen: Gen[v2.UpdateServiceOuterClass.GetTransactionTreeResponse] =
     transactionTreeGen.map(
       v2.UpdateServiceOuterClass.GetTransactionTreeResponse
@@ -1161,6 +1228,7 @@ object Generators {
         .build()
     )
 
+  @nowarn("cat=deprecation")
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
@@ -1233,6 +1301,7 @@ object Generators {
       .build()
   }
 
+  @nowarn("cat=deprecation")
   def getUpdateTreesResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateTreesResponse] = {
     import v2.UpdateServiceOuterClass.GetUpdateTreesResponse as Response
     for {
@@ -1455,6 +1524,7 @@ object Generators {
       .setReassignment(reassignment)
       .build()
   }
+  @nowarn("cat=deprecation")
   def submitAndWaitForTransactionTreeResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse] = {
     import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response

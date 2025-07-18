@@ -36,9 +36,11 @@ class DefaultPorts {
   private def defaultPortStart(portNo: Int): DefaultPort = new DefaultPort(portNo)
 
   // user-manual-entry-begin: ConfigDefaults
+  // user-manual-entry-begin: participant default ports
   /** Participant node default ports */
   val ledgerApiPort = defaultPortStart(4001)
   val participantAdminApiPort = defaultPortStart(4002)
+  // user-manual-entry-end: participant default ports
 
   /** External sequencer node x default ports (enterprise-only) */
   val sequencerPublicApiPort = defaultPortStart(5001)

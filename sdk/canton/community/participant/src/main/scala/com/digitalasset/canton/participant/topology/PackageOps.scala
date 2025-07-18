@@ -29,7 +29,6 @@ import com.digitalasset.canton.util.{ContinueAfterFailure, EitherTUtil, SimpleEx
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
 trait PackageOps extends NamedLogging {
@@ -131,22 +130,24 @@ class PackageOpsImpl(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     vettingExecutionQueue.executeEUS(
-      {
-        val packagesToBeAdded = new AtomicReference[Seq[PackageId]](List.empty)
-        for {
-          newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
-            // Keep deterministic order for testing and keep optimal O(n)
-            val existingPackagesSet = existingPackages.map(_.packageId).toSet
-            packagesToBeAdded.set(packages.filterNot(existingPackagesSet))
-            existingPackages ++ VettedPackage.unbounded(packagesToBeAdded.get)
+      for {
+        newVettedPackagesCreated <- modifyVettedPackages { existingPackages =>
+          val existingAndUpdatedPackages = existingPackages.map { existingVettedPackage =>
+            // if a package to vet has been previously vetted, make sure it has no time bounds
+            if (packages.contains(existingVettedPackage.packageId))
+              existingVettedPackage.asUnbounded
+            else existingVettedPackage
           }
-          // only synchronize with the connected synchronizers if a new VettedPackages transaction was actually issued
-          _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
-            synchronizeVetting.sync(packagesToBeAdded.get.toSet).mapK(FutureUnlessShutdown.outcomeK)
-          }
-        } yield ()
-
-      },
+          // now determine the actually new packages that need to be vetted
+          val actuallyNewPackages =
+            VettedPackage.unbounded(packages).toSet -- existingAndUpdatedPackages
+          existingAndUpdatedPackages ++ actuallyNewPackages
+        }
+        // only synchronize with the connected synchronizers if a new VettedPackages transaction was actually issued
+        _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
+          synchronizeVetting.sync(packages.toSet).mapK(FutureUnlessShutdown.outcomeK)
+        }
+      } yield (),
       "vet packages",
     )
 

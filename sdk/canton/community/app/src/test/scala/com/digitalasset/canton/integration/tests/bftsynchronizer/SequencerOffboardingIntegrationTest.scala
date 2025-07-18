@@ -64,6 +64,7 @@ trait SequencerOffboardingIntegrationTest
         synchronizerThreshold = PositiveInt.two,
         staticParameters,
         mediatorRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+        mediatorThreshold = PositiveInt.one,
       )
     }
   }

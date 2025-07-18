@@ -63,7 +63,8 @@ class DbSequencerBlockStore(
         }
         state <- blockInfoO match {
           case None => DBIO.successful(BlockEphemeralState.empty)
-          case Some(blockInfo) => readAtBlock(blockInfo)
+          case Some(blockInfo) =>
+            readAtBlock(blockInfo, maxSequencingTimeBound = CantonTimestamp.MaxValue)
         }
       } yield state,
       functionFullName,
@@ -111,7 +112,8 @@ class DbSequencerBlockStore(
     )
 
   override def readStateForBlockContainingTimestamp(
-      timestamp: CantonTimestamp
+      timestamp: CantonTimestamp,
+      maxSequencingTimeBound: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerError, BlockEphemeralState] =
@@ -121,7 +123,7 @@ class DbSequencerBlockStore(
           heightAndTimestamp <- findBlockContainingTimestampDBIO(timestamp)
           state <- heightAndTimestamp match {
             case None => DBIO.successful(Left(BlockNotFound.InvalidTimestamp(timestamp)))
-            case Some(block) => readAtBlock(block).map(Right.apply)
+            case Some(block) => readAtBlock(block, maxSequencingTimeBound).map(Right.apply)
           }
         } yield state,
         functionFullName,
@@ -129,11 +131,13 @@ class DbSequencerBlockStore(
     )
 
   private def readAtBlock(
-      block: BlockInfo
+      block: BlockInfo,
+      maxSequencingTimeBound: CantonTimestamp,
   ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] =
     sequencerStore
       .readInFlightAggregationsDBIO(
-        block.lastTs
+        block.lastTs,
+        maxSequencingTimeBound,
       )
       .map(inFlightAggregations => BlockEphemeralState(block, inFlightAggregations))
 

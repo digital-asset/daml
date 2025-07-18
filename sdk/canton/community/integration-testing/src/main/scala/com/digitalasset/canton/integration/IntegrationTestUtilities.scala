@@ -15,9 +15,10 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.exceptions.TestFailedException
 
-import scala.annotation.tailrec
+import scala.annotation.{nowarn, tailrec}
 import scala.concurrent.duration.{Duration, FiniteDuration}
 
+@nowarn("cat=deprecation")
 object IntegrationTestUtilities {
   import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 

@@ -53,33 +53,42 @@ trait TopologyManagementHelper { this: BaseTest =>
         .valueOrFail(s"node [${node.name}] expects an encryption key id")
 
       // user-manual-entry-begin: ManualRegisterKmsKeys
+
+      // Register the KMS signing key used to define the node identity.
       val namespaceKey = node.keys.secret
         .register_kms_signing_key(
           namespaceKmsKeyId,
           SigningKeyUsage.NamespaceOnly,
           name = s"${node.name}-${SigningKeyUsage.Namespace.identifier}",
         )
+
+      // Register the KMS signing key used to authenticate the node toward the Sequencer.
       val sequencerAuthKey = node.keys.secret
         .register_kms_signing_key(
           sequencerAuthKmsKeyId,
           SigningKeyUsage.SequencerAuthenticationOnly,
           name = s"${node.name}-${SigningKeyUsage.SequencerAuthentication.identifier}",
         )
+
+      // Register the signing key used to sign protocol messages.
       val signingKey = node.keys.secret
         .register_kms_signing_key(
           signingKmsKeyId,
           SigningKeyUsage.ProtocolOnly,
           name = s"${node.name}-${SigningKeyUsage.Protocol.identifier}",
         )
+
+      // Register the encryption key.
       val encryptionKey = node.keys.secret
         .register_kms_encryption_key(encryptionKmsKeyId, name = node.name + "-encryption")
+
       // user-manual-entry-end: ManualRegisterKmsKeys
 
       (namespaceKey, sequencerAuthKey, signingKey, encryptionKey)
     } else {
       // architecture-handbook-entry-begin: ManualInitKeys
 
-      // first, let's create a signing key that is going to control our identity.
+      // Create a signing key used to define the node identity.
       val namespaceKey =
         node.keys.secret
           .generate_signing_key(
@@ -87,18 +96,22 @@ trait TopologyManagementHelper { this: BaseTest =>
             SigningKeyUsage.NamespaceOnly,
           )
 
-      // create signing and encryption keys
+      // Create a signing key used to authenticate the node toward the Sequencer.
       val sequencerAuthKey =
         node.keys.secret.generate_signing_key(
           name = node.name + s"-${SigningKeyUsage.SequencerAuthentication.identifier}",
           SigningKeyUsage.SequencerAuthenticationOnly,
         )
+
+      // Create a signing key used to sign protocol messages.
       val signingKey =
         node.keys.secret
           .generate_signing_key(
             name = node.name + s"-${SigningKeyUsage.Protocol.identifier}",
             SigningKeyUsage.ProtocolOnly,
           )
+
+      // Create the encryption key.
       val encryptionKey =
         node.keys.secret.generate_encryption_key(name = node.name + "-encryption")
 
@@ -109,23 +122,23 @@ trait TopologyManagementHelper { this: BaseTest =>
 
     // architecture-handbook-entry-begin: ManualInitNode
 
-    // use the fingerprint of this key for our identity
-    // in production, use a "random" identifier. for testing and development, use something
-    // helpful so you don't have to grep for hashes in your log files.
+    // Use the fingerprint of this key for the node identity.
     val namespace = Namespace(namespaceKey.id)
     node.topology.init_id_from_uid(
       UniqueIdentifier.tryCreate("manual-" + node.name, namespace)
     )
+
+    // Wait until the node is ready to receive the node identity.
     node.health.wait_for_ready_for_node_topology()
-    // create the root certificate (self-signed)
+
+    // Create the self-signed root certificate.
     node.topology.namespace_delegations.propose_delegation(
       namespace,
       namespaceKey,
       CanSignAllMappings,
     )
 
-    // assign new keys to this node. only participants need an encryption key,
-    // but for simplicity every node gets one
+    // Assign the new keys to this node.
     node.topology.owner_to_key_mappings.propose(
       OwnerToKeyMapping(
         node.id.member,
@@ -133,7 +146,8 @@ trait TopologyManagementHelper { this: BaseTest =>
       ),
       signedBy = Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
     )
-    // architecture-handbook-entry-end: Node
+
+    // architecture-handbook-entry-end: ManualInitNode
 
   }
 

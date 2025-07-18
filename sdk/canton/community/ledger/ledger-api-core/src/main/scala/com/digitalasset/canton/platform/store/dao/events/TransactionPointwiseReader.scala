@@ -31,6 +31,7 @@ import com.digitalasset.canton.platform.{InternalTransactionFormat, Party, Templ
 import com.digitalasset.canton.util.MonadUtil
 
 import java.sql.Connection
+import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(#23504) cleanup
@@ -119,6 +120,7 @@ sealed trait TransactionPointwiseReaderLegacy {
   }
 }
 
+@nowarn("cat=deprecation")
 final class TransactionTreePointwiseReader(
     override val dbDispatcher: DbDispatcher,
     override val eventStorageBackend: EventStorageBackend,
@@ -336,9 +338,12 @@ final class TransactionPointwiseReader(
         )
     }
 
-    events.map(
+    events.map(entries =>
       // Conversion to API response type
-      toTransaction
+      toTransaction(
+        entries = entries,
+        transactionShape = txShape,
+      )
     )
   }
 

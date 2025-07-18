@@ -18,11 +18,13 @@ import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
+import scala.annotation.nowarn
 import scala.concurrent.Future
 
 /** Serves as a backend to implement
   * [[com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateService]]
   */
+@nowarn("cat=deprecation")
 trait IndexUpdateService extends LedgerEndService {
   def updates(
       begin: Option[Offset],

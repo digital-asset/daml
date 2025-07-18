@@ -612,7 +612,7 @@ class JcePureCrypto(
             Aes128GcmDemHelper,
           )
         )
-        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
+        .leftMap(err => EncryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err)))
       ciphertext <- Either
         .catchOnly[GeneralSecurityException](
           encrypter
@@ -621,7 +621,7 @@ class JcePureCrypto(
               Array[Byte](),
             )
         )
-        .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
+        .leftMap(err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)))
       encrypted = new AsymmetricEncrypted[M](
         ByteString.copyFrom(ciphertext),
         EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
@@ -663,12 +663,12 @@ class JcePureCrypto(
           )
           cipher
         }
-        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
+        .leftMap(err => EncryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err)))
       ciphertext <- Either
         .catchOnly[GeneralSecurityException](
           encrypter.doFinal(message.toByteString.toByteArray)
         )
-        .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
+        .leftMap(err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)))
     } yield new AsymmetricEncrypted[M](
       /* Prepend our IV to the ciphertext. On contrary to the Tink library, BouncyCastle's
        * ECIES encryption does not deal with the AES IV by itself and we have to randomly generate it and
@@ -714,12 +714,12 @@ class JcePureCrypto(
           cipher.init(Cipher.ENCRYPT_MODE, rsaPublicKey, random)
           cipher
         }
-        .leftMap(err => EncryptionError.InvalidEncryptionKey(err.toString))
+        .leftMap(err => EncryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err)))
       ciphertext <- Either
         .catchOnly[GeneralSecurityException](
           encrypter.doFinal(message.toByteString.toByteArray)
         )
-        .leftMap(err => EncryptionError.FailedToEncrypt(err.toString))
+        .leftMap(err => EncryptionError.FailedToEncrypt(ErrorUtil.messageWithStacktrace(err)))
     } yield new AsymmetricEncrypted[M](
       ByteString.copyFrom(ciphertext),
       EncryptionAlgorithmSpec.RsaOaepSha256,
@@ -747,11 +747,50 @@ class JcePureCrypto(
             publicKey,
           )
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
-          encryptWithEciesP256HmacSha256Aes128Cbc(
-            message,
-            publicKey,
-            JceSecureRandom.random.get(),
-          )
+          val enabledEncryptionCheck =
+            Option(System.getProperty("canton.encryption-check")).exists(_.toLowerCase == "true")
+          // Check that two deterministic encryptions yield the same ciphertext and fail otherwise
+          // TODO remove this again once we figured out the encryption corruption problem
+          //  https://github.com/DACH-NY/cn-test-failures/issues/4655
+          if (enabledEncryptionCheck) {
+            implicit val traceContext: TraceContext = TraceContext.todo
+            // "def" on purpose, as the generator is stateful
+            def deterministicRng = DeterministicRandom.getDeterministicRandomGenerator(
+              message.toByteString,
+              publicKey.fingerprint,
+              loggerFactory,
+            )
+            for {
+              firstEncryption <- encryptWithEciesP256HmacSha256Aes128Cbc(
+                message,
+                publicKey,
+                deterministicRng,
+              )
+              secondEncryption <- encryptWithEciesP256HmacSha256Aes128Cbc(
+                message,
+                publicKey,
+                deterministicRng,
+              )
+              _ <- Either.cond(
+                firstEncryption == secondEncryption,
+                (),
+                EncryptionError.FailedToEncrypt(
+                  s"""Deterministic encryption check failed:
+                       |Expected two encryptions with the same input and deterministic RNG to yield identical ciphertexts.
+                       |However, they differed:
+                       |First ciphertext:  $firstEncryption
+                       |Second ciphertext: $secondEncryption
+                       |""".stripMargin
+                ),
+              )
+            } yield firstEncryption
+          } else {
+            encryptWithEciesP256HmacSha256Aes128Cbc(
+              message,
+              publicKey,
+              JceSecureRandom.random.get(),
+            )
+          }
         case EncryptionAlgorithmSpec.RsaOaepSha256 =>
           encryptWithRSAOaepSha256(
             message,
@@ -852,12 +891,16 @@ class JcePureCrypto(
                     Aes128GcmDemHelper,
                   )
                 )
-                .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+                .leftMap(err =>
+                  DecryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err))
+                )
               plaintext <- Either
                 .catchOnly[GeneralSecurityException](
                   decrypter.decrypt(encrypted.ciphertext.toByteArray, Array[Byte]())
                 )
-                .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+                .leftMap(err =>
+                  DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
+                )
               message <- deserialize(ByteString.copyFrom(plaintext))
                 .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message
@@ -897,12 +940,16 @@ class JcePureCrypto(
                   )
                   cipher
                 }
-                .leftMap(err => DecryptionError.InvalidEncryptionKey(err.toString))
+                .leftMap(err =>
+                  DecryptionError.InvalidEncryptionKey(ErrorUtil.messageWithStacktrace(err))
+                )
               plaintext <- Either
                 .catchOnly[GeneralSecurityException](
                   decrypter.doFinal(ciphertext.toByteArray)
                 )
-                .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
+                .leftMap(err =>
+                  DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
+                )
               message <- deserialize(ByteString.copyFrom(plaintext))
                 .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message

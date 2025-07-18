@@ -5,9 +5,12 @@ package com.digitalasset.canton.integration.tests.pkgdars
 
 import better.files.File
 import com.digitalasset.canton.SynchronizerAlias
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference, SequencerReference}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -20,9 +23,12 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Reading.InvalidDar
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.ValidationError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Package.AllowedLanguageVersions
+import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
 import com.digitalasset.canton.participant.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.participant.admin.{PackageServiceTest, PackageTestUtils}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.daml.lf.archive.{DarParser, DarReader}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -30,6 +36,7 @@ import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.Future
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success}
 
 trait PackageUploadIntegrationTest
@@ -37,7 +44,7 @@ trait PackageUploadIntegrationTest
     with SharedEnvironment
     with PackageUsableMixin {
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P4_S1M1
+    EnvironmentDefinition.P5_S1M1
 
   private def inStore(store: TopologyStoreId, participant: ParticipantReference) =
     participant.topology.vetted_packages
@@ -55,6 +62,8 @@ trait PackageUploadIntegrationTest
       ref.dars.upload(CantonTestsPath)
       ref.synchronizers.connect_local(sequencerConnection, alias = synchronizerAlias)
     }
+
+  private var cantonTestsMainPackageId, cantonExamplesMainPkgId: String = _
 
   "uploading before connecting" must {
 
@@ -235,7 +244,7 @@ trait PackageUploadIntegrationTest
       val items = participant3.dars.list(filterName = "CantonExamples")
       items should have length (1)
 
-      val dar = items.headOption.getOrElse(fail("canton examples should be there"))
+      val dar = items.loneElement
 
       // list contents
       val content = participant3.dars.get_contents(dar.mainPackageId)
@@ -451,6 +460,125 @@ trait PackageUploadIntegrationTest
 
     }
 
+  }
+
+  "DAR removal" should {
+    "fail if the main package-id is used" in { implicit env =>
+      import env.*
+      participant4.dars.upload(CantonExamplesPath)
+      participant4.dars.upload(CantonTestsPath)
+
+      cantonTestsMainPackageId = participant4.dars
+        .list(filterName = "CantonTests")
+        .loneElement
+        .mainPackageId
+
+      cantonExamplesMainPkgId = participant4.dars
+        .list(filterName = "CantonExamples")
+        .loneElement
+        .mainPackageId
+
+      assertThrowsAndLogsCommandFailures(
+        participant4.dars.remove(cantonTestsMainPackageId),
+        _.shouldBeCommandFailure(
+          PackageRemovalErrorCode.code,
+          s"The DAR ${DarDescription(
+              DarMainPackageId.tryCreate(cantonTestsMainPackageId),
+              String255.tryCreate("CantonTests-3.3.0"),
+              String255.tryCreate("CantonTests"),
+              String255.tryCreate("3.3.0"),
+            )} cannot be removed because its main package $cantonTestsMainPackageId is in-use",
+        ),
+      )
+    }
+
+    "only remove a dependency package-id if it's not referenced in another DAR" in { implicit env =>
+      import env.*
+
+      // Archive the contract using CantonTests
+      archiveContract(participant4)
+
+      // Now, we can remove the CantonTests DAR
+      participant4.dars.remove(cantonTestsMainPackageId)
+
+      // Check that CantonTests main package-id was removed
+      participant4.packages
+        .list(filterName = "CantonTests")
+        .map(_.packageId) should not contain cantonTestsMainPackageId
+
+      // but not the CantonExamples main package-id (that is a dependency of CantonTests)
+      participant4.packages.list(filterName = "CantonExamples").map(_.packageId) should contain(
+        cantonExamplesMainPkgId
+      )
+
+      // Now, remove the CantonExamples DAR
+      participant4.dars.remove(cantonExamplesMainPkgId)
+      // Check that CantonExamples main package-id was removed
+      participant4.packages
+        .list(filterName = "CantonExamples")
+        .map(_.packageId) should not contain cantonExamplesMainPkgId
+    }
+  }
+
+  "Uploading and vetting a dar" must {
+    "make its package dependencies usable immediately" in { implicit env =>
+      import env.*
+
+      participant5.synchronizers.connect_local(sequencer1, alias = daName)
+      participant5.dars.upload(CantonExamplesPath)
+
+      participant5.topology.vetted_packages
+        .propose_delta(
+          participant5.id,
+          adds = Seq(
+            VettedPackage(
+              cantonExamplesMainPkgId,
+              validFrom = Some(CantonTimestamp.now().plusSeconds(60)),
+              validUntil = None,
+            )
+          ),
+        )
+
+      eventually() {
+        participant5.topology.vetted_packages
+          .list(daId, filterParticipant = participant5.filterString)
+          .loneElement
+          .item
+          .packages
+          .find(vp => vp.packageId == cantonExamplesMainPkgId)
+          .value
+          .validFrom should not be empty
+      }
+
+      // Upload CantonTests that depends on the CantonExamples main package-id
+      participant5.dars.upload(CantonTestsPath)
+
+      eventually() {
+        participant5.topology.vetted_packages
+          .list(daId, filterParticipant = participant5.filterString)
+          .loneElement
+          .item
+          .packages
+          .find(vp => vp.packageId == cantonExamplesMainPkgId)
+          .value
+          .validFrom shouldBe empty
+
+      }
+
+      assertPackageUsable(
+        participant5,
+        participant1,
+        daId,
+        (submitter, observer) =>
+          new Iou(
+            submitter.toProtoPrimitive,
+            observer.toProtoPrimitive,
+            new Amount(BigDecimal(17).bigDecimal, "fake-coin"),
+            List.empty.asJava,
+          ).create().commands().asScala.toSeq,
+      )
+
+    }
   }
 
 }
