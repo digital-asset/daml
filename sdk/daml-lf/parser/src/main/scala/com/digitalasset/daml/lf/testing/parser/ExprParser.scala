@@ -189,7 +189,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
 
   private lazy val eAbs: Parser[Expr] =
     `\\` ~>! rep1(varBinder) ~ (`->` ~> expr) ^^ { case binders ~ body =>
-      (binders foldRight body)(EAbs(_, _, None))
+      (binders foldRight body)((binder: (ExprVarName, Type), body: Expr) => EAbs(binder, body))
     }
 
   private lazy val eTyAbs: Parser[Expr] =

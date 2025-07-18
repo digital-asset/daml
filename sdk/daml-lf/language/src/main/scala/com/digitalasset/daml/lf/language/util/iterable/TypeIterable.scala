@@ -42,7 +42,7 @@ private[lf] object TypeIterable {
           iterator(arg)
       case ETyApp(expr, typ) =>
         iterator(expr) ++ Iterator(typ)
-      case EAbs((boundVarName @ _, boundVarType), body, ref @ _) =>
+      case EAbs((boundVarName @ _, boundVarType), body) =>
         Iterator(boundVarType) ++ iterator(body)
       case ELet(binding, body) =>
         iterator(binding) ++ iterator(body)

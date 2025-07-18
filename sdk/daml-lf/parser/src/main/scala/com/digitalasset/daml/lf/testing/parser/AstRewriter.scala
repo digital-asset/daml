@@ -103,8 +103,8 @@ private[daml] class AstRewriter(
           EApp(apply(fun), apply(arg))
         case ETyApp(expr, typ) =>
           ETyApp(apply(expr), apply(typ))
-        case EAbs(binder, body, ref) =>
-          EAbs(apply(binder), apply(body), ref)
+        case EAbs(binder, body) =>
+          EAbs(apply(binder), apply(body))
         case ETyAbs(binder, body) =>
           ETyAbs(binder, apply(body))
         case ECase(scrut, alts) =>

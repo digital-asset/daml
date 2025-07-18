@@ -258,8 +258,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeExpr(lfExpr, definition)(Ret(_)))
     }
 
-    private var currentDefinitionRef: Option[DefinitionRef] = None
-
     def decodeModule(lfModule: PLF.Module): Module = {
       val moduleName = getInternedDottedName(lfModule.getNameInternedDname)
       copy(optModuleName = Some(moduleName)).decodeModuleWithName(lfModule, moduleName)
@@ -276,8 +274,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         lfModule.getSynonymsList.asScala
           .foreach { defn =>
             val defName = getInternedDottedName(defn.getNameInternedDname)
-            currentDefinitionRef =
-              Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
             val d = Work.run(decodeDefTypeSyn(defn))
             defs += (defName -> d)
           }
@@ -288,7 +284,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         .filter(!onlySerializableDataDefs || _.getSerializable)
         .foreach { defn =>
           val defName = getInternedDottedName(defn.getNameInternedDname)
-          currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
           val d = Work.run(decodeDefDataType(defn))
           defs += (defName -> d)
         }
@@ -299,7 +294,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val nameWithType = defn.getNameWithType
           val defName = getInternedDottedName(nameWithType.getNameInternedDname)
 
-          currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
           val d = Work.run(decodeDefValue(defn))
           defs += (defName -> d)
         }
@@ -308,7 +302,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       // collect templates
       lfModule.getTemplatesList.asScala.foreach { defn =>
         val defName = getInternedDottedName(defn.getTyconInternedDname)
-        currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
         templates += ((defName, Work.run(decodeTemplate(defName, defn))))
       }
 
@@ -956,7 +949,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           assertNonEmpty(params, "params")
           decodeExpr(lfAbs.getBody, definition) { base =>
             Work.sequence(params.view.map(decodeBinder)) { binders =>
-              Ret((binders foldRight base)((binder, e) => EAbs(binder, e, currentDefinitionRef)))
+              Ret((binders foldRight base)((binder, e) => EAbs(binder, e)))
             }
           }
 
