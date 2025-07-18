@@ -1,6 +1,8 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+ {- HLINT ignore "locateRunfiles/package_app" -}
+
 module DA.Daml.LF.Proto3.EncodeDecodeTest (
         module DA.Daml.LF.Proto3.EncodeDecodeTest
       , pPrint
