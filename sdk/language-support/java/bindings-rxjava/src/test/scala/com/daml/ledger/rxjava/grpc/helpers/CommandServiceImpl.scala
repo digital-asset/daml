@@ -16,7 +16,7 @@ import scala.concurrent.{ExecutionContext, Future}
 final class CommandServiceImpl(
     submitAndWaitResponse: Future[SubmitAndWaitResponse],
     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
-    @deprecated("Use submitAndWaitForTransactionResponse instead", "3.4.0")
+    @deprecated("Use submitAndWaitForTransactionResponse instead", "3.3.0")
     submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
     submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
 ) extends CommandService
@@ -36,7 +36,7 @@ final class CommandServiceImpl(
     submitAndWaitForTransactionResponse
   }
 
-  @deprecated("Use submitAndWaitForTransaction instead", "3.4.0")
+  @deprecated("Use submitAndWaitForTransaction instead", "3.3.0")
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] = {
