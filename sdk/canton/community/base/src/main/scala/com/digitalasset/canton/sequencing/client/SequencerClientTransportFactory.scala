@@ -20,6 +20,7 @@ trait SequencerClientTransportFactory {
       sequencerConnections: SequencerConnections,
       member: Member,
       requestSigner: RequestSigner,
+      allowReplay: Boolean = true,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,
@@ -27,14 +28,14 @@ trait SequencerClientTransportFactory {
       traceContext: TraceContext,
   ): NonEmpty[Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko]] =
     sequencerConnections.connections.map { conn =>
-      conn.sequencerAlias -> makeTransport(conn, member, requestSigner)
+      conn.sequencerAlias -> makeTransport(conn, member, requestSigner, allowReplay)
     }.toMap
 
   def makeTransport(
       connection: SequencerConnection,
       member: Member,
       requestSigner: RequestSigner,
-      allowReplay: Boolean = true,
+      allowReplay: Boolean,
   )(implicit
       executionContext: ExecutionContextExecutor,
       executionSequencerFactory: ExecutionSequencerFactory,

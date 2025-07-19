@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol
 import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 
@@ -26,7 +26,7 @@ trait ContractAuthenticator {
     * @param contract
     *   the fat contract contract
     */
-  def authenticateFat(contract: LfFatContractInst): Either[String, Unit]
+  def authenticateFat(contract: FatContractInstance): Either[String, Unit]
 
   /** This method is used in contract upgrade verification to ensure that the metadata computed by
     * the upgraded template matches the original metadata.
@@ -37,7 +37,7 @@ trait ContractAuthenticator {
     *   the recalculated metadata
     */
   def verifyMetadata(
-      contract: ContractInstance,
+      contract: GenContractInstance,
       metadata: ContractMetadata,
   ): Either[String, Unit]
 
@@ -56,14 +56,14 @@ object ContractAuthenticator {
 
 class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends ContractAuthenticator {
 
-  private def toThin(inst: LfFatContractInst): ThinContractInstance =
+  private def toThin(inst: FatContractInstance): ThinContractInstance =
     Value.ThinContractInstance(
       inst.packageName,
       inst.templateId,
       inst.createArg,
     )
 
-  override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = {
+  override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = {
     val gk = contract.contractKeyWithMaintainers.map(Versioned(contract.version, _))
     for {
       metadata <- ContractMetadata.create(contract.signatories, contract.stakeholders, gk)
@@ -90,7 +90,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
     )
 
   def verifyMetadata(
-      contract: ContractInstance,
+      contract: GenContractInstance,
       metadata: ContractMetadata,
   ): Either[String, Unit] = for {
     dcm <- contract.driverContractMetadata
@@ -111,7 +111,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
   def authenticate(
       contractId: LfContractId,
       contractSalt: Salt,
-      ledgerTime: CreationTime.CreatedAt,
+      ledgerTime: CreationTime,
       metadata: ContractMetadata,
       suffixedContractInstance: ThinContractInstance,
   ): Either[String, Unit] = {
@@ -120,13 +120,17 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       case _ => sys.error("ContractId V2 are not supported")
     }
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
+    val createdAt = ledgerTime match {
+      case x: CreationTime.CreatedAt => x
+      case CreationTime.Now => sys.error("Cannot authenticate contract with creation time Now")
+    }
     optContractIdVersion match {
       case Right(contractIdVersion) =>
         for {
           recomputedUnicum <- unicumGenerator
             .recomputeUnicum(
               contractSalt = contractSalt,
-              ledgerCreateTime = ledgerTime,
+              ledgerCreateTime = createdAt,
               metadata = metadata,
               suffixedContractInstance = suffixedContractInstance,
               cantonContractIdVersion = contractIdVersion,

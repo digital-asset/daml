@@ -8,11 +8,11 @@ import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{SyncCryptoClient, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestampSecond
-import com.digitalasset.canton.participant.event.{
+import com.digitalasset.canton.ledger.participant.state.{
   AcsChange,
   ContractStakeholdersAndReassignmentCounter,
-  RecordTime,
 }
+import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod

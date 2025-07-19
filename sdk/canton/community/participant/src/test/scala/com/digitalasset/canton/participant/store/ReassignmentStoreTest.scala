@@ -47,7 +47,8 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, LfTimestamp}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -1379,7 +1380,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     ExampleTransactionFactory.asContractInstance(
       contractId = id,
       contractInstance = contractInstance(),
-      ledgerTime = CantonTimestamp.Epoch,
+      ledgerTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
       metadata = ContractMetadata.tryCreate(Set(signatory), Set(signatory), None),
     )
 
@@ -1388,7 +1389,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   val contract = ExampleTransactionFactory.asContractInstance(
     contractId = coidAbs1,
     contractInstance = contractInstance(),
-    ledgerTime = CantonTimestamp.Epoch,
+    ledgerTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
   )
 
   val synchronizer1 = SynchronizerId(

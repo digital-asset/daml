@@ -68,25 +68,35 @@ class ReferenceSequencerDriver(
     with FlagCloseableAsync {
 
   private lazy val (sendQueue, done) = {
-    implicit val traceContext: TraceContext = TraceContext.empty
+    implicit val errorLoggingCtx: ErrorLoggingContext = errorLoggingContext(TraceContext.empty)
 
     PekkoUtil.runSupervised(
       Source
         .queue[Traced[TimestampedRequest]](bufferSize = 100)
         .groupedWithin(n = config.maxBlockSize, d = config.maxBlockCutMillis.millis)
         .map { requests =>
-          batchRequests(
+          implicit val traceContext: TraceContext =
+            TraceContext.ofBatch("reference-driver-requests-batch")(requests)(logger)
+          logger.debug("Storing batch of requests")
+          traceContext -> batchRequests(
             timeProvider.nowInMicrosecondsSinceEpoch,
             CantonTimestamp.MinValue, // this value is ignored, because it is only used by the BFT block orderer currently
             requests,
-            TraceContext.empty,
+            traceContext,
           )
         }
-        .map(req =>
-          store.insertRequest(
-            BlockFormat.OrderedRequest(req.microsecondsSinceEpoch, req.tag, req.body)
-          )
-        )
+        .map { case (tc, req) =>
+          implicit val traceContext: TraceContext = tc
+          store
+            .insertRequest(
+              BlockFormat.OrderedRequest(req.microsecondsSinceEpoch, req.tag, req.body)
+            )
+            .map(_ =>
+              logger.debug(
+                s"Stored batch of requests"
+              )
+            )
+        }
         .toMat(Sink.ignore)(Keep.both),
       errorLogMessagePrefix = "Fatally failed to handle state changes",
     )
@@ -97,7 +107,11 @@ class ReferenceSequencerDriver(
   ): Source[RawLedgerBlock, KillSwitch] =
     ReferenceSequencerDriver
       .subscribe(firstBlockHeight)(store, config.pollInterval, logger)
-      .map(blockOrdererBlockToRawLedgerBlock(logger))
+      .map { block =>
+        block.requests
+          .foreach(r => logger.trace(s"Subscription to driver providing request")(r.traceContext))
+        blockOrdererBlockToRawLedgerBlock(logger)(block)
+      }
 
   override def send(request: ByteString, submissionId: String, senderId: String)(implicit
       traceContext: TraceContext
@@ -139,9 +153,10 @@ class ReferenceSequencerDriver(
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    Future.successful(storeRequest(timeProvider, tag, body))
+    // It's likely more efficient to enqueue the store request directly, rather than create a real async task to do it
+    Future.successful(enqueueStoreRequest(timeProvider, tag, body))
 
-  private[sequencer] def storeRequest(
+  private[sequencer] def enqueueStoreRequest(
       timeProvider: TimeProvider,
       tag: String,
       body: ByteString,
@@ -239,8 +254,8 @@ object ReferenceSequencerDriver {
       .viaMat(KillSwitches.single)(Keep.right)
       .scanAsync(
         fromHeight -> Seq[BlockFormat.Block]()
-      ) { case ((nextFromHeight, _), _tick) =>
-        ((for {
+      ) { case ((nextFromHeight, _), _) =>
+        (for {
           newBlocks <-
             store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
               val blocks = timestampedBlocks.map(_.block)
@@ -264,7 +279,7 @@ object ReferenceSequencerDriver {
           // Setting the "new nextFromHeight" watermark block height based on the number of new blocks seen
           // assumes that store.queryBlocks returns consecutive blocks with "no gaps". See #13539.
           (nextFromHeight + newBlocks.size) -> newBlocks
-        }).failOnShutdownToAbortException("ReferenceSequencerDriver.subscribe"))
+        }).failOnShutdownToAbortException("ReferenceSequencerDriver.subscribe")
       }
       .mapConcat(_._2)
   }

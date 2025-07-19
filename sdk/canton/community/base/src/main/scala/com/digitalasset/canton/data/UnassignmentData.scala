@@ -101,7 +101,7 @@ object UnassignmentData
       .traverse {
         case com.digitalasset.canton.protocol.v30.ActiveContract(contractP, reassignmentCounterP) =>
           ContractInstance
-            .decode(contractP)
+            .decodeWithCreatedAt(contractP)
             .leftMap(err => ContractDeserializationError(err))
             .map(_ -> ReassignmentCounter(reassignmentCounterP))
       }

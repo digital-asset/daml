@@ -82,6 +82,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
+import com.digitalasset.daml.lf.transaction.CreationTime
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -399,7 +400,7 @@ final class AssignmentProcessingStepsTest
       val contract = ExampleTransactionFactory.asContractInstance(
         contractId = coidAbs1,
         contractInstance = ExampleTransactionFactory.contractInstance(),
-        ledgerTime = CantonTimestamp.Epoch,
+        ledgerTime = CreationTime.CreatedAt(CantonTimestamp.Epoch.toLf),
         metadata = ContractMetadata.tryCreate(Set(party3), Set(party3), None),
       )
 
@@ -625,7 +626,7 @@ final class AssignmentProcessingStepsTest
       val contractWrongStakeholders: ContractInstance = {
         val fci = ExampleTransactionFactory
           .authenticatedContractInstance(metadata = baseMetadata)
-          .inst
+          .inst: LfFatContractInst
         ContractInstance(
           LfFatContractInst.fromCreateNode(
             fci.toCreateNode
@@ -643,7 +644,7 @@ final class AssignmentProcessingStepsTest
           .authenticatedContractInstance(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
-          .inst
+          .inst: LfFatContractInst
 
         ContractInstance(
           LfFatContractInst.fromCreateNode(
@@ -667,7 +668,7 @@ final class AssignmentProcessingStepsTest
           .authenticatedContractInstance(
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
-          .inst
+          .inst: LfFatContractInst
         ContractInstance(
           LfFatContractInst.fromCreateNode(
             fci.toCreateNode
@@ -798,7 +799,7 @@ final class AssignmentProcessingStepsTest
 
         result <- valueOrFail(
           assignmentProcessingSteps
-            .getCommitSetAndContractsToBeStoredAndEvent(
+            .getCommitSetAndContractsToBeStoredAndEventFactory(
               NoOpeningErrors(
                 SignedContent(
                   mock[Deliver[DefaultOpenEnvelope]],
@@ -825,7 +826,7 @@ final class AssignmentProcessingStepsTest
           loggerFactory.assertLoggedWarningsAndErrorsSeq(
             valueOrFail(
               assignmentProcessingSteps
-                .getCommitSetAndContractsToBeStoredAndEvent(
+                .getCommitSetAndContractsToBeStoredAndEventFactory(
                   NoOpeningErrors(
                     SignedContent(
                       mock[Deliver[DefaultOpenEnvelope]],

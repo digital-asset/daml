@@ -14,7 +14,13 @@ import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeNumeric, PositiveInt}
 import com.digitalasset.canton.config.{PositiveFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  PromiseUnlessShutdown,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -55,7 +61,6 @@ import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.apache.pekko.stream.Materializer
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -465,13 +470,21 @@ class GrpcSequencerService(
 
       // Note: we cannot assign the "cancel" handler during the async subscription creation,
       // see the doc for `setOnCancelHandler`.
-      // Instead, we close the subscription should it have already been created.
-      val subscriptionReference = new AtomicReference[Option[GrpcManagedSubscription[_]]](None)
-      observer.setOnCancelHandler(() => subscriptionReference.get().foreach(_.close()))
+      val createSubscriptionP =
+        PromiseUnlessShutdown.unsupervised[Either[Status, GrpcManagedSubscription[?]]]()
+      observer.setOnCancelHandler { () =>
+        logger.debug(s"Subscription cancelled by client ${request.member}.")
+        // Instead upon cancellation, we close the subscription once/if it has been successfully created.
+        createSubscriptionP.future.onComplete {
+          case Success(Outcome(Right(subscription))) =>
+            subscription.close()
+          case _ => ()
+        }
+      }
 
       // Note: we do the first part of the subscription creation above in the same thread,
       // so that we can use the GRPC interceptor injected context to grab the authentication token.
-      val resultF = for {
+      val resultET = for {
         result <- EitherT.fromEither[Future](resultE)
         (member, timestamp, authenticationTokenO) = result
         subscription <- subscriptionPool
@@ -489,11 +502,10 @@ class GrpcSequencerService(
           .leftMap { case SubscriptionPool.PoolClosed =>
             Status.UNAVAILABLE.withDescription("Subscription pool is closed.")
           }
-      } yield {
-        subscriptionReference.set(Some(subscription))
-      }
+      } yield subscription
+      createSubscriptionP.completeWith(resultET.mapK(FutureUnlessShutdown.outcomeK).value.unwrap)
       FutureUtil.doNotAwait(
-        resultF.fold(err => responseObserver.onError(err.asException()), identity),
+        resultET.fold(err => responseObserver.onError(err.asException()), _ => ()),
         failureMessage = s"Failed to establish subscription for ${request.member}",
       )
     }

@@ -23,7 +23,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     checkActivenessTxInputs = Set.empty[LfContractId],
     consumedInputsOfHostedStakeholders = Map.empty[LfContractId, Set[LfPartyId]],
     used = Map.empty[LfContractId, ContractInstance],
-    maybeCreated = Map.empty[LfContractId, Option[ContractInstance]],
+    maybeCreated = Map.empty[LfContractId, Option[NewContractInstance]],
     transient = Map.empty[LfContractId, Set[LfPartyId]],
     maybeUnknown = Set.empty[LfContractId],
   )

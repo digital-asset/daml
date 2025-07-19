@@ -178,7 +178,7 @@ final class RecordReplayIntegrationTest
 
     withClue("Replay the sequencer submissions from the participant and mediator") {
       val mediatorSendReplayConfig = {
-        val replaySendsConfig = SequencerSends(usePekko = true)
+        val replaySendsConfig = SequencerSends(loggerFactory, usePekko = true)
         MediatorNodeBootstrap.replaySequencerConfig.set { case `mediatorId` =>
           ReplayConfig(tempDirectory.path, replaySendsConfig)
         }
@@ -188,7 +188,7 @@ final class RecordReplayIntegrationTest
       }
 
       val participantSendReplayConfig = {
-        val replaySendsConfig = SequencerSends(usePekko = true)
+        val replaySendsConfig = SequencerSends(loggerFactory, usePekko = true)
 
         participant1.start()
         participant1.underlying.value.replaySequencerConfig

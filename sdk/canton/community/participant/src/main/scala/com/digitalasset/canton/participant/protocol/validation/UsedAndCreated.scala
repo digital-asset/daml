@@ -22,11 +22,11 @@ private[protocol] final case class UsedAndCreated(
 }
 
 private[protocol] final case class UsedAndCreatedContracts(
-    witnessed: Map[LfContractId, ContractInstance],
+    witnessed: Map[LfContractId, GenContractInstance],
     checkActivenessTxInputs: Set[LfContractId],
     consumedInputsOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
-    used: Map[LfContractId, ContractInstance],
-    maybeCreated: Map[LfContractId, Option[ContractInstance]],
+    used: Map[LfContractId, GenContractInstance],
+    maybeCreated: Map[LfContractId, Option[NewContractInstance]],
     transient: Map[LfContractId, Set[LfPartyId]],
     maybeUnknown: Set[LfContractId],
 ) {
@@ -45,7 +45,6 @@ private[protocol] final case class UsedAndCreatedContracts(
       needPriorState = Set.empty,
     )
 
-  def created: Map[LfContractId, ContractInstance] = maybeCreated.collect { case (cid, Some(sc)) =>
-    cid -> sc
-  }
+  def created: Map[LfContractId, NewContractInstance] =
+    maybeCreated.collect { case (cid, Some(sc)) => cid -> sc }
 }

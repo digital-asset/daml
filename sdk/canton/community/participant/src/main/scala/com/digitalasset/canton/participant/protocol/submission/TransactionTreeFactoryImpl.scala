@@ -298,7 +298,7 @@ class TransactionTreeFactoryImpl(
       .flatMap { preloaded =>
         def fromPreloaded(
             cid: LfContractId
-        ): EitherT[Future, ContractLookupError, ContractInstance] =
+        ): EitherT[Future, ContractLookupError, GenContractInstance] =
           preloaded.get(cid) match {
             case Some(value) => EitherT.fromEither(value)
             case None =>
@@ -552,6 +552,7 @@ class TransactionTreeFactoryImpl(
 
     val inst = LfFatContractInst.fromCreateNode(
       create = suffixedCreateNode,
+      // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
       createTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
       cantonData = DriverContractMetadata(contractSalt.unwrap).toLfBytes(cantonContractIdVersion),
     )
@@ -713,7 +714,7 @@ class TransactionTreeFactoryImpl(
       coreCreatedNodes: List[(LfNodeCreate, RollbackScope)],
       coreOtherNodes: List[(LfActionNode, RollbackScope)],
       childViews: Seq[TransactionView],
-      createdContractInfo: collection.Map[LfContractId, ContractInstance],
+      createdContractInfo: collection.Map[LfContractId, NewContractInstance],
       resolvedKeys: collection.Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]],
       actionDescription: ActionDescription,
       salt: Salt,
@@ -999,12 +1000,12 @@ object TransactionTreeFactoryImpl {
       }
 
     /** All contracts created by a node that has already been processed. */
-    val createdContractInfo: mutable.Map[LfContractId, ContractInstance] =
+    val createdContractInfo: mutable.Map[LfContractId, NewContractInstance] =
       mutable.Map.empty
 
     def setCreatedContractInfo(
         contractId: LfContractId,
-        createdInfo: ContractInstance,
+        createdInfo: NewContractInstance,
     )(implicit loggingContext: ErrorLoggingContext): Unit =
       createdContractInfo.put(contractId, createdInfo).foreach { _ =>
         ErrorUtil.internalError(

@@ -791,7 +791,7 @@ object DbReassignmentStore {
 
     def tryDeserializeOne(bytes: Array[Byte]): ContractInstance =
       ContractInstance
-        .decode(ByteString.copyFrom(bytes))
+        .decodeWithCreatedAt(ByteString.copyFrom(bytes))
         .valueOr(err =>
           throw new DbDeserializationException(s"Failed to deserialize contract: $err")
         )

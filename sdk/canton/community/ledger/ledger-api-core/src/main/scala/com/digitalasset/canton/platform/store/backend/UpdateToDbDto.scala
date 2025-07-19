@@ -326,11 +326,15 @@ object UpdateToDbDto {
       create: Create,
   ): Iterator[DbDto] = {
     val templateId = create.templateId.toString
-    val stakeholders = create.stakeholders.map(_.toString)
+    val flatWitnesses: Set[String] =
+      if (transactionAccepted.isAcsDelta(create.coid))
+        create.stakeholders.map(_.toString)
+      else
+        Set.empty
     val (createArgument, createKeyValue) = translation.serialize(create)
-    val informees =
+    val treeWitnesses =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
-    val nonStakeholderInformees = informees.diff(stakeholders)
+    val treeWitnessesWithoutFlatWitnesses = treeWitnesses.diff(flatWitnesses)
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.unwrap,
@@ -344,8 +348,8 @@ object UpdateToDbDto {
         contract_id = create.coid.toBytes.toByteArray,
         template_id = templateId,
         package_name = create.packageName,
-        flat_event_witnesses = stakeholders,
-        tree_event_witnesses = informees,
+        flat_event_witnesses = flatWitnesses,
+        tree_event_witnesses = treeWitnesses,
         create_argument = compressionStrategy.createArgumentCompression.compress(createArgument),
         create_signatories = create.signatories.map(_.toString),
         create_observers = create.stakeholders.diff(create.signatories).map(_.toString),
@@ -369,13 +373,13 @@ object UpdateToDbDto {
         external_transaction_hash =
           transactionAccepted.externalTransactionHash.map(_.unwrap.toByteArray),
       )
-    ) ++ stakeholders.iterator.map(stakeholder =>
+    ) ++ flatWitnesses.iterator.map(stakeholder =>
       DbDto.IdFilterCreateStakeholder(
         event_sequential_id = 0, // this is filled later
         template_id = templateId,
         party_id = stakeholder,
       )
-    ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
+    ) ++ treeWitnessesWithoutFlatWitnesses.iterator.map(stakeholder =>
       DbDto.IdFilterCreateNonStakeholderInformee(
         event_sequential_id = 0, // this is filled later
         template_id = templateId,
@@ -397,10 +401,14 @@ object UpdateToDbDto {
     val (exerciseArgument, exerciseResult, createKeyValue) =
       translation.serialize(exercise)
     val stakeholders = exercise.stakeholders.map(_.toString)
-    val informees =
+    val treeWitnesses =
       transactionAccepted.blindingInfo.disclosure.getOrElse(nodeId, Set.empty).map(_.toString)
-    val flatWitnesses = if (exercise.consuming) stakeholders else Set.empty[String]
-    val nonStakeholderInformees = informees.diff(stakeholders)
+    val flatWitnesses =
+      if (exercise.consuming && transactionAccepted.isAcsDelta(exercise.targetCoid))
+        stakeholders
+      else
+        Set.empty[String]
+    val treeWitnessesWithoutFlatWitnesses = treeWitnesses.diff(flatWitnesses)
     val templateId = exercise.templateId.toString
     Iterator(
       DbDto.EventExercise(
@@ -417,7 +425,7 @@ object UpdateToDbDto {
         template_id = templateId,
         package_name = exercise.packageName,
         flat_event_witnesses = flatWitnesses,
-        tree_event_witnesses = informees,
+        tree_event_witnesses = treeWitnesses,
         create_key_value = createKeyValue
           .map(compressionStrategy.createKeyValueCompression.compress),
         exercise_choice = exercise.qualifiedChoiceName.toString,
@@ -439,13 +447,13 @@ object UpdateToDbDto {
       )
     ) ++ {
       if (exercise.consuming) {
-        stakeholders.iterator.map(stakeholder =>
+        flatWitnesses.iterator.map(stakeholder =>
           DbDto.IdFilterConsumingStakeholder(
             event_sequential_id = 0, // this is filled later
             template_id = templateId,
             party_id = stakeholder,
           )
-        ) ++ nonStakeholderInformees.iterator.map(stakeholder =>
+        ) ++ treeWitnessesWithoutFlatWitnesses.iterator.map(stakeholder =>
           DbDto.IdFilterConsumingNonStakeholderInformee(
             event_sequential_id = 0, // this is filled later
             template_id = templateId,
@@ -453,7 +461,7 @@ object UpdateToDbDto {
           )
         )
       } else {
-        informees.iterator.map(informee =>
+        treeWitnesses.iterator.map(informee =>
           DbDto.IdFilterNonConsumingInformee(
             event_sequential_id = 0, // this is filled later
             template_id = templateId,

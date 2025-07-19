@@ -6,14 +6,13 @@ package com.digitalasset.canton.participant.protocol.conflictdetection
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ContractReassignment
-import com.digitalasset.canton.ledger.participant.state.LapiCommitSet
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.*
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.{
-  ContractInstance,
   ContractMetadata,
+  GenContractInstance,
   LfContractId,
   ReassignmentId,
   RequestId,
@@ -46,8 +45,7 @@ final case class CommitSet(
     creations: Map[LfContractId, CreationCommit],
     unassignments: Map[LfContractId, UnassignmentCommit],
     assignments: Map[LfContractId, AssignmentCommit],
-) extends LapiCommitSet
-    with PrettyPrinting {
+) extends PrettyPrinting {
   requireDisjoint(unassignments.keySet -> "unassignments", archivals.keySet -> "archivals")
   requireDisjoint(assignments.keySet -> "assignments", creations.keySet -> "creations")
 
@@ -110,7 +108,7 @@ object CommitSet {
       requestId: RequestId,
       consumedInputsOfHostedParties: Map[LfContractId, Set[LfPartyId]],
       transient: Map[LfContractId, Set[LfPartyId]],
-      createdContracts: Map[LfContractId, ContractInstance],
+      createdContracts: Map[LfContractId, GenContractInstance],
   )(implicit loggingContext: ErrorLoggingContext): CommitSet =
     if (activenessResult.isSuccessful) {
       val archivals = (consumedInputsOfHostedParties ++ transient).map {

@@ -132,6 +132,7 @@ class BlockUpdateGeneratorImpl(
   override def extractBlockEvents(block: RawLedgerBlock): BlockEvents = {
     val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
       implicit val traceContext: TraceContext = tracedEvent.traceContext
+      logger.trace("Extracting event from raw block")
       // TODO(i10428) Prevent zip bombing when decompressing the request
       LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
         tracedEvent.value

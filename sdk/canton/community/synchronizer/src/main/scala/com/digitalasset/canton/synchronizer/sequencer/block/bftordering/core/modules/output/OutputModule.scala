@@ -432,6 +432,14 @@ class OutputModule[E <: Env[E]](
               //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
               //  sequencer snapshots.
               val tickTopology = isBlockLastInEpoch && epochCouldAlterOrderingTopology
+              // TODO(#23345): there should be no need to log this if we correlate request trace IDs with batches,
+              //  batch trace IDs with blocks and we propagate block trace IDs properly
+              val traceIdsString =
+                orderedBlockData.requestsView.flatMap(_.traceContext.traceId).mkString(",")
+              logger.debug(
+                s"Block $orderedBlockNumber being output contains requests " +
+                  s"with the following trace IDs: [$traceIdsString]"
+              )
               logger.debug(
                 s"Sending block $orderedBlockNumber " +
                   s"(current epoch = $epochNumber, " +

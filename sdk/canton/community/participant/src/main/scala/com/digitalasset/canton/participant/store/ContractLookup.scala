@@ -11,47 +11,54 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
 import scala.concurrent.ExecutionContext
 
 trait ContractLookup {
 
+  type ContractsCreatedAtTime <: CreationTime
+
   protected implicit def ec: ExecutionContext
 
   def lookup(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, ContractInstance]
+  ): OptionT[
+    FutureUnlessShutdown,
+    GenContractInstance { type InstCreatedAtTime <: ContractsCreatedAtTime },
+  ]
 
   def lookupFatContract(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, LfFatContractInst] = lookup(id).map(_.inst)
+  ): OptionT[
+    FutureUnlessShutdown,
+    FatContractInstance { type CreatedAtTime <: ContractsCreatedAtTime },
+  ] = lookup(id).map(_.inst)
 
   def lookupManyExistingUncached(
       ids: Seq[LfContractId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, LfContractId, List[ContractInstance]] =
+  ): EitherT[FutureUnlessShutdown, LfContractId, List[
+    GenContractInstance { type InstCreatedAtTime <: ContractsCreatedAtTime }
+  ]] =
     ids.toList.parTraverse(id => lookup(id).toRight(id))
 
   def lookupManyUncached(
       ids: Seq[LfContractId]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[Option[ContractInstance]]] =
-    ids.toList.parTraverse(id => lookup(id).value)
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[
+    List[Option[GenContractInstance { type InstCreatedAtTime <: ContractsCreatedAtTime }]]
+  ] = ids.toList.parTraverse(id => lookup(id).value)
 
   def lookupE(id: LfContractId)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownContract, ContractInstance] =
-    lookup(id).toRight(UnknownContract(id))
-
-  def lookupContract(id: LfContractId)(implicit
-      traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, ContractInstance] =
-    lookup(id)
-
-  def lookupContractE(id: LfContractId)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownContract, ContractInstance] =
-    lookupE(id)
+  ): EitherT[
+    FutureUnlessShutdown,
+    UnknownContract,
+    GenContractInstance { type InstCreatedAtTime <: ContractsCreatedAtTime },
+  ] = lookup(id).toRight(UnknownContract(id))
 
   def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
@@ -93,7 +100,9 @@ object ContractLookupAndVerification {
   def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractLookupAndVerification =
     new ContractLookupAndVerification with NamedLogging {
 
-      val loggerFactory: NamedLoggerFactory = namedLoggerFactory
+      override type ContractsCreatedAtTime = CreationTime.CreatedAt
+
+      override protected val loggerFactory: NamedLoggerFactory = namedLoggerFactory
       implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
 
       override def lookup(id: LfContractId)(implicit
@@ -125,7 +134,5 @@ object ContractLookupAndVerification {
           traceContext: TraceContext
       ): OptionT[FutureUnlessShutdown, String] =
         OptionT.pure[FutureUnlessShutdown]("Not expecting call to verifyMetadata")
-
     }
-
 }

@@ -8,7 +8,8 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
+import com.digitalasset.canton.protocol.{GenContractInstance, LfContractId}
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 object ContractConsistencyChecker {
 
@@ -28,17 +29,22 @@ object ContractConsistencyChecker {
   /** Checks that the provided contracts have a ledger time no later than `ledgerTime`.
     */
   def assertInputContractsInPast(
-      inputContracts: List[(LfContractId, ContractInstance)],
+      inputContracts: List[(LfContractId, GenContractInstance)],
       ledgerTime: CantonTimestamp,
   ): Either[List[ReferenceToFutureContractError], Unit] =
     inputContracts
       .traverse_ { case (coid, contract) =>
-        val let = CantonTimestamp(contract.inst.createdAt.time)
-        Validated.condNec(
-          let <= ledgerTime,
-          (),
-          ReferenceToFutureContractError(coid, let, ledgerTime),
-        )
+        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+        (contract.inst.createdAt: CreationTime) match {
+          case CreationTime.CreatedAt(let) =>
+            val createdAt = CantonTimestamp(let)
+            Validated.condNec(
+              createdAt <= ledgerTime,
+              (),
+              ReferenceToFutureContractError(coid, createdAt, ledgerTime),
+            )
+          case CreationTime.Now => Validated.validNec(())
+        }
       }
       .toEither
       .leftMap(_.toList)

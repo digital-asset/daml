@@ -105,6 +105,7 @@ object ExampleTransactionFactory {
     val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
     val contractIdVersion =
       CantonContractIdVersion.maximumSupportedVersion(BaseTest.testedProtocolVersion).value
+    val createdAt = CreationTime.CreatedAt(ledgerTime.toLf)
 
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
       psid = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")).toPhysical,
@@ -113,7 +114,7 @@ object ExampleTransactionFactory {
       viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
+      ledgerCreateTime = createdAt,
       metadata = metadata,
       suffixedContractInstance = instance.unversioned,
       cantonContractIdVersion = contractIdVersion,
@@ -124,7 +125,7 @@ object ExampleTransactionFactory {
       unicum,
     )
 
-    asContractInstance(contractId, instance, metadata, ledgerTime, contractSalt.unwrap)
+    asContractInstance(contractId, instance, metadata, createdAt, contractSalt.unwrap)
   }
 
   val veryDeepValue: Value = {
@@ -341,14 +342,14 @@ object ExampleTransactionFactory {
       .create(contractInstance)
       .fold(err => throw new IllegalArgumentException(err.toString), Predef.identity)
 
-  def asContractInstance(
+  def asContractInstance[Time <: CreationTime](
       contractId: LfContractId,
       contractInstance: LfThinContractInst = this.contractInstance(),
       metadata: ContractMetadata =
         ContractMetadata.tryCreate(Set(this.signatory), Set(this.signatory), None),
-      ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
+      ledgerTime: Time = CreationTime.CreatedAt(LfTimestamp.Epoch),
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
-  ): ContractInstance = {
+  ): GenContractInstance { type InstCreatedAtTime <: Time } = {
     val contractIdVersion = CantonContractIdVersion
       .extractCantonContractIdVersion(contractId)
       .value
@@ -364,13 +365,13 @@ object ExampleTransactionFactory {
     )
     val fci = FatContractInstance.fromCreateNode(
       createNode,
-      CreationTime.CreatedAt(ledgerTime.toLf),
+      ledgerTime,
       DriverContractMetadata(salt).toLfBytes(contractIdVersion),
     )
     ContractInstance(fci).value
   }
 
-  private def instanceFromCreate(node: LfNodeCreate, salt: Salt): ContractInstance =
+  private def instanceFromCreate(node: LfNodeCreate, salt: Salt): NewContractInstance =
     asContractInstance(
       node.coid,
       node.versionedCoinst,
@@ -624,7 +625,7 @@ class ExampleTransactionFactory(
       viewIndex: Int,
       consumed: Set[LfContractId],
       coreInputs: Seq[ContractInstance],
-      created: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       packagePreference: Set[LfPackageId],
@@ -692,7 +693,7 @@ class ExampleTransactionFactory(
       viewIndex: Int,
       consumed: Set[LfContractId],
       coreInputs: Seq[ContractInstance],
-      created: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
@@ -732,7 +733,7 @@ class ExampleTransactionFactory(
       viewIndex: Int,
       consumed: Set[LfContractId],
       coreInputs: Seq[ContractInstance],
-      created: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
@@ -967,7 +968,7 @@ class ExampleTransactionFactory(
 
     def consuming: Boolean
 
-    def created: Seq[ContractInstance] = node match {
+    def created: Seq[NewContractInstance] = node match {
       case n: LfNodeCreate =>
         Seq(
           asContractInstance(
@@ -1156,7 +1157,7 @@ class ExampleTransactionFactory(
       version: LfLanguageVersion = transactionVersion,
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(None) {
-    override def created: Seq[ContractInstance] = Seq.empty
+    override def created: Seq[NewContractInstance] = Seq.empty
 
     override val contractInstance: LfThinContractInst = fetchedContractInstance
 
@@ -1702,7 +1703,7 @@ class ExampleTransactionFactory(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq(instanceFromCreate(create10, salt10Id)),
@@ -2127,7 +2128,7 @@ class ExampleTransactionFactory(
             contractId = exercise131Id,
             contractInstance = exercise131Instance,
             metadata = metadataFromExercise(exercise131),
-            ledgerTime = ledgerTime,
+            ledgerTime = CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq.empty,
@@ -2148,7 +2149,7 @@ class ExampleTransactionFactory(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq(
@@ -2651,7 +2652,7 @@ class ExampleTransactionFactory(
           exercise10Id,
           exercise10Instance,
           metadataFromExercise(exercise10),
-          ledgerTime,
+          CreationTime.CreatedAt(ledgerTime.toLf),
         )
       ),
       Seq.empty,
@@ -2685,7 +2686,7 @@ class ExampleTransactionFactory(
             exercise12Id,
             exercise12Instance,
             metadataFromExercise(exercise12),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq.empty,
@@ -2706,7 +2707,7 @@ class ExampleTransactionFactory(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq(

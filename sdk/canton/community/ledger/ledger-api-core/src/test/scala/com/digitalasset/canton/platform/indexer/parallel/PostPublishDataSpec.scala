@@ -12,7 +12,11 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
   SequencedTransactionAccepted,
   UnSequencedCommandRejected,
 }
-import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, TransactionMeta}
+import com.digitalasset.canton.ledger.participant.state.{
+  CompletionInfo,
+  TestAcsChangeFactory,
+  TransactionMeta,
+}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -74,6 +78,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         contractMetadata = Map.empty,
         synchronizerId = synchronizerId,
         recordTime = cantonTime2,
+        acsChangeFactory = TestAcsChangeFactory,
       )(TraceContext.empty),
       offset = offset,
       publicationTime = cantonTime1,
@@ -105,6 +110,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
         contractMetadata = Map.empty,
         synchronizerId = synchronizerId,
         recordTime = cantonTime2,
+        acsChangeFactory = TestAcsChangeFactory,
       )(TraceContext.empty),
       offset = offset,
       publicationTime = cantonTime1,

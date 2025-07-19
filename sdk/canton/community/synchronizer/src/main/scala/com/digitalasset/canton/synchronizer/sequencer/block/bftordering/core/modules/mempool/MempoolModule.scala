@@ -141,9 +141,11 @@ class MempoolModule[E <: Env[E]](
     val requests = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch).map(_.tx)
     val batchCreationInstant = Instant.now
     context.withNewTraceContext { implicit traceContext =>
+      // TODO(#23345): improve `withNewTraceContext` so that it logs this instead of doing it manually
+      val traceIdsString = requests.flatMap(_.traceContext.traceId).mkString(",")
       logger.debug(
-        s"$messageType: mempool sending batch to local availability with the following tids ${requests
-            .flatMap(_.traceContext.traceId)}"
+        s"$messageType: mempool sending batch to local availability containing requests " +
+          s"with the following trace IDs: [$traceIdsString]"
       )
       emitRequestsQueuedForBatchInclusionLatencies(requests, batchCreationInstant)
       availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))

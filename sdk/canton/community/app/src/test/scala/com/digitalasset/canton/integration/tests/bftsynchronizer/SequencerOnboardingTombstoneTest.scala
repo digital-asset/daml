@@ -201,7 +201,7 @@ trait SequencerOnboardingTombstoneTest
         (
           LogEntryOptionality.Required,
           (entry: LogEntry) => {
-            entry.loggerName should include("CantonSyncService")
+            entry.loggerName should include("SynchronizerConnectionsManager")
             entry.errorMessage should (include(
               "SYNC_SERVICE_SYNCHRONIZER_DISCONNECTED"
             ) and include(

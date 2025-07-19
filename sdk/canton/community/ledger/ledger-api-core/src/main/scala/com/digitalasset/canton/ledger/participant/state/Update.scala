@@ -8,12 +8,10 @@ import com.digitalasset.base.error.GrpcStatuses
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.RejectionReasonTemplate
-import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.{RepairCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -103,30 +101,6 @@ sealed trait RepairUpdate extends SynchronizerIndexUpdate {
   final override def repairCounterO: Option[RepairCounter] = Some(repairCounter)
 
   final override def sequencerIndexO: Option[SequencerIndex] = None
-}
-
-trait LapiCommitSet
-
-sealed trait CommitSetUpdate extends SynchronizerIndexUpdate {
-  protected def commitSetO: Option[LapiCommitSet]
-}
-
-sealed trait CommitSetSequencedUpdate extends CommitSetUpdate with SequencedUpdate {
-
-  /** Expected to be set already when accessed
-    * @return
-    *   IllegalStateException if not set
-    */
-  def commitSet(implicit errorLoggingContext: ErrorLoggingContext): LapiCommitSet =
-    commitSetO.getOrElse(
-      ErrorUtil.invalidState("CommitSet not specified.")
-    )
-
-  def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate
-}
-
-sealed trait CommitSetRepairUpdate extends CommitSetUpdate with RepairUpdate {
-  def repairCommitSetO: Option[LapiCommitSet] = commitSetO
 }
 
 object Update {
@@ -255,6 +229,10 @@ object Update {
     }
   }
 
+  sealed trait AcsChangeSequencedUpdate extends SynchronizerIndexUpdate {
+    def acsChangeFactory: AcsChangeFactory
+  }
+
   /** Signal the acceptance of a transaction.
     */
   trait TransactionAccepted extends SynchronizerIndexUpdate {
@@ -295,6 +273,8 @@ object Update {
 
     def externalTransactionHash: Option[Hash]
 
+    def isAcsDelta(contractId: Value.ContractId): Boolean
+
     lazy val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
     override protected def pretty: Pretty[TransactionAccepted] =
@@ -332,14 +312,14 @@ object Update {
       contractMetadata: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
-      commitSetO: Option[LapiCommitSet] = None,
+      acsChangeFactory: AcsChangeFactory,
       externalTransactionHash: Option[Hash] = None,
   )(implicit override val traceContext: TraceContext)
       extends TransactionAccepted
       with SequencedUpdate
-      with CommitSetSequencedUpdate {
-    override def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate =
-      this.copy(commitSetO = Some(commitSet))
+      with AcsChangeSequencedUpdate {
+    override def isAcsDelta(contractId: Value.ContractId): Boolean =
+      acsChangeFactory.contractActivenessChanged(contractId)
   }
 
   final case class RepairTransactionAccepted(
@@ -356,6 +336,9 @@ object Update {
 
     override def externalTransactionHash: Option[Hash] = None
     override def completionInfoO: Option[CompletionInfo] = None
+
+    // Repair transactions have only contracts which affect the ACS.
+    override def isAcsDelta(contractId: Value.ContractId): Boolean = true
   }
 
   trait ReassignmentAccepted extends SynchronizerIndexUpdate {
@@ -401,14 +384,11 @@ object Update {
       reassignment: Reassignment.Batch,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
-      commitSetO: Option[LapiCommitSet] = None,
+      acsChangeFactory: AcsChangeFactory,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with SequencedUpdate
-      with CommitSetSequencedUpdate {
-    override def withCommitSet(commitSet: LapiCommitSet): CommitSetSequencedUpdate =
-      this.copy(commitSetO = Some(commitSet))
-  }
+      with AcsChangeSequencedUpdate
 
   final case class RepairReassignmentAccepted(
       workflowId: Option[Ref.WorkflowId],
@@ -418,11 +398,25 @@ object Update {
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
       override val synchronizerId: SynchronizerId,
-      commitSetO: Option[LapiCommitSet] = None,
+  )(implicit override val traceContext: TraceContext)
+      extends ReassignmentAccepted
+      with RepairUpdate {
+    override def optCompletionInfo: Option[CompletionInfo] = None
+  }
+
+  final case class OnPRReassignmentAccepted(
+      workflowId: Option[Ref.WorkflowId],
+      updateId: data.UpdateId,
+      reassignmentInfo: ReassignmentInfo,
+      reassignment: Reassignment.Batch,
+      repairCounter: RepairCounter,
+      recordTime: CantonTimestamp,
+      override val synchronizerId: SynchronizerId,
+      acsChangeFactory: AcsChangeFactory,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate
-      with CommitSetRepairUpdate {
+      with AcsChangeSequencedUpdate {
     override def optCompletionInfo: Option[CompletionInfo] = None
   }
 

@@ -22,12 +22,12 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
-import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceInternalError.{
   PhysicalSynchronizerIdNotConfigured,
   SynchronizerIsMissingInternally,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceUnknownSynchronizer
+import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.ConnectSynchronizer
 import com.digitalasset.canton.participant.sync.{CantonSyncService, SyncServiceError}
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,

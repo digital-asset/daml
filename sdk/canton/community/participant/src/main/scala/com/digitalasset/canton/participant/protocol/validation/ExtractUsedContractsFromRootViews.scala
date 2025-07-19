@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import com.digitalasset.canton.data.TransactionView
-import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
+import com.digitalasset.canton.protocol.{GenContractInstance, LfContractId}
 
 object ExtractUsedContractsFromRootViews {
 
@@ -13,15 +13,15 @@ object ExtractUsedContractsFromRootViews {
     */
   def apply(
       rootViews: List[TransactionView]
-  ): List[(LfContractId, ContractInstance)] = {
-    val coreInputs = List.newBuilder[(LfContractId, ContractInstance)]
+  ): List[(LfContractId, GenContractInstance)] = {
+    val coreInputs = List.newBuilder[(LfContractId, GenContractInstance)]
 
     def go(view: TransactionView): Unit = {
-      coreInputs ++= view.viewParticipantData.unwrap
-        .map(_.coreInputs.map { case (cid, inputContract) =>
+      view.viewParticipantData.unwrap.foreach { vpd =>
+        coreInputs ++= vpd.coreInputs.map { case (cid, inputContract) =>
           (cid, inputContract.contract)
-        })
-        .getOrElse(List.empty)
+        }
+      }
 
       view.subviews.unblindedElements.foreach(go)
     }

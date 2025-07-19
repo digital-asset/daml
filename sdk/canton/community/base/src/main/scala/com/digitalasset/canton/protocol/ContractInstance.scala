@@ -15,11 +15,12 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.google.protobuf.ByteString
 
-final case class ContractInstance private (
-    inst: LfFatContractInst,
-    metadata: ContractMetadata,
-    serialization: ByteString,
-) extends PrettyPrinting {
+sealed trait GenContractInstance extends PrettyPrinting {
+  type InstCreatedAtTime <: CreationTime
+
+  val inst: FatContractInstance { type CreatedAtTime = InstCreatedAtTime }
+  def metadata: ContractMetadata
+  def serialization: ByteString
 
   def contractId: LfContractId = inst.contractId
   def templateId: LfTemplateId = inst.templateId
@@ -29,22 +30,30 @@ final case class ContractInstance private (
     inst.contractKeyWithMaintainers
   def toLf: LfNodeCreate = inst.toCreateNode
 
-  override protected def pretty: Pretty[ContractInstance] = prettyOfClass(
-    param("contractId", _.contractId),
-    param("metadata", _.metadata),
-    param("created at", _.inst.createdAt),
-  )
+  override protected def pretty: Pretty[GenContractInstance] =
+    ContractInstance.prettyGenContractInstance
 
   def encoded: ByteString = serialization
 
   def driverContractMetadata: Either[String, DriverContractMetadata] =
     ContractInstance.driverContractMetadata(inst)
-
 }
 
 object ContractInstance {
+  private final case class ContractInstanceImpl[Time <: CreationTime](
+      override val inst: FatContractInstance { type CreatedAtTime = Time },
+      override val metadata: ContractMetadata,
+      override val serialization: ByteString,
+  ) extends GenContractInstance {
+    override type InstCreatedAtTime = Time
+  }
 
-  def driverContractMetadata(inst: LfFatContractInst): Either[String, DriverContractMetadata] =
+  def unapply[Time <: CreationTime](
+      contractInstance: GenContractInstance { type InstCreatedAtTime = Time }
+  ): Some[(FatContractInstance { type CreatedAtTime = Time }, ContractMetadata, ByteString)] =
+    Some((contractInstance.inst, contractInstance.metadata, contractInstance.serialization))
+
+  def driverContractMetadata(inst: FatContractInstance): Either[String, DriverContractMetadata] =
     if (inst.cantonData.toByteArray.nonEmpty)
       DriverContractMetadata
         .fromLfBytes(inst.cantonData.toByteArray)
@@ -76,13 +85,10 @@ object ContractInstance {
 
     } yield serializable
 
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  def apply(inst: FatContractInstance): Either[String, ContractInstance] =
+  def apply[Time <: CreationTime](
+      inst: FatContractInstance { type CreatedAtTime <: Time }
+  ): Either[String, GenContractInstance { type InstCreatedAtTime <: Time }] =
     for {
-      inst <- inst.createdAt match {
-        case _: CreationTime.CreatedAt => Right(inst.asInstanceOf[LfFatContractInst])
-        case _ => Left("Creation time must be CreatedAt for contract instances")
-      }
       _ <- CantonContractIdVersion
         .extractCantonContractIdVersion(inst.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
@@ -93,7 +99,7 @@ object ContractInstance {
         maybeKeyWithMaintainersVersioned =
           inst.contractKeyWithMaintainers.map(Versioned(inst.version, _)),
       )
-    } yield ContractInstance(inst, metadata, serialization)
+    } yield ContractInstanceImpl[inst.CreatedAtTime](inst, metadata, serialization)
 
   def apply(serializable: SerializableContract): Either[String, ContractInstance] =
     for {
@@ -107,20 +113,49 @@ object ContractInstance {
       )
       serialization <- encodeInst(inst)
     } yield {
-      ContractInstance(inst, serializable.metadata, serialization)
+      ContractInstanceImpl(inst, serializable.metadata, serialization)
     }
 
-  def decode(bytes: ByteString): Either[String, ContractInstance] =
+  def decode(bytes: ByteString): Either[String, GenContractInstance] =
     for {
       decoded <- TransactionCoder
         .decodeFatContractInstance(bytes)
         .leftMap(e => s"Failed to decode contract instance: $e")
-      contract <- apply(decoded)
+      contract <- apply[decoded.CreatedAtTime](decoded)
     } yield contract
 
-  private def encodeInst(inst: LfFatContractInst): Either[String, ByteString] =
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  def decodeWithCreatedAt(bytes: ByteString): Either[String, ContractInstance] =
+    decode(bytes).flatMap { decoded =>
+      decoded.inst.createdAt match {
+        case _: CreationTime.CreatedAt =>
+          Right(decoded.asInstanceOf[ContractInstance])
+        case _ =>
+          Left(
+            s"Creation time must be CreatedAt for contract instances with id ${decoded.contractId}"
+          )
+      }
+    }
+
+  def decodeCreated(bytes: ByteString): Either[String, NewContractInstance] = decode(bytes)
+
+  def assignCreationTime(created: NewContractInstance, let: CantonTimestamp): ContractInstance =
+    created match {
+      case c: ContractInstanceImpl[_] =>
+        c.copy(inst = c.inst.updateCreateAt(let.toLf))
+    }
+
+  private def encodeInst(inst: FatContractInstance): Either[String, ByteString] =
     TransactionCoder
       .encodeFatContractInstance(inst)
       .leftMap(e => s"Failed to encode contract instance: $e")
 
+  val prettyGenContractInstance: Pretty[GenContractInstance] = {
+    import com.digitalasset.canton.logging.pretty.PrettyUtil.*
+    prettyOfClass(
+      param("contractId", _.contractId),
+      param("metadata", _.metadata),
+      param("created at", _.inst.createdAt),
+    )
+  }
 }

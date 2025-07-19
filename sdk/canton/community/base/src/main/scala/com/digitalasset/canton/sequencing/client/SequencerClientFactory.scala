@@ -321,7 +321,7 @@ object SequencerClientFactory {
           connection: SequencerConnection,
           member: Member,
           requestSigner: RequestSigner,
-          allowReplay: Boolean = true,
+          allowReplay: Boolean,
       )(implicit
           executionContext: ExecutionContextExecutor,
           executionSequencerFactory: ExecutionSequencerFactory,

@@ -98,7 +98,7 @@ object ReassignmentDataHelpers {
       sourceSynchronizer: Source[PhysicalSynchronizerId],
       targetSynchronizer: Target[PhysicalSynchronizerId],
       identityFactory: TestingIdentityFactory,
-  ) = {
+  ): ReassignmentDataHelpers = {
     val pureCrypto = identityFactory
       .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
       .pureCrypto

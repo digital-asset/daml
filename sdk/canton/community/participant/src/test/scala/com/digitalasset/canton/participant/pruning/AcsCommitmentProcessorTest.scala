@@ -24,17 +24,15 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{
+  AcsChange,
+  ContractStakeholdersAndReassignmentCounter,
   RepairIndex,
   SequencerIndex,
   SynchronizerIndex,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.participant.event.{
-  AcsChange,
-  ContractStakeholdersAndReassignmentCounter,
-  RecordTime,
-}
+import com.digitalasset.canton.participant.event.{AcsChangeSupport, RecordTime}
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
@@ -505,11 +503,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs2 = AcsChange.tryFromCommitSet(
-      cs2,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs2 = AcsChangeSupport.fromCommitSet(cs2).tryAcsChange(Map.empty)
 
     val cs4 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
@@ -525,11 +519,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs4 = AcsChange.tryFromCommitSet(
-      cs4,
-      Map[LfContractId, ReassignmentCounter](coid(0, 0) -> initialReassignmentCounter),
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs4 = AcsChangeSupport
+      .fromCommitSet(cs4)
+      .tryAcsChange(
+        Map[LfContractId, ReassignmentCounter](coid(0, 0) -> initialReassignmentCounter)
+      )
 
     val cs7 = CommitSet(
       creations = Map[LfContractId, CreationCommit](
@@ -549,11 +543,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
       ),
     )
-    val acs7 = AcsChange.tryFromCommitSet(
-      cs7,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs7 = AcsChangeSupport.fromCommitSet(cs7).tryAcsChange(Map.empty)
 
     val cs8 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
@@ -572,11 +562,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs8 =
-      AcsChange.tryFromCommitSet(
-        cs8,
-        Map[LfContractId, ReassignmentCounter](coid(1, 0) -> reassignmentCounter2),
-        Map.empty[LfContractId, ReassignmentCounter],
-      )
+      AcsChangeSupport
+        .fromCommitSet(cs8)
+        .tryAcsChange(
+          Map[LfContractId, ReassignmentCounter](coid(1, 0) -> reassignmentCounter2)
+        )
 
     val cs9 = CommitSet(
       creations = Map[LfContractId, CreationCommit](
@@ -593,11 +583,11 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs9 = AcsChange.tryFromCommitSet(
-      cs9,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map[LfContractId, ReassignmentCounter](coid(3, 0) -> initialReassignmentCounter),
-    )
+    val acs9 = AcsChangeSupport
+      .fromCommitSet(cs9)
+      .tryAcsChange(
+        Map[LfContractId, ReassignmentCounter](coid(3, 0) -> initialReassignmentCounter)
+      )
 
     val cs10 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
@@ -612,11 +602,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
       ),
     )
-    val acs10 = AcsChange.tryFromCommitSet(
-      cs10,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs10 = AcsChangeSupport.fromCommitSet(cs10).tryAcsChange(Map.empty)
 
     val cs12 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
@@ -630,11 +616,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs12 = AcsChange.tryFromCommitSet(
-      cs12,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs12 = AcsChangeSupport.fromCommitSet(cs12).tryAcsChange(Map.empty)
 
     val acsChanges = Map(
       ts(2) -> acs2,
@@ -774,11 +756,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs2 = AcsChange.tryFromCommitSet(
-      cs2,
-      Map.empty[LfContractId, ReassignmentCounter],
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs2 = AcsChangeSupport.fromCommitSet(cs2).tryAcsChange(Map.empty)
 
     val cs4 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
@@ -793,14 +771,14 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map.empty[LfContractId, AssignmentCommit],
     )
-    val acs4 = AcsChange.tryFromCommitSet(
-      cs4,
-      Map[LfContractId, ReassignmentCounter](
-        coid(0, 0) -> initialReassignmentCounter,
-        coid(3, 0) -> initialReassignmentCounter,
-      ),
-      Map.empty[LfContractId, ReassignmentCounter],
-    )
+    val acs4 = AcsChangeSupport
+      .fromCommitSet(cs4)
+      .tryAcsChange(
+        Map[LfContractId, ReassignmentCounter](
+          coid(0, 0) -> initialReassignmentCounter,
+          coid(3, 0) -> initialReassignmentCounter,
+        )
+      )
 
     val acsChanges = Map(ts(2) -> acs2, ts(4) -> acs4)
     (contracts, acsChanges)
@@ -1949,33 +1927,13 @@ class AcsCommitmentProcessorTest
       val reassignmentCounterOfArchival =
         Map[LfContractId, ReassignmentCounter](cid4 -> reassignmentCounter3)
 
-      val reassignmentCountersForArchivedTransient =
-        AcsCommitmentProcessor.reassignmentCountersForArchivedTransient(cs)
       val acs1 =
-        AcsChange.tryFromCommitSet(
-          cs,
-          reassignmentCounterOfArchival,
-          reassignmentCountersForArchivedTransient,
-        )
+        AcsChangeSupport.fromCommitSet(cs).tryAcsChange(reassignmentCounterOfArchival)
 
       // cid1 is a transient creation with reassignment counter initialReassignmentCounter and should not appear in the ACS change
-      reassignmentCountersForArchivedTransient
-        .get(cid1)
-        .fold(
-          fail(
-            s"$cid1 should be transient, but is not in $reassignmentCountersForArchivedTransient"
-          )
-        )(_ shouldBe initialReassignmentCounter)
       acs1.activations.get(cid1) shouldBe None
       acs1.deactivations.get(cid1) shouldBe None
       // cid3 is a transient assignment and should not appear in the ACS change
-      reassignmentCountersForArchivedTransient
-        .get(cid3)
-        .fold(
-          fail(
-            s"$cid3 should be transient, but is not in $reassignmentCountersForArchivedTransient"
-          )
-        )(_ shouldBe reassignmentCounter1)
       acs1.activations.get(cid3) shouldBe None
       acs1.deactivations.get(cid3) shouldBe None
       // unassignment cid2 is a deactivation with reassignment counter reassignmentCounter2

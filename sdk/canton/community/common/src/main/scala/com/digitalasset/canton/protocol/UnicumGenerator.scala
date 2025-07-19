@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.ViewPosition
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.DeterministicEncoding
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 
 import java.util.UUID
@@ -223,7 +223,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     *   predefined size.
     */
   def recomputeUnicum(
-      contractInstance: LfFatContractInst,
+      contractInstance: FatContractInstance,
       cantonContractIdVersion: CantonContractIdVersion,
   ): Either[String, Unicum] =
     for {
@@ -244,9 +244,15 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       driverMetadata <- DriverContractMetadata
         .fromLfBytes(contractInstance.cantonData.toByteArray)
         .leftMap(err => s"Failed to decode canton metadata: $err")
+      createdAt <- contractInstance.createdAt match {
+        case createdAt: CreationTime.CreatedAt =>
+          Right(createdAt)
+        case _ =>
+          Left("Cannot recompute unicum for a contract without a creation time")
+      }
       unicum <- recomputeUnicum(
         driverMetadata.salt,
-        contractInstance.createdAt,
+        createdAt,
         metadata,
         contractHash,
       )

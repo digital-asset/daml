@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.transports.replay.ReplayingSendsSequencerClientTransport
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.tracing.TraceContext
 
 import java.nio.file.Path
 import scala.concurrent.{Future, Promise}
@@ -53,15 +55,21 @@ object ReplayAction {
     * the `transport` future to be completed with the transport instance.
     */
   final case class SequencerSends(
+      override protected val loggerFactory: NamedLoggerFactory,
       sendTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.tryOfSeconds(20),
       private val transportP: Promise[ReplayingSendsSequencerClientTransport] =
         Promise[ReplayingSendsSequencerClientTransport](),
       usePekko: Boolean = false,
-  ) extends ReplayAction {
+  ) extends ReplayAction
+      with NamedLogging {
 
     /** Used by the transport to notify a test that the transport is ready */
-    private[client] def publishTransport(transport: ReplayingSendsSequencerClientTransport): Unit =
-      transportP.success(transport)
+    private[client] def publishTransport(
+        transport: ReplayingSendsSequencerClientTransport
+    ): Unit =
+      if (transportP.trySuccess(transport)) {
+        logger.info("Publishing transport")(TraceContext.empty)
+      }
 
     val transport: Future[ReplayingSendsSequencerClientTransport] = transportP.future
   }

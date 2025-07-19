@@ -17,10 +17,13 @@ import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.Purgeable
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import scala.concurrent.ExecutionContext
 
 trait ContractStore extends ContractLookup with Purgeable with FlagCloseable {
+
+  override type ContractsCreatedAtTime = CreationTime.CreatedAt
 
   /** Stores contracts created by a request. Assumes the contract data has been authenticated
     * against the contract id using

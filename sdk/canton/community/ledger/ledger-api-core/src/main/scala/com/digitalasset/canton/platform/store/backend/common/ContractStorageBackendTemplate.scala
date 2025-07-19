@@ -50,6 +50,7 @@ class ContractStorageBackendTemplate(
                   FROM lapi_events_create
                  WHERE create_key_hash = ${key.hash}
                    AND event_offset <= $validAt
+                   AND cardinality(flat_event_witnesses) > 0 -- exclude participant divulgence and transients
                  ORDER BY event_sequential_id DESC
                  FETCH NEXT 1 ROW ONLY
               )
@@ -86,7 +87,8 @@ class ContractStorageBackendTemplate(
        FROM lapi_events_consuming_exercise
        WHERE
          contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
-         AND event_offset <= $before"""
+         AND event_offset <= $before
+         AND cardinality(flat_event_witnesses) > 0 -- exclude participant divulgence and transients"""
         .as(archivedContractRowParser.*)(connection)
         .toMap
     }
@@ -146,7 +148,8 @@ class ContractStorageBackendTemplate(
          FROM lapi_events_create
          WHERE
            contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
-           AND event_offset <= $before"""
+           AND event_offset <= $before
+           AND cardinality(flat_event_witnesses) > 0 -- exclude participant divulgence and transients"""
         .as(rawCreatedContractRowParser.*)(connection)
         .toMap
     }

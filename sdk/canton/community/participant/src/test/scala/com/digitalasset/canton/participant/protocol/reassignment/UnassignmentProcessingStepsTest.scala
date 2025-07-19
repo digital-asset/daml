@@ -913,7 +913,7 @@ final class UnassignmentProcessingStepsTest
       for {
         _ <- valueOrFail(
           unassignmentProcessingSteps
-            .getCommitSetAndContractsToBeStoredAndEvent(
+            .getCommitSetAndContractsToBeStoredAndEventFactory(
               NoOpeningErrors(signedContent),
               reassignmentResult.verdict,
               pendingUnassignment,
@@ -930,7 +930,7 @@ final class UnassignmentProcessingStepsTest
         _ <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
           valueOrFail(
             unassignmentProcessingSteps
-              .getCommitSetAndContractsToBeStoredAndEvent(
+              .getCommitSetAndContractsToBeStoredAndEventFactory(
                 NoOpeningErrors(signedContent),
                 reassignmentResult.verdict,
                 // request used MediatorGroupIndex.zero

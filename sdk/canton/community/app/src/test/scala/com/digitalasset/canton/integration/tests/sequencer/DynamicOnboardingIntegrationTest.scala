@@ -381,7 +381,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
             // The participant's sync service errors that the participant has lost access to the sequencer's
             // corresponding synchronizer.
             logEntry => {
-              logEntry.loggerName should include("CantonSyncService")
+              logEntry.loggerName should include("SynchronizerConnectionsManager")
               logEntry.errorMessage should (include(
                 "SYNC_SERVICE_SYNCHRONIZER_DISCONNECTED"
               ) and include(

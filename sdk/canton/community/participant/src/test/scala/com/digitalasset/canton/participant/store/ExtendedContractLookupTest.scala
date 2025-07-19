@@ -10,6 +10,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageName
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -20,9 +21,9 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
   private object dummyAuthenticator extends ContractAuthenticator {
     override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
       Either.unit
-    override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] = Either.unit
+    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
     override def verifyMetadata(
-        contract: ContractInstance,
+        contract: GenContractInstance,
         metadata: ContractMetadata,
     ): Either[String, Unit] = Either.unit
   }
@@ -59,19 +60,19 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
         overrideContractId = Some(coid01),
         signatories = metadata2.signatories,
         stakeholders = metadata2.stakeholders,
-        createdAt = let0.underlying,
+        createdAt = CreationTime.CreatedAt(let0.toLf),
       ),
       coid20 -> ExampleContractFactory.build(
         overrideContractId = Some(coid20),
         signatories = metadata2.signatories,
         stakeholders = metadata2.stakeholders,
-        createdAt = let1.underlying,
+        createdAt = CreationTime.CreatedAt(let1.toLf),
       ),
       coid21 -> ExampleContractFactory.build(
         overrideContractId = Some(coid21),
         signatories = metadata2.signatories,
         stakeholders = metadata2.stakeholders,
-        createdAt = let0.underlying,
+        createdAt = CreationTime.CreatedAt(let0.toLf),
       ),
     )
 

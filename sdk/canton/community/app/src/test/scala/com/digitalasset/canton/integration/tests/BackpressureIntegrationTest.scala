@@ -158,7 +158,7 @@ trait BackpressureIntegrationTest
             // Important to use ABORTED, because it is not used by GRPC internally and it indicates that a retry makes sense.
             entry.message should include("ABORTED/")
             numBackpressure.incrementAndGet()
-          } else if (entry.loggerName.contains("CantonSyncService")) {
+          } else if (entry.loggerName.contains("SynchronizerConnectionsManager")) {
             // Logged by the participant if too many messages need to be rejected
             entry.shouldBeCantonErrorCode(ParticipantOverloaded)
             isOverloaded.set(true)
@@ -404,7 +404,7 @@ trait BackpressureIntegrationTest
           if (entry.loggerName.contains("EnvironmentDefinition")) {
             entry.shouldBeCantonErrorCode(ParticipantBackpressure)
             entry.message should include("ABORTED/")
-          } else if (entry.loggerName.contains("CantonSyncService")) {
+          } else if (entry.loggerName.contains("SynchronizerConnectionsManager")) {
             entry.shouldBeCantonErrorCode(ParticipantOverloaded)
           } else {
             fail(s"Unexpected logger name: $entry")

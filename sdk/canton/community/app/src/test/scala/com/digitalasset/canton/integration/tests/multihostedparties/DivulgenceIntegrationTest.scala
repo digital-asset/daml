@@ -109,7 +109,7 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
       participant1.acsDeltas(alice) should have size 5
-      participant2.acsDeltas(alice) should have size 4
+      participant2.ledgerEffects(alice) should have size 6
     }
 
     // archiving the first divulged Iou
@@ -126,7 +126,7 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
       participant1.acsDeltas(alice) should have size 8
-      participant2.acsDeltas(alice) should have size 5
+      participant2.ledgerEffects(alice) should have size 8
     }
 
     // participant1 alice
@@ -170,27 +170,20 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     // participant2 alice
     val aliceBobStakeholderCreatedP2 = participant2.acsDeltas(alice).headOption.value._1
     aliceBobStakeholderCreatedP2.contractId shouldBe aliceBobStakeholderCreatedP1.contractId
-    val immediateDivulged1P2 = participant2.acsDeltas(alice)(2)._1
-    immediateDivulged1P2.contractId shouldBe immediateDivulged1P1.contractId
-    val immediateDivulged2P2 = participant2.acsDeltas(alice)(3)._1
-    immediateDivulged2P2.contractId shouldBe immediateDivulged2P1.contractId
-    val aliceStakeholder2DivulgedArchiveP2 = participant2.acsDeltas(alice)(4)._1
-    aliceStakeholder2DivulgedArchiveP2.contractId shouldBe aliceStakeholderCreated2P1.contractId
     participant2.acsDeltas(alice) shouldBe List(
       aliceBobStakeholderCreatedP2 -> Created,
       divulgeIouByExerciseP2 -> Created,
-      // not ideal but not a problem by itself neither (LAPI behavior is undefined for non hosted party): participant2 is not hosting alice just yet, but the contracts divulged to bob are already here in alice's AcsDeltas
-      immediateDivulged1P2 -> Created,
-      immediateDivulged2P2 -> Created,
-      // more problematic is that the archival for immediateDivulged1 is not visible here (ofc this part of the transaction is not sent to P2)
-      aliceStakeholder2DivulgedArchiveP2 -> Consumed, // not ideal: archival of retroactively divulged contract is visible here
     )
     participant2.acs(alice) shouldBe List(
       aliceBobStakeholderCreatedP2,
       divulgeIouByExerciseP2,
-      immediateDivulged1P2, // more problematic: the divulged contract is sticking around
-      immediateDivulged2P2,
     )
+    val immediateDivulged1P2 = participant2.ledgerEffects(alice)(3)._1
+    immediateDivulged1P2.contractId shouldBe immediateDivulged1P1.contractId
+    val immediateDivulged2P2 = participant2.ledgerEffects(alice)(5)._1
+    immediateDivulged2P2.contractId shouldBe immediateDivulged2P1.contractId
+    val aliceStakeholder2DivulgedArchiveP2 = participant2.ledgerEffects(alice)(7)._1
+    aliceStakeholder2DivulgedArchiveP2.contractId shouldBe aliceStakeholderCreated2P1Archived.contractId
     participant2.ledgerEffects(alice) shouldBe List(
       aliceBobStakeholderCreatedP2 -> Created,
       divulgeIouByExerciseP2 -> Created,
@@ -305,31 +298,20 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     )
 
     // participant2 alice
-    val aliceStakeholderCreatedP2Import = participant2.acsDeltas(alice)(5)._1
+    val aliceStakeholderCreatedP2Import = participant2.acsDeltas(alice)(2)._1
     aliceStakeholderCreatedP2Import.contractId shouldBe aliceStakeholderCreatedP1.contractId
-    val immediateDivulged2P2Import = participant2.acsDeltas(alice)(6)._1
-    immediateDivulged2P2Import.contractId shouldBe immediateDivulged2P2.contractId
+    val immediateDivulged2P2Import = participant2.acsDeltas(alice)(3)._1
+    immediateDivulged2P2Import.contractId shouldBe immediateDivulged2P1.contractId
     participant2.acsDeltas(alice) shouldBe List(
       aliceBobStakeholderCreatedP2 -> Created,
       divulgeIouByExerciseP2 -> Created,
-      // not ideal bot not a problem by itself neither (LAPI behavior is undefined for non hosted party): participant2 is not hosting alice just yet, but the contracts divulged to bob are already here in alice's AcsDeltas
-      immediateDivulged1P2 -> Created,
-      immediateDivulged2P2 -> Created,
-      aliceStakeholder2DivulgedArchiveP2 -> Consumed, // not ideal: archival of retroactively divulged contract is visible here
-      // incorrect! the archival for immediateDivulged1 is not visible here
       aliceStakeholderCreatedP2Import -> Created,
-      // incorrect! Now we have immediateDivulged2 twice, as it is also getting imported (import hinges on LAPI ACS, so we get it in the dump - incorrectly, but as target does activeness checks based on the canton ACS, where divulged contracts are not present - correctly -, import logic decides to add it again.)
       immediateDivulged2P2Import -> Created,
     )
     participant2.acs(alice) shouldBe List(
       aliceBobStakeholderCreatedP2,
       divulgeIouByExerciseP2,
-      // Incorrect! This was archived in the meantime on P1
-      immediateDivulged1P2,
-      // Problematic: the active immediately divulged is showing up first
-      immediateDivulged2P2,
       aliceStakeholderCreatedP2Import,
-      // Incorrect: the active immediately divulged is showing up the second time also in the acs
       immediateDivulged2P2Import,
     )
 

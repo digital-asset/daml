@@ -47,12 +47,12 @@ final class GeneratorsProtocol(
   import generatorsMessages.*
 
   implicit val recipientsArb: Arbitrary[Recipients] = {
-    val protocolVersionDependentRecipientGen = Arbitrary.arbitrary[Recipient]
+    val protocolVersionDependentRecipientArb = genArbitrary[Recipient]
 
     Arbitrary(for {
       depths <- nonEmptyListGen(Arbitrary(Gen.choose(0, 3)))
       trees <- Gen.sequence[List[RecipientsTree], RecipientsTree](
-        depths.forgetNE.map(recipientsTreeGen(Arbitrary(protocolVersionDependentRecipientGen)))
+        depths.forgetNE.map(recipientsTreeGen(protocolVersionDependentRecipientArb)(_))
       )
     } yield Recipients(NonEmptyUtil.fromUnsafe(trees)))
   }

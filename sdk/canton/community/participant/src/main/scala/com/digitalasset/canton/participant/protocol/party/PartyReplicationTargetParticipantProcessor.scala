@@ -21,6 +21,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
+import com.digitalasset.canton.participant.event.AcsChangeSupport
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
@@ -246,7 +247,7 @@ final class PartyReplicationTargetParticipantProcessor(
       activeContracts: NonEmpty[Seq[ContractReassignment]],
   )(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Update.RepairReassignmentAccepted = {
+  )(implicit traceContext: TraceContext): Update.OnPRReassignmentAccepted = {
     val uniqueUpdateId = {
       // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
       val hash = activeContracts
@@ -286,7 +287,8 @@ final class PartyReplicationTargetParticipantProcessor(
       activeContracts,
       artificialReassignmentInfo.sourceSynchronizer,
     )
-    Update.RepairReassignmentAccepted(
+    val acsChangeFactory = AcsChangeSupport.fromCommitSet(commitSet)
+    Update.OnPRReassignmentAccepted(
       workflowId = None,
       updateId = uniqueUpdateId,
       reassignmentInfo = artificialReassignmentInfo,
@@ -306,7 +308,7 @@ final class PartyReplicationTargetParticipantProcessor(
       repairCounter = repairCounter,
       recordTime = timestamp,
       synchronizerId = psid.logical,
-      commitSetO = Some(commitSet),
+      acsChangeFactory = acsChangeFactory,
     )
   }
 }

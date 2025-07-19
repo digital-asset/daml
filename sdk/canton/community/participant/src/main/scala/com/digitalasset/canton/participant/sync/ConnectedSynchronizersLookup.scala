@@ -21,6 +21,8 @@ trait ConnectedSynchronizersLookup {
   def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean = get(synchronizerId).nonEmpty
   def isConnected(synchronizerId: SynchronizerId): Boolean
 
+  def isConnectedToAny: Boolean
+
   def snapshot: collection.Map[PhysicalSynchronizerId, ConnectedSynchronizer]
 }
 
@@ -47,6 +49,8 @@ private[sync] object ConnectedSynchronizersLookup {
 
       override def snapshot: collection.Map[PhysicalSynchronizerId, ConnectedSynchronizer] =
         connected.readOnlySnapshot()
+
+      override def isConnectedToAny: Boolean = connected.nonEmpty
     }
 }
 
@@ -76,6 +80,8 @@ class ConnectedSynchronizersLookupContainer extends ConnectedSynchronizersLookup
 
   override def isConnected(synchronizerId: SynchronizerId): Boolean =
     tryGetDelegate.isConnected(synchronizerId)
+
+  override def isConnectedToAny: Boolean = tryGetDelegate.isConnectedToAny
 
   override def snapshot: collection.Map[PhysicalSynchronizerId, ConnectedSynchronizer] =
     tryGetDelegate.snapshot

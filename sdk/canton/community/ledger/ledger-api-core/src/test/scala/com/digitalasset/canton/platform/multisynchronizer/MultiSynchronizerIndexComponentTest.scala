@@ -6,9 +6,9 @@ package com.digitalasset.canton.platform.multisynchronizer
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{
-  LapiCommitSet,
   Reassignment,
   ReassignmentInfo,
+  TestAcsChangeFactory,
   Update,
 }
 import com.digitalasset.canton.platform.IndexComponentTest
@@ -30,15 +30,13 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
   override protected def sequentialPostProcessor: Update => Unit =
     sequentiallyPostProcessedUpdates.append
 
-  private lazy val dummyLapiCommitSet = new LapiCommitSet {}
-
   it should "successfully look up contract, even if only the assigned event is visible" in {
     val party = Ref.Party.assertFromString("party1")
 
     val (reassignmentAccepted1, cn1) =
-      mkReassignmentAccepted(party, "UpdateId1", withCommitSet = false)
+      mkReassignmentAccepted(party, "UpdateId1", withAcsChange = false)
     val (reassignmentAccepted2, cn2) =
-      mkReassignmentAccepted(party, "UpdateId2", withCommitSet = true)
+      mkReassignmentAccepted(party, "UpdateId2", withAcsChange = true)
     ingestUpdates(reassignmentAccepted1, reassignmentAccepted2)
 
     (for {
@@ -51,18 +49,22 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
       }
     }).futureValue
 
-    // Verify that the commit sets have been propagated to the sequential post-processor.
-    val commitSetOs = sequentiallyPostProcessedUpdates.collect {
-      case ra: Update.RepairReassignmentAccepted => ra.commitSetO
-    }
-    commitSetOs shouldBe Seq(None, Some(dummyLapiCommitSet))
+    // Verify that the AcsChanges have been propagated to the sequential post-processor.
+    sequentiallyPostProcessedUpdates.count {
+      case _: Update.OnPRReassignmentAccepted => true
+      case _ => false
+    } shouldBe 1
+    sequentiallyPostProcessedUpdates.count {
+      case _: Update.RepairReassignmentAccepted => true
+      case _ => false
+    } shouldBe 1
   }
 
   private def mkReassignmentAccepted(
       party: Ref.Party,
       updateIdS: String,
-      withCommitSet: Boolean,
-  ): (Update.RepairReassignmentAccepted, Node.Create) = {
+      withAcsChange: Boolean,
+  ): (Update.ReassignmentAccepted, Node.Create) = {
     val synchronizer1 = SynchronizerId.tryFromString("x::synchronizer1")
     val synchronizer2 = SynchronizerId.tryFromString("x::synchronizer2")
     val builder = TxBuilder()
@@ -78,30 +80,55 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
     val updateId = Ref.TransactionId.assertFromString(updateIdS)
     val recordTime = Time.Timestamp.now()
     (
-      Update.RepairReassignmentAccepted(
-        workflowId = None,
-        updateId = updateId,
-        reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(synchronizer1),
-          targetSynchronizer = Target(synchronizer2),
-          submitter = Option(party),
-          reassignmentId = ReassignmentId.tryCreate("00"),
-          isReassigningParticipant = true,
+      if (withAcsChange)
+        Update.OnPRReassignmentAccepted(
+          workflowId = None,
+          updateId = updateId,
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = Source(synchronizer1),
+            targetSynchronizer = Target(synchronizer2),
+            submitter = Option(party),
+            reassignmentId = ReassignmentId.tryCreate("00"),
+            isReassigningParticipant = true,
+          ),
+          reassignment = Reassignment.Batch(
+            Reassignment.Assign(
+              ledgerEffectiveTime = Time.Timestamp.now(),
+              createNode = createNode,
+              contractMetadata = Bytes.Empty,
+              reassignmentCounter = 15L,
+              nodeId = 0,
+            )
+          ),
+          repairCounter = RepairCounter.Genesis,
+          recordTime = CantonTimestamp(recordTime),
+          synchronizerId = synchronizer2,
+          acsChangeFactory = TestAcsChangeFactory,
+        )
+      else
+        Update.RepairReassignmentAccepted(
+          workflowId = None,
+          updateId = updateId,
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = Source(synchronizer1),
+            targetSynchronizer = Target(synchronizer2),
+            submitter = Option(party),
+            reassignmentId = ReassignmentId.tryCreate("00"),
+            isReassigningParticipant = true,
+          ),
+          reassignment = Reassignment.Batch(
+            Reassignment.Assign(
+              ledgerEffectiveTime = Time.Timestamp.now(),
+              createNode = createNode,
+              contractMetadata = Bytes.Empty,
+              reassignmentCounter = 15L,
+              nodeId = 0,
+            )
+          ),
+          repairCounter = RepairCounter.Genesis,
+          recordTime = CantonTimestamp(recordTime),
+          synchronizerId = synchronizer2,
         ),
-        reassignment = Reassignment.Batch(
-          Reassignment.Assign(
-            ledgerEffectiveTime = Time.Timestamp.now(),
-            createNode = createNode,
-            contractMetadata = Bytes.Empty,
-            reassignmentCounter = 15L,
-            nodeId = 0,
-          )
-        ),
-        repairCounter = RepairCounter.Genesis,
-        recordTime = CantonTimestamp(recordTime),
-        synchronizerId = synchronizer2,
-        commitSetO = Option.when(withCommitSet)(dummyLapiCommitSet),
-      ),
       createNode,
     )
   }
