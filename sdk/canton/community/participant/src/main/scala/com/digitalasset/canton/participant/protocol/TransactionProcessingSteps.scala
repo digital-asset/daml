@@ -101,6 +101,7 @@ import com.digitalasset.canton.{
   WorkflowId,
   checked,
 }
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
@@ -224,7 +225,7 @@ class TransactionProcessingSteps(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       mediator: MediatorGroupRecipient,
       recentSnapshot: SynchronizerSnapshotSyncCryptoApi,
-      contractLookup: ContractLookup,
+      contractLookup: ContractLookup { type ContractsCreatedAtTime <: CreationTime.CreatedAt },
       disclosedContracts: Map[LfContractId, ContractInstance],
   )(implicit traceContext: TraceContext)
       extends TrackedSubmission {
@@ -336,13 +337,13 @@ class TransactionProcessingSteps(
             disclosedContracts
               .get(contractId)
               .map(contract =>
-                EitherT.rightT[Future, TransactionTreeFactory.ContractLookupError](contract)
+                EitherT.rightT[Future, TransactionTreeFactory.ContractLookupError](
+                  contract: GenContractInstance
+                )
               )
               .getOrElse(
                 TransactionTreeFactory
-                  .contractInstanceLookup(contractLookup)(implicitly, implicitly)(
-                    contractId
-                  )
+                  .contractInstanceLookup(contractLookup)(implicitly, implicitly)(contractId)
               )
 
         confirmationRequestTimer = metrics.protocolMessages.confirmationRequestCreation
@@ -1115,7 +1116,7 @@ class TransactionProcessingSteps(
 
   @VisibleForTesting
   private[protocol] def authenticateInputContractsInternal(
-      inputContracts: Map[LfContractId, ContractInstance]
+      inputContracts: Map[LfContractId, GenContractInstance]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, Unit] =
@@ -1212,8 +1213,8 @@ class TransactionProcessingSteps(
       txId: TransactionId,
       workflowIdO: Option[WorkflowId],
       commitSet: CommitSet,
-      createdContracts: Map[LfContractId, ContractInstance],
-      witnessed: Map[LfContractId, ContractInstance],
+      createdContracts: Map[LfContractId, NewContractInstance],
+      witnessed: Map[LfContractId, GenContractInstance],
       completionInfoO: Option[CompletionInfo],
       lfTx: WellFormedTransaction[WithSuffixesAndMerged],
       externalTransactionHash: Option[Hash],
@@ -1225,7 +1226,9 @@ class TransactionProcessingSteps(
     CommitAndStoreContractsAndPublishEvent,
   ] = {
     val commitSetF = FutureUnlessShutdown.pure(commitSet)
-    val contractsToBeStored = createdContracts.values.toSeq
+    val ledgerEffectiveTime = lfTx.metadata.ledgerTime
+    val contractsToBeStored =
+      createdContracts.values.map(ContractInstance.assignCreationTime(_, ledgerEffectiveTime)).toSeq
 
     for {
       lfTxId <- EitherT
@@ -1240,27 +1243,29 @@ class TransactionProcessingSteps(
         }.toMap
 
       acceptedEvent =
-        Update.SequencedTransactionAccepted(
-          completionInfoO = completionInfoO,
-          transactionMeta = TransactionMeta(
-            ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
-            workflowId = workflowIdO.map(_.unwrap),
-            preparationTime = lfTx.metadata.preparationTime.toLf,
-            // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
-            // transactions and it leaks the structure of the omitted parts of the transaction.
-            submissionSeed = Update.noOpSeed,
-            timeBoundaries = LedgerTimeBoundaries.unconstrained,
-            optUsedPackages = None,
-            optNodeSeeds = None, // optNodeSeeds is unused by the indexer
-            optByKeyNodes = None, // optByKeyNodes is unused by the indexer
-          ),
-          transaction = LfCommittedTransaction(lfTx.unwrap),
-          updateId = lfTxId,
-          contractMetadata = contractMetadata,
-          synchronizerId = psid.logical,
-          recordTime = requestTime,
-          externalTransactionHash = externalTransactionHash,
-        )
+        (acsChangeFactory: AcsChangeFactory) =>
+          Update.SequencedTransactionAccepted(
+            completionInfoO = completionInfoO,
+            transactionMeta = TransactionMeta(
+              ledgerEffectiveTime = ledgerEffectiveTime.toLf,
+              workflowId = workflowIdO.map(_.unwrap),
+              preparationTime = lfTx.metadata.preparationTime.toLf,
+              // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
+              // transactions and it leaks the structure of the omitted parts of the transaction.
+              submissionSeed = Update.noOpSeed,
+              timeBoundaries = LedgerTimeBoundaries.unconstrained,
+              optUsedPackages = None,
+              optNodeSeeds = None, // optNodeSeeds is unused by the indexer
+              optByKeyNodes = None, // optByKeyNodes is unused by the indexer
+            ),
+            transaction = LfCommittedTransaction(lfTx.unwrap),
+            updateId = lfTxId,
+            contractMetadata = contractMetadata,
+            synchronizerId = psid.logical,
+            recordTime = requestTime,
+            externalTransactionHash = externalTransactionHash,
+            acsChangeFactory = acsChangeFactory,
+          )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
       contractsToBeStored,
@@ -1316,7 +1321,7 @@ class TransactionProcessingSteps(
       )
     } yield commitAndContractsAndEvent
 
-  override def getCommitSetAndContractsToBeStoredAndEvent(
+  override def getCommitSetAndContractsToBeStoredAndEventFactory(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
       pendingRequestData: RequestType#PendingRequestData,
@@ -1429,11 +1434,14 @@ class TransactionProcessingSteps(
       CommitAndStoreContractsAndPublishEvent,
     ] =
       (for {
-        event <- EitherT.fromEither[Future](
+        eventO <- EitherT.fromEither[Future](
           createRejectionEvent(RejectionArgs(pendingRequestData, rejection))
         )
-      } yield CommitAndStoreContractsAndPublishEvent(None, Seq(), event))
-        .mapK(FutureUnlessShutdown.outcomeK)
+      } yield CommitAndStoreContractsAndPublishEvent(
+        None,
+        Seq(),
+        eventO.map(event => _ => event),
+      )).mapK(FutureUnlessShutdown.outcomeK)
 
     for {
       topologySnapshot <- EitherT

@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -137,7 +138,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
     ExampleContractFactory.build(
       signatories = stakeholders.take(1),
       stakeholders = stakeholders,
-      createdAt = LfTimestamp.Epoch,
+      createdAt = CreationTime.CreatedAt(LfTimestamp.Epoch),
       version = LfLanguageVersion.v2_dev,
       packageName = Ref.PackageName.assertFromString("pkg-name"),
       templateId = Ref.Identifier.assertFromString("pkg:Mod:Template"),

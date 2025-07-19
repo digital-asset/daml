@@ -18,7 +18,6 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.logging.pretty.Pretty.{param, prettyOfClass}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.*
@@ -60,7 +59,7 @@ class DbContractStore(
   implicit def contractGetResult(implicit
       getResultByteArray: GetResult[Array[Byte]]
   ): GetResult[ContractInstance] = GetResult { r =>
-    ContractInstance.decode(ByteString.copyFrom(r.<<[Array[Byte]])) match {
+    ContractInstance.decodeWithCreatedAt(ByteString.copyFrom(r.<<[Array[Byte]])) match {
       case Right(contract) => contract
       case Left(e) => throw new DbDeserializationException(s"Invalid contract instance: $e")
     }
@@ -331,11 +330,8 @@ class DbContractStore(
             }
         }
 
-      override def prettyItem: Pretty[ContractInstance] = prettyOfClass(
-        param("contract Id", _.contractId),
-        param("signatories", _.signatories),
-        param("create time", _.inst.createdAt),
-      )
+      override def prettyItem: Pretty[ContractInstance] =
+        ContractInstance.prettyGenContractInstance
     }
 
     BatchAggregator(processor, insertBatchAggregatorConfig)
@@ -389,7 +385,7 @@ class DbContractStore(
           MonadUtil
             .parTraverseWithLimit(BatchAggregatorConfig.defaultMaximumInFlight)(
               idsNel.forgetNE.toSeq
-            )(id => lookupContract(id).toRight(id).value)
+            )(id => lookup(id).toRight(id).value)
             .map(_.collectRight)
             .map { contracts =>
               Either.cond(

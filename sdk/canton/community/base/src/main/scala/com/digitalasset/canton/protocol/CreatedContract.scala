@@ -20,7 +20,7 @@ import monocle.macros.GenLens
   *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContract private (
-    contract: ContractInstance,
+    contract: NewContractInstance,
     consumedInCore: Boolean,
     rolledBack: Boolean,
 ) extends PrettyPrinting {
@@ -45,7 +45,7 @@ final case class CreatedContract private (
 
 object CreatedContract {
   def create(
-      contract: ContractInstance,
+      contract: NewContractInstance,
       consumedInCore: Boolean,
       rolledBack: Boolean,
   ): Either[String, CreatedContract] =
@@ -55,7 +55,7 @@ object CreatedContract {
       .map(_ => new CreatedContract(contract, consumedInCore, rolledBack))
 
   def tryCreate(
-      contract: ContractInstance,
+      contract: NewContractInstance,
       consumedInCore: Boolean,
       rolledBack: Boolean,
   ): CreatedContract =
@@ -73,7 +73,7 @@ object CreatedContract {
 
     for {
       contract <- ContractInstance
-        .decode(contractP)
+        .decodeCreated(contractP)
         .leftMap(err => ContractDeserializationError(err))
       createdContract <- create(
         contract = contract,
@@ -84,7 +84,7 @@ object CreatedContract {
   }
 
   @VisibleForTesting
-  val contractUnsafe: Lens[CreatedContract, ContractInstance] =
+  val contractUnsafe: Lens[CreatedContract, NewContractInstance] =
     GenLens[CreatedContract](_.contract)
 }
 
@@ -97,7 +97,7 @@ object CreatedContract {
   *   Whether the contract creation has a different rollback scope than the view.
   */
 final case class CreatedContractInView(
-    contract: ContractInstance,
+    contract: NewContractInstance,
     consumedInView: Boolean,
     rolledBack: Boolean,
 )

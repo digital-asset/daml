@@ -446,7 +446,7 @@ private[reassignment] class AssignmentProcessingSteps(
     }
   }
 
-  override def getCommitSetAndContractsToBeStoredAndEvent(
+  override def getCommitSetAndContractsToBeStoredAndEventFactory(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
       pendingRequestData: PendingAssignment,
@@ -479,7 +479,11 @@ private[reassignment] class AssignmentProcessingSteps(
     ] = {
       val commit = for {
         eventO <- createRejectionEvent(RejectionArgs(pendingRequestData, reason))
-      } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+      } yield CommitAndStoreContractsAndPublishEvent(
+        None,
+        Seq.empty,
+        eventO.map(event => _ => event),
+      )
       EitherT.fromEither[FutureUnlessShutdown](commit)
     }
 

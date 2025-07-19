@@ -51,6 +51,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import scala.concurrent.ExecutionContext
 
@@ -104,7 +105,7 @@ class TransactionRoutingProcessor(
               .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
-                .parTraverse(ContractInstance.apply)
+                .parTraverse(ContractInstance.apply[CreationTime.CreatedAt])
                 .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
 
           } yield inputDisclosedContracts

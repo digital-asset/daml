@@ -18,7 +18,7 @@ class ContractInstanceTest extends AnyWordSpec with HasCryptographicEvidenceTest
     }
 
     "Fail with deep value" in {
-      val example = ExampleContractFactory.build().inst
+      val example = ExampleContractFactory.build().inst: LfFatContractInst
       val inst = LfFatContractInst.fromCreateNode(
         example.toCreateNode.copy(arg = ExampleTransactionFactory.veryDeepValue),
         example.createdAt,

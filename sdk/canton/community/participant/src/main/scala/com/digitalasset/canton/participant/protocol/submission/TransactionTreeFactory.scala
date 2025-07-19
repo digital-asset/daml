@@ -91,22 +91,18 @@ trait TransactionTreeFactory {
 object TransactionTreeFactory {
 
   type ContractInstanceOfId =
-    LfContractId => EitherT[
-      Future,
-      ContractLookupError,
-      ContractInstance,
-    ]
+    LfContractId => EitherT[Future, ContractLookupError, GenContractInstance]
 
-  def contractInstanceLookup(contractStore: ContractLookup)(implicit
-      ex: ExecutionContext,
-      traceContext: TraceContext,
-  ): ContractInstanceOfId = id =>
-    for {
-      contract <- contractStore
-        .lookupContract(id)
-        .toRight(ContractLookupError(id, "Unknown contract"))
-        .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
-    } yield contract
+  def contractInstanceLookup(
+      contractStore: ContractLookup
+  )(implicit ex: ExecutionContext, traceContext: TraceContext): ContractInstanceOfId =
+    id =>
+      for {
+        contract <- contractStore
+          .lookup(id)
+          .toRight(ContractLookupError(id, "Unknown contract"))
+          .failOnShutdownToAbortException("TransactionTreeFactory.contractInstanceLookup")
+      } yield contract
 
   /** Supertype for all errors than may arise during the conversion. */
   sealed trait TransactionTreeConversionError extends Product with Serializable with PrettyPrinting

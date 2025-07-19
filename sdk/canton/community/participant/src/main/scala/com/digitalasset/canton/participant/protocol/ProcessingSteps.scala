@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{HashOps, Signature, SynchronizerSnapshotSyncCryptoApi}
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewType}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
+import com.digitalasset.canton.ledger.participant.state.{AcsChangeFactory, SequencedUpdate}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -529,7 +529,7 @@ trait ProcessingSteps[
     *   The [[com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet]], the
     *   contracts from Phase 3 to be persisted to the contract store, and the event to be published
     */
-  def getCommitSetAndContractsToBeStoredAndEvent(
+  def getCommitSetAndContractsToBeStoredAndEventFactory(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
       pendingRequestData: requestType.PendingRequestData,
@@ -553,7 +553,7 @@ trait ProcessingSteps[
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[FutureUnlessShutdown[CommitSet]],
       contractsToBeStored: Seq[ContractInstance],
-      maybeEvent: Option[SequencedUpdate],
+      maybeEvent: Option[AcsChangeFactory => SequencedUpdate],
   )
 
   /** Phase 7, step 4:

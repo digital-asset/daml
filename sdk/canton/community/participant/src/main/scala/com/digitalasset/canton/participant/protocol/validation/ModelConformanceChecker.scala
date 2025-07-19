@@ -48,7 +48,7 @@ import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, LfValue, checked}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -200,7 +200,7 @@ class ModelConformanceChecker(
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, ContractInstance]] =
+  ): EitherT[FutureUnlessShutdown, Error, Map[LfContractId, GenContractInstance]] =
     view.tryFlattenToParticipantViews
       .flatMap(_.viewParticipantData.coreInputs)
       .parTraverse { case (cid, InputContract(contract, _)) =>
@@ -442,7 +442,7 @@ object ModelConformanceChecker {
   private[protocol] final case class ConformanceReInterpretationResult(
       reInterpretationResult: ReInterpretationResult,
       contractLookup: ExtendedContractLookup,
-      viewInputContracts: Map[LfContractId, ContractInstance],
+      viewInputContracts: Map[LfContractId, GenContractInstance],
   ) {
 
     /** Compute the hash of a re-interpreted transaction to validate external signatures. Note that
@@ -475,7 +475,7 @@ object ModelConformanceChecker {
             createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
               cid -> FatContractInstance.fromCreateNode(
                 enrichedNode,
-                storedContract.inst.createdAt,
+                storedContract.inst.createdAt: CreationTime,
                 storedContract.inst.cantonData,
               )
             }
@@ -521,13 +521,13 @@ object ModelConformanceChecker {
 
   private type ContractInstanceValidation =
     (
-        ContractInstance,
+        GenContractInstance,
         GetEngineAbortStatus,
         TraceContext,
     ) => EitherT[FutureUnlessShutdown, ContractValidationFailure, Unit]
 
   def validateContractInstance(damlE: DAMLe)(
-      contract: ContractInstance,
+      contract: GenContractInstance,
       getEngineAbortStatus: GetEngineAbortStatus,
       traceContext: TraceContext,
   )(implicit
@@ -561,7 +561,6 @@ object ModelConformanceChecker {
         .replayCreate(
           contract.metadata.signatories,
           LfCreateCommand(contract.templateId, contract.inst.createArg),
-          contract.inst.createdAt,
           getEngineAbortStatus,
         )(traceContext)
         .leftMap(DAMLeFailure.apply)
@@ -581,7 +580,6 @@ object ModelConformanceChecker {
         ContractMismatch(actual, expected): ContractValidationFailure,
       )
     } yield ()
-
   }
 
   sealed trait Error extends PrettyPrinting

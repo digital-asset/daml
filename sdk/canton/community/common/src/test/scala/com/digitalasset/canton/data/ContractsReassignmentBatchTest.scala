@@ -41,13 +41,7 @@ class ContractsReassignmentBatchTest extends AnyWordSpec with Matchers {
     }
 
     "just one contract" in {
-      val batch = ContractsReassignmentBatch
-        .create(
-          Seq(
-            (contract1, counter)
-          )
-        )
-        .value
+      val batch = ContractsReassignmentBatch.create(Seq((contract1, counter))).value
       batch.contractIds.toList shouldBe List(contract1.contractId)
       batch.contracts.map(_.templateId) shouldBe Seq(templateId)
       batch.contracts.map(_.packageName) shouldBe Seq(packageName)
