@@ -15,6 +15,8 @@
 
     <logger name="io.netty" level="WARN" />
     <logger name="io.grpc.netty" level="WARN" />
+    <logger name="io.grpc.netty.shaded.io.grpc.netty" level="WARN" />
+
     <logger name="ch.qos.logback" level="WARN" />
 
     <root level="INFO">

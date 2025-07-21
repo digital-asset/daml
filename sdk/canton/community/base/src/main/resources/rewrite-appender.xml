@@ -17,19 +17,19 @@
              - https://github.com/netty/netty/pull/9402 -->
         <!-- Set maximum log level of Netty to INFO to suppress spurious warnings and errors -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>io.grpc.netty.NettyServerStream</logger>
+            <logger>io.grpc.netty.shaded.io.grpc.netty.NettyServerStream</logger>
             <maxLevel>INFO</maxLevel>
             <exceptionMessage>Stream closed before write could take place</exceptionMessage>
         </rewrite>
         <!-- Suppress NettyServerHandler handler error which can happen on cancelled client connections https://github.com/grpc/grpc-java/issues/4651 -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>io.grpc.netty.NettyServerHandler</logger>
+            <logger>io.grpc.netty.shaded.io.grpc.netty.NettyServerHandler</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Stream Error</contains>
             <exceptionMessage>Received DATA frame for an unknown stream</exceptionMessage>
         </rewrite>
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>io.grpc.netty.NettyServerHandler</logger>
+            <logger>io.grpc.netty.shaded.io.grpc.netty.NettyServerHandler</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Stream Error</contains>
             <exceptionMessage>Stream closed before write could take place</exceptionMessage>
@@ -115,7 +115,7 @@
             TESTING REWRITE RULES
         -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>io.grpc.netty.NettyServerStream</logger>
+            <logger>io.grpc.netty.shaded.io.grpc.netty.NettyServerStream</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Exception processing message</contains>
             <exceptionMessage>gRPC message exceeds maximum size</exceptionMessage>

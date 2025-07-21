@@ -14,6 +14,7 @@ import com.daml.lf.transaction.*
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ContractId, ContractInstance}
 import com.daml.metrics.{Timed, Tracked}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{
   Commands as ApiCommands,
@@ -64,6 +65,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     authenticateSerializableContract: AuthenticateSerializableContract,
     metrics: Metrics,
     config: EngineLoggingConfig,
+    prefetchingRecursionLevel: PositiveInt,
     val loggerFactory: NamedLoggerFactory,
     dynParamGetter: DynamicDomainParameterGetter,
     timeProvider: TimeProvider,
@@ -74,6 +76,31 @@ private[apiserver] final class StoreBackedCommandExecutor(
   // By unused here we mean that the TX version is not used by the verification
   private val unusedTxVersion = TransactionVersion.StableVersions.max
 
+  /** recursively prefetch contract ids up to a certain level */
+  private def recursiveLoad(
+      depth: Int,
+      loaded: Set[ContractId],
+      fresh: Set[ContractId],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Unit] = if (fresh.isEmpty || depth <= 0) {
+    Future.unit
+  } else {
+    Future
+      .sequence(fresh.map(contractStore.lookupContractStateWithoutDivulgence))
+      .map(_.foldLeft(Set.empty[ContractId]) {
+        case (acc, ContractState.NotFound) => acc
+        case (acc, ContractState.Archived) => acc
+        case (acc, ContractState.Active(ci, _, _, _, _, _, _, _)) =>
+          ci.unversioned.collectCids(acc)
+      })
+      .flatMap { found =>
+        val newLoaded = loaded ++ fresh
+        val nextFresh = found.diff(newLoaded)
+        recursiveLoad(depth - 1, newLoaded, nextFresh)
+      }
+  }
+
   override def execute(
       commands: ApiCommands,
       submissionSeed: crypto.Hash,
@@ -83,6 +110,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
   ): Future[Either[ErrorCause, CommandExecutionResult]] = {
     val interpretationTimeNanos = new AtomicLong(0L)
     val start = System.nanoTime()
+    val disclosedCids = commands.disclosedContracts.map(_.contractId).toSeq.toSet
     val coids =
       commands.commands.commands.toSeq
         .foldLeft((Set.empty[Value.ContractId])) {
@@ -96,9 +124,14 @@ private[apiserver] final class StoreBackedCommandExecutor(
                 com.daml.lf.command.ApiCommand.ExerciseByKey(_, _, _, argument),
               ) =>
             argument.collectCids(contractIds)
+          case (
+                contractIds,
+                com.daml.lf.command.ApiCommand.CreateAndExercise(_, createArgument, _, argument),
+              ) =>
+            createArgument.collectCids(argument.collectCids(contractIds))
           case (acc, _) => acc
         }
-        .diff(commands.disclosedContracts.map(_.contractId).toSeq.toSet)
+        .diff(disclosedCids)
 
     // Trigger loading through the state cache and the batch aggregator.
     // Loading of contracts is a multi-stage process.
@@ -108,12 +141,11 @@ private[apiserver] final class StoreBackedCommandExecutor(
     // - the read through lookup will ask the contract reader
     // - the contract reader will ask the batchLoader
     // - the batch loader will put independent requests together into db batches and respond
-    val loadContractsF =
-      Future.sequence(coids.map(contractStore.lookupContractStateWithoutDivulgence))
+    val loadContractsF = recursiveLoad(prefetchingRecursionLevel.value, disclosedCids, coids)
     for {
       ledgerTimeRecordTimeToleranceO <- dynParamGetter
         // TODO(i15313):
-        // We should really pass the domainId here, but it is not available within the ledger API for 2.x.
+        //  We should really pass the domainId here, but it is not available within the ledger API for 2.x.
         .getLedgerTimeRecordTimeTolerance(None)
         .leftMap { error =>
           logger.info(
@@ -389,6 +421,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
 
         case ResultPrefetch(keys, resume) =>
           // prefetch the contract keys via the mutable state cache / batch aggregator
+          // note that the corresponding contract state is also prefetched in the mutable state cache
           keys.parTraverse_(contractStore.lookupContractKey(Set.empty, _)).flatMap { _ =>
             resolveStep(resume())
           }
