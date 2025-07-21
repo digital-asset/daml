@@ -8,47 +8,12 @@ Of course, perfect write-ups are very welcome.
 You need to update this file whenever you commit something of significance. Reviewers need to check your PR
 and ensure that the release notes and documentation has been included as part of the PR.
 
-## Bugfixes
-
-## What’s New
-
-# Release of Daml 2.8.1
+# Release of Daml 2.10.2
 
 ## Bugfixes
 
-## What’s New
+### create-daml-app Dependency Security Fix
 
-# Release of Daml 2.9.0
-
-## Bugfixes
-
-## What’s New
-
-* interface instances defined in templates ("retroactive interface instances")
-  are now deprecated and support for this feature will be removed in Daml 3.0.
-
-    * The deprecation warning can be turned off by adding the following snippet
-      at the top of a file that uses this feature:
-
-      ```daml
-      `{-# OPTIONS -Wno-retroactive-interface-instances #-}`
-      ```
-
-* 'agreement' declarations in template definitions are now deprecated and
-  support for this feature will be removed in Daml 3.0. Users are
-  encouraged to remove these declarations from their code.
-
-    * The deprecation warning can be turned off by adding the following snippet
-      at the top of a file that uses this feature:
-
-      ```daml
-      `{-# OPTIONS -Wno-template-agreement #-}`
-      ```
-
-* `daml repl` is now deprecated, it will be removed in Daml 3.0.
-
-# Release of Daml 3.0.0
-
-## Bugfixes
+The package.json dependencies for create-daml-app were underspecified, exposing users and CI to potential supply-chain attacks. This has been resolved by including a package-lock.json file with the create-daml-app template to ensure consistent and secure dependency versions.
 
 ## What’s New
