@@ -712,6 +712,15 @@ yarn_install(
     yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
+yarn_install(
+    name = "daml_extension_deps_market",
+    args = ["--frozen-lockfile"],
+    package_json = "//compiler/daml-extension:package.json",
+    symlink_node_modules = False,
+    use_global_yarn_cache = False,
+    yarn_lock = "//compiler/daml-extension:yarn.lock",
+)
+
 # We’ve had a bunch of problems with typescript rules on Windows.
 # Therefore we’ve disabled them completely for now.
 # Since we need to @load stuff in @language_support_ts_deps
