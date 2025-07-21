@@ -198,6 +198,7 @@ private[lf] final class PhaseOne(
     loop(Nil, exps)
   }
 
+  @tailrec
   private[this] def processExp(env: Env, exp: Expr): Work = {
     exp match {
       case EVar(name) =>
@@ -210,9 +211,13 @@ private[lf] final class PhaseOne(
         Return(compileBuiltinCon(con))
       case EBuiltinLit(lit) =>
         Return(compileBuiltinLit(lit))
-      case EAbs(_, _) | ETyAbs(_, _) =>
+      case ETyAbs(_, body) =>
+        processExp(env, body)
+      case EAbs(_, _) =>
         compileAbss(env, exp, arity = 0)
-      case EApp(_, _) | ETyApp(_, _) =>
+      case ETyApp(body, _) =>
+        processExp(env, body)
+      case EApp(_, _) =>
         compileApps(env, exp, args = List.empty)
       case ERecCon(tApp, fields) =>
         compileERecCon(env, tApp, fields)
@@ -281,7 +286,7 @@ private[lf] final class PhaseOne(
       case EUpdate(upd) =>
         compileEUpdate(env, upd)
       case ELocation(loc, exp) =>
-        compileExp(env, exp) { exp =>
+        compileExp(env, stripLocsAndTypes(exp)) { exp =>
           Return(maybeSELocation(loc, exp))
         }
       case EToAny(ty, exp) =>
@@ -523,7 +528,7 @@ private[lf] final class PhaseOne(
   private[this] def collectRecUpds(exp: Expr): (Expr, List[Name], List[Expr]) = {
     @tailrec
     def go(exp: Expr, fields: List[Name], updates: List[Expr]): (Expr, List[Name], List[Expr]) =
-      stripLocs(exp) match {
+      stripLocsAndTypes(exp) match {
         case ERecUpd(_, field, record, update) =>
           go(record, field :: fields, update :: updates)
         case _ =>
@@ -759,11 +764,11 @@ private[lf] final class PhaseOne(
   private[this] def compileAbss(env: Env, exp: Expr, arity: Int): Work = {
     exp match {
       case EAbs((binder, typ @ _), body) =>
-        compileAbss(env.pushExprVar(binder), body, arity + 1)
-      case ETyAbs(_, body) =>
-        compileAbss(env, body, arity)
-      case _ if arity == 0 =>
-        compileExp(env, exp)(Return)
+        compileAbss(
+          env.pushExprVar(binder),
+          stripLocsAndTypes(body),
+          arity + 1,
+        )
       case _ =>
         compileExp(env, exp) { exp =>
           Return(withLabel(t.AnonymousClosure, SEAbs(arity, exp)))
@@ -771,18 +776,16 @@ private[lf] final class PhaseOne(
     }
   }
 
-  val compileAppsX = compileApps _ // This allows silencing the @tailrec warning in one place...
-  @tailrec // ...while still ensuring tail-recursion for the call in the ETyApp case.
   private[this] def compileApps(env: Env, exp: Expr, args: List[SExpr]): Work = {
     exp match {
       case EApp(fun, arg) =>
         compileExp(env, arg) { arg =>
-          compileAppsX(env, fun, arg :: args) // recursive call in compileExp is stack-safe
+          compileApps(
+            env,
+            stripLocsAndTypes(fun),
+            arg :: args,
+          ) // recursive call in compileExp is stack-safe
         }
-      case ETyApp(fun, _) =>
-        compileApps(env, fun, args)
-      case _ if args.isEmpty =>
-        compileExp(env, exp)(Return)
       case _ =>
         compileExp(env, exp) { fun =>
           Return(SEApp(fun, args))
@@ -856,9 +859,11 @@ private[lf] final class PhaseOne(
     }
 
   @tailrec
-  private[this] def stripLocs(exp: Expr): Expr =
+  private[this] def stripLocsAndTypes(exp: Expr): Expr =
     exp match {
-      case ELocation(_, exp) => stripLocs(exp)
+      case ETyAbs(_, exp) => stripLocsAndTypes(exp)
+      case ETyApp(exp, _) => stripLocsAndTypes(exp)
+      case ELocation(_, exp) => stripLocsAndTypes(exp)
       case _ => exp
     }
 }

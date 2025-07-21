@@ -27,12 +27,14 @@ import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
 import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
 class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
 class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
+    with TableDrivenPropertyChecks
     with Matchers
     with Inside {
 
@@ -63,6 +65,67 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
       compiledPackages.compiler.unsafeCompile(expr) shouldBe a[SExpr]
+    }
+
+    "handle propose ETyAbs, ETyApp, and ELoc" in {
+      import language.Util.{EFalse, EEmptyString, TUnit}
+      val List(a, x, precond, label) =
+        List("a", "x", "precond", "label").map(Ref.Name.assertFromString)
+      val l = Ref.Location(
+        packageId = pkgId,
+        module = Ref.ModuleName.assertFromString("Module"),
+        definition = "test",
+        start = (1, 1),
+        end = (1, 10),
+      )
+      val tyCon = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
+      val tyConApp = TypeConApp(tyCon, ImmArray.empty)
+
+      val context = List[Expr => Expr](
+        ELocation(l, _),
+        ETyAbs(a -> KStar, _),
+        ETyApp(_, typ = TUnit),
+      )
+
+      val tests =
+        Table(
+          "inputs" -> "output",
+          context.map(f => EAbs(x -> TUnit, f(EAbs(x -> TUnit, EVar(x))))) ->
+            SExpr.SEMakeClo(Array.empty, 2, SExpr.SELocA(1)),
+          context.map(f =>
+            EAbs(
+              x -> TTyCon(tyCon),
+              ERecUpd(
+                tyConApp,
+                precond,
+                f(
+                  ERecUpd(
+                    tyConApp,
+                    label,
+                    EEmptyString,
+                    EVar(x),
+                  )
+                ),
+                EFalse,
+              ),
+            )
+          ) -> SExpr.SEMakeClo(
+            Array.empty,
+            1,
+            SExpr.SEAppAtomicSaturatedBuiltin(
+              SBuiltinFun.SBRecUpdMulti(tyCon, List(1, 0)),
+              Array(
+                SExpr.SEValue(SValue.SText("")),
+                SExpr.SELocA(0),
+                SExpr.SEValue(SValue.SBool(false)),
+              ),
+            ),
+          ),
+        )
+
+      forEvery(tests) { case (inputs, output) =>
+        inputs.foreach(input => compiledPackages.compiler.unsafeCompile(input) shouldBe output)
+      }
     }
   }
 
