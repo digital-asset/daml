@@ -191,7 +191,7 @@ jobs:
             bazel run --run_under="cd $PWD &&" @yarn//:yarn install
             bazel run --run_under="cd $PWD &&" @yarn//:yarn compile
             # bazel run --run_under='cd $BUILD_WORKING_DIRECTORY &&' @daml_extension_deps//vsce/bin:vsce -- package --yarn
-            bazel query @daml_extension_deps//vsce/...
+            bazel query @daml_extension_deps//...
             bazel build @daml_extension_deps//vsce/bin:vsce
             )
           # else
