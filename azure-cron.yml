@@ -138,9 +138,9 @@ jobs:
       - bash: |
           set -euo pipefail
 
-          bazel clean --expunge
-
           eval "$(cd sdk; dev-env/bin/dade-assist)"
+          
+          bazel clean --expunge
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
