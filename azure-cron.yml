@@ -139,8 +139,6 @@ jobs:
           set -euo pipefail
 
           eval "$(cd sdk; dev-env/bin/dade-assist)"
-          
-          bazel clean --expunge
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
           MARKET=$(curl -H "Authorization: Basic $AUTH" \
@@ -185,6 +183,7 @@ jobs:
             if [ -d sdk ]; then
               cd sdk
             fi
+            bazel clean --expunge
             cp LICENSE compiler/daml-extension
             trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
