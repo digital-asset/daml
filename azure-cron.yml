@@ -138,6 +138,8 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          bazel clean --expunge
+
           eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
