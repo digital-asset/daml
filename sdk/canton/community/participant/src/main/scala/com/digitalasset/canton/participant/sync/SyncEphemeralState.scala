@@ -36,6 +36,7 @@ import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
@@ -173,7 +174,8 @@ trait SyncEphemeralStateLookup {
 
   def sessionKeyStoreLookup: SessionKeyStore = sessionKeyStore
 
-  def contractLookup: ContractLookup = contractStore
+  def contractLookup: ContractLookup { type ContractsCreatedAtTime = CreationTime.CreatedAt } =
+    contractStore
 
   def reassignmentLookup: ReassignmentLookup = reassignmentCache
 

@@ -122,13 +122,13 @@ object ExtractUsedAndCreated {
 
   private[validation] final case class CreatedContractPrep(
       // The contract will be optional if it has been rolled back
-      createdContractsOfHostedInformees: Map[LfContractId, Option[ContractInstance]],
-      witnessed: Map[LfContractId, ContractInstance],
+      createdContractsOfHostedInformees: Map[LfContractId, Option[NewContractInstance]],
+      witnessed: Map[LfContractId, GenContractInstance],
   )
 
   private[validation] final case class InputContractPrep(
-      used: Map[LfContractId, ContractInstance],
-      divulged: Map[LfContractId, ContractInstance],
+      used: Map[LfContractId, GenContractInstance],
+      divulged: Map[LfContractId, GenContractInstance],
       consumedOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
       contractIdsOfHostedInformeeStakeholder: Set[LfContractId],
       contractIdsAllowedToBeUnknown: Set[LfContractId],
@@ -162,14 +162,11 @@ private[validation] class ExtractUsedAndCreated(
       dataViews: Seq[ViewData]
   ): InputContractPrep = {
 
-    val usedB =
-      Map.newBuilder[LfContractId, ContractInstance]
+    val usedB = Map.newBuilder[LfContractId, GenContractInstance]
     val contractIdsOfHostedInformeeStakeholderB = Set.newBuilder[LfContractId]
     val contractIdsAllowedToBeUnknownB = Set.newBuilder[LfContractId]
-    val consumedOfHostedStakeholdersB =
-      Map.newBuilder[LfContractId, Set[LfPartyId]]
-    val divulgedB =
-      Map.newBuilder[LfContractId, ContractInstance]
+    val consumedOfHostedStakeholdersB = Map.newBuilder[LfContractId, Set[LfPartyId]]
+    val divulgedB = Map.newBuilder[LfContractId, GenContractInstance]
 
     (for {
       viewData <- dataViews: Seq[ViewData]
@@ -216,10 +213,10 @@ private[validation] class ExtractUsedAndCreated(
   private[validation] def createdContractPrep(dataViews: Seq[ViewData]): CreatedContractPrep = {
 
     val createdContractsOfHostedInformeesB =
-      Map.newBuilder[LfContractId, Option[ContractInstance]]
+      Map.newBuilder[LfContractId, Option[NewContractInstance]]
 
     val witnessedB =
-      Map.newBuilder[LfContractId, ContractInstance]
+      Map.newBuilder[LfContractId, GenContractInstance]
 
     (for {
       viewData <- dataViews
@@ -232,9 +229,8 @@ private[validation] class ExtractUsedAndCreated(
       contract = created.contract
     } yield {
       if (hosts) {
-        createdContractsOfHostedInformeesB += contract.contractId -> Option.when(!rolledBack)(
-          contract
-        )
+        createdContractsOfHostedInformeesB +=
+          contract.contractId -> Option.when(!rolledBack)(contract)
       } else if (!rolledBack) {
         witnessedB += (contract.contractId -> contract)
       }

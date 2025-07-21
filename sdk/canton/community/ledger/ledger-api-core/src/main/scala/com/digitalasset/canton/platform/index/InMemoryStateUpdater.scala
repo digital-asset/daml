@@ -368,7 +368,10 @@ private[platform] object InMemoryStateUpdater {
 
   private[index] def convertLogToStateEvent
       : PartialFunction[TransactionLogUpdate.Event, ContractStateEvent] = {
-    case createdEvent: TransactionLogUpdate.CreatedEvent =>
+    case createdEvent: TransactionLogUpdate.CreatedEvent
+        // no state updates for participant divulged events and transient events as these events
+        // cannot lead to successful contract lookup and usage in interpretation anyway
+        if createdEvent.flatEventWitnesses.nonEmpty =>
       ContractStateEvent.Created(
         contract = FatContract.fromCreateNode(
           Create(
@@ -394,7 +397,10 @@ private[platform] object InMemoryStateUpdater {
         ),
         eventOffset = createdEvent.eventOffset,
       )
-    case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
+    case exercisedEvent: TransactionLogUpdate.ExercisedEvent
+        // no state updates for participant divulged events and transient events as these events
+        // cannot lead to successful contract lookup and usage in interpretation anyway
+        if exercisedEvent.consuming && exercisedEvent.flatEventWitnesses.nonEmpty =>
       ContractStateEvent.Archived(
         contractId = exercisedEvent.contractId,
         globalKey = exercisedEvent.contractKey.map(k =>
@@ -449,7 +455,8 @@ private[platform] object InMemoryStateUpdater {
             com.digitalasset.daml.lf.transaction.Versioned(create.version, k.value)
           ),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
-          flatEventWitnesses = create.stakeholders,
+          flatEventWitnesses =
+            if (txAccepted.isAcsDelta(create.coid)) create.stakeholders else Set.empty,
           submitters = txAccepted.completionInfoO
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),
@@ -481,7 +488,10 @@ private[platform] object InMemoryStateUpdater {
             com.digitalasset.daml.lf.transaction.Versioned(exercise.version, k.value)
           ),
           treeEventWitnesses = blinding.disclosure.getOrElse(nodeId, Set.empty),
-          flatEventWitnesses = if (exercise.consuming) exercise.stakeholders else Set.empty,
+          flatEventWitnesses =
+            if (exercise.consuming && txAccepted.isAcsDelta(exercise.targetCoid))
+              exercise.stakeholders
+            else Set.empty,
           submitters = txAccepted.completionInfoO
             .map(_.actAs.toSet)
             .getOrElse(Set.empty),

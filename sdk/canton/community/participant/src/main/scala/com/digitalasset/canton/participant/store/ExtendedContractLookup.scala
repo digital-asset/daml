@@ -8,12 +8,13 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.protocol.{
-  ContractInstance,
   ContractMetadata,
+  GenContractInstance,
   LfContractId,
   LfGlobalKey,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.transaction.CreationTime
 
 import scala.concurrent.ExecutionContext
 
@@ -25,11 +26,13 @@ import scala.concurrent.ExecutionContext
   *   if `contracts` stores a contract under a wrong id
   */
 class ExtendedContractLookup(
-    private val contracts: Map[LfContractId, ContractInstance],
+    private val contracts: Map[LfContractId, GenContractInstance],
     private val keys: Map[LfGlobalKey, Option[LfContractId]],
     private val authenticator: ContractAuthenticator,
 )(protected implicit val ec: ExecutionContext)
     extends ContractLookupAndVerification {
+
+  override type ContractsCreatedAtTime = CreationTime
 
   contracts.foreach { case (id, contract) =>
     require(
@@ -51,9 +54,9 @@ class ExtendedContractLookup(
         Some(s"Failed to find contract $coid")
     }
 
-  override def lookup(
-      id: LfContractId
-  )(implicit traceContext: TraceContext): OptionT[FutureUnlessShutdown, ContractInstance] =
+  override def lookup(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, GenContractInstance { type InstCreatedAtTime <: CreationTime }] =
     OptionT.fromOption[FutureUnlessShutdown](contracts.get(id))
 
   override def lookupKey(key: LfGlobalKey)(implicit

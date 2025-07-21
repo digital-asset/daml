@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.ledger.participant.state.{
+  AcsChangeFactory,
   CompletionInfo,
   Reassignment,
   ReassignmentInfo,
@@ -81,7 +82,7 @@ final case class AssignmentValidationResult(
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, SequencedUpdate] =
+  ): Either[ReassignmentProcessorError, AcsChangeFactory => SequencedUpdate] =
     for {
 
       reassignment <-
@@ -131,21 +132,23 @@ final case class AssignmentValidationResult(
             submissionId = submitterMetadata.submissionId,
           )
         )
-    } yield Update.SequencedReassignmentAccepted(
-      optCompletionInfo = completionInfo,
-      workflowId = submitterMetadata.workflowId,
-      updateId = updateId,
-      reassignmentInfo = ReassignmentInfo(
-        sourceSynchronizer = sourcePSId.map(_.logical),
-        targetSynchronizer = targetSynchronizer,
-        submitter = Option(submitterMetadata.submitter),
-        reassignmentId = reassignmentId,
-        isReassigningParticipant = isReassigningParticipant,
-      ),
-      reassignment = reassignment,
-      recordTime = recordTime,
-      synchronizerId = targetSynchronizer.unwrap,
-    )
+    } yield (acsChangeFactory: AcsChangeFactory) =>
+      Update.SequencedReassignmentAccepted(
+        optCompletionInfo = completionInfo,
+        workflowId = submitterMetadata.workflowId,
+        updateId = updateId,
+        reassignmentInfo = ReassignmentInfo(
+          sourceSynchronizer = sourcePSId.map(_.logical),
+          targetSynchronizer = targetSynchronizer,
+          submitter = Option(submitterMetadata.submitter),
+          reassignmentId = reassignmentId,
+          isReassigningParticipant = isReassigningParticipant,
+        ),
+        reassignment = reassignment,
+        recordTime = recordTime,
+        synchronizerId = targetSynchronizer.unwrap,
+        acsChangeFactory = acsChangeFactory,
+      )
 }
 
 object AssignmentValidationResult {

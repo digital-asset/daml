@@ -21,6 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   Reassignment,
   ReassignmentInfo,
+  TestAcsChangeFactory,
   TransactionMeta,
   Update,
 }
@@ -798,6 +799,7 @@ object InMemoryStateUpdaterSpec {
       contractMetadata = Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       recordTime = CantonTimestamp.MinValue,
+      acsChangeFactory = TestAcsChangeFactory,
     )
 
   private val update4 = offset(14L) ->
@@ -952,6 +954,7 @@ object InMemoryStateUpdaterSpec {
       synchronizerId = synchronizerId,
       recordTime = CantonTimestamp(Timestamp(t)),
       externalTransactionHash = externalTransactionHash,
+      acsChangeFactory = TestAcsChangeFactory,
     )
 
   private def assignmentAccepted(
@@ -981,6 +984,7 @@ object InMemoryStateUpdaterSpec {
       ),
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = target,
+      acsChangeFactory = TestAcsChangeFactory,
     )
 
   private def unassignmentAccepted(
@@ -1012,6 +1016,7 @@ object InMemoryStateUpdaterSpec {
       ),
       recordTime = CantonTimestamp(Timestamp(t)),
       synchronizerId = source,
+      acsChangeFactory = TestAcsChangeFactory,
     )
 
   private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =

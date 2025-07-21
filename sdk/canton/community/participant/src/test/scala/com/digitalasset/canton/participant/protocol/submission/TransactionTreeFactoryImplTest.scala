@@ -31,19 +31,15 @@ final class TransactionTreeFactoryImplTest
 
   val factory: ExampleTransactionFactory = new ExampleTransactionFactory()()
 
-  def successfulLookup(
-      example: ExampleTransaction
-  ): ContractInstanceOfId = id => {
+  def successfulLookup(example: ExampleTransaction): ContractInstanceOfId = id =>
     EitherT.fromEither(
       example.inputContracts
         .get(id)
         .toRight(ContractLookupError(id, "Unable to lookup input contract from test data"))
     )
-  }
 
-  def failedLookup(
-      testErrorMessage: String
-  ): ContractInstanceOfId = id => EitherT.leftT(ContractLookupError(id, testErrorMessage))
+  def failedLookup(testErrorMessage: String): ContractInstanceOfId =
+    id => EitherT.leftT(ContractLookupError(id, testErrorMessage))
 
   def createTransactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(

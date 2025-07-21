@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.repair
 
 import cats.Functor
 import cats.data.EitherT
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
@@ -295,19 +296,14 @@ private final class ChangeAssignation(
           val contractId = serializableContract.contractId
 
           for {
-            serializedTargetO <- EitherT.right(
-              contractStore
-                .lookupContract(contractId)
-                .value
-            )
+            serializedTargetO <- EitherT.right(contractStore.lookup(contractId).value)
             _ <- serializedTargetO
-              .map { serializedTarget =>
+              .traverse_ { serializedTarget =>
                 EitherTUtil.condUnitET[FutureUnlessShutdown](
                   serializedTarget == serializableContract,
                   s"Contract $contractId already exists in the contract store, but differs from contract to be created. Contract to be created $serializableContract versus existing contract $serializedTarget.",
                 )
               }
-              .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
           } yield (contractId, serializableContract, serializedTargetO.isEmpty)
         }
       }

@@ -23,6 +23,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{GeneratorsLf, LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value.ValueInt64
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -261,6 +262,7 @@ final class GeneratorsData(
                 generatorsProtocol
                   .contractInstanceArb(
                     canHaveEmptyKey = false,
+                    genTime = Arbitrary.arbitrary[CreationTime.CreatedAt],
                     overrideContractId = Some(ex.inputContractId),
                   )
                   .arbitrary,
@@ -270,7 +272,12 @@ final class GeneratorsData(
 
             others <- boundedListGen(
               Gen.zip(
-                generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
+                generatorsProtocol
+                  .contractInstanceArb(
+                    canHaveEmptyKey = false,
+                    genTime = Arbitrary.arbitrary[CreationTime.CreatedAt],
+                  )
+                  .arbitrary,
                 Gen.oneOf(true, false),
               )
             )
@@ -283,6 +290,7 @@ final class GeneratorsData(
           generatorsProtocol
             .contractInstanceArb(
               canHaveEmptyKey = false,
+              genTime = Arbitrary.arbitrary[CreationTime.CreatedAt],
               overrideContractId = Some(fetch.inputContractId),
             )
             .arbitrary
@@ -297,6 +305,7 @@ final class GeneratorsData(
               generatorsProtocol
                 .contractInstanceArb(
                   canHaveEmptyKey = false,
+                  genTime = Arbitrary.arbitrary[CreationTime.CreatedAt],
                   overrideContractId = Some(created.contractId),
                 )
                 .arbitrary,
@@ -315,7 +324,12 @@ final class GeneratorsData(
         case _: ExerciseActionDescription =>
           boundedListGen(
             Gen.zip(
-              generatorsProtocol.contractInstanceArb(canHaveEmptyKey = false).arbitrary,
+              generatorsProtocol
+                .contractInstanceArb(
+                  canHaveEmptyKey = false,
+                  genTime = Arbitrary.arbitrary[CreationTime.CreatedAt],
+                )
+                .arbitrary,
               Gen.oneOf(true, false),
               Gen.oneOf(true, false),
             )

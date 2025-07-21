@@ -10,6 +10,7 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageId
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest =>
@@ -23,13 +24,12 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
 
     val contract = ExampleContractFactory.build()
     val contractId = contract.contractId
-    val storedContract = contract
 
     val let2 = CantonTimestamp.Epoch.plusSeconds(5)
     val pkgId2 = Ref.PackageId.assertFromString("different_id")
     val contract2 = ExampleContractFactory.build(
       templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template")),
-      createdAt = let2.underlying,
+      createdAt = CreationTime.CreatedAt(let2.toLf),
     )
     val contractId2 = contract2.contractId
 
@@ -38,7 +38,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
     val contract3 =
       ExampleContractFactory.build(
         templateId = templateId3,
-        createdAt = let2.underlying,
+        createdAt = CreationTime.CreatedAt(let2.toLf),
       )
     val contractId3 = contract3.contractId
 
@@ -54,11 +54,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
       for {
         _ <- store.storeContract(contract).failOnShutdown
         c <- store.lookupE(contractId)
-        inst <- store.lookupContractE(contractId)
-      } yield {
-        c shouldEqual storedContract
-        inst shouldEqual contract
-      }
+      } yield c shouldEqual contract
     }
 
     "update a created contract with instance size > 32kB" in {
@@ -79,17 +75,11 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
 
       largeContract.encoded.size() should be > 32768
 
-      val storedLargeContractUpdated = largeContract
-
       for {
         _ <- store.storeContract(largeContract).failOnShutdown
         _ <- store.storeContract(largeContract).failOnShutdown
         c <- store.lookupE(largeContract.contractId)
-        inst <- store.lookupContractE(largeContract.contractId)
-      } yield {
-        c shouldEqual storedLargeContractUpdated
-        inst shouldEqual largeContract
-      }
+      } yield c shouldEqual largeContract
     }
 
     "store the same contract twice for the same id" in {
@@ -179,7 +169,7 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
 
       val contract2b = ExampleContractFactory.build(
         templateId = Ref.Identifier(pkgId2, QualifiedName.assertFromString("module:template")),
-        createdAt = LfTimestamp.Epoch,
+        createdAt = CreationTime.CreatedAt(LfTimestamp.Epoch),
       )
 
       for {
@@ -218,10 +208,10 @@ trait ContractStoreTest extends FailOnShutdown { this: AsyncWordSpec & BaseTest 
         _ <- store.storeContract(contract).failOnShutdown
         _ <- store.storeContract(contract2).failOnShutdown
         c1 <- store.lookup(contractId).value
-        c1inst <- store.lookupContract(contractId).value
+        c1inst <- store.lookup(contractId).value
         c3 <- store.lookup(contractId3).value
       } yield {
-        c1 shouldEqual Some(storedContract)
+        c1 shouldEqual Some(contract)
         c1inst shouldEqual Some(contract)
         c3 shouldEqual None
       }

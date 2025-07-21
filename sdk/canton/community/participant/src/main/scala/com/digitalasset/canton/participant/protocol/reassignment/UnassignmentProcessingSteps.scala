@@ -511,7 +511,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     }
   }
 
-  override def getCommitSetAndContractsToBeStoredAndEvent(
+  override def getCommitSetAndContractsToBeStoredAndEventFactory(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
       pendingRequestData: PendingUnassignment,
@@ -552,7 +552,11 @@ private[reassignment] class UnassignmentProcessingSteps(
           unassignmentValidationResult.reassignmentId,
           unassignmentValidationResult.sourceSynchronizer,
         )
-      } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+      } yield CommitAndStoreContractsAndPublishEvent(
+        None,
+        Seq.empty,
+        eventO.map(event => _ => event),
+      )
 
     def mergeRejectionReasons(
         reason: TransactionRejection,

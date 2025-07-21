@@ -30,12 +30,16 @@ import scala.collection.mutable
   * @param shouldGenerateEndpointsOnly
   *   If true, replaces addresses and ports only (instead of building a full config) to avoid their
   *   clashes. Useful for config file integration tests.
+  * @param shouldOverwriteStoredEndpoints
+  *   Set to true to overwrite peer endpoints in the database with config, e.g., when using a
+  *   database dump.
   */
 final class UseBftSequencer(
     override protected val loggerFactory: NamedLoggerFactory,
     val sequencerGroups: SequencerSynchronizerGroups = SingleSynchronizer,
     dynamicallyOnboardedSequencerNames: Seq[InstanceName] = Seq.empty,
     shouldGenerateEndpointsOnly: Boolean = false,
+    shouldOverwriteStoredEndpoints: Boolean = false,
 ) extends EnvironmentSetupPlugin {
 
   val sequencerEndpoints
@@ -138,6 +142,7 @@ final class UseBftSequencer(
               ),
             ),
             peerEndpoints = otherInitialEndpoints,
+            overwriteStoredEndpoints = shouldOverwriteStoredEndpoints,
           )
           selfInstanceName -> SequencerConfig.BftSequencer(
             config = BftBlockOrdererConfig(initialNetwork = Some(network))

@@ -21,7 +21,12 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   TopologyEvent,
 }
-import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
+import com.digitalasset.canton.ledger.participant.state.{
+  Reassignment,
+  ReassignmentInfo,
+  TestAcsChangeFactory,
+  Update,
+}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventInt,
@@ -221,6 +226,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -334,6 +340,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = CantonTimestamp.ofEpochMicro(120),
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -445,6 +452,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -589,6 +597,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -806,6 +815,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -881,6 +891,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -1000,6 +1011,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -1152,6 +1164,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map.empty,
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -1213,6 +1226,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
+        acsChangeFactory = TestAcsChangeFactory,
       )
       val dtos = updateToDtos(update)
 
@@ -1349,6 +1363,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             synchronizerId = someSynchronizerId1,
             recordTime = someRecordTime,
             externalTransactionHash = Some(externalTransactionHash),
+            acsChangeFactory = TestAcsChangeFactory,
           )
           val dtos = updateToDtos(update)
 
@@ -1454,6 +1469,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         recordTime = someRecordTime,
         synchronizerId = targetSynchronizerId.unwrap,
+        acsChangeFactory = TestAcsChangeFactory,
       )
 
       val dtos = updateToDtos(update)
@@ -1563,6 +1579,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         recordTime = CantonTimestamp.ofEpochMicro(120),
         synchronizerId = sourceSynchronizerId.unwrap,
+        acsChangeFactory = TestAcsChangeFactory,
       )
 
       val dtos = updateToDtos(update)

@@ -160,7 +160,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
     def create(
         actionDescription: ActionDescription = defaultActionDescription,
         consumed: Set[LfContractId] = Set.empty,
-        coreInputs: Map[LfContractId, ContractInstance] = Map.empty,
+        coreInputs: Map[LfContractId, GenContractInstance] = Map.empty,
         createdIds: Seq[LfContractId] = Seq(createdId),
         archivedInSubviews: Set[LfContractId] = Set.empty,
         resolvedKeys: Map[LfGlobalKey, LfVersioned[SerializableKeyResolution]] = Map.empty,

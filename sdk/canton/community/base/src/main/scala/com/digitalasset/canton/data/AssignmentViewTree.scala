@@ -376,7 +376,7 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
       contracts <- contractsP
         .traverse { case v30.ActiveContract(contractP, reassignmentCounterP) =>
           ContractInstance
-            .decode(contractP)
+            .decodeWithCreatedAt(contractP)
             .leftMap(err => ContractDeserializationError(err))
             .map(_ -> ReassignmentCounter(reassignmentCounterP))
         }
