@@ -19,7 +19,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Data.Time.Clock (UTCTime)
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removePathForcibly, removeFile, withCurrentDirectory)
+import System.Directory.Extra (canonicalizePath, createDirectoryIfMissing, doesFileExist, getModificationTime, removePathForcibly, removeFile)
 import System.Environment.Blank (setEnv)
 import System.Exit (ExitCode (..))
 import System.FilePath (makeRelative, (</>))
@@ -220,7 +220,7 @@ tests damlAssistant =
             "All dars are cached"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ pure ()) -- No modifications
+            (const $ const $ pure ()) -- No modifications
             (["--all"], "")
             [] -- So second time rebuilds nothing
             simpleTwoPackageProject
@@ -228,7 +228,7 @@ tests damlAssistant =
             "All dars are rebuilt with caching disabled"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ pure ()) -- No modifications
+            (const $ const $ pure ()) -- No modifications
             (["--all", "--no-cache"], "") -- Cache disabled
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- So second time rebuilds everything
             simpleTwoPackageProject
@@ -236,7 +236,7 @@ tests damlAssistant =
             "Just B rebuilds if its code is modified"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ appendFile "./package-b/daml/PackageBMain.daml" "\nmyDef = 3") -- Modify package-b/daml/PackageBMain.daml
+            (\dir -> const $ appendFile (dir </> "package-b/daml/PackageBMain.daml") "\nmyDef = 3") -- Modify package-b/daml/PackageBMain.daml
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1"] -- So second time rebuilds only B, as nothing depends on B
             simpleTwoPackageProject
@@ -244,7 +244,7 @@ tests damlAssistant =
             "A and B rebuild if A's code is modified"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3") -- Modify package-a/daml/PackageAMain.daml
+            (\dir -> const $ appendFile (dir </> "package-a/daml/PackageAMain.daml") "\nmyDef = 3") -- Modify package-a/daml/PackageAMain.daml
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- So second time rebuilds A and B, as B depends on A
             simpleTwoPackageProject
@@ -252,7 +252,7 @@ tests damlAssistant =
             "Only A is rebuild if its Dar is deleted but it's package-id doesn't change"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ removeFile "package-a/.daml/dist/package-a-0.0.1.dar") -- Delete package-a/.daml/dist/package-a-0.0.1.dar
+            (\dir -> const $ removeFile (dir </> "package-a/.daml/dist/package-a-0.0.1.dar")) -- Delete package-a/.daml/dist/package-a-0.0.1.dar
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1"] -- So second time rebuilds only A, as its package-id hasn't changed so B is not stale
             simpleTwoPackageProject
@@ -261,9 +261,9 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             -- Modify package-a/daml/PackageAMain.daml, Delete package-a/.daml/dist/package-a-0.0.1.dar
-            (const $ do
-              appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3"
-              removeFile "package-a/.daml/dist/package-a-0.0.1.dar"
+            (\dir -> const $ do
+              appendFile (dir </> "package-a/daml/PackageAMain.daml") "\nmyDef = 3"
+              removeFile (dir </> "package-a/.daml/dist/package-a-0.0.1.dar")
             )
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- So second time rebuilds A and B, as B depends on A
@@ -273,9 +273,9 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             -- Modify package-a/daml/PackageAMain.daml, manually rebuild package-a/.daml/dist/package-a-0.0.1.dar
-            (\manualBuild -> do
-              appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3"
-              manualBuild "./package-a"
+            (\dir manualBuild -> do
+              appendFile (dir </> "package-a/daml/PackageAMain.daml") "\nmyDef = 3"
+              manualBuild (dir </> "package-a")
             )
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- Both have been rebuilt (A manually)
@@ -285,10 +285,10 @@ tests damlAssistant =
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
             -- Modify package-a/daml/PackageAMain.daml, Delete package-a/.daml/dist/package-a-0.0.1.dar
-            (\manualBuild -> do
-              appendFile "./package-a/daml/PackageAMain.daml" "\nmyDef = 3"
-              removeFile "package-a/.daml/dist/package-a-0.0.1.dar"
-              manualBuild "./package-a"
+            (\dir manualBuild -> do
+              appendFile (dir </> "package-a/daml/PackageAMain.daml") "\nmyDef = 3"
+              removeFile (dir </> "package-a/.daml/dist/package-a-0.0.1.dar")
+              manualBuild (dir </> "package-a")
             )
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- Both have been rebuilt (A manually)
@@ -297,7 +297,7 @@ tests damlAssistant =
             "Top package is always built (A)"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ pure ())
+            (const $ const $ pure ())
             ([], "./package-a")
             [PackageIdentifier "package-a" "0.0.1"]
             simpleTwoPackageProject
@@ -305,7 +305,7 @@ tests damlAssistant =
             "Top package is always built (B)"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"] -- First time builds both
-            (const $ pure ())
+            (const $ const $ pure ())
             ([], "./package-b")
             [PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProject
@@ -313,7 +313,7 @@ tests damlAssistant =
             "Only above in the dependency tree is invalidated"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1", PackageIdentifier "package-c" "0.0.1", PackageIdentifier "package-d" "0.0.1"]
-            (const $ appendFile "./package-b/daml/PackageBMain.daml" "\nmyDef = 3")
+            (\dir -> const $ appendFile (dir </> "package-b/daml/PackageBMain.daml") "\nmyDef = 3")
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1", PackageIdentifier "package-d" "0.0.1"] -- Only D depends on B, so only those rebuild
             diamondProject
@@ -321,7 +321,7 @@ tests damlAssistant =
             "Nested source directory file invalidation"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ appendFile "./package-a/daml/daml2/daml3/daml4/PackageAMain.daml" "\nmyDef = 3")
+            (\dir -> const $ appendFile (dir </> "package-a/daml/daml2/daml3/daml4/PackageAMain.daml") "\nmyDef = 3")
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             (simpleTwoPackageProjectSource "daml/daml2/daml3/daml4")
@@ -329,7 +329,7 @@ tests damlAssistant =
             "Direct source directory file invalidation"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ appendFile "./package-a/PackageAMain.daml" "\nmyDef = 3")
+            (\dir -> const $ appendFile (dir </> "package-a/PackageAMain.daml") "\nmyDef = 3")
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             (simpleTwoPackageProjectSource ".")
@@ -337,7 +337,7 @@ tests damlAssistant =
             "Source daml file dependency invalidation"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ appendFile "./package-a/daml/PackageAAux.daml" "\nmyDef = 3")
+            (\dir -> const $ appendFile (dir </> "package-a/daml/PackageAAux.daml") "\nmyDef = 3")
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectSourceDaml
@@ -345,7 +345,7 @@ tests damlAssistant =
             "Source daml file dependency invalidation with upwards structure"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ appendFile "./package-a/daml/PackageAAux.daml" "\nmyDef = 3")
+            (\dir -> const $ appendFile (dir </> "package-a/daml/PackageAAux.daml") "\nmyDef = 3")
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectSourceDamlUpwards
@@ -353,7 +353,7 @@ tests damlAssistant =
             "Changing the package name/version with a fixed --output should invalidate the cache"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ buildProjectStructure "./package-a" (damlYaml "package-a2" "0.0.1" []) {dyOutPath = Just "../package-a.dar"})
+            (\dir -> const $ buildProjectStructure (dir </> "package-a") (damlYaml "package-a2" "0.0.1" []) {dyOutPath = Just "../package-a.dar"})
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
             customOutPathProject
@@ -363,7 +363,7 @@ tests damlAssistant =
             "Sdk version should invalidate the cache."
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ buildProjectStructure "./package-a" $ (damlYaml "package-a" "0.0.1" []) {dySdkVersion = Just "10.0.0"})
+            (\dir -> const $ buildProjectStructure (dir </> "package-a") $ (damlYaml "package-a" "0.0.1" []) {dySdkVersion = Just "10.0.0"})
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1"]
             simpleTwoPackageProject
@@ -375,7 +375,7 @@ tests damlAssistant =
             "package-b-0.0.1 should have rebuilt, but didn't" -- This is incorrect, B should have tried to rebuild and failed with a "Module not found" error.
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ buildProjectStructure "./package-b" $ damlYaml "package-b" "0.0.1" [])
+            (\dir -> const $ buildProjectStructure (dir </> "package-b") $ damlYaml "package-b" "0.0.1" [])
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProject
@@ -384,7 +384,7 @@ tests damlAssistant =
             "package-b-0.0.1 should have rebuilt, but didn't"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ buildProjectStructure "./package-b" $ damlYaml "package-b" "0.0.1" [])
+            (\dir -> const $ buildProjectStructure (dir </> "package-b") $ damlYaml "package-b" "0.0.1" [])
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1"]
             simpleTwoPackageProjectModulePrefixes
@@ -393,7 +393,7 @@ tests damlAssistant =
             "package-b-0.0.1 should have rebuilt, but didn't"
             (["--all"], "")
             [PackageIdentifier "package-a" "0.0.1", PackageIdentifier "package-b" "0.0.1"]
-            (const $ buildProjectStructure "./package-b" $ (damlYaml "package-b" "0.0.1" []) {dyGhcOptions = ["-wError"]})
+            (\dir -> const $ buildProjectStructure (dir </> "package-b") $ (damlYaml "package-b" "0.0.1" []) {dyGhcOptions = ["-wError"]})
             (["--all"], "")
             [PackageIdentifier "package-b" "0.0.1"]
             warningProject
@@ -402,7 +402,7 @@ tests damlAssistant =
         "Manifest Generation"
         [ assertManifestHashChange "Hash single daml file change"
             manifestHashBaseCase
-            (writeFile "./package-a/daml/MyLib.daml" "module MyLib where a = 3")
+            (\dir -> writeFile (dir </> "package-a/daml/MyLib.daml") "module MyLib where a = 3")
             (\preEntries postEntries -> do
               fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
               fileHashChanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
@@ -412,7 +412,7 @@ tests damlAssistant =
             )
         , assertManifestHashChange "Hash daml.yaml file change"
             manifestHashBaseCase
-            (appendFile "./package-a/daml.yaml" "\nnewField: true")
+            (\dir -> appendFile (dir </> "package-a/daml.yaml") "\nnewField: true")
             (\preEntries postEntries -> do
               fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
               fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
@@ -422,7 +422,7 @@ tests damlAssistant =
             )
         , assertManifestHashChange "Hash non daml file ignored"
             manifestHashBaseCase
-            (writeFile "./package-a/daml/NonDamlFile.notdaml" "hello world")
+            (\dir -> writeFile (dir </> "package-a/daml/NonDamlFile.notdaml") "hello world")
             (\preEntries postEntries -> do
               fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyModule.daml"
               fileHashUnchanged (head preEntries) (head postEntries) "package-a/daml/MyLib.daml"
@@ -487,7 +487,7 @@ tests damlAssistant =
       :: String -- name
       -> ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
-      -> ((FilePath -> IO ()) -> IO ()) -- Modifications
+      -> (FilePath -> (FilePath -> IO ()) -> IO ()) -- Modifications
       -> ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
       -> [ProjectStructure] -- structure
@@ -501,7 +501,7 @@ tests damlAssistant =
       -> String -- Expected error
       -> ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
-      -> ((FilePath -> IO ()) -> IO ()) -- Modifications
+      -> (FilePath -> (FilePath -> IO ()) -> IO ()) -- Modifications
       -> ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
       -> [ProjectStructure] -- structure
@@ -516,7 +516,7 @@ tests damlAssistant =
     testCacheIO
       :: ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
-      -> ((FilePath -> IO ()) -> IO ()) -- Modifications
+      -> (FilePath -> (FilePath -> IO ()) -> IO ()) -- Modifications
       -> ([String], FilePath) -- args, runPath
       -> [PackageIdentifier] -- what should have been built
       -> [ProjectStructure] -- structure
@@ -536,7 +536,7 @@ tests damlAssistant =
         modifiedTimes <- getPkgsLastModified firstRunPkgs
         
         -- Apply the modification
-        withCurrentDirectory dir $ doModification $
+        doModification dir $
           \path -> void $ readCreateProcessWithExitCode ((proc damlAssistant ["build"]) {cwd = Just path}) []
         
         -- Run the second build, expecting all the secondRunPkgs and the pre-existing firstRunPkgs
@@ -574,7 +574,7 @@ tests damlAssistant =
     assertManifestHashChange
       :: String
       -> [ProjectStructure]
-      -> IO ()
+      -> (FilePath -> IO ())
       -> ([MultiPackageManifestEntry] -> [MultiPackageManifestEntry] -> IO ())
       -> TestTree
     assertManifestHashChange name projectStructure structureModifier predicate =
@@ -582,7 +582,7 @@ tests damlAssistant =
       withTempDir $ \dir -> do
         void $ buildProject dir projectStructure
         preManifest <- getManifest dir
-        withCurrentDirectory dir structureModifier
+        structureModifier dir
         postManifest <- getManifest dir
         predicate preManifest postManifest
 
