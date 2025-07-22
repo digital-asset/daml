@@ -252,6 +252,8 @@ da_scala_library(
         "//observability/metrics",
         "//observability/telemetry",
         "//observability/tracing",
+        "@maven//:com_github_pathikrit_better_files_2_13",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_opentelemetry_opentelemetry_api",
