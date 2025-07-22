@@ -41,6 +41,7 @@ import com.digitalasset.canton.platform.store.dao.events.{
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}

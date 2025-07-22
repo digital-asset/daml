@@ -10,6 +10,7 @@ import com.daml.ledger.api.v2.completion.Completion.DeduplicationPeriod.Empty
 import com.daml.ledger.api.v2.offset_checkpoint.SynchronizerTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.duration.Duration

@@ -212,7 +212,7 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
       )
 
   val preferredPackagesEndpoint =
-    preferredPackages.get
+    preferredPackages.post
       .in(jsonBody[interactive_submission_service.GetPreferredPackagesRequest])
       .out(jsonBody[interactive_submission_service.GetPreferredPackagesResponse])
       .description(

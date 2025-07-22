@@ -154,15 +154,14 @@ class JcePureCrypto(
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
   }
 
-  /** Parses and converts a public key to a java public key. We store the deserialization result in
-    * a cache.
+  /** Converts a public key to a java public key. We store the deserialization result in a cache.
     *
     * @return
     *   Either an error or the converted java private key
     */
-  private def parseAndGetPublicKey[E, T <: JPublicKey](
+  private def toJavaPublicKey[E, T <: JPublicKey](
       publicKey: PublicKey,
-      checker: PartialFunction[JPublicKey, Either[E, T]],
+      typeMatcher: PartialFunction[JPublicKey, Either[E, T]],
       errFn: String => E,
   ): Either[E, T] =
     for {
@@ -177,7 +176,7 @@ class JcePureCrypto(
               ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
-      checkedPublicKey <- checker(publicKey)
+      checkedPublicKey <- typeMatcher(publicKey)
     } yield checkedPublicKey
 
   /** Parses and converts a private key. We store the deserialization result in a cache.
@@ -338,7 +337,7 @@ class JcePureCrypto(
       hashType: HashType,
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
         { case k: ECPublicKey => Right(k) },
         SignatureCheckError.InvalidKeyError.apply,
@@ -413,7 +412,7 @@ class JcePureCrypto(
       publicKey: SigningPublicKey
   ): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      ed25519PublicKey <- parseAndGetPublicKey(
+      ed25519PublicKey <- toJavaPublicKey(
         publicKey,
         { case k: BCEdDSAPublicKey => Right(k) },
         SignatureCheckError.InvalidKeyError.apply,
@@ -618,12 +617,9 @@ class JcePureCrypto(
       publicKey: EncryptionPublicKey,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
-        { case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id)
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        },
+        { case k: ECPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
       encrypter <- Either
@@ -659,12 +655,9 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
-        { case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id)
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        },
+        { case k: ECPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
       /* this encryption scheme makes use of AES-128-CBC as a DEM (Data Encapsulation Method)
@@ -709,7 +702,7 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      rsaPublicKey <- parseAndGetPublicKey(
+      rsaPublicKey <- toJavaPublicKey(
         publicKey,
         { case k: RSAPublicKey =>
           for {
@@ -854,6 +847,7 @@ class JcePureCrypto(
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case Right(k: ECPrivateKey) =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
@@ -887,6 +881,7 @@ class JcePureCrypto(
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case Right(k: ECPrivateKey) =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))

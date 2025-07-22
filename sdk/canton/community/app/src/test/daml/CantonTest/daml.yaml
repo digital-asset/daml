@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250717.14015.0.ve8a7b6ff
+sdk-version: 3.4.0-snapshot.20250718.14017.0.va7542a99
 build-options: 
 - --target=2.1
 name: CantonTests

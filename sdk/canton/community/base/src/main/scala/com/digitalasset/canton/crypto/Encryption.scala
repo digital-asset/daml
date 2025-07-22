@@ -259,10 +259,12 @@ object EncryptionKeySpec {
   /** Elliptic Curve Key from the P-256 curve (aka Secp256r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP256 extends EncryptionKeySpec {
+  case object EcP256 extends EncryptionKeySpec with EcKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.EncryptionKeySpec =
       v30.EncryptionKeySpec.ENCRYPTION_KEY_SPEC_EC_P256
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256r1"
   }
 
   /** RSA key with 2048 bits */
@@ -673,6 +675,10 @@ object EncryptionPublicKey
     )
   )
 
+  /** Creates a [[EncryptionPublicKey]] from the given parameters. Performs validations on usage and
+    * format. If the [[EncryptionKeySpec]] is EC-based, it also validates that the public key lies
+    * on the expected curve.
+    */
   private[crypto] def create(
       format: CryptoKeyFormat,
       key: ByteString,
