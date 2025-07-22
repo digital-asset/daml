@@ -63,7 +63,7 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     }
   }
 
-  @deprecated("Use getUpdates instead", "3.4.0")
+  @deprecated("Use getUpdates instead", "3.3.0")
   override def getUpdateTrees(
       request: GetUpdatesRequest,
       responseObserver: StreamObserver[GetUpdateTreesResponse],
@@ -72,7 +72,7 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     responseObserver.onCompleted()
   }
 
-  @deprecated("Use getUpdateByOffset instead", "3.4.0")
+  @deprecated("Use getUpdateByOffset instead", "3.3.0")
   override def getTransactionTreeByOffset(
       request: GetTransactionByOffsetRequest
   ): Future[GetTransactionTreeResponse] = {
@@ -82,7 +82,7 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     ) // just a mock, not intended for consumption
   }
 
-  @deprecated("Use getUpdateById instead", "3.4.0")
+  @deprecated("Use getUpdateById instead", "3.3.0")
   override def getTransactionTreeById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionTreeResponse] = {
@@ -92,7 +92,7 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     ) // just a mock, not intended for consumption
   }
 
-  @deprecated("Use getUpdateByOffset instead", "3.4.0")
+  @deprecated("Use getUpdateByOffset instead", "3.3.0")
   override def getTransactionByOffset(
       request: GetTransactionByOffsetRequest
   ): Future[GetTransactionResponse] = {
@@ -102,7 +102,7 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
     ) // just a mock, not intended for consumption
   }
 
-  @deprecated("Use getUpdateById instead", "3.4.0")
+  @deprecated("Use getUpdateById instead", "3.3.0")
   override def getTransactionById(
       request: GetTransactionByIdRequest
   ): Future[GetTransactionResponse] = {
