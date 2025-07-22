@@ -12,7 +12,7 @@ def ts_docs(pkg_name, srcs, deps):
         name = "docs-raw",
         data = [":tsconfig.json"] + srcs + [":README.md"] + deps,
         tool =
-            "@language_support_ts_deps//typedoc/bin:typedoc",
+            "@language_support_ts_deps_2x//typedoc/bin:typedoc",
         output_dir = True,
         args = ["--tsconfig", "$(execpath :tsconfig.json)", "$(execpath :index.ts)", "--out", "$(@D)"],
         visibility = ["//visibility:public"],

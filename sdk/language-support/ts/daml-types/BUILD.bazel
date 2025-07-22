@@ -3,7 +3,7 @@
 
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_bazel_rules_nodejs//:index.bzl", "pkg_npm")
-load("@language_support_ts_deps//eslint:index.bzl", "eslint_test")
+load("@language_support_ts_deps_2x//eslint:index.bzl", "eslint_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//language-support/ts:defs.bzl", "da_ts_library")
 load("//language-support/ts:eslint.bzl", "eslint_test")
@@ -23,9 +23,9 @@ da_ts_library(
     tsconfig = ":tsconfig.json",
     visibility = ["//visibility:public"],
     deps = [
-        "@language_support_ts_deps//@mojotech/json-type-validation",
-        "@language_support_ts_deps//@types/jest",
-        "@language_support_ts_deps//@types/lodash",
+        "@language_support_ts_deps_2x//@mojotech/json-type-validation",
+        "@language_support_ts_deps_2x//@types/jest",
+        "@language_support_ts_deps_2x//@types/lodash",
     ],
 ) if not is_windows else None
 
@@ -65,7 +65,7 @@ jest_test(
     name = "test",
     srcs = sources,
     deps = [
-        "@language_support_ts_deps//@mojotech/json-type-validation",
-        "@language_support_ts_deps//@types/lodash",
+        "@language_support_ts_deps_2x//@mojotech/json-type-validation",
+        "@language_support_ts_deps_2x//@types/lodash",
     ],
 )
