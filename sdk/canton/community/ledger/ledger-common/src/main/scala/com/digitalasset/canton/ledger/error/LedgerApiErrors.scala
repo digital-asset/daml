@@ -246,7 +246,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
 
     final case class PackageSelfConsistency(
-        err: LfError.Package.DarSelfConsistency
+        err: LfError.Package.SelfConsistency
     )(implicit
         loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(

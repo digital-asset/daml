@@ -25,6 +25,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import io.grpc.Status
 

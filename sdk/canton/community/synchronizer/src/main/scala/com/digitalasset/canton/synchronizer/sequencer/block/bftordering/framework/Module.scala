@@ -17,7 +17,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Output,
   P2PNetworkOut,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.apache.pekko.dispatch.ControlMessage
 
 import java.time.Instant
@@ -314,6 +314,8 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
   /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
     */
   def withNewTraceContext[A](fn: TraceContext => A): A
+
+  def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext
 
   def futureContext: FutureContext[E]
 

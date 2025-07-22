@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.google.protobuf.ByteString
 import org.scalatest.flatspec.AnyFlatSpec

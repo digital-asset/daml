@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   AuthorizationLevel,
 }
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -159,7 +159,7 @@ private[backend] object Conversions {
     SqlParser
       .get[Array[Byte]](name)
       .map(traceContextBytes =>
-        SerializableTraceContext
+        SerializableTraceContextConverter
           .fromDamlProtoSafeOpt(logger)(
             Some(ProtoTraceContext.parseFrom(traceContextBytes))
           )

@@ -56,12 +56,12 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
   private lazy val restrictedStaticSynchronizerParameters: StaticSynchronizerParameters =
     StaticSynchronizerParameters(
       requiredSigningSpecs = RequiredSigningSpecs(
-        NonEmpty(
+        NonEmpty.mk(
           Set,
           SigningAlgorithmSpec.Ed25519,
           SigningAlgorithmSpec.EcDsaSha384,
         ),
-        NonEmpty(
+        NonEmpty.mk(
           Set,
           SigningKeySpec.EcCurve25519,
           SigningKeySpec.EcP384,

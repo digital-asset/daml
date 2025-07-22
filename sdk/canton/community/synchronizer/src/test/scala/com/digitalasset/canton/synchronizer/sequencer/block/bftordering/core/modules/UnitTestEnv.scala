@@ -29,7 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   PureFun,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.scalatest.Assertions.fail
 
 import java.util.concurrent.atomic.AtomicReference
@@ -137,6 +137,9 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def withNewTraceContext[A](fn: TraceContext => A): A = unsupported()
 
+  override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+    unsupported()
+
   private def unsupported() =
     fail("Unsupported by unit tests")
 }
@@ -154,6 +157,9 @@ object UnitTestContext {
 
 trait WithTraceContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] {
   override def withNewTraceContext[A](fn: TraceContext => A): A = fn(TraceContext.empty)
+
+  override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+    TraceContext.empty
 }
 
 class SelfEnv extends Env[SelfEnv] {

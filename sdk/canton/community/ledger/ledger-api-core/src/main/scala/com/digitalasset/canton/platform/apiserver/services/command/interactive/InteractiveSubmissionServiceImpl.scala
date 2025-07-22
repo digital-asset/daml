@@ -50,6 +50,7 @@ import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil
+import com.digitalasset.canton.version.HashingSchemeVersionConverter
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
 import io.opentelemetry.api.trace.Tracer
@@ -199,7 +200,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     } yield proto.PrepareSubmissionResponse(
       preparedTransaction = Some(prepareResult.transaction),
       preparedTransactionHash = prepareResult.hash.unwrap,
-      hashingSchemeVersion = prepareResult.hashVersion.toLAPIProto,
+      hashingSchemeVersion = HashingSchemeVersionConverter.toLAPIProto(prepareResult.hashVersion),
       hashingDetails = hashingDetails,
     )
 

@@ -25,7 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializer,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.apache.pekko.actor.typed.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.{BootstrapSetup, Cancellable}
@@ -239,6 +239,11 @@ object PekkoModuleSystem {
 
     override def withNewTraceContext[A](fn: TraceContext => A): A =
       TraceContext.withNewTraceContext("pekko_actor")(fn)
+
+    override def traceContextOfBatch(
+        items: IterableOnce[HasTraceContext]
+    ): TraceContext =
+      TraceContext.ofBatch("pekko_actor")(items)(logger)
 
     override def futureContext: FutureContext[PekkoEnv] = PekkoFutureContext(
       underlying.executionContext

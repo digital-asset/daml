@@ -44,7 +44,7 @@ class RateLimiter(
     def update(now: Long): State = {
       // determine the time elapsed since we submitted last time
       val deltaNanos = now - lastUpdateNanos
-      // determine the fractional number of commands that we were allowed to submit in that period
+      // determine the fractional number of commands that were allowed to submit in that period
       val adjust = maxTasksPerSecond.value * deltaNanos.toDouble / 1e9
       // remove that number from the "approvedTasks"
       val newApprovedTasks = Math.max(0, approvedTasks - adjust)

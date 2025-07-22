@@ -16,7 +16,7 @@ import scala.concurrent.Future
 
 trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpec =>
 
-  private def modifyPublicKey(
+  private def modifyPublicKeyFormat(
       publicKey: PublicKey,
       newFormat: CryptoKeyFormat,
   ): PublicKey =
@@ -40,7 +40,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         for {
           crypto <- newCrypto
           publicKey <- newPublicKey(crypto)
-          newPublicKeyWithTargetFormat = modifyPublicKey(publicKey, format)
+          newPublicKeyWithTargetFormat = modifyPublicKeyFormat(publicKey, format)
           validationRes = CryptoKeyValidation.parseAndValidatePublicKey(
             newPublicKeyWithTargetFormat,
             errString => errString,
@@ -86,6 +86,27 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           else encryptionKeySpec.toString,
           newCrypto,
           crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
+        )
+      }
+
+      "fail if public key not on the curve" in {
+        for {
+          crypto <- newCrypto
+          publicKeyEcP256 <- getSigningPublicKey(
+            crypto,
+            SigningKeyUsage.ProtocolOnly,
+            SigningKeySpec.EcP256,
+          ).failOnShutdown
+          // use a different curve (P-384) compared to the one on which the public key was generated (P-256)
+          validationRes =
+            SigningPublicKey.create(
+              publicKeyEcP256.format,
+              publicKeyEcP256.key,
+              SigningKeySpec.EcP384,
+              publicKeyEcP256.usage,
+            )
+        } yield validationRes.left.value.message should include(
+          s"EC key not in curve"
         )
       }
 
