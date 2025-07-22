@@ -152,6 +152,7 @@ object CantonServerBuilder {
       grpcMetrics: GrpcServerMetrics,
       adminToken: Option[CantonAdminToken],
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerBuilder = {
     val builder =
       NettyServerBuilder
@@ -178,6 +179,7 @@ object CantonServerBuilder {
         config.authServices,
         adminToken,
         telemetry,
+        additionalInterceptors,
       ),
     )
   }

@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.{ApiLoggingConfig, AuthServiceConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.{TraceContextGrpc, TracingConfig}
 import io.grpc.ServerInterceptors.intercept
-import io.grpc.ServerServiceDefinition
+import io.grpc.{ServerInterceptor, ServerServiceDefinition}
 
 import scala.util.chaining.*
 
@@ -35,6 +35,7 @@ class CantonCommunityServerInterceptors(
     authServices: Seq[AuthServiceConfig],
     adminToken: Option[CantonAdminToken],
     telemetry: Telemetry,
+    additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
 ) extends CantonServerInterceptors {
   private def interceptForLogging(
       service: ServerServiceDefinition,
@@ -92,4 +93,5 @@ class CantonCommunityServerInterceptors(
       .pipe(addTraceContextInterceptor)
       .pipe(addMetricsInterceptor)
       .pipe(addAuthorizationInterceptor)
+      .pipe(s => additionalInterceptors.foldLeft(s)((acc, i) => intercept(acc, i)))
 }

@@ -28,6 +28,7 @@ import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
+import io.grpc.ServerInterceptor
 import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
@@ -96,6 +97,7 @@ trait ServerConfig extends Product with Serializable {
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerInterceptors
 
 }
@@ -111,6 +113,7 @@ trait CommunityServerConfig extends ServerConfig {
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
@@ -119,6 +122,7 @@ trait CommunityServerConfig extends ServerConfig {
     authServices,
     adminToken,
     telemetry,
+    additionalInterceptors,
   )
 }
 

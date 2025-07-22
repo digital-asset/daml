@@ -19,7 +19,6 @@ import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.MonadUtil
 
-import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageDependencyResolver(

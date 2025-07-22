@@ -50,6 +50,12 @@ object TracingConfig {
     case object Disabled extends Exporter
     final case class Jaeger(address: String = "localhost", port: Int = 14250) extends Exporter
     final case class Zipkin(address: String = "localhost", port: Int = 9411) extends Exporter
-    final case class Otlp(address: String = "localhost", port: Int = 4318) extends Exporter
+    final case class Otlp(
+        address: String = "localhost",
+        port: Int = 4318,
+        trustCollectionPath: Option[String] = None,
+        additionalHeaders: Map[String, String] = Map.empty,
+        timeout: Option[FiniteDuration] = None,
+    ) extends Exporter
   }
 }
