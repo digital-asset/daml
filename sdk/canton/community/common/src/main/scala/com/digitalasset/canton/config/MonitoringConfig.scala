@@ -15,6 +15,7 @@ import com.digitalasset.canton.networking.grpc.{
   CantonServerInterceptors,
 }
 import com.digitalasset.canton.tracing.TracingConfig
+import io.grpc.ServerInterceptor
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
 
 import scala.annotation.nowarn
@@ -45,6 +46,7 @@ final case class GrpcHealthServerConfig(
       authServices: Seq[AuthServiceConfig],
       adminToken: Option[CantonAdminToken],
       telemetry: Telemetry,
+      additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerInterceptors =
     new CantonCommunityServerInterceptors(
       tracingConfig,
@@ -54,6 +56,7 @@ final case class GrpcHealthServerConfig(
       authServices,
       adminToken,
       telemetry,
+      additionalInterceptors,
     )
 
   def toRemoteConfig: ClientConfig =
