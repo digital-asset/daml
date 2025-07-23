@@ -277,6 +277,15 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
    the version listed under "Installation" matches the version of the sdk bundled
    in the snapshot.
 
+   > Note: when running `daml studio --replace=always`, you force the installation
+   > of the VSCode extension bundled with the Daml SDK, and _disable the
+   > auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
+   > published version of the extension, including auto-upgrades, you can run
+   >
+   > ```
+   > daml studio --replace=published
+   > ```
+
 1. Open `daml/Main.daml`.
 
 1. Click on `Script results` above `initialize` (in the code) and wait for the
@@ -295,15 +304,6 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
    you to the definition in line 17.
 
 1. Close VS Code.
-
-   > Note: when running `daml studio --replace=always`, you force the installation
-   > of the VSCode extension bundled with the Daml SDK, and _disable the
-   > auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
-   > published version of the extension, including auto-upgrades, you can run
-   >
-   > ```
-   > daml studio --replace=published
-   > ```
 
 1. On the [assembly] PR, add the comment:
 
@@ -324,7 +324,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. for 2.10 and 3.x releases, please annouce that tests were successful on #product-releases.
 
-1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on artifactory and github.
+1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on [artifactory](https://digitalasset.jfrog.io/ui/repos/tree/General/external-files/daml-enterprise) and [github](https://github.com/digital-asset/daml/releases).
 
 1. for 2.10 rleases, that pass testing, please ensure that _key_ stakeholders are pinged in the slack message that announces successful testing (that way they may inform selected end users of the snapshots availability).
 
