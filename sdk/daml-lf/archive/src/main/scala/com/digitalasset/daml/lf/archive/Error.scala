@@ -47,4 +47,6 @@ object Error {
   final case class Parsing(override val msg: String) extends Error(msg)
 
   final case class Encoding(override val msg: String) extends Error(msg)
+
+  final case class IllegalInterning(override val msg: String) extends Error(msg)
 }
