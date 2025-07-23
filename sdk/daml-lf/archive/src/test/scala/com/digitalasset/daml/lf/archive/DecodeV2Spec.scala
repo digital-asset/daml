@@ -143,33 +143,6 @@ class DecodeV2Spec
       }
     }
 
-    "reject negative interned expressions" in {
-      val kind = DamlLf2.Kind
-        .newBuilder()
-        .setInternedKind(-1)
-        .build()
-      val pkg = DamlLf2.Package
-        .newBuilder()
-        .addInternedKinds(kind)
-        .build()
-      forEveryVersion { version =>
-        val decoder = new DecodeV2(version.minor)
-        val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
-        )
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedKindsForTest(env, pkg))
-      }
-    }
-
     "reject interned in interned kinds table" in {
       val kind = DamlLf2.Kind
         .newBuilder()
@@ -194,7 +167,7 @@ class DecodeV2Spec
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedKindsForTest(env, pkg))
+        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeInternedKindsForTest(env, pkg))
       }
     }
   }
@@ -389,37 +362,9 @@ class DecodeV2Spec
         )
       }
     }
-
   }
 
   "decodeInternedTypes" should {
-    "reject negative interned expressions" in {
-      val Type = DamlLf2.Type
-        .newBuilder()
-        .setInterned(-1)
-        .build()
-      val pkg = DamlLf2.Package
-        .newBuilder()
-        .addInternedTypes(Type)
-        .build()
-      forEveryVersion { version =>
-        val decoder = new DecodeV2(version.minor)
-        val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
-        )
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedTypesForTest(env, pkg))
-      }
-    }
-
     "reject interned in interned Types table" in {
       val Type = DamlLf2.Type
         .newBuilder()
@@ -444,7 +389,7 @@ class DecodeV2Spec
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedTypesForTest(env, pkg))
+        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeInternedTypesForTest(env, pkg))
       }
     }
   }
@@ -1113,6 +1058,10 @@ class DecodeV2Spec
     }
 
     "reject interned in interned expressions table" in {
+      val unit = DamlLf2.Expr
+        .newBuilder()
+        .setBuiltinCon(PLF.BuiltinCon.CON_UNIT)
+        .build()
       val internedZero = DamlLf2.Expr
         .newBuilder()
         .setInternedExpr(0)
@@ -1122,7 +1071,7 @@ class DecodeV2Spec
         .setInternedExpr(1)
         .build()
 
-      forEveryVersion { version =>
+      forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           Ref.PackageId.assertFromString("noPkgId"),
@@ -1130,13 +1079,13 @@ class DecodeV2Spec
           ImmArraySeq.empty,
           ImmArraySeq.empty,
           ImmArraySeq.empty,
-          ImmArraySeq(internedZero),
+          ImmArraySeq(unit, internedZero),
           None,
           Some(dummyModuleName),
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.Parsing] shouldBe thrownBy(env.decodeExprForTest(internedOne, ""))
+        an[Error.IllegalInterning] shouldBe thrownBy(env.decodeExprForTest(internedOne, ""))
       }
     }
 

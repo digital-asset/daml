@@ -254,8 +254,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         lfKind.getSumCase match {
           case PLF.Kind.SumCase.INTERNED_KIND =>
             Work.Delay(() =>
-              throw Error.Parsing(
-                "Not allowed: immediate InternedKind in interning table (needs concrete constructor)"
+              throw Error.IllegalInterning(
+                "Immediate InternedKind in interning table (needs concrete constructor)"
               )
             )
           case _ =>
@@ -273,13 +273,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeType(lfType)(Ret(_)))
     }
 
+    // private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
+    //   Work.run(uncheckedDecodeType(lfType))
+    // }
+
     private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
       Work.run(
         lfType.getSumCase match {
           case PLF.Type.SumCase.INTERNED =>
             Work.Delay(() =>
-              throw Error.Parsing(
-                "Not allowed: immediate Interned type in interning table (needs concrete constructor)"
+              throw Error.IllegalInterning(
+                "Immediate Interned type in interning table (needs concrete constructor)"
               )
             )
           case _ =>
@@ -871,14 +875,20 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
+    // private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
+    //     k: Expr => Work[T]
+    // ): Work[T] = {
+    //     Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
+    // }
+
     private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
         k: Expr => Work[T]
     ): Work[T] = {
       lfExpr.getSumCase match {
         case PLF.Expr.SumCase.INTERNED_EXPR =>
           Work.Delay(() =>
-            throw Error.Parsing(
-              s"Not allowed: immediate InternedExpr in interning table (needs concrete constructor)"
+            throw Error.IllegalInterning(
+              "Immediate InternedExpr in interning table (needs concrete constructor)"
             )
           )
         case _ =>
