@@ -12,14 +12,14 @@ Privacy
 
 
 
-The :ref:`ledger structure section <ledger-structure>` answered the question "What the Ledger looks like?" by introducing a hierarchical format to record the changes.
+The :ref:`ledger structure section <ledger-structure>` answered the question "What does the Ledger looks like?" by introducing a hierarchical format to record the party interactions as changes.
 This section addresses the question "Who sees which changes and data?".
 That is, it explains the privacy model for Canton Ledgers.
 
 The privacy model of Canton Ledgers is based on a **need-to-know basis**,
 and provides privacy **on the level of subtransactions**.
-Namely, a party learns only those parts of ledger changes that affect contracts in which the party has a stake,
-and the consequences of those changes.
+Namely, a party learns only those parts of party interactions that affect contracts in which the party has a stake,
+and the consequences of those interactions.
 The hierarchical structure is key here because it yields a natural notion of sub-transaction privacy.
 To make the sub-transaction privacy notion precise, we introduce the concepts of *informee* and *witness*.
 
@@ -184,14 +184,15 @@ For this reason, projection is defined for a set of parties.
 
 .. _def-tx-projection:
 
-Definition **projection**:
-  The **projection** of a transaction for a set `P` of parties is the
-  subtransaction obtained by doing the following for each root action `act` of the transaciton.
+.. admonition:: Definition: projection
+                
+   The **projection** of a transaction for a set `P` of parties is the
+   subtransaction obtained by doing the following for each root action `act` of the transaciton.
 
-  #. If `P` contains at least one of the informees of `act`, keep `act` as-is, including its consequences.
-  #. Else, if `act` has consequences, replace `act` by the projection (for `P`) of its consequences,
-     which might be empty.
-  #. Else, drop `act` including its consequences.
+   #. If `P` contains at least one of the informees of `act`, keep `act` as-is, including its consequences.
+   #. Else, if `act` has consequences, replace `act` by the projection (for `P`) of its consequences,
+      which might be empty.
+   #. Else, drop `act` including its consequences.
 
 This definition does not operate on nodes, but on actions, that is, subtrees of nodes.
 Accordingly, the projection of a transaction for a set of parties `P` contains a node if and only if `P` contains at least one of the witnesses of the node.
@@ -220,15 +221,11 @@ Ledger projection
 
 Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of updates obtained as follows:
 
-* Project the transaction of each commit in `l` for `P`, but retain the update ID.
+* Project the transaction of each update in `l` for `P`, but retain the update ID.
 
 * Remove updates with empty transactions from the result.
 
-* Add an edge between two (non-empty projected) updates `u`:sub:`1` and `u`:sub:`2`
-  if there is a non-empty path from `u`:sub:`1` to `u`:sub:`2` in `l`.
-
-The edges of the DAG ensure that the projected updates have the same happens-before relationship as the original updates.
-This construction will be refined in the :ref:`causality section <local-ledger>`.
+We defer defining the edges in the projection to the :ref:`causality section <local-ledger>`.
 Until then, we pretend that the ledger is totally ordered and projections retain the same ordering.
 
 Notably, the projection of a ledger is not a ledger, but a DAG of updates.

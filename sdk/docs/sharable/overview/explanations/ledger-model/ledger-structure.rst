@@ -9,10 +9,9 @@
 Structure
 #########
 
-This section looks at the structure of a ledger and the associated ledger changes.
-The definitions presented here are all the ingredients required to *record* the interaction between parties in a Daml ledger.
-That is, they address the first question: "what do changes and ledgers look like?".
-The basic building blocks of changes are *actions*, which get grouped into *transactions*, *commits*, and the *Ledger*.
+This section looks at the structure of a ledger that records the interactions between the parties as ledger changes.
+The definitions presented here address the first question: "what do changes and ledgers look like?".
+The basic building blocks of the recorded interactions are :ref:`actions <actions>`, which get grouped into :ref:`transactions <transactions>`, *updates*, *commits*, and the :ref:`Ledger <da-ledger-definition>`.
 
 .. _ledger-structure_running_example:
 
@@ -258,8 +257,8 @@ Transactions
 
 A **transaction** is a list of actions that are executed atomically.
 Those actions are called the **root actions** of the transaction.
-That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a **root action**.
-For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to accept both simulataneously.
+That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a root action.
+For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to both simulataneously.
 To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
 Visually, transactions are delimited by the dashed lines on both sides, to distinguish them from actions.
 Like for actions, the input contracts on the left are not part of the transaction.
@@ -270,7 +269,7 @@ Like for actions, the input contracts on the left are not part of the transactio
    :width: 100%
    :alt: A transaction with two top-level actions where Bob accepts two DvP proposal, one from Alice and one from Charlie.
 
-For another example, consequences of an Exercise action form a transaction.
+For another example, the consequences of an Exercise action are a list of actions and therefore form a transaction
 In the example of the ``Settle`` action on Alice's and Bob's ``SimpleDvP``,
 the consequences of the ``Settle`` action form the following transaction,
 where actions are ordered left-to-right as before.
@@ -296,6 +295,8 @@ the next diagram shows all seven proper non-empty subtransactions, each with the
    :width: 100%
    :alt: All proper subtransactions of the consequences of the ``Settle`` action.
 
+The :ref:`privacy model <da-model-privacy>` uses the concept of subtransactions to define the visibility rules.
+
 .. _da-ledger-input-output:
       
 Inputs and outputs
@@ -319,38 +320,40 @@ This Ledger Model extends the UTxO model in two aspects:
 
 These aspects are discussed in more detail in the remaining sections of the Ledger Model.
 
+.. _da-ledger-definition:
 
 Ledger
 ******
 
-The transaction structure records the contents of the changes.
-The ledger data records two more aspects of a change:
+The transaction structure records the contents of a party interaction.
+The ledger records two more aspects of an interaction:
 
-* An identifier to uniquely refer a particular change.
+* An identifier to uniquely refer a particular party interaction.
 
-* The parties who requested a particular change.
+* The parties who requested a particular party interaction.
 
-Due to the :ref:`privacy model <da-model-privacy>`, not everyone sees all parts of a change.
-A unique identifier for a change allows different parties to correlate the changes they see.
+Due to the :ref:`privacy model <da-model-privacy>`, not everyone sees all parts of a party interaction.
+A unique identifier for a party interaction allows different parties to correlate the interactions they see.
 The notion of an **update** adds such an identifier.
 It consists of a single transaction and the so-called **update ID**, a string.
-Examples in the ledger model use update IDs of the form ``TX i`` like the transaction view in Daml Studio,
-whereas the update IDs on the Ledger API are hex strings.
+Examples in the Ledger Model use update IDs of the form ``TX i`` for some number ``i``, similar to the transaction view in Daml Studio.
 
-A **commit** adds the information *who requested a change*.
+A **commit** adds the information *who requested a party interaction*.
 It consists of an update and the one or more parties that requested it.
-Those parties called the **requesters** of the commit.
+Those parties are called the **requesters** of the commit.
 In Daml Script, the requesters correspond to the ``actAs`` parties given to the ``submit`` commands.
 
-Definition **Ledger**:
-  A **Ledger** is a finite directed acyclic graph (DAG) of commits, where the update IDs are unique.
+.. admonition:: Definition: Ledger
+                
+   A **Ledger** is a directed acyclic graph (DAG) of commits, where the update IDs are unique.
 
-Definition **top-level action**:
-  For a commit, the root actions of its transaction are called the **top-level actions**.
-  A top-level action of any ledger commit is also a top-level action of the ledger.
+.. admonition:: Definition: top-level action
+
+   For a commit, the root actions of its transaction are called the **top-level actions**.
+   A top-level action of any ledger commit is also a top-level action of the ledger.
 
 A Canton Ledger thus represents the full history of all actions taken by parties.
-The graph structure of the Ledger induces an **happens-before order** on the commits in the ledger.
+The graph structure of the Ledger induces a **happens-before order** on the commits in the ledger.
 We say that commit `c`:sub:`1` *happens before* `c`:sub:`2` if and only if the ledger contains a non-empty path from `c`:sub:`1` to `c`:sub:`2`,
 or equivalently, the transitive closure of the graph contains an edge from `c`:sub:`1` to `c`:sub:`2`.
 
@@ -363,7 +366,7 @@ Visually, a ledger can be represented as a sequence growing from left to right a
 Below, dashed vertical lines in purple mark the boundaries of commits,
 and each commit is annotated with its requester(s) and the update ID.
 Blue arrows link each Exercise and Fetch action to the Create action of the input contract.
-These arrows highlight that the ledger forms a **transaction graph**.
+These arrows highlight that the ledger forms a **transaction graph** in the sense of a UTXO blockchain.
 
 For example, the following Daml Script encodes the whole workflow of the running DvP example.
 
@@ -371,6 +374,11 @@ For example, the following Daml Script encodes the whole workflow of the running
    :language: daml
    :start-after: SNIPPET-SCRIPT-BEGIN
    :end-before: SNIPPET-SCRIPT-END
+
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-ACCEPT_AND_SETTLE-BEGIN
+   :end-before: SNIPPET-ACCEPT_AND_SETTLE-END
 
 This workflow gives rise to the ledger shown below with four commits:
 
