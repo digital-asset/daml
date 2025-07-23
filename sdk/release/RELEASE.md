@@ -272,8 +272,10 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Kill the processes running in Terminals 1 and 2 using CTRL-C.
 
 1. Run `daml studio --replace=always`. This should open VSCode and trigger the
-   Daml extension that's bundled with the new SDK version. (The new VSCode
-   extension will not be in the marketplace at this point.)
+   Daml extension that's bundled with the new SDK version (the new VSCode
+   extension will not be in the marketplace at this point). Verify by checking
+   the version listed under "Installation" matches the version of the sdk bundled
+   in the snapshot.
 
 1. Open `daml/Main.daml`.
 
