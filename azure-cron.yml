@@ -176,9 +176,7 @@ jobs:
             # Enter correct dade for deployment
             eval "$(cd sdk; dev-env/bin/dade-assist)"
             (
-            if [ -d sdk ]; then
-              cd sdk
-            fi
+            cd sdk
             cp LICENSE compiler/daml-extension
             trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
@@ -190,18 +188,22 @@ jobs:
             # to push a release to marketplace which is already frozen in git.
 
             # Find the external deps repo name
-            if bazel query @daml_extension_deps_2x//... > /dev/null 2>& 1; then 
+            if bazel query @daml_extension_deps_2x//... >/dev/null 2>&1; then
               EXT_DEPS_REPO=daml_extension_deps_2x
             else
               EXT_DEPS_REPO=daml_extension_deps
             fi
 
+            echo "Using external repository @$EXT_DEPS_REPO"
+
             # Find which vsce path we need
-            if bazel query @$EXT_DEPS_REPO//... | grep @vscode > /dev/null 2>& 1; then
+            if bazel query @$EXT_DEPS_REPO//... | grep -q @vscode; then
               VSCE_PATH=@$EXT_DEPS_REPO//@vscode/vsce/bin:vsce
             else
               VSCE_PATH=@$EXT_DEPS_REPO//vsce/bin:vsce
             fi
+
+            echo "Using VSCE $VSCE_PATH"
 
             bazel run --run_under="cd $PWD &&" //:yarn install
             bazel run --run_under="cd $PWD &&" //:yarn compile
