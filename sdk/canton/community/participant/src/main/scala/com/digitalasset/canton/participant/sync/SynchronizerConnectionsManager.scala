@@ -15,7 +15,11 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  SynchronizerPredecessor,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.health.MutableHealthComponent
@@ -27,6 +31,7 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
+import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
@@ -42,6 +47,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceUnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.{
+  AttemptReconnect,
   ConnectSynchronizer,
   ConnectionListener,
 }
@@ -51,6 +57,7 @@ import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason
+import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
@@ -165,14 +172,64 @@ private[sync] class SynchronizerConnectionsManager(
       loggerFactory,
     )(ec)
 
-  private case class AttemptReconnect(
-      alias: SynchronizerAlias,
-      last: CantonTimestamp,
-      retryDelay: Duration,
-      trace: TraceContext,
-  ) {
-    val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
+  val synchronizerLookup: SynchronizerLookup = new SynchronizerLookup {
+    override def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean =
+      connectedSynchronizersLookup.isConnected(synchronizerId)
+
+    override def isConnected(synchronizerId: SynchronizerId): Boolean =
+      connectedSynchronizersLookup.isConnected(synchronizerId)
+
+    override def isConnectedToAnySynchronizer: Boolean =
+      connectedSynchronizersLookup.isConnectedToAny
+
+    override def persistentStateFor(
+        synchronizerId: PhysicalSynchronizerId
+    ): Option[SyncPersistentState] =
+      syncPersistentStateManager.get(synchronizerId)
+
+    override def connectionConfig(
+        psid: PhysicalSynchronizerId
+    ): Option[StoredSynchronizerConnectionConfig] =
+      synchronizerConnectionConfigStore.get(psid).toOption
+
+    override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
+        traceContext: TraceContext
+    ): Option[TopologyComponentFactory] =
+      syncPersistentStateManager.topologyFactoryFor(synchronizerId)
+
+    override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
+      syncPersistentStateManager.latestKnownPSId(synchronizerId)
   }
+
+  private[sync] val connectQueue = {
+    val queueName = "sync-service-connect-and-repair-queue"
+
+    new SimpleExecutionQueue(
+      queueName,
+      futureSupervisor,
+      timeouts,
+      loggerFactory,
+      crashOnFailure = parameters.exitOnFatalFailures,
+    )
+  }
+
+  private val logicalSynchronizerUpgrade = new LogicalSynchronizerUpgrade(
+    synchronizerConnectionConfigStore,
+    ledgerApiIndexer,
+    syncPersistentStateManager,
+    connectQueue,
+    synchronizerLookup,
+    connectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
+      connectSynchronizer(
+        alias.value,
+        keepRetrying = true,
+        connectSynchronizer = ConnectSynchronizer.Connect,
+      )(alias.traceContext),
+    disconnectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
+      disconnectSynchronizer(alias.value)(alias.traceContext),
+    timeouts,
+    loggerFactory,
+  )
 
   // Track synchronizers we would like to "keep on reconnecting until available"
   private val attemptReconnect: TrieMap[SynchronizerAlias, AttemptReconnect] = TrieMap.empty
@@ -208,18 +265,6 @@ private[sync] class SynchronizerConnectionsManager(
       .synchronizerIdForAlias(alias)
       .flatMap(logicalToPhysical)
       .flatMap(connectedSynchronizersMap.get)
-
-  private[sync] val connectQueue = {
-    val queueName = "sync-service-connect-and-repair-queue"
-
-    new SimpleExecutionQueue(
-      queueName,
-      futureSupervisor,
-      timeouts,
-      loggerFactory,
-      crashOnFailure = parameters.exitOnFatalFailures,
-    )
-  }
 
   /** Returns the ready synchronizers this sync service is connected to. */
   def readySynchronizers: Map[SynchronizerAlias, (PhysicalSynchronizerId, SubmissionReady)] =
@@ -888,9 +933,18 @@ private[sync] class SynchronizerConnectionsManager(
               EitherTUtil.toFutureUnlessShutdown(
                 connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
               ),
-            parameters.automaticallyConnectToUpgradedSynchronizer,
+            parameters.automaticallyPerformLogicalSynchronizerUpgrade,
             loggerFactory,
           )
+
+          lsuCallback =
+            if (parameters.automaticallyPerformLogicalSynchronizerUpgrade)
+              new LogicalSynchronizerUpgradeCallbackImpl(
+                synchronizerId,
+                ephemeral.timeTracker,
+                this,
+              )
+            else LogicalSynchronizerUpgradeCallback.NoOp
 
           connectedSynchronizer <- EitherT.right(
             connectedSynchronizerFactory.create(
@@ -911,6 +965,7 @@ private[sync] class SynchronizerConnectionsManager(
                   sequencerConnectionSuccessorListener,
                   synchronizerHandle.topologyClient,
                   ephemeral.recordOrderPublisher,
+                  lsuCallback,
                   synchronizerHandle.syncPersistentState.sequencedEventStore,
                   synchronizerConnectionConfig.predecessor,
                   ledgerApiIndexer.asEval.value.ledgerApiStore.value,
@@ -1113,6 +1168,51 @@ private[sync] class SynchronizerConnectionsManager(
     connectedSynchronizers.parTraverse_(disconnectSynchronizer)
   }
 
+  /** Start the upgrade of the participant to the successor.
+    *
+    * Prerequisite:
+    *   - Time on the current synchronizer has reached the upgrade time.
+    *   - Successor is registered.
+    *
+    * Note: The upgrade involve operations that are retried, so the method can take some time to
+    * complete.
+    */
+  def upgradeSynchronizerTo(
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    for {
+      persistentState <- EitherT.fromEither[FutureUnlessShutdown](
+        syncPersistentStateManager
+          .get(currentPSId)
+          .toRight(s"Unable to get persistent state for $currentPSId")
+      )
+
+      alias <- EitherT.fromEither[FutureUnlessShutdown](
+        syncPersistentStateManager
+          .aliasForSynchronizerId(currentPSId.logical)
+          .toRight(s"Unable to find alias for synchronizer $currentPSId")
+      )
+
+      event <- persistentState.sequencedEventStore
+        .find(SearchCriterion.Latest)
+        .leftMap(_ => "The sequencer event store is empty. Was the upgrade performed already?")
+
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        event.timestamp >= synchronizerSuccessor.upgradeTime,
+        s"Upgrade time ${synchronizerSuccessor.upgradeTime} not reached: last event in the sequenced event store has timestamp ${event.timestamp}",
+      )
+
+      _ <- logicalSynchronizerUpgrade.upgrade(
+        alias,
+        currentPSId,
+        synchronizerSuccessor,
+      )
+
+    } yield ()
+
   // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
   def currentWriteHealth(): HealthStatus = {
     val existsReadySynchronizer = connectedSynchronizersMap.exists { case (_, sync) =>
@@ -1249,5 +1349,14 @@ object SynchronizerConnectionsManager {
 
       override def markSynchronizerAsConnected: Boolean = false
     }
+  }
+
+  private final case class AttemptReconnect(
+      alias: SynchronizerAlias,
+      last: CantonTimestamp,
+      retryDelay: Duration,
+      trace: TraceContext,
+  ) {
+    val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
   }
 }

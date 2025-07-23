@@ -1,0 +1,29 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.digitalasset.canton.sequencer.admin.v30;
+
+import "google/protobuf/duration.proto";
+
+service SequencerBftPruningAdministrationService {
+  rpc BftPruningStatus(BftPruningStatusRequest) returns (BftPruningStatusResponse);
+
+  rpc BftPrune(BftPruneRequest) returns (BftPruneResponse);
+}
+
+message BftPruneRequest {
+  google.protobuf.Duration retention = 1;
+  int32 min_blocks_to_keep = 2;
+}
+
+message BftPruneResponse {
+  string message = 1;
+}
+
+message BftPruningStatusRequest {}
+message BftPruningStatusResponse {
+  int64 lower_bound_epoch = 1;
+  int64 lower_bound_block = 2;
+}

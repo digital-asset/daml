@@ -98,7 +98,7 @@ class P2PNetworkInModule[E <: Env[E]](
               logger.warn(
                 s"Dropping availability message from $from as it couldn't be parsed: $errorMessage"
               ),
-            msg => availability.asyncSendTraced(msg),
+            msg => availability.asyncSend(msg),
           )
         metrics.p2p.receive.labels.source.values.Availability(from)
       case Message.ConsensusMessage(consensusMessage) =>
@@ -118,7 +118,7 @@ class P2PNetworkInModule[E <: Env[E]](
                   s"Received retransmitted message at epoch $epoch from $from originally created by $originalSender"
                 )
               }
-              consensus.asyncSendTraced(message)
+              consensus.asyncSend(message)
             },
           )
         metrics.p2p.receive.labels.source.values.Consensus(from)
@@ -130,7 +130,7 @@ class P2PNetworkInModule[E <: Env[E]](
               logger.warn(
                 s"Dropping retransmission message from $from as it couldn't be parsed: $errorMessage"
               ),
-            message => consensus.asyncSendTraced(message),
+            message => consensus.asyncSend(message),
           )
         metrics.p2p.receive.labels.source.values.Retransmissions(from)
 
@@ -146,7 +146,7 @@ class P2PNetworkInModule[E <: Env[E]](
                 s"Dropping state transfer message from $from as it couldn't be parsed: $errorMessage"
               ),
             signedMessage =>
-              consensus.asyncSendTraced(
+              consensus.asyncSend(
                 Consensus.StateTransferMessage.UnverifiedStateTransferMessage(signedMessage)
               ),
           )

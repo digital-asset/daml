@@ -54,10 +54,11 @@ object LeaderSelectionInitializer {
     config.leaderSelectionPolicy match {
       case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Simple =>
         new SimpleLeaderSelectionPolicyInitializer[E](protocolVersion)
-      case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Blacklisting =>
+      case blacklistLeaderSelectionPolicyConfig: BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Blacklisting =>
         new BlacklistLeaderSelectionInitializer(
           thisNode,
           config,
+          blacklistLeaderSelectionPolicyConfig,
           protocolVersion,
           store,
           timeouts,

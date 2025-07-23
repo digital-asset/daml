@@ -31,6 +31,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.{BootstrapSetup, Cancellable}
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable
 import scala.concurrent.*
 import scala.concurrent.duration.*
@@ -45,13 +46,41 @@ object PekkoModuleSystem {
 
   private def pekkoBehavior[MessageT](
       moduleSystem: PekkoModuleSystem,
+      outstandingMessages: AtomicInteger,
       moduleName: ModuleName,
       moduleNameForMetrics: String,
       loggerFactory: NamedLoggerFactory,
-  ): Behavior[ModuleControl[PekkoEnv, MessageT]] =
+  ): Behavior[ModuleControl[PekkoEnv, MessageT]] = {
+
+    def emitQueueStats(
+        metricsContext: MetricsContext,
+        maybeSendInstant: Option[Instant],
+        maybeDelay: Option[FiniteDuration],
+    ): Unit = {
+      moduleSystem.metrics.performance.orderingStageLatency
+        .emitModuleQueueSize(
+          moduleNameForMetrics,
+          outstandingMessages.decrementAndGet(),
+        )(metricsContext)
+      maybeSendInstant.foreach(
+        moduleSystem.metrics.performance.orderingStageLatency
+          .emitModuleQueueLatency(
+            moduleNameForMetrics,
+            _,
+            maybeDelay,
+          )(metricsContext)
+      )
+    }
+
     Behaviors.setup { context =>
       val pekkoContext: PekkoActorContext[MessageT] =
-        PekkoActorContext(moduleSystem, context, loggerFactory)
+        PekkoActorContext(
+          moduleSystem,
+          context,
+          moduleNameForMetrics,
+          outstandingMessages,
+          loggerFactory,
+        )
       val logger = loggerFactory.getLogger(getClass)
       @SuppressWarnings(Array("org.wartremover.warts.Var"))
       var maybeModule: Option[framework.Module[PekkoEnv, MessageT]] = None
@@ -65,15 +94,16 @@ object PekkoModuleSystem {
                 maybeModule = Some(m)
                 if (ready)
                   m.ready(pekkoContext.self)
+                // Emit queue stats for postponed messages that were awaiting a module
                 sendsAwaitingAModule.foreach {
-                  case Send(message, traceContext, metricsContext, maybeSendInstant, maybeDelay) =>
-                    maybeSendInstant.foreach(
-                      moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-                        moduleNameForMetrics,
-                        _,
+                  case Send(
+                        message,
+                        traceContext,
+                        metricsContext,
+                        maybeSendInstant,
                         maybeDelay,
-                      )(metricsContext)
-                    )
+                      ) =>
+                    emitQueueStats(metricsContext, maybeSendInstant, maybeDelay)
                     m.receive(message)(pekkoContext, traceContext)
                 }
                 sendsAwaitingAModule.clear()
@@ -87,13 +117,7 @@ object PekkoModuleSystem {
                   ) =>
                 maybeModule match {
                   case Some(module) =>
-                    maybeSendInstant.foreach(
-                      moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-                        moduleNameForMetrics,
-                        _,
-                        maybeDelay,
-                      )(metricsContext)
-                    )
+                    emitQueueStats(metricsContext, maybeSendInstant, maybeDelay)
                     module.receive(message)(pekkoContext, traceContext)
                   case _ =>
                     sendsAwaitingAModule.enqueue(send)
@@ -116,15 +140,25 @@ object PekkoModuleSystem {
         )
         .onFailure(SupervisorStrategy.stop)
     }
+  }
 
   private[bftordering] final case class PekkoModuleRef[AcceptedMessageT](
-      ref: ActorRef[ModuleControl[PekkoEnv, AcceptedMessageT]]
+      moduleSystem: PekkoModuleSystem,
+      ref: ActorRef[ModuleControl[PekkoEnv, AcceptedMessageT]],
+      moduleNameForMetrics: String,
+      outstandingMessages: AtomicInteger,
   ) extends ModuleRef[AcceptedMessageT] {
-    override def asyncSendTraced(message: AcceptedMessageT)(implicit
+    override def asyncSend(message: AcceptedMessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
-    ): Unit =
+    ): Unit = {
+      moduleSystem.metrics.performance.orderingStageLatency
+        .emitModuleQueueSize(
+          moduleNameForMetrics,
+          outstandingMessages.incrementAndGet(),
+        )
       ref ! Send(message, traceContext, metricsContext, maybeSendInstant = Some(Instant.now))
+    }
   }
 
   private final case class PekkoCancellableEvent(cancellable: Cancellable)
@@ -136,15 +170,24 @@ object PekkoModuleSystem {
   private[bftordering] final case class PekkoActorContext[MessageT](
       moduleSystem: PekkoModuleSystem,
       underlying: ActorContext[ModuleControl[PekkoEnv, MessageT]],
+      moduleNameForMetrics: String,
+      outstandingMessages: AtomicInteger,
       override val loggerFactory: NamedLoggerFactory,
   ) extends ModuleContext[PekkoEnv, MessageT] {
 
-    override val self: PekkoModuleRef[MessageT] = PekkoModuleRef(underlying.self)
+    override val self: PekkoModuleRef[MessageT] =
+      PekkoModuleRef(moduleSystem, underlying.self, moduleNameForMetrics, outstandingMessages)
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
-    ): CancellableEvent =
+    ): CancellableEvent = {
+      // We should maybe increment when the message is actually sent, but we don't have a way to do that via Pekko
+      moduleSystem.metrics.performance.orderingStageLatency
+        .emitModuleQueueSize(
+          moduleNameForMetrics,
+          outstandingMessages.incrementAndGet(),
+        )
       PekkoCancellableEvent(
         underlying.scheduleOnce(
           delay,
@@ -158,6 +201,7 @@ object PekkoModuleSystem {
           ),
         )
       )
+    }
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
@@ -196,6 +240,11 @@ object PekkoModuleSystem {
       ) { result =>
         fun(result) match {
           case Some(msg) =>
+            moduleSystem.metrics.performance.orderingStageLatency
+              .emitModuleQueueSize(
+                moduleNameForMetrics,
+                outstandingMessages.incrementAndGet(),
+              )
             Send(msg, traceContext, metricsContext, maybeSendInstant = Some(Instant.now))
           case None => NoOp()
         }
@@ -403,7 +452,13 @@ object PekkoModuleSystem {
   ) extends ModuleSystem[PekkoEnv] {
 
     override def rootActorContext: PekkoActorContext[?] =
-      PekkoActorContext(this, underlyingRootActorContext, loggerFactory)
+      PekkoActorContext(
+        this,
+        underlyingRootActorContext,
+        "rootActorContext",
+        new AtomicInteger(), // Unused
+        loggerFactory,
+      )
 
     override def futureContext: FutureContext[PekkoEnv] = PekkoFutureContext(
       underlyingRootActorContext.executionContext
@@ -419,14 +474,21 @@ object PekkoModuleSystem {
         moduleNameForMetrics: String,
         actorContext: ActorContext[ModuleControl[PekkoEnv, ContextMessageT]],
     ): PekkoModuleRef[AcceptedMessageT] = {
+      val outstandingMessages = new AtomicInteger()
       val actorRef =
         actorContext.spawn(
-          pekkoBehavior[AcceptedMessageT](this, moduleName, moduleNameForMetrics, loggerFactory),
+          pekkoBehavior[AcceptedMessageT](
+            this,
+            outstandingMessages,
+            moduleName,
+            moduleNameForMetrics,
+            loggerFactory,
+          ),
           moduleName.name,
           MailboxSelector.fromConfig("bft-ordering.control-mailbox"),
         )
       actorContext.watch(actorRef)
-      PekkoModuleRef(actorRef)
+      PekkoModuleRef(this, actorRef, moduleNameForMetrics, outstandingMessages)
     }
 
     override def setModule[AcceptedMessageT](

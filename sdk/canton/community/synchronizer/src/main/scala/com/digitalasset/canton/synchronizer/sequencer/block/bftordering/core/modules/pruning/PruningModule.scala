@@ -5,9 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.PruningConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -20,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.tracing.TraceContext
 
+import scala.concurrent.Promise
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.{Failure, Success}
 
@@ -33,6 +36,14 @@ final class PruningModule[E <: Env[E]](
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var periodicPruningCancellable: Option[CancellableEvent] = None
+
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  private var pruningResultPromise: Option[Promise[String]] = None
+
+  private def completePruningOperation(message: String): Unit = {
+    pruningResultPromise.foreach(_.complete(Success(message)))
+    pruningResultPromise = None
+  }
 
   override def receiveInternal(
       message: Pruning.Message
@@ -53,23 +64,38 @@ final class PruningModule[E <: Env[E]](
                 exception,
               )
           }
-      case Pruning.KickstartPruning =>
-        logger.info(s"Kick-starting new pruning operation")
-
-        pipeToSelf(stores.outputStore.getLastConsecutiveBlock) {
-          case Success(Some(block)) =>
-            Pruning.ComputePruningPoint(block)
-          case Success(None) =>
-            logger.warn("No latest block information available to start pruning")
-            Pruning.SchedulePruning
-          case Failure(exception) =>
-            Pruning.FailedDatabaseOperation("Failed to fetch latest block", exception)
+      case Pruning.KickstartPruning(retention, minBlocksToKeep, requestPromise) =>
+        def kickStartPruning(): Unit = {
+          logger.info(s"Kick-starting new pruning operation")
+          pipeToSelf(stores.outputStore.getLastConsecutiveBlock) {
+            case Success(Some(block)) =>
+              Pruning.ComputePruningPoint(block, retention, minBlocksToKeep)
+            case Success(None) =>
+              completePruningOperation("No latest block information available to start pruning")
+              logger.warn("No latest block information available to start pruning")
+              Pruning.SchedulePruning
+            case Failure(exception) =>
+              Pruning.FailedDatabaseOperation("Failed to fetch latest block", exception)
+          }
         }
-      case Pruning.ComputePruningPoint(latestBlock) =>
+        (pruningResultPromise, requestPromise) match {
+          case (None, _) =>
+            pruningResultPromise = requestPromise
+            kickStartPruning()
+          case (Some(_), None) =>
+            // TODO(i26216): better handle case of when scheduled pruning starts when a admin command pruning operation is in-progress
+            kickStartPruning()
+          case (Some(_), Some(promise)) =>
+            // TODO(i26216): better handle case starting an operation when another is taking place
+            promise.complete(
+              Success("Pruning won't continue because an operation is already taking place")
+            )
+        }
+      case Pruning.ComputePruningPoint(latestBlock, retention, minBlocksToKeep) =>
         logger.debug(s"Computing new pruning point from latest block $latestBlock")
 
-        val pruningTimestamp = latestBlock.blockBftTime.minus(config.retentionPeriod.toJava)
-        val minBlockToKeep = BlockNumber(latestBlock.blockNumber - config.minNumberOfBlocksToKeep)
+        val pruningTimestamp = latestBlock.blockBftTime.minus(retention.toJava)
+        val minBlockToKeep = BlockNumber(latestBlock.blockNumber - minBlocksToKeep)
 
         pipeToSelf(
           context.zipFuture(
@@ -86,20 +112,24 @@ final class PruningModule[E <: Env[E]](
               case (Some(_), None) =>
                 // Pruning cannot be performed in this case, otherwise we would end up with
                 // fewer blocks than the minimum number of blocks to keep.
-                logger.debug(
-                  s"Pruning can't be performed because there are not enough blocks to keep the minimum amount of blocks ${config.minNumberOfBlocksToKeep}"
-                )
+                val msg =
+                  s"Pruning can't be performed because there are not enough blocks to keep the minimum amount of blocks $minBlocksToKeep"
+                completePruningOperation(msg)
+                logger.debug(msg)
                 Pruning.SchedulePruning
               case (None, Some(_)) =>
                 // Pruning cannot be performed in this case, otherwise we would end up pruning blocks inside the
                 // retention period allows.
-                logger.debug(
-                  s"Pruning can't be performed because there are no blocks to be pruned outside the retention period of ${config.retentionPeriod}"
-                )
+                val msg =
+                  s"Pruning can't be performed because there are no blocks to be pruned outside the retention period of $retention"
+                completePruningOperation(msg)
+                logger.debug(msg)
                 Pruning.SchedulePruning
               case (None, None) =>
                 // Could happen if there are not enough blocks yet, so there are no blocks before the pruning point.
-                logger.debug(s"No pruning point found from latest block ${latestBlock.blockNumber}")
+                val msg = s"No pruning point found from latest block ${latestBlock.blockNumber}"
+                logger.debug(msg)
+                completePruningOperation(msg)
                 Pruning.SchedulePruning
             }
           case Failure(exception) =>
@@ -113,7 +143,9 @@ final class PruningModule[E <: Env[E]](
         pipeToSelf(stores.outputStore.saveLowerBound(epochNumber)) {
           case Success(Right(())) => Pruning.PerformPruning(epochNumber)
           case Success(Left(error)) =>
-            logger.error(s"Failed to save new pruning lower bound: $error")
+            val msg = s"Failed to save new pruning lower bound: $error"
+            completePruningOperation(msg)
+            logger.error(msg)
             Pruning.SchedulePruning
           case Failure(exception) =>
             Pruning.FailedDatabaseOperation("Failed to persist new pruning lower bound", exception)
@@ -133,21 +165,34 @@ final class PruningModule[E <: Env[E]](
           case Success(
                 (outputStorePrunedRecords, epochStorePrunedRecords, availabilityStorePrunedRecords)
               ) =>
-            logger.info(
-              s"""|Pruning at epoch $epochNumber complete.
-                  |EpochStore: pruned ${epochStorePrunedRecords.epochs} epochs, ${epochStorePrunedRecords.pbftMessagesCompleted} pbft messages.
-                  |OutputStore: pruned ${outputStorePrunedRecords.epochs} and ${outputStorePrunedRecords.blocks} blocks.
-                  |AvailabilityStore: pruned ${availabilityStorePrunedRecords.batches} batches.""".stripMargin
-            )
+            val msg = s"""|Pruning at epoch $epochNumber complete.
+                          |EpochStore: pruned ${epochStorePrunedRecords.epochs} epochs, ${epochStorePrunedRecords.pbftMessagesCompleted} pbft messages.
+                          |OutputStore: pruned ${outputStorePrunedRecords.epochs} epochs and ${outputStorePrunedRecords.blocks} blocks.
+                          |AvailabilityStore: pruned ${availabilityStorePrunedRecords.batches} batches.""".stripMargin
+            logger.info(msg)
+            completePruningOperation(msg)
             Pruning.SchedulePruning
           case Failure(exception) =>
             Pruning.FailedDatabaseOperation("Failed to perform pruning", exception)
         }
       case Pruning.FailedDatabaseOperation(msg, exception) =>
+        completePruningOperation(msg)
         logger.error(msg, exception)
         schedulePruning()
       case Pruning.SchedulePruning =>
         schedulePruning()
+
+      case Pruning.PruningStatusRequest(promise) =>
+        pipeToSelfOpt(stores.outputStore.getLowerBound()) { result =>
+          (result match {
+            case Success(Some(lowerBound)) => promise.complete(Success(lowerBound))
+            case Success(None) =>
+              val lowerBound = OutputMetadataStore.LowerBound(EpochNumber.First, BlockNumber.First)
+              promise.complete(Success(lowerBound))
+            case Failure(exception) => promise.failure(exception)
+          }).discard
+          None
+        }
     }
 
   private def schedulePruning()(implicit
@@ -157,7 +202,10 @@ final class PruningModule[E <: Env[E]](
     logger.info(s"Scheduling pruning in ${config.pruningFrequency}")
     periodicPruningCancellable.foreach(_.cancel())
     periodicPruningCancellable = Some(
-      context.delayedEvent(config.pruningFrequency, Pruning.KickstartPruning)
+      context.delayedEvent(
+        config.pruningFrequency,
+        Pruning.KickstartPruning(config.retentionPeriod, config.minNumberOfBlocksToKeep, None),
+      )
     )
   }
 }

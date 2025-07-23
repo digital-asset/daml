@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   Output,
   P2PNetworkOut,
+  Pruning,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationInitializer
@@ -55,12 +56,13 @@ final case class PingHelper[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 ) extends Module[E, String] {
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   override protected def receiveInternal(
       message: String
   )(implicit context: E#ActorContextT[String], traceContext: TraceContext): Unit = message match {
     case "tick" =>
-      ping.asyncSend("tick-ack")(MetricsContext.Empty)
+      ping.asyncSend("tick-ack")
       context.stop()
       recorder.pingHelperActorStopped = true
     case _ => sys.error(s"Unexpected message: $message")
@@ -183,12 +185,15 @@ object TestSystem {
         system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
         system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
+      val pruningModuleRef =
+        system.newModuleRef[Pruning.Message](ModuleName("pruningModule"))()
       SystemInitializationResult(
         ref,
         ref,
         p2PAdminModuleRef,
         consensusAdminModuleRef,
         outputModuleRef,
+        pruningModuleRef,
         p2pNetworkRefFactory,
       )
     }
@@ -217,12 +222,15 @@ object TestSystem {
         system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
       val outputModuleRef =
         system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
+      val pruningModuleRef =
+        system.newModuleRef[Pruning.Message](ModuleName("pruningModule"))()
       SystemInitializationResult(
         ref,
         ref,
         p2PAdminModuleRef,
         consensusAdminModuleRef,
         outputModuleRef,
+        pruningModuleRef,
         p2pNetworkRefFactory,
       )
     }
@@ -232,11 +240,13 @@ object TestSystem {
       timeout: ProcessingTimeout,
   ): SimulationClient.Initializer[E, Unit, String] =
     new SimulationClient.Initializer[E, Unit, String] {
+      private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
       override def createClient(systemRef: ModuleRef[String]): Module[E, Unit] =
         PingerClient(systemRef, loggerFactory, timeout)
 
       override def init(context: E#ActorContextT[Unit]): Unit =
-        context.delayedEvent(0.seconds, ())(MetricsContext.Empty)
+        context.delayedEventNoTrace(0.seconds, ())
     }
 }
 

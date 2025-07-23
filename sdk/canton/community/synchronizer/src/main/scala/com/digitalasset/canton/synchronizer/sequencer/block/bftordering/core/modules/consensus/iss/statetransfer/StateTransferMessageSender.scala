@@ -105,7 +105,9 @@ final class StateTransferMessageSender[E <: Env[E]](
     }
   }
 
-  def sendBlockToOutput(prePrepare: PrePrepare, lastInEpoch: Boolean): Unit = {
+  def sendBlockToOutput(prePrepare: PrePrepare, lastInEpoch: Boolean)(implicit
+      traceContext: TraceContext
+  ): Unit = {
     val blockMetadata = prePrepare.blockMetadata
 
     consensusDependencies.output.asyncSend(

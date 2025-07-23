@@ -7,6 +7,7 @@ import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
+  BftPruningStatus,
   MediatorStatus,
   NodeStatus,
   ParticipantStatus,
@@ -1252,6 +1253,33 @@ abstract class SequencerReference(
       consoleEnvironment.run {
         runner.adminCommand(SequencerBftAdminCommands.SetPerformanceMetricsEnabled(false))
       }
+
+    object pruning {
+      @Help.Summary(
+        "Prune the BFT Orderer layer based on the retention period and minimum blocks to keep specified"
+      )
+      @Help.Description(
+        """Prunes the BFT Orderer layer based on the retention period and minimum blocks to keep specified
+          | returning a description of how the operation went."""
+      )
+      def prune(retention: PositiveDurationSeconds, minBlocksToKeep: Int): String =
+        consoleEnvironment.run {
+          runner.adminCommand(SequencerBftPruningAdminCommands.Prune(retention, minBlocksToKeep))
+        }
+
+      @Help.Summary("Pruning status of the BFT Orderer")
+      @Help.Description(
+        """Provides a detailed breakdown of information required for pruning:
+          | - TODO(i26216): the current time according to this sequencer instance
+          | - the lower bound inclusive epoch number it current supports serving from
+          | - the lower bound inclusive block number it current supports serving from
+          |"""
+      )
+      def status(): BftPruningStatus =
+        consoleEnvironment.run {
+          runner.adminCommand(SequencerBftPruningAdminCommands.Status())
+        }
+    }
 
     private def toInternal(endpoint: BftBlockOrdererConfig.EndpointId): P2PEndpoint.Id =
       P2PEndpoint.Id(endpoint.address, endpoint.port, endpoint.tls)

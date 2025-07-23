@@ -629,9 +629,7 @@ trait MessageDispatcher { this: NamedLogging =>
   protected def logTimeProof(sc: SequencerCounter, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Unit =
-    logger.debug(
-      show"Processing time-proof at sc=$sc, ts=$ts"
-    )
+    logger.info(show"Processing time-proof at sc=$sc, ts=$ts")
 
   private def withMsgId(msgId: Option[MessageId]): String = msgId match {
     case Some(id) => s", messageId=$id"

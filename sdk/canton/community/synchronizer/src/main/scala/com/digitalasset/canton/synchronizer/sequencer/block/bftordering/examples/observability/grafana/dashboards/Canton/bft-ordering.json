@@ -1492,7 +1492,6 @@
           },
           "decimals": 0,
           "mappings": [],
-          "max": 50,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -1701,7 +1700,6 @@
           },
           "decimals": 0,
           "mappings": [],
-          "max": 50,
           "thresholds": {
             "mode": "absolute",
             "steps": [

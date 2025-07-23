@@ -12,6 +12,7 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing.EventInfo
+import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgradeCallback
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
@@ -42,6 +43,7 @@ class ParticipantTopologyTerminateProcessing(
     participantId: ParticipantId,
     pauseSynchronizerIndexingDuringPartyReplication: Boolean,
     synchronizerPredecessor: Option[SynchronizerPredecessor],
+    lsuCallback: LogicalSynchronizerUpgradeCallback,
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends topology.processing.TerminateProcessing
     with NamedLogging {
@@ -98,6 +100,7 @@ class ParticipantTopologyTerminateProcessing(
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"Setting the successor of $psid to ${upgradeAnnouncement.successor}")
 
+    lsuCallback.upgrade(upgradeAnnouncement.successor)
     recordOrderPublisher.setSuccessor(upgradeAnnouncement.successor)
   }
 

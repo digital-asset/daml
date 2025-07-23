@@ -80,9 +80,10 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           consensusStarted shouldBe false
           verify(availabilitySpy, never).asyncSend(
             any[Availability.Message[ProgrammableUnitTestEnv]]
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
           verify(consensusSpy, never).asyncSend(any[Consensus.Message[ProgrammableUnitTestEnv]])(
-            any[MetricsContext]
+            any[TraceContext],
+            any[MetricsContext],
           )
 
           // One more node authenticates -> weak quorum reached
@@ -417,7 +418,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         consensusStarted shouldBe false
         verify(availabilitySpy, never).asyncSend(
           any[Availability.Message[ProgrammableUnitTestEnv]]
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
       }
     }
 

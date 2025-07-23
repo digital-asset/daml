@@ -43,7 +43,7 @@ final class SegmentClosingBehaviour[E <: Env[E]](
 
   override def ready(self: ModuleRef[ConsensusSegment.Message]): Unit =
     // If we are not waiting for any Future, have a message that will stop the module
-    self.asyncSend(ConsensusSegment.StartModuleClosingBehaviour)
+    self.asyncSendNoTrace(ConsensusSegment.StartModuleClosingBehaviour)
 
   override protected def receiveInternal(
       message: ConsensusSegment.Message

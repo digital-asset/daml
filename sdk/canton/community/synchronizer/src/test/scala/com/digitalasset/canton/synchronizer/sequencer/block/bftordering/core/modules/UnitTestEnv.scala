@@ -108,7 +108,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
   ): Unit =
     unsupported()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent =
@@ -234,7 +234,7 @@ final case class IgnoringUnitTestContext[MessageT]()
     with WithTraceContext[IgnoringUnitTestEnv, MessageT] {
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent =
@@ -249,7 +249,7 @@ final case class IgnoringUnitTestContext[MessageT]()
 }
 
 class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
-  override def asyncSendTraced(
+  override def asyncSend(
       msg: MessageT
   )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = ()
 }
@@ -273,7 +273,7 @@ class FakeTimerCellUnitTestContext[MessageT](
 
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent = {
@@ -322,7 +322,8 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 
   override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
-      metricsContext: MetricsContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent = () => true
 }
 
@@ -393,13 +394,13 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   private var closeActionCell: Option[() => Unit] = None
 
   override def self: ModuleRef[MessageT] = new ModuleRef[MessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       selfQueue.addOne((msg, traceContext))
   }
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent = {

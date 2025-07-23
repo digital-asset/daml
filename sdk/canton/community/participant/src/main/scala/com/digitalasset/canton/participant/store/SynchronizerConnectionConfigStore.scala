@@ -230,7 +230,7 @@ object SynchronizerConnectionConfigStore {
 
   implicit val getResultStatus: GetResult[Status] = GetResult { r =>
     val found = r.nextString()
-    Seq(Active, MigratingTo, Vacating, Inactive)
+    Seq(Active, HardMigratingTarget, HardMigratingSource, Inactive, UpgradingTarget)
       .find(x => found.headOption.contains(x.dbType))
       .getOrElse(
         throw new DbDeserializationException(s"Failed to deserialize connection status: $found")
@@ -244,22 +244,38 @@ object SynchronizerConnectionConfigStore {
     val isActive: Boolean = true
     override protected def pretty: Pretty[Active.type] = prettyOfString(_ => "Active")
   }
-  // migrating into
-  case object MigratingTo extends Status {
-    val dbType: Char = 'M'
-    val canMigrateTo: Boolean = true
-    val canMigrateFrom: Boolean = false
-    val isActive: Boolean = false
-    override protected def pretty: Pretty[MigratingTo.type] = prettyOfString(_ => "MigratingTo")
-  }
-  // migrating off
-  case object Vacating extends Status {
-    val dbType: Char = 'V'
+
+  // Hard migration
+  case object HardMigratingSource extends Status {
+    val dbType: Char = 'S'
     val canMigrateTo: Boolean = false
     val canMigrateFrom: Boolean = true
     val isActive: Boolean = false
-    override protected def pretty: Pretty[Vacating.type] = prettyOfString(_ => "Vacating")
+    override protected def pretty: Pretty[HardMigratingSource.type] =
+      prettyOfString(_ => "HardMigratingSource")
   }
+  case object HardMigratingTarget extends Status {
+    val dbType: Char = 'T'
+    val canMigrateTo: Boolean = true
+    val canMigrateFrom: Boolean = false
+    val isActive: Boolean = false
+    override protected def pretty: Pretty[HardMigratingTarget.type] =
+      prettyOfString(_ => "HardMigratingTarget")
+  }
+
+  // For logical synchronizer upgrade
+  case object UpgradingTarget extends Status {
+    val dbType: Char = 'U'
+    val canMigrateTo: Boolean = true
+    val canMigrateFrom: Boolean = false
+
+    // inactive so that we connect yet connect to the synchronizer
+    val isActive: Boolean = false
+
+    override protected def pretty: Pretty[UpgradingTarget.type] =
+      prettyOfString(_ => "UpgradingTarget")
+  }
+
   case object Inactive extends Status {
     val dbType: Char = 'I'
     val canMigrateTo: Boolean =

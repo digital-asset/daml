@@ -4,12 +4,9 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.DefaultHowLongToBlackList
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Blacklisting
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowManyCanWeBlacklist.NoBlacklisting
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
-  BlacklistLeaderSelectionPolicyConfig,
-  DefaultHowLongToBlackList,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -39,7 +36,7 @@ class BlacklistLeaderSelectionPolicyStateTest extends AnyWordSpec with BaseTest 
 
   private val blockToLeaderAllWithoutN0 = blockToLeaderAll.removed(BlockNumber(0L))
 
-  private val config = BftBlockOrdererConfig().blacklistLeaderSelectionPolicyConfig
+  private val config = Blacklisting()
 
   private def initState(
       blacklist: (BftNodeId, BlacklistStatus.BlacklistStatusMark)*
@@ -158,7 +155,7 @@ class BlacklistLeaderSelectionPolicyStateTest extends AnyWordSpec with BaseTest 
       initState(n1 -> BlacklistStatus.Blacklisted(2, 1), n2 -> BlacklistStatus.Blacklisted(1, 1))
         .selectLeaders(
           orderingTopology,
-          BlacklistLeaderSelectionPolicyConfig(
+          Blacklisting(
             howLongToBlackList = DefaultHowLongToBlackList,
             howManyCanWeBlacklist = NoBlacklisting,
           ),

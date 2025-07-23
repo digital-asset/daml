@@ -20,12 +20,10 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
-import com.google.protobuf.ByteString
 
 import java.time.Instant
 
@@ -57,11 +55,6 @@ final class ExportContractsIntegrationTest
     new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory)
   )
 
-  def tryLoadFrom(acsSnapshot: File): List[RepairContract] =
-    RepairContract
-      .loadAcsSnapshot(ByteString.copyFrom(acsSnapshot.byteArray))
-      .fold(errorMessage => throw new RuntimeException(errorMessage), identity)
-
   "Exporting an ACS" should {
 
     "return an empty ACS if the party is privy to no contract" in { implicit env =>
@@ -88,7 +81,7 @@ final class ExportContractsIntegrationTest
             ledgerOffset = uninformedOffset,
           )
 
-          tryLoadFrom(file) should be(empty)
+          repair.acs.read_from_file(file.canonicalPath) shouldBe empty
         }
       }
     }
@@ -159,11 +152,13 @@ final class ExportContractsIntegrationTest
                 ledgerOffset = NonNegativeLong.tryCreate(ledgerEndP2),
               )
 
-            val forAlice = tryLoadFrom(dumpForAlice)
-            val forBob = tryLoadFrom(dumpForBob)
+            val forAlice = repair.acs
+              .read_from_file(dumpForAlice.canonicalPath)
+              .map(_.getCreatedEvent.contractId)
+            val forBob =
+              repair.acs.read_from_file(dumpForBob.canonicalPath).map(_.getCreatedEvent.contractId)
 
             forAlice should have length 2
-
             forAlice should contain theSameElementsAs forBob
           }
       }
@@ -223,8 +218,8 @@ final class ExportContractsIntegrationTest
                 topologyTransactionEffectiveTime = onboardingTx.validFrom,
                 exportFilePath = file.toString,
               )
-              val acs = tryLoadFrom(file)
 
+              val acs = repair.acs.read_from_file(file.canonicalPath)
               acs should have length 1
             }
         }

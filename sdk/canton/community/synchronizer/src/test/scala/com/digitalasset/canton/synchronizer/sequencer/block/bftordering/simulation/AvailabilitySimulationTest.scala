@@ -408,6 +408,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       p2pNetworkOutRef,
       consensusRef,
       outputRef,
+      pruningRef,
       p2pNetworkRefFactory,
     )
   }

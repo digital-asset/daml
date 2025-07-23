@@ -10,8 +10,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.data.ActiveContractOld
-import com.digitalasset.canton.protocol.SerializableContract
+import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
@@ -326,22 +325,23 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
   @Help.Group("Active Contract Store")
   object acs extends Helpful {
 
-    @Help.Summary("Load contracts from a file. (DEPRECATED)")
+    @Help.Summary("Read contracts from a file")
     @Help.Description(
-      """Expects a file name. Returns a streaming iterator of serializable contracts.
-        |
-        |DEPRECATION NOTICE: A future release removes this command.
-        |"""
+      "Expects a file name. Returns a streaming iterator of serializable contracts."
     )
-    def import_acs_from_file_old(
+    def read_from_file(
         source: String
-    ): Iterator[
-      (SynchronizerId, SerializableContract)
-    ] = // TODO(#24728) - Remove, use import_acs and then the LAPI
-      ActiveContractOld.fromFile(File(source)).map {
-        case ActiveContractOld(synchronizerId, contract, _) =>
-          synchronizerId -> contract
-      }
+    )(implicit
+        consoleEnvironment: ConsoleEnvironment
+    ): Seq[com.daml.ledger.api.v2.state_service.ActiveContract] =
+      ActiveContract
+        .fromFile(File(source))
+        .map(_.map(_.contract))
+        .valueOr(err =>
+          consoleEnvironment.raiseError(s"Unable to read contracts from $source: $err")
+        )
+        .toSeq
+
   }
 
   @Help.Summary(
