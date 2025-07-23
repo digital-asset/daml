@@ -333,10 +333,11 @@ The ledger records two more aspects of an interaction:
 * The parties who requested a particular party interaction.
 
 Due to the :ref:`privacy model <da-model-privacy>`, not everyone sees all parts of a party interaction.
-A unique identifier for a party interaction allows different parties to correlate the interactions they see.
+A unique identifier for a party interaction allows different parties to correlate whether they see parts of the same interactions.
 The notion of an **update** adds such an identifier.
 It consists of a single transaction and the so-called **update ID**, a string.
 Examples in the Ledger Model use update IDs of the form ``TX i`` for some number ``i``, similar to the transaction view in Daml Studio.
+On the Ledger API, update IDs are arbitrary strings whose lexicographic order is independent from their order on the ledger.
 
 A **commit** adds the information *who requested a party interaction*.
 It consists of an update and the one or more parties that requested it.
