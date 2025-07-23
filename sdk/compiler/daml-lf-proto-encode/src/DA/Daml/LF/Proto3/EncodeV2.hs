@@ -496,7 +496,15 @@ encodeBuiltinExpr = \case
       pureLit = pure . lit
 
 encodeExpr' :: Expr -> Encode P.Expr
-encodeExpr' e = internExpr $ case e of
+encodeExpr' e = case e of
+  -- we must process locations first, since they are not interned separatately
+  -- (because in proto, locations are no longer explicit ast nodes, but rather
+  -- optional attributes of Expr constructors)
+  ELocation loc e -> do
+      P.Expr{..} <- encodeExpr' e
+      exprLocation <- Just <$> encodeSourceLoc loc
+      pure P.Expr{..}
+  _ -> internExpr $ case e of
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valueIdModule <- encodeModuleId pkgRef modName
@@ -581,10 +589,6 @@ encodeExpr' e = internExpr $ case e of
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
-    ELocation loc e -> do
-        P.Expr{..} <- encodeExpr' e
-        exprLocation <- Just <$> encodeSourceLoc loc
-        pure P.Expr{..}
     ENone typ -> do
         expr_OptionalNoneType <- encodeType typ
         pureExpr $ P.ExprSumOptionalNone P.Expr_OptionalNone{..}
@@ -694,7 +698,8 @@ internExpr f = do
   EncodeEnv{version} <- get
   if isDevVersion version
     then case e of
-      -- TODO: do something with location?
+      (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
+          error "not allowed to add interned to interning table"
       (P.Expr l (Just e')) -> do
           n <- zoom internedExprsMapLens $ IM.internState e'
           return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
