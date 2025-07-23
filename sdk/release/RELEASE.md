@@ -165,7 +165,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Run `daml new myproject` to create a new project and switch to it using
    `cd myproject`.
 
-1. Run `daml start`. Wait for the yellow message.
+1. Run `daml start`. Wait for the yellow message confirming the sandbox is ready for use.
 
 1. Kill `daml start` with `Ctrl-C` (followed by "y" because Windows).
 
@@ -203,7 +203,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-1. Run `daml start`, and wait for the yellow line.
+1. Run `daml start`, and wait for the yellow message confirming the sandbox is ready for use.
 
 1. Kill `daml start` using `Ctrl-C`.
 
@@ -294,14 +294,14 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. Close VS Code.
 
-> Note: when running `daml studio --replace=always`, you force the installation
-> of the VSCode extension bundled with the Daml SDK, and _disable the
-> auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
-> published version of the extension, including auto-upgrades, you can run
->
-> ```
-> daml studio --replace=published
-> ```
+   > Note: when running `daml studio --replace=always`, you force the installation
+   > of the VSCode extension bundled with the Daml SDK, and _disable the
+   > auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
+   > published version of the extension, including auto-upgrades, you can run
+   >
+   > ```
+   > daml studio --replace=published
+   > ```
 
 1. On the [assembly] PR, add the comment:
 
