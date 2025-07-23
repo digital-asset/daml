@@ -21,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
-  BftNodeId,
   BlockNumber,
   EpochNumber,
   FutureId,
@@ -34,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Availability,
@@ -290,10 +288,14 @@ class IssSegmentModule[E <: Env[E]](
           )
         }
         if (toRetransmit.commitCerts.nonEmpty) {
-          signRetransmissionNetworkMessageAndSend(
-            Consensus.RetransmissionsMessage.RetransmissionResponse
-              .create(epoch.currentMembership.myId, toRetransmit.commitCerts),
-            to = from,
+          p2pNetworkOut.asyncSend(
+            P2PNetworkOut.send(
+              P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
+                Consensus.RetransmissionsMessage
+                  .RetransmissionResponse(epoch.currentMembership.myId, toRetransmit.commitCerts)
+              ),
+              to = from,
+            )
           )
         }
 
@@ -612,37 +614,6 @@ class IssSegmentModule[E <: Env[E]](
         None
       case Success(Right(signedMessage)) =>
         Some(PbftSignedNetworkMessage(signedMessage))
-    }
-
-  private def signRetransmissionNetworkMessageAndSend(
-      message: RetransmissionsNetworkMessage,
-      to: BftNodeId,
-  )(implicit
-      context: E#ActorContextT[ConsensusSegment.Message],
-      traceContext: TraceContext,
-  ): Unit =
-    pipeToSelfWithFutureTracking(
-      cryptoProvider.signMessage(
-        message,
-        AuthenticatedMessageType.BftSignedRetransmissionMessage,
-      )
-    ) {
-      case Failure(exception) =>
-        logAsyncException(exception)
-        None
-      case Success(Left(errors)) =>
-        logger.error(s"Can't sign retransmission message ${shortType(message)}: $errors")
-        None
-      case Success(Right(signedMessage)) =>
-        p2pNetworkOut.asyncSend(
-          P2PNetworkOut.send(
-            P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
-              signedMessage
-            ),
-            to,
-          )
-        )
-        None
     }
 
   private def initiatePull(

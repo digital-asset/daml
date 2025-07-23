@@ -16,13 +16,13 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionConfir
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.protocol.{
-  ContractInstance,
   ContractMetadata,
   ExampleContractFactory,
-  LfFatContractInst,
+  GenContractInstance,
   SerializableContract,
 }
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -50,13 +50,13 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
           contract.contractId,
           fail(s"authenticateSerializable did not find ${contract.contractId}"),
         )
-      override def authenticateFat(contract: LfFatContractInst): Either[String, Unit] =
+      override def authenticateFat(contract: FatContractInstance): Either[String, Unit] =
         behaviors.getOrElse(
           contract.contractId,
           fail(s"authenticateSerializable did not find ${contract.contractId}"),
         )
       override def verifyMetadata(
-          contract: ContractInstance,
+          contract: GenContractInstance,
           metadata: ContractMetadata,
       ): Either[String, Unit] = Either.unit
     },

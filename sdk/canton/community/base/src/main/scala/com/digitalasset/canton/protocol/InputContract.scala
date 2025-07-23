@@ -15,7 +15,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
   * @see
   *   com.digitalasset.canton.data.ViewParticipantData.coreInputs
   */
-final case class InputContract(contract: ContractInstance, consumed: Boolean)
+final case class InputContract(contract: GenContractInstance, consumed: Boolean)
     extends PrettyPrinting {
 
   def contractId: LfContractId = contract.contractId

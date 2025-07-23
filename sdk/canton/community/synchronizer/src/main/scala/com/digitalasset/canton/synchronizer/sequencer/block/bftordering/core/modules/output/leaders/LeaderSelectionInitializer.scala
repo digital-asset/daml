@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -46,19 +48,22 @@ object LeaderSelectionInitializer {
       store: OutputMetadataStore[E],
       timeouts: ProcessingTimeout,
       failBootstrap: String => TraceContext => Nothing,
+      metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
-  ): LeaderSelectionInitializer[E] = config.leaderSelectionPolicy match {
-    case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Simple =>
-      new SimpleLeaderSelectionPolicyInitializer[E](protocolVersion)
-    case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Blacklisting =>
-      new BlacklistLeaderSelectionInitializer(
-        thisNode,
-        config,
-        protocolVersion,
-        store,
-        timeouts,
-        failBootstrap,
-        loggerFactory,
-      )
-  }
+  )(implicit metricsContext: MetricsContext): LeaderSelectionInitializer[E] =
+    config.leaderSelectionPolicy match {
+      case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Simple =>
+        new SimpleLeaderSelectionPolicyInitializer[E](protocolVersion)
+      case BftBlockOrdererConfig.LeaderSelectionPolicyConfig.Blacklisting =>
+        new BlacklistLeaderSelectionInitializer(
+          thisNode,
+          config,
+          protocolVersion,
+          store,
+          timeouts,
+          failBootstrap,
+          metrics,
+          loggerFactory,
+        )
+    }
 }

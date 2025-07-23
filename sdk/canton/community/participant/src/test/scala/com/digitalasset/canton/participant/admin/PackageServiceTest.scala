@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTime
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.error.PackageServiceErrors
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.participant.admin.PackageService.DarMainPackageId
 import com.digitalasset.canton.participant.admin.PackageServiceTest.{
   AdminWorkflowsPath,
@@ -65,7 +66,7 @@ object PackageServiceTest {
   def readCantonExamplesBytes(): Array[Byte] =
     Files.readAllBytes(Paths.get(BaseTest.CantonExamplesPath))
 
-  private val AdminWorkflowsPath = getResourcePath("AdminWorkflows.dar")
+  private[admin] val AdminWorkflowsPath = getResourcePath("AdminWorkflows.dar")
   def loadAdminWorkflowsDar(): archive.Dar[Archive] =
     loadDar(AdminWorkflowsPath)
 
@@ -83,18 +84,19 @@ object PackageServiceTest {
 
 }
 
-class PackageServiceTest
+abstract class BasePackageServiceTest(enableStrictDarValidation: Boolean)
     extends AsyncWordSpec
     with BaseTest
     with HasActorSystem
     with HasExecutionContext {
+
   private val examplePackages: List[Archive] = readCantonExamples()
   private val adminWorkflowPackages: List[Archive] = readAdminWorkflows()
   private val bytes = PackageServiceTest.readCantonExamplesBytes()
   private val description = String255.tryCreate("CantonExamples")
   private val participantId = DefaultTestIdentities.participant1
 
-  private class Env(now: CantonTimestamp) {
+  protected class Env(now: CantonTimestamp) {
     val packageStore = new InMemoryDamlPackageStore(loggerFactory)
     private val processingTimeouts = ProcessingTimeout()
     val packageDependencyResolver =
@@ -113,6 +115,7 @@ class PackageServiceTest
         engine = engine,
         packageDependencyResolver = packageDependencyResolver,
         enableUpgradeValidation = true,
+        enableStrictDarValidation = enableStrictDarValidation,
         futureSupervisor = FutureSupervisor.Noop,
         loggerFactory = loggerFactory,
         metrics = ParticipantTestMetrics,
@@ -126,7 +129,7 @@ class PackageServiceTest
 
   private val uploadTime = CantonTimestamp.now()
 
-  private def withEnv[T](test: Env => Future[T]): Future[T] = {
+  protected def withEnv[T](test: Env => Future[T]): Future[T] = {
     val env = new Env(uploadTime)
     test(env)
   }
@@ -138,6 +141,31 @@ class PackageServiceTest
 
   private lazy val expectedPackageIds: Set[LfPackageId] =
     examplePackages.map(DamlPackageStore.readPackageId).toSet
+
+  protected lazy val mainPkg: Archive = createLfArchive { implicit parserParameters =>
+    p"""
+      metadata ( 'main-package' : '1.0.0' )
+      module Mod {
+        val string: Text = "main-package";
+     }"""
+  }
+
+  protected lazy val extraPkg: Archive = createLfArchive { implicit parserParameters =>
+    p"""
+      metadata ( 'extra-package' : '1.0.0' )
+      module Mod {
+        val string: Text = "extra-package";
+     }"""
+  }
+
+  protected lazy val missingPkg: Archive = createLfArchive { implicit parserParameters =>
+    p"""
+        metadata ( 'missing-package' : '1.0.0' )
+        module Mod {
+          val string: Text = '-missing-':Mod:Text;
+        }
+      """
+  }
 
   "PackageService" should {
 
@@ -497,13 +525,135 @@ class PackageServiceTest
     Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
   }
 
-  private def encodeDarArchive(archive: Archive): ByteString =
+  protected def encodeDarArchive(archive: Archive, dependencies: (String, Archive)*): ByteString =
+    encodeDarArchive("archive.dalf" -> archive, dependencies*)
+
+  protected def encodeDarArchive(
+      main: (String, Archive),
+      dependencies: (String, Archive)*
+  ): ByteString = {
+    val (name, archive) = main
+
     Using(ByteString.newOutput()) { os =>
       DarWriter.encode(
         BuildInfo.damlLibrariesVersion,
-        LfDar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), List()),
+        LfDar(
+          (name, Bytes.fromByteString(archive.toByteString)),
+          dependencies.map { case (nm, arc) => (nm, Bytes.fromByteString(arc.toByteString)) }.toList,
+        ),
         os,
       )
       os.toByteString
     }.success.value
+  }
+}
+
+class PackageServiceTestWithoutStrictDarValidation extends BasePackageServiceTest(false) {
+
+  "strict Dar validation disabled" should {
+    "fail uploads with missing package dependencies" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> missingPkg)
+
+      for {
+        error <- leftOrFail(
+          sut.upload(
+            darBytes = payload,
+            description = Some("missing-package.dar"),
+            submissionIdO = None,
+            vetAllPackages = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
+          )
+        )("uploading dar with missing packages").failOnShutdown
+      } yield {
+        inside(error) { case _: PackageServiceErrors.Validation.DarSelfConsistency.Error =>
+          succeed
+        }
+      }
+    }
+
+    "allow uploads with extra package dependencies" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> mainPkg, "extra.dalf" -> extraPkg)
+
+      loggerFactory.assertLogs(
+        SuppressionRule.LoggerNameContains("PackageServiceTestWithoutStrictDarValidation") &&
+          SuppressionRule.Level(org.slf4j.event.Level.WARN)
+      )(
+        (for {
+          _ <- sut
+            .upload(
+              darBytes = payload,
+              description = Some("extra-package.dar"),
+              submissionIdO = None,
+              vetAllPackages = false,
+              synchronizeVetting = PackageVettingSynchronization.NoSync,
+              expectedMainPackageId = None,
+            )
+            .valueOrFail("uploading dar with extra package")
+        } yield {
+          succeed
+        }).unwrap.map(_.failOnShutdown),
+        err => {
+          err.message should include(
+            "the set of package dependencies {''} is not self consistent, the extra dependencies are"
+          )
+        },
+      )
+    }
+  }
+}
+
+class PackageServiceTestWithStrictDarValidation extends BasePackageServiceTest(true) {
+
+  "strict Dar validation enabled" should {
+    "fail uploads with missing package dependencies" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> missingPkg)
+
+      for {
+        error <- leftOrFail(
+          sut.upload(
+            darBytes = payload,
+            description = Some("missing-package.dar"),
+            submissionIdO = None,
+            vetAllPackages = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
+          )
+        )("uploading dar with missing packages").failOnShutdown
+      } yield {
+        inside(error) { case _: PackageServiceErrors.Validation.DarSelfConsistency.Error =>
+          succeed
+        }
+      }
+    }
+
+    "fail uploads with extra package dependencies" in withEnv { env =>
+      import env.*
+
+      val payload = encodeDarArchive("main.dalf" -> mainPkg, "extra.dalf" -> extraPkg)
+
+      for {
+        error <- leftOrFail(
+          sut.upload(
+            darBytes = payload,
+            description = Some("extra-package.dar"),
+            submissionIdO = None,
+            vetAllPackages = false,
+            synchronizeVetting = PackageVettingSynchronization.NoSync,
+            expectedMainPackageId = None,
+          )
+        )("uploading dar with extra package").failOnShutdown
+      } yield {
+        inside(error) { case _: PackageServiceErrors.Validation.DarSelfConsistency.Error =>
+          succeed
+        }
+      }
+    }
+  }
 }

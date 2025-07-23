@@ -41,6 +41,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Prepare,
   ViewChange,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   FutureContext,
@@ -178,28 +179,26 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
     )
 
   def verifyRetransmissionMessage(
-      message: SignedMessage[RetransmissionsNetworkMessage],
+      message: RetransmissionsNetworkMessage,
       topologyInfo: OrderingTopologyInfo[E],
   )(implicit
       context: FutureContext[E],
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): VerificationResult = {
-    def validateMessage(message: RetransmissionsNetworkMessage): VerificationResult =
-      message match {
-        case _: RetransmissionRequest => context.pureFuture(Either.unit[Seq[SignatureCheckError]])
-        case RetransmissionResponse(_, consensusCerts) =>
-          collectFuturesAndFlatten(
-            consensusCerts.map(verifyConsensusCertificate(_, topologyInfo))
-          )
-      }
-    validateSignedMessage[RetransmissionsNetworkMessage](
-      validateMessage,
-      topologyInfo.currentCryptoProvider,
-      topologyInfo.currentMembership,
-      AuthenticatedMessageType.BftSignedRetransmissionMessage,
-    )(message)
-  }
+  ): VerificationResult =
+    message match {
+      case request: RetransmissionRequest =>
+        validateSignedMessage[EpochStatus](
+          _ => context.pureFuture(Either.unit[Seq[SignatureCheckError]]),
+          topologyInfo.currentCryptoProvider,
+          topologyInfo.currentMembership,
+          AuthenticatedMessageType.BftSignedRetransmissionMessage,
+        )(request.signedEpochStatus)
+      case RetransmissionResponse(_, consensusCerts) =>
+        collectFuturesAndFlatten(
+          consensusCerts.map(verifyConsensusCertificate(_, topologyInfo))
+        )
+    }
 
   def verifyConsensusCertificate(
       certificate: ConsensusCertificate,

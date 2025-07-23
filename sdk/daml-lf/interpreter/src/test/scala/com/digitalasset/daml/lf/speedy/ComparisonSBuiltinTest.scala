@@ -678,17 +678,11 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 Ast.EAbs(
                   cidBinder3,
                   Ast.EApp(Ast.EApp(Ast.ETyApp(Ast.EBuiltinFun(bi), t), x), y),
-                  None,
                 ),
-                None,
               ),
-              None,
             ),
-            None,
           ),
-          None,
         ),
-        None,
       )
     )
     val machine =

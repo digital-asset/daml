@@ -101,11 +101,7 @@ object Ast {
   final case class ETyApp(expr: Expr, typ: Type) extends Expr
 
   /** Expression abstraction. */
-  final case class EAbs(
-      binder: (ExprVarName, Type),
-      body: Expr,
-      ref: Option[DefinitionRef], // The definition in which this abstraction is defined.
-  ) extends Expr
+  final case class EAbs(binder: (ExprVarName, Type), body: Expr) extends Expr
 
   /** Type abstraction. */
   final case class ETyAbs(binder: (TypeVarName, Kind), body: Expr) extends Expr

@@ -143,6 +143,7 @@ object DAMLeTest {
       packageMetadataView = NoopPackageMetadataView,
       packageDependencyResolver = packageDependencyResolver,
       enableUpgradeValidation = false,
+      enableStrictDarValidation = false,
       exitOnFatalFailures = true,
       futureSupervisor = FutureSupervisor.Noop,
       timeouts = timeouts,

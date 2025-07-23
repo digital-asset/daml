@@ -82,7 +82,7 @@ class MempoolModule[E <: Env[E]](
                 // every time we receive a new transaction we only try to create new batches if we've reached
                 // the configured minimum batch size. alternatively batches are also attempted creation on the configured
                 // interval or when explicitly requested by availability
-                createAndSendBatches(messageType)
+                createAndSendBatches()
               }
               emitStateStats(metrics, mempoolState)
               metrics.ingress.labels.outcome.values.Success
@@ -102,14 +102,14 @@ class MempoolModule[E <: Env[E]](
         // and we just care about what it is asking this time around.
         mempoolState.toBeProvidedToAvailability = atMost.toInt
 
-        createAndSendBatches(messageType)
+        createAndSendBatches()
         emitStateStats(metrics, mempoolState)
 
       case Mempool.MempoolBatchCreationClockTick =>
         logger.trace(
           s"Mempool received batch creation clock tick (maxRequestsInBatch: ${config.maxRequestsInBatch})"
         )
-        createAndSendBatches(messageType)
+        createAndSendBatches()
         scheduleMempoolBatchCreationClockTick()
     }
   }
@@ -124,27 +124,20 @@ class MempoolModule[E <: Env[E]](
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.While"))
-  private def createAndSendBatches(
-      messageType: String
-  )(implicit context: E#ActorContextT[Mempool.Message]): Unit =
+  private def createAndSendBatches()(implicit context: E#ActorContextT[Mempool.Message]): Unit =
     while (
       mempoolState.receivedOrderRequests.nonEmpty && mempoolState.toBeProvidedToAvailability > 0
     ) {
       mempoolState.toBeProvidedToAvailability -= 1
-      createAndSendBatch(messageType)
+      createAndSendBatch()
       emitStateStats(metrics, mempoolState)
     }
 
-  private def createAndSendBatch(
-      messageType: String
-  )(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
+  private def createAndSendBatch()(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
     val requests = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch).map(_.tx)
     val batchCreationInstant = Instant.now
-    context.withNewTraceContext { implicit traceContext =>
-      logger.debug(
-        s"$messageType: mempool sending batch to local availability with the following tids ${requests
-            .flatMap(_.traceContext.traceId)}"
-      )
+    locally {
+      implicit val traceContext = context.traceContextOfBatch(requests)
       emitRequestsQueuedForBatchInclusionLatencies(requests, batchCreationInstant)
       availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))
     }

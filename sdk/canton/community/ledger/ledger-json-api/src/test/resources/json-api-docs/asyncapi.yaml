@@ -861,7 +861,7 @@ components:
         contractKey:
           description: |-
             The key of the created contract.
-            This will be set if and only if ``create_arguments`` is set and ``template_id`` defines a contract key.
+            This will be set if and only if ``template_id`` defines a contract key.
             Optional
         createArgument: {}
         createdEventBlob:
@@ -888,8 +888,10 @@ components:
           description: |-
             The parties that are notified of this event. When a ``CreatedEvent``
             is returned as part of a transaction tree or ledger-effects transaction, this will include all
-            the parties specified in the ``TransactionFilter`` that are informees
-            of the event. If served as part of a ACS delta transaction those will
+            the parties specified in the ``TransactionFilter`` that are witnesses  of the event
+            (the stakeholders of the contract and all informees of all the ancestors
+            of this create action that this participant knows about).
+            If served as part of a ACS delta transaction those will
             be limited to all parties specified in the ``TransactionFilter`` that
             are stakeholders of the contract (i.e. either signatories or observers).
             If the ``CreatedEvent`` is returned as part of an AssignedEvent,
@@ -1764,7 +1766,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the archived contract.
+            Identifies the template that defines the choice that archived the contract.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required
@@ -1839,7 +1844,10 @@ components:
           type: string
         templateId:
           description: |-
-            The template of the target contract.
+            Identifies the template that defines the executed choice.
+            This template's package-id may differ from the target contract's package-id
+            if the target contract has been upgraded or downgraded.
+
             The identifier uses the package-id reference format.
 
             Required
@@ -1878,11 +1886,16 @@ components:
           description: |-
             The parties that are notified of this event. The witnesses of an exercise
             node will depend on whether the exercise was consuming or not.
-            If consuming, the witnesses are the union of the stakeholders and
-            the actors.
-            If not consuming, the witnesses are the union of the signatories and
-            the actors. Note that the actors might not necessarily be observers
-            and thus signatories. This is the case when the controllers of a
+            If consuming, the witnesses are the union of the stakeholders,
+            the actors and all informees of all the ancestors of this event this
+            participant knows about.
+            If not consuming, the witnesses are the union of the signatories,
+            the actors and all informees of all the ancestors of this event this
+            participant knows about.
+            In both cases the witnesses are limited to the querying parties, or not
+            limited in case anyParty filters are used.
+            Note that the actors might not necessarily be observers
+            and thus stakeholders. This is the case when the controllers of a
             choice are specified using "flexible controllers", using the
             ``choice ... controller`` syntax, and said controllers are not
             explicitly marked as observers.

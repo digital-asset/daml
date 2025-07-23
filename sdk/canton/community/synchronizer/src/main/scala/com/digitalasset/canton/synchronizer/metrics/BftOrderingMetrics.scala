@@ -938,6 +938,50 @@ class BftOrderingMetrics private[metrics] (
   val topology = new TopologyMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
+  final class BlacklistLeaderSelectionPolicyMetrics private[BftOrderingMetrics] {
+    object labels {
+      val blacklistNode: String = "blacklist-sequencer"
+    }
+
+    private val blacklistGauges = mutable.Map[BftNodeId, Gauge[Long]]()
+
+    def blacklist(node: BftNodeId): Gauge[Long] = {
+      val mc1 = mc.withExtraLabels(labels.blacklistNode -> node)
+      blocking {
+        synchronized {
+          locally {
+            implicit val mc: MetricsContext = mc1
+            blacklistGauges.getOrElseUpdate(
+              node,
+              openTelemetryMetricsFactory.gauge(
+                MetricInfo(
+                  prefix :+ "blacklist-sequencer",
+                  "Amount of epochs the node is blacklisted for",
+                  MetricQualification.Traffic,
+                  "The amount of epochs an BFT sequencer is blacklisted from being a leader",
+                ),
+                0,
+              ),
+            )
+          }
+        }
+      }
+    }
+
+    def cleanupBlacklistGauges(keepOnly: Set[BftNodeId]): Unit =
+      blocking {
+        synchronized {
+          blacklistGauges.view.filterKeys(!keepOnly.contains(_)).foreach { case (id, gauge) =>
+            gauge.close()
+            blacklistGauges.remove(id).discard
+          }
+        }
+      }
+
+  }
+  val blacklistLeaderSelectionPolicyMetrics = new BlacklistLeaderSelectionPolicyMetrics
+
+  // Private constructor to avoid being instantiated multiple times by accident
   final class P2PMetrics private[BftOrderingMetrics] {
     private val p2pPrefix = histograms.p2p.p2pPrefix
 

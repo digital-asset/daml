@@ -920,8 +920,8 @@ class IssConsensusModuleTest
             ),
           ),
           RetransmissionsMessage.VerifiedNetworkMessage(
-            RetransmissionsMessage.RetransmissionRequest.create(
-              EpochStatus(allIds(1), EpochNumber.First, Seq.empty)
+            RetransmissionsMessage.RetransmissionRequest(
+              EpochStatus.create(allIds(1), EpochNumber.First, Seq.empty).fakeSign
             )
           ),
         ).forEvery { message =>

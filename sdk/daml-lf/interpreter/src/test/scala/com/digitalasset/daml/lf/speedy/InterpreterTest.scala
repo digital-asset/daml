@@ -74,23 +74,18 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                           EAbs(
                             ("accInner", int64List),
                             ECons(int64, ImmArray(EVar("x")), EVar("accInner")),
-                            None,
                           ),
-                          None,
                         ),
                       ),
                       EVar("acc"),
                     ),
                     EVar("xs"),
                   ),
-                  None,
                 ),
-                None,
               ),
             ),
             EApp(EApp(EApp(EBuiltinFun(BFoldl), EVar("work")), ENil(int64)), EVar("xss")),
           ),
-          None,
         )
       val xss1 = ECons(
         int64List,

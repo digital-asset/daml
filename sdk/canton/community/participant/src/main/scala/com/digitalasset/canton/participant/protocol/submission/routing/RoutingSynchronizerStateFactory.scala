@@ -50,7 +50,7 @@ object RoutingSynchronizerStateFactory {
 }
 
 class RoutingSynchronizerStateImpl private[routing] (
-    connectedSynchronizers: Map[PhysicalSynchronizerId, ConnectedSynchronizer],
+    val connectedSynchronizers: Map[PhysicalSynchronizerId, ConnectedSynchronizer],
     val topologySnapshots: Map[PhysicalSynchronizerId, TopologySnapshotLoader],
     syncCryptoPureApiLookup: SyncCryptoPureApiLookup,
 ) extends RoutingSynchronizerState {

@@ -8,6 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{
   ApiLoggingConfig,
   BatchingConfig,
+  CachingConfigs,
   DefaultProcessingTimeouts,
   ProcessingTimeout,
 }
@@ -137,6 +138,7 @@ class BlockSequencerTest
       defaultStaticSynchronizerParameters,
       topologyTransactionFactory.syncCryptoClient.crypto,
       BatchingConfig().parallelism,
+      CachingConfigs.defaultPublicKeyConversionCache,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,

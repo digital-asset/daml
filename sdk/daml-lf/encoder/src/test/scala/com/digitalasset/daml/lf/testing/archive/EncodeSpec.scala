@@ -292,8 +292,8 @@ object EncodeSpec {
     val replacePkId: PartialFunction[PackageId, PackageId] = { case `hashCode` =>
       selfPackageId
     }
-    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body, Some(_)) =>
-      EAbs(normalizer.apply(binder), normalizer.apply(body), None)
+    lazy val dropEAbsRef: PartialFunction[Expr, Expr] = { case EAbs(binder, body) =>
+      EAbs(normalizer.apply(binder), normalizer.apply(body))
     }
     lazy val normalizer = new AstRewriter(exprRule = dropEAbsRef, packageIdRule = replacePkId)
 

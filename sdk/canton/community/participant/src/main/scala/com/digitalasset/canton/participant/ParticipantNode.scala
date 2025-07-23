@@ -199,12 +199,12 @@ class ParticipantNodeBootstrap(
 
     def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.acsInspection).toMap)
+        .map(_.syncPersistentStateManager.getAllLogical.view.mapValues(_.acsInspection).toMap)
         .getOrElse(Map.empty)
 
     def reassignmentStore(): Map[SynchronizerId, ReassignmentStore] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.reassignmentStore).toMap)
+        .map(_.syncPersistentStateManager.getAllLogical.view.mapValues(_.reassignmentStore).toMap)
         .getOrElse(Map.empty)
 
     def ledgerEnd(): FutureUnlessShutdown[Option[ParameterStorageBackend.LedgerEnd]] =
@@ -383,6 +383,7 @@ class ParticipantNodeBootstrap(
           crypto,
           cryptoConfig,
           parameters.batchingConfig.parallelism,
+          parameters.cachingConfigs.publicKeyConversionCache,
           timeouts,
           futureSupervisor,
           loggerFactory,
@@ -560,6 +561,7 @@ class ParticipantNodeBootstrap(
               engine = engine,
               packageDependencyResolver = packageDependencyResolver,
               enableUpgradeValidation = !parameters.disableUpgradeValidation,
+              enableStrictDarValidation = parameters.enableStrictDarValidation,
               futureSupervisor = futureSupervisor,
               loggerFactory = loggerFactory,
               metrics = arguments.metrics,

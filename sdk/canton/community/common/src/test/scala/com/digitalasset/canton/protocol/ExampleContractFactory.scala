@@ -39,11 +39,11 @@ object ExampleContractFactory extends EitherValues {
   val templateId: LfTemplateId = LfTransactionBuilder.defaultTemplateId
   val packageName: PackageName = LfTransactionBuilder.defaultPackageName
 
-  def build(
+  def build[Time <: CreationTime](
       templateId: Ref.Identifier = templateId,
       packageName: Ref.PackageName = packageName,
       argument: Value = ValueInt64(random.nextLong()),
-      createdAt: Time.Timestamp = Time.Timestamp.now(),
+      createdAt: Time = CreationTime.CreatedAt(Time.Timestamp.now()),
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
       signatories: Set[Ref.Party] = Set(signatory),
       stakeholders: Set[Ref.Party] = Set(signatory, observer, extra),
@@ -51,7 +51,7 @@ object ExampleContractFactory extends EitherValues {
       version: LanguageVersion = LanguageVersion.default,
       cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
       overrideContractId: Option[ContractId] = None,
-  ): ContractInstance = {
+  ): GenContractInstance { type InstCreatedAtTime <: Time } = {
 
     val discriminator = lfHash()
 
@@ -70,7 +70,7 @@ object ExampleContractFactory extends EitherValues {
     )
     val unsuffixed = FatContractInstance.fromCreateNode(
       create,
-      CreationTime.CreatedAt(createdAt),
+      createdAt,
       DriverContractMetadata(salt).toLfBytes(cantonContractIdVersion),
     )
 
@@ -81,12 +81,11 @@ object ExampleContractFactory extends EitherValues {
 
     val inst = FatContractInstance.fromCreateNode(
       create.copy(coid = contractId),
-      CreationTime.CreatedAt(createdAt),
+      createdAt,
       DriverContractMetadata(salt).toLfBytes(cantonContractIdVersion),
     )
 
     ContractInstance(inst).value
-
   }
 
   def buildContractId(
@@ -95,14 +94,14 @@ object ExampleContractFactory extends EitherValues {
   ): ContractId =
     cantonContractIdVersion.fromDiscriminator(lfHash(index), Unicum(TestHash.digest(index)))
 
-  def modify(
-      base: ContractInstance,
+  def modify[Time <: CreationTime](
+      base: GenContractInstance { type InstCreatedAtTime <: Time },
       contractId: Option[ContractId] = None,
       metadata: Option[ContractMetadata] = None,
       arg: Option[Value] = None,
       templateId: Option[LfTemplateId] = None,
       packageName: Option[PackageName] = None,
-  ): ContractInstance = {
+  ): GenContractInstance { type InstCreatedAtTime <: Time } = {
 
     val create = base.toLf
     val inst = FatContractInstance.fromCreateNode(

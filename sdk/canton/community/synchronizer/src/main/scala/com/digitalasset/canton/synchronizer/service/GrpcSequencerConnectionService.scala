@@ -197,6 +197,8 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                   newEndpointsInfo.sequencerConnections,
                   member,
                   requestSigner,
+                  // We are not interested in replay for the connection service.
+                  allowReplay = false,
                 )
 
               sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](

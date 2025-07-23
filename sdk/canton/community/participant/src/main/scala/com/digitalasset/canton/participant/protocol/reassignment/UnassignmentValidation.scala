@@ -74,11 +74,8 @@ private[reassignment] class UnassignmentValidation(
       assignmentExclusivity <- targetTopology.traverse { targetTopology =>
         ProcessingSteps
           .getAssignmentExclusivity(targetTopology, fullTree.targetTimeProof.timestamp)
-          .leftMap(
-            ReassignmentParametersError(
-              fullTree.targetSynchronizer.unwrap.logical,
-              _,
-            ): ReassignmentProcessorError
+          .leftMap[ReassignmentProcessorError](
+            ReassignmentParametersError(fullTree.targetSynchronizer.unwrap, _)
           )
       }
 

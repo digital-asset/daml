@@ -828,7 +828,7 @@ final class SyncStateInspection(
     val filteredStates = synchronizersFilter match {
       case Some(synchronizers) =>
         syncPersistentStateManager.getAllLatest.values.filter { state =>
-          synchronizers.contains(state.logicalSynchronizerId)
+          synchronizers.contains(state.lsid)
         }
 
       case None => syncPersistentStateManager.getAllLatest.values
@@ -858,7 +858,7 @@ final class SyncStateInspection(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[CounterParticipantIntervalsBehind]] = {
-    val synchronizerId = syncPersistentState.logicalSynchronizerId
+    val synchronizerId = syncPersistentState.lsid
 
     for {
       lastSent <- syncPersistentState.acsCommitmentStore.lastComputedAndSent(traceContext)

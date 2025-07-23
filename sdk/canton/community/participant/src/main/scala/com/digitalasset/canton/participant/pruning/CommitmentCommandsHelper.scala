@@ -161,7 +161,7 @@ object CommitmentInspectContract extends HasVersionedMessageCompanion[Commitment
         .fromBytes(Bytes.fromByteString(cmtContract.cid))
         .leftMap(ProtoDeserializationError.StringConversionError.apply(_))
       contract <- cmtContract.contract
-        .traverse(ContractInstance.decode)
+        .traverse(ContractInstance.decodeWithCreatedAt)
         .leftMap(e => ProtoDeserializationError.ContractDeserializationError(e))
       states <- cmtContract.states.traverse(ContractStateOnSynchronizer.fromProtoV30)
       activeOnExpectedSynchronizer = cmtContract.activeOnExpectedSynchronizer

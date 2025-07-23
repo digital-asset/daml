@@ -275,7 +275,7 @@ class TestProcessingSteps(
   ): Either[TestProcessingError, Option[SequencedUpdate]] =
     Right(None)
 
-  override def getCommitSetAndContractsToBeStoredAndEvent(
+  override def getCommitSetAndContractsToBeStoredAndEventFactory(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
       pendingRequestData: RequestType#PendingRequestData,

@@ -24,6 +24,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, LfPartyId, LfTimestamp, LfValue, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -137,7 +138,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
     ExampleContractFactory.build(
       signatories = stakeholders.take(1),
       stakeholders = stakeholders,
-      createdAt = LfTimestamp.Epoch,
+      createdAt = CreationTime.CreatedAt(LfTimestamp.Epoch),
       version = LfLanguageVersion.v2_dev,
       packageName = Ref.PackageName.assertFromString("pkg-name"),
       templateId = Ref.Identifier.assertFromString("pkg:Mod:Template"),
@@ -175,17 +176,20 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
           }
       }
 
-    val rjs = mock[RequestJournalStore]
+    val logicalState = mock[LogicalSyncPersistentState]
+    when(logicalState.activeContractStore).thenAnswer(acs)
+    when(logicalState.synchronizerIdx).thenAnswer(
+      IndexedSynchronizer.tryCreate(fakeSynchronizerId, 1)
+    )
 
-    val state = mock[SyncPersistentState]
     val acsInspection = new AcsInspection(fakeSynchronizerId, acs, cs, Eval.now(mockLedgerApiStore))
+    when(logicalState.acsInspection).thenAnswer(acsInspection)
 
-    when(state.activeContractStore).thenAnswer(acs)
-    when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.synchronizerIdx).thenAnswer(IndexedSynchronizer.tryCreate(fakeSynchronizerId, 1))
-    when(state.acsInspection).thenAnswer(acsInspection)
+    val physicalState = mock[PhysicalSyncPersistentState]
+    val rjs = mock[RequestJournalStore]
+    when(physicalState.requestJournalStore).thenAnswer(rjs)
 
-    state
+    new SyncPersistentState(logicalState, physicalState, loggerFactory)
   }
 
   private val mockLedgerApiStore: LedgerApiStore = {

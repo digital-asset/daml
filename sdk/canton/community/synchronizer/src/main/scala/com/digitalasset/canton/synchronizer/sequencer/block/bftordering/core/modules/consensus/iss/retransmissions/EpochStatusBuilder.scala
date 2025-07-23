@@ -12,6 +12,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   ConsensusStatus,
 }
+import com.digitalasset.canton.version.ProtocolVersion
 
 /** As part of retransmissions, we broadcast an epoch status to other nodes. However, because we
   * have separate modules processing each segment, we need to request and get segment statuses from
@@ -19,7 +20,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   * (potentially out-of-order) segment status messages and then build the epoch status once all
   * segment status messages have arrived.
   */
-class EpochStatusBuilder(from: BftNodeId, epochNumber: EpochNumber, numberOfSegments: Int) {
+class EpochStatusBuilder(
+    from: BftNodeId,
+    epochNumber: EpochNumber,
+    numberOfSegments: Int,
+)(implicit synchronizerProtocolVersion: ProtocolVersion) {
   private val segmentArray =
     Array.fill[Option[ConsensusStatus.SegmentStatus]](numberOfSegments)(None)
 
@@ -32,7 +37,9 @@ class EpochStatusBuilder(from: BftNodeId, epochNumber: EpochNumber, numberOfSegm
 
   def epochStatus: Option[ConsensusStatus.EpochStatus] =
     segmentArray.toList.sequence.map { segments =>
-      ConsensusStatus.EpochStatus(from, epochNumber, segments)
+      ConsensusStatus.EpochStatus.create(from, epochNumber, segments)(
+        synchronizerProtocolVersion
+      )
     }
 
 }

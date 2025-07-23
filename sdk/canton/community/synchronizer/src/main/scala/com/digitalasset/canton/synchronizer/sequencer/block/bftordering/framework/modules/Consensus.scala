@@ -94,162 +94,69 @@ object Consensus {
 
   sealed trait RetransmissionsMessage extends ProtocolMessage
   object RetransmissionsMessage {
-    sealed trait RetransmissionsNetworkMessage
-        extends HasRepresentativeProtocolVersion
-        with ProtocolVersionedMemoizedEvidence
-        with MessageFrom
-
     final case object PeriodicStatusBroadcast extends RetransmissionsMessage
     final case class SegmentStatus(
         epochNumber: EpochNumber,
         segmentIndex: Int,
         status: ConsensusStatus.SegmentStatus,
     ) extends RetransmissionsMessage
-    final case class UnverifiedNetworkMessage(message: SignedMessage[RetransmissionsNetworkMessage])
+
+    final case class UnverifiedNetworkMessage(message: RetransmissionsNetworkMessage)
         extends RetransmissionsMessage
     final case class VerifiedNetworkMessage(message: RetransmissionsNetworkMessage)
         extends RetransmissionsMessage
 
-    final case class RetransmissionRequest private (epochStatus: ConsensusStatus.EpochStatus)(
-        override val representativeProtocolVersion: RepresentativeProtocolVersion[
-          RetransmissionRequest.type
-        ],
-        override val deserializedFrom: Option[ByteString],
-    ) extends RetransmissionsNetworkMessage
-        with HasProtocolVersionedWrapper[RetransmissionRequest] {
+    sealed trait RetransmissionsNetworkMessage extends MessageFrom {
+      def toProto: v30.RetransmissionMessage
+    }
 
+    final case class RetransmissionRequest(
+        signedEpochStatus: SignedMessage[ConsensusStatus.EpochStatus]
+    ) extends RetransmissionsNetworkMessage {
       def toProto: v30.RetransmissionMessage =
         v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionRequest(
-            epochStatus.toProto
+            signedEpochStatus.toProtoV1
           )
         )
-
-      override protected val companionObj: RetransmissionRequest.type = RetransmissionRequest
-
-      override protected[this] def toByteStringUnmemoized: ByteString =
-        super[HasProtocolVersionedWrapper].toByteString
-
-      override def from: BftNodeId = epochStatus.from
+      override def from: BftNodeId = signedEpochStatus.from
     }
 
-    object RetransmissionRequest
-        extends VersioningCompanionContextMemoization[
-          RetransmissionRequest,
-          BftNodeId,
-        ] {
-      override def name: String = "RetransmissionRequest"
-      def create(
-          epochStatus: ConsensusStatus.EpochStatus
-      )(implicit synchronizerProtocolVersion: ProtocolVersion): RetransmissionRequest =
-        RetransmissionRequest(epochStatus)(
-          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
-          None,
-        )
-
-      private def fromProtoRetransmissionMessage(
-          from: BftNodeId,
-          value: v30.RetransmissionMessage,
-      )(originalByteString: ByteString): ParsingResult[RetransmissionRequest] =
-        for {
-          protoRetransmissionRequest <- value.message.retransmissionRequest.toRight(
-            ProtoDeserializationError.OtherError(s"Not a $name message")
-          )
-          result <- fromProto(from, protoRetransmissionRequest)(originalByteString)
-        } yield result
-
+    object RetransmissionRequest {
       def fromProto(
           from: BftNodeId,
-          proto: v30.EpochStatus,
-      )(originalByteString: ByteString): ParsingResult[RetransmissionRequest] =
-        for {
-          epochStatus <- ConsensusStatus.EpochStatus.fromProto(from, proto)
-          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
-        } yield RetransmissionRequest(epochStatus)(
-          rpv,
-          Some(originalByteString),
-        )
-
-      override def versioningTable: VersioningTable = VersioningTable(
-        SupportedVersions.ProtoData ->
-          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.RetransmissionMessage)(
-            supportedProtoVersionMemoized(_)(fromProtoRetransmissionMessage),
-            _.toProto,
-          )
-      )
+          request: v30.SignedMessage,
+      ): ParsingResult[RetransmissionRequest] = SignedMessage
+        .fromProto(v30.EpochStatus)(
+          ConsensusStatus.EpochStatus.fromProto(from, _)
+        )(request)
+        .map(Consensus.RetransmissionsMessage.RetransmissionRequest.apply)
     }
 
-    final case class RetransmissionResponse private (
+    final case class RetransmissionResponse(
         from: BftNodeId,
         commitCertificates: Seq[CommitCertificate],
-    )(
-        override val representativeProtocolVersion: RepresentativeProtocolVersion[
-          RetransmissionResponse.type
-        ],
-        override val deserializedFrom: Option[ByteString],
-    ) extends RetransmissionsNetworkMessage
-        with HasProtocolVersionedWrapper[RetransmissionResponse] {
+    ) extends RetransmissionsNetworkMessage {
       def toProto: v30.RetransmissionMessage =
         v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionResponse(
             v30.RetransmissionResponse(commitCertificates.map(_.toProto))
           )
         )
-
-      override protected val companionObj: RetransmissionResponse.type = RetransmissionResponse
-
-      override protected[this] def toByteStringUnmemoized: ByteString =
-        super[HasProtocolVersionedWrapper].toByteString
     }
 
-    object RetransmissionResponse
-        extends VersioningCompanionContextMemoization[
-          RetransmissionResponse,
-          BftNodeId,
-        ] {
-      override def name: String = "RetransmissionResponse"
-      def create(
-          from: BftNodeId,
-          commitCertificates: Seq[CommitCertificate],
-      )(implicit synchronizerProtocolVersion: ProtocolVersion): RetransmissionResponse =
-        RetransmissionResponse(from, commitCertificates)(
-          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
-          None,
-        )
-
-      private def fromProtoRetransmissionMessage(
-          from: BftNodeId,
-          value: v30.RetransmissionMessage,
-      )(originalByteString: ByteString): ParsingResult[RetransmissionResponse] =
-        for {
-          protoRetransmissionResponse <- value.message.retransmissionResponse.toRight(
-            ProtoDeserializationError.OtherError(s"Not a $name message")
-          )
-          response <- fromProto(from, protoRetransmissionResponse)(originalByteString)
-        } yield response
-
+    object RetransmissionResponse {
       def fromProto(
           from: BftNodeId,
           protoRetransmissionResponse: v30.RetransmissionResponse,
-      )(originalByteString: ByteString): ParsingResult[RetransmissionResponse] =
+      ): ParsingResult[RetransmissionResponse] =
         for {
           commitCertificates <- protoRetransmissionResponse.commitCertificates.traverse(
             CommitCertificate.fromProto
           )
-          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
-        } yield RetransmissionResponse(from, commitCertificates)(
-          rpv,
-          Some(originalByteString),
-        )
-
-      override def versioningTable: VersioningTable = VersioningTable(
-        SupportedVersions.ProtoData ->
-          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.RetransmissionMessage)(
-            supportedProtoVersionMemoized(_)(fromProtoRetransmissionMessage),
-            _.toProto,
-          )
-      )
+        } yield RetransmissionResponse(from, commitCertificates)
     }
+
   }
 
   sealed trait StateTransferMessage extends ProtocolMessage

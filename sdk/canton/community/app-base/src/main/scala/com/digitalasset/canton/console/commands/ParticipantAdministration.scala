@@ -358,7 +358,7 @@ class ParticipantTestingGroup(
       timeout: NonNegativeDuration,
   ): CantonTimestamp =
     check(FeatureFlag.Testing) {
-      val id = participantRef.synchronizers.id_of(synchronizerAlias)
+      val id = participantRef.synchronizers.physical_id_of(synchronizerAlias)
       fetch_synchronizer_time(id, timeout)
     }
 
@@ -399,7 +399,7 @@ class ParticipantTestingGroup(
       timeout: NonNegativeDuration,
   ): Unit =
     check(FeatureFlag.Testing) {
-      val id = participantRef.synchronizers.id_of(synchronizerAlias)
+      val id = participantRef.synchronizers.physical_id_of(synchronizerAlias)
       await_synchronizer_time(id, time, timeout)
     }
 
@@ -1723,7 +1723,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   object synchronizers extends Helpful {
 
     @Help.Summary("Returns the id of the given synchronizer alias")
-    def id_of(synchronizerAlias: SynchronizerAlias): PhysicalSynchronizerId =
+    def id_of(synchronizerAlias: SynchronizerAlias): SynchronizerId =
+      physical_id_of(synchronizerAlias).logical
+
+    @Help.Summary("Returns the physical id of the given synchronizer alias")
+    def physical_id_of(synchronizerAlias: SynchronizerAlias): PhysicalSynchronizerId =
       consoleEnvironment.run {
         adminCommand(
           ParticipantAdminCommands.SynchronizerConnectivity.GetSynchronizerId(synchronizerAlias)

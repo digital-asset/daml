@@ -3,14 +3,16 @@
 
 package com.digitalasset.canton.participant.event
 
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.ledger.participant.state.{
+  AcsChange,
+  AcsChangeFactory,
+  AcsChangeFactoryImpl,
+  ContractStakeholdersAndReassignmentCounter,
+}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
-import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 /** Components that need to keep a running snapshot of ACS.
   */
@@ -28,38 +30,13 @@ trait AcsChangeListener {
       traceContext: TraceContext
   ): Unit
 
-  def publish(
-      toc: RecordTime,
-      commitSetO: Option[CommitSet],
-  )(implicit
+  def publish(toc: RecordTime, acsChangeFactoryO: Option[AcsChangeFactory])(implicit
       traceContext: TraceContext
   ): Unit
 
 }
 
-/** Represents a change to the ACS. The deactivated contracts are accompanied by their stakeholders.
-  *
-  * Note that we include the LfContractId (for uniqueness), but we do not include the contract hash
-  * because it already authenticates the contract contents.
-  */
-final case class AcsChange(
-    activations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
-    deactivations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
-)
-
-final case class ContractStakeholdersAndReassignmentCounter(
-    stakeholders: Set[LfPartyId],
-    reassignmentCounter: ReassignmentCounter,
-) extends PrettyPrinting {
-  override protected def pretty: Pretty[ContractStakeholdersAndReassignmentCounter] = prettyOfClass(
-    param("stakeholders", _.stakeholders),
-    param("reassignment counter", _.reassignmentCounter),
-  )
-}
-
-object AcsChange extends HasLoggerName {
-  val empty: AcsChange = AcsChange(Map.empty, Map.empty)
-
+object AcsChangeSupport extends HasLoggerName {
   // TODO(i12904) The ACS commitments processor expects the caller to ensure that:
   //  (1) The activations/deactivations passed to it really describe a set of contracts. Double activations or double deactivations for a contract (due to a bug
   //  or maliciousness) will violate this expectation.
@@ -80,38 +57,11 @@ object AcsChange extends HasLoggerName {
   /** Returns an AcsChange based on a given CommitSet.
     *
     * @param commitSet
-    *   The commit set from which to build the AcsChange.
-    * @param reassignmentCounterOfNonTransientArchivals
-    *   A map containing reassignment counters for every non-transient archived contracts in the
-    *   commitSet, i.e., `commitSet.archivals`.
-    * @param reassignmentCounterOfTransientArchivals
-    *   A map containing reassignment counters for every transient archived contracts in the
-    *   commitSet, i.e., `commitSet.archivals`.
-    * @throws java.lang.IllegalStateException
-    *   if the contract ids in `reassignmentCounterOfTransientArchivals`; if the contract ids in
-    *   `reassignmentCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ; if
-    *   the union of contracts ids in `reassignmentCounterOfTransientArchivals` and
-    *   `reassignmentCounterOfNonTransientArchivals` does not equal the contract ids in
-    *   `commitSet.archivals`;
+    *   The commit set from which to build the AcsChangeFactory.
     */
-  def tryFromCommitSet(
-      commitSet: CommitSet,
-      reassignmentCounterOfNonTransientArchivals: Map[LfContractId, ReassignmentCounter],
-      reassignmentCounterOfTransientArchivals: Map[LfContractId, ReassignmentCounter],
-  )(implicit loggingContext: NamedLoggingContext): AcsChange = {
-
-    if (
-      reassignmentCounterOfTransientArchivals.keySet.union(
-        reassignmentCounterOfNonTransientArchivals.keySet
-      ) != commitSet.archivals.keySet
-    ) {
-      ErrorUtil.internalError(
-        new IllegalStateException(
-          s"the union of contracts ids in $reassignmentCounterOfTransientArchivals and " +
-            s"$reassignmentCounterOfNonTransientArchivals does not equal the contract ids in ${commitSet.archivals}"
-        )
-      )
-    }
+  def fromCommitSet(
+      commitSet: CommitSet
+  )(implicit loggingContext: NamedLoggingContext): AcsChangeFactory = {
     /* Temporary maps built to easily remove the transient contracts from activate and deactivate the common contracts.
        The keys are made of the contract id and reassignment counter.
        An unassignment with reassignment counter c cancels out an assignment / create with reassignment counter c-1.
@@ -141,50 +91,28 @@ object AcsChange extends HasLoggerName {
       )
     }
 
-    val archivalDeactivations = commitSet.archivals.collect {
-      case (contractId, data) if reassignmentCounterOfNonTransientArchivals.contains(contractId) =>
-        contractId -> ContractStakeholdersAndReassignmentCounter(
-          data.stakeholders,
-          reassignmentCounterOfNonTransientArchivals.getOrElse(
-            contractId,
-            // This should not happen (see assertion above)
-            ErrorUtil.internalError(
-              new IllegalStateException(s"Unable to find reassignment counter for $contractId")
-            ),
-          ),
-        )
-    }
-
-    val tmpArchivals = commitSet.archivals.collect {
-      case (contractId, data) if reassignmentCounterOfTransientArchivals.contains(contractId) =>
-        contractId -> ContractStakeholdersAndReassignmentCounter(
-          data.stakeholders,
-          reassignmentCounterOfTransientArchivals.getOrElse(
-            contractId,
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                s"${reassignmentCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
-              )
-            ),
-          ),
-        )
+    val tmpArchivals = commitSet.archivals.collect { case (contractId, data) =>
+      contractId -> data.stakeholders
     }
 
     val transient = tmpActivations.keySet.intersect((tmpArchivals ++ tmpUnassignments).keySet)
     val activations = tmpActivations -- transient
     val unassignmentDeactivations = tmpUnassignments -- transient
+    val archivalDeactivations = tmpArchivals -- transient
 
     loggingContext.debug(
       show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
         show"assignments=${commitSet.assignments}; archivals=${commitSet.archivals}; unassignments=${commitSet.unassignments};" +
-        show"archival reassignment counters from DB $reassignmentCounterOfNonTransientArchivals and" +
-        show"archival reassignment counters from transient $reassignmentCounterOfTransientArchivals" +
         show"Completed fromCommitSet with results transient=$transient;" +
         show"activations=$activations; archivalDeactivations=$archivalDeactivations; unassignmentDeactivations=$unassignmentDeactivations"
     )
-    AcsChange(
+    val acsChange = AcsChange(
       activations = activations,
-      deactivations = archivalDeactivations ++ unassignmentDeactivations,
+      deactivations = unassignmentDeactivations,
+    )
+    AcsChangeFactoryImpl(
+      initialAcsChange = acsChange,
+      archivalDeactivations = archivalDeactivations,
     )
   }
 }

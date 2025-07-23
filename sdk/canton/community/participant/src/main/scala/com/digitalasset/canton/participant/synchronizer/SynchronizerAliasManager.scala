@@ -31,6 +31,7 @@ trait SynchronizerAliasResolution extends AutoCloseable {
 
   def aliases: Set[SynchronizerAlias]
   def physicalSynchronizerIds: Set[PhysicalSynchronizerId]
+  def logicalSynchronizerIds: Set[SynchronizerId]
 }
 
 class SynchronizerAliasManager private (
@@ -102,7 +103,7 @@ class SynchronizerAliasManager private (
     * status
     */
   // TODO(#25483) Check usages of this method
-  def logicalSynchronizerIds: Set[SynchronizerId] =
+  override def logicalSynchronizerIds: Set[SynchronizerId] =
     synchronizers.get().aliasToPSIds.values.map(_.map(_.logical)).toSet.flatten
 
   private def addMapping(

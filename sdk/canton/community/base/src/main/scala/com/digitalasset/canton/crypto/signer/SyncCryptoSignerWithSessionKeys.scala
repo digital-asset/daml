@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
@@ -59,6 +59,7 @@ class SyncCryptoSignerWithSessionKeys(
     member: Member,
     signPrivateApiWithLongTermKeys: SigningPrivateOps,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
+    publicKeyConversionCacheConfig: CacheConfig,
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
@@ -85,6 +86,9 @@ class SyncCryptoSignerWithSessionKeys(
         CryptoScheme(RsaOaepSha256, NonEmpty.mk(Set, RsaOaepSha256)), // not used
       defaultHashAlgorithm = Sha256, // not used
       defaultPbkdfScheme = PbkdfScheme.Argon2idMode1, // not used
+      publicKeyConversionCacheConfig,
+      // this `JcePureCrypto` object only holds private key conversions spawned from sign calls
+      privateKeyConversionCacheTtl = Some(sessionSigningKeysConfig.keyEvictionPeriod.underlying),
       loggerFactory = loggerFactory,
     )
 

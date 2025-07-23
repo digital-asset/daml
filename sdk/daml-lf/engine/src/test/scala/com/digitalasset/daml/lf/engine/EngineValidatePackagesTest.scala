@@ -77,63 +77,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   ): Dar[(Ref.PackageId, Package)] =
     Dar(mainPkg, dependentPkgs.toList)
 
-  "Engine.validatePackages" should {
-
-    val pkg =
-      p"""
-        metadata ( 'pkg' : '1.0.0' )
-        module Mod {
-          val string: Text = "t";
-        }
-      """
-
-    "accept valid package" in {
-
-      newEngine.validatePackages(Map(pkgId -> pkg)) shouldBe Right(())
-
-    }
-
-    "reject ill-typed packages" in {
-
-      val illTypedPackage =
-        p"""
-        metadata ( 'pkg' : '1.0.0' )
-        module Mod {
-          val string: Text = 1;
-        }
-      """
-
-      inside(
-        newEngine.validatePackages(Map(pkgId -> illTypedPackage))
-      ) { case Left(_: Error.Package.Validation) =>
-      }
-
-    }
-
-    "reject non self-consistent sets of packages" in {
-
-      val libraryId = Ref.PackageId.assertFromString("-library-")
-
-      val dependentPackage =
-        p"""
-        metadata ( 'pkg' : '1.0.0' )
-        module Mod {
-          val string: Text = '-library-':Mod:Text;
-        }
-      """
-          // TODO: parser should set dependencies properly
-          .copy(directDeps = Set(libraryId))
-
-      inside(newEngine.validatePackages(Map(pkgId -> dependentPackage))) {
-        case Left(Error.Package.SelfConsistency(pkgIds, deps)) =>
-          pkgIds shouldBe Set(pkgId)
-          deps shouldBe Set(libraryId)
-      }
-
-    }
-
-  }
-
   "Engine.validateDar" should {
     val pkg =
       p"""

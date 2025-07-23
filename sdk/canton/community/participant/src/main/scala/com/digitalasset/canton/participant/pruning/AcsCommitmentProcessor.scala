@@ -40,18 +40,17 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.ledger.participant.state.{
+  AcsChange,
+  AcsChangeFactory,
+  ContractStakeholdersAndReassignmentCounter,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.event.{
-  AcsChange,
-  AcsChangeListener,
-  ContractStakeholdersAndReassignmentCounter,
-  RecordTime,
-}
+import com.digitalasset.canton.participant.event.{AcsChangeListener, RecordTime}
 import com.digitalasset.canton.participant.metrics.CommitmentMetrics
-import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.PublishTickData.PersistRunningCommitmentsAtUpgradeTime
@@ -463,59 +462,48 @@ class AcsCommitmentProcessor private (
 
   override def publish(
       toc: RecordTime,
-      commitSetO: Option[CommitSet],
+      acsChangeFactoryO: Option[AcsChangeFactory],
   )(implicit
       traceContext: TraceContext
   ): Unit =
-    publishInternal(PublishTickData.Regular(toc, () => computeAcsChange(toc, commitSetO)))
+    publishInternal(
+      PublishTickData.Regular(
+        toc,
+        () => computeAcsChange(toc, acsChangeFactoryO),
+      )
+    )
 
   /** Publish to trigger the persisting of the running commitments. Should be called only at logical
     * synchronizer upgrade time.
     */
   def publishForUpgradeTime(
       upgradeTime: CantonTimestamp
-  )(implicit
-      traceContext: TraceContext
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     publishInternal(PublishTickData.PersistRunningCommitmentsAtUpgradeTime(upgradeTime))
 
-  private def computeAcsChange(toc: RecordTime, commitSetO: Option[CommitSet])(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[AcsChange] = {
-    // If the commitSetO is not set, then by default the commit set is empty
-    val commitSet = commitSetO.getOrElse(CommitSet.empty)
-    // Augments the commit set with the updated reassignment counters for archive events,
-    // computes the acs change and publishes it
-    logger.trace(
-      show"The received commit set contains creations ${commitSet.creations} " +
-        show"assignments ${commitSet.assignments} " +
-        show"archivals ${commitSet.archivals} unassignments ${commitSet.unassignments}"
-    )
+  private def computeAcsChange(toc: RecordTime, acsChangeFactoryO: Option[AcsChangeFactory])(
+      implicit traceContext: TraceContext
+  ): FutureUnlessShutdown[AcsChange] = (acsChangeFactoryO match {
+    case None =>
+      FutureUnlessShutdown.pure(AcsChange.empty)
 
-    val transientArchivals = reassignmentCountersForArchivedTransient(commitSet)
+    case Some(withoutArchival) if withoutArchival.archivalCids.isEmpty =>
+      FutureUnlessShutdown.pure(withoutArchival.tryAcsChange(Map.empty))
 
-    for {
+    case Some(acsChangeFactory) =>
       // Retrieves the reassignment counters of the archived contracts from the latest state in the active contract store
-      archivalsWithReassignmentCountersOnly <- activeContractStore
+      activeContractStore
         .contractsReassignmentCounterSnapshotBefore(
-          commitSet.archivals.keySet -- transientArchivals.keySet,
+          acsChangeFactory.archivalCids,
           toc.timestamp,
         )
-
-    } yield {
-      // Computes the ACS change by decorating the archive events in the commit set with their reassignment counters
-      val acsChange = AcsChange.tryFromCommitSet(
-        commitSet,
-        archivalsWithReassignmentCountersOnly,
-        transientArchivals,
-      )
-      // we only log the full list of changes on trace level
-      logger.trace(
-        s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
-      )
-
-      acsChange
-    }
+        .map(acsChangeFactory.tryAcsChange)
+  }).map { acsChange =>
+    // we only log the full list of changes on trace level
+    logger.trace(
+      s"Computed ACS change activations ${acsChange.activations} deactivations ${acsChange.deactivations}"
+    )
+    acsChange
   }
 
   private def publishInternal(
@@ -1593,7 +1581,7 @@ class AcsCommitmentProcessor private (
   /** Checks whether a participant whose processing timestamp is the end of the given period lags
     * too far behind a counter participant. Lagging "too far behind" means that a received
     * counter-commitment has a timestamp ahead of the participant's current timestamp by at least
-    * reconciliation interval len * [[catchIpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
+    * reconciliation interval len * [[catchUpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
     * reconciliation intervals are dynamic, the reconciliation interval len represents the interval
     * len at the time when the catch-up decision is taken.
     * @return
@@ -2796,28 +2784,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
             )
           )
       }
-  }
-
-  @VisibleForTesting
-  def reassignmentCountersForArchivedTransient(
-      commitSet: CommitSet
-  ): Map[LfContractId, ReassignmentCounter] = {
-
-    // We first search in assignments, because they would have the most recent reassignment counter.
-    val transientCidsAssigned = commitSet.assignments.collect {
-      case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
-        (contractId, tcAndContractHash.reassignmentCounter)
-    }
-
-    // Then we search in creations
-    val transientCidsCreated = commitSet.creations.collect {
-      case (contractId, tcAndContractHash)
-          if commitSet.archivals.keySet.contains(contractId) && !transientCidsAssigned.keySet
-            .contains(contractId) =>
-        (contractId, tcAndContractHash.reassignmentCounter)
-    }
-
-    transientCidsAssigned ++ transientCidsCreated
   }
 
   private def runningCommitmentFromAcsChange(

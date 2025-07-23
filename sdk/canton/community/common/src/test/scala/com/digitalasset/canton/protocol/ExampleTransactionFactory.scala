@@ -46,7 +46,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.*
 import org.scalatest.EitherValues
@@ -97,14 +97,15 @@ object ExampleTransactionFactory {
       arg = versionedValueCapturing(capturedIds.toList),
     )
 
-  def authenticatedSerializableContract(
+  def authenticatedContractInstance(
       metadata: ContractMetadata,
       instance: LfThinContractInst = ExampleTransactionFactory.contractInstance(),
       ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
-  ): SerializableContract = {
+  ): ContractInstance = {
     val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
     val contractIdVersion =
       CantonContractIdVersion.maximumSupportedVersion(BaseTest.testedProtocolVersion).value
+    val createdAt = CreationTime.CreatedAt(ledgerTime.toLf)
 
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
       psid = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")).toPhysical,
@@ -113,7 +114,7 @@ object ExampleTransactionFactory {
       viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
+      ledgerCreateTime = createdAt,
       metadata = metadata,
       suffixedContractInstance = instance.unversioned,
       cantonContractIdVersion = contractIdVersion,
@@ -124,13 +125,7 @@ object ExampleTransactionFactory {
       unicum,
     )
 
-    SerializableContract(
-      contractId = contractId,
-      contractInstance = instance,
-      metadata = metadata,
-      ledgerTime = ledgerTime,
-      contractSalt = contractSalt.unwrap,
-    ).value
+    asContractInstance(contractId, instance, metadata, createdAt, contractSalt.unwrap)
   }
 
   val veryDeepValue: Value = {
@@ -347,27 +342,37 @@ object ExampleTransactionFactory {
       .create(contractInstance)
       .fold(err => throw new IllegalArgumentException(err.toString), Predef.identity)
 
-  def asSerializable(
+  def asContractInstance[Time <: CreationTime](
       contractId: LfContractId,
       contractInstance: LfThinContractInst = this.contractInstance(),
       metadata: ContractMetadata =
         ContractMetadata.tryCreate(Set(this.signatory), Set(this.signatory), None),
-      ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
+      ledgerTime: Time = CreationTime.CreatedAt(LfTimestamp.Epoch),
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
-  ): SerializableContract =
-    SerializableContract(
-      contractId,
-      asSerializableRaw(contractInstance),
-      metadata,
-      CreationTime.CreatedAt(ledgerTime.toLf),
-      salt,
+  ): GenContractInstance { type InstCreatedAtTime <: Time } = {
+    val contractIdVersion = CantonContractIdVersion
+      .extractCantonContractIdVersion(contractId)
+      .value
+    val createNode = LfNodeCreate(
+      coid = contractId,
+      packageName = contractInstance.unversioned.packageName,
+      templateId = contractInstance.unversioned.template,
+      arg = contractInstance.unversioned.arg,
+      signatories = metadata.signatories,
+      stakeholders = metadata.stakeholders,
+      keyOpt = metadata.maybeKeyWithMaintainers,
+      version = contractInstance.version,
     )
+    val fci = FatContractInstance.fromCreateNode(
+      createNode,
+      ledgerTime,
+      DriverContractMetadata(salt).toLfBytes(contractIdVersion),
+    )
+    ContractInstance(fci).value
+  }
 
-  private def serializableFromCreate(
-      node: LfNodeCreate,
-      salt: Salt,
-  ): SerializableContract =
-    asSerializable(
+  private def instanceFromCreate(node: LfNodeCreate, salt: Salt): NewContractInstance =
+    asContractInstance(
       node.coid,
       node.versionedCoinst,
       metadataFromCreate(node),
@@ -619,8 +624,8 @@ class ExampleTransactionFactory(
       viewConfirmationParameters: ViewConfirmationParameters,
       viewIndex: Int,
       consumed: Set[LfContractId],
-      coreInputs: Seq[SerializableContract],
-      created: Seq[SerializableContract],
+      coreInputs: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       packagePreference: Set[LfPackageId],
@@ -636,7 +641,7 @@ class ExampleTransactionFactory(
     val createWithSerialization = created.map { contract =>
       val coid = contract.contractId
       CreatedContract.tryCreate(
-        ContractInstance(contract).value,
+        contract,
         consumed.contains(coid),
         rolledBack = false,
       )
@@ -644,7 +649,7 @@ class ExampleTransactionFactory(
 
     val coreInputContracts = coreInputs.map { contract =>
       val coid = contract.contractId
-      coid -> InputContract(ContractInstance(contract).value, consumed.contains(coid))
+      coid -> InputContract(contract, consumed.contains(coid))
     }.toMap
 
     val createdInSubviews = (for {
@@ -687,8 +692,8 @@ class ExampleTransactionFactory(
       node: LfActionNode,
       viewIndex: Int,
       consumed: Set[LfContractId],
-      coreInputs: Seq[SerializableContract],
-      created: Seq[SerializableContract],
+      coreInputs: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
@@ -727,8 +732,8 @@ class ExampleTransactionFactory(
       nodesToMerge: Seq[LfActionNode],
       viewIndex: Int,
       consumed: Set[LfContractId],
-      coreInputs: Seq[SerializableContract],
-      created: Seq[SerializableContract],
+      coreInputs: Seq[ContractInstance],
+      created: Seq[NewContractInstance],
       resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution],
       seed: Option[LfHash],
       isRoot: Boolean,
@@ -963,10 +968,10 @@ class ExampleTransactionFactory(
 
     def consuming: Boolean
 
-    def created: Seq[SerializableContract] = node match {
+    def created: Seq[NewContractInstance] = node match {
       case n: LfNodeCreate =>
         Seq(
-          asSerializable(
+          asContractInstance(
             n.coid,
             contractInstance,
             metadataFromCreate(n),
@@ -976,10 +981,10 @@ class ExampleTransactionFactory(
       case _ => Seq.empty
     }
 
-    def used: Seq[SerializableContract] = node match {
+    def used: Seq[ContractInstance] = node match {
       case n: LfNodeExercises =>
         Seq(
-          asSerializable(
+          asContractInstance(
             n.targetCoid,
             contractInstance,
             metadataFromExercise(n),
@@ -988,7 +993,7 @@ class ExampleTransactionFactory(
         )
       case n: LfNodeFetch =>
         Seq(
-          asSerializable(
+          asContractInstance(
             n.coid,
             contractInstance,
             metadataFromFetch(n),
@@ -1091,10 +1096,6 @@ class ExampleTransactionFactory(
     override val contractInstance: LfThinContractInst =
       ExampleTransactionFactory.contractInstance(capturedContractIds)
 
-    val serializableContractInstance: SerializableRawContractInstance = asSerializableRaw(
-      contractInstance
-    )
-
     val lfContractId: LfContractId = LfContractId.V1(discriminator, Bytes.Empty)
 
     val (salt, contractId) =
@@ -1156,7 +1157,7 @@ class ExampleTransactionFactory(
       version: LfLanguageVersion = transactionVersion,
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(None) {
-    override def created: Seq[SerializableContract] = Seq.empty
+    override def created: Seq[NewContractInstance] = Seq.empty
 
     override val contractInstance: LfThinContractInst = fetchedContractInstance
 
@@ -1637,8 +1638,6 @@ class ExampleTransactionFactory(
     val exercise1: LfNodeExercises = genExercise1(exercise1Id)
     val exercise1Instance: LfThinContractInst = contractInstance()
 
-    val create10SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create10Inst)
     val (salt10Id, create10Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
@@ -1673,7 +1672,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -1686,7 +1685,7 @@ class ExampleTransactionFactory(
         2,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create12, salt12Id)),
+        Seq(instanceFromCreate(create12, salt12Id)),
         Map.empty,
         Some(create12seed),
         isRoot = false,
@@ -1700,14 +1699,14 @@ class ExampleTransactionFactory(
         1,
         Set(exercise1Id, exercise13Id),
         Seq(
-          asSerializable(
+          asContractInstance(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
-        Seq(serializableFromCreate(create10, salt10Id)),
+        Seq(instanceFromCreate(create10, salt10Id)),
         Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
@@ -2013,8 +2012,6 @@ class ExampleTransactionFactory(
     }
 
     // Nodes with translated contract ids
-    val create0SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create0Inst)
     val (salt0Id, create0Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 2),
@@ -2031,7 +2028,6 @@ class ExampleTransactionFactory(
     val exercise1: LfNodeExercises = genExercise1(exercise1Id)
     val exercise1Instance: LfThinContractInst = contractInstance()
 
-    val create10SerInst: SerializableRawContractInstance = asSerializableRaw(create10Inst)
     val (salt10Id, create10Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
@@ -2045,8 +2041,6 @@ class ExampleTransactionFactory(
 
     val fetch11: LfNodeFetch = lfFetch11
 
-    val create12SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create12Inst)
     val (salt12Id, create12Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
@@ -2058,7 +2052,6 @@ class ExampleTransactionFactory(
       )
     val create12: LfNodeCreate = genCreate1x(create12Id, create12Inst)
 
-    val create130SerInst: SerializableRawContractInstance = asSerializableRaw(create130Inst)
     val (salt130Id, create130Id): (Salt, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 2) +: rootViewPosition(1, 2),
@@ -2075,7 +2068,6 @@ class ExampleTransactionFactory(
     val exercise131: LfNodeExercises = genExercise131(exercise131Id)
     val exercise131Instance: LfThinContractInst = contractInstance()
 
-    val create1310SerInst: SerializableRawContractInstance = asSerializableRaw(create1310Inst)
     val (salt1310Id, create1310Id): (Salt, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(1, 2) +: rootViewPosition(1, 2),
@@ -2095,7 +2087,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2107,7 +2099,7 @@ class ExampleTransactionFactory(
         2,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create130, salt130Id)),
+        Seq(instanceFromCreate(create130, salt130Id)),
         Map.empty,
         Some(create130seed),
         isRoot = false,
@@ -2119,7 +2111,7 @@ class ExampleTransactionFactory(
         4,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create1310, salt1310Id)),
+        Seq(instanceFromCreate(create1310, salt1310Id)),
         Map.empty,
         Some(create1310seed),
         isRoot = false,
@@ -2132,11 +2124,11 @@ class ExampleTransactionFactory(
         3,
         Set(exercise131Id),
         Seq(
-          asSerializable(
+          asContractInstance(
             contractId = exercise131Id,
             contractInstance = exercise131Instance,
             metadata = metadataFromExercise(exercise131),
-            ledgerTime = ledgerTime,
+            ledgerTime = CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq.empty,
@@ -2153,16 +2145,16 @@ class ExampleTransactionFactory(
         1,
         Set(exercise1Id, create12Id),
         Seq(
-          asSerializable(
+          asContractInstance(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq(
-          serializableFromCreate(create10, salt10Id),
-          serializableFromCreate(create12, salt12Id),
+          instanceFromCreate(create10, salt10Id),
+          instanceFromCreate(create12, salt12Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -2540,8 +2532,6 @@ class ExampleTransactionFactory(
       Seq(v0, v1, v2)
     }
 
-    val create0SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create0Inst)
     val (salt0Id, create0Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 3),
@@ -2562,7 +2552,6 @@ class ExampleTransactionFactory(
     val exercise10: LfNodeExercises = genExercise1X(exercise10Id, 3)
     val exercise10Instance: LfThinContractInst = contractInstance()
 
-    val create100SerInst: SerializableRawContractInstance = asSerializableRaw(create100Inst)
     val (salt100Id, create100Id): (Salt, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(0, 2) +: rootViewPosition(1, 3),
@@ -2576,8 +2565,6 @@ class ExampleTransactionFactory(
     val create100: LfNodeCreate = genCreate3X(create100Id, create100Inst)
 
     val create11Inst: LfThinContractInst = genCreate11Inst(create100Id)
-    val create11SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create11Inst)
     val (salt11Id, create11Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 3),
@@ -2594,7 +2581,6 @@ class ExampleTransactionFactory(
     val exercise12Instance: LfThinContractInst = contractInstance()
 
     val create120Inst: LfThinContractInst = genCreate120Inst(create100Id)
-    val create120SerInst: SerializableRawContractInstance = asSerializableRaw(create120Inst)
     val (salt120Id, create120Id): (Salt, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(1, 2) +: rootViewPosition(1, 3),
@@ -2608,7 +2594,6 @@ class ExampleTransactionFactory(
     val create120: LfNodeCreate = genCreate3X(create120Id, create120Inst)
 
     val create13Inst: LfThinContractInst = genCreate13Inst(create120Id)
-    val create13SerInst: SerializableRawContractInstance = asSerializableRaw(create13Inst)
     val (salt13Id, create13Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 3),
@@ -2620,7 +2605,6 @@ class ExampleTransactionFactory(
       )
     val create13: LfNodeCreate = genCreateXX(create13Id, create13Inst)
 
-    val create2SerInst: SerializableRawContractInstance = asSerializableRaw(create2Inst)
     val (salt2Id, create2Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(2, 3),
@@ -2639,7 +2623,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2652,7 +2636,7 @@ class ExampleTransactionFactory(
         3,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create100, salt100Id)),
+        Seq(instanceFromCreate(create100, salt100Id)),
         Map.empty,
         Some(create100seed),
         isRoot = false,
@@ -2664,11 +2648,11 @@ class ExampleTransactionFactory(
       2,
       Set(exercise10Id),
       Seq(
-        asSerializable(
+        asContractInstance(
           exercise10Id,
           exercise10Instance,
           metadataFromExercise(exercise10),
-          ledgerTime,
+          CreationTime.CreatedAt(ledgerTime.toLf),
         )
       ),
       Seq.empty,
@@ -2685,7 +2669,7 @@ class ExampleTransactionFactory(
         5,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create120, salt120Id)),
+        Seq(instanceFromCreate(create120, salt120Id)),
         Map.empty,
         Some(create120seed),
         isRoot = false,
@@ -2698,11 +2682,11 @@ class ExampleTransactionFactory(
         4,
         Set(exercise12Id),
         Seq(
-          asSerializable(
+          asContractInstance(
             exercise12Id,
             exercise12Instance,
             metadataFromExercise(exercise12),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq.empty,
@@ -2719,16 +2703,16 @@ class ExampleTransactionFactory(
         1,
         Set.empty,
         Seq(
-          asSerializable(
+          asContractInstance(
             exercise1Id,
             exercise1Instance,
             metadataFromExercise(exercise1),
-            ledgerTime,
+            CreationTime.CreatedAt(ledgerTime.toLf),
           )
         ),
         Seq(
-          serializableFromCreate(create11, salt11Id),
-          serializableFromCreate(create13, salt13Id),
+          instanceFromCreate(create11, salt11Id),
+          instanceFromCreate(create13, salt13Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -2744,7 +2728,7 @@ class ExampleTransactionFactory(
         6,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create2, salt2Id)),
+        Seq(instanceFromCreate(create2, salt2Id)),
         Map.empty,
         Some(create2seed),
         isRoot = true,
@@ -3076,8 +3060,6 @@ class ExampleTransactionFactory(
       Seq(v0, v1)
     }
 
-    val create0SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create0Inst)
     val (salt0Id, create0Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 2),
@@ -3092,8 +3074,6 @@ class ExampleTransactionFactory(
 
     val exercise1: LfNodeExercises = genExercise(create0Id, List(2, 3, 5, 6))
 
-    val create10SerInst: SerializableRawContractInstance =
-      asSerializableRaw(create10Inst)
     val (salt10Id, create10Id): (Salt, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
@@ -3108,7 +3088,6 @@ class ExampleTransactionFactory(
 
     val exercise11: LfNodeExercises = genExerciseN(create10Id, 4)
 
-    val create110SerInst: SerializableRawContractInstance = asSerializableRaw(create110Inst)
     val (salt110Id, create110Id): (Salt, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: rootViewPosition(1, 2),
@@ -3130,7 +3109,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(serializableFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, salt0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -3142,14 +3121,14 @@ class ExampleTransactionFactory(
       2,
       Set.empty,
       Seq(
-        asSerializable(
+        asContractInstance(
           create10Id,
           create10Inst,
           ContractMetadata.tryCreate(create10.signatories, create10.stakeholders, None),
           salt = salt10Id,
         )
       ),
-      Seq(serializableFromCreate(create110, salt110Id)),
+      Seq(instanceFromCreate(create110, salt110Id)),
       Map.empty,
       Some(deriveNodeSeed(1, 1)),
       isRoot = false,
@@ -3161,14 +3140,14 @@ class ExampleTransactionFactory(
       1,
       Set(create0Id, create10Id, create110Id),
       Seq(
-        asSerializable(
+        asContractInstance(
           create0Id,
           create0Inst,
           ContractMetadata.tryCreate(create0.signatories, create0.stakeholders, None),
           salt = salt0Id,
         )
       ),
-      Seq(serializableFromCreate(create10, salt10Id)),
+      Seq(instanceFromCreate(create10, salt10Id)),
       Map.empty,
       Some(deriveNodeSeed(1)),
       isRoot = true,

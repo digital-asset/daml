@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.version
 
-import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, UnrecognizedEnum}
 import com.digitalasset.canton.protocol.*
@@ -12,8 +11,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import scala.collection.immutable.{SortedMap, SortedSet}
 
 sealed abstract class HashingSchemeVersion(val index: Int) {
-  def toLAPIProto: iss.HashingSchemeVersion =
-    iss.HashingSchemeVersion.fromValue(index)
   def toProtoV30: v30.ExternalAuthorization.HashingSchemeVersion =
     v30.ExternalAuthorization.HashingSchemeVersion.fromValue(index)
 }

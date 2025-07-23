@@ -274,25 +274,32 @@ class ProtocolProcessorTest
 
     val contractStore = new InMemoryContractStore(timeouts, loggerFactory)
 
-    val persistentState =
-      new InMemorySyncPersistentState(
+    val logical = new InMemoryLogicalSyncPersistentState(
+      IndexedSynchronizer.tryCreate(psid.logical, 1),
+      enableAdditionalConsistencyChecks = true,
+      new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one synchronizer needed
+      contractStore,
+      nodePersistentState.acsCounterParticipantConfigStore,
+      Eval.now(nodePersistentState.ledgerApiStore),
+      loggerFactory,
+    )
+    val physical =
+      new InMemoryPhysicalSyncPersistentState(
         participant,
         clock,
         crypto.crypto,
         IndexedPhysicalSynchronizer.tryCreate(psid, 1),
-        IndexedSynchronizer.tryCreate(psid, 1),
         defaultStaticSynchronizerParameters,
-        enableAdditionalConsistencyChecks = true,
-        new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one synchronizer needed
-        contractStore,
-        nodePersistentState.acsCounterParticipantConfigStore,
         exitOnFatalFailures = true,
         packageDependencyResolver,
         Eval.now(nodePersistentState.ledgerApiStore),
+        logical,
         loggerFactory,
         timeouts,
         futureSupervisor,
       )
+
+    val persistentState = new SyncPersistentState(logical, physical, loggerFactory)
 
     val ephemeralState = new AtomicReference[SyncEphemeralState]()
 

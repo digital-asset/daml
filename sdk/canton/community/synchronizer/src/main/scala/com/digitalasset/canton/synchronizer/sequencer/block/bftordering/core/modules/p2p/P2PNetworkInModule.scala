@@ -123,21 +123,14 @@ class P2PNetworkInModule[E <: Env[E]](
           )
         metrics.p2p.receive.labels.source.values.Consensus(from)
       case Message.RetransmissionMessage(message) =>
-        SignedMessage
-          .fromProto(v30.RetransmissionMessage)(
-            IssConsensusModule.parseRetransmissionMessage(from, _)
-          )(
-            message
-          )
+        IssConsensusModule
+          .parseRetransmissionMessage(from, message)
           .fold(
             errorMessage =>
               logger.warn(
                 s"Dropping retransmission message from $from as it couldn't be parsed: $errorMessage"
               ),
-            signedMessage =>
-              consensus.asyncSendTraced(
-                Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(signedMessage)
-              ),
+            message => consensus.asyncSendTraced(message),
           )
         metrics.p2p.receive.labels.source.values.Retransmissions(from)
 
