@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250718.14017.0.va7542a99
+sdk-version: 3.4.0-snapshot.20250722.14022.0.v78837b37
 build-options: 
 - --target=2.1
 name: medical-records

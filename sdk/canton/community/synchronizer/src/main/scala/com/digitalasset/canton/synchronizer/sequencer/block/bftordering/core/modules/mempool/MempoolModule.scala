@@ -139,7 +139,7 @@ class MempoolModule[E <: Env[E]](
     locally {
       implicit val traceContext = context.traceContextOfBatch(requests)
       emitRequestsQueuedForBatchInclusionLatencies(requests, batchCreationInstant)
-      availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))
+      availability.asyncSend(Availability.LocalDissemination.LocalBatchCreated(requests))
     }
     emitStateStats(metrics, mempoolState)
   }

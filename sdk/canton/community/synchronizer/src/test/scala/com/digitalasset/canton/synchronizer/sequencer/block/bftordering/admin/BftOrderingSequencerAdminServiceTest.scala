@@ -33,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   BftSequencerBaseTest,
   fakeIgnoringModule,
 }
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Promise
@@ -77,7 +78,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BftSequenc
                 ),
                 any[Boolean => Unit],
               )
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
           response.added shouldBe true
         }
     }
@@ -117,7 +118,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BftSequenc
                 P2PEndpoint.Id("localhost", Port.tryCreate(1234), transportSecurity = true),
                 any[Boolean => Unit],
               )
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
           response.removed shouldBe true
         }
     }
@@ -143,7 +144,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BftSequenc
         .map { response =>
           verify(p2PNetworkOutAdminSpy).asyncSend(
             P2PNetworkOut.Admin.GetStatus(any[PeerNetworkStatus => Unit])
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
           response.statuses shouldBe empty
         }
     }
@@ -169,7 +170,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BftSequenc
         .map { response =>
           verify(consensusAdminSpy).asyncSend(
             Consensus.Admin.GetOrderingTopology(any[(EpochNumber, Set[BftNodeId]) => Unit])
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
           response.sequencerIds shouldBe empty
         }
     }

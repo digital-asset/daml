@@ -685,6 +685,11 @@ paths:
         required: false
         schema:
           type: string
+      - name: identityProviderId
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -694,7 +699,8 @@ paths:
                 $ref: '#/components/schemas/GetConnectedSynchronizersResponse'
         '400':
           description: 'Invalid value for: query parameter party, Invalid value for:
-            query parameter participantId, Invalid value for: headers'
+            query parameter participantId, Invalid value for: query parameter identityProviderId,
+            Invalid value for: headers'
           content:
             text/plain:
               schema:

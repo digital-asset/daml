@@ -3,11 +3,15 @@
 
 package com.digitalasset.canton.participant.admin.data
 
+import better.files.File
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.util.{GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
+
+import java.io.InputStream
 
 /** Intended as small wrapper around a LAPI active contract, so that its use is versioned.
   */
@@ -56,11 +60,23 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
     if (converters.sizeIs != 1) {
       throw new IllegalStateException("Only one protocol version is supported for ACS export")
     }
-    val rpv = converters.headOption
+    val (_, protoCodec) = converters.headOption
       .getOrElse(throw new IllegalStateException("Versioning table converters are empty"))
-      ._2
-      .fromInclusive
-    ActiveContract(contract)(rpv)
+    ActiveContract(contract)(protoCodec.fromInclusive)
   }
 
+  def fromFile(fileInput: File): Either[Throwable, Iterator[ActiveContract]] =
+    ResourceUtil.withResourceEither(fileInput.newGzipInputStream(8192)) { fileInput =>
+      loadFromSource(fileInput) match {
+        case Left(error) => throw new Exception(error) // caught by `withResourceEither`
+        case Right(value) => value.iterator
+      }
+    }
+
+  private def loadFromSource(
+      source: InputStream
+  ): Either[String, List[ActiveContract]] =
+    GrpcStreamingUtils
+      .parseDelimitedFromTrusted[ActiveContract](source, ActiveContract)
+      .map(_.toList)
 }

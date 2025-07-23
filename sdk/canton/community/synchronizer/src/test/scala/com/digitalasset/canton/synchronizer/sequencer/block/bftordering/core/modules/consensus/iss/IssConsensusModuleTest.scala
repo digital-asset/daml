@@ -331,7 +331,7 @@ class IssConsensusModuleTest
         }
 
         verify(segmentModuleMock, times(membership.orderingTopology.nodes.size))
-          .asyncSend(ConsensusSegment.Start)
+          .asyncSendNoTrace(ConsensusSegment.Start)
         succeed
       }
 

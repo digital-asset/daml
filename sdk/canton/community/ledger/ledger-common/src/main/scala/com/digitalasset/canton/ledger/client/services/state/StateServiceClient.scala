@@ -135,6 +135,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
         GetConnectedSynchronizersRequest(
           party = party,
           participantId = "",
+          identityProviderId = "",
         )
       )
 }

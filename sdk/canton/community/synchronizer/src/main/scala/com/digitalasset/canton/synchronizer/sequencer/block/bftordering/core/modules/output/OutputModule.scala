@@ -363,7 +363,7 @@ class OutputModule[E <: Env[E]](
               //  the sequencer runtime after a crash) even if the topology changes drastically afterward.
               context.withNewTraceContext { implicit traceContext =>
                 logger.debug(s"Fetching data for block $blockNumber through local availability")
-                availability.asyncSendTraced(
+                availability.asyncSend(
                   Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
                 )
               }

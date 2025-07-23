@@ -89,7 +89,11 @@ abstract class GetConnectedSynchronizerIntegrationTest
       .runLapiAdminCommand(
         StateService.getConnectedSynchronizers(
           proto.state_service
-            .GetConnectedSynchronizersRequest(party = party.toLf, participantId = "")
+            .GetConnectedSynchronizersRequest(
+              party = party.toLf,
+              participantId = "",
+              identityProviderId = "",
+            )
         )
       )
       .tryResult

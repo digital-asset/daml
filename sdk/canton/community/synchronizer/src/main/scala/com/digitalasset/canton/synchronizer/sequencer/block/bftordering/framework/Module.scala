@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Consensus,
   Output,
   P2PNetworkOut,
+  Pruning,
 }
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.apache.pekko.dispatch.ControlMessage
@@ -166,20 +167,16 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   */
 trait ModuleRef[-AcceptedMessageT] {
 
-  // TODO(#23345): review tracing when messaging
-
-  /** The module reference's asynchronous send operation.
+  /** Send operation that is also providing the current TraceContext
     */
   def asyncSend(
       msg: AcceptedMessageT
-  )(implicit metricsContext: MetricsContext): Unit =
-    asyncSendTraced(msg)(TraceContext.empty, metricsContext)
-
-  /** Send operation that is also providing the current TraceContext
-    */
-  def asyncSendTraced(
-      msg: AcceptedMessageT
   )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit
+
+  def asyncSendNoTrace(
+      msg: AcceptedMessageT
+  )(implicit metricsContext: MetricsContext): Unit =
+    asyncSend(msg)(traceContext = TraceContext.empty, metricsContext = metricsContext)
 }
 
 /** An abstraction of the network for deterministic simulation testing purposes.
@@ -299,17 +296,17 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   def self: E#ModuleRefT[MessageT]
 
-  // TODO(#23345): review tracing when messaging
-
-  def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
-      metricsContext: MetricsContext
-  ): CancellableEvent =
-    delayedEventTraced(delay, message)(TraceContext.empty, metricsContext)
-
-  def delayedEventTraced(delay: FiniteDuration, messageT: MessageT)(implicit
+  def delayedEvent(delay: FiniteDuration, messageT: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent
+
+  def delayedEventNoTrace(delay: FiniteDuration, messageT: MessageT)(implicit
+      metricsContext: MetricsContext
+  ): CancellableEvent = delayedEvent(delay, messageT)(
+    traceContext = TraceContext.empty,
+    metricsContext = metricsContext,
+  )
 
   /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
     */
@@ -499,6 +496,7 @@ object Module {
       p2pNetworkOutAdminModuleRef: ModuleRef[P2PNetworkOut.Admin],
       consensusAdminModuleRef: ModuleRef[Consensus.Admin],
       outputModuleRef: ModuleRef[Output.SequencerSnapshotMessage],
+      pruningModuleRef: ModuleRef[Pruning.Message],
       p2pNetworkRefFactory: P2PNetworkRefFactoryT,
   )
 }

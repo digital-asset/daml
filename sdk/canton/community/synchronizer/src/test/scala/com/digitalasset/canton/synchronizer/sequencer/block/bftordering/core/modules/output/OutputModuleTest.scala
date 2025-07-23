@@ -140,7 +140,7 @@ class OutputModuleTest
         output.receive(Output.Start)
         output.receive(Output.BlockOrdered(initialBlock))
 
-        verify(availabilityRef, times(1)).asyncSendTraced(
+        verify(availabilityRef, times(1)).asyncSend(
           eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
         )(any[TraceContext], any[MetricsContext])
         succeed
@@ -163,7 +163,7 @@ class OutputModuleTest
         output.receive(Output.Start)
         output.receive(Output.BlockOrdered(initialBlock))
 
-        verify(availabilityRef, times(1)).asyncSendTraced(
+        verify(availabilityRef, times(1)).asyncSend(
           eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
         )(any[TraceContext], any[MetricsContext])
 
@@ -172,7 +172,7 @@ class OutputModuleTest
 
         verify(availabilityRef, never).asyncSend(
           eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
         succeed
       }
 
@@ -197,7 +197,7 @@ class OutputModuleTest
 
         verify(availabilityRef, never).asyncSend(
           eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
         succeed
       }
     }
@@ -760,7 +760,7 @@ class OutputModuleTest
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
               )
-            )(any[MetricsContext])
+            )(any[TraceContext], any[MetricsContext])
 
             succeed
           }
@@ -807,7 +807,7 @@ class OutputModuleTest
               aCryptoProvider,
             )
           )
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
 
         output.receive(
           TopologyFetched(
@@ -828,7 +828,7 @@ class OutputModuleTest
                 aCryptoProvider,
               )
             )
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
         order
           .verify(consensusRef, times(1))
           .asyncSend(
@@ -839,7 +839,7 @@ class OutputModuleTest
                 aCryptoProvider,
               )
             )
-          )(any[MetricsContext])
+          )(any[TraceContext], any[MetricsContext])
 
         succeed
       }
@@ -1105,7 +1105,7 @@ class OutputModuleTest
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
           )
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
         succeed
       }
     }
@@ -1272,7 +1272,7 @@ class OutputModuleTest
             )
           )
         )
-      )(any[MetricsContext])
+      )(any[TraceContext], any[MetricsContext])
       succeed
     }
   }
@@ -1305,7 +1305,7 @@ class OutputModuleTest
     output.receive(Output.Start)
     output.receive(Output.BlockOrdered(block))
 
-    verify(availabilityRef, times(1)).asyncSendTraced(
+    verify(availabilityRef, times(1)).asyncSend(
       eqTo(Availability.LocalOutputFetch.FetchBlockData(block))
     )(any[TraceContext], any[MetricsContext])
     val completeBlockData = CompleteBlockData(block, batches = Seq.empty)

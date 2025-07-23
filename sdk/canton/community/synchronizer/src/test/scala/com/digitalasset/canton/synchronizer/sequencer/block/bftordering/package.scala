@@ -45,7 +45,7 @@ package object bftordering {
   private[bftordering] def fakeCellModule[ModuleMessageT, CellMessageT <: ModuleMessageT: Manifest](
       cell: AtomicReference[Option[CellMessageT]]
   ): ModuleRef[ModuleMessageT] = new ModuleRef[ModuleMessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: ModuleMessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       msg match {
@@ -57,7 +57,7 @@ package object bftordering {
   private[bftordering] def fakeRecordingModule[MessageT](
       buffer: mutable.ArrayBuffer[MessageT]
   ): ModuleRef[MessageT] = new ModuleRef[MessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       buffer += msg
@@ -65,7 +65,7 @@ package object bftordering {
 
   private[bftordering] def fakeModuleExpectingSilence[MessageT]: ModuleRef[MessageT] =
     new ModuleRef[MessageT] {
-      override def asyncSendTraced(
+      override def asyncSend(
           msg: MessageT
       )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
         fail(s"Module should not receive any requests but received $msg")

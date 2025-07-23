@@ -23,7 +23,6 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
-  BlacklistLeaderSelectionPolicyConfig,
   DefaultAvailabilityMaxNonOrderedBatchesPerNode,
   DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
   DefaultConsensusQueueMaxSize,
@@ -31,8 +30,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   DefaultDelayedInitQueueMaxSize,
   DefaultEpochLength,
   DefaultEpochStateTransferTimeout,
-  DefaultHowLongToBlackList,
-  DefaultHowManyCanWeBlacklist,
   DefaultLeaderSelectionPolicy,
   DefaultMaxBatchCreationInterval,
   DefaultMaxBatchesPerProposal,
@@ -94,9 +91,6 @@ final case class BftBlockOrdererConfig(
     outputFetchTimeoutCap: FiniteDuration = DefaultOutputFetchTimeoutCap,
     pruning: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
-    howLongToBlacklist: LeaderSelectionPolicyConfig.HowLongToBlacklist = DefaultHowLongToBlackList,
-    howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
-      DefaultHowManyCanWeBlacklist,
     leaderSelectionPolicy: LeaderSelectionPolicyConfig = DefaultLeaderSelectionPolicy,
     storage: Option[StorageConfig] = None,
     // We may want to flip the default once we're satisfied with initial performance
@@ -110,9 +104,6 @@ final case class BftBlockOrdererConfig(
       s"$maxRequestsPerBlock maximum requests per block, " +
       s"but the maximum number allowed of requests per block is ${BftTime.MaxRequestsPerBlock}",
   )
-
-  def blacklistLeaderSelectionPolicyConfig: BlacklistLeaderSelectionPolicyConfig =
-    BlacklistLeaderSelectionPolicyConfig(howLongToBlacklist, howManyCanWeBlacklist)
 }
 
 object BftBlockOrdererConfig {
@@ -140,16 +131,17 @@ object BftBlockOrdererConfig {
     minNumberOfBlocksToKeep = 100,
     pruningFrequency = 1.hour,
   )
-  val DefaultLeaderSelectionPolicy: LeaderSelectionPolicyConfig = LeaderSelectionPolicyConfig.Simple
   val DefaultHowLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
     LeaderSelectionPolicyConfig.HowLongToBlacklist.Linear
   val DefaultHowManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
     LeaderSelectionPolicyConfig.HowManyCanWeBlacklist.NumFaultsTolerated
+  val DefaultLeaderSelectionPolicy: LeaderSelectionPolicyConfig =
+    LeaderSelectionPolicyConfig.Blacklisting()
 
-  final case class BlacklistLeaderSelectionPolicyConfig(
-      howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist,
-      howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist,
-  )
+  trait BlacklistLeaderSelectionPolicyConfig {
+    def howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist
+    def howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist
+  }
 
   implicit val configCantonConfigValidator: CantonConfigValidator[BftBlockOrdererConfig] =
     CantonConfigValidatorDerivation[BftBlockOrdererConfig]
@@ -256,9 +248,23 @@ object BftBlockOrdererConfig {
         : CantonConfigValidator[LeaderSelectionPolicyConfig] =
       CantonConfigValidatorDerivation[LeaderSelectionPolicyConfig]
 
-    final case object Simple extends LeaderSelectionPolicyConfig
+    final case object Simple extends LeaderSelectionPolicyConfig {
+      implicit val simpleValidator: CantonConfigValidator[Simple.type] =
+        CantonConfigValidatorDerivation[Simple.type]
+    }
 
-    final case object Blacklisting extends LeaderSelectionPolicyConfig
+    final case class Blacklisting(
+        override val howLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
+          DefaultHowLongToBlackList,
+        override val howManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
+          DefaultHowManyCanWeBlacklist,
+    ) extends LeaderSelectionPolicyConfig
+        with BlacklistLeaderSelectionPolicyConfig
+
+    object Blacklisting {
+      implicit val blacklistingValidator: CantonConfigValidator[Blacklisting] =
+        CantonConfigValidatorDerivation[Blacklisting]
+    }
 
     sealed trait HowLongToBlacklist extends UniformCantonConfigValidation {
       def compute(failedEpochSoFar: Long): BlacklistStatus

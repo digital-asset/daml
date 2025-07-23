@@ -54,7 +54,7 @@ object SimulationModuleSystem {
       collector: NodeCollector,
   ) extends ModuleRef[MessageT] {
 
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addInternalEvent(name, ModuleControl.Send(msg, traceContext, metricsContext))
@@ -211,7 +211,7 @@ object SimulationModuleSystem {
 
     override val self: SimulationModuleRef[MessageT] = SimulationModuleRef(to, collector)
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent = {
@@ -270,7 +270,7 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForClientModules()
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent = {
@@ -319,7 +319,7 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForSystem()
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent =
@@ -373,7 +373,7 @@ object SimulationModuleSystem {
 
   private final case class SimulatedRefForClient[MessageT](collector: ClientCollector)
       extends ModuleRef[MessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addClientRequest(msg)

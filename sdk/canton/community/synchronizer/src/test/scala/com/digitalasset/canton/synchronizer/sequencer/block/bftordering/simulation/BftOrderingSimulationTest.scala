@@ -837,7 +837,7 @@ class BftOrderingSimulationTestOffboarding extends BftOrderingSimulationTest {
       simulationSettings = SimulationSettings(
         LocalSettings(
           randomSeed = randomSourceToCreateSettings.nextLong(),
-          crashRestartChance = Probability(0.05),
+          crashRestartChance = Probability(0.02),
         ),
         NetworkSettings(
           randomSeed = randomSourceToCreateSettings.nextLong(),

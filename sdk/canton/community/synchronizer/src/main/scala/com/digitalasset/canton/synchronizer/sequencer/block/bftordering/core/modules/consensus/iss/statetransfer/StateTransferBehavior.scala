@@ -148,7 +148,7 @@ final class StateTransferBehavior[E <: Env[E]](
     None
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
-    self.asyncSend(Consensus.Init)
+    self.asyncSendNoTrace(Consensus.Init)
 
   override protected def receiveInternal(
       message: Consensus.Message[E]
@@ -357,7 +357,9 @@ final class StateTransferBehavior[E <: Env[E]](
         }
     }
 
-  private def updateAvailabilityTopology(newEpochTopology: Consensus.NewEpochTopology[E]): Unit =
+  private def updateAvailabilityTopology(newEpochTopology: Consensus.NewEpochTopology[E])(implicit
+      traceContext: TraceContext
+  ): Unit =
     dependencies.availability.asyncSend(
       Availability.Consensus.UpdateTopologyDuringStateTransfer(
         newEpochTopology.membership.orderingTopology,

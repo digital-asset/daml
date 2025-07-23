@@ -29,6 +29,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior, PostStop}
 
 import java.time.{Duration, Instant}
+import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Success, Try}
 
@@ -53,6 +54,7 @@ private final case class Close() extends PekkoP2PGrpcConnectionManagerActorMessa
 
 final class PekkoP2PNetworkRef(
     connectionManagingActorRef: ActorRef[PekkoP2PGrpcConnectionManagerActorMessage],
+    outstandingMessages: AtomicInteger,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 ) extends P2PNetworkRef[BftOrderingServiceReceiveRequest]
@@ -62,7 +64,8 @@ final class PekkoP2PNetworkRef(
 
   override def asyncP2PSend(
       createMessage: Option[Instant] => BftOrderingServiceReceiveRequest
-  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
+    outstandingMessages.incrementAndGet().discard
     synchronizeWithClosingSync("send-message") {
       connectionManagingActorRef ! SendMessage(
         createMessage,
@@ -70,6 +73,7 @@ final class PekkoP2PNetworkRef(
         attemptNumber = 1,
       )
     }.discard
+  }
 
   override def onClosed(): Unit = {
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -99,7 +103,8 @@ object PekkoP2PGrpcNetworking {
     ): P2PNetworkRef[BftOrderingServiceReceiveRequest] = {
       val security = if (endpoint.transportSecurity) "tls" else "plaintext"
       val actorName =
-        s"node-${endpoint.address}-${endpoint.port}-$security-client-connection" // The actor name must be unique.
+        s"node-${endpoint.address}-${endpoint.port}-$security-client-connection" // The actor name must be unique
+      val outstandingMessages = new AtomicInteger()
       logger.debug(s"created client connection-managing actor '$actorName'")
       new PekkoP2PNetworkRef(
         context.underlying.spawn(
@@ -107,11 +112,13 @@ object PekkoP2PGrpcNetworking {
             endpoint,
             actorName,
             clientConnectionManager,
+            outstandingMessages,
             loggerFactory,
             metrics,
           ),
           actorName,
         ),
+        outstandingMessages,
         timeouts,
         loggerFactory,
       )
@@ -153,6 +160,7 @@ object PekkoP2PGrpcNetworking {
       endpoint: P2PEndpoint,
       actorName: String,
       clientConnectionManager: P2PGrpcClientConnectionManager,
+      outstandingMessages: AtomicInteger,
       loggerFactory: NamedLoggerFactory,
       metrics: BftOrderingMetrics,
   ): Behavior[PekkoP2PGrpcConnectionManagerActorMessage] = {
@@ -168,19 +176,30 @@ object PekkoP2PGrpcNetworking {
           PekkoP2PGrpcConnectionManagerActorMessage
         ]
     ): Unit = {
-      // Emit actor queue latency for the message
-      message match {
-        case SendMessage(_, metricsContext, _, sendInstant, maybeDelay) =>
-          // Emit actor queue latency for the message
-          metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-            this.getClass.getSimpleName,
-            sendInstant,
-            maybeDelay,
-          )(metricsContext)
-        case _: Initialize =>
-          logger.debug(s"Connection-managing actor $actorName for $endpointId received Initialize")
-        case _ =>
-      }
+
+      def emitModuleQueueStats(): Unit =
+        // Emit actor queue latency for the message
+        message match {
+          case SendMessage(_, metricsContext, _, sendInstant, maybeDelay) =>
+            // Emit actor queue metrics
+            metrics.performance.orderingStageLatency.emitModuleQueueLatency(
+              "PekkoP2PGrpcConnectionManagingActor",
+              sendInstant,
+              maybeDelay,
+            )(metricsContext)
+            metrics.performance.orderingStageLatency.emitModuleQueueSize(
+              "PekkoP2PGrpcConnectionManagingActor",
+              outstandingMessages.decrementAndGet(),
+            )(metricsContext)
+          case _: Initialize =>
+            logger.debug(
+              s"Connection-managing actor $actorName for $endpointId received Initialize"
+            )
+          case _ =>
+        }
+
+      emitModuleQueueStats()
+
       clientConnectionManager.getPeerSenderOrStartConnection(endpoint) match {
         case Some(peerSender) =>
           logger.debug(

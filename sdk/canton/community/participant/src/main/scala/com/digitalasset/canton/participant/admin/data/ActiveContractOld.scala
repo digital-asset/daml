@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.admin.data
 
-import better.files.File
 import cats.syntax.either.*
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.admin.participant.v30
@@ -83,15 +82,6 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
     ActiveContractOld(synchronizerId, contract, reassignmentCounter)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
-
-  // TODO(#24728) - Remove, do not depend on reading ACS from file directly
-  private[canton] def fromFile(fileInput: File): Iterator[ActiveContractOld] =
-    ResourceUtil.withResource(fileInput.newGzipInputStream(8192)) { fileInput =>
-      loadFromSource(fileInput) match {
-        case Left(error) => throw new Exception(error)
-        case Right(value) => value.iterator
-      }
-    }
 
   private[admin] def loadFromByteString(
       bytes: ByteString

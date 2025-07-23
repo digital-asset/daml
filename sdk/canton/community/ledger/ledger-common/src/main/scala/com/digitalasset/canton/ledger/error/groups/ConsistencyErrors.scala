@@ -16,8 +16,6 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 
-import java.time.Instant
-
 @Explanation(
   "Potential consistency errors raised due to race conditions during command submission or returned as submission rejections by the backing ledger."
 )
@@ -50,23 +48,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
           .map("existing_submission_id" -> _)
           .toList
     }
-  }
-
-  @Explanation("An input contract has been archived by a concurrent transaction submission.")
-  @Resolution(
-    "The correct resolution depends on the business flow, for example it may be possible to " +
-      "proceed without the archived contract as an input, or a different contract could be used."
-  )
-  object InconsistentContracts
-      extends ErrorCode(
-        id = "INCONSISTENT_CONTRACTS",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(override val cause: String)(implicit
-        loggingContext: ErrorLoggingContext
-    ) extends DamlErrorWithDefiniteAnswer(cause = cause)
-
   }
 
   @Explanation("At least one input has been altered by a concurrent transaction submission.")
@@ -154,28 +135,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
   }
 
   @Explanation(
-    """This error occurs if the disclosed payload or metadata of one of the contracts
-      |does not match the actual payload or metadata of the contract."""
-  )
-  @Resolution("Re-submit the command using valid disclosed contract payload and metadata.")
-  object DisclosedContractInvalid
-      extends ErrorCode(
-        id = "DISCLOSED_CONTRACT_INVALID",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Reject(cid: Value.ContractId)(implicit
-        loggingContext: ErrorLoggingContext
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = s"Invalid disclosed contract: ${cid.coid}"
-        ) {
-      override def resources: Seq[(ErrorResource, String)] = Seq(
-        (ErrorResource.ContractId, cid.coid)
-      )
-    }
-  }
-
-  @Explanation(
     """This error signals that within the transaction we got to a point where two contracts with the same key were active."""
   )
   @Resolution("This error indicates an application error.")
@@ -208,37 +167,6 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
     final case class Reject(override val cause: String)(implicit
         loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
-
-  }
-
-  @Explanation(
-    "The ledger time of the submission violated some constraint on the ledger time."
-  )
-  @Resolution("Retry the transaction submission.")
-  object InvalidLedgerTime
-      extends ErrorCode(
-        id = "INVALID_LEDGER_TIME",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther, // It may succeed at a later time
-      ) {
-
-    final case class RejectEnriched(
-        override val cause: String,
-        ledgerTime: Instant,
-        ledgerTimeLowerBound: Instant,
-        ledgerTimeUpperBound: Instant,
-    )(implicit loggingContext: ErrorLoggingContext)
-        extends DamlErrorWithDefiniteAnswer(cause = cause) {
-      override def context: Map[String, String] = super.context ++ Map(
-        "ledger_time" -> ledgerTime.toString,
-        "ledger_time_lower_bound" -> ledgerTimeLowerBound.toString,
-        "ledger_time_upper_bound" -> ledgerTimeUpperBound.toString,
-      )
-    }
-
-    final case class RejectSimple(
-        override val cause: String
-    )(implicit loggingContext: ErrorLoggingContext)
-        extends DamlErrorWithDefiniteAnswer(cause = cause)
 
   }
 

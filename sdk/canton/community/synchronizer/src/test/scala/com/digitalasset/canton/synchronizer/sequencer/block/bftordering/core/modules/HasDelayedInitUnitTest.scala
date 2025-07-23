@@ -27,16 +27,19 @@ class HasDelayedInitUnitTest extends AnyWordSpec with BftSequencerBaseTest {
         val delayedInitModule = new DelayedInitModule(echoRef, loggerFactory, timeouts)
         delayedInitModule.receive("message1")
 
-        verify(echoRef, never).asyncSend(eqTo("message1"))(any[MetricsContext])
+        verify(echoRef, never).asyncSend(eqTo("message1"))(any[TraceContext], any[MetricsContext])
 
         delayedInitModule.receive("init")
 
-        verify(echoRef, times(1)).asyncSend(eqTo("initComplete"))(any[MetricsContext])
-        verify(echoRef, times(1)).asyncSend(eqTo("message1"))(any[MetricsContext])
+        verify(echoRef, times(1))
+          .asyncSend(eqTo("initComplete"))(any[TraceContext], any[MetricsContext])
+        verify(echoRef, times(1))
+          .asyncSend(eqTo("message1"))(any[TraceContext], any[MetricsContext])
 
         delayedInitModule.receive("message2")
 
-        verify(echoRef, times(1)).asyncSend(eqTo("message2"))(any[MetricsContext])
+        verify(echoRef, times(1))
+          .asyncSend(eqTo("message2"))(any[TraceContext], any[MetricsContext])
       }
     }
   }

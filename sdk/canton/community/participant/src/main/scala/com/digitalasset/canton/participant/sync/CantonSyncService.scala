@@ -17,7 +17,12 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  Offset,
+  ReassignmentSubmitterMetadata,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.TransactionRoutingError.{
@@ -43,7 +48,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
@@ -99,13 +103,13 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.{Failure, Right, Success}
@@ -261,15 +265,6 @@ class CantonSyncService(
           .void
     }
 
-  private case class AttemptReconnect(
-      alias: SynchronizerAlias,
-      last: CantonTimestamp,
-      retryDelay: Duration,
-      trace: TraceContext,
-  ) {
-    val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
-  }
-
   // TODO(#25483) Check calls of this method and this resolution
   private def logicalToPhysical(id: SynchronizerId): Option[PhysicalSynchronizerId] =
     connectionsManager.connectedSynchronizersMap.keys.filter(_.logical == id).maxOption
@@ -325,31 +320,7 @@ class CantonSyncService(
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
     parameters,
-    new SynchronizerLookup {
-      override def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean =
-        connectionsManager.connectedSynchronizersLookup.isConnected(synchronizerId)
-
-      override def isConnectedToAnySynchronizer: Boolean =
-        connectionsManager.connectedSynchronizersLookup.isConnectedToAny
-
-      override def persistentStateFor(
-          synchronizerId: PhysicalSynchronizerId
-      ): Option[SyncPersistentState] =
-        syncPersistentStateManager.get(synchronizerId)
-
-      override def connectionConfig(
-          psid: PhysicalSynchronizerId
-      ): Option[StoredSynchronizerConnectionConfig] =
-        synchronizerConnectionConfigStore.get(psid).toOption
-
-      override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
-          traceContext: TraceContext
-      ): Option[TopologyComponentFactory] =
-        syncPersistentStateManager.topologyFactoryFor(synchronizerId)
-
-      override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
-        syncPersistentStateManager.latestKnownPSId(synchronizerId)
-    },
+    connectionsManager.synchronizerLookup,
     connectionsManager.connectQueue,
     loggerFactory,
   )
@@ -471,9 +442,7 @@ class CantonSyncService(
   def pruneInternally(
       pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
-    (for {
-      _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
-    } yield ()).transform(pruningErrorToCantonError)
+    pruningProcessor.pruneLedgerEvents(pruneUpToInclusive).transform(pruningErrorToCantonError)
 
   private def pruningErrorToCantonError(pruningResult: Either[LedgerPruningError, Unit])(implicit
       traceContext: TraceContext
@@ -853,7 +822,7 @@ class CantonSyncService(
                 SyncServiceError.SynchronizerRegistration
                   .Error(
                     config.synchronizerAlias,
-                    "Unexpectedly found several active connections for alias",
+                    s"Unexpectedly found several active connections for alias: ${many.map(_.configuredPSId)}",
                   ): SyncServiceError
               )
           }
@@ -977,6 +946,15 @@ class CantonSyncService(
       _ <- purgeDeactivatedSynchronizer(source.unwrap)
     } yield ()
   }
+
+  @VisibleForTesting
+  def upgradeSynchronizerTo(
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    connectionsManager.upgradeSynchronizerTo(currentPSId, synchronizerSuccessor)
 
   /* Verify that specified synchronizer has inactive status and prune synchronizer stores.
    */

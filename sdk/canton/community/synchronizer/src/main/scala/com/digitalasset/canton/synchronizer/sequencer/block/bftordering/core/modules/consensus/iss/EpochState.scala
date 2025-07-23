@@ -119,7 +119,7 @@ class EpochState[E <: Env[E]](
       blockNumber -> segmentModules(epoch.blockToLeader(BlockNumber(blockNumber)))
     }.toMap
 
-  def requestSegmentStatuses(): EpochStatusBuilder = {
+  def requestSegmentStatuses()(implicit traceContext: TraceContext): EpochStatusBuilder = {
     epoch.segments.zipWithIndex.foreach { case (segment, segmentIndex) =>
       segmentModules(segment.originalLeader).asyncSend(
         ConsensusSegment.RetransmissionsMessage.StatusRequest(segmentIndex)
@@ -169,7 +169,7 @@ class EpochState[E <: Env[E]](
 
   def startSegmentModules(): Unit =
     segmentModules.foreach { case (_, module) =>
-      module.asyncSend(ConsensusSegment.Start)
+      module.asyncSendNoTrace(ConsensusSegment.Start)
     }
 
   def confirmBlockCompleted(

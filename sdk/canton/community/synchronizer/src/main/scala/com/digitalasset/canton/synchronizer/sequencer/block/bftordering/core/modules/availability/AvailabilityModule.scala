@@ -922,7 +922,7 @@ final class AvailabilityModule[E <: Env[E]](
             // We received all the batches that the output module requested
             // so we can send them to output module
             request.missingBatches.clear()
-            dependencies.output.asyncSendTraced(
+            dependencies.output.asyncSend(
               Output.BlockDataFetched(CompleteBlockData(request.blockForOutput, batches))
             )
         }
@@ -1186,7 +1186,7 @@ final class AvailabilityModule[E <: Env[E]](
     //  bandwidth and should be able to support it. However, presently there is no evidence that this is a winning
     //  strategy in a majority of situations.
     context
-      .delayedEventTraced(
+      .delayedEvent(
         timeout,
         Availability.LocalOutputFetch.FetchRemoteBatchDataTimeout(batchId),
       )
@@ -1264,7 +1264,7 @@ final class AvailabilityModule[E <: Env[E]](
 
     if (atMost > 0) {
       logger.debug(s"$actingOnMessageType: requesting at most $atMost batches from local mempool")
-      dependencies.mempool.asyncSend(Mempool.CreateLocalBatches(atMost.toShort))
+      dependencies.mempool.asyncSendNoTrace(Mempool.CreateLocalBatches(atMost.toShort))
     }
   }
 
@@ -1301,7 +1301,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSendTraced(
+        dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             to,
@@ -1322,7 +1322,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSendTraced(
+        dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             nodes,

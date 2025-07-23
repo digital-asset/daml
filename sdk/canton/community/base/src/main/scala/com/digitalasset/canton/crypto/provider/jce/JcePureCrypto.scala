@@ -418,7 +418,20 @@ class JcePureCrypto(
         SignatureCheckError.InvalidKeyError.apply,
       )
       verifier <- Either
-        .catchOnly[GeneralSecurityException](new Ed25519Verify(ed25519PublicKey.getPointEncoding))
+        .catchOnly[GeneralSecurityException] {
+          new PublicKeyVerify {
+            override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
+              val verifier = JSignature.getInstance(
+                "Ed25519",
+                JceSecurityProvider.bouncyCastleProvider,
+              )
+              verifier.initVerify(ed25519PublicKey)
+              verifier.update(data)
+              val verified = verifier.verify(signature)
+              if (!verified) throw new GeneralSecurityException("Invalid signature")
+            }
+          }
+        }
         .leftMap(err =>
           SignatureCheckError.InvalidKeyError(show"Failed to get verifier for Ed25519: $err")
         )

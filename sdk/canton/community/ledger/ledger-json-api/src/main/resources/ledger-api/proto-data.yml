@@ -987,6 +987,9 @@ messages:
           Must be a valid participant-id retrieved through a prior call to getParticipantId.
           Defaults to the participant id of the host participant.
           Optional
+        identity_provider_id: |-
+          The ID of the identity provider configured by ``Identity Provider Config``
+          Optional, if not set, assume the user is managed by the default identity provider.
   GetConnectedSynchronizersResponse:
     message:
       comments: null
