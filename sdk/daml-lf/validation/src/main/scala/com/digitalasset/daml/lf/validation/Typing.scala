@@ -1372,8 +1372,7 @@ private[validation] object Typing {
       else
         typ match {
           case TTyCon(_) =>
-          case _ =>
-            throw EExpectedAnyType(ctx, typ)
+          case _ => throw EExpectedAnyType(ctx, typ)
         }
       checkType(typ, KStar)
     }
