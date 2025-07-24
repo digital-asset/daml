@@ -165,7 +165,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Run `daml new myproject` to create a new project and switch to it using
    `cd myproject`.
 
-1. Run `daml start`. Wait for the yellow message.
+1. Run `daml start`. Wait for the yellow message confirming the sandbox is ready for use.
 
 1. Kill `daml start` with `Ctrl-C` (followed by "y" because Windows).
 
@@ -203,7 +203,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. Verify the new version is specified in `daml.yaml` as the `sdk-version`.
 
-1. Run `daml start`, and wait for the yellow line.
+1. Run `daml start`, and wait for the yellow message confirming the sandbox is ready for use.
 
 1. Kill `daml start` using `Ctrl-C`.
 
@@ -272,8 +272,19 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 1. Kill the processes running in Terminals 1 and 2 using CTRL-C.
 
 1. Run `daml studio --replace=always`. This should open VSCode and trigger the
-   Daml extension that's bundled with the new SDK version. (The new VSCode
-   extension will not be in the marketplace at this point.)
+   Daml extension that's bundled with the new SDK version (the new VSCode
+   extension will not be in the marketplace at this point). Verify by checking
+   the version listed under "Installation" matches the version of the sdk bundled
+   in the snapshot.
+
+   > Note: when running `daml studio --replace=always`, you force the installation
+   > of the VSCode extension bundled with the Daml SDK, and _disable the
+   > auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
+   > published version of the extension, including auto-upgrades, you can run
+   >
+   > ```
+   > daml studio --replace=published
+   > ```
 
 1. Open `daml/Main.daml`.
 
@@ -294,15 +305,6 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. Close VS Code.
 
-> Note: when running `daml studio --replace=always`, you force the installation
-> of the VSCode extension bundled with the Daml SDK, and _disable the
-> auto-upgrade mechanism in VSCode_. To instruct VSCode to go back to the
-> published version of the extension, including auto-upgrades, you can run
->
-> ```
-> daml studio --replace=published
-> ```
-
 1. On the [assembly] PR, add the comment:
 
    > Manual tests passed on [Linux/macOS].
@@ -322,7 +324,7 @@ windows` inside the `daml-language-ad-hoc` project. This command prints IP
 
 1. for 2.10 and 3.x releases, please annouce that tests were successful on #product-releases.
 
-1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on artifactory and github.
+1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on [artifactory](https://digitalasset.jfrog.io/ui/repos/tree/General/external-files/daml-enterprise) and [github](https://github.com/digital-asset/daml/releases).
 
 1. for 2.10 rleases, that pass testing, please ensure that _key_ stakeholders are pinged in the slack message that announces successful testing (that way they may inform selected end users of the snapshots availability).
 
