@@ -241,30 +241,33 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         // ExpToAny
         E"""λ (t : Mod:T) → (( to_any @Mod:T t ))""" ->
           T"Mod:T → Any",
-        E"""λ (t : Mod:R Text) → (( to_any @(Mod:R Text) t ))""" ->
-          T"Mod:R Text → Any",
-        E"""λ (t : Text) → (( to_any @Text t ))""" ->
-          T"Text → Any",
-        E"""λ (t : Int64) → (( to_any @Int64 t ))""" ->
-          T"Int64 -> Any",
+        // the following 3 cases are invalid except in 2.dev
+        // E"""λ (t : Mod:R Text) → (( to_any @(Mod:R Text) t ))""" ->
+        //   T"Mod:R Text → Any",
+        // E"""λ (t : Text) → (( to_any @Text t ))""" ->
+        //   T"Text → Any",
+        // E"""λ (t : Int64) → (( to_any @Int64 t ))""" ->
+        //   T"Int64 -> Any",
         // ExpFromAny
         E"""λ (t: Any) → (( from_any @Mod:T t ))""" ->
           T"Any → Option Mod:T",
-        E"""λ (t: Any) → (( from_any @(Mod:R Text) t ))""" ->
-          T"Any → Option (Mod:R Text)",
-        E"""λ (t: Any) → (( from_any @Text t ))""" ->
-          T"Any → Option Text",
-        E"""λ (t: Any) → (( from_any @Int64 t ))""" ->
-          T"Any → Option Int64",
+        // the following 3 cases are invalid except in 2.dev
+        // E"""λ (t: Any) → (( from_any @(Mod:R Text) t ))""" ->
+        //   T"Any → Option (Mod:R Text)",
+        // E"""λ (t: Any) → (( from_any @Text t ))""" ->
+        //   T"Any → Option Text",
+        // E"""λ (t: Any) → (( from_any @Int64 t ))""" ->
+        //   T"Any → Option Int64",
         // ExpTypeRep
         E"""(( type_rep @Mod:T ))""" ->
           T"TypeRep",
-        E"""(( type_rep @Int64 ))""" ->
-          T"TypeRep",
-        E"""(( type_rep @(Mod:Tree (List Text)) ))""" ->
-          T"TypeRep",
-        E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
-          T"TypeRep",
+        // the following 3 cases are invalid except in 2.dev
+        // E"""(( type_rep @Int64 ))""" ->
+        //   T"TypeRep",
+        // E"""(( type_rep @(Mod:Tree (List Text)) ))""" ->
+        //   T"TypeRep",
+        // E"""(( type_rep @((ContractId Mod:T) → Mod:Color) ))""" ->
+        //   T"TypeRep",
         // ExpRoundingMode,
         E"""ROUNDING_UP""" ->
           T"RoundingMode",
@@ -652,8 +655,15 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedAnyType => },
         E"λ (e: ||Mod:S||) → ⸨ to_any @||Mod:S|| e ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"⸨ to_any @Int64 (Nil @Int64) ⸩" -> //
+        E"⸨ to_any @Mod:T (Nil @Mod:T) ⸩" -> //
           { case _: ETypeMismatch => },
+        // The following 3 case are valid in 2.dev
+        E"""λ (t : Mod:R Text) → ⸨  to_any @(Mod:R Text) t ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""λ (t : Text) → ⸨  to_any @Text t  ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""λ (t : Int64) → ⸨ to_any @Int64 t  ⸩""" -> //
+          { case _: EExpectedAnyType => },
         // ExpFromAny
         E"λ (t: Any) → ⸨ from_any @Mod:R t ⸩" -> //
           { case _: EKindMismatch => },
@@ -668,6 +678,13 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
         E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
           { case _: EExpectedAnyType => },
         E"λ (e: Any) → ⸨ from_any @||Mod:S|| e ⸩" -> //
+          { case _: EExpectedAnyType => },
+        // The following 3 case are valid in 2.dev
+        E"""λ (t: Any) → ⸨ from_any @(Mod:R Text) t ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""λ (t: Any) → ⸨ from_any @Text t ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""λ (t: Any) → ⸨  from_any @Int64 t ⸩""" -> //
           { case _: EExpectedAnyType => },
         // ExpTypeRep
         E"⸨ type_rep @Mod:R ⸩" -> //
@@ -696,6 +713,13 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedExceptionType => },
         E"λ (e: Mod:T) → ⸨ to_any_exception @(Mod:E) e ⸩" -> //
           { case _: ETypeMismatch => },
+        // The following 3 case are valid in 2.dev
+        E"""⸨ type_rep @Int64 ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""⸨ type_rep @(Mod:Tree (List Text)) ⸩""" -> //
+          { case _: EExpectedAnyType => },
+        E"""⸨ type_rep @((ContractId Mod:T) → Mod:Color) ⸩""" -> //
+          { case _: EExpectedAnyType => },
         // ExpFromAnyException
         E"λ (t: AnyException) → ⸨ from_any_exception @Mod:T t ⸩" -> //
           {

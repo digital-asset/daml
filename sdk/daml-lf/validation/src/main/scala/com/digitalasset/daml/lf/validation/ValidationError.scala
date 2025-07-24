@@ -285,7 +285,7 @@ final case class ENonExhaustivePatterns(
 }
 final case class EExpectedAnyType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
-    s"expected a type containing neither type variables nor quantifiers, but found: ${typ.pretty}"
+    s"expected a any type but found: ${typ.pretty}"
 }
 final case class EExpectedExceptionType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =

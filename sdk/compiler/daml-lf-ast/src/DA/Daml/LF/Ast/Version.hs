@@ -196,6 +196,13 @@ featureKindInterning = Feature
     , featureCppFlag = Just "DAML_KINDINTERNING"
     }
 
+featureComplexAnyType :: Feature
+featureComplexAnyType = Feature
+    { featureName = "Complex Any type"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_COMPLEX_ANY_TYPE"
+    }
+
 featureExperimental :: Feature
 featureExperimental = Feature
     { featureName = "Daml Experimental"
