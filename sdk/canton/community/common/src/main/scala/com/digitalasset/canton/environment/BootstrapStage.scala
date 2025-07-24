@@ -53,7 +53,7 @@ final class RunningNode[T <: CantonNode](
   def description: String = "Node up and running"
   override def getNode: Option[T] = Some(node)
 
-  override def getAdminToken: Option[String] = Some(node.adminToken.secret)
+  override def getAdminToken: Option[String] = Some(node.adminTokenDispenser.getCurrentToken.secret)
 
   override def start()(implicit
       traceContext: TraceContext

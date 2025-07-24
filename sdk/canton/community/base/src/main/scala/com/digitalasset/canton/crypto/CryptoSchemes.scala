@@ -7,7 +7,6 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProviderScheme, CryptoSchemeConfig}
 
-// TODO(#18934): Ensure required/allowed schemes are enforced by private/pure crypto classes
 final case class CryptoSchemes(
     signingKeySpecs: CryptoScheme[SigningKeySpec],
     signingAlgoSpecs: CryptoScheme[SigningAlgorithmSpec],

@@ -271,7 +271,7 @@ object Runner {
     val clientConfig = LedgerClientConfiguration(
       userId = userId.getOrElse(""),
       commandClient = CommandClientConfiguration.default,
-      token = params.access_token,
+      token = () => params.access_token,
     )
     val clientChannelConfig = LedgerClientChannelConfiguration(
       sslContext = tlsConfig.client(),
@@ -290,7 +290,7 @@ object Runner {
           AdminLedgerClient.singleHostWithUnknownParticipantId(
             params.host,
             adminPort,
-            clientConfig.token,
+            clientConfig.token(),
             clientChannelConfig,
           )
         )

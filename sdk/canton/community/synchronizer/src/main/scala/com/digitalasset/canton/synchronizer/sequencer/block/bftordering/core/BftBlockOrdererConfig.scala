@@ -7,6 +7,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
+  AdminTokenConfig,
   AuthServiceConfig,
   BasicKeepAliveServerConfig,
   CantonConfigValidator,
@@ -190,7 +191,7 @@ object BftBlockOrdererConfig {
     override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
     override val keepAliveServer: Option[BasicKeepAliveServerConfig] = None
     override val authServices: Seq[AuthServiceConfig] = Seq.empty
-    override val adminToken: Option[String] = None
+    override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
 
     override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.sslContext(_))
 

@@ -963,10 +963,9 @@ final class SyncStateInspection(
   ): EitherT[FutureUnlessShutdown, String, InFlightCount] =
     for {
       state <- EitherT.fromEither[FutureUnlessShutdown](getPersistentState(psid))
-      synchronizerId = state.psid
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
-          .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())
+          .lookupUnsequencedUptoUnordered(psid.logical, CantonTimestamp.now())
       )
       pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
       pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())

@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
 }
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.{CantonAdminToken, CantonAdminTokenDispenser}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.{CantonConfig, ClientConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.CommandErrors.GenericCommandError
@@ -82,6 +82,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     val participant: ParticipantNode = mock[ParticipantNode]
     val sequencer: SequencerNodeBootstrap = mock[SequencerNodeBootstrap]
     val mediator: MediatorNodeBootstrap = mock[MediatorNodeBootstrap]
+    val adminTokenDispenser: CantonAdminTokenDispenser = mock[CantonAdminTokenDispenser]
     val adminToken: String = "0" * 64
 
     when(environment.tracerProvider).thenReturn(mock[TracerProvider])
@@ -110,7 +111,8 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     when(participants.getRunning(anyString())).thenReturn(Some(participantBootstrap))
     when(participantBootstrap.getNode).thenReturn(Some(participant))
     when(participantBootstrap.getAdminToken).thenReturn(Some(adminToken))
-    when(participant.adminToken).thenReturn(CantonAdminToken(adminToken))
+    when(participant.adminTokenDispenser).thenReturn(adminTokenDispenser)
+    when(adminTokenDispenser.getCurrentToken).thenReturn(CantonAdminToken(adminToken))
 
     val adminCommandRunner: GrpcAdminCommandRunner = mock[GrpcAdminCommandRunner]
     val testConsoleOutput: TestConsoleOutput = new TestConsoleOutput(loggerFactory)

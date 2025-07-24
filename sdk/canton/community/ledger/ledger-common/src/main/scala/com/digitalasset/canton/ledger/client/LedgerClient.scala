@@ -52,49 +52,59 @@ final class LedgerClient private (
     extends Closeable {
 
   lazy val commandService = new CommandServiceClient(
-    LedgerClient.stub(CommandServiceGrpcV2.stub(channel), config.token)
+    CommandServiceGrpcV2.stub(channel),
+    config.token,
   )
   lazy val eventQueryService = new EventQueryServiceClient(
-    LedgerClient.stub(EventQueryServiceGrpc.stub(channel), config.token)
+    EventQueryServiceGrpc.stub(channel),
+    config.token,
   )
   lazy val packageService = new PackageClient(
-    LedgerClient.stub(PackageServiceGrpcV2.stub(channel), config.token)
+    PackageServiceGrpcV2.stub(channel),
+    config.token,
   )
 
   lazy val stateService = new StateServiceClient(
-    LedgerClient.stub(StateServiceGrpc.stub(channel), config.token)
+    StateServiceGrpc.stub(channel),
+    config.token,
   )
 
   lazy val updateService = new UpdateServiceClient(
-    LedgerClient.stub(UpdateServiceGrpc.stub(channel), config.token)
+    UpdateServiceGrpc.stub(channel),
+    config.token,
   )
 
   lazy val versionClient: VersionClient =
-    new VersionClient(LedgerClient.stub(VersionServiceGrpc.stub(channel), config.token))
+    new VersionClient(VersionServiceGrpc.stub(channel), config.token)
 
   lazy val identityProviderConfigClient: IdentityProviderConfigClient =
     new IdentityProviderConfigClient(
-      LedgerClient.stub(IdentityProviderConfigServiceGrpc.stub(channel), config.token)
+      IdentityProviderConfigServiceGrpc.stub(channel),
+      config.token,
     )
 
   lazy val packageManagementClient: PackageManagementClient =
     new PackageManagementClient(
-      LedgerClient.stub(PackageManagementServiceGrpc.stub(channel), config.token)
+      PackageManagementServiceGrpc.stub(channel),
+      config.token,
     )
 
   lazy val partyManagementClient: PartyManagementClient =
     new PartyManagementClient(
-      LedgerClient.stub(PartyManagementServiceGrpc.stub(channel), config.token)
+      PartyManagementServiceGrpc.stub(channel),
+      config.token,
     )
 
   lazy val userManagementClient: UserManagementClient =
     new UserManagementClient(
-      LedgerClient.stub(UserManagementServiceGrpc.stub(channel), config.token)
+      UserManagementServiceGrpc.stub(channel),
+      config.token,
     )
 
   lazy val participantPruningManagementClient: ParticipantPruningManagementClient =
     new ParticipantPruningManagementClient(
-      LedgerClient.stub(ParticipantPruningServiceGrpc.stub(channel), config.token)
+      ParticipantPruningServiceGrpc.stub(channel),
+      config.token,
     )
 
   override def close(): Unit = GrpcChannel.close(channel)
@@ -120,7 +130,7 @@ object LedgerClient {
       // requesting ledger end validates the token, thus guaranteeing that the client is operable
       _ <- new StateServiceClient(
         StateServiceGrpc.stub(channel)
-      ).getLedgerEnd(config.token)
+      ).getLedgerEnd(config.token())
     } yield new LedgerClient(channel, config, loggerFactory)
 
   def withoutToken(

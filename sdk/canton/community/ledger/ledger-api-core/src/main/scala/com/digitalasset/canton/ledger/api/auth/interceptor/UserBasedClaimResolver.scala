@@ -6,12 +6,7 @@ package com.digitalasset.canton.ledger.api.auth.interceptor
 import com.digitalasset.canton.auth.*
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.UserId
 
@@ -24,25 +19,18 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param userManagementStoreO
   *   use None if user management is disabled
   */
-class UserBasedAuthInterceptor(
-    authServices: Seq[AuthService],
+class UserBasedClaimResolver(
     userManagementStoreO: Option[UserManagementStore],
-    loggerFactory: NamedLoggerFactory,
-    override implicit val ec: ExecutionContext,
-) extends AuthInterceptor(authServices, loggerFactory, ec)
-    with NamedLogging {
+    implicit val ec: ExecutionContext,
+) extends ClaimResolver {
 
-  import UserBasedAuthInterceptor.*
+  override def apply(claimSet: ClaimSet)(implicit
+      loggingContext: LoggingContextWithTrace,
+      errorLoggingContext: ErrorLoggingContext,
+  ): Future[ClaimSet] =
+    resolveAuthenticatedUserRights(claimSet)
 
-  override def headerToClaims(
-      authToken: Option[String],
-      serviceName: String,
-  )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[ClaimSet] = {
-    implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContextWithTrace)
-    super
-      .headerToClaims(authToken, serviceName)
-      .flatMap(resolveAuthenticatedUserRights)
-  }
+  import UserBasedClaimResolver.*
 
   private[this] def resolveAuthenticatedUserRights(
       claimSet: ClaimSet
@@ -163,7 +151,7 @@ class UserBasedAuthInterceptor(
     }
 }
 
-object UserBasedAuthInterceptor {
+object UserBasedClaimResolver {
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] =
     userRights.view.map(userRightToClaim).toList.prepended(ClaimPublic)

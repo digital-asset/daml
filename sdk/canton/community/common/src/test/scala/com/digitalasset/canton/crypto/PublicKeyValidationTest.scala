@@ -7,11 +7,14 @@ import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.PositiveFiniteDuration
-import com.digitalasset.canton.crypto.provider.jce.JcePureCrypto
+import com.digitalasset.canton.crypto.CryptoKeyFormat.DerX509Spki
+import com.digitalasset.canton.crypto.provider.jce.{JcePureCrypto, JceSecurityProvider}
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.security.KeyPairGenerator
+import java.security.spec.RSAKeyGenParameterSpec
 import scala.concurrent.Future
 
 trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: AsyncWordSpec =>
@@ -89,7 +92,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
         )
       }
 
-      "fail if public key not on the curve" in {
+      "fail if EC public key not on the curve" in {
         for {
           crypto <- newCrypto
           publicKeyEcP256 <- getSigningPublicKey(
@@ -107,6 +110,23 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
             )
         } yield validationRes.left.value.message should include(
           s"EC key not in curve"
+        )
+      }
+
+      "fail if RSA public key is invalid" in {
+        val kpGen = KeyPairGenerator.getInstance("RSA", JceSecurityProvider.bouncyCastleProvider)
+        kpGen.initialize(new RSAKeyGenParameterSpec(4096, RSAKeyGenParameterSpec.F4))
+        val invalidPublicKey = ByteString.copyFrom(kpGen.generateKeyPair().getPublic.getEncoded)
+        // use a different modulus length
+        val validationRes =
+          EncryptionPublicKey.create(
+            DerX509Spki,
+            invalidPublicKey,
+            EncryptionKeySpec.Rsa2048,
+          )
+        validationRes.left.value.message should include(
+          s"RSA key modulus size ${4096} does not match expected " +
+            s"size ${EncryptionKeySpec.Rsa2048.keySizeInBits}"
         )
       }
 

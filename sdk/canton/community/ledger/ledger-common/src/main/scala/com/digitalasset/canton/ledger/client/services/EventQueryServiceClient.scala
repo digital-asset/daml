@@ -13,7 +13,10 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 
 import scala.concurrent.Future
 
-class EventQueryServiceClient(service: EventQueryServiceStub) {
+class EventQueryServiceClient(
+    service: EventQueryServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+) {
   def getEventsByContractId(
       contractId: String,
       requestingParties: Seq[String],
@@ -26,7 +29,7 @@ class EventQueryServiceClient(service: EventQueryServiceStub) {
     )
 
     LedgerClient
-      .stub(service, token)
+      .stub(service, token.orElse(getDefaultToken()))
       .getEventsByContractId(
         GetEventsByContractIdRequest(
           contractId = contractId,
@@ -45,7 +48,7 @@ class EventQueryServiceClient(service: EventQueryServiceStub) {
 //      token: Option[String] = None,
 //  ): Future[GetEventsByContractKeyResponse] =
 //    LedgerClient
-//      .stub(service, token)
+//      .stub(service, token.orElse(getDefaultToken())))
 //      .getEventsByContractKey(
 //        GetEventsByContractKeyRequest(
 //          contractKey = Some(contractKey),

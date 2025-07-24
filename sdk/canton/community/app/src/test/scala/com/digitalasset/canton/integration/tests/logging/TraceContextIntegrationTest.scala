@@ -15,7 +15,9 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.participant.admin.PingService
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import org.scalatest.compatible.Assertion
@@ -35,8 +37,10 @@ abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with
         }
       }
 
-  val CaptureLoggersUsingTraceId: SuppressionRule =
-    SuppressionRule.forLogger[CantonSyncService] ||
+  val CaptureLoggersUsingTraceIdForPing: SuppressionRule =
+    SuppressionRule.forLogger[PingService] ||
+      SuppressionRule.forLogger[CommandSubmissionService] ||
+      SuppressionRule.forLogger[CantonSyncService] ||
       SuppressionRule.forLogger[TransactionProcessor] &&
       SuppressionRule.LevelAndAbove(Level.DEBUG)
 
@@ -46,7 +50,7 @@ abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with
   "check trace id set on sync service write is visible on related read events" in { implicit env =>
     import env.*
 
-    loggerFactory.assertLogsSeq(CaptureLoggersUsingTraceId)(
+    loggerFactory.assertLogsSeq(CaptureLoggersUsingTraceIdForPing)(
       {
         val p1InitialCounts = grabCounts(daName, participant1)
         val p2InitialCounts = grabCounts(daName, participant2)
@@ -72,12 +76,29 @@ abstract class TraceContextIntegrationTest extends CommunityIntegrationTest with
           .fmap(_.map(_._2))
           .filter(_._2.exists(_.message contains "Successfully submitted transaction"))
 
+        def isPingServicePingCommand(
+            entry: LogEntry
+        ): Boolean =
+          entry.loggerName.contains(classOf[PingService].getSimpleName) &&
+            entry.message.contains("Starting ping")
+
+        def isCommandServicePingCommand(
+            entry: LogEntry
+        ): Boolean =
+          entry.loggerName.contains(classOf[CommandSubmissionService].getSimpleName) &&
+            entry.message.contains("Submitted commands are: 'create Canton.Internal.Ping:Ping'")
+
         def hasTransactionAcceptedFor(participant: String)(logEntry: LogEntry): Assertion = {
           logEntry.loggerName should include(participant)
           logEntry.message should include("TransactionAccepted")
         }
 
-        assert(submissionTraces.nonEmpty, "No submission traces found")
+        // Ping submission trace exists
+        submissionTraces.exists { case (_traceId, entries) =>
+          entries.exists(isPingServicePingCommand) &&
+          entries.exists(isCommandServicePingCommand) &&
+          entries.exists(_.message contains "Successfully submitted transaction")
+        } shouldBe true withClue "full Ping submission trace not found"
 
         forAll(submissionTraces) {
           // we already know that these traces are submitting a ledger-api transaction

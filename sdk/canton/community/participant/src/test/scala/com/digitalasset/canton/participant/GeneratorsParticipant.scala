@@ -4,8 +4,14 @@
 package com.digitalasset.canton.participant
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.GeneratorsConfig
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
+import com.digitalasset.canton.participant.admin.data.ActiveContractOld
+import com.digitalasset.canton.participant.protocol.party.{
+  PartyReplicationSourceParticipantMessage,
+  PartyReplicationTargetParticipantMessage,
+}
 import com.digitalasset.canton.participant.protocol.submission.TransactionSubmissionTrackingData.{
   CauseWithTemplate,
   RejectionCause,
@@ -15,21 +21,26 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SubmissionTrackingData,
   TransactionSubmissionTrackingData,
 }
-import com.digitalasset.canton.topology.{GeneratorsTopology, PhysicalSynchronizerId}
-import com.digitalasset.canton.version.SerializationDeserializationTestHelpers
-import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPartyId}
+import com.digitalasset.canton.protocol.GeneratorsProtocol
+import com.digitalasset.canton.topology.{GeneratorsTopology, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
+import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPartyId, ReassignmentCounter}
 import org.scalacheck.{Arbitrary, Gen}
 
 final class GeneratorsParticipant(
     generatorsTopology: GeneratorsTopology,
     generatorsLf: GeneratorsLf,
+    generatorsProtocol: GeneratorsProtocol,
+    version: ProtocolVersion,
 ) {
 
   import GeneratorsParticipant.*
 
+  import GeneratorsConfig.*
   import com.digitalasset.canton.Generators.*
   import generatorsTopology.*
   import generatorsLf.*
+  import generatorsProtocol.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
 
   implicit val completionInfoArb: Arbitrary[CompletionInfo] = Arbitrary {
@@ -80,6 +91,53 @@ final class GeneratorsParticipant(
         classOf[TransactionSubmissionTrackingData],
       )
     )
+
+  implicit val activeContractOldArb: Arbitrary[ActiveContractOld] =
+    Arbitrary(
+      for {
+        synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+        serializableContract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+        reassignmentCounter <- Gen.chooseNum(0L, Long.MaxValue).map(ReassignmentCounter(_))
+      } yield ActiveContractOld.create(
+        synchronizerId,
+        serializableContract,
+        reassignmentCounter,
+      )(version)
+    )
+
+  implicit val partyReplicationSourceParticipantMessageArb
+      : Arbitrary[PartyReplicationSourceParticipantMessage] =
+    Arbitrary(
+      for {
+        acsBatch <- nonEmptyListGen[ActiveContractOld]
+        message <- Gen
+          .oneOf[PartyReplicationSourceParticipantMessage.DataOrStatus](
+            PartyReplicationSourceParticipantMessage.AcsBatch(
+              acsBatch
+            ),
+            Gen.const(PartyReplicationSourceParticipantMessage.SourceParticipantIsReady),
+            Gen.const(PartyReplicationSourceParticipantMessage.EndOfACS),
+          )
+      } yield PartyReplicationSourceParticipantMessage.apply(
+        message,
+        version,
+      )
+    )
+
+  implicit val partyReplicationTargetParticipantMessageArb
+      : Arbitrary[PartyReplicationTargetParticipantMessage] = Arbitrary(
+    for {
+      maxContractOrdinalInclusive <- nonNegativeIntArb.arbitrary
+      instruction =
+        PartyReplicationTargetParticipantMessage.SendAcsSnapshotUpTo(
+          maxContractOrdinalInclusive
+        )
+    } yield PartyReplicationTargetParticipantMessage.apply(
+      instruction,
+      version,
+    )
+  )
+
 }
 
 object GeneratorsParticipant {

@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.participant.v30.{
   PartyManagementServiceGrpc,
   PingServiceGrpc,
 }
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -53,7 +53,7 @@ class StartableStoppableLedgerApiDependentServices(
     participantId: ParticipantId,
     clock: Clock,
     registry: CantonMutableHandlerRegistry,
-    adminToken: CantonAdminToken,
+    adminTokenDispenser: CantonAdminTokenDispenser,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
     tracerProvider: TracerProvider,
@@ -104,7 +104,7 @@ class StartableStoppableLedgerApiDependentServices(
                 packageService,
                 syncService,
                 participantId,
-                adminToken,
+                adminTokenDispenser,
                 futureSupervisor,
                 loggerFactory,
                 clock,

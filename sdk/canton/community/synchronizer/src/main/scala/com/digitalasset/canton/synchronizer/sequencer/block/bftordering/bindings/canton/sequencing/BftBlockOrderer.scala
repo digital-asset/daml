@@ -446,7 +446,7 @@ final class BftBlockOrderer(
         CantonServerBuilder
           .forConfig(
             config = serverConfig,
-            adminToken = None,
+            adminTokenDispenser = None,
             executor = p2pServerGrpcExecutor,
             loggerFactory = loggerFactory,
             apiLoggingConfig = nodeParameters.loggingConfig.api,

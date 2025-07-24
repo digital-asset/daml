@@ -1655,6 +1655,12 @@ object SigningError {
     )
   }
 
+  final case class NoMatchingAlgorithmSpec(message: String) extends SigningError {
+    override protected def pretty: Pretty[NoMatchingAlgorithmSpec] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
   final case class InvalidKeyUsage(
       keyId: Fingerprint,
       keyUsage: Set[SigningKeyUsage],

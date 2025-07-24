@@ -31,7 +31,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.admin.*
-import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
@@ -49,6 +48,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.{
   AttemptReconnect,
   ConnectSynchronizer,
+  ConnectedSynchronizers,
   ConnectionListener,
 }
 import com.digitalasset.canton.participant.synchronizer.*
@@ -68,6 +68,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.daml.lf.engine.Engine
+import com.google.common.collect.{BiMap, HashBiMap}
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
@@ -75,7 +76,8 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Right, Success, Try}
 
 /** The Canton-based synchronization service.
@@ -146,60 +148,23 @@ private[sync] class SynchronizerConnectionsManager(
 
   protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
-  /** The synchronizers this sync service is connected to. Can change due to connect/disconnect
-    * operations. This may contain synchronizers for which recovery is still running. Invariant: All
-    * synchronizer ids in this map have a corresponding synchronizer alias in the alias manager DO
-    * NOT PASS THIS MUTABLE MAP TO OTHER CLASSES THAT ONLY REQUIRE READ ACCESS. USE
-    * [[connectedSynchronizersLookup]] INSTEAD
-    */
-  val connectedSynchronizersMap: TrieMap[PhysicalSynchronizerId, ConnectedSynchronizer] =
-    TrieMap.empty[PhysicalSynchronizerId, ConnectedSynchronizer]
-  val connectedSynchronizersLookup: ConnectedSynchronizersLookup =
-    ConnectedSynchronizersLookup.create(connectedSynchronizersMap)
-  connectedSynchronizersLookupContainer.registerDelegate(connectedSynchronizersLookup)
+  val connectedSynchronizers: ConnectedSynchronizers = new ConnectedSynchronizers()
+
+  connectedSynchronizersLookupContainer.registerDelegate(connectedSynchronizers)
 
   private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
       reassignmentTimeProofFreshnessProportion =
         parameters.reassignmentTimeProofFreshnessProportion,
       syncPersistentStateManager = syncPersistentStateManager,
-      submissionHandles = connectedSynchronizersLookup.get,
+      submissionHandles = connectedSynchronizers.get,
       synchronizerId =>
-        connectedSynchronizersLookup
+        connectedSynchronizers
           .get(synchronizerId.unwrap)
           .map(_.ephemeral.reassignmentSynchronizer),
       syncCryptoApi = syncCrypto,
       loggerFactory,
     )(ec)
-
-  val synchronizerLookup: SynchronizerLookup = new SynchronizerLookup {
-    override def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean =
-      connectedSynchronizersLookup.isConnected(synchronizerId)
-
-    override def isConnected(synchronizerId: SynchronizerId): Boolean =
-      connectedSynchronizersLookup.isConnected(synchronizerId)
-
-    override def isConnectedToAnySynchronizer: Boolean =
-      connectedSynchronizersLookup.isConnectedToAny
-
-    override def persistentStateFor(
-        synchronizerId: PhysicalSynchronizerId
-    ): Option[SyncPersistentState] =
-      syncPersistentStateManager.get(synchronizerId)
-
-    override def connectionConfig(
-        psid: PhysicalSynchronizerId
-    ): Option[StoredSynchronizerConnectionConfig] =
-      synchronizerConnectionConfigStore.get(psid).toOption
-
-    override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
-        traceContext: TraceContext
-    ): Option[TopologyComponentFactory] =
-      syncPersistentStateManager.topologyFactoryFor(synchronizerId)
-
-    override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
-      syncPersistentStateManager.latestKnownPSId(synchronizerId)
-  }
 
   private[sync] val connectQueue = {
     val queueName = "sync-service-connect-and-repair-queue"
@@ -218,7 +183,7 @@ private[sync] class SynchronizerConnectionsManager(
     ledgerApiIndexer,
     syncPersistentStateManager,
     connectQueue,
-    synchronizerLookup,
+    connectedSynchronizers,
     connectSynchronizer = (alias: Traced[SynchronizerAlias]) =>
       connectSynchronizer(
         alias.value,
@@ -237,38 +202,22 @@ private[sync] class SynchronizerConnectionsManager(
   private def resolveReconnectAttempts(alias: SynchronizerAlias): Unit =
     attemptReconnect.remove(alias).discard
 
-  // TODO(#25483) Check calls of this method and this resolution
-  private def logicalToPhysical(id: SynchronizerId): Option[PhysicalSynchronizerId] =
-    connectedSynchronizersMap.keys.filter(_.logical == id).maxOption
-
-  def activePSIdForLSId(
-      id: SynchronizerId
-  ): Option[PhysicalSynchronizerId] =
-    synchronizerConnectionConfigStore
-      .getActive(id)
-      .toOption
-      .flatMap(_.configuredPSId.toOption)
-
   // A connected synchronizer is ready if recovery has succeeded
   private[canton] def readyConnectedSynchronizerById(
       synchronizerId: SynchronizerId
   ): Option[ConnectedSynchronizer] =
-    // TODO(#25483) Check calls of this method and this resolution
-    connectedSynchronizersMap
-      .collect { case (psid, sync) if psid.logical == synchronizerId && sync.ready => sync }
-      .maxByOption(_.psid)
+    connectedSynchronizers.get(synchronizerId).filter(_.ready)
 
   private[canton] def connectedSynchronizerForAlias(
       alias: SynchronizerAlias
   ): Option[ConnectedSynchronizer] =
     aliasManager
       .synchronizerIdForAlias(alias)
-      .flatMap(logicalToPhysical)
-      .flatMap(connectedSynchronizersMap.get)
+      .flatMap(connectedSynchronizers.get)
 
   /** Returns the ready synchronizers this sync service is connected to. */
   def readySynchronizers: Map[SynchronizerAlias, (PhysicalSynchronizerId, SubmissionReady)] =
-    connectedSynchronizersMap
+    connectedSynchronizers.snapshot
       .to(LazyList)
       .mapFilter {
         case (id, sync) if sync.ready =>
@@ -283,14 +232,23 @@ private[sync] class SynchronizerConnectionsManager(
     * the synchronizer is registered and connected.
     */
   def lookupSynchronizerTimeTracker(
-      synchronizerId: SynchronizerId
-  ): Option[SynchronizerTimeTracker] =
-    logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.get).map(_.timeTracker)
+      requestedSynchronizer: Synchronizer
+  ): Either[String, SynchronizerTimeTracker] =
+    connectedSynchronizers.get(requestedSynchronizer.logical) match {
+      case None =>
+        s"Not connected to any synchronizer with id ${requestedSynchronizer.logical}".asLeft
+      case Some(connectedSynchronizer) =>
+        Either.cond(
+          requestedSynchronizer.isCompatibleWith(connectedSynchronizer.psid),
+          connectedSynchronizer.timeTracker,
+          s"Not connected to $requestedSynchronizer but to ${connectedSynchronizer.psid}",
+        )
+    }
 
   def lookupTopologyClient(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Option[SynchronizerTopologyClientWithInit] =
-    connectedSynchronizersMap.get(synchronizerId).map(_.topologyClient)
+    connectedSynchronizers.get(psid).map(_.topologyClient)
 
   /** Reconnect configured synchronizers
     *
@@ -340,6 +298,7 @@ private[sync] class SynchronizerConnectionsManager(
         case Nil => EitherT.rightT(connected)
         case con :: rest =>
           for {
+            // This call is synchronized at the call site
             succeeded <- performSynchronizerConnectionOrHandshake(
               con,
               connectSynchronizer = ConnectSynchronizer.ReconnectSynchronizers,
@@ -375,6 +334,8 @@ private[sync] class SynchronizerConnectionsManager(
                 Right(false)
               case Left(err) =>
                 // disconnect from pending connections on failure
+                // This call is synchronized at the call site
+
                 val failures = connected.mapFilter(performSynchronizerDisconnect(_).left.toOption)
                 if (failures.nonEmpty) {
                   logger.error(s"Failed to disconnect from synchronizers: $failures")
@@ -406,6 +367,7 @@ private[sync] class SynchronizerConnectionsManager(
           case None => Right(())
           case Some(lst) =>
             synchronizers.foreach(
+              // This call is synchronized at the call site
               performSynchronizerDisconnect(_).discard[Either[SyncServiceError, Unit]]
             )
             Left(SyncServiceError.SyncServiceStartupError.CombinedStartError(lst))
@@ -413,15 +375,15 @@ private[sync] class SynchronizerConnectionsManager(
       })
     }
 
-    val connectedSynchronizers =
-      connectedSynchronizersMap.keys
+    val connectedAliases: Set[SynchronizerAlias] =
+      connectedSynchronizers.snapshot.keys
         .to(LazyList)
         .map(_.logical)
         .mapFilter(aliasManager.aliasForSynchronizerId)
         .toSet
 
     def shouldConnectTo(config: StoredSynchronizerConnectionConfig): Boolean = {
-      val alreadyConnected = connectedSynchronizers.contains(
+      val alreadyConnected = connectedAliases.contains(
         config.config.synchronizerAlias
       )
 
@@ -657,6 +619,8 @@ private[sync] class SynchronizerConnectionsManager(
           .Error(config.synchronizerAlias, psid, err.message)
       )
 
+  /** MUST be synchronized using the [[connectQueue]]
+    */
   def performSynchronizerConnectionOrHandshake(
       synchronizerAlias: SynchronizerAlias,
       connectSynchronizer: ConnectSynchronizer,
@@ -685,18 +649,14 @@ private[sync] class SynchronizerConnectionsManager(
   def isConnected(synchronizerAlias: SynchronizerAlias): Option[PhysicalSynchronizerId] =
     for {
       lsid <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
-      psid <- connectedSynchronizersMap.keySet.find(_.logical == lsid)
+      psid <- connectedSynchronizers.get(lsid).map(_.psid)
     } yield psid
-
-  private def isConnected(psid: PhysicalSynchronizerId): Boolean =
-    connectedSynchronizersMap.contains(psid)
 
   /** Perform handshake with the given synchronizer.
     * @param synchronizerAlias
     *   Alias of the synchronizer
     * @param skipStatusCheck
     *   If false, check that the connection is active (default).
-    * @return
     */
   private def performSynchronizerHandshake(
       synchronizerAlias: SynchronizerAlias,
@@ -752,31 +712,29 @@ private[sync] class SynchronizerConnectionsManager(
     }
 
   /** Perform a handshake with the given synchronizer.
-    * @param synchronizerId
+    * @param psid
     *   the physical synchronizer id of the synchronizer.
     * @return
     */
   def connectToPSIdWithHandshake(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
     connectQueue.executeEUS(
-      if (isConnected(synchronizerId)) {
-        logger.debug(s"Synchronizer $synchronizerId already registered")
-        EitherT.rightT(synchronizerId)
+      if (connectedSynchronizers.isConnected(psid)) {
+        logger.debug(s"Synchronizer $psid already registered")
+        EitherT.rightT(psid)
       } else {
-        logger.debug(
-          s"About to perform handshake with synchronizer: $synchronizerId"
-        )
+        logger.debug(s"About to perform handshake with synchronizer: $psid")
 
         for {
           synchronizerConnectionConfig <- EitherT.fromEither[FutureUnlessShutdown](
             synchronizerConnectionConfigStore
-              .get(synchronizerId)
+              .get(psid)
               .leftMap(e =>
                 SyncServiceError.SynchronizerRegistration
-                  .SuccessorInitializationError(synchronizerId, e.message): SyncServiceError
+                  .SuccessorInitializationError(psid, e.message): SyncServiceError
               )
           )
 
@@ -797,11 +755,11 @@ private[sync] class SynchronizerConnectionsManager(
             )
           (synchronizerHandle, _) = synchronizerHandleAndUpdatedConfig
 
-          _ = syncCrypto.remove(synchronizerId)
+          _ = syncCrypto.remove(psid)
           _ = synchronizerHandle.close()
-        } yield synchronizerId
+        } yield psid
       },
-      s"handshake with physical synchronizer $synchronizerId",
+      s"handshake with physical synchronizer $psid",
     )
 
   /** Connect the sync service to the given synchronizer. */
@@ -861,27 +819,27 @@ private[sync] class SynchronizerConnectionsManager(
             synchronizerConnectionConfig.predecessor,
           )
           (synchronizerHandle, updatedConfig) = synchronizerHandleAndUpdatedConfig
-          synchronizerId = synchronizerHandle.psid
+          psid = synchronizerHandle.psid
 
           _ = logger.debug(
-            s"Registering id $synchronizerId for synchronizer with alias $synchronizerAlias"
+            s"Registering id $psid for synchronizer with alias $synchronizerAlias"
           )
           _ <- synchronizerConnectionConfigStore
-            .setPhysicalSynchronizerId(synchronizerAlias, synchronizerId)
+            .setPhysicalSynchronizerId(synchronizerAlias, psid)
             .leftMap[SyncServiceError](err =>
               SyncServiceError.SyncServicePhysicalIdRegistration
-                .Error(synchronizerAlias, synchronizerId, err.message)
+                .Error(synchronizerAlias, psid, err.message)
             )
-          _ <- updateSynchronizerConnectionConfig(synchronizerId, updatedConfig)
+          _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
 
           synchronizerLoggerFactory = loggerFactory.append(
             "synchronizerId",
-            synchronizerId.toString,
+            psid.toString,
           )
           persistent = synchronizerHandle.syncPersistentState
 
           synchronizerCrypto = syncCrypto.tryForSynchronizer(
-            synchronizerId,
+            psid,
             synchronizerHandle.staticParameters,
           )
 
@@ -919,7 +877,7 @@ private[sync] class SynchronizerConnectionsManager(
 
           missingKeysAlerter = new MissingKeysAlerter(
             participantId,
-            synchronizerId.logical,
+            psid.logical,
             synchronizerHandle.topologyClient,
             synchronizerCrypto.crypto.cryptoPrivateStore,
             synchronizerLoggerFactory,
@@ -940,7 +898,7 @@ private[sync] class SynchronizerConnectionsManager(
           lsuCallback =
             if (parameters.automaticallyPerformLogicalSynchronizerUpgrade)
               new LogicalSynchronizerUpgradeCallbackImpl(
-                synchronizerId,
+                psid,
                 ephemeral.timeTracker,
                 this,
               )
@@ -991,7 +949,7 @@ private[sync] class SynchronizerConnectionsManager(
           )
           _ = connectedSynchronizer.resolveUnhealthy()
 
-          _ = connectedSynchronizersMap += (synchronizerId -> connectedSynchronizer)
+          _ = connectedSynchronizers.tryAdd(connectedSynchronizer)
 
           // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizersMap, e.g. to
           // prevent sending PartyAddedToParticipantEvents before the synchronizer is available for command submission. (#2279)
@@ -1053,7 +1011,7 @@ private[sync] class SynchronizerConnectionsManager(
           // remove this one from the reconnect attempt list, as we are successfully connected now
           this.resolveReconnectAttempts(synchronizerAlias)
           declarativeChangeTrigger()
-          synchronizerId
+          psid
         }
 
         def disconnectOn(): Unit =
@@ -1115,10 +1073,10 @@ private[sync] class SynchronizerConnectionsManager(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     for {
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
-        aliasManager.synchronizerIdForAlias(synchronizerAlias).flatMap(logicalToPhysical),
+        aliasManager.synchronizerIdForAlias(synchronizerAlias),
         SyncServiceUnknownSynchronizer.Error(synchronizerAlias).asGrpcError.getStatus,
       )
-      _ <- connectedSynchronizersMap
+      _ <- connectedSynchronizers
         .get(synchronizerId)
         .fold(EitherT.pure[FutureUnlessShutdown, Status] {
           logger.info(show"Nothing to do, as we are not connected to $synchronizerAlias")
@@ -1126,6 +1084,8 @@ private[sync] class SynchronizerConnectionsManager(
         })(connectedSynchronizer => connectedSynchronizer.logout())
     } yield ()
 
+  /** MUST be synchronized using the [[connectQueue]]
+    */
   def performSynchronizerDisconnect(
       synchronizerAlias: SynchronizerAlias
   )(implicit traceContext: TraceContext): Either[SyncServiceError, Unit] = {
@@ -1133,9 +1093,9 @@ private[sync] class SynchronizerConnectionsManager(
     (for {
       synchronizerId <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
     } yield {
-      val removed = logicalToPhysical(synchronizerId).flatMap { psid =>
+      val removed = connectedSynchronizers.psidFor(synchronizerId).flatMap { psid =>
         syncCrypto.remove(psid)
-        connectedSynchronizersMap.remove(psid)
+        connectedSynchronizers.remove(psid)
       }
       removed match {
         case Some(connectedSynchronizer) =>
@@ -1160,13 +1120,11 @@ private[sync] class SynchronizerConnectionsManager(
   /** Disconnect from all connected synchronizers. */
   def disconnectSynchronizers()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
-    val connectedSynchronizers =
-      connectedSynchronizersMap.keys.toList
-        .mapFilter(id => aliasManager.aliasForSynchronizerId(id.logical))
-        .distinct
-    connectedSynchronizers.parTraverse_(disconnectSynchronizer)
-  }
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
+    connectedSynchronizers.lsids.toList
+      .mapFilter(aliasManager.aliasForSynchronizerId)
+      .distinct
+      .parTraverse_(disconnectSynchronizer)
 
   /** Start the upgrade of the participant to the successor.
     *
@@ -1215,13 +1173,13 @@ private[sync] class SynchronizerConnectionsManager(
 
   // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
   def currentWriteHealth(): HealthStatus = {
-    val existsReadySynchronizer = connectedSynchronizersMap.exists { case (_, sync) =>
+    val existsReadySynchronizer = connectedSynchronizers.snapshot.exists { case (_, sync) =>
       sync.ready
     }
     if (existsReadySynchronizer && isActive()) HealthStatus.healthy else HealthStatus.unhealthy
   }
 
-  def computeTotalLoad: Int = connectedSynchronizersMap.foldLeft(0) {
+  def computeTotalLoad: Int = connectedSynchronizers.snapshot.foldLeft(0) {
     case (acc, (_, connectedSynchronizer)) =>
       acc + connectedSynchronizer.numberOfDirtyRequests()
   }
@@ -1252,7 +1210,7 @@ private[sync] class SynchronizerConnectionsManager(
     } yield ()
 
   override def onClosed(): Unit = {
-    val instances = (connectQueue +: connectedSynchronizersMap.values.toSeq) ++ Seq(
+    val instances = (connectQueue +: connectedSynchronizers.snapshot.values.toSeq) ++ Seq(
       connectedSynchronizerHealth,
       ephemeralHealth,
       sequencerClientHealth,
@@ -1358,5 +1316,66 @@ object SynchronizerConnectionsManager {
       trace: TraceContext,
   ) {
     val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
+  }
+
+  /** Store the connected synchronizers.
+    *
+    * Updates to this class should be synchronizer via the single execution queue.
+    *
+    * Invariants:
+    *   - Only one PSId per LSId
+    *   - Throws if invariants do not hold
+    */
+  final class ConnectedSynchronizers() extends ConnectedSynchronizersLookup {
+
+    /** These two maps should stay private. Read-only interface is provided by
+      * [[ConnectedSynchronizersLookup]]
+      */
+    private val connected: TrieMap[PhysicalSynchronizerId, ConnectedSynchronizer] = TrieMap()
+    private val lsidToPSId: BiMap[SynchronizerId, PhysicalSynchronizerId] = HashBiMap.create
+
+    def get(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] = connected.get(psid)
+    def get(lsid: SynchronizerId): Option[ConnectedSynchronizer] =
+      Option(lsidToPSId.get(lsid)).flatMap(connected.get)
+
+    override def getAcsInspection(synchronizerId: SynchronizerId): Option[AcsInspection] =
+      get(synchronizerId).map(_.persistent.acsInspection)
+
+    override def isConnected(synchronizerId: SynchronizerId): Boolean = get(synchronizerId).nonEmpty
+
+    override def isConnectedToAny: Boolean = connected.nonEmpty
+
+    def lsids: Set[SynchronizerId] = lsidToPSId.keySet().asScala.toSet
+    def snapshot: Map[PhysicalSynchronizerId, ConnectedSynchronizer] = connected.toMap
+
+    def tryAdd(connectedSynchronizer: ConnectedSynchronizer): Unit = {
+      val lsid = connectedSynchronizer.psid.logical
+      val psid = connectedSynchronizer.psid
+
+      blocking {
+        this.synchronized {
+          if (connected.isDefinedAt(psid))
+            throw new IllegalArgumentException(
+              s"Cannot add $psid because the node is already connected to it"
+            )
+
+          if (lsidToPSId.containsKey(lsid))
+            throw new IllegalArgumentException(
+              s"Cannot add $psid because the node is already connected to $lsid"
+            )
+
+          connected.addOne(psid -> connectedSynchronizer)
+          lsidToPSId.put(lsid, psid).discard
+        }
+      }
+    }
+
+    def remove(psid: PhysicalSynchronizerId): Option[ConnectedSynchronizer] =
+      blocking {
+        this.synchronized {
+          lsidToPSId.remove(psid.logical)
+          connected.remove(psid)
+        }
+      }
   }
 }

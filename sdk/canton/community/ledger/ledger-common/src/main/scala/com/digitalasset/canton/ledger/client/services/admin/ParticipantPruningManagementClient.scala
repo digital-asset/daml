@@ -21,7 +21,10 @@ object ParticipantPruningManagementClient {
 
 }
 
-final class ParticipantPruningManagementClient(service: ParticipantPruningServiceStub) {
+final class ParticipantPruningManagementClient(
+    service: ParticipantPruningServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+) {
 
   def prune(
       pruneUpTo: Long,
@@ -29,7 +32,7 @@ final class ParticipantPruningManagementClient(service: ParticipantPruningServic
       submissionId: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[PruneResponse] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .prune(ParticipantPruningManagementClient.pruneRequest(pruneUpTo, submissionId))
 
 }

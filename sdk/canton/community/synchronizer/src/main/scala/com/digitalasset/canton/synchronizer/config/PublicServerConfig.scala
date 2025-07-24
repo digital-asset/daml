@@ -52,7 +52,7 @@ final case class PublicServerConfig(
 
   override def jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
 
-  override def adminToken: Option[String] = None
+  override def adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
 
   lazy val clientConfig: SequencerApiClientConfig = SequencerApiClientConfig(
     address,

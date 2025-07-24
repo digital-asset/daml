@@ -9,12 +9,12 @@ import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.SigningKeyUsage.compatibleUsageForSignAndVerify
 import com.digitalasset.canton.crypto.provider.jce.{JceJavaKeyConverter, JceSecurityProvider}
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil}
 import com.google.crypto.tink.internal.EllipticCurvesUtil
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
 import org.bouncycastle.math.ec.rfc8032.Ed25519
 
-import java.security.interfaces.ECPublicKey
+import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import java.security.spec.{ECGenParameterSpec, ECParameterSpec}
 import java.security.{AlgorithmParameters, GeneralSecurityException, PublicKey as JPublicKey}
 import scala.annotation.nowarn
@@ -93,6 +93,40 @@ object CryptoKeyValidation {
         )
     } yield ()
 
+  /** Validates the given public key by ensuring that the RSA public key has the correct modulus
+    * length and public exponent.
+    */
+  private[crypto] def validateRsa2048PublicKey(
+      pubKey: JPublicKey
+  ): Either[KeyParseAndValidateError, Unit] =
+    for {
+      rsaPublicKey <- pubKey match {
+        case k: RSAPublicKey => Right(k)
+        case _ =>
+          Left(KeyParseAndValidateError(s"Public key is not an RSA public key"))
+      }
+      modulus = rsaPublicKey.getModulus
+      exponent = rsaPublicKey.getPublicExponent
+
+      // Check modulus bit length
+      _ <- EitherUtil.condUnit(
+        modulus.bitLength == EncryptionKeySpec.Rsa2048.keySizeInBits,
+        KeyParseAndValidateError(
+          s"RSA key modulus size ${modulus.bitLength} does not match expected " +
+            s"size ${EncryptionKeySpec.Rsa2048.keySizeInBits}"
+        ),
+      )
+
+      // Check public exponent
+      _ <- EitherUtil.condUnit(
+        exponent == EncryptionKeySpec.Rsa2048.exponent,
+        KeyParseAndValidateError(
+          s"RSA key modulus size ${modulus.bitLength} does not match expected " +
+            s"size ${EncryptionKeySpec.Rsa2048.keySizeInBits}"
+        ),
+      )
+    } yield ()
+
   // TODO(#15634): Verify crypto scheme as part of key validation
   /** Parses and validates a public key. Validates:
     *   - Public key format and serialization
@@ -114,8 +148,7 @@ object CryptoKeyValidation {
             case encKey: EncryptionPublicKey =>
               encKey.keySpec match {
                 case ks: EcKeySpec => validateEcPublicKey(jKey, ks)
-                // TODO(#15652): validate RSA public key
-                case EncryptionKeySpec.Rsa2048 => Right(None)
+                case EncryptionKeySpec.Rsa2048 => validateRsa2048PublicKey(jKey)
               }
             case signKey: SigningPublicKey =>
               signKey.keySpec match {
@@ -148,31 +181,49 @@ object CryptoKeyValidation {
       .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
   }
 
+  /** Checks if the selected encryption algorithm specification is supported and compatible with the
+    * given key specification. If not, attempts to find a supported encryption algorithm that can be
+    * used with this key specification. This method is intended for `encrypt` operations where the
+    * target public key might use a key specification that is not supported by the node’s default
+    * algorithm.
+    */
   private[crypto] def selectEncryptionAlgorithmSpec[E](
       keySpec: EncryptionKeySpec,
-      defaultAlgorithmSpec: EncryptionAlgorithmSpec,
+      algorithmSpec: EncryptionAlgorithmSpec,
       supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
-      errFn: EncryptionAlgorithmSpec => E,
+      errFn: () => E,
   ): Either[E, EncryptionAlgorithmSpec] =
-    if (defaultAlgorithmSpec.supportedEncryptionKeySpecs.contains(keySpec))
-      Right(defaultAlgorithmSpec)
+    if (
+      supportedAlgorithmSpecs.contains(algorithmSpec)
+      && algorithmSpec.supportedEncryptionKeySpecs.contains(keySpec)
+    )
+      Right(algorithmSpec)
     else
       supportedAlgorithmSpecs
         .find(_.supportedEncryptionKeySpecs.contains(keySpec))
-        .toRight(errFn(defaultAlgorithmSpec))
+        .toRight(errFn())
 
+  /** Checks if the selected signing algorithm specification is supported and compatible with the
+    * given key specification. If not, attempts to find a supported signing algorithm that can be
+    * used with this key specification. This method is intended for `sign` operations where the
+    * target private key might use a key specification that is not supported by the node’s default
+    * algorithm.
+    */
   private[crypto] def selectSigningAlgorithmSpec[E](
       keySpec: SigningKeySpec,
-      defaultAlgorithmSpec: SigningAlgorithmSpec,
+      algorithmSpec: SigningAlgorithmSpec,
       supportedAlgorithmSpecs: Set[SigningAlgorithmSpec],
-      errFn: SigningAlgorithmSpec => E,
+      errFn: () => E,
   ): Either[E, SigningAlgorithmSpec] =
-    if (defaultAlgorithmSpec.supportedSigningKeySpecs.contains(keySpec))
-      Right(defaultAlgorithmSpec)
+    if (
+      supportedAlgorithmSpecs.contains(algorithmSpec)
+      && algorithmSpec.supportedSigningKeySpecs.contains(keySpec)
+    )
+      Right(algorithmSpec)
     else
       supportedAlgorithmSpecs
         .find(_.supportedSigningKeySpecs.contains(keySpec))
-        .toRight(errFn(defaultAlgorithmSpec))
+        .toRight(errFn())
 
   private[crypto] def ensureCryptoKeySpec[KeySpec, E](
       keySpec: KeySpec,

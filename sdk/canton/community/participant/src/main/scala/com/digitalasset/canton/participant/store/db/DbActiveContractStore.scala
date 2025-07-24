@@ -194,6 +194,15 @@ class DbActiveContractStore(
     } yield ()
   }
 
+  /** @param reassignments
+    *   List of reassignments; the reassignment tag corresponds to the remote synchronizer (target
+    *   for unassignment and source for assignment)
+    * @param builder
+    *   Allows to construct a `ReassignmentChangeDetail < ActivenessChangeDetail` from a
+    *   reassignment counter and the index of the remote synchronizer
+    * @param change
+    *   The kind of change.
+    */
   private def reassignContracts(
       reassignments: Seq[
         (LfContractId, ReassignmentTag[SynchronizerId], ReassignmentCounter, TimeOfChange)

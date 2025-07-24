@@ -607,7 +607,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
         )
 
-    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(synchronizerId)
+    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(synchronizerId.logical)
 
     safeToPrune_(
       cleanReplayF,
