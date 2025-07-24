@@ -22,7 +22,10 @@ object PackageManagementClient {
 
 }
 
-final class PackageManagementClient(service: PackageManagementServiceStub)(implicit
+final class PackageManagementClient(
+    service: PackageManagementServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+)(implicit
     ec: ExecutionContext
 ) {
 
@@ -30,7 +33,7 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
       token: Option[String] = None
   )(implicit traceContext: TraceContext): Future[Seq[PackageDetails]] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listKnownPackages(PackageManagementClient.listKnownPackagesRequest)
       .map(_.packageDetails)
 
@@ -39,7 +42,7 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .uploadDarFile(
         UploadDarFileRequest(
           darFile = darFile,
@@ -53,7 +56,7 @@ final class PackageManagementClient(service: PackageManagementServiceStub)(impli
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[Unit] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .validateDarFile(
         ValidateDarFileRequest(
           darFile = darFile,

@@ -28,9 +28,13 @@ import io.grpc.protobuf.StatusProto
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.chaining.scalaUtilChainingOps
+import scala.util.{Failure, Success, Using}
 
-class CommandServiceClient(service: CommandServiceStub)(implicit
+class CommandServiceClient(
+    service: CommandServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+)(implicit
     executionContext: ExecutionContext
 ) {
 
@@ -77,8 +81,10 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWaitForTransaction(
-        getSubmitAndWaitForTransactionRequest(Some(commands), transactionShape)
+      withTraceContextInjectedIntoOpenTelemetryContext(
+        _.submitAndWaitForTransaction(
+          getSubmitAndWaitForTransactionRequest(Some(commands), transactionShape)
+        )
       ),
     )
 
@@ -94,7 +100,9 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWaitForTransactionTree(SubmitAndWaitRequest(commands = Some(commands))),
+      withTraceContextInjectedIntoOpenTelemetryContext(
+        _.submitAndWaitForTransactionTree(SubmitAndWaitRequest(commands = Some(commands)))
+      ),
     )
 
   def submitAndWait(
@@ -107,7 +115,9 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWait(SubmitAndWaitRequest(commands = Some(commands))),
+      withTraceContextInjectedIntoOpenTelemetryContext(
+        _.submitAndWait(SubmitAndWaitRequest(commands = Some(commands)))
+      ),
     )
 
   private def serviceWithTokenAndDeadline(
@@ -115,7 +125,7 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       token: Option[String],
   )(implicit traceContext: TraceContext): CommandServiceStub = {
     val withToken: CommandServiceStub = LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
 
     timeout
       .fold(withToken) { timeout =>
@@ -162,6 +172,12 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       ),
     )
 
+  private def withTraceContextInjectedIntoOpenTelemetryContext[R](
+      request: CommandServiceStub => Future[R]
+  )(svc: CommandServiceStub)(implicit traceContext: TraceContext): Future[R] =
+    // Attach the current trace context so the native OpenTelemetry client tracing interceptor
+    // can extract and propagate it
+    Using(traceContext.context.makeCurrent())(_ => request(svc)).pipe(Future.fromTry(_).flatten)
 }
 
 object CommandServiceClient {

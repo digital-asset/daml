@@ -1174,7 +1174,6 @@ object ParticipantAdminCommands {
 
     }
 
-    // TODO(#25483) Check usage and see whether automatic resolution is fine
     final case class GetSynchronizerId(synchronizerAlias: SynchronizerAlias)
         extends Base[
           v30.GetSynchronizerIdRequest,

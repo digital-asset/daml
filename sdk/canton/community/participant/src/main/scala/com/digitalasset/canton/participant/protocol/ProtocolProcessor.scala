@@ -301,7 +301,7 @@ abstract class ProtocolProcessor[
     val inFlightSubmission = InFlightSubmission(
       changeIdHash = tracked.changeIdHash,
       submissionId = tracked.submissionId,
-      submissionSynchronizerId = sequencerClient.psid,
+      submissionSynchronizerId = sequencerClient.psid.logical,
       messageUuid = messageUuid,
       rootHashO = None,
       sequencingInfo =

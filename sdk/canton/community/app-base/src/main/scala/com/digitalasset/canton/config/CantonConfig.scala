@@ -888,6 +888,9 @@ object CantonConfig {
     lazy implicit final val jwtTimestampLeewayConfigReader: ConfigReader[JwtTimestampLeeway] =
       deriveReader[JwtTimestampLeeway]
 
+    lazy implicit final val adminTokenConfigReader: ConfigReader[AdminTokenConfig] =
+      deriveReader[AdminTokenConfig]
+
     lazy implicit final val authServiceConfigReader: ConfigReader[AuthServiceConfig] = {
       implicit val authorizedUserReader: ConfigReader[AuthorizedUser] =
         deriveReader[AuthorizedUser]
@@ -1511,6 +1514,9 @@ object CantonConfig {
 
     lazy implicit final val jwtTimestampLeewayConfigWriter: ConfigWriter[JwtTimestampLeeway] =
       deriveWriter[JwtTimestampLeeway]
+
+    lazy implicit final val adminTokenConfigWriter: ConfigWriter[AdminTokenConfig] =
+      deriveWriter[AdminTokenConfig]
 
     lazy implicit final val authServiceConfigWriter: ConfigWriter[AuthServiceConfig] = {
       implicit val authorizedUserWriter: ConfigWriter[AuthorizedUser] =

@@ -7,7 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.tracing.DefaultOpenTelemetry
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -53,7 +53,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
     *   configurations meant to be overridden primarily in tests (applying to all participants)
     * @param testingTimeService
     *   an optional service during testing for advancing time, participant-specific
-    * @param adminToken
+    * @param adminTokenDispenser
     *   canton admin token for ledger api auth
     * @param enableCommandInspection
     *   whether canton should support inspection service or not
@@ -72,7 +72,7 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       syncService: CantonSyncService,
       cantonParameterConfig: ParticipantNodeParameters,
       testingTimeService: Option[TimeServiceBackend],
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       enableCommandInspection: Boolean,
       override val loggerFactory: NamedLoggerFactory,
       tracerProvider: TracerProvider,

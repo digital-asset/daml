@@ -176,7 +176,7 @@ def build_add_transaction_request(
     return topology_manager_write_service_pb2.AddTransactionsRequest(
         transactions=signed_transactions,
         store=common_pb2.StoreId(
-            synchronizer=common_pb2.StoreId.Synchronizer(
+            synchronizer=common_pb2.Synchronizer(
                 id=synchronizer_id,
             )
         ),
@@ -379,7 +379,7 @@ def list_namespace_delegation(
         topology_manager_read_service_pb2.ListNamespaceDelegationRequest(
             base_query=topology_manager_read_service_pb2.BaseQuery(
                 store=common_pb2.StoreId(
-                    synchronizer=common_pb2.StoreId.Synchronizer(id=synchronizer_id)
+                    synchronizer=common_pb2.Synchronizer(id=synchronizer_id)
                 ),
                 head_state=empty_pb2.Empty(),
             ),

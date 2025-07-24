@@ -232,7 +232,6 @@ object ReassignmentId {
         case b => Left(s"invalid version: ${b.toInt}")
       }).leftMap(err => s"cannot parse ReassignmentId bytes: $err")
 
-  // TODO(#25483) The two synchronizer IDs should be physical
   def apply(
       source: Source[SynchronizerId],
       target: Target[SynchronizerId],

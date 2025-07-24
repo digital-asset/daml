@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContextExecutor
 import scala.jdk.CollectionConverters.*
 
-// TODO(#25483) Check usages of the logical methods
 trait SynchronizerAliasResolution extends AutoCloseable {
   def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId]
 
@@ -102,7 +101,6 @@ class SynchronizerAliasManager private (
     * [[com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore]] to check the
     * status
     */
-  // TODO(#25483) Check usages of this method
   override def logicalSynchronizerIds: Set[SynchronizerId] =
     synchronizers.get().aliasToPSIds.values.map(_.map(_.logical)).toSet.flatten
 

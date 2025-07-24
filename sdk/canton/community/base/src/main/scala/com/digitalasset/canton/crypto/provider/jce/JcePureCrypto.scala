@@ -12,9 +12,9 @@ import com.digitalasset.canton.config.{
   CryptoProvider,
   SessionEncryptionKeyCacheConfig,
 }
-import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
+import com.digitalasset.canton.crypto.{SignatureCheckError, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -495,28 +495,23 @@ class JcePureCrypto(
           signingKey.id,
           SigningError.InvalidKeyUsage.apply,
         )
+      // TODO(#26423): private key format should be validated at key creation/deserialization
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
         Set(CryptoKeyFormat.DerPkcs8Pki),
         SigningError.UnsupportedKeyFormat.apply,
       )
-      algoSpec <- CryptoKeyValidation
+      validAlgorithmSpec <- CryptoKeyValidation
         .selectSigningAlgorithmSpec(
           signingKey.keySpec,
           signingAlgorithmSpec,
           signingAlgorithmSpecs.allowed,
-          algorithmSpec =>
-            SigningError.UnsupportedAlgorithmSpec(algorithmSpec, signingAlgorithmSpecs.allowed),
+          () =>
+            SigningError.NoMatchingAlgorithmSpec(
+              "No matching algorithm spec for key spec " + signingKey.keySpec
+            ),
         )
-      _ <- CryptoKeyValidation.ensureCryptoSpec(
-        signingKey.keySpec,
-        signingAlgorithmSpec,
-        signingAlgorithmSpec.supportedSigningKeySpecs,
-        signingAlgorithmSpecs.allowed,
-        SigningError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
-        SigningError.UnsupportedAlgorithmSpec.apply,
-      )
-      signer <- algoSpec match {
+      signer <- validAlgorithmSpec match {
         case SigningAlgorithmSpec.Ed25519 => edDsaSigner(signingKey)
         case SigningAlgorithmSpec.EcDsaSha256 => ecDsaSigner(signingKey, HashType.SHA256)
         case SigningAlgorithmSpec.EcDsaSha384 => ecDsaSigner(signingKey, HashType.SHA384)
@@ -557,7 +552,17 @@ class JcePureCrypto(
        * If this one-to-one mapping is ever broken, this derivation must be revisited.
        */
       signingAlgorithmSpec <- signature.signingAlgorithmSpec match {
-        case Some(spec) => Right(spec)
+        case Some(algoSpec) =>
+          CryptoKeyValidation
+            .ensureCryptoSpec(
+              publicKey.keySpec,
+              algoSpec,
+              algoSpec.supportedSigningKeySpecs,
+              signingAlgorithmSpecs.allowed,
+              SignatureCheckError.KeyAlgoSpecsMismatch(_, algoSpec, _),
+              SignatureCheckError.UnsupportedAlgorithmSpec.apply,
+            )
+            .map(_ => algoSpec)
         case None =>
           signingAlgorithmSpecs.allowed
             .find(_.supportedSigningKeySpecs.contains(publicKey.keySpec))
@@ -568,17 +573,11 @@ class JcePureCrypto(
                 )
             )
       }
-
       _ <- CryptoKeyValidation.ensureUsage(
         usage,
         publicKey.usage,
         publicKey.id,
         SignatureCheckError.InvalidKeyUsage.apply,
-      )
-      _ <- CryptoKeyValidation.ensureFormat(
-        publicKey.format,
-        Set(CryptoKeyFormat.DerX509Spki),
-        SignatureCheckError.UnsupportedKeyFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureSignatureFormat(
         signature.format,
@@ -767,9 +766,10 @@ class JcePureCrypto(
         publicKey.keySpec,
         encryptionAlgorithmSpec,
         encryptionAlgorithmSpecs.allowed,
-        algorithmSpec =>
-          EncryptionError
-            .UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
+        () =>
+          EncryptionError.NoMatchingAlgorithmSpec(
+            "No matching algorithm spec for key spec " + publicKey.keySpec
+          ),
       )
       .flatMap {
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
@@ -800,8 +800,10 @@ class JcePureCrypto(
       publicKey.keySpec,
       encryptionAlgorithmSpec,
       encryptionAlgorithmSpecs.allowed,
-      algorithmSpec =>
-        EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
+      () =>
+        EncryptionError.NoMatchingAlgorithmSpec(
+          "No matching algorithm spec for key spec " + publicKey.keySpec
+        ),
     ) match {
       case Right(spec) if !spec.supportDeterministicEncryption =>
         Left(
@@ -839,12 +841,12 @@ class JcePureCrypto(
       case Left(err) => Left(err)
     }
 
-  override protected[crypto] def decryptWithInternal[M](
+  override private[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(
       deserialize: ByteString => Either[DeserializationError, M]
-  ): Either[DecryptionError, M] = {
+  ): Either[DecryptionError, M] =
     CryptoKeyValidation
       .ensureCryptoSpec(
         privateKey.keySpec,
@@ -855,6 +857,7 @@ class JcePureCrypto(
         DecryptionError.UnsupportedAlgorithmSpec.apply,
       )
       .flatMap { _ =>
+        // TODO(#26423): private key format should be validated at key creation/deserialization
         encrypted.encryptionAlgorithmSpec match {
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
             for {
@@ -992,7 +995,6 @@ class JcePureCrypto(
             } yield message
         }
       }
-  }
 
   override private[crypto] def encryptSymmetricWith(
       data: ByteString,
@@ -1001,6 +1003,7 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
+          // TODO(#26423): private key format should be validated at key creation/deserialization
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
@@ -1016,6 +1019,7 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
+          // TODO(#26423): key format should be validated at key creation/deserialization
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),

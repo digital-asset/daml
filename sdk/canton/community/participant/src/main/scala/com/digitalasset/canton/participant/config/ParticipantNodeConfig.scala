@@ -174,8 +174,8 @@ object RemoteParticipantConfig {
   * @param authServices
   *   type of authentication services used by ledger-api server. If empty, we use a wildcard.
   *   Otherwise, the first service response that does not say "unauthenticated" will be used.
-  * @param adminToken
-  *   token that should grant admin access when presented by a client on the ledger api
+  * @param adminTokenConfig
+  *   configuration to grant admin access when presented by a client on the ledger api
   * @param jwtTimestampLeeway
   *   leeway parameters for JWTs
   * @param keepAliveServer
@@ -205,7 +205,7 @@ object RemoteParticipantConfig {
   *   enable command inspection service over the ledger api
   * @param identityProviderManagement
   *   configurations pertaining to the ledger api server's "identity provider management service"
-  * @param interactiveSubmissionServiceConfig
+  * @param interactiveSubmissionService
   *   config for interactive submission service over the ledger api
   */
 final case class LedgerApiServerConfig(
@@ -213,7 +213,7 @@ final case class LedgerApiServerConfig(
     internalPort: Option[Port] = None,
     tls: Option[TlsServerConfig] = None,
     authServices: Seq[AuthServiceConfig] = Seq.empty,
-    adminToken: Option[String] = None,
+    adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
       LedgerApiKeepAliveServerConfig()

@@ -10,7 +10,7 @@ import cats.syntax.parallel.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -60,7 +60,7 @@ class AdminWorkflowServices(
     packageService: PackageService,
     syncService: CantonSyncService,
     participantId: ParticipantId,
-    adminToken: CantonAdminToken,
+    adminTokenDispenser: CantonAdminTokenDispenser,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     protected val clock: Clock,
@@ -275,7 +275,7 @@ class AdminWorkflowServices(
       CommandClientConfiguration.default, // not used by admin workflows
       tracerProvider,
       loggerFactory,
-      Some(adminToken.secret),
+      Some(adminTokenDispenser),
     )
   }
 

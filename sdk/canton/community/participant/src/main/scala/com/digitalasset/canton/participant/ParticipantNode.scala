@@ -10,9 +10,10 @@ import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
+import com.digitalasset.canton.config.AdminTokenConfig
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
@@ -121,8 +122,8 @@ class ParticipantNodeBootstrap(
   private val packageDependencyResolver = new SingleUseCell[PackageDependencyResolver]
   override def metrics: ParticipantMetrics = arguments.metrics
 
-  override protected val adminTokenConfig: Option[String] =
-    config.ledgerApi.adminToken.orElse(config.adminApi.adminToken)
+  override protected val adminTokenConfig: AdminTokenConfig =
+    config.ledgerApi.adminTokenConfig.merge(config.adminApi.adminTokenConfig)
 
   private def tryGetPackageDependencyResolver(): PackageDependencyResolver =
     packageDependencyResolver.getOrElse(
@@ -149,16 +150,13 @@ class ParticipantNodeBootstrap(
     }
 
   override protected lazy val lookupActivePSId: PSIdLookup =
-    synchronizerId =>
-      cantonSyncService.get.flatMap(
-        _.activePSIdForLSId(synchronizerId)
-      )
+    synchronizerId => cantonSyncService.get.flatMap(_.activePSIdForLSId(synchronizerId))
 
   override protected def customNodeStages(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       nodeId: UniqueIdentifier,
       manager: AuthorizedTopologyManager,
       healthReporter: GrpcHealthReporter,
@@ -168,7 +166,7 @@ class ParticipantNodeBootstrap(
       storage,
       crypto,
       adminServerRegistry,
-      adminToken,
+      adminTokenDispenser,
       nodeId,
       manager,
       healthService,
@@ -289,7 +287,7 @@ class ParticipantNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       nodeId: UniqueIdentifier,
       topologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -299,7 +297,7 @@ class ParticipantNodeBootstrap(
       )
       with HasCloseContext {
 
-    override def getAdminToken: Option[String] = Some(adminToken.secret)
+    override def getAdminToken: Option[String] = Some(adminTokenDispenser.getCurrentToken.secret)
     private val participantId = ParticipantId(nodeId)
 
     override protected def attempt()(implicit
@@ -327,7 +325,7 @@ class ParticipantNodeBootstrap(
           crypto.pureCrypto,
           participantServices.participantTopologyDispatcher,
           participantServices.cantonSyncService,
-          adminToken,
+          adminTokenDispenser,
           recordSequencerInteractions,
           replaySequencerConfig,
           loggerFactory,
@@ -446,6 +444,7 @@ class ParticipantNodeBootstrap(
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
           parameters,
+          synchronizerConnectionConfigStore,
           (staticSynchronizerParameters: StaticSynchronizerParameters) =>
             SynchronizerCrypto(crypto, staticSynchronizerParameters),
           clock,
@@ -483,7 +482,6 @@ class ParticipantNodeBootstrap(
 
         inFlightSubmissionTracker = new InFlightSubmissionTracker(
           persistentState.map(_.inFlightSubmissionStore),
-          synchronizerConnectionConfigStore,
           commandDeduplicator,
           loggerFactory,
         )
@@ -661,7 +659,7 @@ class ParticipantNodeBootstrap(
           arguments.config.ledgerApi.clientConfig,
           persistentState,
           storage,
-          adminToken,
+          adminTokenDispenser,
           parameters.stores,
           arguments.parameterConfig.processingTimeouts,
           arguments.loggerFactory,
@@ -751,7 +749,7 @@ class ParticipantNodeBootstrap(
             arguments.metrics.ledgerApiServer,
             arguments.metrics.httpApiServer,
             tracerProvider,
-            adminToken,
+            adminTokenDispenser,
           )
 
       } yield {
@@ -764,7 +762,7 @@ class ParticipantNodeBootstrap(
             participantId,
             clock,
             adminServerRegistry,
-            adminToken,
+            adminTokenDispenser,
             futureSupervisor,
             loggerFactory,
             tracerProvider,
@@ -981,7 +979,7 @@ class ParticipantNode(
     val cryptoPureApi: CryptoPureApi,
     identityPusher: ParticipantTopologyDispatcher,
     private[canton] val sync: CantonSyncService,
-    override val adminToken: CantonAdminToken,
+    override val adminTokenDispenser: CantonAdminTokenDispenser,
     val recordSequencerInteractions: AtomicReference[Option[RecordingConfig]],
     val replaySequencerConfig: AtomicReference[Option[ReplayConfig]],
     val loggerFactory: NamedLoggerFactory,

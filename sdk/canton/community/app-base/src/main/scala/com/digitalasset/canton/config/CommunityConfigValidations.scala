@@ -73,7 +73,7 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       developmentProtocolSafetyCheck,
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
-      adminTokensMatchOnParticipants,
+      adminTokenConfigsMatchOnParticipants,
       eitherUserListsOrPrivilegedTokensOnParticipants,
       sessionSigningKeysOnlyWithKms,
       distinctScopesAndAudiencesOnAuthServices,
@@ -226,24 +226,25 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.participants.toSeq.mapFilter { case (name, participantConfig) =>
       Option.when(
-        !config.parameters.nonStandardConfig && participantConfig.ledgerApi.adminToken.nonEmpty
+        !config.parameters.nonStandardConfig && (participantConfig.ledgerApi.adminTokenConfig != AdminTokenConfig())
       )(
-        s"Setting ledger-api.admin-token for participant ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
+        s"Setting ledger-api.admin-token-config.fixed-admin-token or ledger-api.admin-token-config.admin-token-duration " +
+          s"for participant ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
       )
     }
     toValidated(errors)
   }
 
-  private def adminTokensMatchOnParticipants(
+  private def adminTokenConfigsMatchOnParticipants(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
     val errors = config.participants.toSeq.mapFilter { case (name, participantConfig) =>
       Option.when(
-        participantConfig.ledgerApi.adminToken.exists(la =>
-          participantConfig.adminApi.adminToken.exists(_ != la)
+        participantConfig.ledgerApi.adminTokenConfig.fixedAdminToken.exists(la =>
+          participantConfig.adminApi.adminTokenConfig.fixedAdminToken.exists(_ != la)
         )
       )(
-        s"if both ledger-api.admin-token and admin-api.admin-token provided, they must match for participant ${name.unwrap}"
+        s"if both ledger-api.admin-token-config.fixed-admin-token and admin-api.admin-token-config.fixed-admin-token provided, they must match for participant ${name.unwrap}"
       )
     }
     toValidated(errors)

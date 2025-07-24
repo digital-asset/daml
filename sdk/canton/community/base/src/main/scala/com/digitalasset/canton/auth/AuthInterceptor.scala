@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.auth
 
-import com.digitalasset.canton.auth.AuthInterceptor.PassThroughAuthorizer
+import com.digitalasset.canton.auth.AuthInterceptor.PassThroughClaimResolver
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -22,7 +22,7 @@ class AuthInterceptor(
     authServices: Seq[AuthService],
     val loggerFactory: NamedLoggerFactory,
     implicit val ec: ExecutionContext,
-    val statelessAuthorizer: StatelessAuthorizer = PassThroughAuthorizer,
+    claimResolver: ClaimResolver = PassThroughClaimResolver,
 ) extends NamedLogging {
   import LoggingContextWithTrace.implicitExtractTraceContext
 
@@ -34,11 +34,7 @@ class AuthInterceptor(
     // Contexts are immutable and safe to pass around.
 
     headerToClaims(authToken, serviceName)
-      .transform {
-        case Failure(f) => Failure(f)
-        case Success(claimSet) =>
-          statelessAuthorizer(claimSet)
-      }
+      .flatMap(claimResolver.apply)
       .transform {
         case Failure(error: StatusRuntimeException) =>
           Failure(error)
@@ -84,10 +80,11 @@ object AuthInterceptor {
       Success(claimSet)
   }
 
-  case object PassThroughAuthorizer extends StatelessAuthorizer {
+  case object PassThroughClaimResolver extends ClaimResolver {
     override def apply(claimSet: ClaimSet)(implicit
-        errorLoggingContext: ErrorLoggingContext
-    ): Try[ClaimSet] =
-      Success(claimSet)
+        loggingContext: LoggingContextWithTrace,
+        errorLoggingContext: ErrorLoggingContext,
+    ): Future[ClaimSet] =
+      Future.successful(claimSet)
   }
 }

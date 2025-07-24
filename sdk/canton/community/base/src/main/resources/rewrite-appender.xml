@@ -115,13 +115,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Could not resolve is_deactivated status for user </contains>
-            <testing>true</testing>
-        </rewrite>
-
         <!-- KMS integration test might disable certificate verification -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>software.amazon.awssdk.http.nio.netty.internal.SslContextProvider</logger>

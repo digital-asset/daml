@@ -184,7 +184,6 @@ object SentAcsCommitment {
   }.toSeq
 }
 
-// TODO(#25483) Physical?
 final case class ReceivedAcsCommitment(
     synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,

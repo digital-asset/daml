@@ -34,12 +34,7 @@ import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubmissionAlreadySent
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
-import com.digitalasset.canton.topology.{
-  KnownPhysicalSynchronizerId,
-  PhysicalSynchronizerId,
-  SynchronizerId,
-  UnknownPhysicalSynchronizerId,
-}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 
@@ -65,62 +60,32 @@ import scala.concurrent.{ExecutionContext, blocking}
   */
 class InFlightSubmissionTracker(
     store: Eval[InFlightSubmissionStore],
-    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     deduplicator: CommandDeduplicator,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
-
-  /*
-  TODO(#25483)
-  Either the InFlightSubmissionStore should be logical or the physical id should leak to
-  com.digitalasset.canton.platform.indexer.parallel.PostPublishData
-   */
-  private def toPhysical(lsid: SynchronizerId): Either[RuntimeException, PhysicalSynchronizerId] =
-    synchronizerConnectionConfigStore
-      .getActive(lsid)
-      .fold(
-        err =>
-          new RuntimeException(s"Cannot resolve $lsid to physical instance: ${err.message}").asLeft,
-        conf =>
-          conf.configuredPSId match {
-            case KnownPhysicalSynchronizerId(psid) => psid.asRight
-            case UnknownPhysicalSynchronizerId =>
-              new IllegalStateException(
-                s"PSId should be set for $lsid, but UnknownPhysicalSynchronizerId found"
-              ).asLeft
-
-          },
-      )
 
   def processPublications(
       publications: Seq[PostPublishData]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       _ <- deduplicator.processPublications(publications)
-      trackedReferencesE = MonadUtil.sequentialTraverse(publications) { publication =>
-        toPhysical(publication.submissionSynchronizerId).map { psid =>
-          publication.publishSource match {
-            case PublishSource.Local(messageUuid) =>
-              InFlightByMessageId(
-                synchronizerId = psid,
-                messageId = MessageId.fromUuid(messageUuid),
-              )
+      trackedReferences = publications.map(publication =>
+        publication.publishSource match {
+          case PublishSource.Local(messageUuid) =>
+            InFlightByMessageId(
+              synchronizerId = publication.submissionSynchronizerId,
+              messageId = MessageId.fromUuid(messageUuid),
+            )
 
-            case PublishSource.Sequencer(sequencerTimestamp) =>
-              InFlightBySequencingInfo(
-                synchronizerId = psid,
-                sequenced = SequencedSubmission(sequencerTimestamp),
-              )
-          }
+          case PublishSource.Sequencer(sequencerTimestamp) =>
+            InFlightBySequencingInfo(
+              synchronizerId = publication.submissionSynchronizerId,
+              sequenced = SequencedSubmission(sequencerTimestamp),
+            )
         }
-      }
-      trackedReferences <- trackedReferencesE.fold(
-        err => FutureUnlessShutdown.failed(err),
-        data => FutureUnlessShutdown.pure(data),
       )
-      _ <- store.value
-        .delete(trackedReferences)
+      _ <- store.value.delete(trackedReferences)
     } yield ()
 
   /** Create and initialize an InFlightSubmissionSynchronizerTracker for synchronizerId.
@@ -132,7 +97,7 @@ class InFlightSubmissionTracker(
     * if already in the past).
     */
   def inFlightSubmissionSynchronizerTracker(
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizerId: SynchronizerId,
       recordOrderPublisher: RecordOrderPublisher,
       timeTracker: SynchronizerTimeTracker,
       metrics: ConnectedSynchronizerMetrics,
@@ -211,7 +176,7 @@ class InFlightSubmissionTracker(
 }
 
 class InFlightSubmissionSynchronizerTracker(
-    synchronizerId: PhysicalSynchronizerId,
+    synchronizerId: SynchronizerId,
     store: Eval[InFlightSubmissionStore],
     deduplicator: CommandDeduplicator,
     recordOrderPublisher: RecordOrderPublisher,
@@ -471,7 +436,7 @@ object InFlightSubmissionTracker {
     *   for tracking the size of the in-memory storage
     */
   final class UnsequencedSubmissionMap[T](
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizerId: SynchronizerId,
       sizeWarnThreshold: Int,
       unsequencedInFlightGauge: Gauge[Int],
       override val loggerFactory: NamedLoggerFactory,

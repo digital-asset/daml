@@ -22,9 +22,7 @@ sealed trait TopologyStoreId extends Product with Serializable {
 }
 
 private[canton] trait PSIdLookup {
-  def activePSIdFor(
-      synchronizerId: SynchronizerId
-  ): Option[PhysicalSynchronizerId]
+  def activePSIdFor(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId]
 }
 
 object TopologyStoreId {
@@ -57,8 +55,8 @@ object TopologyStoreId {
           .fromProtoPrimitive(temporary.name, fieldName)
           .map(TopologyStoreId.Temporary(_))
       case adminProto.StoreId.Store.Synchronizer(
-            adminProto.StoreId.Synchronizer(
-              adminProto.StoreId.Synchronizer.Kind.Id(logicalSynchronizerId)
+            adminProto.Synchronizer(
+              adminProto.Synchronizer.Kind.Id(logicalSynchronizerId)
             )
           ) =>
         SynchronizerId
@@ -66,8 +64,8 @@ object TopologyStoreId {
           .map(id => TopologyStoreId.Synchronizer(id))
 
       case adminProto.StoreId.Store.Synchronizer(
-            adminProto.StoreId.Synchronizer(
-              adminProto.StoreId.Synchronizer.Kind.PhysicalId(physicalSynchronizerId)
+            adminProto.Synchronizer(
+              adminProto.Synchronizer.Kind.PhysicalId(physicalSynchronizerId)
             )
           ) =>
         PhysicalSynchronizerId
@@ -75,8 +73,8 @@ object TopologyStoreId {
           .map(id => TopologyStoreId.Synchronizer(id))
 
       case adminProto.StoreId.Store.Synchronizer(
-            adminProto.StoreId.Synchronizer(
-              adminProto.StoreId.Synchronizer.Kind.Empty
+            adminProto.Synchronizer(
+              adminProto.Synchronizer.Kind.Empty
             )
           ) =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
@@ -88,10 +86,10 @@ object TopologyStoreId {
     override def toProtoV30: adminProto.StoreId =
       adminProto.StoreId(
         adminProto.StoreId.Store.Synchronizer(
-          adminProto.StoreId.Synchronizer(
+          adminProto.Synchronizer(
             id.bimap(
-              logical => adminProto.StoreId.Synchronizer.Kind.Id(logical.toProtoPrimitive),
-              physical => adminProto.StoreId.Synchronizer.Kind.PhysicalId(physical.toProtoPrimitive),
+              logical => adminProto.Synchronizer.Kind.Id(logical.toProtoPrimitive),
+              physical => adminProto.Synchronizer.Kind.PhysicalId(physical.toProtoPrimitive),
             ).merge
           )
         )

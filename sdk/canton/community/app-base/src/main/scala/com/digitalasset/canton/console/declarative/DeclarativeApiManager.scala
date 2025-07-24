@@ -60,7 +60,9 @@ object DeclarativeApiManager {
           initialConfig.ledgerApi.clientConfig,
           initialConfig.adminApi.clientConfig,
           consistencyTimeout,
-          instance.getNode.flatMap(n => Option.when(n.isActive)(n.adminToken)),
+          instance.getNode.flatMap(n =>
+            Option.when(n.isActive)(n.adminTokenDispenser.getCurrentToken)
+          ),
           runnerFactory,
           instance.closeContext,
           instance.metrics.declarativeApiMetrics,

@@ -31,15 +31,15 @@ message TopologyTransactions {
   repeated Item items = 1;
 }
 
+message Synchronizer {
+  oneof kind {
+    string id = 1;
+    string physical_id = 2;
+  }
+}
+
 message StoreId {
   message Authorized {}
-
-  message Synchronizer {
-    oneof kind {
-      string id = 1;
-      string physical_id = 2;
-    }
-  }
 
   message Temporary {
     string name = 1;

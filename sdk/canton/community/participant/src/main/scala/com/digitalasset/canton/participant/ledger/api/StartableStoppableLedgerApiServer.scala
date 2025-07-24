@@ -16,6 +16,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.auth.{
   AuthInterceptor,
+  AuthService,
   AuthServiceWildcard,
   CantonAdminTokenAuthService,
 }
@@ -200,18 +201,17 @@ class StartableStoppableLedgerApiServer(
       LoggingContextWithTrace(loggerFactory, telemetry)
 
     val indexServiceConfig = config.serverConfig.indexService
-    val authServices = new CantonAdminTokenAuthService(Some(config.adminToken)) +:
-      (
-        if (config.serverConfig.authServices.isEmpty)
-          List(AuthServiceWildcard)
-        else
+    val authServices =
+      if (config.serverConfig.authServices.isEmpty)
+        List(AuthServiceWildcard)
+      else
+        Seq[AuthService](new CantonAdminTokenAuthService(config.adminTokenDispenser)) ++
           config.serverConfig.authServices.map(
             _.create(
               config.serverConfig.jwtTimestampLeeway,
               loggerFactory,
             )
           )
-      )
 
     val jwtVerifierLoader =
       new CachedJwtVerifierLoader(metrics = config.metrics, loggerFactory = loggerFactory)

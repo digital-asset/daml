@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.SynchronizerSuccessor
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LifeCycleContainer
-import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgrade.UpgradabilityCheckResult
@@ -52,7 +51,7 @@ final class LogicalSynchronizerUpgrade(
     ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
     syncPersistentStateManager: SyncPersistentStateManager,
     executionQueue: SimpleExecutionQueue,
-    synchronizerLookup: SynchronizerLookup,
+    connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     connectSynchronizer: Traced[SynchronizerAlias] => EitherT[
       FutureUnlessShutdown,
       SyncServiceError,
@@ -93,7 +92,7 @@ final class LogicalSynchronizerUpgrade(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Either[String, T]] =
     executionQueue.executeUS(
       {
-        val isConnected = synchronizerLookup.isConnected(lsid)
+        val isConnected = connectedSynchronizersLookup.isConnected(lsid)
         val text = if (isConnected) "" else "not "
 
         if (isConnected == shouldBeConnected)

@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, TransactionViewType}
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.error.MediatorError.ParticipantEquivocation
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
@@ -31,6 +32,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.Party
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.HasTestCloseContext
@@ -47,7 +49,6 @@ import scala.language.reflectiveCalls
 
 import ResponseAggregation.ConsortiumVotingState
 
-//TODO(i26453): Add a test for abstain verdict.
 @nowarn("msg=match may not be exhaustive")
 class ConfirmationRequestAndResponseProcessorTest
     extends AsyncWordSpec
@@ -200,6 +201,32 @@ class ConfirmationRequestAndResponseProcessorTest
     )
   }
 
+  private lazy val identityFactory4 = {
+    val topology4 = TestingTopology(
+      synchronizers = Set(synchronizerId),
+      mediatorGroups = Set(mediatorGroup),
+      sequencerGroup = sequencerGroup,
+    )
+      .withThreshold(
+        Map(
+          submitter -> (PositiveInt.one, Seq(participant1 -> ParticipantPermission.Confirmation)),
+          signatory -> (PositiveInt.two, Seq(
+            participant1 -> ParticipantPermission.Confirmation,
+            participant2 -> ParticipantPermission.Confirmation,
+            participant3 -> ParticipantPermission.Confirmation,
+          )),
+          observer -> (PositiveInt.one, Seq(participant3 -> ParticipantPermission.Confirmation)),
+        )
+      )
+
+    TestingIdentityFactory(
+      topology4,
+      loggerFactory,
+      initialSynchronizerParameters,
+      crypto,
+    )
+  }
+
   private lazy val identityFactoryOnlySubmitter =
     TestingIdentityFactory(
       TestingTopology.from(
@@ -264,38 +291,7 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val synchronizerSyncCryptoApi2: SynchronizerCryptoClient =
     identityFactory2.forOwnerAndSynchronizer(sequencer, synchronizerId)
 
-  def signedResponse(
-      confirmers: Set[LfPartyId],
-      viewPosition: ViewPosition,
-      verdict: LocalVerdict,
-      requestId: RequestId,
-  ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
-    val responses: ConfirmationResponses = ConfirmationResponses.tryCreate(
-      requestId,
-      fullInformeeTree.transactionId.toRootHash,
-      factory.psid,
-      participant,
-      NonEmpty.mk(
-        Seq,
-        ConfirmationResponse.tryCreate(
-          Some(viewPosition),
-          verdict,
-          confirmers,
-        ),
-      ),
-      testedProtocolVersion,
-    )
-    val participantCrypto = identityFactory.forOwner(participant)
-    SignedProtocolMessage
-      .trySignAndCreate(
-        responses,
-        participantCrypto
-          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-          .currentSnapshotApproximation,
-      )
-  }
-
-  def signedResponses(
+  private def signedResponses(
       requestId: RequestId,
       responses: NonEmpty[Seq[ConfirmationResponse]],
   ): FutureUnlessShutdown[SignedProtocolMessage[ConfirmationResponses]] = {
@@ -317,13 +313,53 @@ class ConfirmationRequestAndResponseProcessorTest
       )
   }
 
-  def sign(tree: FullInformeeTree): Signature = identityFactory
+  private def createConfirmationResponses(
+      viewPosition: Option[ViewPosition],
+      participant: ParticipantId,
+      parties: Set[LfPartyId],
+      verdict: LocalVerdict,
+      identity: TestingIdentityFactory = identityFactory,
+      requestId: RequestId = requestId,
+  ): Future[SignedProtocolMessage[ConfirmationResponses]] = {
+    val response = ConfirmationResponses.tryCreate(
+      requestId,
+      fullInformeeTree.transactionId.toRootHash,
+      factory.psid,
+      participant,
+      NonEmpty.mk(
+        Seq,
+        ConfirmationResponse.tryCreate(
+          viewPosition,
+          verdict,
+          parties,
+        ),
+      ),
+      testedProtocolVersion,
+    )
+
+    val participantCrypto = identity.forOwner(participant)
+    SignedProtocolMessage
+      .trySignAndCreate(
+        response,
+        participantCrypto
+          .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+          .currentSnapshotApproximation,
+      )
+      .failOnShutdown
+  }
+
+  private def sign(tree: FullInformeeTree): Signature = identityFactory
     .forOwnerAndSynchronizer(participant, synchronizerId)
     .awaitSnapshot(CantonTimestamp.Epoch)
     .futureValueUS
     .sign(tree.tree.rootHash.unwrap, SigningKeyUsage.ProtocolOnly)
     .failOnShutdown
     .futureValue
+
+  private def recipientFor(participants: Seq[ParticipantId]): Recipients =
+    Recipients.recipientGroups(NonEmptyUtil.fromUnsafe(participants).map { participantId =>
+      NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participantId))
+    })
 
   "ConfirmationRequestAndResponseProcessor" should {
     def shouldBeViewThresholdBelowMinimumAlarm(
@@ -1067,8 +1103,8 @@ class ConfirmationRequestAndResponseProcessorTest
         }
       }
     }
+
     "receiving Malformed responses" in {
-      // receiving an informee message
       val sut = new Fixture(synchronizerSyncCryptoApi2)
 
       // Create a custom informee message with many quorums such that the first Malformed rejection doesn't finalize the request
@@ -1145,34 +1181,16 @@ class ConfirmationRequestAndResponseProcessorTest
 
       def malformedResponse(
           participant: ParticipantId
-      ): Future[SignedProtocolMessage[ConfirmationResponses]] = {
-        val response = ConfirmationResponses.tryCreate(
-          requestId,
-          fullInformeeTree.transactionId.toRootHash,
-          factory.psid,
+      ): Future[SignedProtocolMessage[ConfirmationResponses]] =
+        createConfirmationResponses(
+          None,
           participant,
-          NonEmpty.mk(
-            Seq,
-            ConfirmationResponse.tryCreate(
-              None,
-              LocalRejectError.MalformedRejects.Payloads
-                .Reject(malformedMsg)
-                .toLocalReject(testedProtocolVersion),
-              Set.empty,
-            ),
-          ),
-          testedProtocolVersion,
+          Set.empty,
+          LocalRejectError.MalformedRejects.Payloads
+            .Reject(malformedMsg)
+            .toLocalReject(testedProtocolVersion),
+          identityFactory2,
         )
-        val participantCrypto = identityFactory2.forOwner(participant)
-        SignedProtocolMessage
-          .trySignAndCreate(
-            response,
-            participantCrypto
-              .tryForSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
-              .currentSnapshotApproximation,
-          )
-          .failOnShutdown
-      }
 
       for {
         _ <- sut.processor
@@ -1185,14 +1203,7 @@ class ConfirmationRequestAndResponseProcessorTest
             List(
               OpenEnvelope(
                 rootHashMessage,
-                Recipients.recipientGroups(
-                  NonEmpty(
-                    Seq,
-                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant1)),
-                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant2)),
-                    NonEmpty(Set, mediatorGroupRecipient, MemberRecipient(participant3)),
-                  )
-                ),
+                recipientFor(Seq(participant1, participant2, participant3)),
               )(
                 testedProtocolVersion
               )
@@ -1255,6 +1266,276 @@ class ConfirmationRequestAndResponseProcessorTest
       } yield succeed
     }
 
+    "raise an alarm when a participant send two contradictory verdicts" in {
+      val sut = new Fixture(identityFactory4.forOwnerAndSynchronizer(sequencer, synchronizerId))
+      val informeeMessage =
+        new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
+          override val informeesAndConfirmationParamsByViewPosition = Map(
+            view0Position -> ViewConfirmationParameters.tryCreate(
+              Set(signatory),
+              Seq(
+                Quorum(
+                  Map(signatory -> PositiveInt.one),
+                  NonNegativeInt.one,
+                )
+              ),
+            )
+          )
+        }
+
+      val rootHashMessage = RootHashMessage(
+        fullInformeeTree.transactionId.toRootHash,
+        synchronizerId,
+        ViewType.TransactionViewType,
+        testTopologyTimestamp,
+        SerializedRootHashMessagePayload.empty,
+      )
+
+      def approve(participantId: ParticipantId) = createConfirmationResponses(
+        Some(view0Position),
+        participantId,
+        Set(signatory),
+        LocalApprove(testedProtocolVersion),
+        identityFactory4,
+      )
+      def reject(participantId: ParticipantId) =
+        createConfirmationResponses(
+          Some(view0Position),
+          participantId,
+          Set(signatory),
+          LocalRejectError.ConsistencyRejections.LockedContracts
+            .Reject(Nil)
+            .toLocalReject(testedProtocolVersion),
+          identityFactory4,
+        )
+
+      val localAbstain = LocalAbstainError.CannotPerformAllValidations
+        .Abstain("this is a test abstain response")
+        .toLocalAbstain(testedProtocolVersion)
+
+      def abstain(participantId: ParticipantId) =
+        createConfirmationResponses(
+          Some(view0Position),
+          participantId,
+          Set(signatory),
+          localAbstain,
+          identityFactory4,
+        )
+
+      def processResponse(
+          ts: CantonTimestamp,
+          verdict: SignedProtocolMessage[ConfirmationResponses],
+      ): Future[Unit] =
+        sut.processor
+          .processResponses(
+            ts,
+            notSignificantCounter,
+            ts.plusSeconds(60),
+            ts.plusSeconds(120),
+            verdict,
+            Some(requestId.unwrap),
+            Recipients.cc(mediatorGroupRecipient),
+          )
+          .failOnShutdown("Unexpected shutdown.")
+
+      for {
+        _ <- sut.processor
+          .processRequest(
+            requestId,
+            notSignificantCounter,
+            requestIdTs.plusSeconds(60),
+            requestIdTs.plusSeconds(120),
+            addRecipients(informeeMessage),
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                recipientFor(Seq(participant1, participant2, participant3)),
+              )(
+                testedProtocolVersion
+              )
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
+
+        // receiving a confirmation response
+        ts1 = CantonTimestamp.Epoch.plusMillis(1L)
+
+        _ <- approve(participant1).flatMap(processResponse(ts1, _))
+        // should be ignored
+        _ <- abstain(participant1).flatMap(processResponse(ts1, _))
+
+        // should raise an alarm
+        _ <- loggerFactory.assertLogs(
+          reject(participant1).flatMap(processResponse(ts1, _)),
+          (log: LogEntry) => {
+            log.shouldBeCantonErrorCode(ParticipantEquivocation.code)
+            log.warningMessage should include(
+              s"$requestId(view position ViewPosition(L)): Ignoring a rejection verdict for $participant1 because it has already responded for party $signatory with an approval verdict"
+            )
+          },
+        )
+
+        // same as before but this time we reject first and then abstain and then approve
+        _ <- reject(participant2).flatMap(processResponse(ts1, _))
+        // should be ignored
+        _ <- abstain(participant2).flatMap(processResponse(ts1, _))
+
+        // should raise an alarm
+        _ <- loggerFactory.assertLogs(
+          approve(participant2).flatMap(processResponse(ts1, _)),
+          (log: LogEntry) => {
+            log.shouldBeCantonErrorCode(ParticipantEquivocation.code)
+            log.warningMessage should include(
+              s"$requestId(view position ViewPosition(L)): Ignoring an approval verdict for $participant2 because it has already responded for party $signatory with a rejection verdict"
+            )
+          },
+        )
+
+        // finalize the request with an abstain verdict
+        _ <- abstain(participant3).flatMap(processResponse(ts1, _))
+
+        finalState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
+
+        _ = inside(finalState) {
+          case Some(
+                FinalizedResponse(
+                  _requestId,
+                  _request,
+                  _version,
+                  Verdict.ParticipantReject(reasons),
+                )
+              ) =>
+            reasons.length shouldEqual 1
+            reasons.foreach { case (party, reject) =>
+              reject shouldBe localAbstain
+              party shouldBe Set(signatory)
+            }
+        }
+      } yield succeed
+    }
+
+    "receiving abstain verdicts" in {
+      val sut = new Fixture(identityFactory4.forOwnerAndSynchronizer(sequencer, synchronizerId))
+
+      // Create a custom informee message with a quorum such that the first rejection or abstain doesn't finalize the request
+      val informeeMessage =
+        new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion) {
+          override val informeesAndConfirmationParamsByViewPosition = Map(
+            view0Position -> ViewConfirmationParameters.tryCreate(
+              Set(submitter, signatory, observer),
+              Seq(
+                Quorum(
+                  Map(
+                    submitter -> PositiveInt.one,
+                    signatory -> PositiveInt.one,
+                    observer -> PositiveInt.one,
+                  ),
+                  NonNegativeInt.two,
+                )
+              ),
+            )
+          )
+        }
+
+      val rootHashMessage = RootHashMessage(
+        fullInformeeTree.transactionId.toRootHash,
+        synchronizerId,
+        ViewType.TransactionViewType,
+        testTopologyTimestamp,
+        SerializedRootHashMessagePayload.empty,
+      )
+
+      val abstainMsg = "this is a test abstain response"
+
+      val localAbstain = LocalAbstainError.CannotPerformAllValidations
+        .Abstain(abstainMsg)
+        .toLocalAbstain(testedProtocolVersion)
+
+      def createAbstain(
+          viewPosition: ViewPosition,
+          participant: ParticipantId,
+          parties: Set[LfPartyId],
+      ): Future[SignedProtocolMessage[ConfirmationResponses]] =
+        createConfirmationResponses(
+          Some(viewPosition),
+          participant,
+          parties,
+          localAbstain,
+          identityFactory4,
+        )
+
+      for {
+        _ <- sut.processor
+          .processRequest(
+            requestId,
+            notSignificantCounter,
+            requestIdTs.plusSeconds(60),
+            requestIdTs.plusSeconds(120),
+            addRecipients(informeeMessage),
+            List(
+              OpenEnvelope(
+                rootHashMessage,
+                recipientFor(Seq(participant1, participant2, participant3)),
+              )(testedProtocolVersion)
+            ),
+            batchAlsoContainsTopologyTransaction = false,
+          )
+          .failOnShutdown
+
+        // receiving a confirmation response
+        ts1 = CantonTimestamp.Epoch.plusMillis(1L)
+        _ <- MonadUtil.sequentialTraverse(
+          Seq(
+            createAbstain(view0Position, participant2, Set(signatory)),
+            // should be counted as a rejection for signatory
+            createAbstain(view0Position, participant1, Set(signatory)),
+            createAbstain(view0Position, participant1, Set(submitter)),
+            // should be ignored
+            createAbstain(view0Position, participant3, Set(observer)),
+          )
+        )(
+          _.flatMap(abstain =>
+            sut.processor
+              .processResponses(
+                ts1,
+                notSignificantCounter,
+                ts1.plusSeconds(60),
+                ts1.plusSeconds(120),
+                abstain,
+                Some(requestId.unwrap),
+                Recipients.cc(mediatorGroupRecipient),
+              )
+              .failOnShutdown("Unexpected shutdown.")
+          )
+        )
+
+        finalState <- sut.mediatorState
+          .fetch(requestId)
+          .value
+          .failOnShutdown("Unexpected shutdown.")
+
+        _ = inside(finalState) {
+          case Some(
+                FinalizedResponse(
+                  _requestId,
+                  _request,
+                  _version,
+                  Verdict.ParticipantReject(reasons),
+                )
+              ) =>
+            reasons.length shouldEqual 2
+            reasons.foreach { case (party, reject) =>
+              reject shouldBe localAbstain
+              party should (contain(submitter) or contain(signatory))
+            }
+        }
+      } yield succeed
+    }
+
     "receiving late response" in {
       val sut = new Fixture()
       val requestTs = CantonTimestamp.Epoch.plusMillis(1)
@@ -1292,11 +1573,12 @@ class ConfirmationRequestAndResponseProcessorTest
             batchAlsoContainsTopologyTransaction = false,
           )
           .failOnShutdown
-        response <- signedResponse(
+        response <- createConfirmationResponses(
+          Some(ViewPosition.root),
+          participant,
           Set(submitter),
-          ViewPosition.root,
           LocalApprove(testedProtocolVersion),
-          requestId,
+          requestId = requestId,
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
@@ -1319,11 +1601,11 @@ class ConfirmationRequestAndResponseProcessorTest
       val sequencingTs = requestId.unwrap.minusSeconds(1)
 
       for {
-        response <- signedResponse(
+        response <- createConfirmationResponses(
+          Some(ViewPosition.root),
+          participant,
           Set(submitter),
-          ViewPosition.root,
           LocalApprove(testedProtocolVersion),
-          requestId,
         )
         _ <- loggerFactory.assertLogs(
           sut.processor.handleMediatorEvent(
@@ -1474,11 +1756,12 @@ class ConfirmationRequestAndResponseProcessorTest
         _ = sut.verdictSender.sentResults shouldBe empty
 
         // If it nevertheless gets a response, it will complain about the request not being known
-        response <- signedResponse(
+        response <- createConfirmationResponses(
+          Some(ViewPosition.root),
+          participant,
           Set(submitter),
-          view0Position,
           LocalApprove(testedProtocolVersion),
-          requestId,
+          requestId = requestId,
         )
         _ <- loggerFactory.assertLogs(
           sut.processor
@@ -1518,11 +1801,11 @@ class ConfirmationRequestAndResponseProcessorTest
 
       val ts1 = CantonTimestamp.Epoch.plusMillis(1L)
       for {
-        someResponse <- signedResponse(
+        someResponse <- createConfirmationResponses(
+          Some(ViewPosition.root),
+          participant,
           Set(submitter),
-          view0Position,
           LocalApprove(testedProtocolVersion),
-          requestId,
         )
 
         _ <- loggerFactory.assertLogs(
