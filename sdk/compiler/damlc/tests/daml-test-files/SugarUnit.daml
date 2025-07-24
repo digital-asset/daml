@@ -4,8 +4,7 @@
 -- Test that the type `GHC.Tuple.Unit`, which is only produced by ghc's
 -- desugarer, works correctly (cf. DEL-6656).
 -- Test that the generated code actually uses `GHC.Tuple.Unit`.
--- @QUERY-LF [$pkg | .modules[] | .values[] | .. | objects | select(has("rec_con")) | .rec_con.tycon | select((.tycon | lf::get_dotted_name($pkg)) == ["Unit"] and (.tycon | lf::get_module_name($pkg)) == ["GHC", "Tuple"])] | any
-
+-- @QUERY-LF [$pkg | .modules[] | .values[] | lf::norm_interned($pkg) | .. | objects | select(has("rec_con")) | .rec_con.tycon | select((.tycon | lf::get_dotted_name($pkg)) == ["Unit"] and (.tycon | lf::get_module_name($pkg)) == ["GHC", "Tuple"])] | any
 
 module SugarUnit where
 

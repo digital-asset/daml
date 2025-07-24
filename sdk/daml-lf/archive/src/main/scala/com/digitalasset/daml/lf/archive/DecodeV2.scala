@@ -55,16 +55,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames,
       IndexedSeq.empty,
       IndexedSeq.empty,
+      IndexedSeq.empty,
       Some(dependencyTracker),
       None,
       onlySerializableDataDefs,
+      None,
     )
 
     val internedKinds = Work.run(decodeInternedKinds(env0, lfPackage))
     val env1 = env0.copy(internedKinds = internedKinds)
-    // val env1 = env0
     val internedTypes = Work.run(decodeInternedTypes(env1, lfPackage))
-    val env = env1.copy(internedTypes = internedTypes)
+    val env2 = env1.copy(internedTypes = internedTypes)
+    val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
+    val env = env2.copy(internedExprs = internedExprs)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -124,15 +127,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames,
       IndexedSeq.empty,
       IndexedSeq.empty,
+      IndexedSeq.empty,
       None,
       None,
       onlySerializableDataDefs = false,
+      None,
     )
     val internedKinds = Work.run(decodeInternedKinds(env0, lfSingleModule))
     val env1 = env0.copy(internedKinds = internedKinds)
     // val env1 = env0
     val internedTypes = Work.run(decodeInternedTypes(env1, lfSingleModule))
-    val env = env1.copy(internedTypes = internedTypes)
+    val env2 = env1.copy(internedTypes = internedTypes)
+    val internedExprs = lfSingleModule.getInternedExprsList().asScala.toVector
+    val env = env2.copy(internedExprs = internedExprs)
     env.decodeModule(lfSingleModule.getModules(0))
 
   }
@@ -178,8 +185,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       assertSince(LV.Features.kindInterning, "interned kinds table")
 
     lfKinds.iterator.asScala
-      .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, typ) =>
-        buf += env.copy(internedKinds = buf).decodeKindForTest(typ)
+      .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, kind) =>
+        buf += env.copy(internedKinds = buf).decodeInternedKind(kind)
       }
       .toIndexedSeq
   }
@@ -198,7 +205,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val lfTypes = lfPackage.getInternedTypesList
     lfTypes.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
-        buf += env.copy(internedTypes = buf).uncheckedDecodeTypeForTest(typ)
+        buf += env.copy(internedTypes = buf).decodeInternedType(typ)
       }
       .toIndexedSeq
   }
@@ -219,9 +226,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames: ImmArraySeq[DottedName],
       internedKinds: collection.IndexedSeq[Kind],
       internedTypes: collection.IndexedSeq[Type],
+      internedExprs: collection.IndexedSeq[PLF.Expr],
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
+      currentInternedExprId: Option[Int],
   ) {
 
     // decode*ForTest -- test entry points
@@ -240,6 +249,21 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeDefInterface(id, lfInterface))
     }
 
+    private[archive] def decodeInternedKind(lfKind: PLF.Kind): Kind = {
+      Work.run(
+        lfKind.getSumCase match {
+          case PLF.Kind.SumCase.INTERNED_KIND =>
+            Work.Delay(() =>
+              throw Error.IllegalInterning(
+                "Immediate InternedKind in interning table (needs concrete constructor)"
+              )
+            )
+          case _ =>
+            decodeKind(lfKind)
+        }
+      )
+    }
+
     /** Roger: unfortunate postfix ForTest since NOT only used for testing */
     private[archive] def decodeKindForTest(lfKind: PLF.Kind): Kind = {
       Work.run(decodeKind(lfKind))
@@ -247,6 +271,25 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[archive] def decodeTypeForTest(lfType: PLF.Type): Type = {
       Work.run(decodeType(lfType)(Ret(_)))
+    }
+
+    // private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
+    //   Work.run(uncheckedDecodeType(lfType))
+    // }
+
+    private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
+      Work.run(
+        lfType.getSumCase match {
+          case PLF.Type.SumCase.INTERNED =>
+            Work.Delay(() =>
+              throw Error.IllegalInterning(
+                "Immediate Interned type in interning table (needs concrete constructor)"
+              )
+            )
+          case _ =>
+            uncheckedDecodeType(lfType)
+        }
+      )
     }
 
     /** Roger: unfortunate postfix ForTest since NOT only used for testing */
@@ -675,11 +718,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                 Ret((kinds foldRight base)(KArrow))
               }
             }
-          case PLF.Kind.SumCase.INTERNED =>
+          case PLF.Kind.SumCase.INTERNED_KIND =>
             assertSince(LV.Features.kindInterning, "interned kinds unsupported in this version")
             Ret(
               internedKinds.applyOrElse(
-                lfKind.getInterned,
+                lfKind.getInternedKind,
                 (index: Int) => throw Error.Parsing(s"invalid internedKinds table index $index"),
               )
             )
@@ -689,12 +732,11 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    /** Roger: As far as I understand, [[decodeType()]] is the checked version of
-      * [[uncheckedDecodeType()]] in the sense that [[decodeType()]] allows only
-      * references to interned kinds, meant to be used to parse the ast (after
-      * the interning table was parsed). It is meant to disallow any concrete
-      * types (any non-interned-referencing) types. In the long run, if we want
-      * to only intern trees of depth >= n, we need to weaken this restriction
+    /** [decodeType()]] is the checked version of [[uncheckedDecodeType()]] in the
+      * sense that [[decodeType()]] allows only references to interned kinds,
+      * meant to be used to parse the ast (after the interning table was
+      * parsed). It is meant to disallow any concrete types (any
+      * non-interned-referencing) types. depth n _in the interning table only_.
       */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
@@ -830,6 +872,28 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): Work[TypeConApp] = {
       Work.sequence(lfTyConApp.getArgsList.asScala.view.map(decodeType(_)(Ret(_)))) { types =>
         Ret(TypeConApp(decodeTypeConId(lfTyConApp.getTycon), types.to(ImmArray)))
+      }
+    }
+
+    // private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
+    //     k: Expr => Work[T]
+    // ): Work[T] = {
+    //     Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
+    // }
+
+    private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
+        k: Expr => Work[T]
+    ): Work[T] = {
+      lfExpr.getSumCase match {
+        case PLF.Expr.SumCase.INTERNED_EXPR =>
+          Work.Delay(() =>
+            throw Error.IllegalInterning(
+              "Immediate InternedExpr in interning table (needs concrete constructor)"
+            )
+          )
+        case _ =>
+          // For any other case, we mirror the behavior of decodeExpr.
+          Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
       }
     }
 
@@ -1217,7 +1281,30 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             Ret(EExperimental(experimental.getName, typ))
           }
 
-      }) { expr =>
+        case PLF.Expr.SumCase.INTERNED_EXPR =>
+          assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
+          currentInternedExprId match {
+            case None =>
+            // TODO[RB]: figure out how to change state
+            // currentInternedExprId = Some(lfExpr.getInternedExpr)
+            case Some(currentId) if lfExpr.getInternedExpr < currentId =>
+            // TODO[RB]: figure out how to change state
+            // currentInternedExprId = Some(newInt)
+            case _ =>
+            // TODO[RB]: start throwing when we can actually update
+            // throw Error.Parsing("Not allowed: interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)")
+          }
+          decodeInternedExpr(
+            internedExprs.applyOrElse(
+              lfExpr.getInternedExpr,
+              (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
+            ),
+            definition,
+          ) { expr =>
+            Ret(expr) // RB: idk how to write id here
+          }
+
+      }) { (expr: Expr) =>
         decodeLocation(lfExpr, definition) match {
           case None => Ret(expr)
           case Some(loc) => Ret(ELocation(loc, expr))
