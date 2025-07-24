@@ -132,14 +132,10 @@ steps:
       next_in_rotation | awk '{print $2}'
     }
     trigger_azure() (
-      token=$1
+      AZURE_DEVOPS_EXT_PAT=$1
       shift
       build=$1
       shift
-      az extension add --name azure-devops
-      trap 'az devops logout' EXIT
-      echo $token \
-        | az devops login --org "https://dev.azure.com/digitalasset"
       az pipelines build queue \
         --definition-name $build \
         --org "https://dev.azure.com/digitalasset" \
