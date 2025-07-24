@@ -10,7 +10,7 @@ Structure
 #########
 
 This section looks at the structure of a ledger that records the interactions between the parties as ledger changes.
-The definitions presented here address the first question: "what do changes and ledgers look like?".
+The definitions presented here address the first question: "What do changes and ledgers look like?".
 The basic building blocks of the recorded interactions are :ref:`actions <actions>`, which get grouped into :ref:`transactions <transactions>`, *updates*, *commits*, and the :ref:`Ledger <da-ledger-definition>`.
 
 .. _ledger-structure_running_example:
@@ -258,7 +258,7 @@ Transactions
 A **transaction** is a list of actions that are executed atomically.
 Those actions are called the **root actions** of the transaction.
 That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a root action.
-For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to both simulataneously.
+For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to both accept simulataneously.
 To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
 Visually, transactions are delimited by the dashed lines on both sides, to distinguish them from actions.
 Like for actions, the input contracts on the left are not part of the transaction.
