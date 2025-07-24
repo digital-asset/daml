@@ -28,3 +28,5 @@ template CallablePayout
       do create this with receiver = newReceiver
 
 reverseCopy = reverse
+
+trueOrFalse = or [True, False]
