@@ -327,6 +327,41 @@ object Ref {
     override def pkgFromString(s: String): Either[String, PackageRef] = PackageRef.fromString(s)
   }
 
+  type IdTypeConRef = FullReference[PackageRef.Id]
+  type NameTypeConRef = FullReference[PackageRef.Name]
+
+  final case class FullIdentifier(
+      pkgId: PackageId,
+      pkgName: PackageName,
+      qualifiedName: QualifiedName,
+  ) {
+    def toIdentifier: Identifier = FullReference(pkgId, qualifiedName)
+    def toIdTypeConRef: IdTypeConRef = FullReference(PackageRef.Id(pkgId), qualifiedName)
+    def toNameTypeConRef: NameTypeConRef = FullReference(PackageRef.Name(pkgName), qualifiedName)
+  }
+
+  object FullIdentifier {
+    def fromIdentifier(identifier: Identifier, pkgName: PackageName): FullIdentifier =
+      FullIdentifier(identifier.pkg, pkgName, identifier.qualifiedName)
+    def fromIdTypeConRef(idTypeConRef: IdTypeConRef, pkgName: PackageName): FullIdentifier =
+      FullIdentifier(idTypeConRef.pkg.id, pkgName, idTypeConRef.qualifiedName)
+    def fromNameTypeConRef(nameTypeConRef: NameTypeConRef, pkgId: PackageId): FullIdentifier =
+      FullIdentifier(pkgId, nameTypeConRef.pkg.name, nameTypeConRef.qualifiedName)
+  }
+
+  implicit class IdentifierConverter(identifier: Identifier) {
+    def toFullIdentifier(pkgName: PackageName): FullIdentifier =
+      FullIdentifier.fromIdentifier(identifier, pkgName)
+  }
+  implicit class IdTypeConRefConverter(idTypeConRef: IdTypeConRef) {
+    def toFullIdentifier(pkgName: PackageName): FullIdentifier =
+      FullIdentifier.fromIdTypeConRef(idTypeConRef, pkgName)
+  }
+  implicit class NameTypeConRefConverter(nameTypeConRef: NameTypeConRef) {
+    def toFullIdentifier(pkgId: PackageId): FullIdentifier =
+      FullIdentifier.fromNameTypeConRef(nameTypeConRef, pkgId)
+  }
+
   /*
      max size when converted to string: 3068 ASCII chars
    */
