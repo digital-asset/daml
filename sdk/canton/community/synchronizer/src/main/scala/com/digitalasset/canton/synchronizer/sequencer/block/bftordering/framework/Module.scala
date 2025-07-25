@@ -219,7 +219,7 @@ trait CancellableEvent {
   /** @return
     *   True if the cancellation was successful.
     */
-  def cancel(): Boolean
+  def cancel()(implicit metricsContext: MetricsContext): Boolean
 }
 
 /** FutureContext contains functions for creating and combining E#FutureUnlessShutdown that will be

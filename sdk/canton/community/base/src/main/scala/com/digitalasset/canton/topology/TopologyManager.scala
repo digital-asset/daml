@@ -450,7 +450,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     for {
       transactionsForHash <- EitherT
         .right[TopologyManagerError](
-          store.findTransactionsAndProposalsByTxHash(effective, Set(transactionHash))
+          store.findLatestTransactionsAndProposalsByTxHash(Set(transactionHash))
         )
       existingTransaction <-
         EitherT.fromEither[FutureUnlessShutdown][
@@ -721,16 +721,18 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
 
         transactionsInStore <- EitherT
           .liftF(
-            store.findTransactionsAndProposalsByTxHash(
-              EffectiveTime.MaxValue,
-              transactions.map(_.hash).toSet,
+            store.findLatestTransactionsAndProposalsByTxHash(
+              transactions.map(_.hash).toSet
             )
           )
         existingHashes = transactionsInStore
-          .map(tx => tx.hash -> tx.hashOfSignatures(managerVersion.serialization))
+          .map(tx => tx.hash -> tx)
           .toMap
+        // find transactions that provide new signatures
         (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(tx =>
-          existingHashes.get(tx.hash).contains(tx.hashOfSignatures(managerVersion.serialization))
+          existingHashes
+            .get(tx.hash)
+            .exists(existingTx => tx.signatures.diff(existingTx.signatures).isEmpty)
         )
         _ = logger.debug(
           s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"

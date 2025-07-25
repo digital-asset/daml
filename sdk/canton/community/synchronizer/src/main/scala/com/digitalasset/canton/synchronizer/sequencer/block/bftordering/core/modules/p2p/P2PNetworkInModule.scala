@@ -57,7 +57,7 @@ class P2PNetworkInModule[E <: Env[E]](
       sentBy,
       message.body,
       start,
-    )
+    )(TraceContext.fromW3CTraceParent(message.traceContext))
   }
 
   private def parseAndForwardBody(

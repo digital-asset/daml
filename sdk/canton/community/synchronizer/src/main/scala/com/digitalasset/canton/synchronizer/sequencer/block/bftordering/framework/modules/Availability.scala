@@ -73,11 +73,11 @@ object Availability {
     final case class LocalBatchCreated(requests: Seq[Traced[OrderingRequest]])
         extends LocalDissemination
 
-    final case class LocalBatchesStored(batches: Seq[(BatchId, OrderingRequestBatch)])
+    final case class LocalBatchesStored(batches: Seq[(Traced[BatchId], OrderingRequestBatch)])
         extends LocalDissemination
 
     final case class LocalBatchStoredSigned(
-        batchId: BatchId,
+        batchId: Traced[BatchId],
         batch: OrderingRequestBatch,
         // None if this message is just used to trigger further dissemination
         signature: Option[Signature],

@@ -241,7 +241,7 @@ final class GeneratorsProtocol(
     } yield deliver
   )
 
-  implicit val sequencerEventArb: Arbitrary[SequencedEvent[Envelope[?]]] =
+  implicit val sequencedEventArb: Arbitrary[SequencedEvent[Envelope[?]]] =
     Arbitrary(Gen.oneOf(deliverErrorArb.arbitrary, deliverArbitrary.arbitrary))
 
   implicit val signedContent: Arbitrary[SignedContent[HasCryptographicEvidence]] = Arbitrary(
@@ -274,7 +274,7 @@ final class GeneratorsProtocol(
   private def recipientsTreeGen(
       recipientArb: Arbitrary[Recipient]
   )(depth: Int): Gen[RecipientsTree] = {
-    val maxBreadth = 5
+    val maxBreadth = 3 // lowered from 5 to cap generation time per #26662
     val recipientGroupGen = nonEmptySetGen(recipientArb)
 
     if (depth == 0) {

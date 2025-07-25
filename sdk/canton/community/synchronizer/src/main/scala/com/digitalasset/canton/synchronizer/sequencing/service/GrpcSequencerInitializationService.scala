@@ -56,7 +56,8 @@ class GrpcSequencerInitializationService(
 
   override def initializeSequencerFromGenesisState(
       responseObserver: StreamObserver[InitializeSequencerFromGenesisStateResponse]
-  ): StreamObserver[InitializeSequencerFromGenesisStateRequest] =
+  ): StreamObserver[InitializeSequencerFromGenesisStateRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     GrpcStreamingUtils.streamFromClient[
       InitializeSequencerFromGenesisStateRequest,
       InitializeSequencerFromGenesisStateResponse,
@@ -72,10 +73,12 @@ class GrpcSequencerInitializationService(
         ).map(InitializeSequencerFromGenesisStateResponse(_)),
       responseObserver,
     )
+  }
 
   override def initializeSequencerFromPredecessor(
       responseObserver: StreamObserver[InitializeSequencerFromPredecessorResponse]
-  ): StreamObserver[InitializeSequencerFromPredecessorRequest] =
+  ): StreamObserver[InitializeSequencerFromPredecessorRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     GrpcStreamingUtils.streamFromClient[
       InitializeSequencerFromPredecessorRequest,
       InitializeSequencerFromPredecessorResponse,
@@ -91,6 +94,7 @@ class GrpcSequencerInitializationService(
         ).map(_ => InitializeSequencerFromPredecessorResponse()),
       responseObserver,
     )
+  }
 
   /** Use for major upgrades and logical upgrades
     *
@@ -103,9 +107,7 @@ class GrpcSequencerInitializationService(
       topologySnapshot: ByteString,
       synchronizerParameters: Option[v30.StaticSynchronizerParameters],
       doResetTimes: Boolean,
-  ): Future[Boolean] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-
+  )(implicit traceContext: TraceContext): Future[Boolean] = {
     val res: EitherT[Future, RpcError, Boolean] = for {
       topologyState <- EitherT.fromEither[Future](
         StoredTopologyTransactions
@@ -213,7 +215,8 @@ class GrpcSequencerInitializationService(
 
   override def initializeSequencerFromOnboardingState(
       responseObserver: StreamObserver[InitializeSequencerFromOnboardingStateResponse]
-  ): StreamObserver[InitializeSequencerFromOnboardingStateRequest] =
+  ): StreamObserver[InitializeSequencerFromOnboardingStateRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     GrpcStreamingUtils.streamFromClient(
       _.onboardingState,
       _ => (),
@@ -221,9 +224,11 @@ class GrpcSequencerInitializationService(
         initializeSequencerFromOnboardingState(onboardingState),
       responseObserver,
     )
+  }
 
-  private def initializeSequencerFromOnboardingState(onboardingState: ByteString) = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+  private def initializeSequencerFromOnboardingState(
+      onboardingState: ByteString
+  )(implicit traceContext: TraceContext) = {
     val res: EitherT[Future, RpcError, InitializeSequencerFromOnboardingStateResponse] = for {
       onboardingState <- EitherT.fromEither[Future](
         OnboardingStateForSequencer

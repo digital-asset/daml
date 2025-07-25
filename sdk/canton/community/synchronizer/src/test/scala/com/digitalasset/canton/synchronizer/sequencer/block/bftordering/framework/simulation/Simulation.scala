@@ -124,8 +124,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         local.scheduleEvent(node, sendTo, from, msg)
       case NodeCollector.TickEvent(duration, tickId, to, msg) =>
         local.scheduleTick(node, to, tickId, duration, msg)
-      case NodeCollector.SendNetworkEvent(to, msg, traceContext) =>
-        network.scheduleNetworkEvent(from = node, to, msg, traceContext)
+      case NodeCollector.SendNetworkEvent(to, msg) =>
+        network.scheduleNetworkEvent(from = node, to, msg)
       case NodeCollector.AddFuture(to, future, errorMessage, traceContext) =>
         local.scheduleFuture(node, to, clock.now, future, errorMessage, traceContext)
       case NodeCollector.CancelTick(tickCounter) =>
@@ -340,12 +340,12 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           logger.trace(s"Future ${toRun.name} for $machine:$to completed")
           executeFuture(machine, to, toRun, fun, traceContext)
           verifier.aFutureHappened(machine)
-        case ReceiveNetworkMessage(machineName, msg, traceContext) =>
+        case ReceiveNetworkMessage(machineName, msg) =>
           local.scheduleEvent(
             machineName,
             tryGetMachine(machineName).networkInReactor,
             EventOriginator.FromNetwork,
-            ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
+            ModuleControl.Send(msg, TraceContext.empty, MetricsContext.Empty),
           )
         case ClientTick(machine, _, msg, traceContext) =>
           logger.trace(s"Client for $machine ticks")
