@@ -62,8 +62,8 @@ class NodeCollector extends Collector[NodeCollector.Event] {
     newTickId
   }
 
-  def addNetworkEvent(node: BftNodeId, msg: Any)(implicit traceContext: TraceContext): Unit =
-    add(NodeCollector.SendNetworkEvent(node, msg, traceContext))
+  def addNetworkEvent(node: BftNodeId, msg: Any): Unit =
+    add(NodeCollector.SendNetworkEvent(node, msg))
 
   def addFuture[X, T](
       to: ModuleName,
@@ -92,8 +92,7 @@ object NodeCollector {
       to: ModuleName,
       msg: ModuleControl[SimulationEnv, ?],
   ) extends Event
-  final case class SendNetworkEvent(to: BftNodeId, msg: Any, traceContext: TraceContext)
-      extends Event
+  final case class SendNetworkEvent(to: BftNodeId, msg: Any) extends Event
   final case class AddFuture[X, T](
       to: ModuleName,
       future: SimulationFuture[X],

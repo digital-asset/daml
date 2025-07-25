@@ -41,7 +41,11 @@ final case class DisseminationProgress(
     val reviewedAcks = reviewAcks(acks, orderingTopology)
     if (AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size))
       Some(
-        ProofOfAvailability(batchMetadata.batchId, reviewedAcks.toSeq, batchMetadata.epochNumber)
+        ProofOfAvailability(
+          batchMetadata.batchId.value,
+          reviewedAcks.toSeq,
+          batchMetadata.epochNumber,
+        )
       )
     else
       None
@@ -80,10 +84,10 @@ object DisseminationProgress {
       thisNodeId: BftNodeId,
       orderingTopology: OrderingTopology,
   ): Option[DisseminationProgress] = {
-    val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)
+    val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.value.acks, orderingTopology)
     // No need to update the acks in DisseminatedBatchMetadata, if the PoA is still valid
     Option.when(
-      batchMetadata.proofOfAvailability.acks.toSet != reviewedAcks ||
+      batchMetadata.proofOfAvailability.value.acks.toSet != reviewedAcks ||
         !AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size)
     )(
       DisseminationProgress(

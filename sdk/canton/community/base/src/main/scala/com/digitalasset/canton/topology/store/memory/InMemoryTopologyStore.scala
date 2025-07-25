@@ -80,15 +80,15 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
   ]
   private val watermark = new AtomicReference[Option[CantonTimestamp]](None)
 
-  def findTransactionsAndProposalsByTxHash(asOfExclusive: EffectiveTime, hashes: Set[TxHash])(
-      implicit traceContext: TraceContext
+  def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
+      traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     if (hashes.isEmpty) FutureUnlessShutdown.pure(Seq.empty)
     else
-      findFilter(
-        asOfExclusive,
-        entry => hashes.contains(entry.hash),
-      )
+      filteredState(
+        blocking(synchronized(topologyTransactionStore.toSeq)),
+        filter = entry => hashes.contains(entry.hash),
+      ).map(_.collectLatestByTxHash.result.map(_.transaction))
 
   override def findProposalsByTxHash(
       asOfExclusive: EffectiveTime,

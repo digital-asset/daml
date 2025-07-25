@@ -1230,7 +1230,12 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     override def toJson(lapi: ExecuteSubmissionRequest)(implicit
         errorLoggingContext: ErrorLoggingContext
-    ): Future[JsExecuteSubmissionRequest] = jsFail("not supported")
+    ): Future[JsExecuteSubmissionRequest] = Future.successful(
+      lapi
+        .into[JsExecuteSubmissionRequest]
+        .withFieldConst(_.preparedTransaction, lapi.preparedTransaction.map(_.toByteString))
+        .transform
+    )
   }
 
   object AllocatePartyRequest

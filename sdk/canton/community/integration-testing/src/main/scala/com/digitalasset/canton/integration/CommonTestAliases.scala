@@ -77,6 +77,9 @@ trait CommonTestAliases {
     acmeName
   ).physicalSynchronizerId
   lazy val synchronizer2Id: PhysicalSynchronizerId = acmeId
+  lazy val staticSynchronizerParameters2: StaticSynchronizerParameters = getInitializedSynchronizer(
+    acmeName
+  ).staticSynchronizerParameters
   lazy val synchronizerOwners2: Set[InstanceReference] = getInitializedSynchronizer(
     acmeName
   ).synchronizerOwners

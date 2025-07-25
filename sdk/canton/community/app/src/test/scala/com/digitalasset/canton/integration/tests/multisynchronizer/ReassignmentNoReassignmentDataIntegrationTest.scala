@@ -28,16 +28,11 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
   ReassignmentEntry,
   UnknownReassignmentId,
 }
-import com.digitalasset.canton.protocol.messages.{
-  ConfirmationResponses,
-  LocalVerdict,
-  SignedProtocolMessage,
-  TypedSignedProtocolMessageContent,
-}
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
+  ProgrammableSequencer,
   ProgrammableSequencerPolicies,
   SendDecision,
   SendPolicyWithoutTraceContext,
@@ -222,37 +217,46 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
   }
 
   "signatory assigning participants" should {
-    "send an abstain verdict for assignments if data in the reassignment store" in { implicit env =>
-      import env.*
+    "send an abstain verdict for assignments if data is missing from the reassignment store" in {
+      implicit env =>
+        import env.*
 
-      clue("success: threshold is one (p3 confirmation is sufficient for Alice)") {
-        changeAliceHosting(confirmationThresholdAcme = PositiveInt.one)
-        val result = runScenario(createGetCash(1.0), deleteReassignmentEntry = true)
-        // all participants should send a confirmation response
-        Seq(participant1, participant2, participant3).foreach(
-          acmeConfirmationResponses.get(_) should not be empty
-        )
+        clue("success: threshold is one (p3 confirmation is sufficient for Alice)") {
+          changeAliceHosting(confirmationThresholdAcme = PositiveInt.one)
+          val result = runScenario(createGetCash(1.0), deleteReassignmentEntry = true)
 
-        localVerdictIs(acmeConfirmationResponses(participant1), _.isAbstain) shouldBe true
+          // all participants should send a confirmation response
+          ProgrammableSequencer.confirmationResponsesKind(
+            acmeConfirmationResponses.view.mapValues(Seq(_)).toMap
+          ) shouldBe Map(
+            participant1.id -> Seq("LocalAbstain"),
+            participant2.id -> Seq("LocalApprove"),
+            participant3.id -> Seq("LocalApprove"),
+          )
 
-        result.status.value.code shouldBe 0
-      }
+          result.status.value.code shouldBe 0
+        }
 
-      clue("failure: threshold is two and p1 does not confirm (entry deleted)") {
-        changeAliceHosting(confirmationThresholdAcme = PositiveInt.two)
-        val result = runScenario(createGetCash(2.0), deleteReassignmentEntry = true)
+        clue("failure: threshold is two and p1 does not confirm (entry deleted)") {
+          changeAliceHosting(confirmationThresholdAcme = PositiveInt.two)
+          val result = runScenario(createGetCash(2.0), deleteReassignmentEntry = true)
 
-        val status = result.status.value
+          val status = result.status.value
 
-        Seq(participant1, participant2, participant3).foreach(
-          acmeConfirmationResponses.get(_) should not be empty
-        )
-        status.code should not be 0
-        localVerdictIs(acmeConfirmationResponses(participant1), _.isAbstain) shouldBe true
-        status.message should include(
-          s"Cannot perform all validations: Unassignment data not found when processing assignment"
-        )
-      }
+          status.code should not be 0
+
+          ProgrammableSequencer.confirmationResponsesKind(
+            acmeConfirmationResponses.view.mapValues(Seq(_)).toMap
+          ) shouldBe Map(
+            participant1.id -> Seq("LocalAbstain"),
+            participant2.id -> Seq("LocalApprove"),
+            participant3.id -> Seq("LocalApprove"),
+          )
+
+          status.message should include(
+            s"Cannot perform all validations: Unassignment data not found when processing assignment"
+          )
+        }
     }
 
     "send an approve verdict for assignments if data in the reassignment store" in { implicit env =>
@@ -260,9 +264,12 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
 
       def assertResultIsOK(result: Completion) = {
         result.status.value.code shouldBe 0
-        localVerdictIs(acmeConfirmationResponses(participant1), _.isApprove) shouldBe true
-        Seq(participant1, participant2, participant3).foreach(
-          acmeConfirmationResponses.get(_) should not be empty
+        ProgrammableSequencer.confirmationResponsesKind(
+          acmeConfirmationResponses.view.mapValues(Seq(_)).toMap
+        ) shouldBe Map(
+          participant1.id -> Seq("LocalApprove"),
+          participant2.id -> Seq("LocalApprove"),
+          participant3.id -> Seq("LocalApprove"),
         )
       }
 
@@ -292,26 +299,6 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
 
       case _ => SendDecision.Process
     }
-
-  private def localVerdictIs(
-      submissionRequest: SubmissionRequest,
-      condition: LocalVerdict => Boolean,
-  )(implicit env: TestConsoleEnvironment): Boolean = {
-    import env.*
-    submissionRequest.batch.envelopes.exists(
-      _.closeEnvelope
-        .openEnvelope(participant1.crypto.pureCrypto, testedProtocolVersion)
-        .value
-        .protocolMessage match {
-        case SignedProtocolMessage(
-              TypedSignedProtocolMessageContent(confirmations: ConfirmationResponses),
-              _,
-            ) =>
-          confirmations.responses.forall(r => condition(r.localVerdict))
-        case _ => false
-      }
-    )
-  }
 }
 
 class ReassignmentNoReassignmentDataIntegrationTestPostgres

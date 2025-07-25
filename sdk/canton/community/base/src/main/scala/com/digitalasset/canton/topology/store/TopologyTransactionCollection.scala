@@ -65,6 +65,9 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
   def collectLatestByUniqueKey: StoredTopologyTransactions[Op, M] =
     StoredTopologyTransactions(TopologyTransactions.collectLatestByUniqueKey(result))
 
+  def collectLatestByTxHash: StoredTopologyTransactions[Op, M] =
+    StoredTopologyTransactions(TopologyTransactions.collectLatestByTxHash(result))
+
   def signedTransactions: Seq[SignedTopologyTransaction[Op, M]] = result.map(_.transaction)
 
   /** The timestamp of the last topology transaction (if there is at least one) */
@@ -197,4 +200,27 @@ object TopologyTransactions {
       }
       .values
       .toSeq
+
+  /** Returns a list that only contains the latest transaction per transaction hash. The returned
+    * transactions retain the order of the input transactions.
+    */
+  def collectLatestByTxHash[
+      T <: TopologyTransactionLike[TopologyChangeOp, TopologyMapping]
+  ](transactions: Seq[T]): Seq[T] =
+    transactions
+      // to retain the original order
+      .zipWithIndex
+      .groupBy1 { case (tx, _) => tx.hash }
+      .values
+      .toSeq
+      .view
+      // find the most recent transaction per hash
+      .map { transactionsForTxHash =>
+        transactionsForTxHash.maxBy1 { case (_, idx) => idx }
+      }
+      // retain the original order
+      .sortBy { case (_, idx) => idx }
+      .map { case (tx, _) => tx }
+      .toSeq
+
 }

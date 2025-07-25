@@ -9,6 +9,7 @@ import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.{
   CantonConfig,
+  ClientConfig,
   NonNegativeFiniteDuration as NonNegativeFiniteDurationConfig,
 }
 import com.digitalasset.canton.console.BufferedProcessLogger
@@ -189,11 +190,14 @@ class UseLedgerApiTestTool(
       errorHint = s"Failures in aforementioned test suite.",
     )
 
+  private def endpointAsString(config: ClientConfig) = s"${config.address}:${config.port.toString}"
+
   private def testParticipants(implicit env: TestConsoleEnvironment): Seq[String] =
     env.participants.all
       .map { p =>
-        val ledgerApiConfig = p.config.clientLedgerApi
-        s"${ledgerApiConfig.address}:${ledgerApiConfig.port.toString}"
+        val ledgerApiEndpoint = endpointAsString(p.config.clientLedgerApi)
+        val adminApiEndpoint = endpointAsString(p.config.clientAdminApi)
+        s"$ledgerApiEndpoint;$adminApiEndpoint"
       }
 
 }

@@ -70,7 +70,6 @@ final case class InternalTick[MessageT](
 final case class ReceiveNetworkMessage[MessageT](
     node: BftNodeId,
     msg: MessageT,
-    traceContext: TraceContext,
 ) extends Command
 final case class Quit(reason: String) extends Command
 final case class ClientTick[MessageT](

@@ -66,4 +66,6 @@ object Traced {
       f(traced.value, lb)
   }
 
+  implicit def orderingTraced[A: Ordering]: Ordering[Traced[A]] = Ordering.by(_.value)
+
 }

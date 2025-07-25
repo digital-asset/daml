@@ -213,15 +213,52 @@ trait TopologyManagementIntegrationTest
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
         store = daId,
       )
+      // propose a decentralized namespace with many owners, so that we have multiple
+      // transactions with the same hash. This should not trip up the idempotent import.
+      val dns = nodes.all
+        .map { node =>
+          node.topology.decentralized_namespaces
+            .propose_new(
+              nodes.all.map(_.namespace).toSet,
+              PositiveInt.tryCreate(nodes.all.size),
+              daId,
+            )
+            .mapping
+        }
+        .headOption
+        .value
+      // now make a change so that we have multiple transactions for the same hash for both an older
+      // serial and the latest serial
+      nodes.all.foreach { node =>
+        eventually() {
+          node.topology.decentralized_namespaces
+            .list(daId, filterNamespace = dns.namespace.filterString) should not be empty
+        }
+        node.topology.decentralized_namespaces.propose(
+          DecentralizedNamespaceDefinition.tryCreate(
+            dns.namespace,
+            PositiveInt.tryCreate(dns.threshold.decrement.value),
+            dns.owners,
+          ),
+          daId,
+          serial = Some(PositiveInt.two),
+        )
+      }
+
+      val snapshot = participant1.topology.transactions.export_topology_snapshot(daId)
 
       // ignores duplicate transaction
       loggerFactory.assertLogsSeq(
         SuppressionRule.LevelAndAbove(DEBUG) && SuppressionRule
           .forLogger[SyncPersistentState]
       )(
-        participant1.topology.transactions.load(Seq(tx), daId),
+        {
+          participant1.topology.transactions.load(Seq(tx), daId)
+          participant1.topology.transactions.import_topology_snapshot(snapshot, daId)
+        },
         { logEntries =>
           logEntries should not be empty
+          logEntries.exists(_.message.contains("Processing 0/")) shouldBe true
           logEntries.exists(
             _.message.contains(s"Ignoring existing transactions: ${Seq(tx).toVector}")
           ) shouldBe true

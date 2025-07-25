@@ -362,7 +362,7 @@ final class PreparedTransactionEncoder(
     // kick in.
     transaction
       .transformIntoPartial[iss.DamlTransaction]
-      .toFutureWithLoggedFailures("Failed to serialize prepared transaction", logger)
+      .toFutureWithLoggedFailuresEncode("Failed to serialize prepared transaction", logger)
   }
 
   def encode(prepareTransactionData: PrepareTransactionData)(implicit
@@ -392,7 +392,7 @@ final class PreparedTransactionEncoder(
       )
       metadata <- prepareTransactionData
         .transformIntoPartial[iss.Metadata]
-        .toFutureWithLoggedFailures("Failed to serialize metadata", logger)
+        .toFutureWithLoggedFailuresEncode("Failed to serialize metadata", logger)
     } yield {
       iss.PreparedTransaction(
         transaction = Some(serializedTransaction),

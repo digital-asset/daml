@@ -72,7 +72,7 @@ package object bftordering {
     }
 
   private[bftordering] def fakeCancellableEventExpectingSilence: CancellableEvent =
-    () => fail("Module should not cancel delayed event")
+    new FakeCancellableEvent(() => fail("Module should not cancel delayed event"))
 
   private[bftordering] def failingCryptoProvider[E <: Env[E]]: CryptoProvider[E] =
     new FailingCryptoProvider()

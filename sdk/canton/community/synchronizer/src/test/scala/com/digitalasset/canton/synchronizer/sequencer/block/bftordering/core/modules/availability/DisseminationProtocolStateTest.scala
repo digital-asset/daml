@@ -22,6 +22,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingTopology,
   SequencingParameters,
 }
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.scalatest.wordspec.AnyWordSpec
 
 class DisseminationProtocolStateTest
@@ -69,7 +70,7 @@ class DisseminationProtocolStateTest
             DisseminationProgress(
               newTopology,
               InProgressBatchMetadata(
-                ABatchId,
+                Traced(ABatchId),
                 AnEpochNumber,
                 SomeStats,
                 regressionsToSigning = 1,
@@ -106,7 +107,7 @@ class DisseminationProtocolStateTest
             DisseminationProgress(
               newTopology,
               InProgressBatchMetadata(
-                ABatchId,
+                Traced(ABatchId),
                 AnEpochNumber,
                 SomeStats,
                 regressionsToSigning = 1,
@@ -153,11 +154,13 @@ object DisseminationProtocolStateTest {
       stats: OrderingRequestBatchStats,
   ): DisseminatedBatchMetadata =
     DisseminatedBatchMetadata(
-      ProofOfAvailability(
-        batchId,
-        Seq(AvailabilityAck(nodeId, signature)),
-        epochNumber,
-      ),
+      Traced(
+        ProofOfAvailability(
+          batchId,
+          Seq(AvailabilityAck(nodeId, signature)),
+          epochNumber,
+        )
+      )(TraceContext.empty),
       epochNumber,
       stats,
     )

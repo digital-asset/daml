@@ -8,7 +8,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.P2PConnectionEventListener
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.TraceContext
 
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Random
@@ -131,7 +130,6 @@ class NetworkSimulator(
       from: BftNodeId,
       to: BftNodeId,
       msg: Any,
-      traceContext: TraceContext,
   ): Unit = {
 
     if (canUseFaults && settings.packetLoss.flipCoin(random)) {
@@ -150,7 +148,7 @@ class NetworkSimulator(
       val delay = settings.oneWayDelay
         .generateRandomDuration(random)
       agenda.addOne(
-        ReceiveNetworkMessage(to, msg, traceContext),
+        ReceiveNetworkMessage(to, msg),
         delay,
       )
     }

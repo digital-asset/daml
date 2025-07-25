@@ -5,11 +5,12 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatchStats
+import com.digitalasset.canton.tracing.Traced
 
 import java.time.Instant
 
 final case class InProgressBatchMetadata(
-    batchId: BatchId,
+    batchId: Traced[BatchId],
     epochNumber: EpochNumber,
     stats: OrderingRequestBatchStats,
     // The following fields are only used for metrics
@@ -20,7 +21,7 @@ final case class InProgressBatchMetadata(
 
   def complete(acks: Seq[AvailabilityAck]): DisseminatedBatchMetadata =
     DisseminatedBatchMetadata(
-      ProofOfAvailability(batchId, acks, epochNumber),
+      batchId.map(ProofOfAvailability(_, acks, epochNumber)),
       epochNumber,
       stats,
       availabilityEnterInstant = availabilityEnterInstant,
@@ -31,7 +32,7 @@ final case class InProgressBatchMetadata(
 }
 
 final case class DisseminatedBatchMetadata(
-    proofOfAvailability: ProofOfAvailability,
+    proofOfAvailability: Traced[ProofOfAvailability],
     epochNumber: EpochNumber,
     stats: OrderingRequestBatchStats,
     // The following fields are only used for metrics
@@ -42,7 +43,7 @@ final case class DisseminatedBatchMetadata(
 ) {
   def regress(toSigning: Boolean): InProgressBatchMetadata =
     InProgressBatchMetadata(
-      proofOfAvailability.batchId,
+      proofOfAvailability.map(_.batchId),
       epochNumber,
       stats,
       availabilityEnterInstant,

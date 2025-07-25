@@ -4,19 +4,29 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.{EitherT, OptionT}
+import cats.syntax.functorFilter.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.integration.{ConfigTransform, ConfigTransforms}
+import com.digitalasset.canton.integration.{
+  ConfigTransform,
+  ConfigTransforms,
+  TestConsoleEnvironment,
+}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.messages.{
+  ConfirmationResponses,
+  SignedProtocolMessage,
+  TypedSignedProtocolMessageContent,
+}
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
@@ -468,6 +478,7 @@ trait HasProgrammableSequencer {
 }
 
 object ProgrammableSequencer {
+  import org.scalatest.EitherValues.*
 
   private[ProgrammableSequencer] val sequencers
       : concurrent.Map[(String, String), ProgrammableSequencer] =
@@ -481,6 +492,50 @@ object ProgrammableSequencer {
 
   private[sequencer] def allSequencers(environmentId: String): Seq[String] =
     sequencers.keySet.collect { case (`environmentId`, synchronizer) => synchronizer }.toSeq
+
+  /** Extract the list of confirmation responses.
+    */
+  def confirmationResponsesKind(messages: Map[Member, Seq[SubmissionRequest]])(implicit
+      env: TestConsoleEnvironment
+  ): Map[Member, Seq[String]] =
+    messages.view
+      .mapValues(_.mapFilter { submissionRequest =>
+        if (ProgrammableSequencerPolicies.isConfirmationResponse(submissionRequest)) {
+
+          val participant = env.lp(submissionRequest.sender.identifier.toString)
+
+          val localVerdicts = submissionRequest.batch.envelopes
+            .flatMap(
+              _.closeEnvelope
+                .openEnvelope(participant.crypto.pureCrypto, BaseTest.testedProtocolVersion)
+                .value
+                .protocolMessage match {
+                case SignedProtocolMessage(
+                      TypedSignedProtocolMessageContent(confirmations: ConfirmationResponses),
+                      _,
+                    ) =>
+                  val localVerdicts = confirmations.responses.map(_.localVerdict.kind).distinct
+
+                  Some(localVerdicts.forgetNE)
+
+                case _ => None
+              }
+            )
+            .flatten
+            .distinct
+
+          if (localVerdicts.sizeIs > 1)
+            throw new IllegalStateException(
+              s"Found more than one verdict for confirmation response $submissionRequest"
+            )
+
+          Some(localVerdicts(0))
+
+        } else None
+
+      })
+      .filter { case (_, confirmationResponses) => confirmationResponses.nonEmpty }
+      .toMap
 
   /** Changes the [[CantonEnterpriseConfig]] such that all sequencers use a programmable sequencer.
     *

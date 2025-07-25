@@ -52,7 +52,7 @@ object PekkoModuleSystem {
       loggerFactory: NamedLoggerFactory,
   ): Behavior[ModuleControl[PekkoEnv, MessageT]] = {
 
-    def emitQueueStats(
+    def emitQueuePullMetrics(
         metricsContext: MetricsContext,
         maybeSendInstant: Option[Instant],
         maybeDelay: Option[FiniteDuration],
@@ -103,7 +103,7 @@ object PekkoModuleSystem {
                         maybeSendInstant,
                         maybeDelay,
                       ) =>
-                    emitQueueStats(metricsContext, maybeSendInstant, maybeDelay)
+                    emitQueuePullMetrics(metricsContext, maybeSendInstant, maybeDelay)
                     m.receive(message)(pekkoContext, traceContext)
                 }
                 sendsAwaitingAModule.clear()
@@ -117,7 +117,7 @@ object PekkoModuleSystem {
                   ) =>
                 maybeModule match {
                   case Some(module) =>
-                    emitQueueStats(metricsContext, maybeSendInstant, maybeDelay)
+                    emitQueuePullMetrics(metricsContext, maybeSendInstant, maybeDelay)
                     module.receive(message)(pekkoContext, traceContext)
                   case _ =>
                     sendsAwaitingAModule.enqueue(send)
@@ -161,10 +161,23 @@ object PekkoModuleSystem {
     }
   }
 
-  private final case class PekkoCancellableEvent(cancellable: Cancellable)
-      extends CancellableEvent {
+  private final case class PekkoCancellableEvent(
+      cancellable: Cancellable,
+      moduleSystem: PekkoModuleSystem,
+      moduleNameForMetrics: String,
+      outstandingMessages: AtomicInteger,
+  ) extends CancellableEvent {
 
-    override def cancel(): Boolean = cancellable.cancel()
+    override def cancel()(implicit metricsContext: MetricsContext): Boolean = {
+      val cancelledSuccessfully = cancellable.cancel()
+      if (cancelledSuccessfully)
+        moduleSystem.metrics.performance.orderingStageLatency
+          .emitModuleQueueSize(
+            moduleNameForMetrics,
+            outstandingMessages.decrementAndGet(),
+          )
+      cancelledSuccessfully
+    }
   }
 
   private[bftordering] final case class PekkoActorContext[MessageT](
@@ -182,7 +195,6 @@ object PekkoModuleSystem {
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent = {
-      // We should maybe increment when the message is actually sent, but we don't have a way to do that via Pekko
       moduleSystem.metrics.performance.orderingStageLatency
         .emitModuleQueueSize(
           moduleNameForMetrics,
@@ -199,7 +211,10 @@ object PekkoModuleSystem {
             maybeSendInstant = Some(Instant.now),
             maybeDelay = Some(delay),
           ),
-        )
+        ),
+        moduleSystem,
+        moduleNameForMetrics,
+        outstandingMessages,
       )
     }
 

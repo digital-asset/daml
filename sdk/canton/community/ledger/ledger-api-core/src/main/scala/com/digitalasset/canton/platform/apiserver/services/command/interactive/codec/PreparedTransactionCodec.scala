@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive.
 
 import cats.Applicative
 import cats.syntax.either.*
+import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -27,9 +28,12 @@ object PreparedTransactionCodec {
       * logged at debug level, and a failed Future with a StatusRuntimeException is returned,
       * containing only the high level reason of the failure.
       */
-    def toFutureWithLoggedFailures(description: String, logger: TracedLogger)(implicit
-        errorLoggingContext: ErrorLoggingContext,
-        traceContext: TraceContext,
+    def toFutureWithLoggedFailures(
+        description: String,
+        logger: TracedLogger,
+        errorBuilder: String => DamlErrorWithDefiniteAnswer,
+    )(implicit
+        traceContext: TraceContext
     ): Future[A] = Future.fromTry {
       result.asEither
         .leftMap { err =>
@@ -41,10 +45,28 @@ object PreparedTransactionCodec {
           logger.info(s"$description: $errorsAsString")
           s"$description: $errorsAsString"
         }
-        .leftMap(CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(_))
+        .leftMap(errorBuilder(_))
         .leftMap(_.asGrpcError)
         .toTry
     }
+
+    def toFutureWithLoggedFailuresEncode(description: String, logger: TracedLogger)(implicit
+        errorLoggingContext: ErrorLoggingContext,
+        traceContext: TraceContext,
+    ): Future[A] = toFutureWithLoggedFailures(
+      description,
+      logger,
+      err => CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(err),
+    )
+
+    def toFutureWithLoggedFailuresDecode(description: String, logger: TracedLogger)(implicit
+        errorLoggingContext: ErrorLoggingContext,
+        traceContext: TraceContext,
+    ): Future[A] = toFutureWithLoggedFailures(
+      description,
+      logger,
+      err => CommandExecutionErrors.InteractiveSubmissionExecuteError.Reject(err),
+    )
   }
 
   implicit private[interactive] class EnhancedEitherString[A](val either: Either[String, A])
@@ -61,9 +83,14 @@ object PreparedTransactionCodec {
     /** Converts a ParsingResult[A] to a Result[A]
       */
     def toResult: Result[A] = parsingResult.leftMap(_.message).toResult
-    def toFutureWithLoggedFailures(description: String, logger: TracedLogger)(implicit
+    def toFutureWithLoggedFailuresEncode(description: String, logger: TracedLogger)(implicit
         errorLoggingContext: ErrorLoggingContext,
         traceContext: TraceContext,
-    ): Future[A] = toResult.toFutureWithLoggedFailures(description, logger)
+    ): Future[A] = toResult.toFutureWithLoggedFailuresEncode(description, logger)
+
+    def toFutureWithLoggedFailuresDecode(description: String, logger: TracedLogger)(implicit
+        errorLoggingContext: ErrorLoggingContext,
+        traceContext: TraceContext,
+    ): Future[A] = toResult.toFutureWithLoggedFailuresDecode(description, logger)
   }
 }

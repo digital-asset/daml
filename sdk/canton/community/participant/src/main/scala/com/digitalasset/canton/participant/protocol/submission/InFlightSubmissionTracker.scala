@@ -35,7 +35,7 @@ import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubm
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 
 import java.util.UUID
@@ -131,7 +131,9 @@ class InFlightSubmissionTracker(
       // Re-request ticks for all remaining unsequenced timestamps
       _ = if (unsequencedInFlights.nonEmpty) {
         timeTracker.requestTicks(
-          unsequencedInFlights.map(_.sequencingInfo.timeout)
+          unsequencedInFlights.map(inFlight =>
+            Traced(inFlight.sequencingInfo.timeout)(inFlight.submissionTraceContext)
+          )
         )
       }
       // Recover internal state: store unsequencedInFlights in unsequencedSubmissionMap, and schedule the rejection

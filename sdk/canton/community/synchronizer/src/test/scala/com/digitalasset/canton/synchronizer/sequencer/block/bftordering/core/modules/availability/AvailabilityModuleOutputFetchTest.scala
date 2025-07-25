@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   BftSequencerBaseTest,
   fakeCellModule,
 }
+import com.digitalasset.canton.tracing.Traced
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -574,7 +575,7 @@ class AvailabilityModuleOutputFetchTest
               ("message", "reply"),
               (
                 Availability.LocalDissemination.LocalBatchCreated(Seq(anOrderingRequest)),
-                Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
+                Availability.LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch)),
               ),
               (
                 Availability.RemoteDissemination.RemoteBatch.create(
@@ -628,10 +629,12 @@ class AvailabilityModuleOutputFetchTest
             Table[Msg, Msg, String](
               ("message", "reply", "crypto operation ID"),
               (
-                Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
+                Availability.LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch)),
                 Availability.LocalDissemination
                   .LocalBatchesStoredSigned(
-                    Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
+                    Seq(
+                      LocalBatchStoredSigned(Traced(ABatchId), ABatch, Some(Signature.noSignature))
+                    )
                   ),
                 "availability-sign-local-batchId",
               ),
