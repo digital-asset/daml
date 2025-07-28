@@ -7,7 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -64,6 +64,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import org.scalatest.Assertion
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import pprint.PPrinter
@@ -102,6 +103,10 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   def numberOfRuns: Int
   def numberOfInitialNodes: Int
   def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]]
+
+  def warnLogAssertion(logEntry: LogEntry): Assertion = fail(
+    s"Test should not produce warning logs but got: ${logEntry.message}"
+  )
 
   private val noopMetrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
@@ -316,7 +321,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           try {
             loggerFactory.assertLoggedWarningsAndErrorsSeq(
               stage.simulation.run(stage.model),
-              log => log shouldBe Seq.empty,
+              log => forAll(log)(warnLogAssertion),
             )
           } catch {
             case e: Throwable =>
@@ -830,6 +835,14 @@ class BftOrderingSimulationTestOffboarding extends BftOrderingSimulationTest {
 
   private val randomSourceToCreateSettings: Random =
     new Random(4) // Manually remove the seed for fully randomized local runs.
+
+  override def warnLogAssertion(logEntry: LogEntry): Assertion = {
+    // We might get messages from off boarded nodes, don't count these as errors.
+    logEntry.message should include(
+      "but it cannot be verified in the currently known dissemination topology"
+    )
+    logEntry.loggerName should include("AvailabilityModule")
+  }
 
   override def generateStages(): NonEmpty[Seq[SimulationTestStageSettings]] = NonEmpty(
     Seq,

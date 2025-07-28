@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeCellModule,
   fakeIgnoringModule,
 }
+import com.digitalasset.canton.tracing.Traced
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -112,7 +113,9 @@ class AvailabilityModuleDisseminationTest
             myId = me,
             cryptoProvider = cryptoProvider,
           )
-          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+          availability.receive(
+            LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch))
+          )
           ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
           verify(cryptoProvider).signHash(
@@ -161,7 +164,7 @@ class AvailabilityModuleDisseminationTest
           cryptoProvider = cryptoProvider,
           disseminationProtocolState = disseminationProtocolState,
         )
-        availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+        availability.receive(LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch)))
         ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
@@ -195,7 +198,7 @@ class AvailabilityModuleDisseminationTest
           cryptoProvider = cryptoProvider,
           disseminationProtocolState = disseminationProtocolState,
         )
-        availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+        availability.receive(LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch)))
         ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
@@ -238,7 +241,9 @@ class AvailabilityModuleDisseminationTest
             p2pNetworkOut = fakeCellModule(p2pNetworkOutCell),
             disseminationProtocolState = disseminationProtocolState,
           )
-          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+          availability.receive(
+            LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch))
+          )
 
           verify(cryptoProvider).signHash(
             AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
@@ -247,7 +252,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(Traced(ABatchId), ABatch, Some(Signature.noSignature)))
             )
           )
 
@@ -301,7 +306,9 @@ class AvailabilityModuleDisseminationTest
             p2pNetworkOut = fakeCellModule(p2pNetworkOutCell),
             disseminationProtocolState = disseminationProtocolState,
           )
-          availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
+          availability.receive(
+            LocalDissemination.LocalBatchesStored(Seq(Traced(ABatchId) -> ABatch))
+          )
 
           verify(cryptoProvider).signHash(
             AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
@@ -310,7 +317,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(Traced(ABatchId), ABatch, Some(Signature.noSignature)))
             )
           )
 

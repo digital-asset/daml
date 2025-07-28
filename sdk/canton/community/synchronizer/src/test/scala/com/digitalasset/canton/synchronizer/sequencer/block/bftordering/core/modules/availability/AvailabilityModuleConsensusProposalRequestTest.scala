@@ -28,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeCellModule,
   fakeRecordingModule,
 }
+import com.digitalasset.canton.tracing.Traced
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -103,7 +104,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             val batchIdsWithMetadata =
               batchesReadyForOrderingRange.map(n =>
                 batchIds(n) -> InProgressBatchMetadata(
-                  batchIds(n),
+                  Traced(batchIds(n)),
                   anEpochNumber,
                   OrderingRequestBatchStats.ForTesting,
                 ).complete(
@@ -155,7 +156,7 @@ class AvailabilityModuleConsensusProposalRequestTest
 
             availability.receive(
               Availability.Consensus.Ordered(
-                proposedProofsOfAvailability.map(_.proofOfAvailability.batchId)
+                proposedProofsOfAvailability.map(_.proofOfAvailability.value.batchId)
               )
             )
             disseminationProtocolState.batchesReadyForOrdering should
@@ -187,7 +188,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val batchIdsWithMetadata =
             (0 until numberOfBatchesReadyForOrdering).map(n =>
               batchIds(n) -> InProgressBatchMetadata(
-                batchIds(n),
+                Traced(batchIds(n)),
                 anEpochNumber,
                 OrderingRequestBatchStats.ForTesting,
               ).complete(
@@ -296,7 +297,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             val batchIdsWithMetadata =
               (0 until numberOfBatchesReadyForOrdering).map(n =>
                 batchIds(n) -> InProgressBatchMetadata(
-                  batchIds(n),
+                  Traced(batchIds(n)),
                   anEpochNumber,
                   OrderingRequestBatchStats.ForTesting,
                 ).complete(
@@ -330,7 +331,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             pipeToSelfQueue shouldBe empty
 
             availability.receive(
-              Availability.Consensus.Ordered(proposedProofsOfAvailability.map(_.batchId))
+              Availability.Consensus.Ordered(proposedProofsOfAvailability.map(_.value.batchId))
             )
             disseminationProtocolState.batchesReadyForOrdering should be(empty)
           }
@@ -445,7 +446,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val selfSendMessages = pipeToSelfQueue.flatMap(_.apply())
           selfSendMessages should contain only
             Availability.LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, signature = None))
+              Seq(LocalBatchStoredSigned(Traced(ABatchId), ABatch, signature = None))
             )
         }
       }
@@ -537,7 +538,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             val selfMessages = pipeToSelfQueue.flatMap(_.apply())
             selfMessages should contain only Availability.LocalDissemination
               .LocalBatchesStoredSigned(
-                Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, signature = None))
+                Seq(LocalBatchStoredSigned(Traced(AnotherBatchId), ABatch, signature = None))
               )
           }
       }
@@ -565,7 +566,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val acksBefore = ProofOfAvailability6NodesQuorumVotesNodes0And4To6InTopology.acks
 
           disseminationProtocolState.batchesReadyForOrdering.addOne(
-            ABatchId -> InProgressBatchMetadata(ABatchId, anEpochNumber, ABatch.stats)
+            ABatchId -> InProgressBatchMetadata(Traced(ABatchId), anEpochNumber, ABatch.stats)
               .complete(acksBefore)
           )
           val availability = createAvailability[FakePipeToSelfQueueUnitTestEnv](
@@ -678,7 +679,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
             .LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, signature = None))
+              Seq(LocalBatchStoredSigned(Traced(AnotherBatchId), ABatch, signature = None))
             )
         }
     }
@@ -753,7 +754,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
             .LocalBatchesStored(
-              Seq(AnotherBatchId -> ABatch)
+              Seq(Traced(AnotherBatchId) -> ABatch)
             )
         }
     }
@@ -787,7 +788,7 @@ class AvailabilityModuleConsensusProposalRequestTest
         {
           def batchIdWithMetadata(batchId: BatchId, epochNumber: EpochNumber) =
             batchId -> InProgressBatchMetadata(
-              batchId,
+              Traced(batchId),
               epochNumber,
               OrderingRequestBatchStats.ForTesting,
             ).complete(
@@ -858,7 +859,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             batchId -> DisseminationProgress(
               OrderingTopologyNodes0To3,
               InProgressBatchMetadata(
-                batchId,
+                Traced(batchId),
                 epochNumber,
                 OrderingRequestBatchStats.ForTesting,
               ),

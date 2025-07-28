@@ -26,8 +26,8 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.time.SynchronizerTimeTracker.*
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.google.common.annotations.VisibleForTesting
@@ -72,10 +72,10 @@ class SynchronizerTimeTracker(
 
   // timestamps that we are waiting to observe held in ascending order queue
   // modifications to pendingTicks must be made while holding the `lock`
-  private val pendingTicks: PriorityBlockingQueue[AwaitingTick] =
-    new PriorityBlockingQueue[AwaitingTick](
+  private val pendingTicks: PriorityBlockingQueue[Traced[AwaitingTick]] =
+    new PriorityBlockingQueue[Traced[AwaitingTick]](
       PriorityBlockingQueueUtil.DefaultInitialCapacity,
-      AwaitingTick.ordering,
+      Ordering[Traced[AwaitingTick]],
     )
 
   /** Ensures that changes to [[timestampRef]] and [[pendingTicks]] happen atomically */
@@ -136,7 +136,7 @@ class SynchronizerTimeTracker(
   def requestTick(ts: CantonTimestamp, immediately: Boolean = false)(implicit
       traceContext: TraceContext
   ): Unit =
-    requestTicks(Seq(ts), immediately)
+    requestTicks(Seq(Traced(ts)), immediately)
 
   /** Register that we want to observe synchronizer times. The tracker will attempt to make sure
     * that we observe a sequenced event with the given timestamps or greater. If "immediately" is
@@ -146,23 +146,23 @@ class SynchronizerTimeTracker(
     * the configured observation latency. If a greater value is provided a warning will be logged
     * but no error will be thrown or returned.
     */
-  def requestTicks(timestamps: Seq[CantonTimestamp], immediately: Boolean = false)(implicit
+  def requestTicks(timestamps: Seq[Traced[CantonTimestamp]], immediately: Boolean = false)(implicit
       traceContext: TraceContext
   ): Unit = {
-    val (toRequest, tooLarge) = timestamps.partition(_ < maxPendingTick)
+    val (toRequest, tooLarge) = timestamps.partition(_.value < maxPendingTick)
 
     NonEmpty.from(tooLarge).foreach { tooLarge =>
-      val first = tooLarge.min1
-      val last = tooLarge.max1
+      val first = tooLarge.min1.value
+      val last = tooLarge.max1.value
       logger.warn(
-        s"Ignoring request for ${tooLarge.size} ticks from $first to $last as they are too large"
+        s"Ignoring request for ${tooLarge.map(_.value).size} ticks from $first to $last as they are too large"
       )
     }
 
     if (toRequest.nonEmpty) {
       withLock {
         toRequest.foreach { tick =>
-          pendingTicks.put(new AwaitingTick(tick))
+          pendingTicks.put(tick.map(new AwaitingTick(_)))
         }
       }
       maybeScheduleUpdate(immediately)
@@ -185,7 +185,7 @@ class SynchronizerTimeTracker(
       // wait for this timestamp to be observed
       val promise = Promise[CantonTimestamp]()
       withLock {
-        pendingTicks.put(new AwaitingTick(ts, promise.some))
+        pendingTicks.put(Traced(new AwaitingTick(ts, promise.some)))
       }
       maybeScheduleUpdate()
       promise.future.some
@@ -262,10 +262,10 @@ class SynchronizerTimeTracker(
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def removeTicks(ts: CantonTimestamp): Unit =
     // remove pending ticks up to and including this timestamp
-    while (Option(pendingTicks.peek()).exists(_.ts <= ts)) {
+    while (Option(pendingTicks.peek()).exists(_.value.ts <= ts)) {
       val removed = pendingTicks.poll()
       // complete any futures waiting for them
-      removed.complete()
+      removed.value.complete()
     }
 
   private def fetch[A](
@@ -302,7 +302,7 @@ class SynchronizerTimeTracker(
             // we use MinValue rather than Epoch so it will still be considered far before "now" when initially started
             // using the simclock.
             if (requiresTimeProof) timeRequestSubmitter.fetchTimeProof()
-            else pendingTicks.put(new AwaitingTick(CantonTimestamp.MinValue))
+            else pendingTicks.put(Traced(new AwaitingTick(CantonTimestamp.MinValue)))
             FutureUnlessShutdown(promise.future) -> !requiresTimeProof
         }
       }
@@ -312,8 +312,8 @@ class SynchronizerTimeTracker(
 
   /** When we expect to observe the earliest timestamp in local time. */
   @VisibleForTesting
-  private[time] def earliestExpectedObservationTime(): Option[CantonTimestamp] =
-    Option(withLock(pendingTicks.peek())).map(_.ts.add(config.observationLatency.asJava))
+  private[time] def earliestExpectedObservationTime(): Option[Traced[CantonTimestamp]] =
+    Option(withLock(pendingTicks.peek())).map(_.map(_.ts.add(config.observationLatency.asJava)))
 
   /** Local time of when we'd like to see the next event produced. If we are waiting to observe a
     * timestamp, this value will be the greater (see note below) of:
@@ -335,7 +335,7 @@ class SynchronizerTimeTracker(
     *   - An event is received with sequencing time t2, with t1 < t2 < t3
     *   - Then, the max would lead to t3 which skips the request for a time proof
     */
-  private def nextScheduledCheck()(implicit traceContext: TraceContext): Option[CantonTimestamp] =
+  private def nextScheduledCheck(): Option[Traced[CantonTimestamp]] =
     // if we're not waiting for an event, then we don't need to see one
     // Only request an event if the time tracker has observed a time;
     // otherwise the submission may fail because the node does not have any signing keys registered
@@ -343,15 +343,18 @@ class SynchronizerTimeTracker(
       val latest = timestampRef.get().latest
       if (latest.isEmpty) {
         logger.debug(
-          s"Not scheduling a next check at $earliestExpectedObservationTime because no timestamp has been observed from the synchronizer"
-        )
+          s"Not scheduling a next check at ${earliestExpectedObservationTime.value} because no timestamp has been observed from the synchronizer"
+        )(earliestExpectedObservationTime.traceContext)
       }
 
       val timeFromReceivedEvent = latest.map(_.receivedAt.add(config.patienceDuration.asJava))
 
       clock match {
         case _: SimClock => latest.map(_ => earliestExpectedObservationTime)
-        case _ => timeFromReceivedEvent.map(_.max(earliestExpectedObservationTime))
+        case _ =>
+          timeFromReceivedEvent.map(received =>
+            earliestExpectedObservationTime.map(_.max(received))
+          )
       }
     }
 
@@ -371,31 +374,36 @@ class SynchronizerTimeTracker(
       immediately: Boolean = false
   )(implicit traceContext: TraceContext): Unit = {
 
-    def updateNow(): Unit =
+    def updateNow(tc: TraceContext): Unit =
       // Fine to repeatedly call without guards as the submitter will make no more than one request in-flight at once
       // The next call to update will complete the promise in `timestampRef.get().next`.
-      timeRequestSubmitter.fetchTimeProof()
+      timeRequestSubmitter.fetchTimeProof()(tc)
 
-    if (clock.isSimClock && immediately) updateNow()
+    if (clock.isSimClock && immediately) updateNow(traceContext)
     else {
       nextScheduledCheck().foreach { updateBy =>
         // if we've already surpassed when we wanted to see a time, just ask for one
         // means that we're waiting on a timestamp and we're not receiving regular updates
         val now = clock.now
-        if (updateBy <= now) updateNow()
+        if (updateBy.value <= now) updateNow(updateBy.traceContext)
         else {
           def updateCondition(current: Option[CantonTimestamp]): Boolean = current match {
-            case Some(ts) => ts <= now || updateBy < ts
+            case Some(ts) => ts <= now || updateBy.value < ts
             case None => true
           }
 
           val current = nextScheduledUpdate.getAndUpdate { current =>
-            if (updateCondition(current)) updateBy.some else current
+            if (updateCondition(current)) updateBy.value.some else current
           }
           if (updateCondition(current)) {
             // schedule next update
             val nextF =
-              clock.scheduleAt(_ => maybeScheduleUpdate(immediately = false), updateBy).unwrap
+              clock
+                .scheduleAt(
+                  _ => maybeScheduleUpdate(immediately = false),
+                  updateBy.value,
+                )
+                .unwrap
             addToFlushAndLogError(s"scheduled update at $updateBy")(nextF)
           }
         }

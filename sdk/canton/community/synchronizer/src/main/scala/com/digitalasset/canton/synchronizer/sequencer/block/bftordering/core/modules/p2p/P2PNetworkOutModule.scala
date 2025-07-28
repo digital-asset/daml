@@ -389,7 +389,7 @@ final class P2PNetworkOutModule[
       maybeNetworkSendInstant: Option[Instant],
   )(implicit traceContext: TraceContext): BftOrderingServiceReceiveRequest =
     BftOrderingServiceReceiveRequest(
-      traceContext.traceId.getOrElse(""),
+      traceContext.asW3CTraceContext.map(_.parent).getOrElse(""),
       Some(message),
       thisNode,
       maybeNetworkSendInstant.map(networkSendInstant =>

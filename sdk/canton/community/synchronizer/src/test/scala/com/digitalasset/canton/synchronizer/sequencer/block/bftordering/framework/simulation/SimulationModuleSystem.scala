@@ -168,7 +168,7 @@ object SimulationModuleSystem {
 
   private final case class SimulationCancelable[E](collector: Collector[E], tickId: Int)
       extends CancellableEvent {
-    override def cancel(): Boolean = {
+    override def cancel()(implicit metricsContext: MetricsContext): Boolean = {
       collector.addCancelTick(tickId)
       true
     }

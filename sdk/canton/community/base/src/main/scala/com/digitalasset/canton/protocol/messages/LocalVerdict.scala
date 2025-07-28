@@ -29,6 +29,8 @@ sealed trait LocalVerdict
     with Serializable
     with PrettyPrinting
     with HasProtocolVersionedWrapper[LocalVerdict] {
+  def kind: String
+
   def name: String = this match {
     case LocalApprove() => "an approval"
     case _: LocalReject => "a rejection"
@@ -111,6 +113,8 @@ final case class LocalApprove()(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 ) extends LocalVerdict {
 
+  override def kind: String = "LocalApprove"
+
   private[messages] def toProtoV30: v30.LocalVerdict =
     v30.LocalVerdict(
       code = VERDICT_CODE_LOCAL_APPROVE,
@@ -133,6 +137,8 @@ final case class LocalReject(
 ) extends LocalVerdict
     with NonPositiveLocalVerdict
     with PrettyPrinting {
+
+  override def kind: String = "LocalReject"
 
   override private[messages] def toProtoV30: v30.LocalVerdict = {
     val codeP =
@@ -159,6 +165,8 @@ final case class LocalAbstain(reason: com.google.rpc.status.Status)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 ) extends LocalVerdict
     with NonPositiveLocalVerdict {
+
+  override def kind: String = "LocalAbstain"
 
   private[messages] def toProtoV30: v30.LocalVerdict =
     v30.LocalVerdict(

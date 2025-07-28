@@ -419,11 +419,11 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       submitterInfoProto <- requireField(metadataProto.submitterInfo, "submitter_info")
       transactionUUID <- ProtoConverter.UuidConverter
         .fromProtoPrimitive(metadataProto.transactionUuid)
-        .toFutureWithLoggedFailures("Failed to deserialize transaction UUID", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize transaction UUID", logger)
       externallySignedSubmission <- for {
         mediatorGroup <- ProtoConverter
           .parseNonNegativeInt("mediator_group", metadataProto.mediatorGroup)
-          .toFutureWithLoggedFailures("Failed to deserialize mediator group", logger)
+          .toFutureWithLoggedFailuresDecode("Failed to deserialize mediator group", logger)
       } yield ExternallySignedSubmission(
         executeRequest.serializationVersion,
         executeRequest.signatures,
@@ -446,7 +446,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           Some(externallySignedSubmission),
         )
         .transform
-        .toFutureWithLoggedFailures("Failed to deserialize submitter info", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize submitter info", logger)
       synchronizerId <- Future.fromTry(
         SynchronizerId
           .fromProtoPrimitive(metadataProto.synchronizerId, "synchronizer_id")
@@ -460,7 +460,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       )
       timeBoundaries <- metadataProto
         .transformIntoPartial[LedgerTimeBoundaries]
-        .toFutureWithLoggedFailures("Failed to deserialize time boundaries", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize time boundaries", logger)
       ledgerEffectiveTime = adjustLedgerTimeToBounds(
         executeRequest.tentativeLedgerEffectiveTime,
         timeBoundaries.range,
@@ -493,17 +493,17 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           )
           .withFieldRenamed(_.preparationTime, _.preparationTime)
           .transform
-          .toFutureWithLoggedFailures("Failed to deserialize transaction meta", logger)
+          .toFutureWithLoggedFailuresDecode("Failed to deserialize transaction meta", logger)
       transaction <- transactionProto
         .transformIntoPartial[lf.transaction.VersionedTransaction]
-        .toFutureWithLoggedFailures("Failed to deserialize transaction", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize transaction", logger)
       globalKeyMapping <- metadataProto.globalKeyMapping
         .transformIntoPartial[Map[lf.transaction.GlobalKey, Option[lf.value.Value.ContractId]]]
-        .toFutureWithLoggedFailures("Failed to deserialize global key mapping", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize global key mapping", logger)
       inputContracts <- metadataProto.inputContracts
         .traverse(_.transformIntoPartial[ExternalInputContract])
         .map(_.map(eic => eic.contractId -> eic).toMap)
-        .toFutureWithLoggedFailures("Failed to deserialize input contracts", logger)
+        .toFutureWithLoggedFailuresDecode("Failed to deserialize input contracts", logger)
       missingInputContracts = transaction.inputContracts.diff(inputContracts.keySet)
       _ <- Either
         .cond(
@@ -512,7 +512,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           s"Missing input contracts: ${missingInputContracts.mkString(",")}",
         )
         .toResult
-        .toFutureWithLoggedFailures(
+        .toFutureWithLoggedFailuresDecode(
           "Provided input contracts do not match the input contracts in the transaction",
           logger,
         )
@@ -524,7 +524,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           s"Superfluous input contracts: ${superfluousInputContracts.mkString(",")}",
         )
         .toResult
-        .toFutureWithLoggedFailures(
+        .toFutureWithLoggedFailuresDecode(
           "Provided input contracts do not match the input contracts in the transaction",
           logger,
         )
