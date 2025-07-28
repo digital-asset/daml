@@ -1094,30 +1094,40 @@ class DecodeV2Spec
         .newBuilder()
         .setInternedExpr(0)
         .build()
-      val internedOne = DamlLf2.Expr
+      val x = DamlLf2.VarWithType
         .newBuilder()
-        .setInternedExpr(1)
+        .setVarInternedStr(0)
+        .setType(
+          DamlLf2.Type
+            .newBuilder()
+            .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
+        )
         .build()
-      val internedTwo = DamlLf2.Expr
+      val ab = DamlLf2.Expr.Abs
         .newBuilder()
-        .setInternedExpr(2)
+        .addParam(x)
+        .setBody(internedZero)
+        .build()
+      val ab2 = DamlLf2.Expr
+        .newBuilder()
+        .setAbs(ab)
         .build()
 
-      forEveryVersion { version =>
+      forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
           Ref.PackageId.assertFromString("noPkgId"),
+          ImmArraySeq("arg"),
           ImmArraySeq.empty,
           ImmArraySeq.empty,
           ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq(internedOne, internedZero),
+          ImmArraySeq(ab2),
           None,
           Some(dummyModuleName),
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.Parsing] shouldBe thrownBy(env.decodeExprForTest(internedTwo, ""))
+        an[Error.IllegalInterning] shouldBe thrownBy(env.decodeExprForTest(internedZero, ""))
       }
     }
   }
