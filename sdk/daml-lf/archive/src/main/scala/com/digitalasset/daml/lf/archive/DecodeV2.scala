@@ -1277,17 +1277,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.INTERNED_EXPR =>
           assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
-          val env = currentInternedExprId match {
-            case None =>
-              copy(currentInternedExprId = Some(lfExpr.getInternedExpr))
-            case Some(currentId) if lfExpr.getInternedExpr < currentId =>
-              copy(currentInternedExprId = Some(lfExpr.getInternedExpr))
-            case _ =>
-              throw Error.IllegalInterning(
-                "Interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)"
-              )
-          }
-          env.decodeInternedExpr(
+          val exprIdx = lfExpr.getInternedExpr
+          if (currentInternedExprId.exists(_ <= exprIdx))
+            throw Error.IllegalInterning(
+              "Interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)"
+            )
+          copy(currentInternedExprId = Some(exprIdx)).decodeInternedExpr(
             internedExprs.applyOrElse(
               lfExpr.getInternedExpr,
               (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
