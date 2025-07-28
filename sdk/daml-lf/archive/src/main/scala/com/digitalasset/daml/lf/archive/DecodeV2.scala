@@ -230,7 +230,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
-      currentInternedExprId: Option[Int],
+      var currentInternedExprId: Option[Int] = None,
   ) {
 
     // decode*ForTest -- test entry points
@@ -875,12 +875,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    // private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
-    //     k: Expr => Work[T]
-    // ): Work[T] = {
-    //     Work.Bind(Work.Delay(() => decodeExpr1(lfExpr, definition)), k)
-    // }
-
     private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
         k: Expr => Work[T]
     ): Work[T] = {
@@ -1285,14 +1279,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
           currentInternedExprId match {
             case None =>
-            // TODO[RB]: figure out how to change state
-            // currentInternedExprId = Some(lfExpr.getInternedExpr)
+              currentInternedExprId = Some(lfExpr.getInternedExpr)
             case Some(currentId) if lfExpr.getInternedExpr < currentId =>
-            // TODO[RB]: figure out how to change state
-            // currentInternedExprId = Some(newInt)
+              currentInternedExprId = Some(lfExpr.getInternedExpr)
             case _ =>
-            // TODO[RB]: start throwing when we can actually update
-            // throw Error.Parsing("Not allowed: interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)")
+              throw Error.IllegalInterning(
+                "Interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)"
+              )
           }
           decodeInternedExpr(
             internedExprs.applyOrElse(
