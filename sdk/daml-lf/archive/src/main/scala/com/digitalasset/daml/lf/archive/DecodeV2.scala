@@ -50,16 +50,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     }
 
     val env0 = Env(
-      packageId,
-      internedStrings,
-      internedDottedNames,
-      IndexedSeq.empty,
-      IndexedSeq.empty,
-      IndexedSeq.empty,
-      Some(dependencyTracker),
-      None,
-      onlySerializableDataDefs,
-      None,
+      packageId = packageId,
+      internedStrings = internedStrings,
+      internedDottedNames = internedDottedNames,
+      internedKinds = IndexedSeq.empty,
+      internedTypes = IndexedSeq.empty,
+      internedExprs = IndexedSeq.empty,
+      optDependencyTracker = Some(dependencyTracker),
+      optModuleName = None,
+      onlySerializableDataDefs = onlySerializableDataDefs,
+      currentInternedExprId = None,
     )
 
     val internedKinds = Work.run(decodeInternedKinds(env0, lfPackage))
@@ -230,7 +230,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optDependencyTracker: Option[PackageDependencyTracker],
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
-      var currentInternedExprId: Option[Int] = None,
+      currentInternedExprId: Option[Int] = None,
   ) {
 
     // decode*ForTest -- test entry points
@@ -1277,17 +1277,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.INTERNED_EXPR =>
           assertSince(LV.Features.exprInterning, "interned exprs unsupported in this version")
-          currentInternedExprId match {
+          val env = currentInternedExprId match {
             case None =>
-              currentInternedExprId = Some(lfExpr.getInternedExpr)
+              copy(currentInternedExprId = Some(lfExpr.getInternedExpr))
             case Some(currentId) if lfExpr.getInternedExpr < currentId =>
-              currentInternedExprId = Some(lfExpr.getInternedExpr)
+              copy(currentInternedExprId = Some(lfExpr.getInternedExpr))
             case _ =>
               throw Error.IllegalInterning(
                 "Interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)"
               )
           }
-          decodeInternedExpr(
+          env.decodeInternedExpr(
             internedExprs.applyOrElse(
               lfExpr.getInternedExpr,
               (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),
