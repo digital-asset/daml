@@ -692,15 +692,15 @@ typeOf' = \case
   ESome bodyType bodyExpr -> checkSome bodyType bodyExpr $> TOptional bodyType
   ENone bodyType -> checkType bodyType KStar $> TOptional bodyType
   EToAny ty bodyExpr -> do
-    checkGroundType ty
+    checkAnyType ty
     checkExpr bodyExpr ty
     pure $ TBuiltin BTAny
   EFromAny ty bodyExpr -> do
-    checkGroundType ty
+    checkAnyType ty
     checkExpr bodyExpr (TBuiltin BTAny)
     pure $ TOptional ty
   ETypeRep ty -> do
-    checkGroundType ty
+    checkAnyType ty
     pure $ TBuiltin BTTypeRep
   EToAnyException ty val -> do
     checkExceptionType ty
@@ -808,10 +808,15 @@ checkGroundType' ty =
         isForbidden (TForall _ _) = True
         isForbidden _ = False
 
-checkGroundType :: MonadGamma m => Type -> m ()
-checkGroundType ty = do
-    _ <- checkType ty KStar
-    checkGroundType' ty
+checkAnyType :: MonadGamma m => Type -> m ()
+checkAnyType ty = do
+    version <- getLfVersion
+    if version `supports` featureComplexAnyType
+      then checkGroundType' ty
+      else case ty of
+        TCon _ -> pure ()
+        _ -> throwWithContext $ EExpectedAnyType ty
+    checkType ty KStar
 
 checkExceptionType' :: MonadGamma m => Type -> m ()
 checkExceptionType' = \case

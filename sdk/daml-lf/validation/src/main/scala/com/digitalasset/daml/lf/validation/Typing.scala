@@ -1366,7 +1366,14 @@ private[validation] object Typing {
     }
 
     private def checkAnyType(typ: Type): Unit = {
-      checkAnyType_(typ)
+      import Ordering.Implicits._
+      if (languageVersion >= LanguageVersion.Features.complexAnyType)
+        checkAnyType_(typ)
+      else
+        typ match {
+          case TTyCon(_) =>
+          case _ => throw EExpectedAnyType(ctx, typ)
+        }
       checkType(typ, KStar)
     }
 
