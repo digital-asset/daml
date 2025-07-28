@@ -132,31 +132,31 @@ fail (negative tests). The positive tests are done within the unittests.
 -}
 propertyCorrectTests :: TestTree
 propertyCorrectTests = testGroup "Correctness of property (negative tests)"
-  [ propertyCorrectNestedKindArrow
-  , propertyCorrectNestedTypeArrow
+  [ propertyCorrectKindArrow
+  , propertyCorrectTypeArrow
   , propertyCorrectExprArrow
   , propertyCorrectKindInType
   , propertyCorrectTypeInExpr
   , propertyCorrectKindInExpr
   ]
 
-propertyCorrectNestedKindArrow :: TestTree
-propertyCorrectNestedKindArrow =
-  testCase "((* -> *) -> *)" $
-    assertBool "kind ((* -> *) -> *) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ pkarr (pkarr pkstar pkstar) pkstar)
+propertyCorrectKindArrow :: TestTree
+propertyCorrectKindArrow =
+  testCase "(* -> interned 0)" $
+    assertBool "kind (* -> *) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ pkarr pkstar (pkinterned 0))
 
-propertyCorrectNestedTypeArrow :: TestTree
-propertyCorrectNestedTypeArrow =
+propertyCorrectTypeArrow :: TestTree
+propertyCorrectTypeArrow =
   testCase "(() -> interned 0)" $
     assertBool "type (() -> ()) should be rejected as not well interned, but is accepted" $
     not (wellInterned $ ptarr ptunit (ptinterned 0))
 
 propertyCorrectKindInType :: TestTree
 propertyCorrectKindInType =
-  testCase "forall 0::(* -> *). ()" $
-    assertBool "forall 0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ ptforall 0 (pkarr pkstar pkstar) ptunit)
+  testCase "forall 0::*. ()" $
+    assertBool "forall 0::*. () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptforall 0 pkstar ptunit)
 
 propertyCorrectExprArrow :: TestTree
 propertyCorrectExprArrow =
@@ -172,9 +172,9 @@ propertyCorrectTypeInExpr =
 
 propertyCorrectKindInExpr :: TestTree
 propertyCorrectKindInExpr =
-  testCase "/\0::(* -> *). ()" $
-    assertBool "/\0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ peTyAbs 0 (pkarr pkstar pkstar) peUnit)
+  testCase "/\0::*. ()" $
+    assertBool "/\0::*. () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyAbs 0 pkstar peUnit)
 
 {-
 Assert that interning effectively happens by testing the encoding of "deep"
