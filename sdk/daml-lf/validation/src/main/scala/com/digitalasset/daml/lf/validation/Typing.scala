@@ -1367,7 +1367,7 @@ private[validation] object Typing {
 
     private def checkAnyType(typ: Type): Unit = {
       import Ordering.Implicits._
-      if (languageVersion >= LanguageVersion.Features.complexeAnyType)
+      if (languageVersion >= LanguageVersion.Features.complexAnyType)
         checkAnyType_(typ)
       else
         typ match {

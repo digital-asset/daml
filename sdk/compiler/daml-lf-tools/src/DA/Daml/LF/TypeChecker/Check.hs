@@ -812,10 +812,10 @@ checkAnyType :: MonadGamma m => Type -> m ()
 checkAnyType ty = do
     version <- getLfVersion
     if version `supports` featureComplexAnyType
-    then checkGroundType' ty
-    else case ty of
-      TCon _ -> pure ()
-      _ -> throwWithContext $ EExpectedAnyType ty
+      then checkGroundType' ty
+      else case ty of
+        TCon _ -> pure ()
+        _ -> throwWithContext $ EExpectedAnyType ty
     checkType ty KStar
 
 checkExceptionType' :: MonadGamma m => Type -> m ()

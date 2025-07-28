@@ -105,7 +105,7 @@ object LanguageVersion {
 
     val kindInterning = v2_dev
 
-    val complexeAnyType = v2_dev
+    val complexAnyType = v2_dev
 
     /** Unstable, experimental features. This should stay in x.dev forever.
       * Features implemented with this flag should be moved to a separate
