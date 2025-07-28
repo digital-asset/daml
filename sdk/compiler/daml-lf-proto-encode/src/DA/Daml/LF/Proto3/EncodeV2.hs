@@ -254,15 +254,14 @@ encodeExprVarWithType (name, typ) = do
 ------------------------------------------------------------------------
 
 encodeKind :: Kind -> Encode P.Kind
-encodeKind k = do
-  k' <- case k of
-      KStar -> return $ (P.Kind . Just . P.KindSumStar) P.Unit
-      KNat -> return $ (P.Kind . Just . P.KindSumNat) P.Unit
-      (KArrow k1 k2) -> do
+encodeKind = \case
+    KStar -> return $ (P.Kind . Just . P.KindSumStar) P.Unit
+    KNat -> return $ (P.Kind . Just . P.KindSumNat) P.Unit
+    (KArrow k1 k2) -> do
       (kind_ArrowParams :: V.Vector P.Kind) <- V.singleton <$> encodeKind k1
       (kind_ArrowResult :: Maybe P.Kind) <- Just <$> encodeKind k2
-      return $ (P.Kind . Just . P.KindSumArrow) P.Kind_Arrow{..}
-  internKind k'
+      let arr = (P.Kind . Just . P.KindSumArrow) P.Kind_Arrow{..}
+      internKind arr
 
 internKind :: P.Kind -> Encode P.Kind
 internKind k =
