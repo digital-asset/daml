@@ -669,8 +669,8 @@ object TransactionCoder {
     }
   }
 
-  // Similar to toPartySet`but
-  // - requires strList` to be strictly ordered, fails otherwhise
+  // Similar to toPartySet but
+  // - requires strList to be strictly ordered, fails otherwise
   // - produces a TreeSet instead of a Set
   // Note this function has a linear complexity, See data.TreeSet.fromStrictlyOrderedEntries
   def toPartyTreeSet(strList: ProtocolStringList): Either[DecodeError, TreeSet[Party]] =

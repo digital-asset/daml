@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module ReplayBenchmark where
+
+template T
+  with
+    p : Party
+    v : Int
+  where
+    signatory p
+
+    choice Add : ContractId T
+      with
+        n : Int
+      controller p
+      do create (T p (v + n))

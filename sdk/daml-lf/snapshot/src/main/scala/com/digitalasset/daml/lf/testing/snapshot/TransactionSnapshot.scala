@@ -90,13 +90,18 @@ private[snapshot] object TransactionSnapshot {
     UniversalArchiveDecoder.assertReadFile(darFile.toFile).all.toMap
   }
 
-  def compile(pkgs: Map[Ref.PackageId, Ast.Package], profileDir: Option[Path] = None): Engine = {
-    require(pkgs.size > 0, "expected at least one package, got none")
+  def compile(
+      pkgs: Map[Ref.PackageId, Ast.Package],
+      profileDir: Option[Path] = None,
+      snapshotDir: Option[Path] = None,
+  ): Engine = {
+    require(pkgs.nonEmpty, "expected at least one package, got none")
     println(s"%%% compile ${pkgs.size} packages ...")
     val engine = new Engine(
       EngineConfig(
         allowedLanguageVersions = LanguageVersion.AllVersions(pkgs.head._2.languageVersion.major),
         profileDir = profileDir,
+        snapshotDir = snapshotDir,
       )
     )
     AstUtil.dependenciesInTopologicalOrder(pkgs.keys.toList, pkgs).foreach { pkgId =>

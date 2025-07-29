@@ -30,6 +30,8 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   * @param profileDir The optional specifies the directory where to
   *     save the output of the Daml scenario profiler. The profiler is
   *     disabled if the option is empty.
+  * @param snapshotDir The optional specifies the directory where Daml snapshots
+  *      will be saved. Snapshots are disabled if the option is empty.
   * @param requireSuffixedGlobalContractId Since August 2018 we expect new
   *     ledgers to suffix CIDs before committing a transaction.
   *     This option should be disable for backward compatibility in ledger
@@ -47,6 +49,7 @@ final case class EngineConfig(
     transactionTraceMaxLength: Int = 10,
     stackTraceMode: Boolean = false,
     profileDir: Option[Path] = None,
+    snapshotDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
     requireSuffixedGlobalContractId: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,

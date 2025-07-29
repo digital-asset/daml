@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.transaction.{
   Transaction => Tx,
 }
 
-import java.nio.file.Files
+import java.nio.file.{Files, StandardOpenOption}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.language.{
@@ -35,12 +35,14 @@ import com.digitalasset.daml.lf.language.{
 }
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
 import com.digitalasset.daml.lf.stablepackages.StablePackages
+import com.digitalasset.daml.lf.testing.snapshot.Snapshot
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
+import scala.jdk.CollectionConverters._
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -98,6 +100,7 @@ object EngineLogger {
 class Engine(val config: EngineConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
+  config.snapshotDir.foreach(Files.createDirectories(_))
 
   private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
 
@@ -175,9 +178,9 @@ class Engine(val config: EngineConfig) {
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
           packageResolution = pkgResolution,
           engineLogger = engineLogger,
+          submissionInfo = Some(Engine.SubmissionInfo(participantId, submissionSeed, submitters)),
         )
-      (tx, meta) = result
-    } yield tx -> meta.copy(submissionSeed = Some(submissionSeed))
+    } yield result
   }
 
   /** Behaves like `submit`, but it takes a single `ReplayCommand` (instead of `ApiCommands`) as input.
@@ -219,6 +222,7 @@ class Engine(val config: EngineConfig) {
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
         packageResolution = packageResolution,
         engineLogger = engineLogger,
+        submissionInfo = None,
       )
     } yield result
 
@@ -245,6 +249,7 @@ class Engine(val config: EngineConfig) {
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
         packageResolution = packageResolution,
         engineLogger = engineLogger,
+        submissionInfo = None,
       )
     } yield result
 
@@ -341,6 +346,7 @@ class Engine(val config: EngineConfig) {
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
+      submissionInfo: Option[Engine.SubmissionInfo] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       sexpr <- runCompilerSafely(
@@ -357,6 +363,7 @@ class Engine(val config: EngineConfig) {
         seeding,
         packageResolution,
         engineLogger,
+        submissionInfo,
       )
     } yield result
 
@@ -378,6 +385,7 @@ class Engine(val config: EngineConfig) {
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
+      submissionInfo: Option[Engine.SubmissionInfo] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
     val machine = UpdateMachine(
@@ -396,7 +404,7 @@ class Engine(val config: EngineConfig) {
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,
     )
-    interpretLoop(machine, ledgerTime)
+    interpretLoop(machine, ledgerTime, submissionInfo)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -441,6 +449,7 @@ class Engine(val config: EngineConfig) {
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
+      submissionInfo: Option[Engine.SubmissionInfo] = None,
   ): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val abort = () => {
       machine.abort()
@@ -492,7 +501,7 @@ class Engine(val config: EngineConfig) {
             }
 
             val meta = Tx.Metadata(
-              submissionSeed = None,
+              submissionSeed = submissionInfo.map(_.submissionSeed),
               preparationTime = machine.preparationTime,
               usedPackages = deps,
               timeBoundaries = machine.getTimeBoundaries,
@@ -500,12 +509,46 @@ class Engine(val config: EngineConfig) {
               globalKeyMapping = globalKeyMapping,
               disclosedEvents = disclosedCreateEvents,
             )
+
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)
               val profileFile = dir.resolve(s"${meta.preparationTime}-$desc.json")
               machine.profile.name = s"${meta.preparationTime}-$desc"
               machine.profile.writeSpeedscopeJson(profileFile)
             }
+            config.snapshotDir.zip(submissionInfo).foreach {
+              case (dir, Engine.SubmissionInfo(participantId, submissionSeed, submitters)) =>
+                val snapshotFile = dir.resolve(s"snapshot-$participantId.bin")
+                TransactionCoder
+                  .encodeTransaction(tx)
+                  .fold(
+                    err => throw new java.lang.AssertionError(s"snapshot encoding failed: $err"),
+                    encoded => {
+                      val txEntry = Snapshot.TransactionEntry
+                        .newBuilder()
+                        .setRawTransaction(encoded.toByteString)
+                        .setParticipantId(participantId)
+                        .addAllSubmitters(submitters.map(_.toString).asJava)
+                        .setLedgerTime(time.micros)
+                        .setPreparationTime(meta.preparationTime.micros)
+                        .setSubmissionSeed(submissionSeed.bytes.toByteString)
+                        .build()
+                      val txSubmission = Snapshot.SubmissionEntry
+                        .newBuilder()
+                        .setTransaction(txEntry)
+                        .build()
+
+                      txSubmission.writeDelimitedTo(
+                        Files.newOutputStream(
+                          snapshotFile,
+                          StandardOpenOption.CREATE,
+                          StandardOpenOption.APPEND,
+                        )
+                      )
+                    },
+                  )
+            }
+
             ResultDone((tx, meta))
           }
         case Left(err) =>
@@ -530,7 +573,7 @@ class Engine(val config: EngineConfig) {
                 { pkg: Package =>
                   compiledPackages.addPackage(pkgId, pkg).flatMap { _ =>
                     callback(compiledPackages)
-                    interpretLoop(machine, time)
+                    interpretLoop(machine, time, submissionInfo)
                   }
                 },
               )
@@ -540,7 +583,7 @@ class Engine(val config: EngineConfig) {
                 coid,
                 { coinst =>
                   callback(coinst.toThinInstance)
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, submissionInfo)
                 },
               )
 
@@ -558,7 +601,7 @@ class Engine(val config: EngineConfig) {
                 keyOpt,
                 { x =>
                   callback(x)
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, submissionInfo)
                 },
               )
 
@@ -567,13 +610,13 @@ class Engine(val config: EngineConfig) {
                 gk,
                 { coid: Option[ContractId] =>
                   discard[Boolean](callback(coid))
-                  interpretLoop(machine, time)
+                  interpretLoop(machine, time, submissionInfo)
                 },
               )
           }
 
         case SResultInterruption =>
-          ResultInterruption(() => interpretLoop(machine, time), abort)
+          ResultInterruption(() => interpretLoop(machine, time, submissionInfo), abort)
 
         case _: SResultFinal =>
           finish
@@ -731,6 +774,12 @@ class Engine(val config: EngineConfig) {
 object Engine {
 
   type Packages = Map[PackageId, Package]
+
+  final case class SubmissionInfo(
+      participantId: Ref.ParticipantId,
+      submissionSeed: crypto.Hash,
+      submitters: Set[Ref.Party],
+  )
 
   def initialSeeding(
       submissionSeed: crypto.Hash,
