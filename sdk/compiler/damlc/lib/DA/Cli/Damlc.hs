@@ -130,6 +130,7 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               optMbPackageVersion,
                               optPackageDbs,
                               optPackageImports,
+                              optResolutionData,
                               optScriptService,
                               optSkipScriptValidation,
                               optThreads,
@@ -143,6 +144,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
+import DA.Daml.Resolution.Config (getResolutionData)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -827,6 +829,7 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
             projRoot <- getCurrentDirectory
+            opts <- addResolutionData opts
             withPackageConfig defaultProjectPath $
               setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
 
@@ -857,6 +860,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
   Command Build (Just projectOpts) $ evalContT $ do
     -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
     execPath <- liftIO getCurrentDirectory
+
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
     let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
@@ -1413,6 +1417,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
+      opts <- addResolutionData opts
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 
       opts <- pure opts
@@ -1717,3 +1722,8 @@ cmdUseDamlYamlArgs = \case
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
     withProjectRoot projectRoot projectCheck (const act)
+
+addResolutionData :: Options -> IO Options
+addResolutionData opts = do
+  resolutionData <- getResolutionData
+  pure $ opts {optResolutionData = resolutionData}
