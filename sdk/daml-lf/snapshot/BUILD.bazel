@@ -16,6 +16,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
 )
+
 proto_jars(
     name = "snapshot_proto",
     srcs = ["src/main/protobuf/com/digitalasset/daml/lf/snapshot.proto"],
@@ -62,6 +63,7 @@ da_scala_benchmark_jmh(
 da_scala_test_suite(
     name = "replay-benchmark-test",
     srcs = glob(["src/test/**/*.scala"]),
+    data = ["//daml-lf/tests:ReplayBenchmark-v{}.dar".format(major) for major in COMPILER_LF_MAJOR_VERSIONS],
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
         "@maven//:org_scalatest_scalatest_matchers_core",
@@ -69,7 +71,6 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
-    data = ["//daml-lf/tests:ReplayBenchmark-v{}.dar".format(major) for major in COMPILER_LF_MAJOR_VERSIONS],
     deps = [
         ":replay-benchmark_compiled_benchmark_lib",
         ":replay-benchmark_generator",
