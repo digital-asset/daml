@@ -10,6 +10,7 @@ module DA.Daml.Resolution.Config
   , getResolutionData
   , ResolutionData (..)
   , PackageResolutionData (..)
+  , ValidPackageResolution (..)
   ) where
 
 import "zip-archive" Codec.Archive.Zip qualified as ZipArchive

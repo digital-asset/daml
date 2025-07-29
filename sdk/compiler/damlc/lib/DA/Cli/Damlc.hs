@@ -144,7 +144,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (getResolutionData)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), findPackageResolutionData, getResolutionData)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -863,6 +863,8 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
 
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
+    opts <- liftIO $ addResolutionData opts
+
     let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
         buildSingle pkgPath pkgConfig = void $ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
         buildMulti :: ProjectPath -> Maybe PackageConfigFields -> ProjectPath -> IO ()
@@ -1064,17 +1066,33 @@ multiPackageBuildEffect
   -> IO ()
 multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache = do
   vfs <- makeVFSHandle
-  loggerH <- getLogger opts "multi-package build"
-  assistantPath <- getEnv "DAML_ASSISTANT"
-  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+  loggerH <- getLogger opts "multi-package build"  
 
   buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
     darPath <- darPathFromDamlYaml path
     pure (darPath, path)
 
-  let assistantRunner = AssistantRunner $ \location args ->
-        withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv}) $ \_ _ _ p -> do
+  getDamlcPath <-
+    case optResolutionData opts of
+      Just resolutionData -> pure $ \location ->
+        case findPackageResolutionData location resolutionData of
+          Just validPkgResolution ->
+            case Map.lookup "damlc" $ components validPkgResolution of
+              Just damlcLocation -> pure damlcLocation
+              Nothing -> error $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
+          Nothing -> error $ "Failed to find DPM package resolution for " <> location <> ". This should never happen, contact support."
+      Nothing -> do
+        mbAssistantPath <- lookupEnv "DAML_ASSISTANT"
+        case mbAssistantPath of
+          Just assistantPath -> pure $ const $ pure assistantPath
+          Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
+
+  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+  damlcEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+
+  let damlcRunner = DamlcRunner $ \location args -> do
+        damlcPath <- getDamlcPath location
+        withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just damlcEnv}) $ \_ _ _ p -> do
           exitCode <- waitForProcess p
           when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
 
@@ -1085,7 +1103,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
           mPkgId
       mRootPkgData = (toNormalizedFilePath' $ unwrapProjectPath pkgPath,) <$> mRootPkgBuilder
-      rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
+      rule = buildMultiRule damlcRunner buildableDataDeps noCache mRootPkgData
 
   -- Set up a near empty shake environment, with just the buildMulti rule
   bracket
@@ -1098,7 +1116,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           Nothing -> void $ uses_ BuildMulti $ reverse $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
           Just (rootPkgPath, _) -> void $ use_ BuildMulti rootPkgPath
 
-data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
+data DamlcRunner = DamlcRunner { runDamlc :: FilePath -> [String] -> IO ()}
 
 -- Stores a mapping from dar path to project path
 data BuildableDataDeps = BuildableDataDeps { getDataDepSource :: FilePath -> Maybe FilePath }
@@ -1218,12 +1236,12 @@ damlMultiBuildVersion :: UnresolvedReleaseVersion
 damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
-  :: AssistantRunner
+  :: DamlcRunner
   -> BuildableDataDeps
   -> MultiPackageNoCache
   -> Maybe (NormalizedFilePath, IO LF.PackageId)
   -> Rules ()
-buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) mRootPackage =
+buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRootPackage =
   defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
     logger <- actionLogger
 
@@ -1269,7 +1287,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
             -- Call build via daml assistant so it selects the correct SDK version.
-            runAssistant assistantRunner filePath $
+            runDamlc damlcRunner filePath $
               ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
@@ -1724,6 +1742,8 @@ withProjectRoot' ProjectOpts{..} act =
     withProjectRoot projectRoot projectCheck (const act)
 
 addResolutionData :: Options -> IO Options
-addResolutionData opts = do
+addResolutionData opts@Options{optResolutionData = Nothing} = do
   resolutionData <- getResolutionData
   pure $ opts {optResolutionData = resolutionData}
+-- No need to reparse if its already available
+addResolutionData opts = pure opts
