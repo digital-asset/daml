@@ -96,6 +96,7 @@ trait ServerConfig extends Product with Serializable {
       authServices: Seq[AuthServiceConfig],
       adminTokenDispenser: Option[CantonAdminTokenDispenser],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      adminTokenConfig: AdminTokenConfig,
       telemetry: Telemetry,
       additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
   ): CantonServerInterceptors = new CantonCommunityServerInterceptors(
@@ -106,6 +107,7 @@ trait ServerConfig extends Product with Serializable {
     authServices,
     adminTokenDispenser,
     jwtTimestampLeeway,
+    adminTokenConfig,
     telemetry,
     additionalInterceptors,
   )
@@ -614,12 +616,16 @@ object ServerAuthRequirementConfig {
 final case class AdminTokenConfig(
     fixedAdminToken: Option[String] = None,
     adminTokenDuration: PositiveFiniteDuration = AdminTokenConfig.DefaultAdminTokenDuration,
+    actAsAnyPartyClaim: Boolean = true,
+    adminClaim: Boolean = true,
 ) extends UniformCantonConfigValidation {
 
   def merge(other: AdminTokenConfig): AdminTokenConfig =
     AdminTokenConfig(
       fixedAdminToken = fixedAdminToken.orElse(other.fixedAdminToken),
       adminTokenDuration = adminTokenDuration.min(other.adminTokenDuration),
+      actAsAnyPartyClaim = actAsAnyPartyClaim && other.actAsAnyPartyClaim,
+      adminClaim = adminClaim && other.adminClaim,
     )
 }
 

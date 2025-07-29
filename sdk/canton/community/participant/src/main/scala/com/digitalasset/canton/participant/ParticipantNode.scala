@@ -741,6 +741,7 @@ class ParticipantNodeBootstrap(
           .create(
             name,
             participantId = participantId.toLf,
+            adminParty = Some(participantId.adminParty.toLf),
             sync = sync,
             participantNodePersistentState = persistentState,
             ledgerApiIndexer = ledgerApiIndexerContainer.asEval,
