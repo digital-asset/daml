@@ -26,9 +26,7 @@ jmh command line functionality:
 where:
 
 * `<entries file>`: is the full path of the ledger entries
-  file to be used separated by commas (`,`). At the time of writing,
-  entries files can be created by the `submission-entries-extractor`
-  residing in a private repository.
+  file to be used separated by commas (`,`).
 
 * `<exercise choice names>`: is the full qualified choice name of the
   root exercise node to be benchmarked separated by commas (`,`). A full
