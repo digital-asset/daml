@@ -1267,7 +1267,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             ),
             definition,
           ) { expr =>
-            Ret(expr) // RB: idk how to write id here
+            Ret(expr)
           }
 
       }) { (expr: Expr) =>
