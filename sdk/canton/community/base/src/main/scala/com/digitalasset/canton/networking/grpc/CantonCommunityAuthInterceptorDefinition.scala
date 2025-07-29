@@ -14,7 +14,7 @@ import com.digitalasset.canton.auth.{
   RequiringAdminClaimResolver,
 }
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.config.AuthServiceConfig
+import com.digitalasset.canton.config.{AdminTokenConfig, AuthServiceConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.grpc.ServerServiceDefinition
 
@@ -25,13 +25,16 @@ object CantonCommunityAuthInterceptorDefinition {
       authServiceConfigs: Seq[AuthServiceConfig],
       adminTokenDispenser: Option[CantonAdminTokenDispenser],
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
+      adminTokenConfig: AdminTokenConfig,
       telemetry: Telemetry,
   ): ServerServiceDefinition = {
     val authServices =
       if (authServiceConfigs.isEmpty)
         List(AuthServiceWildcard)
       else {
-        adminTokenDispenser.map(new CantonAdminTokenAuthService(_)).toList ++
+        adminTokenDispenser
+          .map(new CantonAdminTokenAuthService(_, None, adminTokenConfig))
+          .toList ++
           authServiceConfigs.map(
             _.create(
               jwtTimestampLeeway,

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -29,7 +28,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
 import org.slf4j.event.Level
 
-import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 
 /** Objective: Ensure OnPR is resilient against sequencer restarts.
@@ -41,6 +39,7 @@ import scala.jdk.CollectionConverters.*
   */
 sealed trait OnlinePartyReplicationRestartSequencerTest
     extends CommunityIntegrationTest
+    with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
@@ -179,34 +178,12 @@ sealed trait OnlinePartyReplicationRestartSequencerTest
           val expectedNumContracts = NonNegativeInt.tryCreate(numContractsInCreateBatch * 2)
 
           // Wait until both SP and TP report that party replication has completed.
-          eventually(retryOnTestFailuresOnly = false, maxPollInterval = 10.millis) {
-            val spStatus = sourceParticipant.parties.get_add_party_status(
-              addPartyRequestId = addPartyRequestId
-            )
-            val tpStatus = targetParticipant.parties.get_add_party_status(
-              addPartyRequestId = addPartyRequestId
-            )
-            (spStatus.status, tpStatus.status) match {
-              case (
-                    AddPartyStatus.Completed(_, _, `expectedNumContracts`),
-                    AddPartyStatus.Completed(_, _, `expectedNumContracts`),
-                  ) =>
-                logger.info(
-                  s"SP and TP completed party replication with status $spStatus and $tpStatus"
-                )
-              case (
-                    AddPartyStatus.Completed(_, _, numSpContracts),
-                    AddPartyStatus.Completed(_, _, numTpContracts),
-                  ) =>
-                logger.warn(
-                  s"SP and TP completed party replication but had unexpected number of contracts: $numSpContracts and $numTpContracts, expected $expectedNumContracts"
-                )
-              case (sourceStatus, targetStatus) =>
-                fail(
-                  s"TP and SP did not complete party replication. SP and TP status: $sourceStatus and $targetStatus"
-                )
-            }
-          }
+          eventuallyOnPRCompletes(
+            sourceParticipant,
+            targetParticipant,
+            addPartyRequestId,
+            expectedNumContracts,
+          )
 
           // TODO(#26698): Disconnecting and reconnecting synchronizers seems to be necessary to ensure
           //   submissions don't fail with unknown contract "" errors raised by.

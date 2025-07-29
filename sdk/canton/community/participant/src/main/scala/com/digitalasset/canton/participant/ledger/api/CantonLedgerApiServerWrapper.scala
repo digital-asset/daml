@@ -12,7 +12,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{AdminTokenConfig, ProcessingTimeout}
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -26,6 +26,7 @@ import com.digitalasset.canton.platform.apiserver.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
 import com.digitalasset.canton.{LedgerParticipantId, config}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.Engine
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -68,6 +69,8 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       serverConfig: LedgerApiServerConfig,
       jsonApiConfig: Option[JsonApiConfig],
       participantId: LedgerParticipantId,
+      adminParty: Option[Party],
+      adminTokenConfig: AdminTokenConfig,
       engine: Engine,
       syncService: CantonSyncService,
       cantonParameterConfig: ParticipantNodeParameters,

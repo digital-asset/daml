@@ -205,7 +205,13 @@ class StartableStoppableLedgerApiServer(
       if (config.serverConfig.authServices.isEmpty)
         List(AuthServiceWildcard)
       else
-        Seq[AuthService](new CantonAdminTokenAuthService(config.adminTokenDispenser)) ++
+        Seq[AuthService](
+          new CantonAdminTokenAuthService(
+            config.adminTokenDispenser,
+            config.adminParty,
+            config.adminTokenConfig,
+          )
+        ) ++
           config.serverConfig.authServices.map(
             _.create(
               config.serverConfig.jwtTimestampLeeway,
