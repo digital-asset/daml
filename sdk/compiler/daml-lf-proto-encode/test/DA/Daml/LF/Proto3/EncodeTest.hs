@@ -96,7 +96,7 @@ countConcreteConstrs =
       _                         -> singleExpr <> mconcat (gmapQ countConcreteConstrs e)
 
     countETE (_ :: EncodeTestEnv) =
-      error "you probably meant to call assertInternedEnv with an EnodeTestEnv (no sensible implementation for EncodeTestEnv exists)"
+      error "you probably meant to call assertInternedEnv with an EncodeTestEnv (no sensible implementation for EncodeTestEnv exists)"
 
     genericCase x = mconcat (gmapQ countConcreteConstrs x)
 
@@ -152,7 +152,7 @@ propertyCorrectNestedKindArrow =
 propertyCorrectNestedTypeArrow :: TestTree
 propertyCorrectNestedTypeArrow =
   testCase "(() -> interned 0)" $
-    assertBool "type (() -> ()) should be rejected as not well interned, but is accepted" $
+    assertBool "type (() -> interned 0) should be rejected as not well interned, but is accepted" $
     not (wellInterned $ ptarr ptunit (ptinterned 0))
 
 propertyCorrectKindInType :: TestTree
