@@ -13,6 +13,7 @@ import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.CryptoSchemes
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -195,12 +196,20 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
 
-    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
-      val nonStandardConfig = config.parameters.nonStandardConfig
-      val alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport
-      Option.when(!nonStandardConfig && alphaVersionSupport)(
-        s"Enabling alpha-version-support for ${nodeConfig.nodeTypeName} ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
-      )
+    val errors = config.allNodes.toSeq.mapFilter {
+      case (name, nodeConfig: ParticipantNodeConfig) =>
+        val nonStandardConfig = config.parameters.nonStandardConfig
+        val snapshotSupportEnabled = nodeConfig.features.snapshotDir.nonEmpty
+        Option.when(!nonStandardConfig && snapshotSupportEnabled)(
+          s"Setting snapshot-dir for ${nodeConfig.nodeTypeName} ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
+        )
+
+      case (name, nodeConfig) =>
+        val nonStandardConfig = config.parameters.nonStandardConfig
+        val alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport
+        Option.when(!nonStandardConfig && alphaVersionSupport)(
+          s"Enabling alpha-version-support for ${nodeConfig.nodeTypeName} ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
+        )
     }
 
     toValidated(errors)

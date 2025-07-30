@@ -16,6 +16,10 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
 )
+load(
+    "//language-support/java/codegen:codegen.bzl",
+    "dar_to_java",
+)
 
 proto_jars(
     name = "snapshot_proto",
@@ -60,33 +64,46 @@ da_scala_benchmark_jmh(
     ],
 )
 
-da_scala_test_suite(
-    name = "replay-benchmark-test",
-    srcs = glob(["src/test/**/*.scala"]),
-    data = ["//daml-lf/tests:ReplayBenchmark-v{}.dar".format(major) for major in COMPILER_LF_MAJOR_VERSIONS],
-    scala_deps = [
-        "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalatest_scalatest_matchers_core",
-        "@maven//:org_scalatest_scalatest_shouldmatchers",
-        "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
-    ],
-    deps = [
-        ":replay-benchmark_compiled_benchmark_lib",
-        ":replay-benchmark_generator",
-        ":snapshot",
-        "//bazel_tools/runfiles:scala_runfiles",
-        "//daml-lf/archive:daml_lf_archive_reader",
-        "//daml-lf/data",
-        "//daml-lf/engine",
-        "//daml-lf/language",
-        "//daml-lf/parser",
-        "//daml-lf/stable-packages",
-        "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
-        "//libs-scala/contextualized-logging",
-    ],
-)
+[
+    [
+        dar_to_java(
+            name = "ReplayBenchmark-v{}-codegen".format(major),
+            src = "//daml-lf/tests:ReplayBenchmark-v{}.dar".format(major),
+            package_prefix = "com.daml.lf.testing.snapshot.java",
+        ),
+        da_scala_test_suite(
+            name = "replay-benchmark-tests-v{}".format(major),
+            srcs = glob(["src/test/scala/**/*.scala"]),
+            data = ["//daml-lf/tests:ReplayBenchmark-v{}.dar".format(major)],
+            scala_deps = [
+                "@maven//:org_scalatest_scalatest_core",
+                "@maven//:org_scalatest_scalatest_matchers_core",
+                "@maven//:org_scalatest_scalatest_shouldmatchers",
+                "@maven//:org_scalatest_scalatest_wordspec",
+                "@maven//:org_scalaz_scalaz_core",
+            ],
+            deps = [
+                ":replay-benchmark_compiled_benchmark_lib",
+                ":replay-benchmark_generator",
+                ":ReplayBenchmark-v{}-codegen".format(major),
+                ":snapshot",
+                "//bazel_tools/runfiles:scala_runfiles",
+                "//canton:community_base_proto_scala",
+                "//canton:community_ledger_ledger-common",
+                "//daml-lf/archive:daml_lf_archive_reader",
+                "//daml-lf/data",
+                "//daml-lf/engine",
+                "//daml-lf/language",
+                "//daml-lf/parser",
+                "//daml-lf/stable-packages",
+                "//daml-lf/transaction",
+                "//daml-lf/transaction-test-lib",
+                "//libs-scala/contextualized-logging",
+            ],
+        ),
+    ]
+    for major in COMPILER_LF_MAJOR_VERSIONS
+]
 
 da_scala_binary(
     name = "replay-profile",

@@ -1,0 +1,17 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module GenerateSnapshot where
+
+import Daml.Script
+import ReplayBenchmark
+
+generateSnapshot = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createAndExerciseCmd (T alice 42) (Add 7))
+  pure ()
+
+explode = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createAndExerciseCmd (T alice 17) Explode)
+  pure ()
