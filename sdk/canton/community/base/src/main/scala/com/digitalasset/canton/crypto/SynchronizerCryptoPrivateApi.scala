@@ -53,6 +53,9 @@ final class SynchronizerCryptoPrivateApi(
       res <- privateCrypto.decrypt(encrypted)(deserialize)
     } yield res
 
+  override def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
+    privateCrypto.encryptionAlgorithmSpecs
+
   override def encryptionKeySpecs: CryptoScheme[EncryptionKeySpec] =
     privateCrypto.encryptionKeySpecs
 

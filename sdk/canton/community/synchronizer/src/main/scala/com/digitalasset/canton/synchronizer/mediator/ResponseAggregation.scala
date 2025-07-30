@@ -17,13 +17,18 @@ import com.digitalasset.canton.data.{
   ViewPosition,
 }
 import com.digitalasset.canton.error.MediatorError
+import com.digitalasset.canton.error.MediatorError.ParticipantEquivocation
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.synchronizer.mediator.MediatorVerdict.MediatorApprove
-import com.digitalasset.canton.synchronizer.mediator.ResponseAggregation.ViewState
+import com.digitalasset.canton.synchronizer.mediator.ResponseAggregation.ConsortiumVotingState.VoteKind
+import com.digitalasset.canton.synchronizer.mediator.ResponseAggregation.{
+  ConsortiumVotingState,
+  ViewState,
+}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -167,8 +172,23 @@ final case class ResponseAggregation[VKEY](
       Either.right[MediatorVerdict, Map[VKEY, ViewState]](statesOfViews)
     } else {
 
+      // log if a participant has already responded with a different verdict for a party
+      consortiumVoting.foreach { case (party, votingState) =>
+        votingState.responsesOf(sender) match {
+          case Some(voteKind) =>
+            val errorMessage =
+              s"$requestId($keyName $viewKey): Ignoring ${localVerdict.name} verdict for $sender because it has already responded for party $party with $voteKind verdict"
+            if (ConsortiumVotingState.isContradictoryToPreviousVote(voteKind, localVerdict))
+              ParticipantEquivocation.Detected(errorMessage, sender).report()
+            else loggingContext.info(errorMessage)
+          case None => ()
+        }
+      }
+
       val consortiumVotingUpdated: Map[LfPartyId, ResponseAggregation.ConsortiumVotingState] =
-        updateConsortiumVoting(localVerdict, newlyResponded, consortiumVoting, sender)
+        newlyResponded.foldLeft(consortiumVoting) { (votes, confirmingParty) =>
+          votes + (confirmingParty -> votes(confirmingParty).update(localVerdict, sender))
+        }
 
       localVerdict match {
         case approve: LocalApprove =>
@@ -248,27 +268,6 @@ final case class ResponseAggregation[VKEY](
       }
     }
   }
-
-  private def updateConsortiumVoting(
-      localVerdict: LocalVerdict,
-      newlyResponded: Set[LfPartyId],
-      consortiumVoting: Map[LfPartyId, ResponseAggregation.ConsortiumVotingState],
-      sender: ParticipantId,
-  ): Map[LfPartyId, ResponseAggregation.ConsortiumVotingState] =
-    localVerdict match {
-      case LocalApprove() =>
-        newlyResponded.foldLeft(consortiumVoting) { (votes, confirmingParty) =>
-          votes + (confirmingParty -> votes(confirmingParty).approveBy(sender))
-        }
-      case _: LocalReject =>
-        newlyResponded.foldLeft(consortiumVoting) { (votes, confirmingParty) =>
-          votes + (confirmingParty -> votes(confirmingParty).rejectBy(sender))
-        }
-      case _: LocalAbstain =>
-        newlyResponded.foldLeft(consortiumVoting) { (votes, confirmingParty) =>
-          votes + (confirmingParty -> votes(confirmingParty).abstainBy(sender))
-        }
-    }
 
   private def updateQuorumState(
       localVerdict: LocalVerdict,
@@ -351,7 +350,8 @@ final case class ResponseAggregation[VKEY](
 
 object ResponseAggregation {
 
-  final case class ConsortiumVotingState(
+  /** Invariant: approvals, rejections, and abstains are pairwise disjoint. */
+  final case class ConsortiumVotingState private (
       threshold: PositiveInt,
       hostingParticipantsCount: PositiveInt,
       approvals: Set[ParticipantId],
@@ -359,14 +359,24 @@ object ResponseAggregation {
       abstains: Set[ParticipantId],
   ) extends PrettyPrinting {
 
-    def approveBy(participant: ParticipantId): ConsortiumVotingState =
-      this.copy(approvals = this.approvals + participant)
+    def responsesOf(participant: ParticipantId): Option[VoteKind] =
+      if (approvals.contains(participant)) Some(VoteKind.Approve)
+      else if (rejections.contains(participant)) Some(VoteKind.Reject)
+      else if (abstains.contains(participant)) Some(VoteKind.Abstain)
+      else None
 
-    def rejectBy(participant: ParticipantId): ConsortiumVotingState =
-      this.copy(rejections = this.rejections + participant)
+    private def hasAlreadyResponded(sender: ParticipantId): Boolean =
+      approvals.contains(sender) || rejections.contains(sender) || abstains.contains(sender)
 
-    def abstainBy(participant: ParticipantId): ConsortiumVotingState =
-      this.copy(abstains = this.abstains + participant)
+    // if the sender has already responded, we do not update the state
+    def update(localVerdict: LocalVerdict, sender: ParticipantId): ConsortiumVotingState =
+      if (hasAlreadyResponded(sender)) this
+      else
+        localVerdict match {
+          case _: LocalApprove => this.copy(approvals = this.approvals + sender)
+          case _: LocalReject => this.copy(rejections = this.rejections + sender)
+          case _: LocalAbstain => this.copy(abstains = this.abstains + sender)
+        }
 
     def isApproved: Boolean = approvals.sizeIs >= threshold.value
 
@@ -418,6 +428,28 @@ object ResponseAggregation {
         abstains = abstains,
       )
 
+    sealed trait VoteKind {
+      override def toString: String = this match {
+        case VoteKind.Approve => "an approval"
+        case VoteKind.Reject => "a rejection"
+        case VoteKind.Abstain => "an abstain"
+      }
+    }
+    object VoteKind {
+      case object Approve extends VoteKind
+      case object Reject extends VoteKind
+      case object Abstain extends VoteKind
+    }
+
+    def isContradictoryToPreviousVote(
+        previousVoteKind: ConsortiumVotingState.VoteKind,
+        localVerdict: LocalVerdict,
+    ): Boolean =
+      previousVoteKind match {
+        case VoteKind.Approve if localVerdict.isReject => true
+        case VoteKind.Reject if localVerdict.isApprove => true
+        case _ => false
+      }
   }
 
   final case class ViewState(

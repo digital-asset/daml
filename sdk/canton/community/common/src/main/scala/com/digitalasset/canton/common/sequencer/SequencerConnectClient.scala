@@ -119,7 +119,7 @@ object SequencerConnectClient {
     }
 
   final case class SynchronizerClientBootstrapInfo(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       sequencerId: SequencerId,
   )
 }

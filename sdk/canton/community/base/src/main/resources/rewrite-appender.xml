@@ -115,13 +115,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Could not resolve is_deactivated status for user </contains>
-            <testing>true</testing>
-        </rewrite>
-
         <!-- KMS integration test might disable certificate verification -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>software.amazon.awssdk.http.nio.netty.internal.SslContextProvider</logger>
@@ -336,6 +329,15 @@
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:DemoExampleReferenceIntegrationTest</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <!-- TODO(#26665): Prevent cache operations triggering RejectedExecutionException upon shutdown
+        Lowered to INFO level to prevent CI flake management from opening separate GH issues for each occurrence.
+        -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.github.benmanes.caffeine.cache.BoundedLocalCache</logger>
+            <contains>Exception thrown when submitting maintenance task</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>

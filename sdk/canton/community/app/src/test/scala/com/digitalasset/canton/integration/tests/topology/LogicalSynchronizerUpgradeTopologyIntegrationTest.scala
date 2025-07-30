@@ -43,7 +43,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S2M2.addConfigTransform(
       ConfigTransforms.updateAllParticipantConfigs_(
-        _.focus(_.parameters.automaticallyConnectToUpgradedSynchronizer).replace(false)
+        _.focus(_.parameters.automaticallyPerformLogicalSynchronizerUpgrade).replace(false)
       )
     )
 
@@ -232,7 +232,7 @@ sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
       currentConfig.status shouldBe SynchronizerConnectionConfigStore.Active
       val successorConfig =
         configStore.get(daName, KnownPhysicalSynchronizerId(successorSynchronizerId)).value
-      successorConfig.status shouldBe SynchronizerConnectionConfigStore.MigratingTo
+      successorConfig.status shouldBe SynchronizerConnectionConfigStore.UpgradingTarget
 
       val currentSequencers = currentConfig.config.sequencerConnections.aliasToConnection.map {
         case (seqAlias, conn) =>

@@ -29,6 +29,7 @@ class JcePrivateCrypto(
     pureCrypto: JcePureCrypto,
     override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
     override val signingKeySpecs: CryptoScheme[SigningKeySpec],
+    override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec],
     override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
     override protected val store: CryptoPrivateStoreExtended,
     override protected val timeouts: ProcessingTimeout,
@@ -95,7 +96,7 @@ object JcePrivateCrypto {
     JavaEncodedKeyPair(keyId, publicKey, privateKey)
   }
 
-  private def fromJavaSigningKeyPair(
+  def fromJavaSigningKeyPair(
       javaKeyPair: JKeyPair,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
@@ -123,7 +124,7 @@ object JcePrivateCrypto {
       keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
     } yield keyPair
 
-  protected[crypto] def generateSigningKeypair(
+  private[crypto] def generateSigningKeypair(
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SigningKeyGenerationError, SigningKeyPair] = keySpec match {
@@ -163,7 +164,7 @@ object JcePrivateCrypto {
               {
                 val kpGen =
                   KeyPairGenerator.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
-                kpGen.initialize(new ECGenParameterSpec("secp256k1"))
+                kpGen.initialize(new ECGenParameterSpec(SigningKeySpec.EcSecp256k1.jcaCurveName))
                 kpGen.generateKeyPair()
               }
             )
@@ -174,7 +175,7 @@ object JcePrivateCrypto {
 
   }
 
-  protected[crypto] def generateEncryptionKeypair(
+  private[crypto] def generateEncryptionKeypair(
       keySpec: EncryptionKeySpec
   ): Either[EncryptionKeyGenerationError, EncryptionKeyPair] = {
 

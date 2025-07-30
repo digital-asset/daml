@@ -8,6 +8,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.BlacklistLeaderSelectionPolicyConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
@@ -149,6 +150,7 @@ object BlacklistLeaderSelectionPolicy {
   def create[E <: Env[E]](
       state: BlacklistLeaderSelectionPolicyState,
       config: BftBlockOrdererConfig,
+      blacklistLeaderSelectionPolicyConfig: BlacklistLeaderSelectionPolicyConfig,
       orderingTopology: OrderingTopology,
       store: OutputMetadataStore[E],
       metrics: BftOrderingMetrics,
@@ -157,7 +159,7 @@ object BlacklistLeaderSelectionPolicy {
     new BlacklistLeaderSelectionPolicy(
       state,
       orderingTopology,
-      config.blacklistLeaderSelectionPolicyConfig,
+      blacklistLeaderSelectionPolicyConfig,
       EpochLength(
         config.epochLength
       ), // TODO(#19289) support variable epoch lengths or leave the default if not relevant

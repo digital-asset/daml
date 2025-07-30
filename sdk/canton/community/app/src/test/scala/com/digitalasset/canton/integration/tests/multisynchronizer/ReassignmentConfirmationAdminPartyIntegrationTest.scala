@@ -141,7 +141,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       acmeConfirmations(participant2) shouldBe 1
     }
 
-    "fails if the admin party does not confirm the reassignment" in { implicit env =>
+    "fail if the admin party does not confirm the reassignment" in { implicit env =>
       import env.*
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
@@ -150,7 +150,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
         dropConfirmationRequest(participant2)
       )
 
-      assertMediatorTimout(
+      assertMediatorTimeoutAndResetProgrammableSequencerPolicy(
         commandId =>
           participant2.ledger_api.commands
             .submit_unassign_async(
@@ -172,7 +172,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
         dropConfirmationRequest(participant2)
       )
 
-      assertMediatorTimout(
+      assertMediatorTimeoutAndResetProgrammableSequencerPolicy(
         commandId =>
           participant2.ledger_api.commands
             .submit_assign_async(
@@ -233,7 +233,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
         case _ => SendDecision.Process
       }
 
-  private def assertMediatorTimout(
+  private def assertMediatorTimeoutAndResetProgrammableSequencerPolicy(
       submit: String => Unit,
       synchronizerAlias: SynchronizerAlias,
       synchronizerId: SynchronizerId,
@@ -258,7 +258,10 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
           )
 
         programmableSequencers(synchronizerAlias).resetPolicy()
-        participant2.health.ping(participant2, synchronizerId = Some(synchronizerId))
+        // Involve both participants in a ping to ensure the participant timeout warning is
+        // processed on both participants before dropping out of this suppressing logger scope
+        // in order to prevent a flaky timeout warning.
+        participant2.health.ping(participant1, synchronizerId = Some(synchronizerId))
       },
       LogEntry.assertLogSeq(
         mustContainWithClue = Seq(

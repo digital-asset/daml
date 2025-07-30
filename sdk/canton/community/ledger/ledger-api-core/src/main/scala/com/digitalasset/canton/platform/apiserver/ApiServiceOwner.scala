@@ -18,7 +18,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedClaimResolver
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
@@ -154,15 +154,18 @@ object ApiServiceOwner {
           commandExecutionContext,
         )
     }
-    val userAuthInterceptor = new UserBasedAuthInterceptor(
+    val userAuthInterceptor = new AuthInterceptor(
       authServices = authServices :+ new IdentityProviderAwareAuthService(
         identityProviderConfigLoader = identityProviderConfigLoader,
         jwtVerifierLoader = jwtVerifierLoader,
         loggerFactory = loggerFactory,
       )(commandExecutionContext),
-      Option.when(userManagement.enabled)(userManagementStore),
-      loggerFactory,
-      commandExecutionContext,
+      loggerFactory = loggerFactory,
+      ec = commandExecutionContext,
+      claimResolver = new UserBasedClaimResolver(
+        userManagementStoreO = Option.when(userManagement.enabled)(userManagementStore),
+        ec = commandExecutionContext,
+      ),
     )
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()

@@ -10,6 +10,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.SequencerConnectClient.SynchronizerClientBootstrapInfo
+import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerInfoLoaderError.InconsistentConnectivity
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.{
   LoadSequencerEndpointInformationResult,
   SequencerAggregatedInfo,
@@ -285,17 +286,20 @@ class SequencerInfoLoader(
         PositiveInt.tryCreate(sequencerConnections.sequencerTrustThreshold.unwrap * 2 - 1)
       ),
     ) { connection =>
-      getBootstrapInfoSynchronizerParameters(synchronizerAlias)(connection).value
-        .map {
-          case Right((synchronizerClientBootstrapInfo, staticSynchronizerParameters)) =>
-            LoadSequencerEndpointInformationResult.Valid(
+      getBootstrapInfoSynchronizerParameters(synchronizerAlias)(connection).value.map {
+        case Right((synchronizerClientBootstrapInfo, staticSynchronizerParameters)) =>
+          LoadSequencerEndpointInformationResult.Valid
+            .create(
               connection,
               synchronizerClientBootstrapInfo,
               staticSynchronizerParameters,
             )
-          case Left(error) =>
-            LoadSequencerEndpointInformationResult.NotValid(connection, error)
-        }
+            .leftMap(LoadSequencerEndpointInformationResult.NotValid(connection, _))
+            .merge
+
+        case Left(error) =>
+          LoadSequencerEndpointInformationResult.NotValid(connection, error)
+      }
     }
   }
 
@@ -420,11 +424,39 @@ object SequencerInfoLoader {
   sealed trait LoadSequencerEndpointInformationResult extends Product with Serializable
 
   object LoadSequencerEndpointInformationResult {
-    final case class Valid(
+
+    /** Invariant: static synchronizer parameters and psid are compatible
+      */
+    final case class Valid private (
         connection: SequencerConnection,
         synchronizerClientBootstrapInfo: SynchronizerClientBootstrapInfo,
         staticSynchronizerParameters: StaticSynchronizerParameters,
     ) extends LoadSequencerEndpointInformationResult
+
+    object Valid {
+      def create(
+          connection: SequencerConnection,
+          synchronizerClientBootstrapInfo: SynchronizerClientBootstrapInfo,
+          staticSynchronizerParameters: StaticSynchronizerParameters,
+      ): Either[InconsistentConnectivity, Valid] = {
+        val providedPSId = synchronizerClientBootstrapInfo.psid
+        val expectedPSId =
+          PhysicalSynchronizerId(providedPSId.logical, staticSynchronizerParameters)
+
+        Either
+          .cond(
+            providedPSId == expectedPSId,
+            (),
+            InconsistentConnectivity(
+              s"Provided physical synchronizer id `$providedPSId` is inconsistent with static synchronizer parameters"
+            ),
+          )
+          .map(_ =>
+            Valid(connection, synchronizerClientBootstrapInfo, staticSynchronizerParameters)
+          )
+      }
+    }
+
     final case class NotValid(
         sequencerConnection: SequencerConnection,
         error: SequencerInfoLoaderError,
@@ -473,7 +505,7 @@ object SequencerInfoLoader {
     * changes
     */
   def validateNewSequencerConnectionResults(
-      expectedSynchronizerId: Option[PhysicalSynchronizerId],
+      expectedPSId: Option[PhysicalSynchronizerId],
       sequencerConnectionValidation: SequencerConnectionValidation,
       sequencerTrustThreshold: PositiveInt,
       logger: TracedLogger,
@@ -490,8 +522,7 @@ object SequencerInfoLoader {
         rest: List[LoadSequencerEndpointInformationResult],
         accumulated: Seq[LoadSequencerEndpointInformationResult.NotValid],
     ): Seq[LoadSequencerEndpointInformationResult.NotValid] = rest match {
-      case Nil =>
-        accumulated
+      case Nil => accumulated
       case (notValid: LoadSequencerEndpointInformationResult.NotValid) :: rest =>
         sequencerConnectionValidation match {
           case SequencerConnectionValidation.All | SequencerConnectionValidation.ThresholdActive =>
@@ -507,12 +538,12 @@ object SequencerInfoLoader {
           // check that synchronizer id matches the reference
           _ <- Either.cond(
             reference.forall(x =>
-              x.synchronizerClientBootstrapInfo.synchronizerId == valid.synchronizerClientBootstrapInfo.synchronizerId
+              x.synchronizerClientBootstrapInfo.psid == valid.synchronizerClientBootstrapInfo.psid
             ),
             (),
             SequencerInfoLoaderError.SequencersFromDifferentSynchronizersAreConfigured(
-              show"Synchronizer id mismatch ${valid.synchronizerClientBootstrapInfo.synchronizerId} vs the first one found ${reference
-                  .map(_.synchronizerClientBootstrapInfo.synchronizerId)}"
+              show"Synchronizer id mismatch ${valid.synchronizerClientBootstrapInfo.psid} vs the first one found ${reference
+                  .map(_.synchronizerClientBootstrapInfo.psid)}"
             ),
           )
           // check that static synchronizer parameters match
@@ -526,17 +557,15 @@ object SequencerInfoLoader {
                   .map(_.staticSynchronizerParameters.toString)}"
             ),
           )
-          // TODO(#25483) Validate that (LSId, static synchronizer parameters) yield expected PSId
-          // check that synchronizer id matches expected
+          // check that physical synchronizer id matches expected
           _ <- Either.cond(
-            expectedSynchronizerId.forall(
-              _ == valid.synchronizerClientBootstrapInfo.synchronizerId
-            ),
+            expectedPSId.forall(_ == valid.synchronizerClientBootstrapInfo.psid),
             (),
             SequencerInfoLoaderError.InconsistentConnectivity(
-              show"Synchronizer id ${valid.synchronizerClientBootstrapInfo.synchronizerId} does not match expected $expectedSynchronizerId"
+              show"Synchronizer id ${valid.synchronizerClientBootstrapInfo.psid} does not match expected $expectedPSId"
             ),
           )
+
           // check that we don't have the same sequencer-id reported by different aliases
           _ <- Either.cond(
             sequencerIds
@@ -580,9 +609,10 @@ object SequencerInfoLoader {
               ) +: accumulated,
             )
         }
-
     }
+
     val collected = go(None, Map.empty, results.toList, Seq.empty)
+
     if (collected.isEmpty) Either.unit
     else if (sequencerConnectionValidation == SequencerConnectionValidation.ThresholdActive)
       Either.cond(results.size - collected.size >= sequencerTrustThreshold.unwrap, (), collected)
@@ -646,7 +676,7 @@ object SequencerInfoLoader {
             .map(connections =>
               SequencerAggregatedInfo(
                 synchronizerId =
-                  validSequencerConnectionsNE.head1.synchronizerClientBootstrapInfo.synchronizerId,
+                  validSequencerConnectionsNE.head1.synchronizerClientBootstrapInfo.psid,
                 staticSynchronizerParameters =
                   validSequencerConnectionsNE.head1.staticSynchronizerParameters,
                 expectedSequencers = expectedSequencers,

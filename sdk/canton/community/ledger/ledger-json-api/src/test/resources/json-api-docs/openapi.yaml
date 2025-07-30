@@ -685,6 +685,11 @@ paths:
         required: false
         schema:
           type: string
+      - name: identityProviderId
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -694,7 +699,8 @@ paths:
                 $ref: '#/components/schemas/GetConnectedSynchronizersResponse'
         '400':
           description: 'Invalid value for: query parameter party, Invalid value for:
-            query parameter participantId, Invalid value for: headers'
+            query parameter participantId, Invalid value for: query parameter identityProviderId,
+            Invalid value for: headers'
           content:
             text/plain:
               schema:
@@ -1707,10 +1713,10 @@ paths:
       - httpAuth: []
       - apiKeyAuth: []
   /v2/interactive-submission/preferred-packages:
-    get:
+    post:
       description: Get the version of preferred packages for constructing a command
         submission
-      operationId: getV2Interactive-submissionPreferred-packages
+      operationId: postV2Interactive-submissionPreferred-packages
       requestBody:
         content:
           application/json:
@@ -2331,8 +2337,10 @@ components:
           description: |-
             The parties that are notified of this event. When a ``CreatedEvent``
             is returned as part of a transaction tree or ledger-effects transaction, this will include all
-            the parties specified in the ``TransactionFilter`` that are informees
-            of the event. If served as part of a ACS delta transaction those will
+            the parties specified in the ``TransactionFilter`` that are witnesses  of the event
+            (the stakeholders of the contract and all informees of all the ancestors
+            of this create action that this participant knows about).
+            If served as part of a ACS delta transaction those will
             be limited to all parties specified in the ``TransactionFilter`` that
             are stakeholders of the contract (i.e. either signatories or observers).
             If the ``CreatedEvent`` is returned as part of an AssignedEvent,
@@ -2832,11 +2840,16 @@ components:
           description: |-
             The parties that are notified of this event. The witnesses of an exercise
             node will depend on whether the exercise was consuming or not.
-            If consuming, the witnesses are the union of the stakeholders and
-            the actors.
-            If not consuming, the witnesses are the union of the signatories and
-            the actors. Note that the actors might not necessarily be observers
-            and thus signatories. This is the case when the controllers of a
+            If consuming, the witnesses are the union of the stakeholders,
+            the actors and all informees of all the ancestors of this event this
+            participant knows about.
+            If not consuming, the witnesses are the union of the signatories,
+            the actors and all informees of all the ancestors of this event this
+            participant knows about.
+            In both cases the witnesses are limited to the querying parties, or not
+            limited in case anyParty filters are used.
+            Note that the actors might not necessarily be observers
+            and thus stakeholders. This is the case when the controllers of a
             choice are specified using "flexible controllers", using the
             ``choice ... controller`` syntax, and said controllers are not
             explicitly marked as observers.

@@ -57,7 +57,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     with HasDelayedInit[Consensus.Message[E]] {
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
-    self.asyncSend(Consensus.Init)
+    self.asyncSendNoTrace(Consensus.Init)
 
   override protected def receiveInternal(message: Consensus.Message[E])(implicit
       context: E#ActorContextT[Consensus.Message[E]],

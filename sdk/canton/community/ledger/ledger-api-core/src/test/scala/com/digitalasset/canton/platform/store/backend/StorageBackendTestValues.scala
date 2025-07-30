@@ -17,6 +17,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
 }
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto.Hash

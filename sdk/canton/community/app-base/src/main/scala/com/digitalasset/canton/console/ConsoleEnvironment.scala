@@ -647,10 +647,6 @@ object ConsoleEnvironment {
     ): PositiveDurationSeconds =
       PositiveDurationSeconds.tryFromDuration(duration)
 
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
-      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
-
     /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
       * [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]]
       */

@@ -7,7 +7,6 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.sequencing.client.CheckedSubscriptionErrorRetryPolicy
 import com.digitalasset.canton.tracing.TraceContext
-import io.grpc.Status
 
 import GrpcSubscriptionErrorRetryPolicy.*
 
@@ -16,7 +15,7 @@ class GrpcSubscriptionErrorRetryPolicy(protected val loggerFactory: NamedLoggerF
     with NamedLogging {
   override protected def retryInternal(error: GrpcSubscriptionError, receivedItems: Boolean)(
       implicit traceContext: TraceContext
-  ): Boolean = logAndDetermineRetry(error.grpcError, receivedItems)
+  ): Boolean = logAndDetermineRetry(error.grpcError)
 }
 
 object GrpcSubscriptionErrorRetryPolicy {
@@ -28,8 +27,7 @@ object GrpcSubscriptionErrorRetryPolicy {
   }
 
   private[transports] def logAndDetermineRetry(
-      grpcError: GrpcError,
-      receivedItems: Boolean,
+      grpcError: GrpcError
   )(implicit loggingContext: ErrorLoggingContext): Boolean =
     grpcError match {
       case _: GrpcError.GrpcServiceUnavailable =>
@@ -52,31 +50,15 @@ object GrpcSubscriptionErrorRetryPolicy {
           loggingContext.debug("Not trying to reconnect.")
         retry
 
-      case serverError: GrpcError.GrpcServerError
-          if receivedItems && serverError.status.getCode == Status.INTERNAL.getCode =>
-        // a connection reset by an intermediary can cause GRPC to raise an INTERNAL error.
-        // (this is seen when the GCloud load balancer times out subscriptions on the global synchronizer)
-        // if we've received any items during the course of the subscription we will assume its fine to reconnect.
-        // if there is actually an application issue with the server, we'd expect it to immediately fail and then
-        // it will not retry its connection
+      case _: GrpcError.GrpcServerError =>
+        // We believe these errors (INTERNAL, UNKNOWN, DATA_LOSS) can in some circumstances by transient, and
+        // therefore we err on the side of caution and retry.
         loggingContext.debug(
-          s"After successfully receiving some events the sequencer subscription received an error. Retrying subscription."
+          s"Subscription failed with ${grpcError.status}. Retrying subscription as this could be transient."
         )
         true
 
-      case serverError: GrpcError.GrpcServerError
-          if serverError.status.getCode == Status.UNKNOWN.getCode && serverError.status.hasClosedChannelExceptionCause =>
-        // In this conversation https://gitter.im/grpc/grpc?at=5f464aa854288c687ee06a25
-        // someone who maintains the grpc codebase explains:
-        // "'Channel closed' is when we have no knowledge as to what went wrong; it could be anything".
-        // In practice, we've seen this peculiar error sometimes appear when the sequencer goes unavailable,
-        // so let's make sure to retry.
-        loggingContext.debug(
-          s"Closed channel exception can appear when the server becomes unavailable. Retrying."
-        )
-        true
-      case _: GrpcError.GrpcClientGaveUp | _: GrpcError.GrpcClientError |
-          _: GrpcError.GrpcServerError =>
+      case _: GrpcError.GrpcClientGaveUp | _: GrpcError.GrpcClientError =>
         loggingContext.info("Not reconnecting.")
         false
     }

@@ -85,6 +85,8 @@ object IssClient {
       override def init(context: E#ActorContextT[Unit]): Unit =
         // If the interval is None, the progress of the simulation time will solely depend on other delayed events
         // across the BFT Ordering Service (e.g., clock tick events from the Availability module).
-        simSettings.clientRequestInterval.foreach(interval => context.delayedEvent(interval, ()))
+        simSettings.clientRequestInterval.foreach(interval =>
+          context.delayedEventNoTrace(interval, ())
+        )
     }
 }

@@ -63,6 +63,14 @@ trait SyncPersistentStateLookup {
       .mapValues(_.maxBy1(_.psid))
       .toMap
 
+  def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId]
+
+  def topologyFactoryFor(psid: PhysicalSynchronizerId): Option[TopologyComponentFactory]
+
+  def get(psid: PhysicalSynchronizerId): Option[SyncPersistentState]
+
+  def connectionConfig(psid: PhysicalSynchronizerId): Option[StoredSynchronizerConnectionConfig]
+
   /** Return the latest [[com.digitalasset.canton.participant.store.SyncPersistentState]] (wrt to
     * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]]) for `synchronizerAlias`
     */
@@ -111,6 +119,7 @@ class SyncPersistentStateManager(
     val indexedStringStore: IndexedStringStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     parameters: ParticipantNodeParameters,
+    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
     packageDependencyResolver: PackageDependencyResolver,
@@ -327,13 +336,18 @@ class SyncPersistentStateManager(
       : concurrent.Map[PhysicalSynchronizerId, PhysicalSyncPersistentState] =
     TrieMap[PhysicalSynchronizerId, PhysicalSyncPersistentState]()
 
-  def get(synchronizerId: PhysicalSynchronizerId): Option[SyncPersistentState] =
+  override def get(psid: PhysicalSynchronizerId): Option[SyncPersistentState] =
     lock.withReadLock[Option[SyncPersistentState]](
       for {
-        logical <- logicalPersistentStates.get(synchronizerId.logical)
-        physical <- physicalPersistentStates.get(synchronizerId)
+        logical <- logicalPersistentStates.get(psid.logical)
+        physical <- physicalPersistentStates.get(psid)
       } yield new SyncPersistentState(logical, physical, psidLoggerFactory(physical.psid))
     )
+
+  override def connectionConfig(
+      psid: PhysicalSynchronizerId
+  ): Option[StoredSynchronizerConnectionConfig] =
+    synchronizerConnectionConfigStore.get(psid).toOption
 
   override def getAll: Map[PhysicalSynchronizerId, SyncPersistentState] =
     lock.withReadLock[Map[PhysicalSynchronizerId, SyncPersistentState]] {
@@ -411,7 +425,7 @@ class SyncPersistentStateManager(
         futureSupervisor,
       )
 
-  def topologyFactoryFor(
+  override def topologyFactoryFor(
       psid: PhysicalSynchronizerId
   ): Option[TopologyComponentFactory] =
     get(psid).map(state =>

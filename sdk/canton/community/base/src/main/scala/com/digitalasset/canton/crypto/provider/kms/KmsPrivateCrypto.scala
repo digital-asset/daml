@@ -38,6 +38,7 @@ class KmsPrivateCrypto(
     private[kms] val publicStore: CryptoPublicStore,
     override val signingAlgorithmSpecs: CryptoScheme[SigningAlgorithmSpec],
     override val signingKeySpecs: CryptoScheme[SigningKeySpec],
+    override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec],
     override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -150,7 +151,6 @@ class KmsPrivateCrypto(
         privateStore
           .getKeyMetadata(signingKeyId)
       )
-      signatureFormat = SignatureFormat.fromSigningAlgoSpec(signingAlgorithmSpec)
       signature <- metadata match {
         case Some(KmsMetadata(_, kmsKeyId, _, _)) =>
           ByteString4096.create(bytes) match {
@@ -174,14 +174,26 @@ class KmsPrivateCrypto(
                     SigningError.InvalidKeyUsage.apply,
                   )
                   .toEitherT[FutureUnlessShutdown]
+                // TODO(#26423): private key format should be validated at key creation/deserialization
+                validAlgorithmSpec <- CryptoKeyValidation
+                  .selectSigningAlgorithmSpec(
+                    pubKey.keySpec,
+                    signingAlgorithmSpec,
+                    signingAlgorithmSpecs.allowed,
+                    () =>
+                      SigningError.NoMatchingAlgorithmSpec(
+                        "No matching algorithm spec for key spec " + pubKey.keySpec
+                      ),
+                  )
+                  .toEitherT[FutureUnlessShutdown]
                 signatureRaw <- kms
-                  .sign(kmsKeyId, bytes, signingAlgorithmSpec, pubKey.keySpec)
+                  .sign(kmsKeyId, bytes, validAlgorithmSpec, pubKey.keySpec)
                   .leftMap[SigningError](err => SigningError.FailedToSign(err.show))
               } yield Signature.create(
-                signatureFormat,
+                SignatureFormat.fromSigningAlgoSpec(validAlgorithmSpec),
                 signatureRaw,
                 signingKeyId,
-                Some(signingAlgorithmSpec),
+                Some(validAlgorithmSpec),
               )
 
           }
@@ -264,6 +276,13 @@ class KmsPrivateCrypto(
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, DecryptionError, M] =
     for {
+      _ <- CryptoKeyValidation
+        .ensureCryptoAlgorithmSpec(
+          encrypted.encryptionAlgorithmSpec,
+          encryptionAlgorithmSpecs.allowed,
+          DecryptionError.UnsupportedAlgorithmSpec.apply,
+        )
+        .toEitherT[FutureUnlessShutdown]
       metadata <- EitherT.right(
         privateStore
           .getKeyMetadata(encrypted.encryptedFor)
@@ -353,6 +372,7 @@ object KmsPrivateCrypto {
           driverKms.supportedEncryptionKeySpecs,
           "encryption key specs",
         )
+
         _ <- ensureSupportedSchemes(
           cryptoSchemes.encryptionAlgoSpecs.allowed,
           CryptoProvider.Kms.pureEncryptionAlgorithms,
@@ -365,6 +385,7 @@ object KmsPrivateCrypto {
         cryptoPublicStore,
         cryptoSchemes.signingAlgoSpecs,
         cryptoSchemes.signingKeySpecs,
+        cryptoSchemes.encryptionAlgoSpecs,
         cryptoSchemes.encryptionKeySpecs,
         timeouts,
         loggerFactory,
@@ -379,6 +400,7 @@ object KmsPrivateCrypto {
           cryptoPublicStore,
           cryptoSchemes.signingAlgoSpecs,
           cryptoSchemes.signingKeySpecs,
+          cryptoSchemes.encryptionAlgoSpecs,
           cryptoSchemes.encryptionKeySpecs,
           timeouts,
           loggerFactory,

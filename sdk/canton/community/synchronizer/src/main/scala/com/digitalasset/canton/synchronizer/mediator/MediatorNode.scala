@@ -9,7 +9,7 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.mediator.v30.MediatorStatusServiceGrpc.MediatorStatusService
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.*
@@ -199,7 +199,7 @@ class MediatorNodeBootstrap(
   override protected def member(uid: UniqueIdentifier): Member = MediatorId(uid)
   override def metrics: BaseMetrics = arguments.metrics
 
-  override protected def adminTokenConfig: Option[String] = config.adminApi.adminToken
+  override protected def adminTokenConfig: AdminTokenConfig = config.adminApi.adminTokenConfig
 
   private val synchronizerTopologyManager = new SingleUseCell[SynchronizerTopologyManager]()
 
@@ -259,7 +259,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       mediatorId: MediatorId,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthService: DependenciesHealthService,
@@ -275,7 +275,7 @@ class MediatorNodeBootstrap(
       )
       with GrpcMediatorInitializationService.Callback {
 
-    override def getAdminToken: Option[String] = Some(adminToken.secret)
+    override def getAdminToken: Option[String] = Some(adminTokenDispenser.getCurrentToken.secret)
 
     adminServerRegistry
       .addServiceU(
@@ -331,7 +331,7 @@ class MediatorNodeBootstrap(
           storage,
           SynchronizerCrypto(crypto, staticSynchronizerParameters),
           adminServerRegistry,
-          adminToken,
+          adminTokenDispenser,
           mediatorId,
           staticSynchronizerParameters,
           authorizedTopologyManager,
@@ -399,7 +399,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: SynchronizerCrypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       mediatorId: MediatorId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
@@ -504,7 +504,7 @@ class MediatorNodeBootstrap(
             replicaManager,
             storage,
             clock,
-            adminToken,
+            adminTokenDispenser,
             synchronizerLoggerFactory,
             healthData = healthService.dependencies.map(_.toComponentStatus),
           )
@@ -780,7 +780,7 @@ class MediatorNodeBootstrap(
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
       nodeId: UniqueIdentifier,
       authorizedTopologyManager: AuthorizedTopologyManager,
       healthServer: GrpcHealthReporter,
@@ -790,7 +790,7 @@ class MediatorNodeBootstrap(
       storage,
       crypto,
       adminServerRegistry,
-      adminToken,
+      adminTokenDispenser,
       MediatorId(nodeId),
       authorizedTopologyManager,
       healthService,
@@ -827,7 +827,7 @@ class MediatorNode(
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,
-    override val adminToken: CantonAdminToken,
+    override val adminTokenDispenser: CantonAdminTokenDispenser,
     override val loggerFactory: NamedLoggerFactory,
     healthData: => Seq[ComponentStatus],
 ) extends CantonNode

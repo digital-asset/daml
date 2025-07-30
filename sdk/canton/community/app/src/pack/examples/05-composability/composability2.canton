@@ -13,7 +13,7 @@ val iouId = bootstrap.synchronizer(
   synchronizerOwners = Seq(iouSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+).logical
 
 val paintSynchronizerOwner = paint_sequencer
 val paintId = bootstrap.synchronizer(
@@ -23,7 +23,7 @@ val paintId = bootstrap.synchronizer(
   synchronizerOwners = Seq(paintSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+).logical
 
 // update parameters
 // disable automatic assignments

@@ -57,6 +57,11 @@ object AuthorizationError {
       s"identity_provider_id from the request `$identityProviderId` does not match the one provided in the authorization claims"
   }
 
+  final case class MissingAdminOrIdpAdminOrReadClaim(party: String) extends AuthorizationError {
+    override val reason =
+      s"Claims do not authorize the use of administrative services nor authorize to read data for party '$party'"
+  }
+
   final case class InvalidField(fieldName: String, reason: String) extends AuthorizationError
 
   final case class InternalAuthorizationError(reason: String, throwable: Throwable)

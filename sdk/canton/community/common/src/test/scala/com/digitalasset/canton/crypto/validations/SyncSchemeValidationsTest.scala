@@ -56,12 +56,12 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
   private lazy val restrictedStaticSynchronizerParameters: StaticSynchronizerParameters =
     StaticSynchronizerParameters(
       requiredSigningSpecs = RequiredSigningSpecs(
-        NonEmpty(
+        NonEmpty.mk(
           Set,
           SigningAlgorithmSpec.Ed25519,
           SigningAlgorithmSpec.EcDsaSha384,
         ),
-        NonEmpty(
+        NonEmpty.mk(
           Set,
           SigningKeySpec.EcCurve25519,
           SigningKeySpec.EcP384,
@@ -230,9 +230,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
         val unsupportedCiphertext =
           AsymmetricEncrypted[ByteString](ByteString.EMPTY, unsupported, encryptionKey.id)
 
-        val res1 = p1.crypto.pureCrypto.decryptWithInternal(unsupportedCiphertext, privateKey)(ct =>
-          Right(ct)
-        )
+        val res1 =
+          p1.crypto.pureCrypto.decryptWith(unsupportedCiphertext, privateKey)(ct => Right(ct))
         val res2 =
           p1.crypto.privateCrypto.decrypt(unsupportedCiphertext)(ct => Right(ct)).futureValueUS
 
@@ -267,9 +266,8 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
             encryptionKey.id,
           )
 
-        val res = p1.crypto.pureCrypto.decryptWithInternal(unsupportedCiphertext, privateKey)(ct =>
-          Right(ct)
-        )
+        val res =
+          p1.crypto.pureCrypto.decryptWith(unsupportedCiphertext, privateKey)(ct => Right(ct))
         // no information about the key is known within the context of 'p1.crypto.privateCrypto.decrypt' so no
         // key specification input validation is done for that function.
 

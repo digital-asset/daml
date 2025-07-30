@@ -18,6 +18,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
       supportedEncryptionAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
       supportedSymmetricKeySchemes: Set[SymmetricKeyScheme],
       newCrypto: => FutureUnlessShutdown[Crypto],
+      unsupportedEncryptionAlgorithmSpec: Option[EncryptionAlgorithmSpec] = None,
   ): Unit = {
 
     forAll(supportedSymmetricKeySchemes) { symmetricKeyScheme =>
@@ -105,6 +106,35 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
           } yield message2.left.value shouldBe a[FailedToDecrypt]
         }
 
+      }
+    }
+
+    unsupportedEncryptionAlgorithmSpec.foreach { unsupported =>
+      s"Fail random hybrid encrypt/decrypt with an unsupported algorithm: $unsupported" in {
+        for {
+          crypto <- newCrypto
+          publicKey <- getEncryptionPublicKey(
+            crypto,
+            supportedEncryptionAlgorithmSpecs.head.supportedEncryptionKeySpecs.head,
+          )
+          errEncrypt = crypto.pureCrypto.encryptWith(
+            TestMessage(ByteString.copyFromUtf8("foobar")),
+            publicKey.replaceKeySpec(unsupported.supportedEncryptionKeySpecs.head),
+            unsupported,
+          )
+          errDecrypt = crypto.privateCrypto
+            .decrypt(
+              AsymmetricEncrypted(
+                ByteString.empty(),
+                unsupported,
+                publicKey.id,
+              )
+            )(Right(_))
+            .futureValueUS
+        } yield {
+          errEncrypt.left.value shouldBe a[EncryptionError.NoMatchingAlgorithmSpec]
+          errDecrypt.left.value shouldBe a[DecryptionError.UnsupportedAlgorithmSpec]
+        }
       }
     }
 

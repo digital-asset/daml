@@ -828,6 +828,35 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           .withDefaultValues(PositiveInt.three, abstains = Set(one))
           .isRejected shouldBe true
       }
+      it("should not allow a participant to respond with different verdicts") {
+        val localApprove = LocalApprove(testedProtocolVersion)
+        val localAbstain = LocalAbstainError.CannotPerformAllValidations
+          .Abstain("Unassignment data not found")
+          .toLocalAbstain(testedProtocolVersion)
+        val localReject = LocalRejectError.ConsistencyRejections.LockedContracts
+          .Reject(Seq())
+          .toLocalReject(testedProtocolVersion)
+
+        val state = ConsortiumVotingState.withDefaultValues(
+          PositiveInt.two,
+          numberOfHostingParticipants = Some(PositiveInt.three),
+          approvals = Set(one),
+          rejections = Set(two),
+          abstains = Set(three),
+        )
+
+        state.update(localApprove, one) shouldBe state
+        state.update(localApprove, two) shouldBe state
+        state.update(localApprove, three) shouldBe state
+
+        state.update(localAbstain, one) shouldBe state
+        state.update(localAbstain, two) shouldBe state
+        state.update(localAbstain, three) shouldBe state
+
+        state.update(localReject, one) shouldBe state
+        state.update(localReject, two) shouldBe state
+        state.update(localReject, three) shouldBe state
+      }
     }
 
     describe("consortium voting") {

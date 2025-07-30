@@ -136,7 +136,6 @@ object CommitSet {
   def createForAssignment(
       reassignmentId: ReassignmentId,
       assignments: NonEmpty[Seq[ContractReassignment]],
-      // TODO(#25483) Should that be physical?
       sourceSynchronizerId: Source[SynchronizerId],
   ): CommitSet =
     CommitSet(

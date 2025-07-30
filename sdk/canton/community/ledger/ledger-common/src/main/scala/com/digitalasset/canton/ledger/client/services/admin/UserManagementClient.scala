@@ -14,7 +14,10 @@ import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class UserManagementClient(service: UserManagementServiceStub)(implicit
+final class UserManagementClient(
+    service: UserManagementServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+)(implicit
     ec: ExecutionContext
 ) {
   import UserManagementClient.*
@@ -29,7 +32,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       initialRights.view.map(toProtoRight).toList,
     )
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .createUser(request)
       .flatMap(res => fromOptionalProtoUser(res.user))
   }
@@ -38,7 +41,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       implicit traceContext: TraceContext
   ): Future[User] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .getUser(proto.GetUserRequest(userId, identityProviderId))
       .flatMap(res => fromOptionalProtoUser(res.user))
 
@@ -47,7 +50,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       token: Option[String] = None
   )(implicit traceContext: TraceContext): Future[User] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .getUser(
         proto.GetUserRequest(
           userId = "",
@@ -60,7 +63,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       implicit traceContext: TraceContext
   ): Future[Unit] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .deleteUser(proto.DeleteUserRequest(userId, identityProviderId))
       .map(_ => ())
 
@@ -71,7 +74,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       identityProviderId: String = "",
   )(implicit traceContext: TraceContext): Future[(Seq[User], String)] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listUsers(
         proto.ListUsersRequest(
           pageToken = pageToken,
@@ -88,7 +91,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       identityProviderId: String = "",
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .grantUserRights(
         proto.GrantUserRightsRequest(userId, rights.map(toProtoRight), identityProviderId)
       )
@@ -101,7 +104,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       identityProviderId: String = "",
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .revokeUserRights(
         proto.RevokeUserRightsRequest(userId, rights.map(toProtoRight), identityProviderId)
       )
@@ -113,7 +116,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       implicit traceContext: TraceContext
   ): Future[Seq[UserRight]] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listUserRights(proto.ListUserRightsRequest(userId, identityProviderId))
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
@@ -124,7 +127,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
       token: Option[String] = None
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .listUserRights(
         proto.ListUserRightsRequest(
           userId = "",
@@ -135,8 +138,10 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
 
   /** Utility method for json services
     */
-  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
-    LedgerClient.stubWithTracing(service, token)
+  def serviceStub(token: Option[String] = None)(implicit
+      traceContext: TraceContext
+  ): UserManagementServiceStub =
+    LedgerClient.stubWithTracing(service, token.orElse(getDefaultToken()))
 }
 
 object UserManagementClient {

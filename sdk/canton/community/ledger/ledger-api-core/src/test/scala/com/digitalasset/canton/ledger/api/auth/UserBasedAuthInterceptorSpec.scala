@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.auth.{AuthInterceptor, AuthService, ClaimSet, GrpcAuthInterceptor}
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedClaimResolver
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.tracing.TraceContext
@@ -80,11 +80,14 @@ class UserBasedAuthInterceptorSpec
     }
 
     val authInterceptor =
-      new UserBasedAuthInterceptor(
+      new AuthInterceptor(
         List(authService, identityProviderAwareAuthService),
-        Some(userManagementService),
         loggerFactory,
         executionContext,
+        new UserBasedClaimResolver(
+          Some(userManagementService),
+          executionContext,
+        ),
       )
 
     val statusCaptor = ArgCaptor[Status]

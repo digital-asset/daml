@@ -24,12 +24,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning.KickstartPruning
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
 import java.time.Instant
+import scala.concurrent.Promise
 import scala.concurrent.duration.*
 import scala.jdk.DurationConverters.ScalaDurationOps
+import scala.util.Success
 
 class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
@@ -91,9 +94,15 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         when(outputStore.getLastConsecutiveBlock(traceContext)).thenReturn(() => Some(latestBlock))
 
-        module.receiveInternal(Pruning.KickstartPruning)
+        module.receiveInternal(
+          Pruning.KickstartPruning(retentionPeriod, minNumberOfBlocksToKeep, None)
+        )
 
-        context.runPipedMessages() should contain only Pruning.ComputePruningPoint(latestBlock)
+        context.runPipedMessages() should contain only Pruning.ComputePruningPoint(
+          latestBlock,
+          retentionPeriod,
+          minNumberOfBlocksToKeep,
+        )
       }
 
       "compute pruning point based on retention period and min blocks to keep" in {
@@ -115,7 +124,9 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
         when(outputStore.getBlock(number)(traceContext)).thenReturn(() => blockAtEpoch40)
 
-        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
+        module.receiveInternal(
+          Pruning.ComputePruningPoint(latestBlock, retentionPeriod, minNumberOfBlocksToKeep)
+        )
 
         context.runPipedMessages() should contain only Pruning.SaveNewLowerBound(EpochNumber(40))
       }
@@ -140,7 +151,9 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
         when(outputStore.getBlock(number)(traceContext)).thenReturn(() => blockAtEpoch50)
 
-        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
+        module.receiveInternal(
+          Pruning.ComputePruningPoint(latestBlock, retentionPeriod, minNumberOfBlocksToKeep)
+        )
 
         context.runPipedMessages() should contain only Pruning.SchedulePruning
       }
@@ -165,7 +178,9 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val number = BlockNumber(latestBlock.blockNumber - minNumberOfBlocksToKeep)
         when(outputStore.getBlock(number)(traceContext)).thenReturn(() => None)
 
-        module.receiveInternal(Pruning.ComputePruningPoint(latestBlock))
+        module.receiveInternal(
+          Pruning.ComputePruningPoint(latestBlock, retentionPeriod, minNumberOfBlocksToKeep)
+        )
 
         context.runPipedMessages() should contain only Pruning.SchedulePruning
       }
@@ -221,7 +236,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           new ProgrammableUnitTestContext()
         val module = createPruningModule[ProgrammableUnitTestEnv]()
         module.receiveInternal(Pruning.SchedulePruning)
-        context.lastDelayedMessage should contain((1, Pruning.KickstartPruning))
+        context.lastDelayedMessage should contain((1, KickstartPruning(30 days, 100, None)))
       }
 
       "do nothing when starting if pruning is configured to be disabled" in {
@@ -240,6 +255,81 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         )
 
         context.runPipedMessages() shouldBe empty
+      }
+
+      "grpc requested pruning should complete the request promise with the operation description" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val epochStore: EpochStore[ProgrammableUnitTestEnv] =
+          mock[EpochStore[ProgrammableUnitTestEnv]]
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        val availabilityStore: AvailabilityStore[ProgrammableUnitTestEnv] =
+          mock[AvailabilityStore[ProgrammableUnitTestEnv]]
+        val module = createPruningModule[ProgrammableUnitTestEnv](
+          epochStore = epochStore,
+          outputStore = outputStore,
+          availabilityStore = availabilityStore,
+        )
+
+        when(outputStore.getLastConsecutiveBlock(traceContext)).thenReturn(() => Some(latestBlock))
+
+        val requestPromise = Promise[String]()
+
+        module.receiveInternal(
+          Pruning.KickstartPruning(retentionPeriod, minNumberOfBlocksToKeep, Some(requestPromise))
+        )
+
+        context.runPipedMessages() should contain only Pruning.ComputePruningPoint(
+          latestBlock,
+          retentionPeriod,
+          minNumberOfBlocksToKeep,
+        )
+
+        when(epochStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+          EpochStore.NumberOfRecords(10L, 10L, 0)
+        )
+        when(outputStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+          OutputMetadataStore.NumberOfRecords(10L, 10L)
+        )
+        when(
+          availabilityStore.prune(
+            EpochNumber(40 - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+          )(traceContext)
+        ).thenReturn(() => AvailabilityStore.NumberOfRecords(10L))
+
+        module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
+        context.runPipedMessages() should contain only Pruning.SchedulePruning
+
+        requestPromise.isCompleted shouldBe true
+        requestPromise.future.value should contain(
+          Success(
+            """Pruning at epoch 40 complete.
+            |EpochStore: pruned 10 epochs, 10 pbft messages.
+            |OutputStore: pruned 10 epochs and 10 blocks.
+            |AvailabilityStore: pruned 10 batches.""".stripMargin
+          )
+        )
+      }
+    }
+
+    "requesting status" should {
+      "complete the request promise with the pruning lower bound" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
+
+        val lowerBound = OutputMetadataStore.LowerBound(EpochNumber(5L), BlockNumber(50L))
+        when(outputStore.getLowerBound()(traceContext)).thenReturn(() => Some(lowerBound))
+
+        val requestPromise = Promise[OutputMetadataStore.LowerBound]()
+        module.receiveInternal(Pruning.PruningStatusRequest(requestPromise))
+        context.runPipedMessages() shouldBe empty
+
+        requestPromise.isCompleted shouldBe true
+        requestPromise.future.value should contain(Success(lowerBound))
       }
     }
   }

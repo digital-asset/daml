@@ -13,6 +13,7 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.error.CantonErrorGroups.MediatorErrorGroup
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.topology.ParticipantId
 import org.slf4j.event.Level
 
 sealed trait MediatorError extends Product with Serializable with PrettyPrinting {
@@ -105,6 +106,30 @@ object MediatorError extends MediatorErrorGroup {
       override protected def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
+      )
+    }
+  }
+
+  @Explanation(
+    """A participant has equivocated by submitting contradictory verdicts (Reject and Approve, or vice versa)
+      |for the same request and view. This is a serious security concern indicating either a malicious participant or a
+      |critical bug in the participant's software. The second verdict is ignored.
+      |No corruption of the ledger is to be expected, but this incident should be investigated."""
+  )
+  @Resolution("Investigate the participant for misbehavior. Contact support.")
+  object ParticipantEquivocation extends AlarmErrorCode("MEDIATOR_PARTICIPANT_EQUIVOCATION") {
+
+    final case class Detected(
+        override val cause: String,
+        participantId: ParticipantId,
+    ) extends Alarm(cause)
+        with PrettyPrinting
+        with CantonBaseError {
+
+      override protected def pretty: Pretty[Detected] = prettyOfClass(
+        param("code", _.code.id.unquoted),
+        param("cause", _.cause.unquoted),
+        param("participantId", _.participantId),
       )
     }
   }

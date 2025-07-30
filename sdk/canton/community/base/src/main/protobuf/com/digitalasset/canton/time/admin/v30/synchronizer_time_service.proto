@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.time.admin.v30;
 
+import "com/digitalasset/canton/topology/admin/v30/common.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -17,7 +18,7 @@ service SynchronizerTimeService {
 
 message FetchTimeRequest {
   // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
-  optional string physical_synchronizer_id = 1;
+  optional com.digitalasset.canton.topology.admin.v30.Synchronizer synchronizer = 1;
   google.protobuf.Duration freshness_bound = 2;
 }
 
@@ -27,7 +28,7 @@ message FetchTimeResponse {
 
 message AwaitTimeRequest {
   // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
-  optional string physical_synchronizer_id = 1;
+  optional com.digitalasset.canton.topology.admin.v30.Synchronizer synchronizer = 1;
   // the synchronizer time to wait for
   google.protobuf.Timestamp timestamp = 2;
 }

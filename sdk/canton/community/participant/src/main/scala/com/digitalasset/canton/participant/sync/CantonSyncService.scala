@@ -17,7 +17,12 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiParticipantProvider}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  Offset,
+  ReassignmentSubmitterMetadata,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.TransactionRoutingError.{
@@ -43,7 +48,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
-import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
@@ -68,7 +72,6 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   PartyAllocationCannotDetermineSynchronizer,
   PartyAllocationNoSynchronizerError,
   SyncServicePurgeSynchronizerError,
-  SyncServiceUnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.sync.SynchronizerConnectionsManager.{
   ConnectSynchronizer,
@@ -99,13 +102,13 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.{CompletableFuture, CompletionStage}
-import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.{Failure, Right, Success}
@@ -195,6 +198,9 @@ class CantonSyncService(
     connectedSynchronizersLookupContainer,
   )
 
+  private def connectedSynchronizersLookup: ConnectedSynchronizersLookup =
+    connectionsManager.connectedSynchronizers
+
   import ShowUtil.*
 
   def connectedSynchronizerHealth: MutableHealthComponent =
@@ -218,7 +224,7 @@ class CantonSyncService(
     partyOps,
     partyNotifier,
     isActive,
-    connectionsManager.connectedSynchronizersLookup,
+    connectedSynchronizersLookup,
     timeouts,
     loggerFactory,
   )
@@ -233,8 +239,8 @@ class CantonSyncService(
         // wait for packages to be vetted on the currently connected synchronizers
         EitherT
           .right[ParticipantTopologyManagerError](
-            connectionsManager.connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
-              case (synchronizerId, connectedSynchronizer) =>
+            connectedSynchronizersLookup.snapshot.toSeq.parTraverse {
+              case (psid, connectedSynchronizer) =>
                 connectedSynchronizer.topologyClient
                   .await(
                     _.determinePackagesWithNoVettingEntry(participantId, packages)
@@ -246,7 +252,7 @@ class CantonSyncService(
                   // the overall result into AbortedDueToShutdown, just because one of
                   // the synchronizers disconnected in the meantime.
                   .onShutdown(false)
-                  .map(synchronizerId -> _)
+                  .map(psid -> _)
             }
           )
           .map { result =>
@@ -261,19 +267,9 @@ class CantonSyncService(
           .void
     }
 
-  private case class AttemptReconnect(
-      alias: SynchronizerAlias,
-      last: CantonTimestamp,
-      retryDelay: Duration,
-      trace: TraceContext,
-  ) {
-    val earliest: CantonTimestamp = last.plusMillis(retryDelay.toMillis)
-  }
-
-  // TODO(#25483) Check calls of this method and this resolution
-  private def logicalToPhysical(id: SynchronizerId): Option[PhysicalSynchronizerId] =
-    connectionsManager.connectedSynchronizersMap.keys.filter(_.logical == id).maxOption
-
+  /** Return the active PSId corresponding to the given id, if any. Since at most one synchronizer
+    * connection per LSId can be active, this is well-defined.
+    */
   def activePSIdForLSId(
       id: SynchronizerId
   ): Option[PhysicalSynchronizerId] =
@@ -300,7 +296,7 @@ class CantonSyncService(
   )
 
   private val transactionRoutingProcessor = TransactionRoutingProcessor(
-    connectedSynchronizersLookup = connectionsManager.connectedSynchronizersLookup,
+    connectedSynchronizersLookup = connectedSynchronizersLookup,
     cryptoPureApi = syncCrypto.pureCrypto,
     synchronizerConnectionConfigStore = synchronizerConnectionConfigStore,
     participantId = participantId,
@@ -325,31 +321,8 @@ class CantonSyncService(
     ledgerApiIndexer.asEval(TraceContext.empty),
     aliasManager,
     parameters,
-    new SynchronizerLookup {
-      override def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean =
-        connectionsManager.connectedSynchronizersLookup.isConnected(synchronizerId)
-
-      override def isConnectedToAnySynchronizer: Boolean =
-        connectionsManager.connectedSynchronizersLookup.isConnectedToAny
-
-      override def persistentStateFor(
-          synchronizerId: PhysicalSynchronizerId
-      ): Option[SyncPersistentState] =
-        syncPersistentStateManager.get(synchronizerId)
-
-      override def connectionConfig(
-          psid: PhysicalSynchronizerId
-      ): Option[StoredSynchronizerConnectionConfig] =
-        synchronizerConnectionConfigStore.get(psid).toOption
-
-      override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
-          traceContext: TraceContext
-      ): Option[TopologyComponentFactory] =
-        syncPersistentStateManager.topologyFactoryFor(synchronizerId)
-
-      override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
-        syncPersistentStateManager.latestKnownPSId(synchronizerId)
-    },
+    syncPersistentStateManager,
+    connectedSynchronizersLookup,
     connectionsManager.connectQueue,
     loggerFactory,
   )
@@ -432,7 +405,7 @@ class CantonSyncService(
       override def disable(
           synchronizerId: PhysicalSynchronizerId
       )(implicit traceContext: TraceContext): Future[Unit] =
-        connectionsManager.connectedSynchronizersLookup
+        connectedSynchronizersLookup
           .get(synchronizerId)
           .map(_.addJournalGarageCollectionLock())
           .getOrElse(Future.unit)
@@ -440,11 +413,11 @@ class CantonSyncService(
       override def enable(
           synchronizerId: PhysicalSynchronizerId
       )(implicit traceContext: TraceContext): Unit =
-        connectionsManager.connectedSynchronizersLookup
+        connectedSynchronizersLookup
           .get(synchronizerId)
           .foreach(_.removeJournalGarageCollectionLock())
     },
-    connectionsManager.connectedSynchronizersLookup,
+    connectedSynchronizersLookup,
     syncCrypto,
     participantId,
     futureSupervisor,
@@ -471,9 +444,7 @@ class CantonSyncService(
   def pruneInternally(
       pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Unit] =
-    (for {
-      _pruned <- pruningProcessor.pruneLedgerEvents(pruneUpToInclusive)
-    } yield ()).transform(pruningErrorToCantonError)
+    pruningProcessor.pruneLedgerEvents(pruneUpToInclusive).transform(pruningErrorToCantonError)
 
   private def pruningErrorToCantonError(pruningResult: Either[LedgerPruningError, Unit])(implicit
       traceContext: TraceContext
@@ -648,7 +619,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
     lazy val onlyConnectedSynchronizer =
-      connectionsManager.connectedSynchronizersMap.toSeq match {
+      connectedSynchronizersLookup.snapshot.toSeq match {
         case Seq((synchronizerId, _)) => Right(synchronizerId)
         case Seq() =>
           Left(
@@ -668,7 +639,7 @@ class CantonSyncService(
 
     val specifiedSynchronizer =
       synchronizerIdO.map(lsid =>
-        connectionsManager.connectedSynchronizersLookup
+        connectedSynchronizersLookup
           .get(lsid)
           .map(_.psid)
           .toRight(
@@ -778,14 +749,13 @@ class CantonSyncService(
   /** Returns the pure crypto operations used for the sync protocol */
   def pureCryptoApi: CryptoPureApi = syncCrypto.pureCrypto
 
-  /** Lookup a time tracker for the given `synchronizerId`. A time tracker will only be returned if
+  /** Lookup a time tracker for the given `synchronizer`. A time tracker will only be returned if
     * the synchronizer is registered and connected.
     */
-  // TODO(#25483) Should that one be physical?
   def lookupSynchronizerTimeTracker(
-      synchronizerId: SynchronizerId
-  ): Option[SynchronizerTimeTracker] =
-    connectionsManager.lookupSynchronizerTimeTracker(synchronizerId)
+      synchronizer: Synchronizer
+  ): Either[String, SynchronizerTimeTracker] =
+    connectionsManager.lookupSynchronizerTimeTracker(synchronizer)
 
   def lookupTopologyClient(
       synchronizerId: PhysicalSynchronizerId
@@ -853,7 +823,7 @@ class CantonSyncService(
                 SyncServiceError.SynchronizerRegistration
                   .Error(
                     config.synchronizerAlias,
-                    "Unexpectedly found several active connections for alias",
+                    s"Unexpectedly found several active connections for alias: ${many.map(_.configuredPSId)}",
                   ): SyncServiceError
               )
           }
@@ -940,9 +910,11 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     def allSynchronizersMustBeOffline(): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-      connectionsManager.connectedSynchronizersMap.toSeq.map(
-        _._2.synchronizerHandle.synchronizerAlias
-      ) match {
+      connectedSynchronizersLookup.snapshot.values
+        .map(
+          _.synchronizerHandle.synchronizerAlias
+        )
+        .toList match {
         case Nil =>
           EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
 
@@ -977,6 +949,15 @@ class CantonSyncService(
       _ <- purgeDeactivatedSynchronizer(source.unwrap)
     } yield ()
   }
+
+  @VisibleForTesting
+  def upgradeSynchronizerTo(
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    connectionsManager.upgradeSynchronizerTo(currentPSId, synchronizerSuccessor)
 
   /* Verify that specified synchronizer has inactive status and prune synchronizer stores.
    */
@@ -1086,19 +1067,7 @@ class CantonSyncService(
 
   def logout(synchronizerAlias: SynchronizerAlias)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Status, Unit] =
-    for {
-      synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
-        aliasManager.synchronizerIdForAlias(synchronizerAlias).flatMap(logicalToPhysical),
-        SyncServiceUnknownSynchronizer.Error(synchronizerAlias).asGrpcError.getStatus,
-      )
-      _ <- connectionsManager.connectedSynchronizersLookup
-        .get(synchronizerId)
-        .fold(EitherT.pure[FutureUnlessShutdown, Status] {
-          logger.info(show"Nothing to do, as we are not connected to $synchronizerAlias")
-          ()
-        })(connectedSynchronizer => connectedSynchronizer.logout())
-    } yield ()
+  ): EitherT[FutureUnlessShutdown, Status, Unit] = connectionsManager.logout(synchronizerAlias)
 
   /** Disconnect from all connected synchronizers. */
   def disconnectSynchronizers()(implicit
@@ -1115,11 +1084,13 @@ class CantonSyncService(
     implicit tx => alias =>
       logger.debug(s"Preparing connection to $alias for migration")
       (for {
-        psid <- connectionsManager.performSynchronizerConnectionOrHandshake(
-          alias,
-          ConnectSynchronizer.Connect,
-          skipStatusCheck = true,
-        )
+        psid <-
+          connectionsManager.performSynchronizerConnectionOrHandshake(
+            alias,
+            ConnectSynchronizer.Connect,
+            skipStatusCheck = true,
+          )
+
         success <- identityPusher
           .awaitIdle(psid, timeouts.unbounded.unwrap)
           .leftMap(reg => SyncServiceError.SyncServiceFailedSynchronizerConnection(alias, reg))
@@ -1250,7 +1221,7 @@ class CantonSyncService(
 
       ReassignmentCommandsBatch.create(reassignmentCommands) match {
         case Right(unassigns: ReassignmentCommandsBatch.Unassignments) =>
-          logicalToPhysical(unassigns.target.unwrap) match {
+          connectedSynchronizersLookup.psidFor(unassigns.target.unwrap) match {
             case Some(targetPSId) =>
               doReassignment(
                 synchronizerId = unassigns.source.unwrap
@@ -1442,7 +1413,7 @@ class CantonSyncService(
         syncCrypto.forSynchronizer(synchronizerId, staticSyncParameters).map(_.pureCrypto)
     val routingState =
       RoutingSynchronizerStateFactory.create(
-        connectionsManager.connectedSynchronizersLookup,
+        connectedSynchronizersLookup,
         syncCryptoPureApi,
       )
 

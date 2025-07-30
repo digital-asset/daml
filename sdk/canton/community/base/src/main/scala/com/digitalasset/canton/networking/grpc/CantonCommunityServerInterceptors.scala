@@ -6,8 +6,8 @@ package com.digitalasset.canton.networking.grpc
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.{GrpcMetricsServerInterceptor, GrpcServerMetrics}
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.CantonAdminToken
-import com.digitalasset.canton.config.{ApiLoggingConfig, AuthServiceConfig}
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
+import com.digitalasset.canton.config.{AdminTokenConfig, ApiLoggingConfig, AuthServiceConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.{TraceContextGrpc, TracingConfig}
 import io.grpc.ServerInterceptors.intercept
@@ -28,8 +28,9 @@ class CantonCommunityServerInterceptors(
     loggerFactory: NamedLoggerFactory,
     grpcMetrics: GrpcServerMetrics,
     authServiceConfigs: Seq[AuthServiceConfig],
-    adminToken: Option[CantonAdminToken],
+    adminTokenDispenser: Option[CantonAdminTokenDispenser],
     jwtTimestampLeeway: Option[JwtTimestampLeeway],
+    adminTokenConfig: AdminTokenConfig,
     telemetry: Telemetry,
     additionalInterceptors: Seq[ServerInterceptor] = Seq.empty,
 ) extends CantonServerInterceptors {
@@ -65,8 +66,9 @@ class CantonCommunityServerInterceptors(
         service,
         loggerFactory,
         authServiceConfigs,
-        adminToken,
+        adminTokenDispenser,
         jwtTimestampLeeway,
+        adminTokenConfig,
         telemetry,
       )
 

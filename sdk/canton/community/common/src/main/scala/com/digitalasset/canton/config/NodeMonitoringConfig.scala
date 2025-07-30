@@ -23,7 +23,7 @@ final case class GrpcHealthServerConfig(
 ) extends ServerConfig
     with UniformCantonConfigValidation {
   override def authServices: Seq[AuthServiceConfig] = Seq.empty
-  override def adminToken: Option[String] = None
+  override def adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
   override val sslContext: Option[SslContext] = None
   override val serverCertChainFile: Option[PemFileOrString] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize

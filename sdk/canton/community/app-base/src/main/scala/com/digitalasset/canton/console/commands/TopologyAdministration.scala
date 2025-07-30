@@ -40,7 +40,6 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
@@ -2750,7 +2749,7 @@ class TopologyAdministrationGroup(
         filterSynchronizer: String = "",
         filterSigningKey: String = "",
         protocolVersion: Option[String] = None,
-    ): DynamicSynchronizerParameters = consoleEnvironment.run {
+    ): ConsoleDynamicSynchronizerParameters = consoleEnvironment.run {
       val commandResult = adminCommand(
         TopologyAdminCommands.Read.ListSynchronizerParametersState(
           BaseQuery(
@@ -2764,13 +2763,15 @@ class TopologyAdministrationGroup(
           filterSynchronizer,
         )
       )
-      commandResult.map(
-        _.headOption
-          .getOrElse(
-            consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
-          )
-          .item
-      )
+      commandResult
+        .map(
+          _.headOption
+            .getOrElse(
+              consoleEnvironment.raiseError("No latest dynamic synchronizer parameters found.")
+            )
+            .item
+        )
+        .map(ConsoleDynamicSynchronizerParameters(_))
     }
 
     @Help.Summary("Get the configured dynamic synchronizer parameters")
@@ -2828,7 +2829,9 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerParametersState] = { // TODO(#15815): Don't expose internal TopologyMapping and TopologyChangeOp classes
 
       val parametersInternal =
-        parameters.toInternal.valueOr(err => throw new IllegalArgumentException(err))
+        parameters.toInternal.valueOr(err =>
+          consoleEnvironment.raiseError(s"Cannot convert parameters to internal format: $err")
+        )
 
       runAdminCommand(
         TopologyAdminCommands.Write.Propose(

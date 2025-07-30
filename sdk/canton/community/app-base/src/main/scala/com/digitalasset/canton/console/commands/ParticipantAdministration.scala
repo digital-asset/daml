@@ -73,6 +73,7 @@ import com.digitalasset.canton.topology.{
   ParticipantId,
   PartyId,
   PhysicalSynchronizerId,
+  Synchronizer,
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.NoTracing
@@ -364,14 +365,14 @@ class ParticipantTestingGroup(
 
   @Help.Summary("Fetch the current time from the given synchronizer", FeatureFlag.Testing)
   def fetch_synchronizer_time(
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizer: Synchronizer,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
   ): CantonTimestamp =
     check(FeatureFlag.Testing) {
       consoleEnvironment.run {
         adminCommand(
           SynchronizerTimeCommands.FetchTime(
-            synchronizerId.some,
+            synchronizer.some,
             NonNegativeFiniteDuration.Zero,
             timeout,
           )
@@ -408,7 +409,7 @@ class ParticipantTestingGroup(
     FeatureFlag.Testing,
   )
   def await_synchronizer_time(
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizer: Synchronizer,
       time: CantonTimestamp,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
   ): Unit =
@@ -416,7 +417,7 @@ class ParticipantTestingGroup(
       consoleEnvironment.run {
         adminCommand(
           SynchronizerTimeCommands.AwaitTime(
-            synchronizerId.some,
+            synchronizer.some,
             time,
             timeout,
           )

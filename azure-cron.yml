@@ -131,6 +131,7 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          # Enter dade assist for tools needed to find correct git branch
           eval "$(cd sdk; dev-env/bin/dade-assist)"
 
           AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
@@ -172,18 +173,41 @@ jobs:
           if [[ "$GITHUB" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c v$GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout v$GITHUB
+            # Enter correct dade for deployment
+            eval "$(cd sdk; dev-env/bin/dade-assist)"
             (
-            if [ -d sdk ]; then
-              cd sdk
-            fi
+            cd sdk
             cp LICENSE compiler/daml-extension
             trap "rm -rf $PWD/compiler/daml-extension/LICENSE" EXIT
             cd compiler/daml-extension
             sed -i "s/__VERSION__/$GITHUB/" package.json
             # This produces out/src/extension.js
-            bazel run --run_under="cd $PWD &&" @yarn//:yarn install
-            bazel run --run_under="cd $PWD &&" @yarn//:yarn compile
-            bazel run --run_under="cd $PWD &&" @daml_extension_deps//vsce/bin:vsce -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
+
+            # Some branches have updated vsce, and different daml_extension_deps name, so we detect that.
+            # We build conditions here, rather than using a checked in script, as we're currently stuck trying
+            # to push a release to marketplace which is already frozen in git.
+
+            # Find the external deps repo name
+            if bazel query @daml_extension_deps_2x//... >/dev/null 2>&1; then
+              EXT_DEPS_REPO=daml_extension_deps_2x
+            else
+              EXT_DEPS_REPO=daml_extension_deps
+            fi
+
+            echo "Using external repository @$EXT_DEPS_REPO"
+
+            # Find which vsce path we need
+            if bazel query @$EXT_DEPS_REPO//... | grep -q @vscode; then
+              VSCE_PATH=@$EXT_DEPS_REPO//@vscode/vsce/bin:vsce
+            else
+              VSCE_PATH=@$EXT_DEPS_REPO//vsce/bin:vsce
+            fi
+
+            echo "Using VSCE $VSCE_PATH"
+
+            bazel run --run_under="cd $PWD &&" //:yarn install
+            bazel run --run_under="cd $PWD &&" //:yarn compile
+            bazel run --run_under="cd $PWD &&" $VSCE_PATH -- publish --yarn $GITHUB -p $MARKETPLACE_TOKEN
             )
           else
             if [[ "$GITHUB" == "$MARKET" ]]; then

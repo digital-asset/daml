@@ -15,7 +15,7 @@ class GrpcSubscriptionErrorRetryPolicyPekko
   )(implicit loggingContext: ErrorLoggingContext): Boolean =
     subscriptionError match {
       case GrpcSequencerClientTransportPekko.ExpectedGrpcFailure(error) =>
-        GrpcSubscriptionErrorRetryPolicy.logAndDetermineRetry(error, receivedItems)
+        GrpcSubscriptionErrorRetryPolicy.logAndDetermineRetry(error)
       case GrpcSequencerClientTransportPekko.UnexpectedGrpcFailure(ex) =>
         loggingContext.error(s"Unexpected error type: $ex")
         false

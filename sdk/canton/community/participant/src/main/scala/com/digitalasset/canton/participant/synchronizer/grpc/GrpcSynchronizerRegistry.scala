@@ -141,7 +141,7 @@ class GrpcSynchronizerRegistry(
           config.synchronizerAlias,
           config.synchronizerId,
           sequencerConnections,
-          SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
+          SequencerConnectionValidation.ThresholdActive,
         )(traceContext, CloseContext(this))
         .leftMap(SynchronizerRegistryError.fromSequencerInfoLoaderError)
 

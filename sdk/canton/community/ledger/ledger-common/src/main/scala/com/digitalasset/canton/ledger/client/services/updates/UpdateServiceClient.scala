@@ -19,7 +19,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
-class UpdateServiceClient(service: UpdateServiceStub)(implicit
+class UpdateServiceClient(
+    service: UpdateServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+)(implicit
     esf: ExecutionSequencerFactory
 ) {
   // TODO(#23504) remove when TransactionFilter is removed
@@ -43,7 +46,7 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
           verbose = verbose,
           updateFormat = None,
         ),
-        LedgerClient.stubWithTracing(service, token).getUpdates,
+        LedgerClient.stubWithTracing(service, token.orElse(getDefaultToken())).getUpdates,
       )
 
   def getUpdatesSource(
@@ -72,6 +75,6 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
             )
           ),
         ),
-        LedgerClient.stubWithTracing(service, token).getUpdates,
+        LedgerClient.stubWithTracing(service, token.orElse(getDefaultToken())).getUpdates,
       )
 }

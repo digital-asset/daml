@@ -32,7 +32,7 @@ final class P2PGrpcStreamingServerSideReceiver(
     getMessageSendInstant(message).foreach(sendInstant =>
       updateTimer(metrics.p2p.send.grpcLatency, Duration.between(sendInstant, Instant.now))
     )
-    inputModule.asyncSend(message)
+    inputModule.asyncSendNoTrace(message)
   }
 
   override def onError(t: Throwable): Unit = {

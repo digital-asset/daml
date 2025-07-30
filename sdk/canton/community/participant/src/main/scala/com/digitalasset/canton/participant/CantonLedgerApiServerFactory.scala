@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant
 import cats.Eval
 import cats.data.EitherT
 import com.digitalasset.canton.LedgerParticipantId
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -25,6 +25,7 @@ import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.Engine
 import org.apache.pekko.actor.ActorSystem
 
@@ -61,6 +62,7 @@ class CantonLedgerApiServerFactory(
   def create(
       name: InstanceName,
       participantId: LedgerParticipantId,
+      adminParty: Option[Party],
       sync: CantonSyncService,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       ledgerApiIndexer: Eval[LedgerApiIndexer],
@@ -69,7 +71,7 @@ class CantonLedgerApiServerFactory(
       metrics: LedgerApiServerMetrics,
       httpApiMetrics: HttpApiMetrics,
       tracerProvider: TracerProvider,
-      adminToken: CantonAdminToken,
+      adminTokenDispenser: CantonAdminTokenDispenser,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
       actorSystem: ActorSystem,
@@ -92,11 +94,14 @@ class CantonLedgerApiServerFactory(
             serverConfig = config.ledgerApi,
             jsonApiConfig = config.httpLedgerApi,
             participantId = participantId,
+            adminParty = adminParty,
+            adminTokenConfig =
+              config.ledgerApi.adminTokenConfig.merge(config.adminApi.adminTokenConfig),
             engine = engine,
             syncService = sync,
             cantonParameterConfig = parameters,
             testingTimeService = ledgerTestingTimeService,
-            adminToken = adminToken,
+            adminTokenDispenser = adminTokenDispenser,
             enableCommandInspection = config.ledgerApi.enableCommandInspection,
             loggerFactory = loggerFactory,
             tracerProvider = tracerProvider,

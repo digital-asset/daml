@@ -169,7 +169,7 @@ class SynchronizerMigration(
     synchronizerConnectionConfigStore
       .put(
         target.unwrap,
-        SynchronizerConnectionConfigStore.MigratingTo,
+        SynchronizerConnectionConfigStore.HardMigratingTarget,
         KnownPhysicalSynchronizerId(psid),
         // TODO(#26263) Ensure that this None is fine
         synchronizerPredecessor = None,
@@ -333,12 +333,12 @@ class SynchronizerMigration(
         _ <- updateSynchronizerStatus(
           target.map(_.synchronizerAlias),
           targetPSId.map(KnownPhysicalSynchronizerId(_): ConfiguredPhysicalSynchronizerId),
-          SynchronizerConnectionConfigStore.MigratingTo,
+          SynchronizerConnectionConfigStore.HardMigratingTarget,
         )
         _ <- updateSynchronizerStatus(
           source,
           sourcePSId,
-          SynchronizerConnectionConfigStore.Vacating,
+          SynchronizerConnectionConfigStore.HardMigratingSource,
         )
       } yield sourcePSId
     }

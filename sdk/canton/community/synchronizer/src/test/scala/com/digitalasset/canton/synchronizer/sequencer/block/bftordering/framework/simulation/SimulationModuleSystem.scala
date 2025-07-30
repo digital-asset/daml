@@ -6,8 +6,9 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import cats.Traverse
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
@@ -37,7 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PureFun,
 }
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.canton.util.HexString
 import org.scalatest.Assertions.fail
 
@@ -53,7 +54,7 @@ object SimulationModuleSystem {
       collector: NodeCollector,
   ) extends ModuleRef[MessageT] {
 
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addInternalEvent(name, ModuleControl.Send(msg, traceContext, metricsContext))
@@ -167,7 +168,7 @@ object SimulationModuleSystem {
 
   private final case class SimulationCancelable[E](collector: Collector[E], tickId: Int)
       extends CancellableEvent {
-    override def cancel(): Boolean = {
+    override def cancel()(implicit metricsContext: MetricsContext): Boolean = {
       collector.addCancelTick(tickId)
       true
     }
@@ -178,6 +179,26 @@ object SimulationModuleSystem {
     def newTraceContext: TraceContext = {
       val traceParent = s"00-${genHexBytes(16)}-${genHexBytes(8)}-01"
       TraceContext.fromW3CTraceParent(traceParent)
+    }
+
+    def ofBatch(items: IterableOnce[HasTraceContext])(logger: TracedLogger): TraceContext = {
+      val validTraces =
+        items.iterator.map(_.traceContext).filter(_.traceId.isDefined).toSeq.distinct
+
+      NonEmpty.from(validTraces) match {
+        case None =>
+          newTraceContext // just generate new trace context
+        case Some(validTracesNE) =>
+          if (validTracesNE.sizeCompare(1) == 0)
+            validTracesNE.head1 // there's only a single trace so stick with that
+          else {
+            implicit val traceContext: TraceContext = newTraceContext
+            // log that we're creating a single traceContext from many trace ids
+            val traceIds = validTracesNE.map(_.traceId).collect { case Some(traceId) => traceId }
+            logger.debug(s"Created batch from traceIds: [${traceIds.mkString(",")}]")
+            traceContext
+          }
+      }
     }
   }
 
@@ -190,7 +211,7 @@ object SimulationModuleSystem {
 
     override val self: SimulationModuleRef[MessageT] = SimulationModuleRef(to, collector)
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent = {
@@ -225,6 +246,9 @@ object SimulationModuleSystem {
 
     override def withNewTraceContext[A](fn: TraceContext => A): A =
       fn(traceContextGenerator.newTraceContext)
+
+    override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+      traceContextGenerator.ofBatch(items)(logger)
   }
 
   private[simulation] final case class SimulationModuleClientContext[MessageT](
@@ -246,7 +270,7 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForClientModules()
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent = {
@@ -268,6 +292,9 @@ object SimulationModuleSystem {
     override def withNewTraceContext[A](fn: TraceContext => A): A = fn(
       traceContextGenerator.newTraceContext
     )
+
+    override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+      traceContextGenerator.ofBatch(items)(logger)
 
     private def unsupportedForClientModules(): Nothing =
       sys.error("Unsupported for client modules")
@@ -292,7 +319,7 @@ object SimulationModuleSystem {
 
     override def self: SimulationModuleRef[MessageT] = unsupportedForSystem()
 
-    override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+    override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
         traceContext: TraceContext,
         metricsContext: MetricsContext,
     ): CancellableEvent =
@@ -311,6 +338,9 @@ object SimulationModuleSystem {
     override def stop(onStop: () => Unit): Unit = unsupportedForSystem()
 
     override def withNewTraceContext[A](fn: TraceContext => A): A = unsupportedForSystem()
+
+    override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+      unsupportedForSystem()
   }
 
   final class SimulationEnv extends Env[SimulationEnv] {
@@ -343,7 +373,7 @@ object SimulationModuleSystem {
 
   private final case class SimulatedRefForClient[MessageT](collector: ClientCollector)
       extends ModuleRef[MessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addClientRequest(msg)

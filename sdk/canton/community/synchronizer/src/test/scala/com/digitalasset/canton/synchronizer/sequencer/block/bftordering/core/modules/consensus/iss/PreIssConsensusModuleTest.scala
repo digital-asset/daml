@@ -52,6 +52,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeModuleExpectingSilence,
 }
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
@@ -251,7 +252,9 @@ object PreIssConsensusModuleTest {
   final class IgnoringSegmentModuleRef[-MessageT](
       val latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]]
   ) extends IgnoringModuleRef[MessageT] {
-    override def asyncSend(msg: MessageT)(implicit metricsContext: MetricsContext): Unit = ()
+    override def asyncSend(
+        msg: MessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = ()
   }
 
   def createCompletedBlocks(
