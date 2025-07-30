@@ -29,6 +29,7 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.GetResult
 
+import java.math.BigInteger
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
@@ -37,7 +38,7 @@ import scala.concurrent.ExecutionContext
   */
 trait EncryptionOps {
 
-  protected[crypto] def decryptWithInternal[M](
+  private[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(
@@ -115,6 +116,7 @@ trait EncryptionOps {
 /** Encryption operations that require access to stored private keys. */
 trait EncryptionPrivateOps {
 
+  def encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec]
   def encryptionKeySpecs: CryptoScheme[EncryptionKeySpec]
 
   /** Decrypts an encrypted message using the referenced private encryption key */
@@ -259,10 +261,12 @@ object EncryptionKeySpec {
   /** Elliptic Curve Key from the P-256 curve (aka Secp256r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP256 extends EncryptionKeySpec {
+  case object EcP256 extends EncryptionKeySpec with EcKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.EncryptionKeySpec =
       v30.EncryptionKeySpec.ENCRYPTION_KEY_SPEC_EC_P256
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256r1"
   }
 
   /** RSA key with 2048 bits */
@@ -270,6 +274,7 @@ object EncryptionKeySpec {
     override val name: String = "RSA-2048"
     // the key size in bits for RSA2048
     val keySizeInBits: Int = 2048
+    val exponent: BigInteger = BigInteger.valueOf(65537)
     override def toProtoEnum: v30.EncryptionKeySpec =
       v30.EncryptionKeySpec.ENCRYPTION_KEY_SPEC_RSA_2048
   }
@@ -659,6 +664,10 @@ final case class EncryptionPublicKey private (
   @VisibleForTesting
   private[crypto] def replaceFormat(format: CryptoKeyFormat): EncryptionPublicKey =
     this.copy(format = format)(migrated)
+
+  @VisibleForTesting
+  private[crypto] def replaceKeySpec(keySpec: EncryptionKeySpec): EncryptionPublicKey =
+    this.copy(keySpec = keySpec)(migrated)
 }
 
 object EncryptionPublicKey
@@ -673,6 +682,10 @@ object EncryptionPublicKey
     )
   )
 
+  /** Creates a [[EncryptionPublicKey]] from the given parameters. Performs validations on usage and
+    * format. If the [[EncryptionKeySpec]] is EC-based, it also validates that the public key lies
+    * on the expected curve.
+    */
   private[crypto] def create(
       format: CryptoKeyFormat,
       key: ByteString,
@@ -843,6 +856,11 @@ object EncryptionError {
         unnamedParam(_.error.unquoted)
       )
   }
+  final case class NoMatchingAlgorithmSpec(message: String) extends EncryptionError {
+    override protected def pretty: Pretty[NoMatchingAlgorithmSpec] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
   final case class FailedToEncrypt(error: String) extends EncryptionError {
     override protected def pretty: Pretty[FailedToEncrypt] = prettyOfClass(
       unnamedParam(_.error.unquoted)
@@ -933,9 +951,6 @@ object DecryptionError {
     override protected def pretty: Pretty[UnknownEncryptionKey] = prettyOfClass(
       param("keyId", _.keyId)
     )
-  }
-  final case class DecryptionKeyError(error: CryptoPrivateStoreError) extends DecryptionError {
-    override protected def pretty: Pretty[DecryptionKeyError] = prettyOfClass(unnamedParam(_.error))
   }
   final case class FailedToDeserialize(error: DeserializationError) extends DecryptionError {
     override protected def pretty: Pretty[FailedToDeserialize] = prettyOfClass(

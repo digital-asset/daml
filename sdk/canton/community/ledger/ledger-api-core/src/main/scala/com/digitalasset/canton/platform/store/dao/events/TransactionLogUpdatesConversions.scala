@@ -49,6 +49,7 @@ import com.digitalasset.canton.platform.{
   TemplatePartiesFilter,
   Value,
 }
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.Party

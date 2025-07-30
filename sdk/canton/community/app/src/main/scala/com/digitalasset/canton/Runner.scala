@@ -44,7 +44,7 @@ class ServerRunner(
                   "upload-dar",
                   LedgerApiCommands.PackageManagementService.UploadDarFile(darPath),
                   p.config.clientLedgerApi,
-                  Some(p.adminToken.secret),
+                  Some(p.adminTokenDispenser.getCurrentToken.secret),
                 )
             }
           )

@@ -295,7 +295,7 @@ final case class Signature private (
 object Signature
     extends HasVersionedMessageCompanion[Signature]
     with HasVersionedMessageCompanionDbHelpers[Signature] {
-  val noSignature =
+  val noSignature: Signature =
     Signature.create(
       SignatureFormat.Symbolic,
       ByteString.EMPTY,
@@ -886,37 +886,45 @@ object SigningKeySpec {
 
   /** Elliptic Curve Key from the Curve25519 curve as defined in http://ed25519.cr.yp.to/
     */
-  case object EcCurve25519 extends SigningKeySpec {
+  case object EcCurve25519 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-Curve25519"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_CURVE25519
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "Ed25519"
   }
 
   /** Elliptic Curve Key from the P-256 curve (aka secp256r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP256 extends SigningKeySpec {
+  case object EcP256 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-P256"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P256
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256r1"
   }
 
   /** Elliptic Curve Key from the P-384 curve (aka secp384r1) as defined in
     * https://doi.org/10.6028/NIST.FIPS.186-4
     */
-  case object EcP384 extends SigningKeySpec {
+  case object EcP384 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-P384"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_P384
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp384r1"
   }
 
   /** Elliptic Curve Key from SECG P256k1 curve (aka secp256k1) commonly used in bitcoin and
     * ethereum as defined in https://www.secg.org/sec2-v2.pdf
     */
-  case object EcSecp256k1 extends SigningKeySpec {
+  case object EcSecp256k1 extends SigningKeySpec with EcKeySpec {
     override val name: String = "EC-Secp256k1"
     override def toProtoEnum: v30.SigningKeySpec =
       v30.SigningKeySpec.SIGNING_KEY_SPEC_EC_SECP256K1
+    // Name of the elliptic curve as expected by Java's ECGenParameterSpec (JCA standard name)
+    override val jcaCurveName: String = "secp256k1"
   }
 
   def fromProtoEnum(
@@ -1351,6 +1359,10 @@ object SigningPublicKey
       case _ => Right(None)
     }
 
+  /** Creates a [[SigningPublicKey]] from the given parameters. Performs validations on usage and
+    * format. If the [[SigningKeySpec]] is EC-based, it also validates that the public key lies on
+    * the expected curve.
+    */
   private[crypto] def create(
       format: CryptoKeyFormat,
       key: ByteString,
@@ -1640,6 +1652,12 @@ object SigningError {
       param("signingKeySpec", _.signingKeySpec),
       param("algorithmSpec", _.algorithmSpec),
       param("supportedKeySpecsByAlgo", _.supportedKeySpecsByAlgo),
+    )
+  }
+
+  final case class NoMatchingAlgorithmSpec(message: String) extends SigningError {
+    override protected def pretty: Pretty[NoMatchingAlgorithmSpec] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
     )
   }
 

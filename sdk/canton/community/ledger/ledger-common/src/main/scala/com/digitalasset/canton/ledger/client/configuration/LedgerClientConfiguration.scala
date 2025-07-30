@@ -16,5 +16,5 @@ package com.digitalasset.canton.ledger.client.configuration
 final case class LedgerClientConfiguration(
     userId: String,
     commandClient: CommandClientConfiguration,
-    token: Option[String] = None,
+    token: () => Option[String] = () => None,
 )

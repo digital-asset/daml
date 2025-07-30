@@ -69,7 +69,7 @@ def authorize_external_party_hosting(
             topology_manager_read_service_pb2.ListPartyToParticipantRequest(
                 base_query=topology_manager_read_service_pb2.BaseQuery(
                     store=common_pb2.StoreId(
-                        synchronizer=common_pb2.StoreId.Synchronizer(
+                        synchronizer=common_pb2.Synchronizer(
                             id=synchronizer_id,
                         ),
                     ),
@@ -102,7 +102,7 @@ def authorize_external_party_hosting(
             transaction_hash=party_to_participant_proposal.context.transaction_hash.hex(),
             must_fully_authorize=False,
             store=common_pb2.StoreId(
-                synchronizer=common_pb2.StoreId.Synchronizer(
+                synchronizer=common_pb2.Synchronizer(
                     id=synchronizer_id,
                 ),
             ),

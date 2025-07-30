@@ -223,6 +223,7 @@ object SignedTopologyTransaction
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
 
+  @VisibleForTesting
   def create[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Set[TopologyTransactionSignature]],
@@ -238,6 +239,7 @@ object SignedTopologyTransaction
     )
   )
 
+  @VisibleForTesting
   def create[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Set[Signature]],
@@ -402,23 +404,37 @@ object SignedTopologyTransaction
     ) = transactionP
     for {
       transaction <- TopologyTransaction.fromByteString(protocolVersionValidation, txBytes)
+
       singleSignatures <- signaturesP
         .traverse(Signature.fromProtoV30)
         .map(
           _.map(SingleTransactionSignature(transaction.hash, _))
         )
-        .map(_.toSet[TopologyTransactionSignature])
+
       multiTransactionHashes <- multiTransactionSignaturesPO
         .flatTraverse(MultiTransactionSignature.fromProtoV30(_, transaction.hash).map(_.forgetNE))
-        .map(_.toSet[TopologyTransactionSignature])
-      allSigs <- NonEmpty
+
+      allSignaturesWithDuplicates <- NonEmpty
         .from(singleSignatures ++ multiTransactionHashes)
         .toRight(
           ProtoDeserializationError
             .InvariantViolation("signatures", "At least one signature must be provided")
         )
+
+      /*
+      Added as part of https://github.com/DACH-NY/canton-network-internal/issues/1063
+      Some signature schemes (e.g., EC-DSA) are non-deterministic which means that one key
+      can lead to arbitrary many signatures. Due to a bug in the validation, we accumulated
+      many signatures for the same key, leading to high validation time and memory usage.
+      As a workaround, we discard duplicate signatures.
+       */
+      allSignaturesWithoutDuplicates = allSignaturesWithDuplicates
+        .groupBy1(_.authorizingLongTermKey)
+        .map { case (_, signatures) => signatures.head1 }
+        .toSet
+
       rpv <- versioningTable.protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield SignedTopologyTransaction(transaction, allSigs, isProposal)(rpv)
+    } yield SignedTopologyTransaction(transaction, allSignaturesWithoutDuplicates, isProposal)(rpv)
   }
 
   def createGetResultSynchronizerTopologyTransaction: GetResult[GenericSignedTopologyTransaction] =

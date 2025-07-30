@@ -11,12 +11,15 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-final class VersionClient(service: VersionServiceStub) {
+final class VersionClient(
+    service: VersionServiceStub,
+    getDefaultToken: () => Option[String] = () => None,
+) {
   def getApiVersion(
       token: Option[String] = None
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): Future[String] =
     LedgerClient
-      .stubWithTracing(service, token)
+      .stubWithTracing(service, token.orElse(getDefaultToken()))
       .getLedgerApiVersion(
         new GetLedgerApiVersionRequest()
       )
@@ -24,8 +27,10 @@ final class VersionClient(service: VersionServiceStub) {
 
   /** Utility method for json services
     */
-  def serviceStub(token: Option[String] = None)(implicit traceContext: TraceContext) =
-    LedgerClient.stubWithTracing(service, token)
+  def serviceStub(token: Option[String] = None)(implicit
+      traceContext: TraceContext
+  ): VersionServiceStub =
+    LedgerClient.stubWithTracing(service, token.orElse(getDefaultToken()))
 }
 
 object VersionClient {

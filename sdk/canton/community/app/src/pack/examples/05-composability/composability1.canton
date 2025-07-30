@@ -14,7 +14,7 @@ val iouId = bootstrap.synchronizer(
   synchronizerOwners = Seq(iouSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+).logical
 
 val paintSynchronizerOwner = paint_sequencer
 val paintId = bootstrap.synchronizer(
@@ -24,7 +24,7 @@ val paintId = bootstrap.synchronizer(
   synchronizerOwners = Seq(paintSynchronizerOwner),
   synchronizerThreshold = PositiveInt.one,
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-)
+).logical
 
 // update parameters
 // disable automatic assignments
@@ -115,7 +115,7 @@ participant3.ledger_api.commands.submit_reassign(
 // architecture-handbook-entry-begin: accept
 // Painter accepts the paint offer on the IOU synchronizer
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
-val acceptTx = participant3.ledger_api.javaapi.commands.submit(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
+val acceptTx = participant3.ledger_api.javaapi.commands.submit(Seq(Painter), acceptCmd, synchronizerId = Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
@@ -138,6 +138,6 @@ participant2.ledger_api.commands.submit_reassign(
 participant3.ledger_api.javaapi.commands.submit(
   Seq(Painter),
   painterIou.id.exerciseCall().commands.asScala.toSeq,
-  synchronizerId =Some(iouId)
+  synchronizerId = Some(iouId)
 )
 // architecture-handbook-entry-end: call

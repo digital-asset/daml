@@ -3,20 +3,11 @@
 
 package com.digitalasset.canton.auth
 
-import com.digitalasset.canton.crypto.RandomOps
+import com.digitalasset.canton.config.AdminTokenConfig
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.HexString
-import com.digitalasset.canton.util.TimingSafeComparisonUtil.constantTimeEquals
+import com.digitalasset.daml.lf.data.Ref.Party
 
 import scala.concurrent.Future
-
-final case class CantonAdminToken(secret: String)
-object CantonAdminToken {
-  def create(randomOps: RandomOps): CantonAdminToken = {
-    val secret = HexString.toHexString(randomOps.generateRandomByteString(64))
-    new CantonAdminToken(secret)
-  }
-}
 
 /** AuthService interceptor used for internal canton services
   *
@@ -26,22 +17,38 @@ object CantonAdminToken {
   *
   * Therefore, we create on each startup a master token which is only ever shared internally.
   */
-class CantonAdminTokenAuthService(adminTokenO: Option[CantonAdminToken]) extends AuthService {
+class CantonAdminTokenAuthService(
+    adminTokenDispenser: CantonAdminTokenDispenser,
+    adminParty: Option[Party],
+    adminTokenConfig: AdminTokenConfig,
+) extends AuthService {
   override def decodeToken(
       authToken: Option[String],
       serviceName: String,
   )(implicit traceContext: TraceContext): Future[ClaimSet] = {
     val bearerTokenRegex = "Bearer (.*)".r
     val authTokenOpt = for {
-      adminToken <- adminTokenO
       authKey <- authToken
       token <- bearerTokenRegex.findFirstMatchIn(authKey).map(_.group(1))
-      _ <- if (constantTimeEquals(token, adminToken.secret)) Some(()) else None
+      _ <- if (adminTokenDispenser.checkToken(token)) Some(()) else None
     } yield ()
     authTokenOpt
-      .fold(deny)(_ => wildcard)
+      .fold(deny)(_ => permit)
   }
 
-  private val wildcard = Future.successful(ClaimSet.Claims.Wildcard: ClaimSet)
+  private val partyClaim =
+    if (adminTokenConfig.actAsAnyPartyClaim)
+      List[Claim](ClaimActAsAnyParty)
+    else
+      adminParty.map(ClaimActAsParty.apply).toList
+
+  private val adminClaim = Option.when(adminTokenConfig.adminClaim)(ClaimAdmin).toList
+
+  private val permit = Future.successful(
+    ClaimSet.Claims.Empty.copy(
+      claims = List[Claim](ClaimPublic) ++ partyClaim ++ adminClaim
+    )
+  )
+
   private val deny = Future.successful(ClaimSet.Unauthenticated: ClaimSet)
 }

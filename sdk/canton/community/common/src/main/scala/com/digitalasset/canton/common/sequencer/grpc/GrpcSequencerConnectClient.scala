@@ -78,11 +78,11 @@ class GrpcSequencerConnectClient(
         )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
         .leftMap(err => Error.Transport(err.toString))
 
-      synchronizerId = PhysicalSynchronizerId
-        .fromProtoPrimitive(response.physicalSynchronizerId, "physical_synchronizer_id")
-        .leftMap[Error](err => Error.DeserializationFailure(err.toString))
-
-      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](synchronizerId)
+      psid <- EitherT.fromEither[FutureUnlessShutdown](
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(response.physicalSynchronizerId, "physical_synchronizer_id")
+          .leftMap[Error](err => Error.DeserializationFailure(err.toString))
+      )
 
       sequencerId = UniqueIdentifier
         .fromProtoPrimitive(response.sequencerUid, "sequencer_uid")
@@ -90,7 +90,7 @@ class GrpcSequencerConnectClient(
         .map(SequencerId(_))
 
       sequencerId <- EitherT.fromEither[FutureUnlessShutdown](sequencerId)
-    } yield SynchronizerClientBootstrapInfo(synchronizerId, sequencerId)
+    } yield SynchronizerClientBootstrapInfo(psid, sequencerId)
 
   override def getSynchronizerParameters(
       synchronizerIdentifier: String

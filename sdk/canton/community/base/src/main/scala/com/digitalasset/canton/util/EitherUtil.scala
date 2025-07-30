@@ -8,6 +8,11 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import scala.concurrent.Future
 
 object EitherUtil {
+
+  // if the condition is satisfied, return unit, otherwise, return the given A in Left.
+  def condUnit[E](test: Boolean, left: => E): Either[E, Unit] =
+    if (test) Right(()) else Left(left)
+
   implicit class RichEither[L, R](val either: Either[L, R]) extends AnyVal {
 
     /** @param f

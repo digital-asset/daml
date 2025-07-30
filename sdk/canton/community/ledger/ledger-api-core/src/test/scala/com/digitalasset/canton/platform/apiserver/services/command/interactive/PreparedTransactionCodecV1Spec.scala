@@ -48,7 +48,7 @@ class PreparedTransactionCodecV1Spec
           encoded <- encoder.serializeTransaction(transaction, nodeSeeds)
           decoded <- decoder.transactionTransformer
             .transform(encoded)
-            .toFutureWithLoggedFailures("Failed to decode transaction", logger)
+            .toFutureWithLoggedFailuresDecode("Failed to decode transaction", logger)
         } yield {
           decoded shouldEqual transaction
         }

@@ -381,7 +381,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
       .setStatus(
         daName,
         KnownPhysicalSynchronizerId(daId),
-        SynchronizerConnectionConfigStore.Vacating,
+        SynchronizerConnectionConfigStore.HardMigratingSource,
       )
       .value
       .futureValueUS
@@ -390,7 +390,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
       .setStatus(
         acmeName,
         KnownPhysicalSynchronizerId(acmeId),
-        SynchronizerConnectionConfigStore.MigratingTo,
+        SynchronizerConnectionConfigStore.HardMigratingTarget,
       )
       .value
       .futureValueUS
@@ -669,7 +669,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
       .setStatus(
         daName,
         KnownPhysicalSynchronizerId(daId),
-        SynchronizerConnectionConfigStore.Vacating,
+        SynchronizerConnectionConfigStore.HardMigratingSource,
       )
       .value
       .futureValueUS
@@ -679,7 +679,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
       .setStatus(
         acmeName,
         KnownPhysicalSynchronizerId(acmeId),
-        SynchronizerConnectionConfigStore.MigratingTo,
+        SynchronizerConnectionConfigStore.HardMigratingTarget,
       )
       .value
       .futureValueUS

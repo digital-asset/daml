@@ -357,7 +357,8 @@ class GrpcSynchronizerConnectivityService(
     _mapErrNewEUS(ret)
   }
 
-  /** Get the synchronizer id of the given synchronizer alias
+  /** Get the physical synchronizer id of the given synchronizer alias (corresponding to the active
+    * connection)
     */
   override def getSynchronizerId(
       request: v30.GetSynchronizerIdRequest

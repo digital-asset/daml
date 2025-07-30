@@ -32,7 +32,10 @@ import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.BftOrderingSequencerAdminService
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
+  BftOrderingSequencerAdminService,
+  BftOrderingSequencerPruningAdminService,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkRefFactory
@@ -443,7 +446,7 @@ final class BftBlockOrderer(
         CantonServerBuilder
           .forConfig(
             config = serverConfig,
-            adminToken = None,
+            adminTokenDispenser = None,
             executor = p2pServerGrpcExecutor,
             loggerFactory = loggerFactory,
             apiLoggingConfig = nodeParameters.loggingConfig.api,
@@ -560,7 +563,15 @@ final class BftBlockOrderer(
           loggerFactory,
         ),
         executionContext,
-      )
+      ),
+      v30.SequencerBftPruningAdministrationServiceGrpc.bindService(
+        new BftOrderingSequencerPruningAdminService(initResult.pruningModuleRef, loggerFactory)(
+          executionContext,
+          metricsContext,
+          TraceContext.empty,
+        ),
+        executionContext,
+      ),
     )
 
   override def sequencerSnapshotAdditionalInfo(
@@ -568,13 +579,13 @@ final class BftBlockOrderer(
   ): EitherT[Future, SequencerError, Option[v30.BftSequencerSnapshotAdditionalInfo]] = {
     val replyPromise = Promise[SequencerNode.SnapshotMessage]()
     val replyRef = new ModuleRef[SequencerNode.SnapshotMessage] {
-      override def asyncSendTraced(msg: SequencerNode.SnapshotMessage)(implicit
+      override def asyncSend(msg: SequencerNode.SnapshotMessage)(implicit
           traceContext: TraceContext,
           metricsContext: MetricsContext,
       ): Unit =
         replyPromise.success(msg)
     }
-    outputModuleRef.asyncSend(
+    outputModuleRef.asyncSendNoTrace(
       Output.SequencerSnapshotMessage.GetAdditionalInfo(timestamp, replyRef)
     )
     EitherT(replyPromise.future.map {
@@ -605,13 +616,13 @@ final class BftBlockOrderer(
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     val replyPromise = Promise[SequencerNode.Message]()
     val replyRef = new ModuleRef[SequencerNode.Message] {
-      override def asyncSendTraced(msg: SequencerNode.Message)(implicit
+      override def asyncSend(msg: SequencerNode.Message)(implicit
           traceContext: TraceContext,
           metricsContext: MetricsContext,
       ): Unit =
         replyPromise.success(msg)
     }
-    mempoolRef.asyncSendTraced(
+    mempoolRef.asyncSend(
       Mempool.OrderRequest(
         Traced(
           OrderingRequest(

@@ -77,7 +77,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -169,7 +170,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -275,7 +277,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -291,7 +294,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 26
+            "y": 2
           },
           "id": 11,
           "options": {
@@ -313,13 +316,13 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-PekkoGrpcP2PNetworking.*\"}[$__rate_interval])))",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-PekkoP2PGrpcConnectionManagingActor\"}[$__rate_interval])))",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "P2P network client module queue latency",
+          "title": "PekkoP2PGrpcConnectionManagingActor queue latency",
           "type": "timeseries"
         },
         {
@@ -339,7 +342,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 10,
+                "fillOpacity": 0,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
@@ -367,15 +370,11 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
+                    "color": "green",
+                    "value": null
                   }
                 ]
-              },
-              "unit": "s"
+              }
             },
             "overrides": []
           },
@@ -383,9 +382,9 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 26
+            "y": 2
           },
-          "id": 17,
+          "id": 103,
           "options": {
             "legend": {
               "calcs": [],
@@ -405,13 +404,13 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_p2p_send_network_write_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_PekkoP2PGrpcConnectionManagingActor{reporting_sequencer=\"$reporting_sequencer\"}",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "P2P network client write latency",
+          "title": "PekkoP2PGrpcConnectionManagingActor queue size",
           "type": "timeseries"
         },
         {
@@ -460,7 +459,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -474,9 +474,9 @@
           },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
-            "y": 34
+            "y": 10
           },
           "id": 13,
           "options": {
@@ -552,7 +552,101 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 18
+          },
+          "id": 17,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_p2p_send_network_write_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "P2P network client write latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -568,7 +662,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 34
+            "y": 18
           },
           "id": 15,
           "options": {
@@ -658,7 +752,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -674,7 +769,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 27
+            "y": 3
           },
           "id": 18,
           "options": {
@@ -722,6 +817,98 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 3
+          },
+          "id": 101,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_mempool{reporting_sequencer=\"$reporting_sequencer\"}",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Mempool module queue size",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
                 "fillOpacity": 10,
                 "gradientMode": "none",
                 "hideFrom": {
@@ -750,7 +937,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -765,8 +953,8 @@
           "gridPos": {
             "h": 6,
             "w": 12,
-            "x": 12,
-            "y": 27
+            "x": 0,
+            "y": 9
           },
           "id": 10,
           "options": {
@@ -795,6 +983,98 @@
             }
           ],
           "title": "Availability module queue latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 6,
+            "w": 12,
+            "x": 12,
+            "y": 9
+          },
+          "id": 102,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_availability{reporting_sequencer=\"$reporting_sequencer\"}",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Availability module queue size",
           "type": "timeseries"
         },
         {
@@ -843,7 +1123,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -859,7 +1140,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 33
+            "y": 15
           },
           "id": 24,
           "options": {
@@ -936,7 +1217,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -952,7 +1234,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 33
+            "y": 15
           },
           "id": 21,
           "options": {
@@ -1029,7 +1311,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1045,7 +1328,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 39
+            "y": 21
           },
           "id": 23,
           "options": {
@@ -1122,7 +1405,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1138,7 +1422,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 39
+            "y": 21
           },
           "id": 3,
           "options": {
@@ -1214,7 +1498,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1230,7 +1515,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 45
+            "y": 27
           },
           "id": 4,
           "options": {
@@ -1306,7 +1591,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -1322,7 +1608,7 @@
             "h": 6,
             "w": 11,
             "x": 12,
-            "y": 45
+            "y": 27
           },
           "id": 5,
           "options": {
@@ -1415,7 +1701,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 51
+            "y": 33
           },
           "id": 9,
           "options": {
@@ -1507,7 +1793,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 51
+            "y": 33
           },
           "id": 6,
           "options": {
@@ -1599,7 +1885,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 57
+            "y": 39
           },
           "id": 26,
           "options": {
@@ -1691,7 +1977,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 57
+            "y": 39
           },
           "id": 8,
           "options": {
@@ -1783,7 +2069,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 63
+            "y": 45
           },
           "id": 82,
           "options": {
@@ -1875,7 +2161,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 63
+            "y": 45
           },
           "id": 28,
           "options": {
@@ -1967,7 +2253,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 69
+            "y": 51
           },
           "id": 22,
           "options": {
@@ -2012,6 +2298,376 @@
       },
       "id": 45,
       "panels": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 4
+          },
+          "id": 80,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-consensus\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Consensus module queue latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 4
+          },
+          "id": 104,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_consensus{reporting_sequencer=\"$reporting_sequencer\"}",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Consensus module queue size",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 0,
+            "y": 11
+          },
+          "id": 81,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-segment-module\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Segment module queue latency",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 0,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 11
+          },
+          "id": 105,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_segment_module{reporting_sequencer=\"$reporting_sequencer\"}",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Segment module queue size",
+          "type": "timeseries"
+        },
         {
           "datasource": {
             "type": "prometheus",
@@ -2069,7 +2725,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2085,7 +2742,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 4
+            "y": 18
           },
           "hideTimeOverride": true,
           "id": 39,
@@ -2168,7 +2825,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2184,7 +2842,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 4
+            "y": 18
           },
           "id": 46,
           "options": {
@@ -2261,7 +2919,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2277,7 +2936,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 11
+            "y": 25
           },
           "id": 88,
           "options": {
@@ -2354,7 +3013,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2370,7 +3030,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 11
+            "y": 25
           },
           "id": 87,
           "options": {
@@ -2447,7 +3107,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2463,7 +3124,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 17
+            "y": 31
           },
           "id": 86,
           "options": {
@@ -2540,7 +3201,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2556,7 +3218,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 17
+            "y": 31
           },
           "id": 83,
           "options": {
@@ -2632,191 +3294,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 0,
-            "y": 24
-          },
-          "id": 80,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-consensus\"}[$__rate_interval])))",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Consensus module queue latency",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              },
-              "unit": "s"
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 7,
-            "w": 12,
-            "x": 12,
-            "y": 24
-          },
-          "id": 81,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": false
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": {
-                "type": "prometheus",
-                "uid": "prometheus"
-              },
-              "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"module-queue-segment-module\"}[$__rate_interval])))",
-              "legendFormat": "__auto",
-              "range": true,
-              "refId": "A"
-            }
-          ],
-          "title": "Segment module queue latency",
-          "type": "timeseries"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "drawStyle": "line",
-                "fillOpacity": 10,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2832,7 +3311,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 31
+            "y": 38
           },
           "id": 63,
           "options": {
@@ -2908,7 +3387,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -2924,7 +3404,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 31
+            "y": 38
           },
           "id": 47,
           "options": {
@@ -3000,7 +3480,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3016,7 +3497,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 37
+            "y": 44
           },
           "id": 64,
           "options": {
@@ -3092,7 +3573,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -3108,7 +3590,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 37
+            "y": 44
           },
           "id": 50,
           "options": {
@@ -3200,7 +3682,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 44
+            "y": 51
           },
           "id": 52,
           "options": {
@@ -3292,7 +3774,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 44
+            "y": 51
           },
           "id": 66,
           "options": {
@@ -3384,7 +3866,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 50
+            "y": 57
           },
           "id": 68,
           "options": {
@@ -3476,7 +3958,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 50
+            "y": 57
           },
           "id": 76,
           "options": {
@@ -3582,7 +4064,7 @@
             "h": 7,
             "w": 24,
             "x": 0,
-            "y": 5
+            "y": 126
           },
           "id": 51,
           "options": {
@@ -3674,7 +4156,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 12
+            "y": 133
           },
           "id": 84,
           "options": {
@@ -3766,7 +4248,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 12
+            "y": 133
           },
           "id": 77,
           "options": {
@@ -3857,7 +4339,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 19
+            "y": 140
           },
           "id": 97,
           "options": {
@@ -3948,7 +4430,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 19
+            "y": 140
           },
           "id": 95,
           "options": {
@@ -4039,7 +4521,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 26
+            "y": 147
           },
           "id": 94,
           "options": {
@@ -4130,7 +4612,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 26
+            "y": 147
           },
           "id": 100,
           "options": {
@@ -4236,7 +4718,7 @@
             "h": 7,
             "w": 24,
             "x": 0,
-            "y": 6
+            "y": 127
           },
           "id": 72,
           "options": {
@@ -4328,7 +4810,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 13
+            "y": 134
           },
           "id": 91,
           "options": {
@@ -4419,7 +4901,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 13
+            "y": 134
           },
           "id": 96,
           "options": {
@@ -4510,7 +4992,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 20
+            "y": 141
           },
           "id": 98,
           "options": {
@@ -4601,7 +5083,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 20
+            "y": 141
           },
           "id": 99,
           "options": {
@@ -4706,7 +5188,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 29
+            "y": 128
           },
           "id": 85,
           "options": {
@@ -4797,7 +5279,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 29
+            "y": 128
           },
           "id": 40,
           "options": {
@@ -4888,7 +5370,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 35
+            "y": 134
           },
           "id": 41,
           "options": {
@@ -4979,7 +5461,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 35
+            "y": 134
           },
           "id": 42,
           "options": {
@@ -5071,7 +5553,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 41
+            "y": 140
           },
           "id": 78,
           "options": {
@@ -5163,7 +5645,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 41
+            "y": 140
           },
           "id": 79,
           "options": {
@@ -5254,7 +5736,7 @@
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 47
+            "y": 146
           },
           "id": 43,
           "options": {
@@ -5345,7 +5827,7 @@
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 47
+            "y": 146
           },
           "id": 44,
           "options": {
@@ -5451,7 +5933,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 30
+            "y": 38
           },
           "id": 48,
           "options": {
@@ -5543,7 +6025,7 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 30
+            "y": 38
           },
           "id": 53,
           "options": {
@@ -5635,7 +6117,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 38
+            "y": 46
           },
           "id": 54,
           "options": {
@@ -5725,7 +6207,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -5741,7 +6224,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 31
+            "y": 9
           },
           "id": 55,
           "options": {
@@ -5789,7 +6272,7 @@
                 "axisPlacement": "auto",
                 "barAlignment": 0,
                 "drawStyle": "line",
-                "fillOpacity": 10,
+                "fillOpacity": 0,
                 "gradientMode": "none",
                 "hideFrom": {
                   "legend": false,
@@ -5817,15 +6300,15 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
                     "value": 80
                   }
                 ]
-              },
-              "unit": "s"
+              }
             },
             "overrides": []
           },
@@ -5833,9 +6316,9 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 31
+            "y": 9
           },
-          "id": 30,
+          "id": 106,
           "options": {
             "legend": {
               "calcs": [],
@@ -5855,13 +6338,13 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"output-block-fetch-batches\"}[$__rate_interval])))",
+              "expr": "daml_sequencer_bftordering_performance_moduleQueueSize_output{reporting_sequencer=\"$reporting_sequencer\"}",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Total block batches fetch time",
+          "title": "Output module queue size",
           "type": "timeseries"
         },
         {
@@ -5910,7 +6393,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -5926,7 +6410,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 38
+            "y": 16
           },
           "id": 36,
           "options": {
@@ -6002,7 +6486,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6018,9 +6503,9 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 38
+            "y": 16
           },
-          "id": 34,
+          "id": 30,
           "options": {
             "legend": {
               "calcs": [],
@@ -6040,13 +6525,13 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_topology_query_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"output-block-fetch-batches\"}[$__rate_interval])))",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Query topology",
+          "title": "Total block batches fetch time",
           "type": "timeseries"
         },
         {
@@ -6094,7 +6579,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6110,7 +6596,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 45
+            "y": 23
           },
           "id": 37,
           "options": {
@@ -6186,7 +6672,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6202,9 +6689,9 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 45
+            "y": 23
           },
-          "id": 32,
+          "id": 34,
           "options": {
             "legend": {
               "calcs": [],
@@ -6224,13 +6711,13 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputMetadataStore.insertEpochIfMissing\"}[$__rate_interval])))",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_topology_query_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
               "legendFormat": "__auto",
               "range": true,
               "refId": "A"
             }
           ],
-          "title": "Insert epoch metadata",
+          "title": "Query topology",
           "type": "timeseries"
         },
         {
@@ -6278,7 +6765,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6291,10 +6779,10 @@
             "overrides": []
           },
           "gridPos": {
-            "h": 6,
+            "h": 7,
             "w": 12,
             "x": 0,
-            "y": 52
+            "y": 30
           },
           "id": 31,
           "options": {
@@ -6323,6 +6811,99 @@
             }
           ],
           "title": "Save blacklist leader selection policy state",
+          "type": "timeseries"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "palette-classic"
+              },
+              "custom": {
+                "axisCenteredZero": false,
+                "axisColorMode": "text",
+                "axisLabel": "",
+                "axisPlacement": "auto",
+                "barAlignment": 0,
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                },
+                "lineInterpolation": "linear",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "scaleDistribution": {
+                  "type": "linear"
+                },
+                "showPoints": "auto",
+                "spanNulls": false,
+                "stacking": {
+                  "group": "A",
+                  "mode": "none"
+                },
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 7,
+            "w": 12,
+            "x": 12,
+            "y": 30
+          },
+          "id": 32,
+          "options": {
+            "legend": {
+              "calcs": [],
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": false
+            },
+            "tooltip": {
+              "mode": "single",
+              "sort": "none"
+            }
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "prometheus",
+                "uid": "prometheus"
+              },
+              "editorMode": "code",
+              "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_performance_ordering_stage_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\", ordering_stage=~\"com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputMetadataStore.insertEpochIfMissing\"}[$__rate_interval])))",
+              "legendFormat": "__auto",
+              "range": true,
+              "refId": "A"
+            }
+          ],
+          "title": "Insert epoch metadata",
           "type": "timeseries"
         }
       ],
@@ -6384,7 +6965,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6400,7 +6982,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 32
+            "y": 10
           },
           "id": 35,
           "options": {
@@ -6476,7 +7058,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6492,7 +7075,7 @@
             "h": 8,
             "w": 24,
             "x": 0,
-            "y": 40
+            "y": 18
           },
           "id": 56,
           "options": {
@@ -6582,7 +7165,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6598,7 +7182,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 33
+            "y": 11
           },
           "id": 25,
           "options": {
@@ -6674,7 +7258,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6690,7 +7275,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 33
+            "y": 11
           },
           "id": 27,
           "options": {
@@ -6766,7 +7351,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6782,7 +7368,7 @@
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 40
+            "y": 18
           },
           "id": 57,
           "options": {
@@ -6858,7 +7444,8 @@
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "green"
+                    "color": "green",
+                    "value": null
                   },
                   {
                     "color": "red",
@@ -6874,7 +7461,7 @@
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 40
+            "y": 18
           },
           "id": 61,
           "options": {
@@ -6938,8 +7525,8 @@
       {
         "current": {
           "selected": false,
-          "text": "SEQ::sequencer1::1220e31aff6262433ab0241e67539218aab1c6126be868da1f281db1be82c53193e6",
-          "value": "SEQ::sequencer1::1220e31aff6262433ab0241e67539218aab1c6126be868da1f281db1be82c53193e6"
+          "text": "SEQ::sequencer1::122061483eec4ae74aeed3b39c128bc5f046bdce04cbf38a01e77ca59daf9dcc2878",
+          "value": "SEQ::sequencer1::122061483eec4ae74aeed3b39c128bc5f046bdce04cbf38a01e77ca59daf9dcc2878"
         },
         "datasource": {
           "type": "prometheus",
@@ -6975,7 +7562,7 @@
         "name": "percentile",
         "options": [
           {
-            "selected": false,
+            "selected": true,
             "text": ".5",
             "value": ".5"
           },
@@ -7010,7 +7597,7 @@
             "value": ".99"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": ".999",
             "value": ".999"
           }

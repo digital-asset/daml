@@ -94,6 +94,7 @@ class OrderingModuleSystemInitializer[
       p2pNetworkOutRef,
       consensusRef,
       outputRef,
+      pruningRef,
       p2pNetworkRefFactory,
     )
   }

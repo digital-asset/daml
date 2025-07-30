@@ -152,7 +152,13 @@ object DamlDefinitionsBuilders {
                       None
                   }
                   SerializableType.ContractId(typeId)
-                case _ => nonSerializable
+                case Ast.BTTextMap =>
+                  SerializableType.GenMap(
+                    SerializableType.Text,
+                    toSerializableType(arg, List.empty),
+                  )
+                case _ =>
+                  nonSerializable
               }
             case k :: v :: Nil =>
               bt match {

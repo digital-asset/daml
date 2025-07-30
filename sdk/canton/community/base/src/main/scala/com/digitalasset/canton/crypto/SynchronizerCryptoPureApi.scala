@@ -61,7 +61,7 @@ final class SynchronizerCryptoPureApi(
       _ <- pureCrypto.verifySignature(bytes, publicKey, signature, usage)
     } yield ()
 
-  override protected[crypto] def decryptWithInternal[M](
+  override private[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(

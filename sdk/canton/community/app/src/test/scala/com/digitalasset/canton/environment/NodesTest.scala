@@ -13,7 +13,7 @@ import com.daml.metrics.api.testing.InMemoryMetricsFactory
 import com.daml.metrics.api.{MetricName, MetricsContext}
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.digitalasset.canton.*
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -177,13 +177,13 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
     override def metrics: BaseMetrics = TestNodeBootstrap.this.arguments.metrics
 
-    override protected val adminTokenConfig: Option[String] = None
+    override protected val adminTokenConfig: AdminTokenConfig = AdminTokenConfig()
 
     override protected def customNodeStages(
         storage: Storage,
         crypto: Crypto,
         adminServerRegistry: CantonMutableHandlerRegistry,
-        adminToken: CantonAdminToken,
+        adminTokenDispenser: CantonAdminTokenDispenser,
         nodeId: UniqueIdentifier,
         manager: AuthorizedTopologyManager,
         healthReporter: GrpcHealthReporter,

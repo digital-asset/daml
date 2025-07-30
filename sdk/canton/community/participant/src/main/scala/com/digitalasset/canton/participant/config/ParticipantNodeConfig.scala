@@ -177,8 +177,8 @@ object RemoteParticipantConfig {
   * @param authServices
   *   type of authentication services used by ledger-api server. If empty, we use a wildcard.
   *   Otherwise, the first service response that does not say "unauthenticated" will be used.
-  * @param adminToken
-  *   token that should grant admin access when presented by a client on the ledger api
+  * @param adminTokenConfig
+  *   configuration to grant admin access when presented by a client on the ledger api
   * @param jwtTimestampLeeway
   *   leeway parameters for JWTs
   * @param keepAliveServer
@@ -208,7 +208,7 @@ object RemoteParticipantConfig {
   *   enable command inspection service over the ledger api
   * @param identityProviderManagement
   *   configurations pertaining to the ledger api server's "identity provider management service"
-  * @param interactiveSubmissionServiceConfig
+  * @param interactiveSubmissionService
   *   config for interactive submission service over the ledger api
   */
 final case class LedgerApiServerConfig(
@@ -216,7 +216,7 @@ final case class LedgerApiServerConfig(
     internalPort: Option[Port] = None,
     tls: Option[TlsServerConfig] = None,
     authServices: Seq[AuthServiceConfig] = Seq.empty,
-    adminToken: Option[String] = None,
+    adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
       LedgerApiKeepAliveServerConfig()
@@ -337,7 +337,7 @@ object TestingTimeServiceConfig {
   *   Disable the package upgrade verification on DAR upload
   * @param packageMetadataView
   *   Initialization parameters for the package metadata in-memory store.
-  * @param automaticallyConnectToUpgradedSynchronizer
+  * @param automaticallyPerformLogicalSynchronizerUpgrade
   *   Whether the participant automatically performs a handshake with the upgraded synchronizer
   *   after receiving enough sequencer connections, and whether the participants automatically
   *   connects to the synchronizer after the upgrade time.
@@ -373,7 +373,7 @@ final case class ParticipantNodeParameterConfig(
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     // TODO(#25344): check whether this should be removed
-    automaticallyConnectToUpgradedSynchronizer: Boolean = true,
+    automaticallyPerformLogicalSynchronizerUpgrade: Boolean = true,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

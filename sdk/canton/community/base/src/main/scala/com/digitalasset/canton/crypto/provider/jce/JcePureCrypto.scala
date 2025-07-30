@@ -12,9 +12,9 @@ import com.digitalasset.canton.config.{
   CryptoProvider,
   SessionEncryptionKeyCacheConfig,
 }
-import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
+import com.digitalasset.canton.crypto.{SignatureCheckError, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
   DefaultDeserializationError,
@@ -154,15 +154,14 @@ class JcePureCrypto(
     val jceInternalName: String = "RSA/NONE/OAEPWithSHA256AndMGF1Padding"
   }
 
-  /** Parses and converts a public key to a java public key. We store the deserialization result in
-    * a cache.
+  /** Converts a public key to a java public key. We store the deserialization result in a cache.
     *
     * @return
     *   Either an error or the converted java private key
     */
-  private def parseAndGetPublicKey[E, T <: JPublicKey](
+  private def toJavaPublicKey[E, T <: JPublicKey](
       publicKey: PublicKey,
-      checker: PartialFunction[JPublicKey, Either[E, T]],
+      typeMatcher: PartialFunction[JPublicKey, Either[E, T]],
       errFn: String => E,
   ): Either[E, T] =
     for {
@@ -177,7 +176,7 @@ class JcePureCrypto(
               ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
-      checkedPublicKey <- checker(publicKey)
+      checkedPublicKey <- typeMatcher(publicKey)
     } yield checkedPublicKey
 
   /** Parses and converts a private key. We store the deserialization result in a cache.
@@ -338,7 +337,7 @@ class JcePureCrypto(
       hashType: HashType,
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
         { case k: ECPublicKey => Right(k) },
         SignatureCheckError.InvalidKeyError.apply,
@@ -413,13 +412,26 @@ class JcePureCrypto(
       publicKey: SigningPublicKey
   ): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      ed25519PublicKey <- parseAndGetPublicKey(
+      ed25519PublicKey <- toJavaPublicKey(
         publicKey,
         { case k: BCEdDSAPublicKey => Right(k) },
         SignatureCheckError.InvalidKeyError.apply,
       )
       verifier <- Either
-        .catchOnly[GeneralSecurityException](new Ed25519Verify(ed25519PublicKey.getPointEncoding))
+        .catchOnly[GeneralSecurityException] {
+          new PublicKeyVerify {
+            override def verify(signature: Array[Byte], data: Array[Byte]): Unit = {
+              val verifier = JSignature.getInstance(
+                "Ed25519",
+                JceSecurityProvider.bouncyCastleProvider,
+              )
+              verifier.initVerify(ed25519PublicKey)
+              verifier.update(data)
+              val verified = verifier.verify(signature)
+              if (!verified) throw new GeneralSecurityException("Invalid signature")
+            }
+          }
+        }
         .leftMap(err =>
           SignatureCheckError.InvalidKeyError(show"Failed to get verifier for Ed25519: $err")
         )
@@ -483,28 +495,23 @@ class JcePureCrypto(
           signingKey.id,
           SigningError.InvalidKeyUsage.apply,
         )
+      // TODO(#26423): private key format should be validated at key creation/deserialization
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
         Set(CryptoKeyFormat.DerPkcs8Pki),
         SigningError.UnsupportedKeyFormat.apply,
       )
-      algoSpec <- CryptoKeyValidation
+      validAlgorithmSpec <- CryptoKeyValidation
         .selectSigningAlgorithmSpec(
           signingKey.keySpec,
           signingAlgorithmSpec,
           signingAlgorithmSpecs.allowed,
-          algorithmSpec =>
-            SigningError.UnsupportedAlgorithmSpec(algorithmSpec, signingAlgorithmSpecs.allowed),
+          () =>
+            SigningError.NoMatchingAlgorithmSpec(
+              "No matching algorithm spec for key spec " + signingKey.keySpec
+            ),
         )
-      _ <- CryptoKeyValidation.ensureCryptoSpec(
-        signingKey.keySpec,
-        signingAlgorithmSpec,
-        signingAlgorithmSpec.supportedSigningKeySpecs,
-        signingAlgorithmSpecs.allowed,
-        SigningError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
-        SigningError.UnsupportedAlgorithmSpec.apply,
-      )
-      signer <- algoSpec match {
+      signer <- validAlgorithmSpec match {
         case SigningAlgorithmSpec.Ed25519 => edDsaSigner(signingKey)
         case SigningAlgorithmSpec.EcDsaSha256 => ecDsaSigner(signingKey, HashType.SHA256)
         case SigningAlgorithmSpec.EcDsaSha384 => ecDsaSigner(signingKey, HashType.SHA384)
@@ -545,7 +552,17 @@ class JcePureCrypto(
        * If this one-to-one mapping is ever broken, this derivation must be revisited.
        */
       signingAlgorithmSpec <- signature.signingAlgorithmSpec match {
-        case Some(spec) => Right(spec)
+        case Some(algoSpec) =>
+          CryptoKeyValidation
+            .ensureCryptoSpec(
+              publicKey.keySpec,
+              algoSpec,
+              algoSpec.supportedSigningKeySpecs,
+              signingAlgorithmSpecs.allowed,
+              SignatureCheckError.KeyAlgoSpecsMismatch(_, algoSpec, _),
+              SignatureCheckError.UnsupportedAlgorithmSpec.apply,
+            )
+            .map(_ => algoSpec)
         case None =>
           signingAlgorithmSpecs.allowed
             .find(_.supportedSigningKeySpecs.contains(publicKey.keySpec))
@@ -556,17 +573,11 @@ class JcePureCrypto(
                 )
             )
       }
-
       _ <- CryptoKeyValidation.ensureUsage(
         usage,
         publicKey.usage,
         publicKey.id,
         SignatureCheckError.InvalidKeyUsage.apply,
-      )
-      _ <- CryptoKeyValidation.ensureFormat(
-        publicKey.format,
-        Set(CryptoKeyFormat.DerX509Spki),
-        SignatureCheckError.UnsupportedKeyFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureSignatureFormat(
         signature.format,
@@ -618,12 +629,9 @@ class JcePureCrypto(
       publicKey: EncryptionPublicKey,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
-        { case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id)
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        },
+        { case k: ECPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
       encrypter <- Either
@@ -659,12 +667,9 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      ecPublicKey <- parseAndGetPublicKey(
+      ecPublicKey <- toJavaPublicKey(
         publicKey,
-        { case k: ECPublicKey =>
-          checkEcKeyInCurve(k, publicKey.id)
-            .leftMap(err => EncryptionError.InvalidEncryptionKey(err))
-        },
+        { case k: ECPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
       /* this encryption scheme makes use of AES-128-CBC as a DEM (Data Encapsulation Method)
@@ -709,7 +714,7 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      rsaPublicKey <- parseAndGetPublicKey(
+      rsaPublicKey <- toJavaPublicKey(
         publicKey,
         { case k: RSAPublicKey =>
           for {
@@ -761,9 +766,10 @@ class JcePureCrypto(
         publicKey.keySpec,
         encryptionAlgorithmSpec,
         encryptionAlgorithmSpecs.allowed,
-        algorithmSpec =>
-          EncryptionError
-            .UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
+        () =>
+          EncryptionError.NoMatchingAlgorithmSpec(
+            "No matching algorithm spec for key spec " + publicKey.keySpec
+          ),
       )
       .flatMap {
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
@@ -794,8 +800,10 @@ class JcePureCrypto(
       publicKey.keySpec,
       encryptionAlgorithmSpec,
       encryptionAlgorithmSpecs.allowed,
-      algorithmSpec =>
-        EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, encryptionAlgorithmSpecs.allowed),
+      () =>
+        EncryptionError.NoMatchingAlgorithmSpec(
+          "No matching algorithm spec for key spec " + publicKey.keySpec
+        ),
     ) match {
       case Right(spec) if !spec.supportDeterministicEncryption =>
         Left(
@@ -833,12 +841,12 @@ class JcePureCrypto(
       case Left(err) => Left(err)
     }
 
-  override protected[crypto] def decryptWithInternal[M](
+  override private[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(
       deserialize: ByteString => Either[DeserializationError, M]
-  ): Either[DecryptionError, M] = {
+  ): Either[DecryptionError, M] =
     CryptoKeyValidation
       .ensureCryptoSpec(
         privateKey.keySpec,
@@ -849,11 +857,13 @@ class JcePureCrypto(
         DecryptionError.UnsupportedAlgorithmSpec.apply,
       )
       .flatMap { _ =>
+        // TODO(#26423): private key format should be validated at key creation/deserialization
         encrypted.encryptionAlgorithmSpec match {
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case Right(k: ECPrivateKey) =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
@@ -887,6 +897,7 @@ class JcePureCrypto(
             for {
               ecPrivateKey <- parseAndGetPrivateKey(
                 privateKey,
+                // TODO(#26423): Remove once private key validation is implemented
                 { case Right(k: ECPrivateKey) =>
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
@@ -984,7 +995,6 @@ class JcePureCrypto(
             } yield message
         }
       }
-  }
 
   override private[crypto] def encryptSymmetricWith(
       data: ByteString,
@@ -993,6 +1003,7 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
+          // TODO(#26423): private key format should be validated at key creation/deserialization
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
@@ -1008,6 +1019,7 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
+          // TODO(#26423): key format should be validated at key creation/deserialization
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),

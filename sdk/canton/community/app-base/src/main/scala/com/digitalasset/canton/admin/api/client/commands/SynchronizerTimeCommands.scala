@@ -4,6 +4,7 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
+import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   CustomClientTimeout,
   TimeoutType,
@@ -12,13 +13,8 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc.SynchronizerTimeServiceStub
-import com.digitalasset.canton.time.{
-  AwaitTimeRequest,
-  FetchTimeRequest,
-  FetchTimeResponse,
-  NonNegativeFiniteDuration,
-}
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
+import com.digitalasset.canton.time.{FetchTimeResponse, NonNegativeFiniteDuration}
+import com.digitalasset.canton.topology.Synchronizer
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -32,9 +28,19 @@ object SynchronizerTimeCommands {
       v30.SynchronizerTimeServiceGrpc.stub(channel)
   }
 
-  // TODO(#25483) All these commands should probably be logical with resolution on the server
+  final case class FetchTimeRequest(
+      synchronizerO: Option[Synchronizer],
+      freshnessBound: NonNegativeFiniteDuration,
+  ) {
+    def toProtoV30: v30.FetchTimeRequest =
+      v30.FetchTimeRequest(
+        synchronizerO.map(_.toProtoV30),
+        freshnessBound.toProtoPrimitive.some,
+      )
+  }
+
   final case class FetchTime(
-      synchronizerIdO: Option[PhysicalSynchronizerId],
+      synchronizerO: Option[Synchronizer],
       freshnessBound: NonNegativeFiniteDuration,
       timeout: NonNegativeDuration,
   ) extends BaseSynchronizerTimeCommand[
@@ -44,7 +50,7 @@ object SynchronizerTimeCommands {
       ] {
 
     override protected def createRequest(): Either[String, FetchTimeRequest] =
-      Right(FetchTimeRequest(synchronizerIdO, freshnessBound))
+      Right(FetchTimeRequest(synchronizerO, freshnessBound))
 
     override protected def submitRequest(
         service: SynchronizerTimeServiceStub,
@@ -60,14 +66,22 @@ object SynchronizerTimeCommands {
     override def timeoutType: TimeoutType = CustomClientTimeout(timeout)
   }
 
+  final case class AwaitTimeRequest(
+      synchronizerO: Option[Synchronizer],
+      timestamp: CantonTimestamp,
+  ) {
+    def toProtoV30: v30.AwaitTimeRequest =
+      v30.AwaitTimeRequest(synchronizerO.map(_.toProtoV30), timestamp.toProtoTimestamp.some)
+  }
+
   final case class AwaitTime(
-      synchronizerIdO: Option[PhysicalSynchronizerId],
+      synchronizer: Option[Synchronizer],
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
   ) extends BaseSynchronizerTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
 
     override protected def createRequest(): Either[String, AwaitTimeRequest] =
-      Right(AwaitTimeRequest(synchronizerIdO, time))
+      Right(AwaitTimeRequest(synchronizer, time))
 
     override protected def submitRequest(
         service: SynchronizerTimeServiceStub,

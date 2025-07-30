@@ -13,7 +13,6 @@ import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.UnitTestContext.DelayCount
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.fakeCancellableEventExpectingSilence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
   MessageFrom,
@@ -29,7 +28,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   PureFun,
 }
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
+  FakeCancellableEvent,
+  fakeCancellableEventExpectingSilence,
+}
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.scalatest.Assertions.fail
 
 import java.util.concurrent.atomic.AtomicReference
@@ -108,7 +111,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
   ): Unit =
     unsupported()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent =
@@ -137,6 +140,9 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def withNewTraceContext[A](fn: TraceContext => A): A = unsupported()
 
+  override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+    unsupported()
+
   private def unsupported() =
     fail("Unsupported by unit tests")
 }
@@ -154,6 +160,9 @@ object UnitTestContext {
 
 trait WithTraceContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] {
   override def withNewTraceContext[A](fn: TraceContext => A): A = fn(TraceContext.empty)
+
+  override def traceContextOfBatch(items: IterableOnce[HasTraceContext]): TraceContext =
+    TraceContext.empty
 }
 
 class SelfEnv extends Env[SelfEnv] {
@@ -228,7 +237,7 @@ final case class IgnoringUnitTestContext[MessageT]()
     with WithTraceContext[IgnoringUnitTestEnv, MessageT] {
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent =
@@ -243,7 +252,7 @@ final case class IgnoringUnitTestContext[MessageT]()
 }
 
 class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
-  override def asyncSendTraced(
+  override def asyncSend(
       msg: MessageT
   )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = ()
 }
@@ -254,7 +263,6 @@ class FakeTimerCellUnitTestEnv extends BaseIgnoringUnitTestEnv[FakeTimerCellUnit
   override type ActorContextT[MessageT] = FakeTimerCellUnitTestContext[MessageT]
   override type ModuleRefT[MessageT] = ModuleRef[MessageT]
 }
-
 class FakeTimerCellUnitTestContext[MessageT](
     cell: AtomicReference[Option[(DelayCount, MessageT)]]
 ) extends UnitTestContext[FakeTimerCellUnitTestEnv, MessageT] {
@@ -267,14 +275,14 @@ class FakeTimerCellUnitTestContext[MessageT](
 
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent = {
     delayCount += 1
     val newDelayCount = delayCount
     cell.set(Some(newDelayCount -> message))
-    () => true
+    new FakeCancellableEvent()
   }
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
@@ -316,8 +324,10 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 
   override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
-      metricsContext: MetricsContext
-  ): CancellableEvent = () => true
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
+  ): CancellableEvent =
+    new FakeCancellableEvent()
 }
 
 /** Convenience unit test [[Env]] storing queue of pipeToSelf messages.
@@ -330,7 +340,8 @@ class FakePipeToSelfQueueUnitTestEnv
 
 final case class FakePipeToSelfQueueUnitTestContext[MessageT](
     queue: mutable.Queue[() => Option[MessageT]]
-) extends UnitTestContext[FakePipeToSelfQueueUnitTestEnv, MessageT] {
+) extends UnitTestContext[FakePipeToSelfQueueUnitTestEnv, MessageT]
+    with WithTraceContext[FakePipeToSelfQueueUnitTestEnv, MessageT] {
   override def self: ModuleRef[MessageT] = new IgnoringModuleRef()
 
   override def futureContext: FutureContext[FakePipeToSelfQueueUnitTestEnv] =
@@ -387,22 +398,22 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   private var closeActionCell: Option[() => Unit] = None
 
   override def self: ModuleRef[MessageT] = new ModuleRef[MessageT] {
-    override def asyncSendTraced(
+    override def asyncSend(
         msg: MessageT
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       selfQueue.addOne((msg, traceContext))
   }
 
-  override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): CancellableEvent = {
     delayedQueue.addOne(message)
     val delayCount = delayedQueue.size
-    () => {
+    new FakeCancellableEvent(() => {
       lastCancelledEventCell = Some(delayCount -> message)
       true
-    }
+    })
   }
 
   override def futureContext: FutureContext[ProgrammableUnitTestEnv] =

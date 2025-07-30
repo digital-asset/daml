@@ -210,7 +210,8 @@ class GrpcTopologyManagerWriteService(
 
   override def importTopologySnapshot(
       responseObserver: StreamObserver[ImportTopologySnapshotResponse]
-  ): StreamObserver[ImportTopologySnapshotRequest] =
+  ): StreamObserver[ImportTopologySnapshotRequest] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     GrpcStreamingUtils
       .streamFromClient[
         ImportTopologySnapshotRequest,
@@ -224,13 +225,13 @@ class GrpcTopologyManagerWriteService(
         },
         responseObserver,
       )
+  }
 
   private def doImportTopologySnapshot(
       topologySnapshot: ByteString,
       waitToBecomeEffectiveP: Option[Duration],
       store: Option[v30.StoreId],
-  ): Future[ImportTopologySnapshotResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+  )(implicit traceContext: TraceContext): Future[ImportTopologySnapshotResponse] = {
     val res: EitherT[FutureUnlessShutdown, RpcError, ImportTopologySnapshotResponse] = for {
       storedTxs <- EitherT.fromEither[FutureUnlessShutdown](
         StoredTopologyTransactions

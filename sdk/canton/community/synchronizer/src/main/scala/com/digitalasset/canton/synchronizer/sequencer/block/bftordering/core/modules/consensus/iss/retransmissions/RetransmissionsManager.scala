@@ -333,7 +333,7 @@ class RetransmissionsManager[E <: Env[E]](
   private def retransmitCommitCertificates(
       receiver: BftNodeId,
       commitCertificates: Seq[CommitCertificate],
-  ): Unit =
+  )(implicit traceContext: TraceContext): Unit =
     p2pNetworkOut.asyncSend(
       P2PNetworkOut.send(
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
@@ -369,7 +369,9 @@ class RetransmissionsManager[E <: Env[E]](
         None
     }
 
-  private def rescheduleStatusBroadcast(context: E#ActorContextT[Consensus.Message[E]]): Unit = {
+  private def rescheduleStatusBroadcast(
+      context: E#ActorContextT[Consensus.Message[E]]
+  )(implicit traceContext: TraceContext): Unit = {
     periodicStatusCancellable.foreach(_.cancel())
     periodicStatusCancellable = Some(
       context.delayedEvent(

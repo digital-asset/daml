@@ -9,6 +9,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawTreeEvent,
   SynchronizerOffset,
 }
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp

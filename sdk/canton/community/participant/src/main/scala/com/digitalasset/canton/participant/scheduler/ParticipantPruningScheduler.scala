@@ -7,7 +7,7 @@ import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.canton.auth.CantonAdminToken
+import com.digitalasset.canton.auth.CantonAdminTokenDispenser
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -48,7 +48,7 @@ final class ParticipantPruningScheduler(
     ledgerApiClientConfig: ClientConfig,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     storage: Storage, // storage to build the pruning scheduler store that tracks the current schedule
-    adminToken: CantonAdminToken, // the admin token is needed to invoke pruning via the ledger-api
+    adminTokenDispenser: CantonAdminTokenDispenser, // an admin token is needed to invoke pruning via the ledger-api
     pruningConfig: ParticipantStoreConfig,
     override val timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
@@ -260,7 +260,7 @@ final class ParticipantPruningScheduler(
     val clientConfig = LedgerClientConfiguration(
       userId = "admin-prune",
       commandClient = CommandClientConfiguration.default,
-      token = Some(adminToken.secret),
+      token = () => Some(adminTokenDispenser.getCurrentToken.secret),
     )
     val clientChannelConfig = LedgerClientChannelConfiguration(
       ledgerApiClientConfig.tlsConfig.map(x => ClientChannelBuilder.sslContext(x))

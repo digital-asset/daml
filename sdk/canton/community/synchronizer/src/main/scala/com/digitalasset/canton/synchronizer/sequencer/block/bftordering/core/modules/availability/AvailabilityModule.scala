@@ -61,7 +61,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.BftNodeShuffler
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -267,7 +267,7 @@ final class AvailabilityModule[E <: Env[E]](
           case Failure(exception) =>
             abort(s"Failed to add batch $batchId", exception)
           case Success(_) =>
-            Availability.LocalDissemination.LocalBatchesStored(Seq(batchId -> batch))
+            Availability.LocalDissemination.LocalBatchesStored(Seq(Traced(batchId) -> batch))
         }
 
       case Availability.LocalDissemination.LocalBatchesStored(batches) =>
@@ -321,7 +321,8 @@ final class AvailabilityModule[E <: Env[E]](
       LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
     })
 
-  private def signLocalBatchesAndContinue(batches: Seq[(BatchId, OrderingRequestBatch)])(implicit
+  private def signLocalBatchesAndContinue(batches: Seq[(Traced[BatchId], OrderingRequestBatch)])(
+      implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
@@ -329,7 +330,8 @@ final class AvailabilityModule[E <: Env[E]](
       context.sequenceFuture(
         batches.map { case (batchId, batch) =>
           activeCryptoProvider.signHash(
-            AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId, metrics),
+            AvailabilityAck
+              .hashFor(batchId.value, batch.epochNumber, activeMembership.myId, metrics),
             "availability-sign-local-batchId",
           )
         },
@@ -365,16 +367,17 @@ final class AvailabilityModule[E <: Env[E]](
 
     batches.foreach {
       case Availability.LocalDissemination.LocalBatchStoredSigned(
-            batchId,
+            tracedBatchId,
             batch,
             maybeSignature,
           ) =>
+        val batchId = tracedBatchId.value
         maybeSignature.foreach { signature =>
           // Brand-new progress entry (batch first signed or re-signed)
           val progress = DisseminationProgress(
             activeMembership.orderingTopology,
             InProgressBatchMetadata(
-              batchId,
+              tracedBatchId,
               batch.epochNumber,
               batch.stats,
               availabilityEnterInstant = disseminationProtocolState.beingFirstSaved
@@ -398,11 +401,14 @@ final class AvailabilityModule[E <: Env[E]](
         )
         maybeProgress.foreach { progress =>
           if (activeMembership.otherNodes.nonEmpty) {
-            multicast(
-              message = Availability.RemoteDissemination.RemoteBatch
-                .create(batchId, batch, from = thisNode),
-              nodes = activeMembership.otherNodes.diff(progress.acks.map(_.from)),
-            )
+            locally {
+              implicit val traceContext: TraceContext = tracedBatchId.traceContext
+              multicast(
+                message = Availability.RemoteDissemination.RemoteBatch
+                  .create(batchId, batch, from = thisNode),
+                nodes = activeMembership.otherNodes.diff(progress.acks.map(_.from)),
+              )
+            }
           }
         }
     }
@@ -413,7 +419,8 @@ final class AvailabilityModule[E <: Env[E]](
       batchId: BatchId,
       voteToAdd: Option[(BftNodeId, Signature)],
   )(implicit
-      traceContext: TraceContext
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
   ): Unit =
     if (
       updateBatchDisseminationProgress(
@@ -636,18 +643,19 @@ final class AvailabilityModule[E <: Env[E]](
     reviewInProgressBatches(actingOnMessageType)
     reviewBatchesReadyForOrdering(actingOnMessageType)
 
-    val batchesThatNeedSigning = mutable.ListBuffer[BatchId]()
-    val batchesThatNeedMoreVotes = mutable.ListBuffer[(BatchId, DisseminationProgress)]()
+    val batchesThatNeedSigning = mutable.ListBuffer[Traced[BatchId]]()
+    val batchesThatNeedMoreVotes = mutable.ListBuffer[(Traced[BatchId], DisseminationProgress)]()
 
     // Continue all in-progress disseminations
     disseminationProtocolState.disseminationProgress =
       disseminationProtocolState.disseminationProgress.flatMap {
         case (batchId, disseminationProgress) =>
+          val tracedBatchId = disseminationProgress.batchMetadata.batchId
           disseminationProgress
             .voteOf(thisNode) match {
             case None =>
               // Needs re-signing
-              batchesThatNeedSigning.addOne(batchId)
+              batchesThatNeedSigning.addOne(tracedBatchId)
               None
             case _ =>
               if (
@@ -655,7 +663,7 @@ final class AvailabilityModule[E <: Env[E]](
                 disseminationProgress.acks.sizeIs < currentOrderingTopology.size
               ) {
                 // Needs more votes
-                batchesThatNeedMoreVotes.addOne(batchId -> disseminationProgress)
+                batchesThatNeedMoreVotes.addOne(tracedBatchId -> disseminationProgress)
               }
               Some(batchId -> disseminationProgress)
           }
@@ -718,28 +726,34 @@ final class AvailabilityModule[E <: Env[E]](
       debugLogReviewedProgressIfAny(
         actingOnMessageType,
         currentOrderingTopology,
-        batchId,
-        originalAcks = disseminatedBatchMetadata.proofOfAvailability.acks.toSet,
+        batchId.value,
+        originalAcks = disseminatedBatchMetadata.proofOfAvailability.value.acks.toSet,
         reviewedAcks = progress.acks,
       )
-      disseminationProtocolState.disseminationProgress.put(batchId, progress).discard
-      disseminationProtocolState.batchesReadyForOrdering.remove(batchId).discard
+      disseminationProtocolState.disseminationProgress.put(batchId.value, progress).discard
+      disseminationProtocolState.batchesReadyForOrdering.remove(batchId.value).discard
     }
   }
 
   private def fetchBatchesAndThenSelfSend(
-      batchIds: Iterable[BatchId]
-  )(f: Seq[(BatchId, OrderingRequestBatch)] => LocalDissemination)(implicit
+      batchIds: Iterable[Traced[BatchId]]
+  )(f: Seq[(Traced[BatchId], OrderingRequestBatch)] => LocalDissemination)(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    pipeToSelf(availabilityStore.fetchBatches(batchIds.toSeq)) {
+    pipeToSelf(availabilityStore.fetchBatches(batchIds.map(_.value).toSeq)) {
       case Failure(error) =>
         abort("Failed to fetch batches", error)
       case Success(AvailabilityStore.MissingBatches(missingBatchIds)) =>
         abort(s"Some batches couldn't be fetched: $missingBatchIds")
       case Success(AvailabilityStore.AllBatches(batches)) =>
-        f(batches)
+        val batchIdToTracedMap = batchIds.view.map(x => x.value -> x).toMap
+        val batchesWithTraced = batches.map { case (batchId, batch) =>
+          val tracedBatchId =
+            batchIdToTracedMap.getOrElse(batchId, Traced(batchId)(TraceContext.empty))
+          tracedBatchId -> batch
+        }
+        f(batchesWithTraced)
     }
 
   private def debugLogReviewedProgressIfAny(
@@ -759,7 +773,8 @@ final class AvailabilityModule[E <: Env[E]](
   private def advanceAllDisseminationProgressAndShipAvailableConsensusProposals(
       actingOnMessageType: => String
   )(implicit
-      traceContext: TraceContext
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
   ): Unit = {
     disseminationProtocolState.disseminationProgress
       .foreach { case (batchId, disseminationProgress) =>
@@ -922,7 +937,7 @@ final class AvailabilityModule[E <: Env[E]](
             // We received all the batches that the output module requested
             // so we can send them to output module
             request.missingBatches.clear()
-            dependencies.output.asyncSendTraced(
+            dependencies.output.asyncSend(
               Output.BlockDataFetched(CompleteBlockData(request.blockForOutput, batches))
             )
         }
@@ -1186,7 +1201,7 @@ final class AvailabilityModule[E <: Env[E]](
     //  bandwidth and should be able to support it. However, presently there is no evidence that this is a winning
     //  strategy in a majority of situations.
     context
-      .delayedEventTraced(
+      .delayedEvent(
         timeout,
         Availability.LocalOutputFetch.FetchRemoteBatchDataTimeout(batchId),
       )
@@ -1215,7 +1230,7 @@ final class AvailabilityModule[E <: Env[E]](
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def shipAvailableConsensusProposals(
       actingOnMessageType: => String
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit context: E#ActorContextT[Availability.Message[E]]): Unit =
     while (
       disseminationProtocolState.batchesReadyForOrdering.nonEmpty &&
       disseminationProtocolState.toBeProvidedToConsensus.nonEmpty
@@ -1232,22 +1247,27 @@ final class AvailabilityModule[E <: Env[E]](
   private def assembleAndSendConsensusProposal(
       actingOnMessageType: => String,
       toBeProvidedToConsensus: ToBeProvidedToConsensus,
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit context: E#ActorContextT[Availability.Message[E]]): Unit = {
     val batchesToBeProposed = // May be empty if no batches are ready for ordering
       disseminationProtocolState.batchesReadyForOrdering.take(
         toBeProvidedToConsensus.maxBatchesPerProposal.toInt
       )
     emitBatchesQueuedForBlockInclusionLatencies(batchesToBeProposed)
-    val proposal =
-      Consensus.LocalAvailability.ProposalCreated(
-        OrderingBlock(batchesToBeProposed.view.values.map(_.proofOfAvailability).toSeq),
-        toBeProvidedToConsensus.forEpochNumber,
+    locally {
+      val tracedProofOfAvailabilities = batchesToBeProposed.view.values.map(_.proofOfAvailability)
+      implicit val traceContext: TraceContext =
+        context.traceContextOfBatch(tracedProofOfAvailabilities)
+      val proposal =
+        Consensus.LocalAvailability.ProposalCreated(
+          OrderingBlock(tracedProofOfAvailabilities.map(_.value).toSeq),
+          toBeProvidedToConsensus.forEpochNumber,
+        )
+      logger.debug(
+        s"$actingOnMessageType: providing proposal with batch IDs " +
+          s"${proposal.orderingBlock.proofs.map(_.batchId)} to local consensus"
       )
-    logger.debug(
-      s"$actingOnMessageType: providing proposal with batch IDs " +
-        s"${proposal.orderingBlock.proofs.map(_.batchId)} to local consensus"
-    )
-    dependencies.consensus.asyncSend(proposal)
+      dependencies.consensus.asyncSend(proposal)
+    }
     disseminationProtocolState.lastProposalTime = Some(clock.now)
     emitDisseminationStateStats(metrics, disseminationProtocolState)
   }
@@ -1264,7 +1284,7 @@ final class AvailabilityModule[E <: Env[E]](
 
     if (atMost > 0) {
       logger.debug(s"$actingOnMessageType: requesting at most $atMost batches from local mempool")
-      dependencies.mempool.asyncSend(Mempool.CreateLocalBatches(atMost.toShort))
+      dependencies.mempool.asyncSendNoTrace(Mempool.CreateLocalBatches(atMost.toShort))
     }
   }
 
@@ -1301,7 +1321,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSendTraced(
+        dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             to,
@@ -1322,7 +1342,7 @@ final class AvailabilityModule[E <: Env[E]](
       )
     )(
       handleFailure(s"Can't sign message $message") { signedMessage =>
-        dependencies.p2pNetworkOut.asyncSendTraced(
+        dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             nodes,

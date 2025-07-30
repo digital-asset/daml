@@ -149,6 +149,10 @@ message GetConnectedSynchronizersRequest {
   // Defaults to the participant id of the host participant.
   // Optional
   string participant_id = 2;
+
+  // The ID of the identity provider configured by ``Identity Provider Config``
+  // Optional, if not set, assume the user is managed by the default identity provider.
+  string identity_provider_id = 3;
 }
 
 message GetConnectedSynchronizersResponse {

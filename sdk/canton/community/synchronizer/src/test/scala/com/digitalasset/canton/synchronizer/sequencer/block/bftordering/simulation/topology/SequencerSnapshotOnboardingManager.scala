@@ -171,7 +171,7 @@ class SequencerSnapshotOnboardingManager(
         Output.SequencerSnapshotMessage.GetAdditionalInfo(
           sequencerActivationTime.value,
           new ModuleRef[SequencerNode.SnapshotMessage] {
-            override def asyncSendTraced(msg: SequencerNode.SnapshotMessage)(implicit
+            override def asyncSend(msg: SequencerNode.SnapshotMessage)(implicit
                 traceContext: TraceContext,
                 metricsContext: MetricsContext,
             ): Unit =

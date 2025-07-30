@@ -173,7 +173,7 @@ object EpochStateTest {
       @unused _epochMetricsAccumulator: EpochMetricsAccumulator,
   ): ModuleRef[ConsensusSegment.Message] =
     new ModuleRef[ConsensusSegment.Message] {
-      override def asyncSendTraced(
+      override def asyncSend(
           msg: ConsensusSegment.Message
       )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
         msg match {

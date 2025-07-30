@@ -4,17 +4,17 @@
 package com.digitalasset.canton.integration.tests.multihostedparties
 
 import com.digitalasset.canton.BaseTest.CantonLfV21
-import com.digitalasset.canton.BigDecimalImplicits.IntToBigDecimal
 import com.digitalasset.canton.admin.api.client.data.AddPartyStatus
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.console.{LocalInstanceReference, LocalParticipantReference}
+import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
+import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
+import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -24,7 +24,6 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.ledger.client.LedgerClientUtils
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
-import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.party.PartyReplicationTestInterceptorImpl
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
@@ -33,7 +32,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{config, integration}
 import monocle.macros.syntax.lens.*
 
-import scala.concurrent.duration.*
 import scala.jdk.CollectionConverters.*
 
 /** Objective: Test party replication of non-local parties such as a decentralized party with
@@ -47,6 +45,7 @@ import scala.jdk.CollectionConverters.*
   */
 sealed trait OnlinePartyReplicationDecentralizedPartyTest
     extends CommunityIntegrationTest
+    with OnlinePartyReplicationTestHelpers
     with SharedEnvironment {
 
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
@@ -159,13 +158,13 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     )
 
     val amounts = (1 to numContractsInCreateBatch)
-    createIous(participant1, alice, decentralizedParty, amounts)
-    dpToAlice = createIous(participant1, decentralizedParty, alice, amounts)
+    IouSyntax.createIous(participant1, alice, decentralizedParty, amounts)
+    dpToAlice = IouSyntax.createIous(participant1, decentralizedParty, alice, amounts)
 
     // Create some decentralized party stakeholder contracts shared with a party (Bob) already
     // on the target participant P2.
-    createIous(participant2, bob, decentralizedParty, amounts)
-    createIous(participant1, decentralizedParty, bob, amounts)
+    IouSyntax.createIous(participant2, bob, decentralizedParty, amounts)
+    IouSyntax.createIous(participant1, decentralizedParty, bob, amounts)
   }
 
   "Replicate a decentralized party" onlyRunWith ProtocolVersion.dev in { implicit env =>
@@ -243,44 +242,18 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     val expectedNumContracts = NonNegativeInt.tryCreate(numContractsInCreateBatch * 3 + 1)
 
     // Wait until both SP and TP report that party replication has completed.
-    eventually(retryOnTestFailuresOnly = false, maxPollInterval = 10.millis) {
-      val tpStatus = targetParticipant.parties.get_add_party_status(
-        addPartyRequestId = addPartyRequestId
-      )
-      logger.info(s"TP status: $tpStatus")
-      val spStatus = loggerFactory.assertLogsUnorderedOptional(
-        sourceParticipant.parties.get_add_party_status(
-          addPartyRequestId = addPartyRequestId
-        ),
-        // Ignore UNKNOWN status if SP has not found out about the request yet.
-        // Besides logging the error produces a CommandFailure error message, hence
-        // the retryOnTestFailuresOnly = false above.
-        LogEntryOptionality.Optional -> (_.errorMessage should include(
-          "UNKNOWN/Add party request id"
-        )),
-      )
-      logger.info(s"SP status: $spStatus")
-      (tpStatus.status, spStatus.status) match {
-        case (
-              AddPartyStatus.Completed(_, _, `expectedNumContracts`),
-              AddPartyStatus.Completed(_, _, `expectedNumContracts`),
-            ) =>
-          logger.info(
-            s"TP and SP completed party replication with status $tpStatus and $spStatus"
-          )
-        case (
-              AddPartyStatus.Completed(_, _, numSpContracts),
-              AddPartyStatus.Completed(_, _, numTpContracts),
-            ) =>
-          logger.warn(
-            s"TP and SP completed party replication but had unexpected number of contracts: $numSpContracts and $numTpContracts, expected $expectedNumContracts"
-          )
-        case (targetStatus, sourceStatus) =>
-          fail(
-            s"TP and SP did not complete party replication. TP and SP status: $targetStatus and $sourceStatus"
-          )
-      }
-    }
+    loggerFactory.assertLogsUnorderedOptional(
+      eventuallyOnPRCompletes(
+        sourceParticipant,
+        targetParticipant,
+        addPartyRequestId,
+        expectedNumContracts,
+      ),
+      // Ignore UNKNOWN status if SP has not found out about the request yet.
+      LogEntryOptionality.OptionalMany -> (_.errorMessage should include(
+        "UNKNOWN/Add party request id"
+      )),
+    )
 
     // Expect all the coins to become indexed and visible via the ledger API.
     eventually() {
@@ -342,29 +315,6 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     logger.info(s"Decentralized namespace ${decentralizedNamespace.namespace} authorized")
 
     PartyId.tryCreate(name, decentralizedNamespace.namespace)
-  }
-
-  private def createIous(
-      participant: LocalParticipantReference,
-      payer: PartyId,
-      owner: PartyId,
-      amounts: Seq[Int],
-  ): Seq[Iou.Contract] = {
-    val createIouCmds = amounts.map(amount =>
-      new Iou(
-        payer.toProtoPrimitive,
-        owner.toProtoPrimitive,
-        new Amount(amount.toBigDecimal, "USD"),
-        List.empty.asJava,
-      ).create.commands.loneElement
-    )
-    clue(s"create ${amounts.size} IOUs") {
-      JavaDecodeUtil
-        .decodeAllCreated(Iou.COMPANION)(
-          participant.ledger_api.javaapi.commands
-            .submit(Seq(payer), createIouCmds)
-        )
-    }
   }
 }
 

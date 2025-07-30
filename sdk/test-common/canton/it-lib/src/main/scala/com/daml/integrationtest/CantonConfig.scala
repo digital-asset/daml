@@ -134,7 +134,7 @@ final case class CantonConfig(
       config = LedgerClientConfiguration(
         userId = token.fold(userId.getOrElse(""))(_ => ""),
         commandClient = CommandClientConfiguration.default,
-        token = token,
+        token = () => token,
       ),
       loggerFactory = NamedLoggerFactory.root,
     )

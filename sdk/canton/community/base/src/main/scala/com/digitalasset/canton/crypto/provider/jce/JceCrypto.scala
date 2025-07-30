@@ -49,6 +49,7 @@ object JceCrypto {
           pureCrypto,
           signingAlgorithmSpecs = cryptoSchemes.signingAlgoSpecs,
           signingKeySpecs = cryptoSchemes.signingKeySpecs,
+          encryptionAlgorithmSpecs = cryptoSchemes.encryptionAlgoSpecs,
           encryptionKeySpecs = cryptoSchemes.encryptionKeySpecs,
           store = cryptoPrivateStoreExtended,
           timeouts = timeouts,

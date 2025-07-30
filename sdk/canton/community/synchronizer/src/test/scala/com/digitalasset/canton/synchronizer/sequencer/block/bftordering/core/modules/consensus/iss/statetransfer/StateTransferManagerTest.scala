@@ -59,6 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeIgnoringModule,
   fakeModuleExpectingSilence,
 }
+import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Random
@@ -226,7 +227,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
               to = otherId,
             )
           )
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
     }
 
     "send a non-empty block transfer response on a request for onboarding" in {
@@ -285,7 +286,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
               to = otherId,
             )
           )
-        )(any[MetricsContext])
+        )(any[TraceContext], any[MetricsContext])
     }
   }
 
@@ -378,7 +379,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           )
         )
       )
-    )(any[MetricsContext])
+    )(any[TraceContext], any[MetricsContext])
   }
 
   "handle empty block transfer response" in {
@@ -509,8 +510,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
             to,
           )
         )
-      )(any[MetricsContext])
-    order.verify(p2pNetworkOutRef, never).asyncSend(any[P2PNetworkOut.Message])(any[MetricsContext])
+      )(any[TraceContext], any[MetricsContext])
+    order
+      .verify(p2pNetworkOutRef, never)
+      .asyncSend(any[P2PNetworkOut.Message])(any[TraceContext], any[MetricsContext])
   }
 }
 

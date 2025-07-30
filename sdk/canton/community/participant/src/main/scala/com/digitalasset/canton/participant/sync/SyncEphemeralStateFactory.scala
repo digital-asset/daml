@@ -122,7 +122,7 @@ class SyncEphemeralStateFactoryImpl(
       inFlightSubmissionSynchronizerTracker <-
         participantNodeEphemeralState.inFlightSubmissionTracker
           .inFlightSubmissionSynchronizerTracker(
-            synchronizerId = persistentState.psid,
+            synchronizerId = persistentState.psid.logical,
             recordOrderPublisher = recordOrderPublisher,
             timeTracker = timeTracker,
             metrics = metrics,

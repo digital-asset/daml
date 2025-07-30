@@ -1850,7 +1850,13 @@ object LedgerApiCommands {
         ] {
 
       override protected def createRequest(): Either[String, GetConnectedSynchronizersRequest] =
-        Right(GetConnectedSynchronizersRequest(partyId.toString, participantId = ""))
+        Right(
+          GetConnectedSynchronizersRequest(
+            partyId.toString,
+            participantId = "",
+            identityProviderId = "",
+          )
+        )
 
       override protected def submitRequest(
           service: StateServiceStub,

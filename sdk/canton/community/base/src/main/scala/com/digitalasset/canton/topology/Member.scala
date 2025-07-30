@@ -5,14 +5,18 @@ package com.digitalasset.canton.topology
 
 import cats.kernel.Order
 import cats.syntax.either.*
-import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
+import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ValueConversionError}
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.topology.admin.v30 as adminProtoV30
+import com.digitalasset.canton.topology.admin.v30.Synchronizer.Kind
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, LfPartyId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
@@ -142,9 +146,46 @@ object Member {
   }
 }
 
-final case class SynchronizerId(uid: UniqueIdentifier) extends Identity {
+sealed trait Synchronizer
+    extends HasUniqueIdentifier
+    with PrettyPrinting
+    with Product
+    with Serializable {
+
+  def logical: SynchronizerId
+
+  def isCompatibleWith(other: Synchronizer): Boolean = (this, other) match {
+    case (a: PhysicalSynchronizerId, b: PhysicalSynchronizerId) => a == b
+    case (a, b) => a.logical == b.logical
+  }
+
+  def toProtoV30: adminProtoV30.Synchronizer = {
+    import adminProtoV30.Synchronizer.*
+
+    this match {
+      case lsid: SynchronizerId =>
+        adminProtoV30.Synchronizer(Kind.Id(lsid.toProtoPrimitive))
+
+      case psid: PhysicalSynchronizerId =>
+        adminProtoV30.Synchronizer(Kind.PhysicalId(psid.toProtoPrimitive))
+    }
+  }
+}
+
+object Synchronizer {
+  def fromProtoV30(proto: adminProtoV30.Synchronizer): ParsingResult[Synchronizer] =
+    proto.kind match {
+      case Kind.Empty => FieldNotSet("kind").asLeft
+      case Kind.Id(lsidP) => SynchronizerId.fromProtoPrimitive(lsidP, "id")
+      case Kind.PhysicalId(psidP) => PhysicalSynchronizerId.fromProtoPrimitive(psidP, "physical_id")
+    }
+}
+
+final case class SynchronizerId(uid: UniqueIdentifier) extends Synchronizer with Identity {
   def unwrap: UniqueIdentifier = uid
   def toLengthLimitedString: String255 = uid.toLengthLimitedString
+
+  override def logical: SynchronizerId = this
 }
 
 object SynchronizerId {
@@ -177,6 +218,91 @@ object SynchronizerId {
 
   def fromString(str: String): Either[String, SynchronizerId] =
     UniqueIdentifier.fromProtoPrimitive_(str).map(SynchronizerId(_)).leftMap(_.message)
+}
+
+final case class PhysicalSynchronizerId(
+    logical: SynchronizerId,
+    protocolVersion: ProtocolVersion,
+    serial: NonNegativeInt,
+) extends Synchronizer {
+  def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
+
+  def uid: UniqueIdentifier = logical.uid
+
+  def toLengthLimitedString: String300 =
+    String300.tryCreate(
+      s"${logical.toLengthLimitedString}${PhysicalSynchronizerId.primaryDelimiter}$suffix"
+    )
+
+  def toProtoPrimitive: String = toLengthLimitedString.unwrap
+
+  override protected def pretty: Pretty[PhysicalSynchronizerId.this.type] =
+    prettyOfString(_ => toLengthLimitedString.unwrap)
+}
+
+object PhysicalSynchronizerId {
+  private val primaryDelimiter: String = "::" // Between LSId and suffix
+  private val secondaryDelimiter: String = "-" // Between components of the suffix
+
+  def apply(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+  ): PhysicalSynchronizerId =
+    PhysicalSynchronizerId(
+      synchronizerId,
+      staticSynchronizerParameters.protocolVersion,
+      staticSynchronizerParameters.serial,
+    )
+
+  implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =
+    Ordering.by(psid =>
+      (psid.logical.toLengthLimitedString.unwrap, psid.protocolVersion, psid.serial)
+    )
+
+  def fromString(raw: String): Either[String, PhysicalSynchronizerId] = {
+    val elements = raw.split(primaryDelimiter)
+    val elementsCount = elements.sizeIs
+
+    if (elementsCount == 3) {
+      for {
+        lsid <- SynchronizerId.fromString(elements.take(2).mkString(primaryDelimiter))
+        suffix = elements(2)
+        suffixComponents = suffix.split("-")
+        _ <- Either.cond(
+          suffixComponents.sizeIs == 2,
+          (),
+          s"Cannot parse $suffix as a physical synchronizer id suffix",
+        )
+        pv <- ProtocolVersion.create(suffixComponents(0))
+        serialInt <- suffixComponents(1).toIntOption.toRight(
+          s"Cannot parse ${suffixComponents(1)} to an int"
+        )
+        serial <- NonNegativeInt.create(serialInt).leftMap(_.message)
+      } yield PhysicalSynchronizerId(lsid, pv, serial)
+    } else
+      Left(s"Unable to parse `$raw` as physical synchronizer id")
+  }
+
+  def fromProtoPrimitive(proto: String, field: String): ParsingResult[PhysicalSynchronizerId] =
+    fromString(proto).leftMap(ValueConversionError(field, _))
+
+  def tryFromString(raw: String): PhysicalSynchronizerId =
+    fromString(raw).valueOr(err => throw new IllegalArgumentException(err))
+
+  implicit val getResultSynchronizerId: GetResult[PhysicalSynchronizerId] = GetResult { r =>
+    tryFromString(r.nextString())
+  }
+
+  implicit val getResultSynchronizerIdO: GetResult[Option[PhysicalSynchronizerId]] =
+    GetResult { r =>
+      r.nextStringOption().map(tryFromString)
+    }
+
+  implicit val setParameterSynchronizerId: SetParameter[PhysicalSynchronizerId] =
+    (d: PhysicalSynchronizerId, pp: PositionedParameters) => pp >> d.toLengthLimitedString.unwrap
+  implicit val setParameterSynchronizerIdO: SetParameter[Option[PhysicalSynchronizerId]] =
+    (d: Option[PhysicalSynchronizerId], pp: PositionedParameters) =>
+      pp >> d.map(_.toLengthLimitedString.unwrap)
 }
 
 /** A participant identifier */

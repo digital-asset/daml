@@ -95,7 +95,7 @@ private[sequencer] class DatabaseSequencerPruningScheduler(
           .prune(minTimestamp)
           .bimap(err => Error(err.message), report => logger.info(report))
 
-        // If sequencer pruning hasn't prune anything (e.g. because of member checkpoint constraints),
+        // If sequencer pruning hasn't pruned anything (e.g. because of member checkpoint constraints),
         // return to the scheduler with an Error logged at info in order to trigger backoff, so we don't
         // hammer the sequencer with back-to-back prune calls. (#15702)
         result <- oldestEventTimestampBeforePruning match {

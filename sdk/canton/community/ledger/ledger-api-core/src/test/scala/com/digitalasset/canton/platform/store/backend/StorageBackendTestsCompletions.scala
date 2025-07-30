@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
