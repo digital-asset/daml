@@ -128,6 +128,9 @@ deriving instance Data P.UpgradedPackageId
 deriving instance Data P.Package
 deriving instance Data P.PackageMetadata
 
+-- Manual data instance for enumerated, since deriving for newtypes does seem to
+-- work properly. This instance is essentially what _should_ happen when
+-- generically deriving data for newtypes.
 instance Data a => Data (P.Enumerated a) where
   gfoldl f z (P.Enumerated x) = z P.Enumerated `f` x
 

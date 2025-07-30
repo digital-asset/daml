@@ -146,7 +146,7 @@ elet :: Text -> Type -> Expr -> Expr -> Expr
 elet x t e1 e2 = ELet (Binding (ExprVarName x, t) e1) e2
 
 mkLet :: DefValue
-mkLet = DefValue (Just testLoc) (lt, TUnit) (elet "id" tyLamTyp tyLam (EVal $ eQual lt))
+mkLet = DefValue (Just testLoc) (lt, TUnit) (elet "id" tyLamTyp tyLam (EVal $ eQualTest lt))
 
 mkDeepLetWithLoc :: DefValue
 mkDeepLetWithLoc = DefValue (Just testLoc) (lt, TUnit) (letOfDepthWithLoc 1)

@@ -187,9 +187,8 @@ enough to be considered well-interned
 deepTests :: TestTree
 deepTests = testGroup "Deep AST tests"
   [
-    -- TODO[RB]: uncomment in PR that reworks kind interning
-    -- deepKindArrTest
-  -- ,
+    -- TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
+    -- deepKindArrTest ,
     deepTypeArrTest
   , deepLetExprTest
   ]
@@ -298,7 +297,7 @@ kindPureTests = testGroup "Kind tests (non-interning)" $
 
 kindInterningTests :: TestTree
 kindInterningTests = testGroup "Kind tests (interning)"
--- TODO[RB]: uncomment in PR that reworks kind interning
+-- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
   -- [ kindInterningStarToStar
   -- , kindInterningStarToNatToStar
   -- , kindInterningAssertSharing
@@ -308,7 +307,7 @@ kindInterningTests = testGroup "Kind tests (interning)"
 runEncodeKindTest :: Kind -> (P.Kind, EncodeTestEnv)
 runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv testVersion)
 
--- TODO[RB]: uncomment in PR that reworks kind interning
+-- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
 -- kindInterningStarToStar :: TestTree
 -- kindInterningStarToStar =
 --   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow KStar KStar)
@@ -319,7 +318,7 @@ runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv te
 --       iKinds V.! 0 @?= pkstar
 --       iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
 
--- TODO[RB]: uncomment in PR that reworks kind interning
+-- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
 -- kindInterningStarToNatToStar :: TestTree
 -- kindInterningStarToNatToStar =
 --   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KNat) KStar)
@@ -332,7 +331,7 @@ runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv te
 --       iKinds V.! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
 --       iKinds V.! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
 
--- TODO[RB]: uncomment in PR that reworks kind interning
+-- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
 -- kindInterningAssertSharing :: TestTree
 -- kindInterningAssertSharing =
 --   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KStar) (KArrow KStar KStar))
@@ -352,7 +351,7 @@ typeInterningTests = testGroup "Type tests (interning)"
   , typeInterningMaybeSyn
   , typeInterningUnit
   , typeInterningIntToBool
-  -- TODO[RB]: uncomment in PR that reworks kind interning
+  -- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
   -- , typeInterningForall
   , typeInterningTStruct
   , typeInterningTNat
@@ -417,7 +416,7 @@ typeInterningIntToBool =
       (iTypes V.! 1) @?= ptbool
       (iTypes V.! 2) @?= ptarr (ptinterned 0) (ptinterned 1)
 
--- TODO[RB]: uncomment in PR that reworks kind interning
+-- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
 -- typeInterningForall :: TestTree
 -- typeInterningForall =
 --   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest tyLamTyp
@@ -484,7 +483,7 @@ exprInterningVar =
 
 exprInterningVal :: TestTree
 exprInterningVal =
-  let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ eVal "x"
+  let (pe, e@EncodeTestEnv{..}) = runEncodeExprTest $ eValTest "x"
   in  testCase "eVar x" $ do
       assertInterned pe
       assertInternedEnv e

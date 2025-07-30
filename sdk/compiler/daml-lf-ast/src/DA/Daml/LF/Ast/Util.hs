@@ -466,11 +466,11 @@ instance Show UpgradingDep where
 eVar :: T.Text -> Expr
 eVar = EVar . ExprVarName
 
-eQual :: a -> Qualified a
-eQual x = Qualified SelfPackageId (ModuleName ["Main"]) x
+eQualTest :: a -> Qualified a
+eQualTest x = Qualified SelfPackageId (ModuleName ["Main"]) x
 
-eVal :: T.Text -> Expr
-eVal = EVal . eQual . ExprValName
+eValTest :: T.Text -> Expr
+eValTest = EVal . eQualTest . ExprValName
 
 -- Types
 tvar :: T.Text -> Type
