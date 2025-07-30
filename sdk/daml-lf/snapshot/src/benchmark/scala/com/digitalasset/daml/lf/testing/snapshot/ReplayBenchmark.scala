@@ -26,7 +26,7 @@ class ReplayBenchmark {
   var darFile: String = _
 
   @Param(Array())
-  // path of the ledger entries
+  // path of the ledger entries - i.e. path to file of saved transaction trees
   var entriesFile: String = _
 
   private var benchmark: TransactionSnapshot = _
@@ -53,7 +53,7 @@ class ReplayBenchmark {
     )
     if (darFile.nonEmpty) {
       val loadedPackages = TransactionSnapshot.loadDar(Paths.get(darFile))
-      benchmark = benchmark.adapt(loadedPackages)
+      benchmark = benchmark.copy(pkgs = loadedPackages)
     }
 
     assert(benchmark.validate().isRight)
