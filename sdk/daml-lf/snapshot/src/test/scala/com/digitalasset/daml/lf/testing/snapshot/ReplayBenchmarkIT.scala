@@ -5,67 +5,76 @@ package com.digitalasset.daml.lf
 package testing.snapshot
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
-import com.daml.integrationtest.CantonFixture
-import com.daml.ledger.javaapi.data.CreateAndExerciseCommand
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.daml.integrationtest.CantonConfig
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
+import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.matchers.should.Matchers
 
-import java.io.File
 import java.nio.file.{Files, Path}
 
 class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
 
-class ReplayBenchmarkIT(majorLanguageVersion: LanguageMajorVersion)
-  extends AnyWordSpec
-    with CantonFixture
+class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
+    extends AsyncWordSpec
+    with AbstractScriptTest
     with Matchers {
 
-  private def getMainPkgIdAndDarPath(resource: String): (Ref.PackageId, Path) = {
-    val darFile = new File(rlocation(resource))
-    val packages = UniversalArchiveDecoder.assertReadFile(darFile)
-    val (mainPkgId, _) = packages.main
-
-    (mainPkgId, darFile.toPath)
-  }
-
-  val participantId = Ref.ParticipantId.assertFromString("participant")
+  val participantId = Ref.ParticipantId.assertFromString("participant1")
   val snapshotDir = Files.createTempDirectory("ReplayBenchmarkTest")
   val snapshotFile = snapshotDir.resolve(s"snapshot-$participantId.bin")
-  val (pkgId, darFile) = getMainPkgIdAndDarPath(
-    s"daml-lf/tests/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"
-  )
 
-  // FIXME: spin Canton up with participantId, snapshotDir defined and nonStandardConfig set
+  override val darPath: Path =
+    Path.of(rlocation(s"daml-lf/tests/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
+  override val config: CantonConfig =
+    super.config.copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
+  override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   "Ledger submission" should {
-    "generate a replayable snapshot file" in withClient { client =>
-      // FIXME: run GenerateSnapshot.daml#generateSnapshot and generate a snapshot file
+    "generate a replayable snapshot file" in {
+      for {
+        clients <- scriptClients()
+        _ <- run(
+          clients,
+          Ref.QualifiedName.assertFromString("GenerateSnapshot:generateSnapshot"),
+          dar = dar,
+        )
+      } yield {
+        Files.exists(snapshotFile) should be(true)
+        Files.size(snapshotFile) should be > 0L
 
-      Files.exists(snapshotFile) should be(true)
-      Files.size(snapshotFile) should be > 0L
+        // Replay and validate the snapshot file
+        val benchmark = new ReplayBenchmark
+        benchmark.darFile = darPath.toFile.getAbsolutePath
+        benchmark.choiceName = "ReplayBenchmark:T:Add"
+        benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
 
-      // Replay and validate the snapshot file
-      val benchmark = new ReplayBenchmark
-      benchmark.darFile = darFile.toFile.getAbsolutePath
-      benchmark.choiceName = "ReplayBenchmark:T:Add"
-      benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
-
-      noException should be thrownBy benchmark.init()
+        noException should be thrownBy benchmark.init()
+      }
     }
 
     "survive Daml execeptions" in {
-      // FIXME: run GenerateSnapshot.daml#explode
+      for {
+        clients <- scriptClients()
+        _ <- run(
+          clients,
+          Ref.QualifiedName.assertFromString("GenerateSnapshot:explode"),
+          dar = dar,
+        )
+      } yield {
+        Files.exists(snapshotFile) should be(true)
+        Files.size(snapshotFile) should be > 0L
 
-      Files.exists(snapshotFile) should be(true)
-      Files.size(snapshotFile) should be > 0L
+        // Replay and validate the existing snapshot file
+        val benchmark = new ReplayBenchmark
+        benchmark.darFile = darPath.toFile.getAbsolutePath
+        benchmark.choiceName = "ReplayBenchmark:T:Add"
+        benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
 
-      // Replay and validate the existing snapshot file
-      val benchmark = new ReplayBenchmark
-      benchmark.darFile = darFile.toFile.getAbsolutePath
-      benchmark.choiceName = "ReplayBenchmark:T:Add"
-      benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
-
-      noException should be thrownBy benchmark.init()
+        noException should be thrownBy benchmark.init()
+      }
     }
   }
 

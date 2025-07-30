@@ -110,6 +110,7 @@ object CantonRunner {
          |        alpha-version-support = yes
          |        disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
+         |      ${config.snapshotDir.fold("")(x => "features.snapshotDir = " + x)}
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
          |    }""".stripMargin
     }
