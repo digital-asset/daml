@@ -27,6 +27,7 @@ import com.digitalasset.daml.lf.transaction.{
 import java.nio.file.{Files, StandardOpenOption}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
+import com.digitalasset.daml.lf.value.ValueCoder
 import com.digitalasset.daml.lf.language.{
   LanguageMajorVersion,
   LanguageVersion,
@@ -516,13 +517,13 @@ class Engine(val config: EngineConfig) {
               machine.profile.name = s"${meta.preparationTime}-$desc"
               machine.profile.writeSpeedscopeJson(profileFile)
             }
-            config.snapshotDir.zip(submissionInfo).foreach {
+            val snapshotResult = config.snapshotDir.zip(submissionInfo).flatMap {
               case (dir, Engine.SubmissionInfo(participantId, submissionSeed, submitters)) =>
                 val snapshotFile = dir.resolve(s"snapshot-$participantId.bin")
                 TransactionCoder
                   .encodeTransaction(tx)
                   .fold(
-                    err => throw new java.lang.AssertionError(s"snapshot encoding failed: $err"),
+                    err => Some(("TransactionCoder.encodeTransaction", err)),
                     encoded => {
                       val txEntry = Snapshot.TransactionEntry
                         .newBuilder()
@@ -545,11 +546,19 @@ class Engine(val config: EngineConfig) {
                           StandardOpenOption.APPEND,
                         )
                       )
+
+                      None
                     },
                   )
             }
 
-            ResultDone((tx, meta))
+            snapshotResult match {
+              case Some((loc, ValueCoder.EncodeError(errMsg))) =>
+                ResultError(Error.Interpretation.Internal(loc, errMsg, None))
+
+              case None =>
+                ResultDone((tx, meta))
+            }
           }
         case Left(err) =>
           handleError(err, None)
@@ -775,7 +784,7 @@ object Engine {
 
   type Packages = Map[PackageId, Package]
 
-  final case class SubmissionInfo(
+  private[engine] final case class SubmissionInfo(
       participantId: Ref.ParticipantId,
       submissionSeed: crypto.Hash,
       submitters: Set[Ref.Party],
