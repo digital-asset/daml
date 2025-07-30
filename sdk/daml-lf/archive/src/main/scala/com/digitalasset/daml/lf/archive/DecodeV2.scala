@@ -264,7 +264,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         lfType.getSumCase match {
           case PLF.Type.SumCase.INTERNED =>
             throw Error.IllegalInterning(
-                "Immediate Interned type in interning table (needs concrete constructor)"
+              "Immediate Interned type in interning table (needs concrete constructor)"
             )
           case _ =>
             uncheckedDecodeType(lfType)
@@ -860,8 +860,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     ): Work[T] = {
       lfExpr.getSumCase match {
         case PLF.Expr.SumCase.INTERNED_EXPR =>
-            throw Error.IllegalInterning(
-              "Immediate InternedExpr in interning table (needs concrete constructor)"
+          throw Error.IllegalInterning(
+            "Immediate InternedExpr in interning table (needs concrete constructor)"
           )
         case _ =>
           // For any other case, we mirror the behavior of decodeExpr.
