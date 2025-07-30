@@ -354,7 +354,7 @@ internType :: P.Type -> Encode P.Type
 internType = \case
   (P.Type (Just t')) -> do
     n <- zoom internedTypesMapLens $ IM.internState t'
-    return $ (P.Type . Just . P.TypeSumInterned) n
+    return $ (P.Type . Just . P.TypeSumInternedType) n
   (P.Type Nothing) -> error "nothing type during encoding"
 
 ------------------------------------------------------------------------

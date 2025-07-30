@@ -799,7 +799,7 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF2.TypeSumStruct (LF2.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
-  LF2.TypeSumInterned n -> do
+  LF2.TypeSumInternedType n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n
   where

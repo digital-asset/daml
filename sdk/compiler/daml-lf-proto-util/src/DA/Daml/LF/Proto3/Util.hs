@@ -67,7 +67,7 @@ ptarr :: P.Type -> P.Type -> P.Type
 ptarr t1 t2 = pliftT $ P.TypeSumBuiltin $ P.Type_Builtin (P.Enumerated $ Right P.BuiltinTypeARROW) (V.fromList [t1, t2])
 
 ptinterned :: Int32 -> P.Type
-ptinterned = pliftT . P.TypeSumInterned
+ptinterned = pliftT . P.TypeSumInternedType
 
 ptforall :: Int32 -> P.Kind -> P.Type -> P.Type
 ptforall a k t = pliftT $ P.TypeSumForall $ P.Type_Forall (V.singleton $ P.TypeVarWithKind a (Just k)) (Just t)
