@@ -28,6 +28,7 @@ data Error
   | UnsupportedMinorVersion T.Text
   | BadStringId Int32
   | BadDottedNameId Int32
+  | BadExprId Int32
   | BadTypeId Int32
   | BadKindId Int32
   | ExpectedTCon Type

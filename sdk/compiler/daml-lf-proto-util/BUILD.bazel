@@ -8,6 +8,7 @@ da_haskell_library(
     srcs =
         [
             "src/DA/Daml/LF/Mangling.hs",
+            "src/DA/Daml/LF/Proto3/DerivingData.hs",
             "src/DA/Daml/LF/Proto3/Error.hs",
             "src/DA/Daml/LF/Proto3/Util.hs",
         ],
