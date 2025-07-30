@@ -729,11 +729,20 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           .map(tx => tx.hash -> tx)
           .toMap
         // find transactions that provide new signatures
-        (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(tx =>
-          existingHashes
-            .get(tx.hash)
-            .exists(existingTx => tx.signatures.diff(existingTx.signatures).isEmpty)
-        )
+        (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition {
+          tx =>
+            existingHashes.get(tx.hash).exists { existingTx =>
+              val newFingerprints = tx.signatures.map(_.authorizingLongTermKey)
+              val existingFingerprints = existingTx.signatures.map(_.authorizingLongTermKey)
+
+              /*
+              Diff is done based on the fingerprint (signedBy) because signatures can be non-deterministic
+              (e.g. with EC-DSA) where the same key produces a different signature for the same hash.
+              This avoids ending up with several signatures for the same key.
+               */
+              newFingerprints.diff(existingFingerprints).isEmpty
+            }
+        }
         _ = logger.debug(
           s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"
         )

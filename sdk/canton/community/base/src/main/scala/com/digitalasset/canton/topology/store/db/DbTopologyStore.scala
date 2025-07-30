@@ -62,7 +62,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       : GetResult[GenericSignedTopologyTransaction] =
     SignedTopologyTransaction.createGetResultSynchronizerTopologyTransaction
 
-  protected val transactionStoreIdName: LengthLimitedString = storeId.dbString
+  private val transactionStoreIdName: LengthLimitedString = storeId.dbString
 
   def findLatestTransactionsAndProposalsByTxHash(hashes: Set[TxHash])(implicit
       traceContext: TraceContext
@@ -770,7 +770,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     )
   }
 
-  type QueryResult = (
+  private type QueryResult = (
       GenericSignedTopologyTransaction,
       CantonTimestamp,
       CantonTimestamp,
@@ -778,7 +778,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       Option[String300],
   )
 
-  type QueryAction = DbAction.ReadTransactional[Vector[QueryResult]]
+  private type QueryAction = DbAction.ReadTransactional[Vector[QueryResult]]
   private def buildQueryForTransactions(
       subQuery: SQLActionBuilder,
       limit: String = "",
@@ -944,13 +944,3 @@ private[db] final case class TransactionEntry(
     signedTx: GenericSignedTopologyTransaction,
     rejectionReason: Option[String300] = None,
 )
-
-private[db] object TransactionEntry {
-  def fromStoredTx(stx: GenericStoredTopologyTransaction): TransactionEntry = TransactionEntry(
-    stx.sequenced,
-    stx.validFrom,
-    stx.validUntil,
-    stx.transaction,
-    rejectionReason = stx.rejectionReason,
-  )
-}
