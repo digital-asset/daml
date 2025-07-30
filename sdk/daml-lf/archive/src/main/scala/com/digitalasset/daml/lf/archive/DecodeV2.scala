@@ -62,9 +62,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       currentInternedExprId = None,
     )
 
-    val internedKinds = Work.run(decodeInternedKinds(env0, lfPackage))
+    val internedKinds = decodeKindsTable(env0, lfPackage)
     val env1 = env0.copy(internedKinds = internedKinds)
-    val internedTypes = Work.run(decodeInternedTypes(env1, lfPackage))
+    val internedTypes = decodeTypesTable(env1, lfPackage)
     val env2 = env1.copy(internedTypes = internedTypes)
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
@@ -133,10 +133,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       onlySerializableDataDefs = false,
       None,
     )
-    val internedKinds = Work.run(decodeInternedKinds(env0, lfSingleModule))
+    val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
     // val env1 = env0
-    val internedTypes = Work.run(decodeInternedTypes(env1, lfSingleModule))
+    val internedTypes = decodeTypesTable(env1, lfSingleModule)
     val env2 = env1.copy(internedTypes = internedTypes)
     val internedExprs = lfSingleModule.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
@@ -168,17 +168,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       case Right(x) => x
     }
 
-  private[archive] def decodeInternedKindsForTest( // test entry point
+  private[archive] def decodeKindsTable(
       env: Env,
       lfPackage: PLF.Package,
   ): IndexedSeq[Kind] = {
-    Work.run(decodeInternedKinds(env, lfPackage))
-  }
-
-  private def decodeInternedKinds(
-      env: Env,
-      lfPackage: PLF.Package,
-  ): Work[IndexedSeq[Kind]] = Ret {
     val lfKinds = lfPackage.getInternedKindsList
 
     if (!lfKinds.isEmpty)
@@ -186,26 +179,19 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     lfKinds.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Kind](lfKinds.size)) { (buf, kind) =>
-        buf += env.copy(internedKinds = buf).decodeInternedKind(kind)
+        buf += env.copy(internedKinds = buf).decodeKindsTableEntry(kind)
       }
       .toIndexedSeq
   }
 
-  private[archive] def decodeInternedTypesForTest( // test entry point
+  private[archive] def decodeTypesTable(
       env: Env,
       lfPackage: PLF.Package,
   ): IndexedSeq[Type] = {
-    Work.run(decodeInternedTypes(env, lfPackage))
-  }
-
-  private def decodeInternedTypes(
-      env: Env,
-      lfPackage: PLF.Package,
-  ): Work[IndexedSeq[Type]] = Ret {
     val lfTypes = lfPackage.getInternedTypesList
     lfTypes.iterator.asScala
       .foldLeft(new mutable.ArrayBuffer[Type](lfTypes.size)) { (buf, typ) =>
-        buf += env.copy(internedTypes = buf).decodeInternedType(typ)
+        buf += env.copy(internedTypes = buf).decodeTypesTableEntry(typ)
       }
       .toIndexedSeq
   }
@@ -249,7 +235,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeDefInterface(id, lfInterface))
     }
 
-    private[archive] def decodeInternedKind(lfKind: PLF.Kind): Kind = {
+    private[archive] def decodeKindsTableEntry(lfKind: PLF.Kind): Kind = {
       Work.run(
         lfKind.getSumCase match {
           case PLF.Kind.SumCase.INTERNED_KIND =>
@@ -273,11 +259,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.run(decodeType(lfType)(Ret(_)))
     }
 
-    // private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
-    //   Work.run(uncheckedDecodeType(lfType))
-    // }
-
-    private[archive] def decodeInternedType(lfType: PLF.Type): Type = {
+    private[archive] def decodeTypesTableEntry(lfType: PLF.Type): Type = {
       Work.run(
         lfType.getSumCase match {
           case PLF.Type.SumCase.INTERNED =>
@@ -875,7 +857,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private def decodeInternedExpr[T](lfExpr: PLF.Expr, definition: String)(
+    private def decodeExprsTableEntry[T](lfExpr: PLF.Expr, definition: String)(
         k: Expr => Work[T]
     ): Work[T] = {
       lfExpr.getSumCase match {
@@ -1282,7 +1264,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             throw Error.IllegalInterning(
               "Interned expression indexes not monotonic (interned expressions may only refer to interned expressions of smaller index)"
             )
-          copy(currentInternedExprId = Some(exprIdx)).decodeInternedExpr(
+          copy(currentInternedExprId = Some(exprIdx)).decodeExprsTableEntry(
             internedExprs.applyOrElse(
               lfExpr.getInternedExpr,
               (index: Int) => throw Error.Parsing(s"invalid internedExprs table index $index"),

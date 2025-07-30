@@ -124,7 +124,7 @@ class DecodeV2Spec
 
   }
 
-  "decodeInternedKinds" should {
+  "decodeKindsTable" should {
 
     "reject nonempty lfkinds on unsupported versions" in {
       val unit = DamlLf2.Unit.newBuilder().build()
@@ -139,7 +139,9 @@ class DecodeV2Spec
 
       forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>
         val decoder = new DecodeV2(version.minor)
-        an[Error.Parsing] shouldBe thrownBy(decoder.decodeInternedKindsForTest(null, pkg))
+        // TODO: https://github.com/digital-asset/daml/issues/21155
+        // convert to proper error catching
+        an[Error.Parsing] shouldBe thrownBy(decoder.decodeKindsTable(null, pkg))
       }
     }
 
@@ -167,7 +169,7 @@ class DecodeV2Spec
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeInternedKindsForTest(env, pkg))
+        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeKindsTable(env, pkg))
       }
     }
   }
@@ -364,7 +366,7 @@ class DecodeV2Spec
     }
   }
 
-  "decodeInternedTypes" should {
+  "decodeTypesTable" should {
     "reject interned in interned Types table" in {
       val Type = DamlLf2.Type
         .newBuilder()
@@ -389,7 +391,7 @@ class DecodeV2Spec
           onlySerializableDataDefs = false,
           None,
         )
-        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeInternedTypesForTest(env, pkg))
+        an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeTypesTable(env, pkg))
       }
     }
   }
