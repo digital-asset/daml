@@ -837,8 +837,14 @@ trait TopologyManagementIntegrationTest
       val tx1 = create(1)
       val tx2 = create(2)
 
-      // steal the sig of tx2 and add it to tx1
-      val fakeTx = tx1.addSingleSignatures(tx2.signatures.map(_.signature))
+      // steal the sig of tx2 and use it for tx1
+      val fakeTx = SignedTopologyTransaction.create(
+        transaction = tx1.transaction,
+        signatures = tx2.signatures,
+        isProposal = tx1.isProposal,
+        testedProtocolVersion,
+      )
+
       // can not add it
       loggerFactory.assertThrowsAndLogs[CommandFailure](
         participant1.topology.transactions.load(Seq(fakeTx), daId),

@@ -177,7 +177,7 @@ object DynamicValue {
 
   /** Local date. Number of dates since epoch (1 Jan 1970). */
   final case class Date(value: Int) extends Primitive {
-    override def inner: Any = Int
+    override def inner: Any = value
   }
 
   implicit class DateExtension(value: DynamicValue) {

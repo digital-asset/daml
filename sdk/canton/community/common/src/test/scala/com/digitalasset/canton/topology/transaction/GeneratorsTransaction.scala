@@ -261,12 +261,23 @@ final class GeneratorsTransaction(
     for {
       transaction <- Arbitrary.arbitrary[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
       proposal <- Arbitrary.arbBool.arbitrary
-      topologyTransactionSignatures <- {
+
+      signatures <- {
         implicit val localSignatureArb = topologyTransactionSignatureArb(transaction.hash)
         Generators.nonEmptySetGen[TopologyTransactionSignature]
       }
+
+      /*
+      A duplicate signature (two signatures for the same key) is discarded upon serialization,
+      which means that (de)serialization test will fail. Filtering here avoids flakiness.
+       */
+      signaturesWithoutDuplicates = signatures
+        .groupBy1(_.authorizingLongTermKey)
+        .map { case (_, signatures) => signatures.head1 }
+        .toSet
+
     } yield SignedTopologyTransaction
-      .create(transaction, topologyTransactionSignatures, proposal, protocolVersion)
+      .create(transaction, signaturesWithoutDuplicates, proposal, protocolVersion)
   )
 
   implicit val signedTopologyTransactionsArb
