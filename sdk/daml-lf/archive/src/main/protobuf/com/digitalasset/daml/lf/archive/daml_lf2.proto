@@ -268,7 +268,7 @@ message Type {
     // use standard signed long for future usage.
     sint64 nat = 6;
     Syn syn = 7;
-    int32 interned = 8;
+    int32 interned_type = 8;
   }
 
 }

@@ -18,26 +18,33 @@ def get_name(pkg): .name_interned_str // 0 | resolve_interned_string(pkg);
 
 def get_text(pkg): .text_interned_str // 0 | resolve_interned_string(pkg);
 
-def norm_ty(pkg): if has("interned") then pkg.interned_types[.interned] else . end;
-
+# A working recursive version
 def _norm_interned(pkg):
-  # First, ensure we only operate on objects
   if type == "object" then
-    if has("interned_expr") then pkg.interned_exprs[.interned_expr]
-    #note name "interned" here, referring to interned types
-    elif has("interned") then pkg.interned_types[.interned]
-    else .
+    if has("interned_expr") then
+      # 1. Substitute the node with the value from the table.
+      pkg.interned_exprs[.interned_expr]
+      # 2. THEN, walk the result of the substitution, passing the original pkg.
+      | walk(_norm_interned(pkg))
+
+    elif has("interned_type") then
+      pkg.interned_types[.interned_type]
+      | walk(_norm_interned(pkg))
+
+    else
+      .
     end
-  # It's not an object (e.g., a number, string, null), so just return it
-  else .
+  else
+    .
   end;
 
-# Applies a filter `f` repeatedly until the result stops changing.
-def fixpoint(f):
-  . as $in | f | if . == $in then . else fixpoint(f) end;
-
+# The main entry point for the recursive version
 def norm_interned(pkg):
-  fixpoint(walk(_norm_interned(pkg)))
+  walk(_norm_interned(pkg))
+;
+
+def norm_ty(pkg):
+  norm_interned(pkg)
 ;
 
 # @SINCE-LF 1.7

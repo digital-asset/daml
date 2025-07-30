@@ -88,8 +88,8 @@ countConcreteConstrs =
       _                         -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
 
     countTypes (t :: P.TypeSum) = case t of
-      (P.TypeSumInterned _) -> mempty
-      _                     -> singleType <> mconcat (gmapQ countConcreteConstrs t)
+      (P.TypeSumInternedType _) -> mempty
+      _                         -> singleType <> mconcat (gmapQ countConcreteConstrs t)
 
     countExprs (e :: P.ExprSum) = case e of
       (P.ExprSumInternedExpr _) -> mempty

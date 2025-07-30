@@ -29,9 +29,9 @@ class DecodeV2Spec
     with ScalaCheckPropertyChecks {
 
   val typeTable = ImmArraySeq(TUnit, TBool, TText)
-  val unitTypInterned = DamlLf2.Type.newBuilder().setInterned(0).build()
-  val boolTypInterned = DamlLf2.Type.newBuilder().setInterned(1).build()
-  val textTypInterned = DamlLf2.Type.newBuilder().setInterned(2).build()
+  val unitTypInterned = DamlLf2.Type.newBuilder().setInternedType(0).build()
+  val boolTypInterned = DamlLf2.Type.newBuilder().setInternedType(1).build()
+  val textTypInterned = DamlLf2.Type.newBuilder().setInternedType(2).build()
 
   val unitExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
@@ -370,7 +370,7 @@ class DecodeV2Spec
     "reject interned in interned Types table" in {
       val Type = DamlLf2.Type
         .newBuilder()
-        .setInterned(42)
+        .setInternedType(42)
         .build()
       val pkg = DamlLf2.Package
         .newBuilder()

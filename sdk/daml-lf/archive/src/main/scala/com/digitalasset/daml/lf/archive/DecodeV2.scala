@@ -262,7 +262,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     private[archive] def decodeTypesTableEntry(lfType: PLF.Type): Type = {
       Work.run(
         lfType.getSumCase match {
-          case PLF.Type.SumCase.INTERNED =>
+          case PLF.Type.SumCase.INTERNED_TYPE =>
             throw Error.IllegalInterning(
               "Immediate Interned type in interning table (needs concrete constructor)"
             )
@@ -723,10 +723,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         Work.Delay { () =>
           {
             lfType.getSumCase match {
-              case PLF.Type.SumCase.INTERNED =>
+              case PLF.Type.SumCase.INTERNED_TYPE =>
                 Ret(
                   internedTypes.applyOrElse(
-                    lfType.getInterned,
+                    lfType.getInternedType,
                     (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
                   )
                 )
@@ -803,10 +803,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               )
             )
           }
-        case PLF.Type.SumCase.INTERNED =>
+        case PLF.Type.SumCase.INTERNED_TYPE =>
           Ret(
             internedTypes.applyOrElse(
-              lfType.getInterned,
+              lfType.getInternedType,
               (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
             )
           )
