@@ -18,8 +18,6 @@ def get_name(pkg): .name_interned_str // 0 | resolve_interned_string(pkg);
 
 def get_text(pkg): .text_interned_str // 0 | resolve_interned_string(pkg);
 
-# def norm_ty(pkg): if has("interned") then pkg.interned_types[.interned] else . end;
-
 # A working recursive version
 def _norm_interned(pkg):
   if type == "object" then
