@@ -57,7 +57,7 @@ instance FromJSON DalfInfoCacheEntry where
     DalfInfoCacheEntry
       <$> o .: "package_name"
       <*> o .: "package_version"
-      <*> (maybe (fail "Invalid lf version") pure mVer)
+      <*> maybe (fail "Invalid lf version") pure mVer
       <*> o .: "timestamp"
 
 darInfoCacheKey :: String
@@ -138,8 +138,8 @@ findDarInDarInfos darInfos rawName lfVersion = do
           (LF.unPackageName $ diPackageName darInfo) == name
             && lfCondition name lfVersion (diLfVersion darInfo)
         ) darInfos
-      availableVersions = nub $ diPackageVersion <$> Map.elems candidates
-      allPackageNames = T.intercalate "," . nub $ LF.unPackageName . diPackageName <$> Map.elems darInfos
+      availableVersions = nubOrd $ diPackageVersion <$> Map.elems candidates
+      allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
   case availableVersions of
     [] ->
       Left $ "Package " <> rawName <> " could not be found, available packages are:\n"
@@ -147,7 +147,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
     [_] ->
       -- Major LF versions aren't cross compatible, so all will be same major here due to canDependOn check above
       -- as such, we take maximum by minor version
-      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList candidates, not $ name `elem` unsupportedAsDataDep)
+      Right (fst $ maximumBy (comparing (LF.versionMinor . diLfVersion . snd)) $ Map.toList candidates, name `notElem` unsupportedAsDataDep)
     _ ->
       Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availableVersions)
         <> "\nYour daml installation may be broken."
@@ -160,9 +160,9 @@ findPackageResolutionData path (ResolutionData packages) =
 
 getResolutionData :: IO (Maybe ResolutionData)
 getResolutionData = do
-  mPath <- lookupEnv "DPM_RESOLUTION_FILE"
+  mPath <- lookupEnv "UNIFI_ASSISTANT_RESOLUTION_FILE"
   forM mPath $ \path ->
-    either (\err -> error $ "Failed to decode DPM_RESOLUTION_FILE at " <> path <> "\n" <> show err) id <$> decodeFileEither path
+    either (\err -> error $ "Failed to decode UNIFI_ASSISTANT_RESOLUTION_FILE at " <> path <> "\n" <> show err) id <$> decodeFileEither path
 
 data ResolutionData = ResolutionData
   { packages :: Map.Map FilePath PackageResolutionData

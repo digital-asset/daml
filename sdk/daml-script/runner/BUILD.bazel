@@ -13,6 +13,7 @@ load(
 load("//rules_daml:daml.bzl", "daml_compile")
 load("//bazel_tools:proto.bzl", "proto_gen")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 
 # Should match RunnerMainTestBase.DAR_COUNT
 test_dar_count = 5
@@ -181,3 +182,15 @@ daml_compile(
 )
 
 exports_files(["src/main/resources/logback.xml"])
+
+package_oci_component(
+    name = "daml-script-oci",
+    component_manifest = ":component.yaml",
+    resources = [
+        ":daml-script-binary_distribute.jar",
+        "//daml-script/daml:daml-script-2.1.dar",
+        "//daml-script/daml:daml-script-2.dev.dar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)

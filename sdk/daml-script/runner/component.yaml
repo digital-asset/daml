@@ -1,0 +1,16 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
+  jar-commands:
+    - path: daml-script-binary_distribute.jar
+      name: script
+      desc: Daml Script Binary
+  exports:
+    dars:
+      conflict-strategy: extend
+      paths:
+        - ./daml-script-2.1.dar
+        - ./daml-script-2.dev.dar

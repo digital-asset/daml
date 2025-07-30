@@ -1078,7 +1078,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
         case findPackageResolutionData location resolutionData of
           Just validPkgResolution ->
             case Map.lookup "damlc" $ components validPkgResolution of
-              Just damlcLocation -> pure damlcLocation
+              Just damlcLocation -> pure $ damlcLocation </> "damlc" -- TODO: This will break on windows
               Nothing -> error $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
           Nothing -> error $ "Failed to find DPM package resolution for " <> location <> ". This should never happen, contact support."
       Nothing -> do
