@@ -122,16 +122,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       )
 
     val env0 = new Env(
-      packageId,
-      internedStrings,
-      internedDottedNames,
-      IndexedSeq.empty,
-      IndexedSeq.empty,
-      IndexedSeq.empty,
-      None,
-      None,
+      packageId = packageId,
+      internedStrings = internedStrings,
+      internedDottedNames = internedDottedNames,
+      internedKinds = IndexedSeq.empty,
+      internedTypes = IndexedSeq.empty,
+      internedExprs = IndexedSeq.empty,
+      optDependencyTracker = None,
+      optModuleName = None,
       onlySerializableDataDefs = false,
-      None,
+      currentInternedExprId = None,
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
