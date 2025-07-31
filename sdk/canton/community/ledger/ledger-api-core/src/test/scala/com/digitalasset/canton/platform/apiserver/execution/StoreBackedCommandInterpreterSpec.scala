@@ -296,30 +296,7 @@ class StoreBackedCommandInterpreterSpec
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
       val mockEngine = mock[Engine]
 
-      val engineResult = contractId match {
-        case None =>
-          resultDone
-        case Some(coid) =>
-          val signatory = Ref.Party.assertFromString("signatory")
-          ResultNeedUpgradeVerification[(SubmittedTransaction, Transaction.Metadata)](
-            coid = coid,
-            signatories = Set(signatory),
-            observers = Set(Ref.Party.assertFromString("observer")),
-            keyOpt = Some(
-              KeyWithMaintainers
-                .assertBuild(
-                  identifier,
-                  someContractKey(signatory, "some key"),
-                  Set(signatory),
-                  packageName,
-                )
-            ),
-            resume = verdict => {
-              ref.set(Some(verdict))
-              resultDone
-            },
-          )
-      }
+      val engineResult = resultDone
 
       when(
         mockEngine.submit(

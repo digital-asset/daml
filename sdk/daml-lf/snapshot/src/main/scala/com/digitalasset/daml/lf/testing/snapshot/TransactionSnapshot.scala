@@ -54,7 +54,7 @@ final case class TransactionSnapshot(
         preparationTime,
         submissionSeed,
       )
-      .consume(contracts, pkgs, contractKeys)
+      .consumeValidated(contracts, pkgs, contractKeys)
       .map(_ => ())
 
   def validate(): Either[Error, Unit] =
@@ -67,7 +67,7 @@ final case class TransactionSnapshot(
         preparationTime,
         submissionSeed,
       )
-      .consume(contracts, pkgs, contractKeys)
+      .consumeValidated(contracts, pkgs, contractKeys)
 
 }
 

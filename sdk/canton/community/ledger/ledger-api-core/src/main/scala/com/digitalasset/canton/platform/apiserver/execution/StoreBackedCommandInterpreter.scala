@@ -115,9 +115,7 @@ final class StoreBackedCommandInterpreter(
         commands.actAs,
         commands.readAs,
         submissionResult,
-        commands.disclosedContracts.iterator
-          .map(c => c.fatContractInstance.contractId -> c.fatContractInstance)
-          .toMap,
+        Map.empty,
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
@@ -219,7 +217,6 @@ final class StoreBackedCommandInterpreter(
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
-          disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = commands.prefetchKeys,
@@ -291,7 +288,7 @@ final class StoreBackedCommandInterpreter(
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(fatInstanceOpt)),
+                  trackSyncExecution(interpretationTimeNanos)(resume(fatInstanceOpt.map(c => ContractAndIdValidator.preValidated(c)))),
                 )
               )
             }
@@ -380,20 +377,6 @@ final class StoreBackedCommandInterpreter(
                 FutureUnlessShutdown.pure(Left(error))
               } else resume()
           }
-
-        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          FutureUnlessShutdown
-            .outcomeF(
-              checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
-            )
-            .flatMap { result =>
-              resolveStep(
-                Tracked.value(
-                  metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(result)),
-                )
-              )
-            }
 
         case ResultPrefetch(coids, keys, resume) =>
           // Trigger loading through the state cache and the batch aggregator.
@@ -521,9 +504,6 @@ final class StoreBackedCommandInterpreter(
       case Valid => None
       case UpgradeFailure(message) => Some(message)
       case ContractNotFound =>
-        // During submission the ResultNeedUpgradeVerification should only be called
-        // for contracts that are being upgraded. We do not support the upgrading of
-        // divulged contracts.
         Some(s"Contract with $coid was not found.")
       case MissingDriverMetadata =>
         Some(

@@ -136,13 +136,12 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = disclosures,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
       )
-      .consume(
-        pcs = lookupContractById,
+      .consumeValidated(
+        pcs = lookupContractById ++ disclosures.toSeq.map(c => c.contractId -> c),
         pkgs = cases.lookupPackage,
         keys = lookupContractByKey,
       )

@@ -48,11 +48,12 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
-  // Names can change
   sealed trait HashType
-  object LegacyHash extends HashType
-  object UpgradeFriendlyHash extends HashType
-  object MinimalTypeHash extends HashType
+  object HashType {
+    object Legacy extends HashType
+    object UpgradeFriendly extends HashType
+    object MinimalType extends HashType
+  }
 
   val underlyingHashLength = 32
 

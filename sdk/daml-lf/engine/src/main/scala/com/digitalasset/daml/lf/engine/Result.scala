@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.Hash.HashType
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.digitalasset.daml.lf.language.Ast._
@@ -71,6 +72,17 @@ sealed trait Result[+A] extends Product with Serializable {
       }
     go(this)
   }
+
+  // Test consumer that assumes contract ids are valid
+  private[lf] def consumeValidated(
+      pcs: PartialFunction[ContractId, FatContractInstance] = PartialFunction.empty,
+      pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
+      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
+  ): Either[Error, A] = {
+    val pcs1: PartialFunction[ContractId, ContractAndIdValidator] =
+      pcs.andThen(c => ContractAndIdValidator.preValidated(c))
+    consume(pcs1, pkgs, keys)
+  }
 }
 
 final case class ResultInterruption[A](continue: () => Result[A], abort: () => Option[String])
@@ -109,6 +121,11 @@ case class ContractAndIdValidator(
     hashType: Hash.HashType,
     idValidator: Hash => Boolean,
 )
+
+object ContractAndIdValidator {
+  def preValidated(f: FatContractInstance): ContractAndIdValidator =
+    ContractAndIdValidator(f, HashType.UpgradeFriendly, _ => true)
+}
 
 /** Intermediate result indicating that a [[ThinContractInstance]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
