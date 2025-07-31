@@ -74,8 +74,8 @@ da_scala_benchmark_jmh(
         daml_compile(
             name = "ReplayBenchmark-v{}".format(major),
             srcs = glob(["src/test/daml/**/*.daml"]),
-            target = lf_version_default_or_latest(major),
             dependencies = ["//daml-script/daml:daml-script.dar"],
+            target = lf_version_default_or_latest(major),
         ),
         dar_to_java(
             name = "ReplayBenchmark-v{}-codegen".format(major),
