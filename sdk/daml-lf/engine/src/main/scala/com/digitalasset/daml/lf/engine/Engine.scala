@@ -177,8 +177,6 @@ class Engine(val config: EngineConfig) {
     *                   ("committers" according to the ledger model)
     * @param readAs the parties authorizing the root actions (only read, but no write) of the resulting transaction
     * @param cmds the commands to be interpreted
-    * @param disclosures contracts to be used as input contracts of the transaction;
-    *                    contract data may come from an untrusted source and will therefore be validated during interpretation.
     * @param participantId a unique identifier (of the underlying participant) used to derive node and contractId discriminators
     * @param submissionSeed the master hash used to derive node and contractId discriminators
     */
@@ -212,7 +210,6 @@ class Engine(val config: EngineConfig) {
           submitters = submitters,
           readAs = readAs,
           commands = processedCmds,
-          disclosures = ImmArray.empty,
           ledgerTime = cmds.ledgerEffectiveTime,
           preparationTime = preparationTime,
           seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -283,7 +280,6 @@ class Engine(val config: EngineConfig) {
         submitters = submitters,
         readAs = Set.empty,
         commands = commands,
-        disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
         preparationTime = preparationTime,
         seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
@@ -375,6 +371,7 @@ class Engine(val config: EngineConfig) {
     }
 
   // command-list compilation, followed by interpretation
+  // TODO: Disclosures will always be empty for 3.4 (https://github.com/digital-asset/daml/issues/21621)
   private[engine] def interpretCommands(
       validating: Boolean,
       submitters: Set[Party],
@@ -499,7 +496,7 @@ class Engine(val config: EngineConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, _)
             ) =>
           deps(tx).flatMap { deps =>
             if (config.paranoid) {
@@ -547,7 +544,8 @@ class Engine(val config: EngineConfig) {
               timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              disclosedEvents = disclosedCreateEvents,
+              // TODO: Removed as it is longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+              // disclosedEvents = disclosedCreateEvents,
             )
 
             config.profileDir.foreach { dir =>

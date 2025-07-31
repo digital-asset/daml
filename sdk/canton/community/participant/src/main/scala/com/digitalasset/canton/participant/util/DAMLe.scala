@@ -368,7 +368,7 @@ class DAMLe(
             .lookupFatContract(acoid)
             .value
             .flatMap { fatInstanceOpt =>
-              handleResultInternal(contracts, resume(fatInstanceOpt))
+              handleResultInternal(contracts, resume(fatInstanceOpt.map(c => ContractAndIdValidator.preValidated(c))))
             }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
@@ -377,16 +377,6 @@ class DAMLe(
           FutureUnlessShutdown.pure(iterateOverInterrupts(continue)).flatMap {
             case Left(abort) => FutureUnlessShutdown.pure(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
-          }
-        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          val unusedTxVersion = LfLanguageVersion.StableVersions(LfLanguageVersion.Major.V2).max
-          val metadata = ContractMetadata.tryCreate(
-            signatories = signatories,
-            stakeholders = signatories ++ observers,
-            maybeKeyWithMaintainersVersioned = keyOpt.map(k => Versioned(unusedTxVersion, k)),
-          )
-          contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
-            handleResultInternal(contracts, resume(verification))
           }
         case ResultPrefetch(_, _, resume) =>
           // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3

@@ -255,24 +255,6 @@ private[lf] object Speedy {
         )
       )
 
-    final private[speedy] def needUpgradeVerification(
-        location: => String,
-        coid: V.ContractId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
-        continue: Option[String] => Control[Question.Update],
-    ): Control.Question[Question.Update] =
-      Control.Question(
-        Question.Update.NeedUpgradeVerification(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-          x => safelyContinue(location, "NeedUpgradeVerification", continue(x)),
-        )
-      )
-
     final private[speedy] def needPackage(
         location: => String,
         packageId: PackageId,
@@ -633,34 +615,35 @@ private[lf] object Speedy {
       )
     }
 
+    // TODO: It is not longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
     def checkContractVisibility(
         cid: V.ContractId,
         contract: ContractInfo,
     ): Unit = {
       // For disclosed contracts, we do not perform visibility checking
-      if (!isDisclosedContract(cid)) {
-        visibleToStakeholders(contract.stakeholders) match {
-          case SVisibleToStakeholders.Visible =>
-            ()
-
-          case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-            val readers = (actAs union readAs).mkString(",")
-            val stakeholders = contract.stakeholders.mkString(",")
-            // TODO: https://github.com/digital-asset/daml/issues/17082
-            //  make this warning an internal error once immutability of meta-data contract is done properly.
-            this.warningLog.add(
-              Warning(
-                commitLocation = commitLocation,
-                message =
-                  s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
-                     | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                     | Use of divulged contracts is deprecated and incompatible with pruning.
-                     | To remedy, add one of the readers [$readers] as an observer to the contract.
-                     |""".stripMargin.replaceAll("\r|\n", ""),
-              )
-            )
-        }
-      }
+      // if (!isDisclosedContract(cid)) {
+      //  visibleToStakeholders(contract.stakeholders) match {
+      //    case SVisibleToStakeholders.Visible =>
+      //      ()
+      //
+      //    case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+      //      val readers = (actAs union readAs).mkString(",")
+      //      val stakeholders = contract.stakeholders.mkString(",")
+      //      // TODO: https://github.com/digital-asset/daml/issues/17082
+      //      //  make this warning an internal error once immutability of meta-data contract is done properly.
+      //      this.warningLog.add(
+      //        Warning(
+      //          commitLocation = commitLocation,
+      //          message =
+      //            s"""Tried to fetch or exercise ${contract.templateId} on contract ${cid.coid}
+      //               | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+      //               | Use of divulged contracts is deprecated and incompatible with pruning.
+      //               | To remedy, add one of the readers [$readers] as an observer to the contract.
+      //               |""".stripMargin.replaceAll("\r|\n", ""),
+      //        )
+      //      )
+      //  }
+      // }
     }
 
     private[speedy] var lastCommand: Option[Command] = None
@@ -770,6 +753,7 @@ private[lf] object Speedy {
         globalKeyMapping: Map[GlobalKey, KeyMapping],
         disclosedCreateEvent: ImmArray[Node.Create],
     )
+
   }
 
   final class PureMachine(

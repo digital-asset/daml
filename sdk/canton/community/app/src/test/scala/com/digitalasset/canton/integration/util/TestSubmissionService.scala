@@ -68,7 +68,6 @@ import com.digitalasset.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
-  ResultNeedUpgradeVerification,
   ResultPrefetch,
 }
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -361,9 +360,6 @@ class TestSubmissionService(
 
       case ResultInterruption(continue, _) =>
         resolve(iterateOverInterrupts(continue))
-
-      case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
-        resolve(resume(None))
 
       case ResultPrefetch(_, _, resume) => resolve(resume())
     }

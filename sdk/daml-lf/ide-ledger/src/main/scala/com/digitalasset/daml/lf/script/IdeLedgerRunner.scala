@@ -340,15 +340,7 @@ private[lf] object IdeLedgerRunner {
                 case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(_) => go()
               }
-            case Question.Update.NeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  callback,
-                ) =>
-              checkContractUpgradable(coid, signatories, observers, keyOpt, callback, ledger)
-              go()
+
             case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>
               ledger.lookupKey(
                 keyWithMaintainers.globalKey,

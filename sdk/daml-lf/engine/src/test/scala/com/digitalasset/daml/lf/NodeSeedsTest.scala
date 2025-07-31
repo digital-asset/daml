@@ -93,7 +93,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
         submissionSeed = crypto.Hash.hashPrivateKey(getClass.getName + time.toString),
         prefetchKeys = Seq.empty,
       )
-      .consume(pcs = contracts, pkgs = packages)
+      .consumeValidated(pcs = contracts, pkgs = packages)
 
   val nodeSeeds = metaData.nodeSeeds.iterator.toMap
 
@@ -163,7 +163,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
           time,
           time,
         )(LoggingContext.empty)
-        .consume(pcs = contracts, pkgs = packages, grantUpgradeVerification = None)
+        .consumeValidated(pcs = contracts, pkgs = packages)
     rTx.nodes.values.collect { case create: Node.Create => create }.toSet
   }
 
