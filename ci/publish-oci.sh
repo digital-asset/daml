@@ -33,27 +33,16 @@ STAGING_DIR=$1
 RELEASE_TAG=$2
 UNIFI_ASSISTANT_REGISTRY=$3
 
-declare -A publish=(
-  [damlc]=publish_damlc
-  [daml-script]=publish_daml_script
-  [daml2js]=publish_daml2js
-  [codegen]=publish_codegen
-)
-
+# Should match the tars copied into /oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script daml2js codegen)
-
-# List of damlc, daml-script, daml2js, codegen
-# Copy scripts should move the oci tars into oci/<thatname>
 
 if [[ x"$DEBUG" != x ]]; then
   unarchive="tar -x -v -z -f"
   copy="cp -v"
-  move="mv -v"
   makedir="mkdir -p -v"
 else
   unarchive="tar -x -z -f"
   copy="cp -f"
-  move="mv -f"
   makedir="mkdir -p"
 fi
 
@@ -89,9 +78,11 @@ function publish_artifact {
     find "${arch}/${artifact_name}/${artifact_name}" -type l | while read link; do
       real_path="$(realpath "${link}")"
       rm "${link}"
-      cp -r --dereference "${real_path}" "${link}"
+      ${copy} -r --dereference "${real_path}" "${link}"
     done
     if [ -f "${arch}/${artifact_name}/is-agnostic" ]; then
+        # If agnostic, remove the marker, upload as generic platform and break out for other platforms
+        # (this will upload the first platform, i.e. linux-intel)
         rm ${arch}/${artifact_name}/is-agnostic
         platform_args+=( "--platform generic=${arch}/${artifact_name} " )
         break

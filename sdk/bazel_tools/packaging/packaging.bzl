@@ -78,11 +78,6 @@ package_app = rule(
   into a tarball. The data dependencies are placed in 'resources' directory.
 """
 
-# need to take in files or groups of files
-# jars placed at root
-# tars unpacked at root
-#
-
 package_oci_component = rule(
     implementation = _package_oci_component_impl,
     attrs = dict({
@@ -106,3 +101,6 @@ package_oci_component = rule(
         "out": "%{name}.tar.gz",
     },
 )
+"""Package a set of resources into a DPM (Unifi) component. Unpacks tars (i.e. package_app) at root, includes jars directly,
+  requires a component.yaml manifest, and allows tagging components as platform agnostic
+"""

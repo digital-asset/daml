@@ -44,10 +44,6 @@ DAMLC="damlc-${RELEASE_TAG}-${NAME}.tar.gz"
 echo "Copying damlc to ${OUTPUT_DIR}/split-release/${DAMLC}"
 ${copy} bazel-bin/compiler/damlc/damlc-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAMLC}"
 
-DAML2JS="daml2js-${RELEASE_TAG}-${NAME}.tar.gz"
-echo "Copying daml2js to ${OUTPUT_DIR}/split-release/${DAML2JS}"
-${copy} bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAML2JS}"
-
 # OCI uploads
 function copy_oci {
   OCI_NAME=$1
@@ -70,9 +66,6 @@ if [[ "${NAME}" == "linux-intel" ]]; then
 
     SCRIPT="daml-script-${RELEASE_TAG}.jar"
     ${copy} bazel-bin/daml-script/runner/daml-script-binary_distribute.jar "${OUTPUT_DIR}/artifactory/${SCRIPT}"
-
-    CODEGEN="codegen-${RELEASE_TAG}.jar"
-    ${copy} bazel-bin/language-support/java/codegen/binary.jar "${OUTPUT_DIR}/artifactory/${CODEGEN}"
 
 # Publishing of this component is not implemented yet.
 #    BUNDLED_VSIX=daml-bundled-${RELEASE_TAG}.vsix

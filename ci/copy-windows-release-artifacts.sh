@@ -38,14 +38,6 @@ ${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/artifacto
 echo "Copying SDK tarball EE to ${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
 ${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
 
-DAMLC="damlc-${RELEASE_TAG}-windows.tar.gz"
-echo "Copying damlc to ${OUTPUT_DIR}/split-release/${DAMLC}"
-${copy} bazel-bin/compiler/damlc/damlc-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAMLC}"
-
-DAML2JS="daml2js-${RELEASE_TAG}-windows.tar.gz"
-echo "Copying daml2js to ${OUTPUT_DIR}/split-release/${DAML2JS}"
-${copy} bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAML2JS}"
-
 # OCI uploads
 function copy_oci {
   OCI_NAME=$1

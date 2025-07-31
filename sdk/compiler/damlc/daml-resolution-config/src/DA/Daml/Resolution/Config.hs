@@ -128,7 +128,7 @@ expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
       pure (purePaths <> fmap fst asDeps, fmap fst asDataDeps)
 
--- Bool is if it can be a data-dep
+-- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
 findDarInDarInfos darInfos rawName lfVersion = do
   let name = hardcodedPackageRenames rawName
