@@ -2625,14 +2625,16 @@ object AcsCommitmentProcessor extends HasLoggerName {
     }
 
     object MismatchError extends ErrorGroup {
-      @Explanation("""This error indicates that a remote participant has sent a commitment over
-            |an ACS for a period, while this participant does not think that there is a shared contract state.
-            |This error occurs if a remote participant has manually changed contracts using repair,
-            |or due to byzantine behavior, or due to malfunction of the system. The consequence is that
-            |the ledger is forked, and some commands that should pass will not.""")
+      @Explanation(
+        """This error code indicates indicates a special case of a fork, where a counter-participant sent a commitment
+      |for a period, while this participant does not think that there are any shared active contracts at the end of that
+      |period. This case can occur due to malicious behavior of the counter-participant, bugs, or if the administrator
+      |of the counter-participant node manually changed contracts using repair and created an ACS state incompatible
+      |with other participants. The counter-participant will log an ACS_COMMITMENT_MISMATCH."""
+      )
       @Resolution(
         """Please contact the other participant in order to check the cause of the mismatch. Either repair
-            |the store of this participant or of the counterparty."""
+            |the store of this participant or of the counter-participant."""
       )
       object NoSharedContracts extends AlarmErrorCode(id = "ACS_MISMATCH_NO_SHARED_CONTRACTS") {
         final case class Mismatch(synchronizerId: SynchronizerId, remote: AcsCommitmentData)
@@ -2641,14 +2643,21 @@ object AcsCommitmentProcessor extends HasLoggerName {
             )
       }
 
-      @Explanation("""This error indicates that a remote participant has sent a commitment over
-            |an ACS for a period which does not match the local commitment.
-            |This error occurs if a remote participant has manually changed contracts using repair,
-            |or due to byzantine behavior, or due to malfunction of the system. The consequence is that the ledger is forked,
-            |and some commands that should pass will not.""")
+      @Explanation(
+        """This error code indicates a commitment mismatch between the participant and one or more counter-participants.
+           |Between honest participants a fork should never happen, however, misbehavior, bugs or manual changes to
+           |contract stores using the repair service can lead to forks. A fork means that one or more common contracts
+           |are active on the participant, but not on its
+           |counter-participants, or vice versa. Disagreeing participants will have different local verdicts on the
+           |conformance checks of transactions using disputed contracts. As long as these contracts are active, the
+           |fork exists, but if the
+           |contracts get deactivated as part of their lifecycle, then the fork automatically "resolves itself". A
+           |participant node operator can also fix a fork manually via repair commands."""
+      )
       @Resolution(
-        """Please contact the other participant in order to check the cause of the mismatch. Either repair
-            |the store of this participant or of the counterparty."""
+        """Please refer to the runbook on inspecting commitment mismatches in order to determine the cause of the
+            |mismatch together with the counter-participant node. Then repair the store of this participant and/or
+            |the store of the counter-participant."""
       )
       object CommitmentsMismatch extends AlarmErrorCode(id = "ACS_COMMITMENT_MISMATCH") {
         final case class Mismatch(
@@ -2658,7 +2667,16 @@ object AcsCommitmentProcessor extends HasLoggerName {
         ) extends Alarm(cause = "The local commitment does not match the remote commitment")
       }
 
-      @Explanation("The participant has detected that another node is behaving maliciously.")
+      @Explanation(
+        """The participant has detected that another node is behaving maliciously. This warning occurs in several
+           |cases. First, it occurs when the ACS commitment received from a counter-participant has an invalid
+           |signature. It might be that the counter-participant itself is malicious and purposefully added a wrong
+           |signature, or that someone else modified the signed commitment sent correctly by the counter-participant,
+           |or even crafted a message in the name of a counter-participant. Second, this alarm occurs when the
+           |participant receives two correctly signed but different commitments from the same counter-participant
+           |covering the same interval. A correct counter-participant never sends that.
+           |"""
+      )
       @Resolution("Contact support.")
       object AcsCommitmentAlarm extends AlarmErrorCode(id = "ACS_COMMITMENT_ALARM") {
         final case class Warn(override val cause: String) extends Alarm(cause)
@@ -2669,9 +2687,16 @@ object AcsCommitmentProcessor extends HasLoggerName {
     object DegradationError extends ErrorGroup {
 
       @Explanation(
-        "The participant is configured to engage catchup mode, however configuration is invalid to have any effect"
+        """This error code indicates that there is a degradation in commitment computation and the catch-up mode started,
+           |however the catch-up mode configuration is invalid and will not improve performance. This is because the
+           |configuration for the catch-up mode has a skip step of 1, which means that the participant will not skip
+           |any commitment computation. The participant runs the risk of remaining degraded, and its counter-participants
+           |might blacklist it and not actively wait for commitments, weakening the non-repudiation guarantees.
+           |"""
       )
-      @Resolution("Please update catchup mode to have a catchUpIntervalSkip higher than 1")
+      @Resolution(
+        "Please update catch-up mode configuration to have a catchUpIntervalSkip higher than 1"
+      )
       object AcsCommitmentDegradationWithIneffectiveConfig
           extends ErrorCode(
             id = "ACS_COMMITMENT_DEGRADATION_WITH_INEFFECTIVE_CONFIG",
@@ -2687,9 +2712,18 @@ object AcsCommitmentProcessor extends HasLoggerName {
       }
 
       @Explanation(
-        "The participant has detected that ACS computation is taking to long and trying to catch up."
+        """This error code indicates that the participant node is behind some of its counter-participants in commitment
+           |computation, perhaps due to heavy load, and enters catch-up mode. This is referred to as a degradation.
+           |The danger of a degraded participant is that its counter-participants might blacklist it in order to unblock
+           |their pruning, therefore those counter-participants would not wait for the participant's commitments, which
+           |weakens the non-repudiation guarantees.
+           |An operator can configure the threshold of how many reconciliation intervals the participant needs to fall
+           |behind for catch-up mode to trigger, as well as the number of reconciliation intervals that the participant
+           |skips in catch-up mode. However, any counter-participant operator can unilaterally decide to blacklist a
+           |participant based on their own tolerance to slow participants, regardless of each participant's configured
+           |parameters."""
       )
-      @Resolution("Catch up mode is enabled and the participant should recover on its own.")
+      @Resolution("Catch-up mode is enabled and the participant should recover on its own.")
       object AcsCommitmentDegradation
           extends ErrorCode(
             id = "ACS_COMMITMENT_DEGRADATION",
@@ -2711,22 +2745,28 @@ object AcsCommitmentProcessor extends HasLoggerName {
   }
 
   object ReceivedCmtState {
-    object Match extends ReceivedCmtState {
+
+//    case object Match { val toInt = 1 }
+//    case object Mismatch { val toInt = 3 }
+//    case object Buffered extends CommitmentPeriodState { val toInt = 3 }
+//    case object Outstanding extends ValidSentPeriodState { val toInt = 4 }
+
+    case object Match extends ReceivedCmtState {
       override val toProtoV30: ReceivedCommitmentState =
         ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MATCH
     }
 
-    object Mismatch extends ReceivedCmtState {
+    case object Mismatch extends ReceivedCmtState {
       override val toProtoV30: ReceivedCommitmentState =
         ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_MISMATCH
     }
 
-    object Buffered extends ReceivedCmtState {
+    case object Buffered extends ReceivedCmtState {
       override val toProtoV30: ReceivedCommitmentState =
         ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_BUFFERED
     }
 
-    object Outstanding extends ReceivedCmtState {
+    case object Outstanding extends ReceivedCmtState {
       override val toProtoV30: ReceivedCommitmentState =
         ReceivedCommitmentState.RECEIVED_COMMITMENT_STATE_OUTSTANDING
     }
@@ -2754,17 +2794,17 @@ object AcsCommitmentProcessor extends HasLoggerName {
   }
 
   object SentCmtState {
-    object Match extends SentCmtState {
+    case object Match extends SentCmtState {
       override val toProtoV30: SentCommitmentState =
         SentCommitmentState.SENT_COMMITMENT_STATE_MATCH
     }
 
-    object Mismatch extends SentCmtState {
+    case object Mismatch extends SentCmtState {
       override val toProtoV30: SentCommitmentState =
         SentCommitmentState.SENT_COMMITMENT_STATE_MISMATCH
     }
 
-    object NotCompared extends SentCmtState {
+    case object NotCompared extends SentCmtState {
       override val toProtoV30: SentCommitmentState =
         SentCommitmentState.SENT_COMMITMENT_STATE_NOT_COMPARED
     }

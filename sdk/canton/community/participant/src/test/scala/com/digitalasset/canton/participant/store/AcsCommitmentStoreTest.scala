@@ -596,9 +596,13 @@ trait AcsCommitmentStoreTest
         )
         found1 <- store.searchComputedBetween(ts(0), ts(1), NonEmpty.from(Seq(remoteId)))
         found2 <- store.searchComputedBetween(ts(0), ts(2))
-        found3 <- store.searchComputedBetween(ts(1), ts(1))
+        found3 <- store.searchComputedBetween(ts(1).minusMillis(1), ts(1))
         found4 <- store.searchComputedBetween(ts(0), ts(0))
-        found5 <- store.searchComputedBetween(ts(2), ts(2), NonEmpty.from(Seq(remoteId, remoteId2)))
+        found5 <- store.searchComputedBetween(
+          ts(2).minusMillis(1),
+          ts(2),
+          NonEmpty.from(Seq(remoteId, remoteId2)),
+        )
 
       } yield {
         found1.toSet shouldBe Set((period(0, 1), remoteId, hashedDummyCommitment))

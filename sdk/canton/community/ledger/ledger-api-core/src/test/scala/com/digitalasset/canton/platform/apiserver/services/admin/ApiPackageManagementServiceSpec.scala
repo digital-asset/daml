@@ -197,7 +197,7 @@ object ApiPackageManagementServiceSpec {
         hint: Party,
         submissionId: SubmissionId,
         synchronizerIdO: Option[SynchronizerId],
-    )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] =
       throw new UnsupportedOperationException()
 
     override def prune(

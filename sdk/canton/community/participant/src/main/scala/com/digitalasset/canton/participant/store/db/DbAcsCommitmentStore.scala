@@ -427,7 +427,7 @@ class DbAcsCommitmentStore(
     val query =
       sql"""select from_exclusive, to_inclusive, counter_participant, commitment
             from par_computed_acs_commitments
-            where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
+            where synchronizer_idx = $indexedSynchronizer and to_inclusive > $start and from_exclusive < $end""" ++ participantFilter
 
     storage.query(
       query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)],

@@ -63,10 +63,10 @@ object EventCostCalculator {
   ) extends PrettyPrinting {
 
     override protected def pretty: Pretty[EventCostDetails] = prettyOfClass(
+      param("event cost", _.eventCost),
       param("cost multiplier", _.costMultiplier),
       param("group to members size", _.groupToMembersSize),
       param("envelopes cost details", _.envelopes),
-      param("event cost", _.eventCost),
     )
   }
 }

@@ -55,9 +55,7 @@ sealed trait ValidSentPeriodState extends CommitmentPeriodState {
       case CommitmentPeriodState.Matched => v30.SentCommitmentState.SENT_COMMITMENT_STATE_MATCH
       case CommitmentPeriodState.Mismatched =>
         v30.SentCommitmentState.SENT_COMMITMENT_STATE_MISMATCH
-      case CommitmentPeriodState.NotCompared =>
-        v30.SentCommitmentState.SENT_COMMITMENT_STATE_NOT_COMPARED
-      case CommitmentPeriodState.Outstanding =>
+      case _ =>
         v30.SentCommitmentState.SENT_COMMITMENT_STATE_NOT_COMPARED
     }
 }
@@ -134,12 +132,18 @@ object SentAcsCommitment {
   ): Iterable[SentAcsCommitment] =
     for {
       (period, participant, commitment) <- computed
-      (_, _, state) = outstanding
+      state = outstanding
         .find { case (outstandingPeriod, counterParticipant, _) =>
           counterParticipant == participant &&
           period.overlaps(outstandingPeriod)
         }
-        .getOrElse((period, participant, CommitmentPeriodState.NotCompared))
+        .map { case (_period, _participant, state) =>
+          if (state != CommitmentPeriodState.Outstanding)
+            state
+          else CommitmentPeriodState.NotCompared
+        }
+        .getOrElse(CommitmentPeriodState.NotCompared)
+
       receivedCommitment =
         if (verbose)
           received
@@ -152,12 +156,12 @@ object SentAcsCommitment {
 
     } yield {
       SentAcsCommitment(
-        synchronizerId,
-        period,
-        participant,
-        receivedCommitment,
-        Option.when(verbose)(commitment),
-        state,
+        synchronizerId = synchronizerId,
+        interval = period,
+        counterParticipant = participant,
+        sentCommitment = Option.when(verbose)(commitment),
+        counterCommitment = if (verbose) receivedCommitment else None,
+        state = state,
       )
     }
 
@@ -202,7 +206,7 @@ object ReceivedAcsCommitment {
       buffering: Iterable[BufferedAcsCommitment],
       outstanding: Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)],
       verbose: Boolean,
-  ): Iterable[ReceivedAcsCommitment] =
+  ): Iterable[ReceivedAcsCommitment] = {
     (for {
       recCmt <- received
 
@@ -234,23 +238,45 @@ object ReceivedAcsCommitment {
         else None
     } yield {
       ReceivedAcsCommitment(
-        synchronizerId,
-        recCmt.period,
-        recCmt.sender,
-        Option.when(verbose)(recCmt.commitment),
-        computedCommitment,
-        state,
+        synchronizerId = synchronizerId,
+        interval = recCmt.period,
+        originCounterParticipant = recCmt.sender,
+        receivedCommitment = Option.when(verbose)(recCmt.commitment),
+        ownCommitment = if (verbose) computedCommitment else None,
+        state = state,
       )
     }) ++ buffering.map(cmt =>
       ReceivedAcsCommitment(
-        cmt.synchronizerId,
-        cmt.period,
-        cmt.sender,
-        Option.when(verbose)(cmt.commitment),
-        None,
-        CommitmentPeriodState.Buffered,
+        synchronizerId = cmt.synchronizerId,
+        interval = cmt.period,
+        originCounterParticipant = cmt.sender,
+        receivedCommitment = Option.when(verbose)(cmt.commitment),
+        ownCommitment = None,
+        state = CommitmentPeriodState.Buffered,
       )
-    )
+    ) ++ outstanding
+      .collect { case (period, counterParticipantId, CommitmentPeriodState.Outstanding) =>
+        val computedCommitment =
+          if (verbose)
+            computed
+              .collectFirst {
+                case (compPeriod, `counterParticipantId`, commitment)
+                    if compPeriod.overlaps(period) =>
+                  commitment
+              }
+          else None
+        ReceivedAcsCommitment(
+          synchronizerId = synchronizerId,
+          interval = period,
+          originCounterParticipant = counterParticipantId,
+          receivedCommitment = None,
+          ownCommitment = computedCommitment,
+          state = CommitmentPeriodState.Outstanding,
+        )
+      }
+  }.toSeq
+    .sortBy { case ReceivedAcsCommitment(_, interval, _, _, _, _) => interval.fromExclusive }
+
   def toProtoV30(
       received: Iterable[ReceivedAcsCommitment]
   ): Seq[v30.ReceivedAcsCommitmentPerSynchronizer] = {
