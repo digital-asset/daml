@@ -334,7 +334,7 @@ object ValidateDisclosedContractsTest {
       create = createNode,
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
-      cantonData = lf.driverMetadataBytes,
+      authenticationData = lf.driverMetadataBytes,
     )
 
     val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(

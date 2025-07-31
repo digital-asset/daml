@@ -98,7 +98,7 @@ class StoreBackedCommandInterpreterSpec
     fatContractInstance = FatContract.fromCreateNode(
       disclosedCreateNode,
       createTime = CreationTime.CreatedAt(disclosedContractCreateTime),
-      cantonData = salt,
+      authenticationData = salt,
     ),
     synchronizerIdO = Some(disclosedContractSynchronizerId),
   )
@@ -107,7 +107,7 @@ class StoreBackedCommandInterpreterSpec
     FatContract.fromCreateNode(
       create = disclosedCreateNode,
       createTime = CreationTime.CreatedAt(disclosedContractCreateTime),
-      cantonData = salt,
+      authenticationData = salt,
     )
   )
 
@@ -279,7 +279,7 @@ class StoreBackedCommandInterpreterSpec
           version = LfTransactionVersion.StableVersions.max,
         ),
         createTime = CreationTime.CreatedAt(Timestamp.now()),
-        cantonData = Bytes.Empty,
+        authenticationData = Bytes.Empty,
       )
     )
 
@@ -370,7 +370,7 @@ class StoreBackedCommandInterpreterSpec
             FatContract.fromCreateNode(
               stakeholderContract.contractInstance.toCreateNode,
               createTime = stakeholderContract.contractInstance.createdAt,
-              cantonData = Bytes.fromByteArray(stakeholderContractDriverMetadata),
+              authenticationData = Bytes.fromByteArray(stakeholderContractDriverMetadata),
             )
           )
         )

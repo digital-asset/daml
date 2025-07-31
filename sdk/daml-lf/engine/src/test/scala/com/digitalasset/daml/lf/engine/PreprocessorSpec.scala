@@ -630,7 +630,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       contractKeyWithMaintainers =
         key.map(k => GlobalKeyWithMaintainers.assertBuild(templateId, k, signatories, pkgName)),
       createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
-      cantonData = Bytes.Empty,
+      authenticationData = Bytes.Empty,
     )
   }
 

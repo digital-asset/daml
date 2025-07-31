@@ -54,9 +54,9 @@ object ContractInstance {
     Some((contractInstance.inst, contractInstance.metadata, contractInstance.serialization))
 
   def driverContractMetadata(inst: FatContractInstance): Either[String, DriverContractMetadata] =
-    if (inst.cantonData.toByteArray.nonEmpty)
+    if (inst.authenticationData.toByteArray.nonEmpty)
       DriverContractMetadata
-        .fromLfBytes(inst.cantonData.toByteArray)
+        .fromLfBytes(inst.authenticationData.toByteArray)
         .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
     else
       Left(

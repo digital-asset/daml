@@ -102,7 +102,7 @@ object RepairContract {
 
       driverContractMetadata <-
         DriverContractMetadata
-          .fromLfBytes(fattyContract.cantonData.toByteArray)
+          .fromLfBytes(fattyContract.authenticationData.toByteArray)
           .leftMap(deserializationError =>
             s"Unable to deserialize driver contract metadata: ${deserializationError.message}"
           )

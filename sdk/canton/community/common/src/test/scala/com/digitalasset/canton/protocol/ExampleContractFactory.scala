@@ -115,7 +115,7 @@ object ExampleContractFactory extends EitherValues {
         packageName = packageName.getOrElse(create.packageName),
       ),
       base.inst.createdAt,
-      base.inst.cantonData,
+      base.inst.authenticationData,
     )
 
     ContractInstance(inst).value

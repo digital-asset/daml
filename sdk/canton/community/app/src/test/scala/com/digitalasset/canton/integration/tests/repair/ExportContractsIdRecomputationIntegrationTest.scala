@@ -88,7 +88,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
       val updatedFatContract = FatContractInstance.fromCreateNode(
         updatedCreateNode.copy(coid = contractIdTransformation(updatedCreateNode.coid)),
         fatContract.createdAt,
-        fatContract.cantonData,
+        fatContract.authenticationData,
       )
 
       updatedActiveContract.update(
