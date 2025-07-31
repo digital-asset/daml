@@ -35,6 +35,7 @@ data DecodeEnv = DecodeEnv
     -- erroring out when producing the string interning table.
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
+    , internedExprs :: !(V.Vector Expr)
     , internedTypes :: !(V.Vector Type)
     , internedKinds :: !(V.Vector Kind)
     , selfPackageRef :: SelfOrImportedPackageId
@@ -144,12 +145,13 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: LF.Version -> LF.SelfOrImportedPackageId -> LF2.Package -> Either Error Package
-decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV internedKindsV)
+decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV internedKindsV internedExprsV)
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
   | Just metadata <- mMetadata = do
       let internedStrings = V.map decodeMangledString internedStringsV
       let internedDottedNames = V.empty
+      let internedExprs = V.empty
       let internedTypes = V.empty
       let internedKinds = V.empty
       let env0 = DecodeEnv{..}
@@ -161,7 +163,10 @@ decodePackage version selfPackageRef (LF2.Package mods internedStringsV interned
       internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
           runDecode env2{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
       let env3 = env2{internedTypes}
-      runDecode env3 $ do
+      internedExprs <- V.constructNE (V.length internedExprsV) $ \prefix i ->
+          runDecode env3{internedExprs = prefix} $ decodeExpr (internedExprsV V.! i)
+      let env4 = env3{internedExprs}
+      runDecode env4 $ do
         Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
@@ -584,6 +589,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumExperimental (LF2.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
+  LF2.ExprSumInternedExpr n -> do
+    DecodeEnv{internedExprs} <- ask
+    lookupInterned internedExprs BadExprId n
 
 decodeUpdate :: LF2.Update -> Decode Expr
 decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
@@ -735,7 +743,7 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
-  LF2.KindSumInterned n -> do
+  LF2.KindSumInternedKind n -> do
     DecodeEnv{internedKinds, version} <- ask
     if version `supports` featureKindInterning
       then lookupInterned internedKinds BadKindId n
@@ -791,7 +799,7 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF2.TypeSumStruct (LF2.Type_Struct flds) ->
     TStruct <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
-  LF2.TypeSumInterned n -> do
+  LF2.TypeSumInternedType n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n
   where

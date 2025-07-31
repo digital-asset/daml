@@ -143,7 +143,7 @@ message Kind {
     Unit nat = 3;
     // interned kinds
     // this should really be an uint32, change in next breaking change
-    int32 interned = 4; // *Available in versions >= 2.dev*
+    int32 interned_kind = 4; // *Available in versions >= 2.dev*
   }
 }
 
@@ -268,7 +268,7 @@ message Type {
     // use standard signed long for future usage.
     sint64 nat = 6;
     Syn syn = 7;
-    int32 interned = 8;
+    int32 interned_type = 8;
   }
 
 }
@@ -884,6 +884,8 @@ message Expr {
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
 
+    int32 interned_expr = 44; // *Available in versions >= 2.dev*
+
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*
     ChoiceController choice_controller = 1001;
@@ -1350,4 +1352,5 @@ message Package {
   // at smaller indices.
   repeated Type interned_types = 5;
   repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
+  repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
 }

@@ -217,7 +217,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     })
 
     private implicit def encodeType(typ: Type): PLF.Type =
-      PLF.Type.newBuilder().setInterned(typeTable.insert(typ)).build()
+      PLF.Type.newBuilder().setInternedType(typeTable.insert(typ)).build()
 
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
       val (typ, args) =

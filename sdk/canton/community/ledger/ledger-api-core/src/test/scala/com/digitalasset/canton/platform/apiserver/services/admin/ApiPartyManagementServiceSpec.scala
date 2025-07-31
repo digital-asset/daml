@@ -26,6 +26,7 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPartyManagementService,
   IndexerPartyDetails,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementService.blindAndConvertToProto
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
@@ -45,7 +46,6 @@ import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -296,13 +296,13 @@ object ApiPartyManagementServiceSpec {
         synchronizerIdO: Option[SynchronizerId],
     )(implicit
         traceContext: TraceContext
-    ): CompletionStage[state.SubmissionResult] = {
+    ): FutureUnlessShutdown[state.SubmissionResult] = {
       val telemetryContext = traceContext.toDamlTelemetryContext(tracer)
       telemetryContext.setAttribute(
         anUserIdSpanAttribute._1,
         anUserIdSpanAttribute._2,
       )
-      CompletableFuture.completedFuture(state.SubmissionResult.Acknowledged)
+      FutureUnlessShutdown.pure(state.SubmissionResult.Acknowledged)
     }
   }
 }

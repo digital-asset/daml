@@ -82,9 +82,7 @@ class MutablePackageMetadataViewImpl(
               Source(packages)
                 .mapAsyncUnordered(packageMetadataViewConfig.initLoadParallelism) { pkgDesc =>
                   logger.debug(s"Fetching package ${pkgDesc.packageId}")
-                  fetchPackage(pkgDesc.packageId).failOnShutdownToAbortException(
-                    "MutablePackageMetadataViewImpl"
-                  )
+                  fetchPackage(pkgDesc.packageId).asGrpcFuture
                 }
                 .mapAsyncUnordered(packageMetadataViewConfig.initProcessParallelism) { archive =>
                   logger.debug(s"Decoding archive ${archive.getHash} to package metadata")

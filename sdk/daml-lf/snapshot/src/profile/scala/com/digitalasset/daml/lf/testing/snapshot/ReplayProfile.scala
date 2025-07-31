@@ -79,7 +79,7 @@ object ReplayProfile {
     val benchmark = config.darFile match {
       case Some(path) =>
         val loadedPackages = TransactionSnapshot.loadDar(path)
-        originalBenchmark.adapt(loadedPackages)
+        originalBenchmark.copy(pkgs = loadedPackages)
       case None =>
         originalBenchmark
     }

@@ -69,16 +69,6 @@ final case class TransactionSnapshot(
       )
       .consume(contracts, pkgs, contractKeys)
 
-  def adapt(pkgs: Map[Ref.PackageId, Ast.Package]): TransactionSnapshot = {
-    val adapter = new Adapter(pkgs)
-    this.copy(
-      transaction = adapter.adapt(transaction),
-      contracts = contracts.transform((_, v) => adapter.adapt(v)),
-      contractKeys = contractKeys.iterator.map { case (k, v) => adapter.adapt(k) -> v }.toMap,
-      pkgs = pkgs,
-    )
-  }
-
 }
 
 private[snapshot] object TransactionSnapshot {

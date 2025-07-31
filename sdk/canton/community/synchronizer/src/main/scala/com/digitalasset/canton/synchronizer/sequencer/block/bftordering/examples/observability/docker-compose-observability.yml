@@ -73,11 +73,13 @@ services:
     # https://github.com/prometheus-community/postgres_exporter/blob/master/CHANGELOG.md
     image: quay.io/prometheuscommunity/postgres-exporter:v0.14.0
     container_name: daml_observability_postgres_exporter
+    # The database collector does not work very well with databases that are dropped/restored making the entire exporter die.
+    # Disabling it does not have effect on the Postgres dashboard.
+    command: --no-collector.database
     environment:
       DATA_SOURCE_USER: "postgres"
       DATA_SOURCE_PASS: "postgres"
       DATA_SOURCE_URI: "postgres:5432/postgres?sslmode=disable"
-      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
     volumes:
       # PostgreSQL Server Exporter configuration
       - ./postgres/postgres_exporter.yml:/postgres_exporter.yml

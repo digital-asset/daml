@@ -66,6 +66,7 @@ da_haskell_test(
         "tasty-hunit",
         "proto3-suite",
         "text",
+        "syb",
         "vector",
     ],
     main_function = "DA.Daml.LF.Proto3.EncodeTest.entry",

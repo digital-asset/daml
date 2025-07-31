@@ -23,7 +23,6 @@ import com.daml.ledger.api.v2.admin.party_management_service.{
 }
 import com.daml.logging.LoggingContext
 import com.daml.platform.v1.page_tokens.ListPartiesPageTokenPayload
-import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -53,7 +52,7 @@ import com.digitalasset.canton.ledger.localstore.api.{
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -277,14 +276,14 @@ private[apiserver] final class ApiPartyManagementService private (
                   trackerKey,
                   NonNegativeFiniteDuration(managementServiceTimeout),
                 ) { _ =>
-                  FutureUnlessShutdown {
-                    for {
-                      result <- syncService
-                        .allocateParty(partyName, trackerKey.submissionId, synchronizerIdO)
-                        .toScalaUnwrapped
-                      _ <- checkSubmissionResult(result)
-                    } yield UnlessShutdown.unit
-                  }
+                  for {
+                    result <- syncService.allocateParty(
+                      partyName,
+                      trackerKey.submissionId,
+                      synchronizerIdO,
+                    )
+                    _ <- checkSubmissionResult(result)
+                  } yield ()
                 }
                 .transform(alreadyExistsError(trackerKey.submissionId, loggingContext))
               _ <- verifyPartyIsNonExistentOrInIdp(
@@ -364,10 +363,9 @@ private[apiserver] final class ApiPartyManagementService private (
     }
 
   private def checkSubmissionResult(r: state.SubmissionResult) = r match {
-    case state.SubmissionResult.Acknowledged =>
-      Future.successful(())
+    case state.SubmissionResult.Acknowledged => FutureUnlessShutdown.unit
     case synchronousError: state.SubmissionResult.SynchronousError =>
-      Future.failed(synchronousError.exception)
+      FutureUnlessShutdown.failed(synchronousError.exception)
   }
 
   private def alreadyExistsError[R](

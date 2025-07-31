@@ -26,9 +26,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId}
 import io.opentelemetry.api.trace.Tracer
 
-import java.util.concurrent.CompletionStage
-import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.FutureConverters.*
+import scala.concurrent.ExecutionContext
 import scala.util.chaining.*
 
 private[sync] class PartyAllocation(
@@ -46,18 +44,18 @@ private[sync] class PartyAllocation(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
-  )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
 
       allocateInternal(hint, rawSubmissionId, synchronizerId)
-    }.asJava
+    }
 
   private def allocateInternal(
       partyName: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
       synchronizerId: PhysicalSynchronizerId,
-  )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[SubmissionResult] = {
     import com.google.rpc.status.Status
     import io.grpc.Status.Code
 
@@ -125,8 +123,8 @@ private[sync] class PartyAllocation(
         // TODO(i25076) remove this waiting logic once topology events are published on the ledger api
         // wait for parties to be available on the currently connected synchronizers
         waitingSuccessful <- EitherT
-          .right[SubmissionResult](connectedSynchronizersLookup.get(synchronizerId).traverse {
-            connectedSynchronizer =>
+          .right[SubmissionResult](
+            connectedSynchronizersLookup.get(synchronizerId).traverse { connectedSynchronizer =>
               connectedSynchronizer.topologyClient
                 .awaitUS(
                   _.inspectKnownParties(partyId.filterString, participantId.filterString)
@@ -134,7 +132,8 @@ private[sync] class PartyAllocation(
                   timeouts.network.duration,
                 )
                 .map(synchronizerId -> _)
-          })
+            }
+          )
         _ = waitingSuccessful.foreach { case (synchronizerId, successful) =>
           if (!successful)
             logger.warn(
@@ -154,5 +153,5 @@ private[sync] class PartyAllocation(
         logger.debug(s"Allocated party $partyName::${participantId.namespace}")
       },
     )
-  }.failOnShutdownToAbortException("Party Allocation")
+  }
 }

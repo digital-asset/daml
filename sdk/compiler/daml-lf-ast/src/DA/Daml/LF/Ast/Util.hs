@@ -462,6 +462,15 @@ instance Show UpgradingDep where
 ------------------------------------------------------------------------
 -- Shorthands
 ------------------------------------------------------------------------
+-- Exprs
+eVar :: T.Text -> Expr
+eVar = EVar . ExprVarName
+
+eQualTest :: a -> Qualified a
+eQualTest x = Qualified SelfPackageId (ModuleName ["Main"]) x
+
+eValTest :: T.Text -> Expr
+eValTest = EVal . eQualTest . ExprValName
 
 -- Types
 tvar :: T.Text -> Type

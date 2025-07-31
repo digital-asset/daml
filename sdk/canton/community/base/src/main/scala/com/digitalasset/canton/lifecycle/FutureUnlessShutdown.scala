@@ -268,6 +268,14 @@ object FutureUnlessShutdownImpl {
     def failOnShutdownToAbortException(action: String)(implicit ec: ExecutionContext): Future[A] =
       unwrap.transform(UnlessShutdown.failOnShutdownToAbortException(_, action))
 
+    /** Converts a [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] into a
+      * [[scala.concurrent.Future]] by encoding the shutdown error into a
+      * [[com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown]]
+      * gRPC self-service error.
+      *
+      * Consider using this method for generally handling
+      * [[com.digitalasset.canton.lifecycle.FutureUnlessShutdown]] in gRPC services.
+      */
     def asGrpcFuture(implicit
         ec: ExecutionContext,
         errorLoggingContext: ErrorLoggingContext,

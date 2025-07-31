@@ -48,6 +48,7 @@ import com.digitalasset.daml.lf.data.Bytes
 import io.grpc.stub.StreamObserver
 
 import java.io.OutputStream
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcParticipantInspectionService(
@@ -463,13 +464,6 @@ class GrpcParticipantInspectionService(
             )
         )
 
-        computedCmts = syncStateInspection.findComputedCommitments(
-          synchronizerAlias,
-          cantonTickTs,
-          cantonTickTs,
-          Some(counterParticipant),
-        )
-
         // 2. Retrieve the contracts for the synchronizer and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
@@ -481,10 +475,20 @@ class GrpcParticipantInspectionService(
 
         snapshot <- EitherTUtil
           .fromFuture(
-            topologySnapshot.awaitSnapshot(cantonTickTs),
+            topologySnapshot.awaitSnapshotUSSupervised(
+              s"Await snapshot at $cantonTickTs",
+              warnAfter = 5.seconds,
+            )(cantonTickTs),
             err => ParticipantInspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
+
+        computedCmts = syncStateInspection.findComputedCommitments(
+          synchronizerAlias,
+          cantonTickTs.minusMillis(1),
+          cantonTickTs,
+          Some(counterParticipant),
+        )
 
         // Check that the given timestamp is a valid tick. We cannot move this check up, because .get(cantonTickTs)
         // would wait if the timestamp is in the future. Here, we already validated that the timestamp is in the past

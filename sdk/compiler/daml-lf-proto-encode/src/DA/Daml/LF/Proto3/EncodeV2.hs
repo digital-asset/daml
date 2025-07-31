@@ -40,6 +40,7 @@ type Just a = Maybe a
 
 type InternedKindsMap = IM.InternedMap P.KindSum Int32
 type InternedTypesMap = IM.InternedMap P.TypeSum Int32
+type InternedExprsMap = IM.InternedMap P.ExprSum Int32
 
 type Encode a = State EncodeEnv a
 
@@ -53,9 +54,12 @@ data EncodeEnv = EncodeEnv
       -- ^ We track the size of `internedDottedNames` explicitly since `HMS.size` is `O(n)`.
     , internedKindsMap :: InternedKindsMap
     , internedTypesMap :: InternedTypesMap
+    , internedExprsMap :: InternedExprsMap
     }
 
-makeLensesFor [("internedKindsMap", "internedKindsMapLens"), ("internedTypesMap", "internedTypesMapLens")] ''EncodeEnv
+makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
+              , ("internedTypesMap", "internedTypesMapLens")
+              , ("internedExprsMap", "internedExprsMapLens")] ''EncodeEnv
 
 
 initEncodeEnv :: Version -> EncodeEnv
@@ -67,6 +71,7 @@ initEncodeEnv version =
     , nextInternedDottedNameId = 0
     , internedKindsMap = IM.empty
     , internedTypesMap = IM.empty
+    , internedExprsMap = IM.empty
     , ..
     }
 
@@ -249,14 +254,15 @@ encodeExprVarWithType (name, typ) = do
 ------------------------------------------------------------------------
 
 encodeKind :: Kind -> Encode P.Kind
-encodeKind = \case
-    KStar -> return $ (P.Kind . Just . P.KindSumStar) P.Unit
-    KNat -> return $ (P.Kind . Just . P.KindSumNat) P.Unit
-    (KArrow k1 k2) -> do
+encodeKind k = do
+  k' <- case k of
+      KStar -> return $ (P.Kind . Just . P.KindSumStar) P.Unit
+      KNat -> return $ (P.Kind . Just . P.KindSumNat) P.Unit
+      (KArrow k1 k2) -> do
       (kind_ArrowParams :: V.Vector P.Kind) <- V.singleton <$> encodeKind k1
       (kind_ArrowResult :: Maybe P.Kind) <- Just <$> encodeKind k2
-      let arr = (P.Kind . Just . P.KindSumArrow) P.Kind_Arrow{..}
-      internKind arr
+      return $ (P.Kind . Just . P.KindSumArrow) P.Kind_Arrow{..}
+  internKind k'
 
 internKind :: P.Kind -> Encode P.Kind
 internKind k =
@@ -266,7 +272,7 @@ internKind k =
       then case k of
         (P.Kind (Just k')) -> do
             n <- zoom internedKindsMapLens $ IM.internState k'
-            return $ (P.Kind . Just . P.KindSumInterned) n
+            return $ (P.Kind . Just . P.KindSumInternedKind) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
 
@@ -349,7 +355,7 @@ internType :: P.Type -> Encode P.Type
 internType = \case
   (P.Type (Just t')) -> do
     n <- zoom internedTypesMapLens $ IM.internState t'
-    return $ (P.Type . Just . P.TypeSumInterned) n
+    return $ (P.Type . Just . P.TypeSumInternedType) n
   (P.Type Nothing) -> error "nothing type during encoding"
 
 ------------------------------------------------------------------------
@@ -490,7 +496,15 @@ encodeBuiltinExpr = \case
       pureLit = pure . lit
 
 encodeExpr' :: Expr -> Encode P.Expr
-encodeExpr' = \case
+encodeExpr' e = case e of
+  -- we must process locations first, since they are not interned separatately
+  -- (because in proto, locations are no longer explicit ast nodes, but rather
+  -- optional attributes of Expr constructors)
+  ELocation loc e -> do
+      P.Expr{..} <- encodeExpr' e
+      exprLocation <- Just <$> encodeSourceLoc loc
+      pure P.Expr{..}
+  _ -> internExpr $ case e of
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
         valueIdModule <- encodeModuleId pkgRef modName
@@ -575,10 +589,6 @@ encodeExpr' = \case
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
-    ELocation loc e -> do
-        P.Expr{..} <- encodeExpr' e
-        exprLocation <- Just <$> encodeSourceLoc loc
-        pure P.Expr{..}
     ENone typ -> do
         expr_OptionalNoneType <- encodeType typ
         pureExpr $ P.ExprSumOptionalNone P.Expr_OptionalNone{..}
@@ -681,6 +691,20 @@ encodeExpr' = \case
   where
     expr = P.Expr Nothing . Just
     pureExpr = pure . expr
+
+internExpr :: Encode P.Expr -> Encode P.Expr
+internExpr f = do
+  e <- f
+  EncodeEnv{version} <- get
+  if isDevVersion version
+    then case e of
+      (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
+          error "not allowed to add interned to interning table"
+      (P.Expr l (Just e')) -> do
+          n <- zoom internedExprsMapLens $ IM.internState e'
+          return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
+      (P.Expr _ Nothing) -> error "nothing expr during encoding"
+    else return e
 
 encodeExpr :: Expr -> Encode (Just P.Expr)
 encodeExpr e = Just <$> encodeExpr' e
@@ -974,17 +998,21 @@ packInternedKinds = V.map (P.Kind . Just) . IM.toVec
 packInternedTypes :: InternedMap P.TypeSum key -> V.Vector P.Type
 packInternedTypes = V.map (P.Type . Just) . IM.toVec
 
+packInternedExprs :: InternedMap P.ExprSum key -> V.Vector P.Expr
+packInternedExprs = V.map (P.Expr Nothing . Just) . IM.toVec
+
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version
         ( (packageModules, packageMetadata),
-          EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap}) =
+          EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
         packageInternedStrings = packInternedStrings internedStrings
         packageInternedDottedNames =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
+        packageInternedExprs = packInternedExprs internedExprsMap
     in
     P.Package{..}
 

@@ -108,7 +108,7 @@ import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.concurrent.CompletionStage
 import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.jdk.FutureConverters.*
 import scala.util.{Failure, Right, Success}
@@ -617,7 +617,7 @@ class CantonSyncService(
       synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] = {
+  ): FutureUnlessShutdown[SubmissionResult] = {
     lazy val onlyConnectedSynchronizer =
       connectedSynchronizersLookup.snapshot.toSeq match {
         case Seq((synchronizerId, _)) => Right(synchronizerId)
@@ -656,7 +656,7 @@ class CantonSyncService(
 
     synchronizerIdOrDetectionError
       .map(partyAllocation.allocate(hint, rawSubmissionId, _))
-      .leftMap(CompletableFuture.completedFuture[SubmissionResult])
+      .leftMap(FutureUnlessShutdown.pure)
       .merge
   }
 
