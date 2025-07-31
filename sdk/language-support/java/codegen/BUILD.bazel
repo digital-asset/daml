@@ -212,10 +212,10 @@ scala_source_jar(
 package_oci_component(
     name = "codegen-oci",
     component_manifest = ":component.yaml",
+    platform_agnostic = True,
     resources = [
         ":binary.jar",
     ],
-    platform_agnostic = True,
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
 )

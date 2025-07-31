@@ -186,12 +186,12 @@ exports_files(["src/main/resources/logback.xml"])
 package_oci_component(
     name = "daml-script-oci",
     component_manifest = ":component.yaml",
+    platform_agnostic = True,
     resources = [
         ":daml-script-binary_distribute.jar",
         "//daml-script/daml:daml-script-2.1.dar",
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
-    platform_agnostic = True,
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
 )
