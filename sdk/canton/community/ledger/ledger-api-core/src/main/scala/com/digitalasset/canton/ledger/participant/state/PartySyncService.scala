@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
-
-import java.util.concurrent.CompletionStage
 
 /** An interface for on-boarding parties via a participant. */
 trait PartySyncService {
@@ -43,5 +42,5 @@ trait PartySyncService {
       synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult]
+  ): FutureUnlessShutdown[SubmissionResult]
 }

@@ -144,6 +144,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
         val engine = createEngine(arguments)
         createNode(
           arguments,
+          engine,
           createLedgerApiServerFactory(
             arguments,
             engine,
@@ -154,6 +155,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
 
   private def createNode(
       arguments: Arguments,
+      engine: Engine,
       ledgerApiServerFactory: CantonLedgerApiServerFactory,
   )(implicit
       executionContext: ExecutionContextIdlenessExecutorService,
@@ -163,7 +165,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
   ): ParticipantNodeBootstrap =
     new ParticipantNodeBootstrap(
       arguments,
-      createEngine(arguments),
+      engine,
       CantonSyncService.DefaultFactory,
       createResourceService(arguments),
       _ => createReplicationServiceFactory(arguments),

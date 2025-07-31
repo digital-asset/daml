@@ -127,7 +127,10 @@ final class TopologyPackageMapBuilder(
           .getOrElse(
             FutureUnlessShutdown.failed(
               InvalidPrescribedSynchronizerId
-                .Generic(id, "cannot resolve to physical synchronizer")
+                .Generic(
+                  id,
+                  s"cannot resolve to physical synchronizer; ensure the node is connected to $id",
+                )
                 .asGrpcError
             )
           )
