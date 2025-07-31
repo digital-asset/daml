@@ -82,9 +82,6 @@ countConcreteConstrs =
   let
     countKinds (k :: P.KindSum) = case k of
       (P.KindSumInternedKind _) -> mempty
-      -- kind-specific ignoring of leafs
-      (P.KindSumStar     _) -> mempty
-      (P.KindSumNat      _) -> mempty
       _                         -> singleKind <> mconcat (gmapQ countConcreteConstrs k)
 
     countTypes (t :: P.TypeSum) = case t of
@@ -135,31 +132,31 @@ fail (negative tests). The positive tests are done within the unittests.
 -}
 propertyCorrectTests :: TestTree
 propertyCorrectTests = testGroup "Correctness of property (negative tests)"
-  [ propertyCorrectNestedKindArrow
-  , propertyCorrectNestedTypeArrow
+  [ propertyCorrectKindArrow
+  , propertyCorrectTypeArrow
   , propertyCorrectExprArrow
   , propertyCorrectKindInType
   , propertyCorrectTypeInExpr
   , propertyCorrectKindInExpr
   ]
 
-propertyCorrectNestedKindArrow :: TestTree
-propertyCorrectNestedKindArrow =
-  testCase "((* -> *) -> *)" $
-    assertBool "kind ((* -> *) -> *) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ pkarr (pkarr pkstar pkstar) pkstar)
+propertyCorrectKindArrow :: TestTree
+propertyCorrectKindArrow =
+  testCase "(* -> interned 0)" $
+    assertBool "kind (* -> *) should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ pkarr pkstar (pkinterned 0))
 
-propertyCorrectNestedTypeArrow :: TestTree
-propertyCorrectNestedTypeArrow =
+propertyCorrectTypeArrow :: TestTree
+propertyCorrectTypeArrow =
   testCase "(() -> interned 0)" $
     assertBool "type (() -> interned 0) should be rejected as not well interned, but is accepted" $
     not (wellInterned $ ptarr ptunit (ptinterned 0))
 
 propertyCorrectKindInType :: TestTree
 propertyCorrectKindInType =
-  testCase "forall 0::(* -> *). ()" $
-    assertBool "forall 0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ ptforall 0 (pkarr pkstar pkstar) ptunit)
+  testCase "forall 0::*. ()" $
+    assertBool "forall 0::*. () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ ptforall 0 pkstar ptunit)
 
 propertyCorrectExprArrow :: TestTree
 propertyCorrectExprArrow =
@@ -175,9 +172,9 @@ propertyCorrectTypeInExpr =
 
 propertyCorrectKindInExpr :: TestTree
 propertyCorrectKindInExpr =
-  testCase "/\0::(* -> *). ()" $
-    assertBool "/\0::(* -> *). () should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ peTyAbs 0 (pkarr pkstar pkstar) peUnit)
+  testCase "/\0::*. ()" $
+    assertBool "/\0::*. () should be rejected as not well interned, but is accepted" $
+    not (wellInterned $ peTyAbs 0 pkstar peUnit)
 
 {-
 Assert that interning effectively happens by testing the encoding of "deep"
@@ -186,10 +183,8 @@ enough to be considered well-interned
 -}
 deepTests :: TestTree
 deepTests = testGroup "Deep AST tests"
-  [
-    -- TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
-    -- deepKindArrTest ,
-    deepTypeArrTest
+  [ deepKindArrTest
+  , deepTypeArrTest
   , deepLetExprTest
   ]
 
@@ -280,68 +275,46 @@ encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
 
 kindTests :: TestTree
 kindTests = testGroup "Kind tests"
-  [ kindPureTests
-  , kindInterningTests
+  [ kindInterningStarToStar
+  , kindInterningStarToNatToStar
+  , kindInterningAssertSharing
   ]
-
-kindPureTests :: TestTree
-kindPureTests = testGroup "Kind tests (non-interning)" $
-  map (uncurry3 encodeKindTest)
-    [ ("Kind star", KStar, pkstar)
-    , ("Kind Nat", KNat, pknat)
-    ]
-  where
-    uncurry3 :: (a -> b -> c -> d) -> ((a, b, c) -> d)
-    uncurry3 f (a, b, c) = f a b c
-
-
-kindInterningTests :: TestTree
-kindInterningTests = testGroup "Kind tests (interning)"
--- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
-  -- [ kindInterningStarToStar
-  -- , kindInterningStarToNatToStar
-  -- , kindInterningAssertSharing
-  -- ]
-  []
 
 runEncodeKindTest :: Kind -> (P.Kind, EncodeTestEnv)
 runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv testVersion)
 
--- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
--- kindInterningStarToStar :: TestTree
--- kindInterningStarToStar =
---   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow KStar KStar)
---   in  testCase "star to star" $ do
---       assertInterned pk
---       assertInternedEnv e
---       pk @?= pkinterned 1
---       iKinds V.! 0 @?= pkstar
---       iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
+kindInterningStarToStar :: TestTree
+kindInterningStarToStar =
+  let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow KStar KStar)
+  in  testCase "star to star" $ do
+      assertInterned pk
+      assertInternedEnv e
+      pk @?= pkinterned 1
+      iKinds V.! 0 @?= pkstar
+      iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
 
--- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
--- kindInterningStarToNatToStar :: TestTree
--- kindInterningStarToNatToStar =
---   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KNat) KStar)
---   in  testCase "(star to nat) to star" $ do
---       assertInterned pk
---       assertInternedEnv e
---       pk @?= pkinterned 3
---       iKinds V.! 0 @?= pkstar
---       iKinds V.! 1 @?= pknat
---       iKinds V.! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
---       iKinds V.! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
+kindInterningStarToNatToStar :: TestTree
+kindInterningStarToNatToStar =
+  let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KNat) KStar)
+  in  testCase "(star to nat) to star" $ do
+      assertInterned pk
+      assertInternedEnv e
+      pk @?= pkinterned 3
+      iKinds V.! 0 @?= pkstar
+      iKinds V.! 1 @?= pknat
+      iKinds V.! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
+      iKinds V.! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
 
--- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
--- kindInterningAssertSharing :: TestTree
--- kindInterningAssertSharing =
---   let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KStar) (KArrow KStar KStar))
---   in  testCase "Sharing: (* -> *) -> (* -> *)" $ do
---       assertInterned pk
---       assertInternedEnv e
---       pk @?= pkinterned 2
---       iKinds V.! 0 @?= pkstar
---       iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
---       iKinds V.! 2 @?= pkarr (pkinterned 1) (pkinterned 1)
+kindInterningAssertSharing :: TestTree
+kindInterningAssertSharing =
+  let (pk, e@EncodeTestEnv{..}) = runEncodeKindTest (KArrow (KArrow KStar KStar) (KArrow KStar KStar))
+  in  testCase "Sharing: (* -> *) -> (* -> *)" $ do
+      assertInterned pk
+      assertInternedEnv e
+      pk @?= pkinterned 2
+      iKinds V.! 0 @?= pkstar
+      iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
+      iKinds V.! 2 @?= pkarr (pkinterned 1) (pkinterned 1)
 
 -- Types
 typeInterningTests :: TestTree
@@ -351,8 +324,7 @@ typeInterningTests = testGroup "Type tests (interning)"
   , typeInterningMaybeSyn
   , typeInterningUnit
   , typeInterningIntToBool
-  -- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
-  -- , typeInterningForall
+  , typeInterningForall
   , typeInterningTStruct
   , typeInterningTNat
   , typeInterningAssertSharing
@@ -416,18 +388,17 @@ typeInterningIntToBool =
       (iTypes V.! 1) @?= ptbool
       (iTypes V.! 2) @?= ptarr (ptinterned 0) (ptinterned 1)
 
--- TODO[RB]: TODO https://github.com/digital-asset/daml/pull/21605 uncomment in PR
--- typeInterningForall :: TestTree
--- typeInterningForall =
---   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest tyLamTyp
---   in  testCase "forall (a : * -> *). a -> a" $ do
---       assertInterned pt
---       assertInternedEnv e
---       pt @?= ptinterned 2
---       (iKinds V.! 0) @?= pkstar
---       (iKinds V.! 1) @?= pkarr (pkinterned 0) (pkinterned 0)
---       (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
---       (iTypes V.! 2) @?= ptforall 0 (pkinterned 1) (ptinterned 1)
+typeInterningForall :: TestTree
+typeInterningForall =
+  let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest tyLamTyp
+  in  testCase "forall (a : * -> *). a -> a" $ do
+      assertInterned pt
+      assertInternedEnv e
+      pt @?= ptinterned 2
+      (iKinds V.! 0) @?= pkstar
+      (iKinds V.! 1) @?= pkarr (pkinterned 0) (pkinterned 0)
+      (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
+      (iTypes V.! 2) @?= ptforall 0 (pkinterned 1) (ptinterned 1)
 
 typeInterningTStruct :: TestTree
 typeInterningTStruct =
