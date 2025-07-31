@@ -49,7 +49,8 @@ trap "rm -rf $WORKDIR" EXIT
 
 OUT=$(abspath $1)
 MANIFEST=$(abspath $2)
-shift 2
+PLATFORM_AGNOSTIC=$3
+shift 3
 
 componentpath="$WORKDIR/component.yaml"
 cp $MANIFEST $WORKDIR
@@ -62,6 +63,11 @@ case "$(uname -s)" in
     ;;
 esac
 
+if [ $PLATFORM_AGNOSTIC -ne 0 ]
+then
+  touch $WORKDIR/is-agnostic
+fi
+
 for res in "$@"; do
   case $res in
     *.tar.gz)
@@ -71,6 +77,11 @@ for res in "$@"; do
       cp $res $WORKDIR
       ;;
   esac
+done
+
+# Windows likes adding ".exe" on the end of directory names
+for dir in $(find $WORKDIR -type d -name '*.exe'); do
+  mv $dir ${dir%.*}
 done
 
 cd $WORKDIR && $mktgz $OUT *

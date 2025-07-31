@@ -191,6 +191,7 @@ package_oci_component(
         "//daml-script/daml:daml-script-2.1.dar",
         "//daml-script/daml:daml-script-2.dev.dar",
     ],
+    platform_agnostic = True,
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
 )

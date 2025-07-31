@@ -5,18 +5,6 @@
 
 load("@os_info//:os_info.bzl", "is_windows")
 
-def run_executable(ctx, exe, progress_message, tools, args):
-    ctx.actions.run(
-        executable = exe,
-        outputs = [ctx.outputs.out],
-        inputs = ctx.files.resources,
-        # Binaries are passed through tools so that Bazel can make the runfiles
-        # tree available to the action.
-        tools = tools,
-        arguments = [args],
-        progress_message = progress_message + " " + ctx.attr.name,
-    )
-
 def _package_app_impl(ctx):
     args = ctx.actions.args()
     args.add(ctx.executable.binary.path)
@@ -37,6 +25,7 @@ def _package_oci_component_impl(ctx):
     args = ctx.actions.args()
     args.add(ctx.outputs.out.path)
     args.add(ctx.files.component_manifest[0].path)
+    args.add(1 if ctx.attr.platform_agnostic else 0)
     args.add_all(ctx.attr.resources, map_each = _get_resource_path)
     ctx.actions.run(
         executable = ctx.executable.package_oci_component,
@@ -102,6 +91,9 @@ package_oci_component = rule(
         ),
         "component_manifest": attr.label(
             allow_single_file = True,
+        ),
+        "platform_agnostic": attr.bool(
+            default = False,
         ),
         "package_oci_component": attr.label(
             default = Label("//bazel_tools/packaging:package-oci-component"),
