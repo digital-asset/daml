@@ -393,7 +393,7 @@ private[platform] object InMemoryStateUpdater {
             version = createdEvent.createArgument.version,
           ),
           createTime = CreationTime.CreatedAt(createdEvent.ledgerEffectiveTime),
-          cantonData = createdEvent.driverMetadata,
+          authenticationData = createdEvent.driverMetadata,
         ),
         eventOffset = createdEvent.eventOffset,
       )

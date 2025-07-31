@@ -155,7 +155,7 @@ class ContractStateCachesSpec
             version = LanguageVersion.Major.V2.maxStableVersion,
           ),
           createTime = CreationTime.CreatedAt(Time.Timestamp(cId)),
-          cantonData = Bytes.Empty,
+          authenticationData = Bytes.Empty,
         )
 
       ContractStateEvent.Created(contractInstance, offset)

@@ -23,17 +23,26 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
   val createdAt: CreatedAtTime
-  val cantonData: Bytes
+  val authenticationData: Bytes
   private[lf] def toImplementation: FatContractInstanceImpl[CreatedAtTime] =
     this.asInstanceOf[FatContractInstanceImpl[CreatedAtTime]]
   final lazy val maintainers: TreeSet[Ref.Party] =
     contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
   final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
-  def updateCreateAt(
+  final def updateCreateAt(
       updatedTime: Time.Timestamp
-  ): FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt }
-  def setSalt(cantonData: Bytes): FatContractInstance
+  ): FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt } =
+    mapCreatedAt(_ => CreationTime.CreatedAt(updatedTime))
+
+  def mapCreatedAt[NewCreatedAtTime <: CreationTime](
+      f: CreatedAtTime => NewCreatedAtTime
+  ): FatContractInstance { type CreatedAtTime = NewCreatedAtTime }
+  def traverseCreateAt[NewCreatedAtTime <: CreationTime, L](
+      f: CreatedAtTime => Either[L, NewCreatedAtTime]
+  ): Either[L, FatContractInstance { type CreatedAtTime = NewCreatedAtTime }]
+
+  def setAuthenticationData(authenticationData: Bytes): FatContractInstance
 
   def toCreateNode = Node.Create(
     coid = contractId,
@@ -74,7 +83,7 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
     createdAt: Time,
-    cantonData: Bytes,
+    authenticationData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl[Time]] {
 
@@ -101,14 +110,29 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     )
   }
 
-  override def updateCreateAt(
-      updatedTime: Time.Timestamp
-  ): FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt } =
-    copy(createdAt = CreationTime.CreatedAt(updatedTime))
+  override def mapCreatedAt[NewCreatedAtTime <: CreationTime](
+      f: Time => NewCreatedAtTime
+  ): FatContractInstance { type CreatedAtTime = NewCreatedAtTime } = {
+    val newCreatedAtTime = f(createdAt)
+    if (newCreatedAtTime eq createdAt)
+      this.asInstanceOf[FatContractInstance { type CreatedAtTime = NewCreatedAtTime }]
+    else copy(createdAt = newCreatedAtTime)
+  }
 
-  override def setSalt(cantonData: Bytes): FatContractInstanceImpl[Time] = {
-    assert(cantonData.nonEmpty)
-    copy(cantonData = cantonData)
+  override def traverseCreateAt[NewCreatedAtTime <: CreationTime, L](
+      f: Time => Either[L, NewCreatedAtTime]
+  ): Either[L, FatContractInstance { type CreatedAtTime = NewCreatedAtTime }] =
+    f(createdAt) match {
+      case Right(newCreatedAtTime) =>
+        if (newCreatedAtTime eq createdAt)
+          Right(this.asInstanceOf[FatContractInstance { type CreatedAtTime = NewCreatedAtTime }])
+        else Right(copy(createdAt = newCreatedAtTime))
+      case Left(err) => Left(err)
+    }
+
+  override def setAuthenticationData(authenticationData: Bytes): FatContractInstanceImpl[Time] = {
+    assert(authenticationData.nonEmpty)
+    copy(authenticationData = authenticationData)
   }
 }
 
@@ -117,7 +141,7 @@ object FatContractInstance {
   def fromCreateNode[T <: CreationTime](
       create: Node.Create,
       createTime: T,
-      cantonData: Bytes,
+      authenticationData: Bytes,
   ): FatContractInstance { type CreatedAtTime = T } =
     FatContractInstanceImpl(
       version = create.version,
@@ -130,7 +154,7 @@ object FatContractInstance {
       contractKeyWithMaintainers =
         create.keyOpt.map(k => k.copy(maintainers = TreeSet.from(k.maintainers))),
       createdAt = createTime,
-      cantonData = cantonData,
+      authenticationData = authenticationData,
     )
 
   // TOTO https://github.com/DACH-NY/canton/issues/24843
@@ -154,7 +178,7 @@ object FatContractInstance {
       stakeholders = DummyParties,
       contractKeyWithMaintainers = None,
       createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
-      cantonData = Bytes.Empty,
+      authenticationData = Bytes.Empty,
     )
 
 }

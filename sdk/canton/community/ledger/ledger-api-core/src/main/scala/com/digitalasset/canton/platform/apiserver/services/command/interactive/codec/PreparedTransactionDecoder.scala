@@ -364,7 +364,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         enrichedContract = FatContractInstance.fromCreateNode(
           createNode,
           CreationTime.CreatedAt(createTime),
-          originalContract.cantonData,
+          originalContract.authenticationData,
         )
       } yield ExternalInputContract(
         originalContract = lfOriginalContract,

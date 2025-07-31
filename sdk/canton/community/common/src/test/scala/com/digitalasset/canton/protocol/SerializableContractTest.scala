@@ -149,7 +149,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           FatContractInstance.fromCreateNode(
             createNode,
             CreationTime.CreatedAt(createdAt),
-            cantonData = Bytes.Empty,
+            authenticationData = Bytes.Empty,
           )
         ).left.value shouldBe "Missing driver contract metadata in provided disclosed contract"
       }

@@ -147,7 +147,7 @@ class SubmitRequestValidatorTest
             version = LanguageVersion.v2_dev,
           ),
           createTime = CreationTime.CreatedAt(Time.Timestamp.now()),
-          cantonData = Bytes.Empty,
+          authenticationData = Bytes.Empty,
         ),
         synchronizerIdO = Some(SynchronizerId.tryFromString(api.synchronizerId)),
       )

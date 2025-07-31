@@ -2405,7 +2405,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           version = txVersion,
         ),
         createTime = CreationTime.CreatedAt(Time.Timestamp.now()),
-        cantonData = Bytes.Empty,
+        authenticationData = Bytes.Empty,
       ),
       sarg,
     )

@@ -22,7 +22,7 @@ class ContractInstanceTest extends AnyWordSpec with HasCryptographicEvidenceTest
       val inst = LfFatContractInst.fromCreateNode(
         example.toCreateNode.copy(arg = ExampleTransactionFactory.veryDeepValue),
         example.createdAt,
-        example.cantonData,
+        example.authenticationData,
       )
       val err = ContractInstance(inst).left.value
       err should fullyMatch regex "Failed to encode contract instance:.*Provided Daml-LF value to encode exceeds maximum nesting level of 100.*"

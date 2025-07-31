@@ -169,7 +169,7 @@ object Enricher {
     FatContractInstance.fromCreateNode(
       create = create,
       createTime = contract.createdAt,
-      cantonData = contract.cantonData,
+      authenticationData = contract.authenticationData,
     )
   }
 }
@@ -235,7 +235,7 @@ final class Enricher(
       contract: FatContractInstance
   ): Result[FatContractInstance] =
     enrichCreate(contract.toCreateNode).map(create =>
-      FatContractInstance.fromCreateNode(create, contract.createdAt, contract.cantonData)
+      FatContractInstance.fromCreateNode(create, contract.createdAt, contract.authenticationData)
     )
 
   def enrichVersionedContract(
