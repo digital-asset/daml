@@ -26,10 +26,11 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
   val snapshotDir = Files.createTempDirectory("ReplayBenchmarkTest")
   val snapshotFile = snapshotDir.resolve(s"snapshot-$participantId.bin")
 
-  override val darPath: Path =
-    Path.of(rlocation(s"daml-lf/tests/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
-  override val config: CantonConfig =
-    super.config.copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
+  override protected def cantonConfig(): CantonConfig =
+    super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
+
+  override lazy val darPath: Path =
+    Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
   override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   "Ledger submission" should {
