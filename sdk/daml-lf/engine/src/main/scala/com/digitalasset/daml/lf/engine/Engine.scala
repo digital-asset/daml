@@ -519,7 +519,9 @@ class Engine(val config: EngineConfig) {
             }
             val snapshotResult = config.snapshotDir.zip(submissionInfo).flatMap {
               case (dir, Engine.SubmissionInfo(participantId, submissionSeed, submitters)) =>
-                val snapshotFile = dir.resolve(s"snapshot-$participantId.bin")
+                // Ensure OSes don't complain about filename characters - e.g. ':'
+                val snapshotFile =
+                  dir.resolve(s"snapshot-${participantId.replaceAll("[^a-zA-Z0-9-_\\.]", "_")}.bin")
                 TransactionCoder
                   .encodeTransaction(tx)
                   .fold(

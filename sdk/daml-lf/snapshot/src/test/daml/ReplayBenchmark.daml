@@ -15,3 +15,7 @@ template T
         n : Int
       controller p
       do create (T p (v + n))
+
+    choice Explode : ContractId T
+      controller p
+      do assertFail "Exception during engine interpretation"

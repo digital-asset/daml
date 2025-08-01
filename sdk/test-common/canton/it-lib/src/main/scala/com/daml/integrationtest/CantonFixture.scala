@@ -124,7 +124,7 @@ trait CantonFixtureWithResource[A]
     )
   }
 
-  lazy val config = CantonConfig(
+  protected def cantonConfig(): CantonConfig = CantonConfig(
     jarPath = cantonJar,
     authSecret = authSecret,
     devMode = devMode,
@@ -137,6 +137,8 @@ trait CantonFixtureWithResource[A]
     disableUpgradeValidation = disableUpgradeValidation,
     enableRemoteJavaDebugging = remoteJavaDebugging,
   )
+
+  final lazy val config: CantonConfig = cantonConfig()
 
   protected def info(msg: String): Unit =
     if (cantonFixtureDebugModeIsDebug) logger.info(msg)

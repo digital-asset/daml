@@ -75,14 +75,3 @@ daml_build_test(
     )
     for version in ENGINE_LF_DEV_VERSIONS
 ]
-
-[
-    daml_compile(
-        name = "ReplayBenchmark-v{}".format(major),
-        srcs = ["ReplayBenchmark.daml"],
-        enable_interfaces = True,
-        target = lf_version_default_or_latest(major),
-        visibility = ["//daml-lf:__subpackages__"],
-    )
-    for major in COMPILER_LF_MAJOR_VERSIONS
-]

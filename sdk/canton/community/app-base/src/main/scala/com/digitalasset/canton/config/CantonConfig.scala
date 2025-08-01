@@ -1274,9 +1274,9 @@ object CantonConfig {
 
     implicit val participantReplicationConfigReader: ConfigReader[ReplicationConfig] =
       deriveReader[ReplicationConfig]
-    implicit val participantEnterpriseFeaturesConfigReader
-        : ConfigReader[EnterpriseParticipantFeaturesConfig] =
-      deriveReader[EnterpriseParticipantFeaturesConfig]
+    implicit val participantFeaturesConfigReader
+        : ConfigReader[ParticipantFeaturesConfig] =
+      deriveReader[ParticipantFeaturesConfig]
 
     implicit val localParticipantConfigReader: ConfigReader[ParticipantNodeConfig] = {
       import DeclarativeParticipantConfig.Readers.*
@@ -1889,9 +1889,9 @@ object CantonConfig {
 
     implicit val participantReplicationConfigWriter: ConfigWriter[ReplicationConfig] =
       deriveWriter[ReplicationConfig]
-    implicit val participantEnterpriseFeaturesConfigWriter
-        : ConfigWriter[EnterpriseParticipantFeaturesConfig] =
-      deriveWriter[EnterpriseParticipantFeaturesConfig]
+    implicit val participantFeaturesConfigWriter
+        : ConfigWriter[ParticipantFeaturesConfig] =
+      deriveWriter[ParticipantFeaturesConfig]
 
     implicit val localParticipantConfigWriter: ConfigWriter[ParticipantNodeConfig] = {
       val writers = new DeclarativeParticipantConfig.ConfigWriters(confidential)
