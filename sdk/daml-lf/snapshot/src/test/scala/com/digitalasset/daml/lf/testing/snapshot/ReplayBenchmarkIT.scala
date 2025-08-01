@@ -31,8 +31,10 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
       .getDefault()
       .getPathMatcher(s"glob:$snapshotDir/snapshot-$participantId*.bin")
 
+  override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
+
   override protected def cantonConfig(): CantonConfig =
-    super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
+    super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath), debug = true)
 
   override lazy val darPath: Path =
     Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
