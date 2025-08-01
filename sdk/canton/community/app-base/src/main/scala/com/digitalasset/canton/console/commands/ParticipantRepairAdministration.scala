@@ -26,7 +26,7 @@ import com.digitalasset.canton.participant.admin.data.{
   RepairContract,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.{ContractInstance, LfContractId}
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
@@ -362,11 +362,15 @@ class ParticipantRepairAdministration(
     ResourceUtil.withResource(outputStream) { outputStream =>
       contracts
         .traverse_ { repairContract =>
-          val activeContract = ActiveContractOld
-            .create(synchronizerId, repairContract.contract, repairContract.reassignmentCounter)(
-              protocolVersion
-            )
-          activeContract.writeDelimitedTo(outputStream).map(_ => outputStream.flush())
+          for {
+            serializableContract <- ContractInstance.toSerializableContract(repairContract.contract)
+            activeContract = ActiveContractOld.create(
+              synchronizerId,
+              serializableContract,
+              repairContract.reassignmentCounter,
+            )(protocolVersion)
+            _ <- activeContract.writeDelimitedTo(outputStream)
+          } yield outputStream.flush()
         }
         .valueOr(err => throw new RuntimeException(s"Unable to add contract data to stream: $err"))
     }

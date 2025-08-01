@@ -951,7 +951,7 @@ private[sync] class SynchronizerConnectionsManager(
 
           _ = connectedSynchronizers.tryAdd(connectedSynchronizer)
 
-          // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizersMap, e.g. to
+          // Start sequencer client subscription only after synchronizer has been added to connectedSynchronizers, e.g. to
           // prevent sending PartyAddedToParticipantEvents before the synchronizer is available for command submission. (#2279)
           _ <-
             if (startConnectedSynchronizerProcessing) {
@@ -965,7 +965,7 @@ private[sync] class SynchronizerConnectionsManager(
               logger.info(
                 s"Connected to synchronizer: $synchronizerAlias, without starting synchronisation"
               )
-              EitherT.rightT[FutureUnlessShutdown, SyncServiceError](())
+              EitherTUtil.unitUS[SyncServiceError]
             }
           _ = synchronizerHandle.sequencerClient.completion.onComplete {
             case Success(UnlessShutdown.Outcome(denied: CloseReason.PermissionDenied)) =>
@@ -1140,7 +1140,9 @@ private[sync] class SynchronizerConnectionsManager(
       synchronizerSuccessor: SynchronizerSuccessor,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+    logger.info(s"Starting upgrade from $currentPSId to ${synchronizerSuccessor.psid}")
+
     for {
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
         syncPersistentStateManager
@@ -1170,6 +1172,7 @@ private[sync] class SynchronizerConnectionsManager(
       )
 
     } yield ()
+  }
 
   // Write health requires the ability to transact, i.e. connectivity to at least one synchronizer and HA-activeness.
   def currentWriteHealth(): HealthStatus = {

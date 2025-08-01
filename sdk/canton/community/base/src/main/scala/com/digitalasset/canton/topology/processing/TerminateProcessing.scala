@@ -4,8 +4,8 @@
 package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.SynchronizerSuccessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.transaction.SynchronizerUpgradeAnnouncement
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -27,7 +27,7 @@ trait TerminateProcessing {
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[Unit]
 
-  def notifyUpgradeAnnouncement(upgradeAnnouncement: SynchronizerUpgradeAnnouncement)(implicit
+  def notifyUpgradeAnnouncement(successor: SynchronizerSuccessor)(implicit
       traceContext: TraceContext
   ): Unit
 }
@@ -50,8 +50,8 @@ object TerminateProcessing {
     ): FutureUnlessShutdown[Unit] =
       FutureUnlessShutdown.unit
 
-    override def notifyUpgradeAnnouncement(upgradeAnnouncement: SynchronizerUpgradeAnnouncement)(
-        implicit traceContext: TraceContext
+    override def notifyUpgradeAnnouncement(successor: SynchronizerSuccessor)(implicit
+        traceContext: TraceContext
     ): Unit = ()
   }
 }

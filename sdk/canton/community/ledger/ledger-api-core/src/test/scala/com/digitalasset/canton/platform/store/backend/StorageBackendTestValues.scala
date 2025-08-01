@@ -60,8 +60,8 @@ private[store] object StorageBackendTestValues {
   val someParty3: Ref.Party = Ref.Party.assertFromString("party3")
   val someUserId: Ref.UserId = Ref.UserId.assertFromString("user_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
-  val someDriverMetadata: Bytes = Bytes.assertFromString("00abcd")
-  val someDriverMetadataBytes: Array[Byte] = someDriverMetadata.toByteArray
+  val someAuthenticationData: Bytes = Bytes.assertFromString("00abcd")
+  val someAuthenticationDataBytes: Array[Byte] = someAuthenticationData.toByteArray
 
   val someArchive: DamlLf.Archive = DamlLf.Archive.newBuilder
     .setHash("00001")
@@ -103,7 +103,7 @@ private[store] object StorageBackendTestValues {
       nonStakeholderInformees: Set[String] = Set.empty,
       commandId: String = UUID.randomUUID().toString,
       ledgerEffectiveTime: Timestamp = someTime,
-      driverMetadata: Array[Byte] = Array.empty,
+      authenticationData: Array[Byte] = Array.empty,
       keyHash: Option[String] = None,
       synchronizerId: String = "x::sourcesynchronizer",
       createKey: Option[Array[Byte]] = None,
@@ -138,7 +138,7 @@ private[store] object StorageBackendTestValues {
       create_argument_compression = None,
       create_key_value_compression = None,
       event_sequential_id = eventSequentialId,
-      driver_metadata = driverMetadata,
+      authentication_data = authenticationData,
       synchronizer_id = synchronizerId,
       trace_context = traceContext,
       record_time = recordTime.micros,
@@ -206,7 +206,7 @@ private[store] object StorageBackendTestValues {
       signatory: String = "signatory",
       observer: String = "observer",
       commandId: String = UUID.randomUUID().toString,
-      driverMetadata: Bytes = someDriverMetadata,
+      authenticationData: Bytes = someAuthenticationData,
       sourceSynchronizerId: String = "x::sourcesynchronizer",
       targetSynchronizerId: String = "x::targetsynchronizer",
       traceContext: Array[Byte] = serializableTraceContext,
@@ -235,7 +235,7 @@ private[store] object StorageBackendTestValues {
       create_key_value_compression = Some(456),
       event_sequential_id = eventSequentialId,
       ledger_effective_time = someTime.micros,
-      driver_metadata = driverMetadata.toByteArray,
+      authentication_data = authenticationData.toByteArray,
       source_synchronizer_id = sourceSynchronizerId,
       target_synchronizer_id = targetSynchronizerId,
       reassignment_id = "123456789",

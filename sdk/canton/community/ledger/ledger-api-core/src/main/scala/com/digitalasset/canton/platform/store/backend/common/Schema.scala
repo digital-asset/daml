@@ -134,7 +134,7 @@ private[backend] object AppendOnlySchema {
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
-        "driver_metadata" -> fieldStrategy.bytea(_ => _.driver_metadata),
+        "authentication_data" -> fieldStrategy.bytea(_ => _.authentication_data),
         "synchronizer_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),
@@ -288,7 +288,7 @@ private[backend] object AppendOnlySchema {
           _.create_key_value_compression
         ),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
-        "driver_metadata" -> fieldStrategy.bytea(_ => _.driver_metadata),
+        "authentication_data" -> fieldStrategy.bytea(_ => _.authentication_data),
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
       )

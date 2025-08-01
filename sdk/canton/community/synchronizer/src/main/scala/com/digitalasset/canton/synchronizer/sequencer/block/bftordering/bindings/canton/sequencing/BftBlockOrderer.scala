@@ -128,7 +128,8 @@ final class BftBlockOrderer(
 )(implicit executionContext: ExecutionContext, materializer: Materializer)
     extends BlockOrderer
     with NamedLogging
-    with FlagCloseableAsync {
+    with FlagCloseableAsync
+    with HasCloseContext {
 
   import BftBlockOrderer.*
 
@@ -187,9 +188,6 @@ final class BftBlockOrderer(
       )
 
   checkConfigSecurity()
-
-  private val closeable = FlagCloseable(loggerFactory.getTracedLogger(getClass), timeouts)
-  implicit private val closeContext: CloseContext = CloseContext(closeable)
 
   private val p2pServerGrpcExecutor =
     Threading.newExecutionContext(
@@ -548,10 +546,7 @@ final class BftBlockOrderer(
         Option.when(localStorage != sharedLocalStorage)(
           SyncCloseable("dedicatedLocalStorage.close()", localStorage.close())
         )
-      ).flatten ++
-      Seq[AsyncOrSyncCloseable](
-        SyncCloseable("closeable.close()", closeable.close())
-      )
+      ).flatten
   }
 
   override def adminServices: Seq[ServerServiceDefinition] =

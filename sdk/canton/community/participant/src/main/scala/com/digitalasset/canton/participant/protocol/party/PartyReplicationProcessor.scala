@@ -12,7 +12,6 @@ import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtoco
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
 
-import java.util.concurrent.atomic.AtomicBoolean
 import scala.util.chaining.scalaUtilChainingOps
 
 trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
@@ -22,7 +21,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
   protected def futureSupervisor: FutureSupervisor
   protected def exitOnFatalFailures: Boolean
 
-  protected val hasEndOfACSBeenReached = new AtomicBoolean(false)
+  protected def hasEndOfACSBeenReached: Boolean
 
   protected def isChannelOpenForCommunication: Boolean = isChannelConnected && !hasChannelCompleted
 
@@ -81,7 +80,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
     super
       .onDisconnected(status)
       .tap(hasLostChannelEndpoint =>
-        if (hasLostChannelEndpoint && !hasEndOfACSBeenReached.get()) {
+        if (hasLostChannelEndpoint && !hasEndOfACSBeenReached) {
           logger.info("Channel endpoint has been disconnected before ACS replication completion")
           onDisconnect(
             status.swap.getOrElse("Channel endpoint has been disconnected"),

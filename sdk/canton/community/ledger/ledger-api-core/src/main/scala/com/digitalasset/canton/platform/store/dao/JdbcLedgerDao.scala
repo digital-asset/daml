@@ -488,7 +488,7 @@ private class JdbcLedgerDao(
               ),
               transaction = transaction,
               updateId = updateId,
-              contractMetadata = new Map[ContractId, Bytes] {
+              contractAuthenticationData = new Map[ContractId, Bytes] {
                 override def removed(key: ContractId): Map[ContractId, Bytes] = this
 
                 override def updated[V1 >: Bytes](

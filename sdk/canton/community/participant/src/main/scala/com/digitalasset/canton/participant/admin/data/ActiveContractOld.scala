@@ -13,6 +13,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.*
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.google.protobuf.ByteString
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -35,13 +36,14 @@ final case class ActiveContractOld(
 
   override protected lazy val companionObj: ActiveContractOld.type = ActiveContractOld
 
-  private[canton] def withSerializableContract(
-      contract: SerializableContract
-  ): ActiveContractOld =
-    copy(contract = contract)(representativeProtocolVersion)
-
-  private[admin] def toRepairContract: RepairContract =
-    RepairContract(synchronizerId, contract, reassignmentCounter)
+  private[admin] def toRepairContract: RepairContract = {
+    val inst = FatContractInstance.fromCreateNode(
+      contract.toLf,
+      contract.ledgerCreateTime,
+      contract.authenticationData.toLfBytes,
+    )
+    RepairContract(synchronizerId, inst, reassignmentCounter)
+  }
 
 }
 

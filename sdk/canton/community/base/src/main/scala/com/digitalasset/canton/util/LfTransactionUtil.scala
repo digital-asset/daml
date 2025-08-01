@@ -55,7 +55,7 @@ object LfTransactionUtil {
 
   private[this] def suffixForDiscriminator(
       unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdVersion,
+      cantonContractId: CantonContractIdV1Version,
   )(discriminator: LfHash): Bytes =
     /* If we can't find the discriminator we leave it unchanged,
      * because this could refer to an input contract of the transaction.
@@ -67,7 +67,7 @@ object LfTransactionUtil {
 
   def suffixContractInst(
       unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdVersion,
+      cantonContractId: CantonContractIdV1Version,
   )(contractInst: LfThinContractInst): Either[String, LfThinContractInst] =
     contractInst.unversioned
       .suffixCid(
@@ -80,7 +80,7 @@ object LfTransactionUtil {
 
   def suffixNode(
       unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdVersion,
+      cantonContractId: CantonContractIdV1Version,
   )(node: LfActionNode): Either[String, LfActionNode] =
     node.suffixCid(
       suffixForDiscriminator(unicumOfDiscriminator, cantonContractId),

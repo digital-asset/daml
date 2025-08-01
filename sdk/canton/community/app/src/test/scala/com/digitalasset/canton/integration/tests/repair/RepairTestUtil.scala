@@ -11,7 +11,6 @@ import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
-import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.{BaseTest, ReassignmentCounter, SynchronizerAlias}
 import org.scalatest.Assertion
@@ -79,11 +78,7 @@ trait RepairTestUtil {
       .value
       ._2
 
-    RepairContract(
-      synchronizerId,
-      SerializableContract.fromLfFatContractInst(contract.inst).value,
-      ReassignmentCounter.Genesis,
-    )
+    RepairContract(synchronizerId, contract.inst, ReassignmentCounter.Genesis)
   }
 
   protected def createContractInstance(

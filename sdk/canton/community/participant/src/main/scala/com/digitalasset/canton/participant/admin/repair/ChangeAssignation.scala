@@ -465,7 +465,7 @@ private final class ChangeAssignation(
           Reassignment.Assign(
             ledgerEffectiveTime = reassign.contract.inst.createdAt.time,
             createNode = reassign.contract.toLf,
-            contractMetadata = Bytes.fromByteString(
+            contractAuthenticationData = Bytes.fromByteString(
               reassign.contract.metadata
                 .toByteString(repairTarget.unwrap.synchronizer.parameters.protocolVersion)
             ),

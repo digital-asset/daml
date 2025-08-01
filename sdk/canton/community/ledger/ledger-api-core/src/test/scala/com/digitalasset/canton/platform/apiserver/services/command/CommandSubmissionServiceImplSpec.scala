@@ -233,7 +233,7 @@ class CommandSubmissionServiceImplSpec
         contractId = TransactionBuilder.newCid,
         argument = Value.ValueNil,
         createdAt = Timestamp.Epoch,
-        driverMetadata = Bytes.Empty,
+        authenticationData = Bytes.Empty,
         signatories = Set(alice),
         stakeholders = Set(alice),
         keyOpt = None,

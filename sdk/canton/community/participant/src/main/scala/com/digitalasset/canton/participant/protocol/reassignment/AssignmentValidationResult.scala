@@ -6,8 +6,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.functor.*
-import cats.syntax.traverse.*
-import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{
   CantonTimestamp,
@@ -25,17 +23,11 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.{ActivenessResult, CommitSet}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  ContractError,
   FieldConversionError,
   ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
-import com.digitalasset.canton.protocol.{
-  CantonContractIdVersion,
-  LfNodeCreate,
-  ReassignmentId,
-  RootHash,
-}
+import com.digitalasset.canton.protocol.{LfNodeCreate, ReassignmentId, RootHash}
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -82,41 +74,29 @@ final case class AssignmentValidationResult(
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, AcsChangeFactory => SequencedUpdate] =
+  ): Either[ReassignmentProcessorError, AcsChangeFactory => SequencedUpdate] = {
+    val reassignment = contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
+      val contract = reassign.contract
+      val contractInst = contract.inst
+      val createNode = LfNodeCreate(
+        coid = contract.contractId,
+        templateId = contractInst.templateId,
+        packageName = contractInst.packageName,
+        arg = contractInst.createArg,
+        signatories = contract.metadata.signatories,
+        stakeholders = contract.metadata.stakeholders,
+        keyOpt = contract.metadata.maybeKeyWithMaintainers,
+        version = contractInst.version,
+      )
+      Reassignment.Assign(
+        ledgerEffectiveTime = contract.inst.createdAt.time,
+        createNode = createNode,
+        contractAuthenticationData = contract.inst.cantonData,
+        reassignmentCounter = reassign.counter.unwrap,
+        nodeId = idx,
+      )
+    }
     for {
-
-      reassignment <-
-        contracts.contracts.zipWithIndex.toNEF
-          .traverse { case (reassign, idx) =>
-            val contract = reassign.contract
-            val contractInst = contract.inst
-            val createNode = LfNodeCreate(
-              coid = contract.contractId,
-              templateId = contractInst.templateId,
-              packageName = contractInst.packageName,
-              arg = contractInst.createArg,
-              signatories = contract.metadata.signatories,
-              stakeholders = contract.metadata.stakeholders,
-              keyOpt = contract.metadata.maybeKeyWithMaintainers,
-              version = contractInst.version,
-            )
-            for {
-              driverContractMetadata <- contract.driverContractMetadata.leftMap(err =>
-                ContractError(err)
-              )
-              contractIdVersion <- CantonContractIdVersion
-                .extractCantonContractIdVersion(contract.contractId)
-                .leftMap(err => ContractError(err.toString))
-            } yield Reassignment.Assign(
-              ledgerEffectiveTime = contract.inst.createdAt.time,
-              createNode = createNode,
-              contractMetadata = driverContractMetadata.toLfBytes(contractIdVersion),
-              reassignmentCounter = reassign.counter.unwrap,
-              nodeId = idx,
-            )
-          }
-          .map(Reassignment.Batch(_))
-
       updateId <-
         rootHash.asLedgerTransactionId.leftMap[ReassignmentProcessorError](
           FieldConversionError(reassignmentId, "Transaction id (root hash)", _)
@@ -144,11 +124,12 @@ final case class AssignmentValidationResult(
           reassignmentId = reassignmentId,
           isReassigningParticipant = isReassigningParticipant,
         ),
-        reassignment = reassignment,
+        reassignment = Reassignment.Batch(reassignment),
         recordTime = recordTime,
         synchronizerId = targetSynchronizer.unwrap,
         acsChangeFactory = acsChangeFactory,
       )
+  }
 }
 
 object AssignmentValidationResult {

@@ -13,6 +13,7 @@ import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
+  HasRunOnClosing,
   PromiseUnlessShutdown,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -28,6 +29,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.google.common.annotations.VisibleForTesting
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{ArrayBlockingQueue, BlockingQueue}
@@ -245,6 +247,7 @@ object SequencerAggregator {
   def aggregateHealthResult(
       healthResult: Map[SequencerId, ComponentHealthState],
       threshold: PositiveInt,
+      associatedHasRunOnClosing: HasRunOnClosing,
   ): ComponentHealthState =
     NonEmpty.from(healthResult) match {
       case None => ComponentHealthState.NotInitializedState
@@ -268,16 +271,23 @@ object SequencerAggregator {
         ): ComponentHealthState =
           if (healthyCount >= threshold.value) ComponentHealthState.Ok()
           else if (!iter.hasNext) {
+            val common =
+              s"The sequencer client's healthy subscriptions count is under the configured BFT threshold (${threshold.value})."
             val failureMsg = Option.when(failed.nonEmpty)(
               s"Failed sequencer subscriptions for [${failed.sortBy(_.toProtoPrimitive).mkString(", ")}]."
             )
             val degradationMsg = Option.when(degraded.nonEmpty)(
               s"Degraded sequencer subscriptions for [${degraded.sortBy(_.toProtoPrimitive).mkString(", ")}]."
             )
-            val message = Seq(failureMsg, degradationMsg).flatten.mkString(" ")
+            val message = Seq(Some(common), failureMsg, degradationMsg).flatten.mkString(" ")
             if (degraded.sizeIs >= threshold.value - healthyCount)
               ComponentHealthState.degraded(message)
-            else ComponentHealthState.failed(message)
+            else
+              ComponentHealthState.failed(
+                message,
+                // Don't log at WARN level if the sequencer client is closing
+                logLevel = if (associatedHasRunOnClosing.isClosing) Level.INFO else Level.WARN,
+              )
           } else {
             val (sequencerId, state) = iter.next()
             if (state.isOk) go(healthyCount + 1, failed, degraded)

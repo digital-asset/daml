@@ -74,8 +74,8 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
 
     val createdAt = LfTimestamp.Epoch
     val contractSalt = TestSalt.generateSalt(0)
-    val driverMetadata =
-      DriverContractMetadata(contractSalt).toLfBytes(AuthenticatedContractIdVersionV11)
+    val authenticationData =
+      ContractAuthenticationDataV1(contractSalt)(AuthenticatedContractIdVersionV11)
 
     val contractIdDiscriminator = ExampleTransactionFactory.lfHash(0)
     val contractIdSuffix =
@@ -103,7 +103,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       FatContractInstance.fromCreateNode(
         createNode,
         CreationTime.CreatedAt(createdAt),
-        driverMetadata,
+        authenticationData.toLfBytes,
       )
 
     "provided a valid disclosed contract" should {
@@ -126,7 +126,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .value,
           metadata = ContractMetadata.tryCreate(Set(alice), Set(alice), None),
           ledgerCreateTime = CreationTime.CreatedAt(createdAt),
-          contractSalt = contractSalt,
+          authenticationData = authenticationData,
         )
       }
     }
@@ -137,13 +137,13 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           FatContractInstance.fromCreateNode(
             createNode.mapCid(_ => invalidFormatContractId),
             CreationTime.CreatedAt(createdAt),
-            driverMetadata,
+            authenticationData.toLfBytes,
           )
         ).left.value shouldBe s"Invalid disclosed contract id: malformed contract id '${invalidFormatContractId.toString}'. Suffix 00 is not a supported contract-id prefix"
       }
     }
 
-    "provided a disclosed contract with missing driver contract metadata" should {
+    "provided a disclosed contract with missing contract authentication data" should {
       "fail" in {
         fromFatContract(
           FatContractInstance.fromCreateNode(
@@ -151,7 +151,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             CreationTime.CreatedAt(createdAt),
             cantonData = Bytes.Empty,
           )
-        ).left.value shouldBe "Missing driver contract metadata in provided disclosed contract"
+        ).left.value shouldBe "Missing authentication data in provided disclosed contract"
       }
     }
   }

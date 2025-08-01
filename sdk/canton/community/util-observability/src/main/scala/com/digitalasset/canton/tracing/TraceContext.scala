@@ -155,7 +155,7 @@ object TraceContext {
           withNewTraceContext(name) { implicit traceContext =>
             // log that we're creating a single traceContext from many trace ids
             val traceIds = validTracesNE.map(_.traceId).collect { case Some(traceId) => traceId }
-            logger.debug(s"Created batch from traceIds: [${traceIds.mkString(",")}]")
+            logger.info(s"Created batch from traceIds: [${traceIds.mkString(",")}]")
             traceContext
           }
     }

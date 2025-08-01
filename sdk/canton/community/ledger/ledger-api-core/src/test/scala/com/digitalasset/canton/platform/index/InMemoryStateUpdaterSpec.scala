@@ -484,7 +484,7 @@ object InMemoryStateUpdaterSpec {
           Reassignment.Assign(
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
             createNode = someCreateNode,
-            contractMetadata = someContractMetadataBytes,
+            contractAuthenticationData = someContractMetadataBytes,
             reassignmentCounter = 15L,
             nodeId = 0,
           )
@@ -751,7 +751,7 @@ object InMemoryStateUpdaterSpec {
       createKeyHash = createdNode.keyOpt.map(_.globalKey.hash),
       createKey = createdNode.keyOpt.map(_.globalKey),
       createKeyMaintainers = createdNode.keyOpt.map(_.maintainers),
-      driverMetadata = someContractMetadataBytes,
+      authenticationData = someContractMetadataBytes,
     )
 
   implicit val defaultValueProviderCreatedEvent
@@ -796,7 +796,7 @@ object InMemoryStateUpdaterSpec {
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId2,
-      contractMetadata = Map.empty,
+      contractAuthenticationData = Map.empty,
       synchronizerId = SynchronizerId.tryFromString("da::default"),
       recordTime = CantonTimestamp.MinValue,
       acsChangeFactory = TestAcsChangeFactory,
@@ -950,7 +950,7 @@ object InMemoryStateUpdaterSpec {
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       updateId = txId1,
-      contractMetadata = Map.empty,
+      contractAuthenticationData = Map.empty,
       synchronizerId = synchronizerId,
       recordTime = CantonTimestamp(Timestamp(t)),
       externalTransactionHash = externalTransactionHash,
@@ -977,7 +977,7 @@ object InMemoryStateUpdaterSpec {
         Reassignment.Assign(
           ledgerEffectiveTime = Timestamp.assertFromLong(12222),
           createNode = someCreateNode,
-          contractMetadata = someContractMetadataBytes,
+          contractAuthenticationData = someContractMetadataBytes,
           reassignmentCounter = 15L,
           nodeId = 0,
         )

@@ -305,7 +305,7 @@ object ReleaseProtocolVersion {
   val latest: ReleaseProtocolVersion = ReleaseProtocolVersion(ProtocolVersion.latest)
 }
 
-final case class ProtoVersion(v: Int) extends AnyVal
+final case class ProtoVersion(v: Int)
 
 object ProtoVersion {
   implicit val protoVersionOrdering: Ordering[ProtoVersion] =
