@@ -122,12 +122,11 @@ disclosuresTest = do
 
   content <- submitWithDisclosures bob [disclosure] (exerciseCmd did (Open bob))
 
-  -- alice `submit` archiveCmd did
+  alice `submit` archiveCmd did
 
-  -- submitWithDisclosuresMustFail bob [disclosure] (exerciseCmd did (Open bob))
+  submitWithDisclosuresMustFail bob [disclosure] (exerciseCmd did (Open bob))
 
-  -- pure content
-  pure "step 1"
+  pure content
 
 
 disclosuresByKeyTest : Script Text

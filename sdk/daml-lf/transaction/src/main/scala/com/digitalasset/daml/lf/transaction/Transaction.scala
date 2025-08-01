@@ -675,7 +675,6 @@ object Transaction {
     * @param nodeSeeds        An association list that maps the node-id of create and exercise
     *                         nodes to their seed.
     * @param globalKeyMapping Input key mappings inferred during interpretation.
-    * @param disclosedEvents  Disclosed create events that have been used in this transaction.
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -684,7 +683,8 @@ object Transaction {
       timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
-      disclosedEvents: ImmArray[Node.Create],
+      // TODO: Removed as it is longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+      // disclosedEvents: ImmArray[Node.Create],
   ) {
     def dependsOnTime: Boolean =
       timeBoundaries != Time.Range.unconstrained

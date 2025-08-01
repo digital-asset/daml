@@ -496,7 +496,7 @@ class Engine(val config: EngineConfig) {
     def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
       machine.finish match {
         case Right(
-              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
+              UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, _)
             ) =>
           deps(tx).flatMap { deps =>
             if (config.paranoid) {
@@ -544,7 +544,8 @@ class Engine(val config: EngineConfig) {
               timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
               globalKeyMapping = globalKeyMapping,
-              disclosedEvents = disclosedCreateEvents,
+              // TODO: Removed as it is longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+              // disclosedEvents = disclosedCreateEvents,
             )
 
             config.profileDir.foreach { dir =>

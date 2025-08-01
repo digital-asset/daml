@@ -2861,7 +2861,6 @@ class EngineTestHelpers(
           timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosedEvents = ImmArray.empty,
         ),
       )
     )
@@ -2892,31 +2891,32 @@ class EngineTestHelpers(
       }
     }
 
-    @SuppressWarnings(
-      Array(
-        "org.wartremover.warts.JavaSerializable",
-        "org.wartremover.warts.Product",
-        "org.wartremover.warts.Serializable",
-      )
-    )
-    def haveDisclosedEvents(
-        expectedProcessedDisclosedContracts: Node.Create*
-    ): Matcher[Tx.Metadata] =
-      Matcher { metadata =>
-        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.disclosedEvents
-
-        val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
-        ).mkString("\n  ", "\n  ", "")
-
-        MatchResult(
-          expectedResult == actualResult,
-          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-        )
-      }
+    // TODO: It is not longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+//    @SuppressWarnings(
+//      Array(
+//        "org.wartremover.warts.JavaSerializable",
+//        "org.wartremover.warts.Product",
+//        "org.wartremover.warts.Serializable",
+//      )
+//    )
+//    def haveDisclosedEvents(
+//        expectedProcessedDisclosedContracts: Node.Create*
+//    ): Matcher[Tx.Metadata] =
+//      Matcher { metadata =>
+//        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
+//        val actualResult = metadata.disclosedEvents
+//
+//        val debugMessage = Seq(
+//          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
+//          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
+//        ).mkString("\n  ", "\n  ", "")
+//
+//        MatchResult(
+//          expectedResult == actualResult,
+//          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+//          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+//        )
+//      }
 
     def haveDisclosedInputContracts(
         disclosedContracts: DisclosedContract*

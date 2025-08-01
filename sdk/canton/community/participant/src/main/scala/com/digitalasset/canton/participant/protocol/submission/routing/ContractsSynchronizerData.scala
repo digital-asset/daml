@@ -45,11 +45,8 @@ private[routing] object ContractsSynchronizerData {
                   Right(ContractData(coid, synchronizerId, stakeholders))
                 case Some((synchronizerId, contractState))
                     if contractState.isArchived.contains(true) =>
-                  println(s"Detected archived contract for $coid")
                   Left((coid, Some(synchronizerId)))
                 case _ =>
-                  println(s"Assignations: $contractAssignations")
-                  println(s"Did not find synchronizer for stakeholders: $stakeholders, for $coid")
                   Left((coid, None))
               }
             }

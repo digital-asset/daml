@@ -24,7 +24,8 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
     with Matchers {
 
   override protected lazy val devMode: Boolean = true
-  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
+  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode =
+    CantonFixtureDebugKeepTmpFiles
 
   final override protected lazy val nParticipants = 2
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
