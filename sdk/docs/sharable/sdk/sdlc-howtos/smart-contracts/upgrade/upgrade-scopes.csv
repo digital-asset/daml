@@ -27,6 +27,6 @@ Change of Choice Return Type,Choice,"Yes, except for Tuple or scalar types","| Y
 |
 | In particular: you cannot change a collection, Optional, List, or Map; you can change Tuple, (to a triple) if you define your own type."
 Change of Interface Definition,Interface Definition,No,Interfaces are static and cannot be changed. Separate interface definition and keep the implementation in the template code.
-Addition of Interface Implementations (Retroactive Interfaces),Interface Definition,No,
-Adding or Removing Interfaces from Templates,Template Definition,No,Interfaces cannot be changed.
+Adding Interfaces to Templates,Template Definition,Yes,
+Removing Interfaces from Templates,Template Definition,No,Though the implementation can be changed.
 Change or Deletion of Exception,Exception Definition,No,Keep the exception definition separate. Exceptions cannot be upgraded.

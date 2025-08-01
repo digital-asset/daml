@@ -198,27 +198,6 @@ For context, a simple template definition:
 - The implementation of the special ``view`` method must return the type
   specified as the ``viewtype`` in the interface declaration.
 
-``interface instance`` clause in the interface
-----------------------------------------------
-
-.. todo:: Fix or remove this literal include
-
-.. INTERFACE_INSTANCE_IN_INTERFACE_BEGIN no longer exists in the daml file
-    .. literalinclude:: code-snippets-dev/Interfaces.daml
-       :language: daml
-       :start-after: -- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
-       :end-before: -- INTERFACE_INSTANCE_IN_INTERFACE_END
-
-- To make an *existing* template an instance of a new interface, the
-  ``interface instance`` clause must be defined in the *interface* declaration.
-- In this case, the *interface* of the clause must match the enclosing
-  declaration. In other words, an interface ``I`` declaration can only contain
-  ``interface instance`` clauses where the interface is ``I``.
-- All other rules for ``interface instance`` clauses are the same whether the
-  enclosing declaration is a template or an interface. In particular, the
-  implicit local binding ``this`` always has the type of the *template*'s
-  record.
-
 Empty ``interface instance`` clause
 -----------------------------------
 
