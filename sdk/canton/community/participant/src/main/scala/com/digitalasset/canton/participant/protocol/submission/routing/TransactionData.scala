@@ -82,7 +82,8 @@ private[routing] object TransactionData {
             contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
-          .leftMap[TransactionRoutingError](contractsError =>
+          .leftMap[TransactionRoutingError](contractsError => {
+            println(s"Contracts error: $contractsError")
             TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
               .Error(
                 contractsError.notFound.map(_.coid),
@@ -90,7 +91,7 @@ private[routing] object TransactionData {
                   syncId -> cid.map(_.coid)
                 },
               )
-          )
+          })
     } yield TransactionData(
       transaction = transaction,
       ledgerTime: CantonTimestamp,

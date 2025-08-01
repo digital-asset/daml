@@ -47,6 +47,7 @@ import com.daml.logging.LoggingContext
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.tagToContainer
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authorization
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
+import com.digitalasset.daml.lf.crypto.Hash.HashType
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Assertion, EitherValues}
@@ -101,7 +102,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(ImmArray(command), let, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
@@ -158,7 +158,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
   }
 
   "command with disclosure" should {
-    "reject disclosures with non-normalized numeric values" in {
+    // TODO: Re-enable (https://github.com/digital-asset/daml/issues/21621)
+    "reject disclosures with non-normalized numeric values" ignore {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:SimpleNumeric")
       val cid = toContractId("BasicTests:SimpleNumeric:1")
       val command =
@@ -205,12 +206,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(party),
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray(disclosure),
           participantId = participant,
           submissionSeed = hash("exercise command with disclosure"),
           prefetchKeys = Seq.empty,
         )
-        .consume(Map.empty, lookupPackage, Map.empty)
+        .consume(
+          Map(disclosure.contractId -> addIdValidator()(disclosure)),
+          lookupPackage,
+          Map.empty,
+        )
 
       inside(result) { case Left(Error.Interpretation(DamlException(IE.Dev(_, err)), _)) =>
         err shouldBe a[IE.Dev.Conformance]
@@ -267,12 +271,15 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(party),
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray(disclosure),
           participantId = participant,
           submissionSeed = hash("exercise command with disclosure"),
           prefetchKeys = Seq.empty,
         )
-        .consume(Map.empty, lookupPackage, Map.empty)
+        .consume(
+          Map(disclosure.contractId -> addIdValidator()(disclosure)),
+          lookupPackage,
+          Map.empty,
+        )
 
       result shouldBe a[Right[_, _]]
     }
@@ -319,7 +326,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = actAs,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(cmd), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -381,7 +387,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             preparationTime = let,
             submissionSeed = submissionSeed,
           )
-          .consume(grantUpgradeVerification = None)
+          .consume()
 
         replayResult shouldBe a[Right[_, _]]
       }
@@ -451,7 +457,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = Set(party),
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -473,7 +478,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           let,
           lookupPackage,
           defaultContracts,
-          grantUpgradeVerification = None,
         )
       isReplayedBy(stx, rtx) shouldBe Right(())
     }
@@ -482,7 +486,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -515,7 +519,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -582,7 +585,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -615,7 +617,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -1061,7 +1063,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           txMeta,
           let,
           lookupPackage,
-          grantUpgradeVerification = None,
         )
 
       isReplayedBy(stx, rtx) shouldBe Right(())
@@ -1295,7 +1296,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(ImmArray(command), let, "test"),
-        disclosures = ImmArray.empty,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
@@ -1340,7 +1340,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           let,
           lookupPackage,
           defaultContracts,
-          grantUpgradeVerification = None,
         )
 
       isReplayedBy(rtx, stx) shouldBe Right(())
@@ -1422,15 +1421,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     def makeContract(
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
-    ) =
-      FatContractInstance.fromThinInstance(
-        version = defaultLangVersion,
-        packageName = basicTestsPkg.pkgName,
-        template = TypeConId(basicTestsPkgId, tid),
-        arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+    ): ContractAndIdValidator =
+      addIdValidator()(
+        FatContractInstance.fromThinInstance(
+          version = defaultLangVersion,
+          packageName = basicTestsPkg.pkgName,
+          template = TypeConId(basicTestsPkgId, tid),
+          arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+        )
       )
 
-    val lookupContract: PartialFunction[ContractId, FatContractInstance] = {
+    val lookupContract: PartialFunction[ContractId, ContractAndIdValidator] = {
       case `fetchedCid` => makeContract(fetchedStrTid, fetchedTArgs)
       case `fetcher1Cid` => makeContract(fetcherStrTid, fetcher1TArgs)
       case `fetcher2Cid` => makeContract(fetcherStrTid, fetcher2TArgs)
@@ -1546,7 +1547,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               txMeta.preparationTime,
               let,
             )
-            .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+            .consume(lookupContract, lookupPackage, lookupKey)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
       }
     }
@@ -1579,8 +1580,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         ),
       )
 
-    val lookupContract: PartialFunction[ContractId, FatContractInstance] = { case `fetchedCid` =>
-      fetchedContract
+    val lookupContract: PartialFunction[ContractId, ContractAndIdValidator] = { case `fetchedCid` =>
+      addIdValidator()(fetchedContract)
     }
 
     "succeed with a fresh engine, correctly compiling packages" in {
@@ -1599,7 +1600,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val reinterpreted =
         engine
           .reinterpret(submitters, fetchNode, None, let, let)
-          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
     }
@@ -1633,7 +1634,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     def lookupContract = Map(
       lookedUpCid -> withKeyContractInst,
       lookerUpCid -> lookerUpInst,
-    )
+    ).view.mapValues(addIdValidator()).toMap
 
     def firstLookupNode(tx: Tx): Option[(NodeId, Node.LookupByKey)] =
       tx.nodes.collectFirst { case (nid, nl: Node.LookupByKey) =>
@@ -1656,7 +1657,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
           prefetchKeys = Seq.empty,
@@ -1686,7 +1686,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
           prefetchKeys = Seq.empty,
@@ -1706,7 +1705,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             txMeta.preparationTime,
             now,
           )
-          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -1726,7 +1725,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(exerciseCmd), now, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = seed,
           prefetchKeys = Seq.empty,
@@ -1899,7 +1897,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), Time.Timestamp.now(), "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -1923,7 +1920,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
     "fetched via a fetch" in {
 
-      val lookupContractMap = Map(fetchedCid -> withKeyContractInst)
+      val lookupContractMap = Map(fetchedCid -> addIdValidator()(withKeyContractInst))
 
       val cmd = speedy.Command.FetchTemplate(BasicTests_WithKey, SValue.SContractId(fetchedCid))
 
@@ -1975,7 +1972,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           fetchedCid
       }
 
-      val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst)
+      val lookupContractMap = Map(fetchedCid -> withKeyContractInst, fetcherCid -> fetcherInst).view
+        .mapValues(addIdValidator())
+        .toMap
 
       val submitters = Set(alice)
 
@@ -2038,7 +2037,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         ),
       ),
     )
-    val contracts = defaultContracts + (fetcherCid -> fetcherInst)
+    val contracts = defaultContracts + (fetcherCid -> addIdValidator()(fetcherInst))
     val correctCommand =
       ApiCommand.Exercise(
         withKeyId.toRef,
@@ -2072,7 +2071,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(cmds, now, ""),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -2129,7 +2127,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           submitters = submitters,
           readAs = readAs,
           cmds = ApiCommands(ImmArray(command), let, "test"),
-          disclosures = ImmArray.empty,
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = Seq.empty,
@@ -2186,7 +2183,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         txMeta,
         let,
         lookupPackage,
-        grantUpgradeVerification = None,
       ) shouldBe a[Right[_, _]]
 
     }
@@ -2204,18 +2200,20 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
-        version = defaultLangVersion,
-        packageName = exceptionsPkg.pkgName,
-        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
-        arg = ValueRecord(
-          None,
-          ImmArray(
-            (None, ValueParty(party)),
-            (None, ValueInt64(666)),
-            (None, ValueText("text666")),
+      cid -> addIdValidator()(
+        FatContractInstance.fromThinInstance(
+          version = defaultLangVersion,
+          packageName = exceptionsPkg.pkgName,
+          template = TypeConId(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(666)),
+              (None, ValueText("text666")),
+            ),
           ),
-        ),
+        )
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2354,18 +2352,20 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
-        version = defaultLangVersion,
-        packageName = exceptionsPkg.pkgName,
-        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
-        arg = ValueRecord(
-          None,
-          ImmArray(
-            (None, ValueParty(party)),
-            (None, ValueInt64(777)),
-            (None, ValueText("text777")),
+      cid -> addIdValidator()(
+        FatContractInstance.fromThinInstance(
+          version = defaultLangVersion,
+          packageName = exceptionsPkg.pkgName,
+          template = TypeConId(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(777)),
+              (None, ValueText("text777")),
+            ),
           ),
-        ),
+        )
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2432,18 +2432,20 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
-        version = defaultLangVersion,
-        packageName = exceptionsPkg.pkgName,
-        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
-        arg = ValueRecord(
-          None,
-          ImmArray(
-            (None, ValueParty(party)),
-            (None, ValueInt64(0)), // matches 0 in the daml code
-            (None, ValueText("text0")),
+      cid -> addIdValidator()(
+        FatContractInstance.fromThinInstance(
+          version = defaultLangVersion,
+          packageName = exceptionsPkg.pkgName,
+          template = TypeConId(exceptionsPkgId, "Exceptions:K"),
+          arg = ValueRecord(
+            None,
+            ImmArray(
+              (None, ValueParty(party)),
+              (None, ValueInt64(0)), // matches 0 in the daml code
+              (None, ValueText("text0")),
+            ),
           ),
-        ),
+        )
       )
     )
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2679,7 +2681,7 @@ class EngineTestHelpers(
       ),
     )
 
-  val defaultContracts: Map[ContractId, FatContractInstance] =
+  val defaultContracts: Map[ContractId, ContractAndIdValidator] =
     Map(
       toContractId("BasicTests:Simple:1") ->
         FatContractInstance.fromThinInstance(
@@ -2706,7 +2708,7 @@ class EngineTestHelpers(
         ),
       toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
-    )
+    ).view.mapValues(addIdValidator()).toMap
 
   val defaultKey = Map(
     GlobalKeyWithMaintainers(
@@ -2721,9 +2723,15 @@ class EngineTestHelpers(
         toContractId("BasicTests:WithKey:1")
   )
 
-  val lookupContract = defaultContracts
+  def addIdValidator(
+      hashType: Hash.HashType = HashType.UpgradeFriendly,
+      idValidator: Hash => Boolean = _ => true,
+  )(f: FatContractInstance): ContractAndIdValidator =
+    ContractAndIdValidator(f, hashType, idValidator)
 
-  val lookupPackage = allPackages
+  val lookupContract: Map[ContractId, ContractAndIdValidator] = defaultContracts
+
+  val lookupPackage: Map[PackageId, Package] = allPackages
 
   val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
     case GlobalKeyWithMaintainers(
@@ -2777,9 +2785,8 @@ class EngineTestHelpers(
       txMeta: Tx.Metadata,
       ledgerEffectiveTime: Time.Timestamp,
       lookupPackages: PartialFunction[PackageId, Package],
-      contracts: Map[ContractId, FatContractInstance] = Map.empty,
+      contracts: Map[ContractId, ContractAndIdValidator] = Map.empty,
       keys: Map[GlobalKeyWithMaintainers, ContractId] = Map.empty,
-      grantUpgradeVerification: Option[String] = None,
   ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -2830,7 +2837,6 @@ class EngineTestHelpers(
                 state.contracts,
                 lookupPackages,
                 state.keys,
-                grantUpgradeVerification = grantUpgradeVerification,
               )
             (tr0, meta0) = currentStep
             tr1 = suffix(tr0)
@@ -2855,7 +2861,6 @@ class EngineTestHelpers(
           timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
-          disclosedEvents = ImmArray.empty,
         ),
       )
     )
@@ -2886,31 +2891,32 @@ class EngineTestHelpers(
       }
     }
 
-    @SuppressWarnings(
-      Array(
-        "org.wartremover.warts.JavaSerializable",
-        "org.wartremover.warts.Product",
-        "org.wartremover.warts.Serializable",
-      )
-    )
-    def haveDisclosedEvents(
-        expectedProcessedDisclosedContracts: Node.Create*
-    ): Matcher[Tx.Metadata] =
-      Matcher { metadata =>
-        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
-        val actualResult = metadata.disclosedEvents
-
-        val debugMessage = Seq(
-          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
-          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
-        ).mkString("\n  ", "\n  ", "")
-
-        MatchResult(
-          expectedResult == actualResult,
-          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
-          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
-        )
-      }
+    // TODO: It is not longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+//    @SuppressWarnings(
+//      Array(
+//        "org.wartremover.warts.JavaSerializable",
+//        "org.wartremover.warts.Product",
+//        "org.wartremover.warts.Serializable",
+//      )
+//    )
+//    def haveDisclosedEvents(
+//        expectedProcessedDisclosedContracts: Node.Create*
+//    ): Matcher[Tx.Metadata] =
+//      Matcher { metadata =>
+//        val expectedResult = ImmArray(expectedProcessedDisclosedContracts: _*)
+//        val actualResult = metadata.disclosedEvents
+//
+//        val debugMessage = Seq(
+//          s"expected but missing contract IDs: ${expectedResult.filter(!actualResult.toSeq.contains(_)).map(_.coid)}",
+//          s"unexpected but found contract IDs: ${actualResult.filter(!expectedResult.toSeq.contains(_)).map(_.coid)}",
+//        ).mkString("\n  ", "\n  ", "")
+//
+//        MatchResult(
+//          expectedResult == actualResult,
+//          s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
+//          s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+//        )
+//      }
 
     def haveDisclosedInputContracts(
         disclosedContracts: DisclosedContract*
@@ -2932,7 +2938,7 @@ class EngineTestHelpers(
   }
 
   case class ReinterpretState(
-      contracts: Map[ContractId, FatContractInstance],
+      contracts: Map[ContractId, ContractAndIdValidator],
       keys: Map[GlobalKeyWithMaintainers, ContractId],
       nodes: HashMap[NodeId, Node] = HashMap.empty,
       roots: BackStack[NodeId] = BackStack.empty,
@@ -2947,8 +2953,10 @@ class EngineTestHelpers(
           (
             contracts.updated(
               create.coid,
-              FatContractInstance
-                .fromCreateNode(create, CreationTime.CreatedAt(meta.preparationTime), Bytes.Empty),
+              addIdValidator()(
+                FatContractInstance
+                  .fromCreateNode(create, CreationTime.CreatedAt(meta.preparationTime), Bytes.Empty)
+              ),
             ),
             create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )

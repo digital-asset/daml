@@ -89,7 +89,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         ),
     )
-    def consume[X](x: Result[X]) = x.consume(contracts, allInterfacesPkgs)
+    def consume[X](x: Result[X]) = x.consumeValidated(contracts, allInterfacesPkgs)
 
     def preprocessApi(cmd: ApiCommand) = consume(preprocessor.preprocessApiCommand(Map.empty, cmd))
     def run[Cmd](cmd: Cmd)(preprocess: Cmd => Result[speedy.Command]) =
@@ -101,7 +101,6 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             submitters = Set(party),
             readAs = Set.empty,
             commands = ImmArray(speedyCmd),
-            disclosures = ImmArray.empty,
             ledgerTime = let,
             preparationTime = let,
             seeding = seeding,
