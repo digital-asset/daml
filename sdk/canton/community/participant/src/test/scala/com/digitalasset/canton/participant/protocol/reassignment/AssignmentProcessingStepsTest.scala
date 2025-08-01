@@ -627,15 +627,17 @@ final class AssignmentProcessingStepsTest
         val fci = ExampleTransactionFactory
           .authenticatedContractInstance(metadata = baseMetadata)
           .inst: LfFatContractInst
-        ContractInstance(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.stakeholders)
-              .modify(_ incl party2),
-            fci.createdAt,
-            fci.cantonData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.stakeholders)
+                .modify(_ incl party2),
+              fci.createdAt,
+              fci.cantonData,
+            )
           )
-        ).value
+          .value
       }
 
       // party2 is incorrectly registered as a signatory
@@ -646,15 +648,17 @@ final class AssignmentProcessingStepsTest
           )
           .inst: LfFatContractInst
 
-        ContractInstance(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.signatories)
-              .modify(_ incl party2),
-            fci.createdAt,
-            fci.cantonData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.signatories)
+                .modify(_ incl party2),
+              fci.createdAt,
+              fci.cantonData,
+            )
           )
-        ).value
+          .value
       }
 
       val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
@@ -669,15 +673,17 @@ final class AssignmentProcessingStepsTest
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
           .inst: LfFatContractInst
-        ContractInstance(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.keyOpt)
-              .replace(Some(incorrectKey.unversioned)),
-            fci.createdAt,
-            fci.cantonData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.keyOpt)
+                .replace(Some(incorrectKey.unversioned)),
+              fci.createdAt,
+              fci.cantonData,
+            )
           )
-        ).value
+          .value
       }
 
       for {

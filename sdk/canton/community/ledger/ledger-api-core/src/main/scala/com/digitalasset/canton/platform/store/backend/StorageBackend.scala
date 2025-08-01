@@ -261,7 +261,7 @@ object ContractStorageBackend {
       createKey: Option[Array[Byte]],
       createKeyCompression: Option[Int],
       keyMaintainers: Option[Set[Party]],
-      driverMetadata: Array[Byte],
+      authenticationData: Array[Byte],
   ) extends RawContractState
 
   final case class RawArchivedContract(
@@ -446,7 +446,7 @@ object EventStorageBackend {
       createKeyValueCompression: Option[Int],
       ledgerEffectiveTime: Timestamp,
       createKeyHash: Option[Hash],
-      driverMetadata: Array[Byte],
+      authenticationData: Array[Byte],
   ) extends RawFlatEvent
       with RawTreeEvent
 

@@ -15,6 +15,11 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.google.protobuf.ByteString
 
+/** Wraps a [[com.digitalasset.daml.lf.transaction.FatContractInstance]] and ensures the following
+  * invariants via smart constructors:
+  *   - The contract instance can be serialized
+  *   - The contract ID format is known
+  */
 sealed trait GenContractInstance extends PrettyPrinting {
   type InstCreatedAtTime <: CreationTime
 
@@ -35,8 +40,8 @@ sealed trait GenContractInstance extends PrettyPrinting {
 
   def encoded: ByteString = serialization
 
-  def driverContractMetadata: Either[String, DriverContractMetadata] =
-    ContractInstance.driverContractMetadata(inst)
+  def contractAuthenticationData: Either[String, ContractAuthenticationData] =
+    ContractInstance.contractAuthenticationData(inst)
 }
 
 object ContractInstance {
@@ -53,22 +58,30 @@ object ContractInstance {
   ): Some[(FatContractInstance { type CreatedAtTime = Time }, ContractMetadata, ByteString)] =
     Some((contractInstance.inst, contractInstance.metadata, contractInstance.serialization))
 
-  def driverContractMetadata(inst: FatContractInstance): Either[String, DriverContractMetadata] =
+  def contractAuthenticationData(
+      inst: FatContractInstance
+  ): Either[String, ContractAuthenticationData] =
+    CantonContractIdVersion
+      .extractCantonContractIdVersion(inst.contractId)
+      .leftMap(_.toString)
+      .flatMap(contractAuthenticationData(_, inst))
+
+  private[protocol] def contractAuthenticationData(
+      contractIdVersion: CantonContractIdVersion,
+      inst: FatContractInstance,
+  ): Either[String, contractIdVersion.AuthenticationData] =
     if (inst.cantonData.toByteArray.nonEmpty)
-      DriverContractMetadata
-        .fromLfBytes(inst.cantonData.toByteArray)
-        .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
-    else
-      Left(
-        value = "Missing driver contract metadata in provided disclosed contract"
-      )
+      ContractAuthenticationData
+        .fromLfBytes(contractIdVersion, inst.cantonData)
+        .leftMap(err => s"Failed parsing disclosed contract authentication data: $err")
+    else Left("Missing authentication data in provided disclosed contract")
 
   def toSerializableContract(inst: LfFatContractInst): Either[String, SerializableContract] =
     for {
-      _ <- CantonContractIdVersion
+      contractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(inst.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-      salt <- driverContractMetadata(inst).map(_.salt)
+      authenticationData <- contractAuthenticationData(contractIdVersion, inst)
       metadata <- ContractMetadata.create(
         signatories = inst.signatories,
         stakeholders = inst.stakeholders,
@@ -80,12 +93,12 @@ object ContractInstance {
         contractInstance = inst.toCreateNode.versionedCoinst,
         metadata = metadata,
         ledgerTime = CantonTimestamp(inst.createdAt.time),
-        contractSalt = salt,
+        authenticationData = authenticationData,
       ).leftMap(err => s"Failed creating serializable contract from disclosed contract: $err")
 
     } yield serializable
 
-  def apply[Time <: CreationTime](
+  def create[Time <: CreationTime](
       inst: FatContractInstance { type CreatedAtTime <: Time }
   ): Either[String, GenContractInstance { type InstCreatedAtTime <: Time }] =
     for {
@@ -101,27 +114,23 @@ object ContractInstance {
       )
     } yield ContractInstanceImpl[inst.CreatedAtTime](inst, metadata, serialization)
 
-  def apply(serializable: SerializableContract): Either[String, ContractInstance] =
+  def fromSerializable(serializable: SerializableContract): Either[String, ContractInstance] = {
+    val inst = FatContractInstance.fromCreateNode(
+      serializable.toLf,
+      serializable.ledgerCreateTime,
+      serializable.authenticationData.toLfBytes,
+    )
     for {
-      contractIdVersion <- CantonContractIdVersion
-        .extractCantonContractIdVersion(serializable.contractId)
-        .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")
-      inst = FatContractInstance.fromCreateNode(
-        serializable.toLf,
-        serializable.ledgerCreateTime,
-        DriverContractMetadata(serializable.contractSalt).toLfBytes(contractIdVersion),
-      )
       serialization <- encodeInst(inst)
-    } yield {
-      ContractInstanceImpl(inst, serializable.metadata, serialization)
-    }
+    } yield ContractInstanceImpl(inst, serializable.metadata, serialization)
+  }
 
   def decode(bytes: ByteString): Either[String, GenContractInstance] =
     for {
       decoded <- TransactionCoder
         .decodeFatContractInstance(bytes)
         .leftMap(e => s"Failed to decode contract instance: $e")
-      contract <- apply[decoded.CreatedAtTime](decoded)
+      contract <- create[decoded.CreatedAtTime](decoded)
     } yield contract
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

@@ -19,12 +19,12 @@ trait LogicalSynchronizerUpgradeCallback {
     *   - Synchronizer time is passed upgrade time
     *   - Successor is registered
     */
-  def upgrade(successor: SynchronizerSuccessor)(implicit traceContext: TraceContext): Unit
+  def registerCallback(successor: SynchronizerSuccessor)(implicit traceContext: TraceContext): Unit
 }
 
 object LogicalSynchronizerUpgradeCallback {
   val NoOp: LogicalSynchronizerUpgradeCallback = new LogicalSynchronizerUpgradeCallback {
-    override def upgrade(successor: SynchronizerSuccessor)(implicit
+    override def registerCallback(successor: SynchronizerSuccessor)(implicit
         traceContext: TraceContext
     ): Unit = ()
   }
@@ -37,7 +37,9 @@ class LogicalSynchronizerUpgradeCallbackImpl(
 )(implicit ec: ExecutionContext)
     extends LogicalSynchronizerUpgradeCallback {
 
-  def upgrade(successor: SynchronizerSuccessor)(implicit traceContext: TraceContext): Unit =
+  def registerCallback(
+      successor: SynchronizerSuccessor
+  )(implicit traceContext: TraceContext): Unit =
     synchronizerTimeTracker
       .awaitTick(successor.upgradeTime)
       .fold(Future.unit)(_.map(_ => ()))

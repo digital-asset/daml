@@ -263,13 +263,13 @@ object Update {
 
     def updateId: data.UpdateId
 
-    /** For each contract created in this transaction, this map may contain contract metadata
-      * assigned by the ledger implementation. This data is opaque and can only be used in
+    /** For each contract created in this transaction, this map may contain contract authentication
+      * data assigned by the ledger implementation. This data is opaque and can only be used in
       * [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s when submitting transactions
       * trough the [[SyncService]]. If a contract created by this transaction is not element of this
-      * map, its metadata is equal to the empty byte array.
+      * map, its authentication data is equal to the empty byte array.
       */
-    def contractMetadata: Map[Value.ContractId, Bytes]
+    def contractAuthenticationData: Map[Value.ContractId, Bytes]
 
     def externalTransactionHash: Option[Hash]
 
@@ -309,7 +309,7 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: data.UpdateId,
-      contractMetadata: Map[Value.ContractId, Bytes],
+      contractAuthenticationData: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       recordTime: CantonTimestamp,
       acsChangeFactory: AcsChangeFactory,
@@ -326,7 +326,7 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       updateId: data.UpdateId,
-      contractMetadata: Map[Value.ContractId, Bytes],
+      contractAuthenticationData: Map[Value.ContractId, Bytes],
       synchronizerId: SynchronizerId,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,

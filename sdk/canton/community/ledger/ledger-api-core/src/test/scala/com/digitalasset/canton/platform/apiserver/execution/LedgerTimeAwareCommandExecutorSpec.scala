@@ -76,7 +76,7 @@ class LedgerTimeAwareCommandExecutorSpec
       contractId = cid,
       argument = Value.ValueNil,
       createdAt = Time.Timestamp.Epoch,
-      driverMetadata = Bytes.Empty,
+      authenticationData = Bytes.Empty,
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,

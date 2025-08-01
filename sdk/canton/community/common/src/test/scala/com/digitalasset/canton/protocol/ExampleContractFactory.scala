@@ -49,7 +49,7 @@ object ExampleContractFactory extends EitherValues {
       stakeholders: Set[Ref.Party] = Set(signatory, observer, extra),
       keyOpt: Option[GlobalKeyWithMaintainers] = None,
       version: LanguageVersion = LanguageVersion.default,
-      cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+      cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11,
       overrideContractId: Option[ContractId] = None,
   ): GenContractInstance { type InstCreatedAtTime <: Time } = {
 
@@ -71,7 +71,7 @@ object ExampleContractFactory extends EitherValues {
     val unsuffixed = FatContractInstance.fromCreateNode(
       create,
       createdAt,
-      DriverContractMetadata(salt).toLfBytes(cantonContractIdVersion),
+      ContractAuthenticationDataV1(salt)(cantonContractIdVersion).toLfBytes,
     )
 
     val unicum = unicumGenerator.recomputeUnicum(unsuffixed, cantonContractIdVersion).value
@@ -82,15 +82,15 @@ object ExampleContractFactory extends EitherValues {
     val inst = FatContractInstance.fromCreateNode(
       create.copy(coid = contractId),
       createdAt,
-      DriverContractMetadata(salt).toLfBytes(cantonContractIdVersion),
+      ContractAuthenticationDataV1(salt)(cantonContractIdVersion).toLfBytes,
     )
 
-    ContractInstance(inst).value
+    ContractInstance.create(inst).value
   }
 
   def buildContractId(
       index: Int = random.nextInt(),
-      cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+      cantonContractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11,
   ): ContractId =
     cantonContractIdVersion.fromDiscriminator(lfHash(index), Unicum(TestHash.digest(index)))
 
@@ -118,7 +118,7 @@ object ExampleContractFactory extends EitherValues {
       base.inst.cantonData,
     )
 
-    ContractInstance(inst).value
+    ContractInstance.create(inst).value
   }
 
 }

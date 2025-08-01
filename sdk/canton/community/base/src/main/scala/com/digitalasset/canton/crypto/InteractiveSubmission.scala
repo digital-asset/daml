@@ -73,7 +73,7 @@ object InteractiveSubmission {
     )
 
     def saltFromSerializedContract(serializedNode: SerializableContract): Bytes =
-      Bytes.fromByteString(serializedNode.contractSalt.toProtoV30.salt)
+      serializedNode.authenticationData.toLfBytes
 
     def apply(
         actAs: Set[Ref.Party],

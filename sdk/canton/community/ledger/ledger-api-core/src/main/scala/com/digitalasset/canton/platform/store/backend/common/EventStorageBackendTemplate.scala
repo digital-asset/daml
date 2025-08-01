@@ -71,7 +71,7 @@ object EventStorageBackendTemplate {
       "create_key_value_compression",
       "create_key_maintainers",
       "submitters",
-      "driver_metadata",
+      "authentication_data",
       "synchronizer_id",
       "trace_context",
       "record_time",
@@ -98,7 +98,7 @@ object EventStorageBackendTemplate {
       "create_key_value_compression",
       "NULL as create_key_maintainers",
       "submitters",
-      "NULL as driver_metadata",
+      "NULL as authentication_data",
       "synchronizer_id",
       "trace_context",
       "record_time",
@@ -149,7 +149,7 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("driver_metadata")
+      byteArray("authentication_data")
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -202,7 +202,7 @@ object EventStorageBackendTemplate {
           createKeyHash ~
           createKeyValueCompression ~
           createKeyMaintainers ~
-          driverMetadata =>
+          authenticationData =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -234,7 +234,7 @@ object EventStorageBackendTemplate {
               .getOrElse(Set.empty),
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
-            driverMetadata = driverMetadata,
+            authenticationData = authenticationData,
           ),
           synchronizerId =
             stringInterning.synchronizerId.unsafe.externalize(internedSynchronizerId),
@@ -399,7 +399,7 @@ object EventStorageBackendTemplate {
     "NULL as exercise_actors",
     "NULL as exercise_last_descendant_node_id",
     "submitters",
-    "driver_metadata",
+    "authentication_data",
     "synchronizer_id",
     "trace_context",
     "record_time",
@@ -432,7 +432,7 @@ object EventStorageBackendTemplate {
     "exercise_actors",
     "exercise_last_descendant_node_id",
     "submitters",
-    "NULL as driver_metadata",
+    "NULL as authentication_data",
     "synchronizer_id",
     "trace_context",
     "record_time",
@@ -504,7 +504,7 @@ object EventStorageBackendTemplate {
       array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
-      byteArray("driver_metadata") ~
+      byteArray("authentication_data") ~
       byteArray("trace_context").? ~
       timestampFromMicros("record_time") ~
       long("event_sequential_id") ~
@@ -537,7 +537,7 @@ object EventStorageBackendTemplate {
           createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
-          driverMetadata ~
+          authenticationData ~
           traceContext ~
           recordTime ~
           eventSequentialId ~
@@ -585,7 +585,7 @@ object EventStorageBackendTemplate {
               createKeyValueCompression = createKeyValueCompression,
               ledgerEffectiveTime = ledgerEffectiveTime,
               createKeyHash = createKeyHash,
-              driverMetadata = driverMetadata,
+              authenticationData = authenticationData,
             ),
           ),
           // TODO(i26562) Assignments are not externally signed
@@ -699,7 +699,7 @@ object EventStorageBackendTemplate {
       array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
-      byteArray("driver_metadata") ~
+      byteArray("authentication_data") ~
       long("event_sequential_id") ~
       int("node_id")
 
@@ -726,7 +726,7 @@ object EventStorageBackendTemplate {
           createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
-          driverMetadata ~
+          authenticationData ~
           eventSequentialId ~
           nodeId =>
         RawActiveContract(
@@ -757,7 +757,7 @@ object EventStorageBackendTemplate {
               .getOrElse(Set.empty),
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
-            driverMetadata = driverMetadata,
+            authenticationData = authenticationData,
           ),
           eventSequentialId = eventSequentialId,
         )
@@ -781,7 +781,7 @@ object EventStorageBackendTemplate {
       array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
-      byteArray("driver_metadata") ~
+      byteArray("authentication_data") ~
       long("event_sequential_id") ~
       int("node_id")
 
@@ -807,7 +807,7 @@ object EventStorageBackendTemplate {
           createKeyMaintainers ~
           ledgerEffectiveTime ~
           createKeyHash ~
-          driverMetadata ~
+          authenticationData ~
           eventSequentialId ~
           nodeId =>
         RawActiveContract(
@@ -838,7 +838,7 @@ object EventStorageBackendTemplate {
             createKeyValueCompression = createKeyValueCompression,
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
-            driverMetadata = driverMetadata,
+            authenticationData = authenticationData,
           ),
           eventSequentialId = eventSequentialId,
         )

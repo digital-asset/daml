@@ -156,7 +156,7 @@ create or replace view debug.lapi_events_assign as
     debug.lapi_compression(create_argument_compression) as create_argument_compression,
     debug.lapi_compression(create_key_value_compression) as create_key_value_compression,
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
-    driver_metadata,
+    authentication_data,
     debug.resolve_lapi_interned_strings(create_key_maintainers) as create_key_maintainers,
     trace_context,
     debug.canton_timestamp(record_time) as record_time
@@ -217,7 +217,7 @@ create or replace view debug.lapi_events_create as
     create_key_hash,
     debug.lapi_compression(create_argument_compression) as create_argument_compression,
     debug.lapi_compression(create_key_value_compression) as create_key_value_compression,
-    driver_metadata,
+    authentication_data,
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     debug.resolve_lapi_interned_strings(create_key_maintainers) as create_key_maintainers,
     trace_context,

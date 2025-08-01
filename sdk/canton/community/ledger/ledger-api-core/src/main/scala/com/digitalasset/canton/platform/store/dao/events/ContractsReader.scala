@@ -141,7 +141,7 @@ private[dao] sealed class ContractsReader(
                   version = createArg.version,
                 ),
                 createTime = CreationTime.CreatedAt(raw.ledgerEffectiveTime),
-                cantonData = Bytes.fromByteArray(raw.driverMetadata),
+                cantonData = Bytes.fromByteArray(raw.authenticationData),
               )
             )
           case raw: RawArchivedContract => ArchivedContract(raw.flatEventWitnesses)

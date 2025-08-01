@@ -124,7 +124,7 @@ CREATE TABLE lapi_events_assign (
     create_argument_compression smallint,
     create_key_value_compression smallint,
     ledger_effective_time bigint not null,
-    driver_metadata bytea not null,
+    authentication_data bytea not null,
 
     create_key_maintainers integer[],
     trace_context bytea,
@@ -239,7 +239,7 @@ CREATE TABLE lapi_events_create (
     -- * compression flags
     create_argument_compression smallint,
     create_key_value_compression smallint,
-    driver_metadata bytea not null,
+    authentication_data bytea not null,
     synchronizer_id integer not null,
     create_key_maintainers integer[],
     trace_context bytea,

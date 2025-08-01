@@ -145,7 +145,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       suffixedContractInstance: ThinContractInstance,
-      cantonContractIdVersion: CantonContractIdVersion,
+      cantonContractIdVersion: CantonContractIdV1Version,
   ): (ContractSalt, Unicum) = {
     val contractSalt =
       ContractSalt.create(cryptoOps)(
@@ -200,7 +200,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,
       suffixedContractInstance: ThinContractInstance,
-      cantonContractIdVersion: CantonContractIdVersion,
+      cantonContractIdVersion: CantonContractIdV1Version,
   ): Either[String, Unicum] =
     recomputeUnicum(
       contractSalt = contractSalt,
@@ -224,7 +224,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     */
   def recomputeUnicum(
       contractInstance: FatContractInstance,
-      cantonContractIdVersion: CantonContractIdVersion,
+      cantonContractIdVersion: CantonContractIdV1Version,
   ): Either[String, Unicum] =
     for {
       contractHash <- Try(
@@ -241,8 +241,8 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
         maybeKeyWithMaintainersVersioned =
           contractInstance.contractKeyWithMaintainers.map(Versioned(contractInstance.version, _)),
       )
-      driverMetadata <- DriverContractMetadata
-        .fromLfBytes(contractInstance.cantonData.toByteArray)
+      authenticationData <- ContractAuthenticationData
+        .fromLfBytes(cantonContractIdVersion, contractInstance.cantonData)
         .leftMap(err => s"Failed to decode canton metadata: $err")
       createdAt <- contractInstance.createdAt match {
         case createdAt: CreationTime.CreatedAt =>
@@ -251,7 +251,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
           Left("Cannot recompute unicum for a contract without a creation time")
       }
       unicum <- recomputeUnicum(
-        driverMetadata.salt,
+        authenticationData.salt,
         createdAt,
         metadata,
         contractHash,

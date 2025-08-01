@@ -56,10 +56,6 @@ object PartyReplicationSourceParticipantMessage
                 .ValueConversionError("contracts", "Contracts must not be empty")
             )
         } yield AcsBatch(nonEmptyContracts)
-      case v30.PartyReplicationSourceParticipantMessage.DataOrStatus.SourceParticipantIsReady(
-            v30.PartyReplicationSourceParticipantMessage.SourceParticipantIsReady()
-          ) =>
-        Right(SourceParticipantIsReady)
       case v30.PartyReplicationSourceParticipantMessage.DataOrStatus
             .EndOfAcs(v30.PartyReplicationSourceParticipantMessage.EndOfACS()) =>
         Right(EndOfACS)
@@ -75,13 +71,6 @@ object PartyReplicationSourceParticipantMessage
       v30.PartyReplicationSourceParticipantMessage.DataOrStatus.AcsBatch(
         v30.PartyReplicationSourceParticipantMessage
           .AcsBatch(contracts.forgetNE.map(_.toProtoV30))
-      )
-  }
-
-  object SourceParticipantIsReady extends DataOrStatus {
-    override def toProtoV30: v30.PartyReplicationSourceParticipantMessage.DataOrStatus =
-      v30.PartyReplicationSourceParticipantMessage.DataOrStatus.SourceParticipantIsReady(
-        v30.PartyReplicationSourceParticipantMessage.SourceParticipantIsReady()
       )
   }
 

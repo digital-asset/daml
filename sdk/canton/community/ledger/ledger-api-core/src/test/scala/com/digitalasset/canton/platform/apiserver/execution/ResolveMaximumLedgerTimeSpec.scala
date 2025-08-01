@@ -86,7 +86,7 @@ class ResolveMaximumLedgerTimeSpec
       contractId = cId,
       argument = Value.ValueNil,
       createdAt = createdAt,
-      driverMetadata = Bytes.Empty,
+      authenticationData = Bytes.Empty,
       signatories = Set(alice),
       stakeholders = Set(alice),
       keyOpt = None,

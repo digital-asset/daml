@@ -14,18 +14,29 @@ import "scalapb/scalapb.proto";
 message PartyReplicationTargetParticipantMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  message SendAcsSnapshotUpTo {
+  // The Initialize instruction must be the first message to the source participant
+  // and must never be sent as the second or later message.
+  message Initialize {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-    // ACS snapshot contract ordinal (0-based) deterministic on the source participant. This serves as a
+    // The ACS contract ordinal (0-based) to send as part of the first SendAcsUpTo instruction.
+    uint32 initial_contract_ordinal_inclusive = 1;
+  }
+
+  // SendAcsUpTo instructs the source participant to send ordered ACS contracts up to a specified
+  // maximum ordinal.
+  // This instruction lets the target participant flow-control the rate of ACS ingestion.
+  message SendAcsUpTo {
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    // ACS contract ordinal (0-based) deterministic on the source participant. This serves as a
     // watermark specifying up to which contract ordinal inclusively the source participant is expected
-    // to send ACS batches. This puts the target participant in charge of flow-controlling the rate of
-    // ACS ingestion.
+    // to send ACS contracts.
     // Required
     uint32 max_contract_ordinal_inclusive = 1;
   }
 
   oneof instruction {
-    SendAcsSnapshotUpTo send_acs_snapshot_up_to = 1;
+    Initialize initialize = 1;
+    SendAcsUpTo send_acs_up_to = 2;
   }
 }
 
@@ -45,17 +56,12 @@ message PartyReplicationSourceParticipantMessage {
     repeated com.digitalasset.canton.admin.participant.v30.ActiveContractOld contracts = 1;
   }
 
-  message SourceParticipantIsReady {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-  }
-
   message EndOfACS {
     option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   }
 
   oneof data_or_status {
     AcsBatch acs_batch = 1;
-    SourceParticipantIsReady source_participant_is_ready = 2;
-    EndOfACS end_of_acs = 3;
+    EndOfACS end_of_acs = 2;
   }
 }

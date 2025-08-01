@@ -71,7 +71,10 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
     * inconsistent set of dependencies and therefore derive an inconsistent state. This however is
     * only temporary as in this case another state refresh will be triggered at the end.
     */
-  protected def alterDependencies(remove: Set[ID], add: Map[ID, HE]): Unit = {
+  protected def alterDependencies(
+      remove: Set[ID],
+      add: Map[ID, HE],
+  ): Unit = {
     def removeId(id: ID): Boolean =
       if (add.contains(id)) false
       else
@@ -87,7 +90,10 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
         case Some(`dependency`) => false
         case other =>
           other.foreach(_.unregisterOnHealthChange(dependencyListener).discard[Boolean])
-          dependency.registerOnHealthChange(dependencyListener).discard[Boolean]
+          dependency
+            // We'll poke the dependencyListener after having added all dependencies
+            .registerOnHealthChange(dependencyListener, pokeIfNew = false)
+            .discard[Boolean]
           true
       }
 
@@ -95,6 +101,9 @@ trait CompositeHealthElement[ID, HE <: HealthElement] extends HealthElement {
       val removedAtLeastOne = remove.map(removeId).exists(Predef.identity)
       val addedAtLeastOne =
         add.map { case (id, dependency) => addOrReplace(id, dependency) }.exists(Predef.identity)
+
+      // Poke the listener after having added all dependencies
+      if (addedAtLeastOne) dependencyListener.poke()(TraceContext.empty)
       val dependenciesChanged = addedAtLeastOne || removedAtLeastOne
       // Since the associatedHasRunOnClosing may have started closing while we've been modifying the dependencies,
       // query the closing flag again and repeat the unregistration

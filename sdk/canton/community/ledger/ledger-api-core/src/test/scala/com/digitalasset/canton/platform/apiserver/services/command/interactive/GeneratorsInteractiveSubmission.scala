@@ -193,11 +193,11 @@ final class GeneratorsInteractiveSubmission(
       .malformedCreateNodeGenWithVersion(LanguageVersion.v2_1)
       .map(normalizeNodeForV1)
     createdAt <- Arbitrary.arbitrary[Time.Timestamp]
-    driverMetadata <- Arbitrary.arbitrary[Array[Byte]].map(Bytes.fromByteArray)
+    authenticationData <- Arbitrary.arbitrary[Array[Byte]].map(Bytes.fromByteArray)
   } yield FatContractInstance.fromCreateNode(
     create.copy(coid = overrideCid),
     CreationTime.CreatedAt(createdAt),
-    driverMetadata,
+    authenticationData,
   )
 
   private val preparedTransactionDataGen: Gen[PrepareTransactionData] = for {

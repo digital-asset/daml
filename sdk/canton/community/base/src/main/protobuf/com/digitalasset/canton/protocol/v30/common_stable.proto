@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.protocol.v30;
 
-import "com/digitalasset/canton/crypto/v30/crypto.proto";
 import "scalapb/scalapb.proto";
 
 message SerializableContract {
@@ -20,7 +19,7 @@ message SerializableContract {
   bytes raw_contract_instance = 2;
   Metadata metadata = 3;
   int64 ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
-  com.digitalasset.canton.crypto.v30.Salt contract_salt = 5;
+  bytes authentication_data = 5;
 }
 
 message GlobalKey {

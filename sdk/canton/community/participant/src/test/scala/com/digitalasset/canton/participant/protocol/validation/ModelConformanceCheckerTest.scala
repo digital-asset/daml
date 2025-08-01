@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.validation
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.daml.scalautil.Statement.discard
@@ -20,7 +19,7 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceCheckerTest.HashReInterpretationCounter
 import com.digitalasset.canton.participant.protocol.{
-  ContractAuthenticator,
+  DummyContractAuthenticator,
   TransactionProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.ContractLookupAndVerification
@@ -50,7 +49,6 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.language.Ast.{Expr, GenPackage, PackageMetadata}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.FatContractInstance
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
 
@@ -161,16 +159,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       loggerFactory,
     )
 
-  object dummyAuthenticator extends ContractAuthenticator {
-    override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
-      Either.unit
-    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
-    override def verifyMetadata(
-        contract: GenContractInstance,
-        metadata: ContractMetadata,
-    ): Either[String, Unit] = Either.unit
-  }
-
   def reInterpret(
       mcc: ModelConformanceChecker,
       view: TransactionView,
@@ -227,7 +215,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       validateContractOk,
       transactionTreeFactory,
       submittingParticipant,
-      dummyAuthenticator,
+      DummyContractAuthenticator,
       packageResolver,
       loggerFactory,
     )

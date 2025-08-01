@@ -21,8 +21,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
-  CantonContractIdVersion,
-  DriverContractMetadata,
+  ContractAuthenticationDataV1,
   LfFatContractInst,
   LfTransactionVersion,
   Unicum,
@@ -301,10 +300,8 @@ object ValidateDisclosedContractsTest {
     private val seedSalt: SaltSeed = SaltSeed.generate()(new SymbolicPureCrypto())
     private val salt = Salt.tryDeriveSalt(seedSalt, 0, new SymbolicPureCrypto())
 
-    private val driverMetadataBytes: Bytes =
-      DriverContractMetadata(salt).toLfBytes(
-        CantonContractIdVersion.tryCantonContractIdVersion(lfContractId)
-      )
+    private val authenticationDataBytes: Bytes =
+      ContractAuthenticationDataV1(salt)(AuthenticatedContractIdVersionV11).toLfBytes
 
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
@@ -334,7 +331,7 @@ object ValidateDisclosedContractsTest {
       create = createNode,
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
-      cantonData = lf.driverMetadataBytes,
+      cantonData = lf.authenticationDataBytes,
     )
 
     val expectedDisclosedContracts: ImmArray[DisclosedContract] = ImmArray(
