@@ -63,7 +63,16 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           Files.exists(snapshotFile) should be(true)
           Files.size(snapshotFile) should be > 0L
 
-          // As snapshot file contains no exercises, it can not be replayed
+          // Replay and attempt to validate the snapshot file
+          val benchmark = new ReplayBenchmark
+          benchmark.darFile = darPath.toFile.getAbsolutePath
+          benchmark.choiceName = "ReplayBenchmark:T:Add"
+          benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+
+          val exn = intercept[RuntimeException] {
+            benchmark.init()
+          }
+          exn.getMessage should be("choice ReplayBenchmark:T:Add not found")
         }
       }
     }
