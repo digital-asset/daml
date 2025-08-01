@@ -158,7 +158,7 @@ data AssistantError = AssistantError
 
 instance Exception AssistantError where
     displayException AssistantError {..} = unpack . T.unlines . catMaybes $
-        [ Just ("daml: " <> fromMaybe "An unknown error has occured" errMessage)
+        [ Just ("daml: " <> fromMaybe "An unknown error has occurred" errMessage)
         , fmap ("  context: " <>) errContext
         , fmap ("  details: " <>) errInternal
         ]
