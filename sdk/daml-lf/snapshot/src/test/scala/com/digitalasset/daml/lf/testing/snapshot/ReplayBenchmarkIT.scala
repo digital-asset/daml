@@ -14,7 +14,6 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.io.File
 import java.nio.file.{Files, FileSystems, Path}
 
 class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
@@ -30,12 +29,10 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
   val snapshotFileMatcher =
     FileSystems
       .getDefault()
-      .getPathMatcher(s"glob:$snapshotDir" + File.separator + s"snapshot-$participantId*.bin")
-
-  override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
+      .getPathMatcher(s"glob:$snapshotDir/snapshot-$participantId*.bin")
 
   override protected def cantonConfig(): CantonConfig =
-    super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath), debug = true)
+    super.cantonConfig().copy(snapshotDir = Some(snapshotDir.toFile.getAbsolutePath))
 
   override lazy val darPath: Path =
     Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
