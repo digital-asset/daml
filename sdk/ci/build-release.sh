@@ -40,7 +40,7 @@ $bazel build \
   //release:sdk-release-tarball-ce \
   //release:sdk-release-tarball-ee \
   //compiler/damlc:damlc-dist \
-  //language-support/ts/codegen:daml2js-dist \
+  $(bazel query "kind('package_oci_component', //...)") \
   //release:protobufs \
   $extra_build_targets \
   --profile build-profile.json \

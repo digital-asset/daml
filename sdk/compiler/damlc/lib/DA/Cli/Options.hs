@@ -439,6 +439,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optUpgradeInfo <- optUpgradeInfo
     ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
+    let optResolutionData = Nothing
     optForceUtilityPackage <- forceUtilityPackageOpt
 
     return Options{..}

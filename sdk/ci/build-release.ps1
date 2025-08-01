@@ -55,11 +55,13 @@ function bazel() {
 # which is a workaround for this problem.
 bazel shutdown
 
+$oci_artifacts=bazel query "kind('package_oci_component', //...)"
+
 bazel build `
   //compiler/damlc/tests:platform-independence.dar `
   //release:sdk-release-tarball-ce `
   //release:sdk-release-tarball-ee `
-  //compiler/damlc:damlc-dist `
+  $oci_artifacts `
   //language-support/ts/codegen:daml2js-dist `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
