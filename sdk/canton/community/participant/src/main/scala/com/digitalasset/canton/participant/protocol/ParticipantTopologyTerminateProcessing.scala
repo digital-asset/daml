@@ -5,7 +5,12 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerPredecessor}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  LogicalUpgradeTime,
+  SynchronizerPredecessor,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
@@ -17,10 +22,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.transaction.{
-  SynchronizerUpgradeAnnouncement,
-  TopologyMapping,
-}
+import com.digitalasset.canton.topology.transaction.TopologyMapping
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.{SequencerCounter, topology}
@@ -96,12 +98,14 @@ class ParticipantTopologyTerminateProcessing(
   }
 
   override def notifyUpgradeAnnouncement(
-      upgradeAnnouncement: SynchronizerUpgradeAnnouncement
+      successor: SynchronizerSuccessor
   )(implicit traceContext: TraceContext): Unit = {
-    logger.debug(s"Setting the successor of $psid to ${upgradeAnnouncement.successor}")
+    logger.debug(
+      s"Node is notified about the upgrade of $psid to ${successor.psid} scheduled at ${successor.upgradeTime}"
+    )
 
-    lsuCallback.upgrade(upgradeAnnouncement.successor)
-    recordOrderPublisher.setSuccessor(upgradeAnnouncement.successor)
+    lsuCallback.registerCallback(successor)
+    recordOrderPublisher.setSuccessor(successor)
   }
 
   private def scheduleEvent(

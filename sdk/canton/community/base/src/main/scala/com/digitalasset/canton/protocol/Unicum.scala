@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Bytes
   * contract ID.
   */
 final case class Unicum(unwrap: Hash) extends AnyVal {
-  def toContractIdSuffix(contractIdVersion: CantonContractIdVersion): Bytes =
+  def toContractIdSuffix(contractIdVersion: CantonContractIdV1Version): Bytes =
     contractIdVersion.versionPrefixBytes ++
       Bytes.fromByteString(unwrap.getCryptographicEvidence)
 }

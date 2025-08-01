@@ -19,7 +19,6 @@ import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleContractFactory,
   GenContractInstance,
-  SerializableContract,
 }
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.daml.lf.transaction.FatContractInstance
@@ -45,12 +44,7 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     crypto = mock[SynchronizerCryptoClient],
     metrics = ParticipantTestMetrics.synchronizer.transactionProcessing,
     serializableContractAuthenticator = new ContractAuthenticator {
-      override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
-        behaviors.getOrElse(
-          contract.contractId,
-          fail(s"authenticateSerializable did not find ${contract.contractId}"),
-        )
-      override def authenticateFat(contract: FatContractInstance): Either[String, Unit] =
+      override def authenticate(contract: FatContractInstance): Either[String, Unit] =
         behaviors.getOrElse(
           contract.contractId,
           fail(s"authenticateSerializable did not find ${contract.contractId}"),

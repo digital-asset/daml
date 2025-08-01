@@ -186,6 +186,7 @@ final class GeneratorsProtocol(
     ((_: CantonContractIdVersion) match {
       case AuthenticatedContractIdVersionV10 => ()
       case AuthenticatedContractIdVersionV11 => ()
+      case CantonContractIdV2Version0 => () // TODO(#23971): Add support for V2
     }).discard
   }
   def serializableContractArb(
@@ -229,7 +230,7 @@ final class GeneratorsProtocol(
         rawContractInstance,
         metadata,
         ledgerCreateTime,
-        contractSalt = computedSalt.unwrap,
+        authenticationData = ContractAuthenticationDataV1(computedSalt.unwrap)(contractIdVersion),
       )
     )
   }

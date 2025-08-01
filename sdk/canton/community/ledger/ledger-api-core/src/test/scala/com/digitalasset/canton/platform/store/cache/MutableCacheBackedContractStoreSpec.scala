@@ -222,7 +222,7 @@ class MutableCacheBackedContractStoreSpec
       stakeholders = exStakeholders,
       signatories = exSignatories,
       key = Some(KeyWithMaintainers(someKey, exMaintainers)),
-      driverMetadata = exDriverMetadata,
+      authenticationData = exAuthenticationData,
     )
 
     val stateValueActive = ContractStateValue.Active(contract)
@@ -287,7 +287,7 @@ object MutableCacheBackedContractStoreSpec {
   private val exStakeholders = Set(bob, alice)
   private val exSignatories = Set(alice)
   private val exMaintainers = Set(alice)
-  private val exDriverMetadata = Bytes.fromByteArray("meta".getBytes)
+  private val exAuthenticationData = Bytes.fromByteArray("meta".getBytes)
   private val someKeyWithMaintainers = KeyWithMaintainers(someKey, exMaintainers)
 
   private def contractStore(
@@ -351,7 +351,7 @@ object MutableCacheBackedContractStoreSpec {
       ledgerEffectiveTime: Time.Timestamp,
       signatories: Set[Party] = exSignatories,
       key: Option[KeyWithMaintainers] = Some(someKeyWithMaintainers),
-      driverMetadata: Bytes = exDriverMetadata,
+      authenticationData: Bytes = exAuthenticationData,
   ): Future[Option[LedgerDaoContractsReader.ActiveContract]] =
     Future.successful(
       Some(
@@ -363,7 +363,7 @@ object MutableCacheBackedContractStoreSpec {
             stakeholders = stakeholders,
             signatories = signatories,
             key = key,
-            driverMetadata = driverMetadata,
+            authenticationData = authenticationData,
           )
         )
       )
@@ -398,7 +398,7 @@ object MutableCacheBackedContractStoreSpec {
       stakeholders: Set[Party],
       signatories: Set[Party],
       key: Option[KeyWithMaintainers],
-      driverMetadata: Bytes,
+      authenticationData: Bytes,
   ) =
     FatContract.fromCreateNode(
       Node.Create(
@@ -412,7 +412,7 @@ object MutableCacheBackedContractStoreSpec {
         version = thinContract.version,
       ),
       createTime = CreationTime.CreatedAt(createLedgerEffectiveTime),
-      cantonData = driverMetadata,
+      cantonData = authenticationData,
     )
 
   private def contractId(id: Int): ContractId =

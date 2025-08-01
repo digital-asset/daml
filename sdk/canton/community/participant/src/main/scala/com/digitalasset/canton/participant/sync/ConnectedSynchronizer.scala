@@ -568,8 +568,7 @@ class ConnectedSynchronizer(
       // Initialize, replay and process stored events, then subscribe to new events
       (for {
         _ <- initialize(initializationTraceContext)
-        firstUnpersistedEventSc <- EitherT
-          .liftF(firstUnpersistedEventScF)
+        firstUnpersistedEventSc <- EitherT.liftF(firstUnpersistedEventScF)
 
         monitor = new ConnectedSynchronizer.EventProcessingMonitor(
           ephemeral.startingPoints,
@@ -635,6 +634,11 @@ class ConnectedSynchronizer(
                   .map(_.flatMap(_.sequencerIndex).map(_.sequencerTimestamp)),
             )(initializationTraceContext)
           )
+
+        // Notify the listeners to the upcoming upgrade, if any
+        _ = ephemeral.recordOrderPublisher.getSynchronizerSuccessor.foreach(
+          topologyProcessor.terminateProcessing.notifyUpgradeAnnouncement
+        )
 
         // wait for initial topology transactions to be sequenced and received before we start computing pending
         // topology transactions to push for IDM approval

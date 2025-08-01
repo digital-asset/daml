@@ -61,7 +61,7 @@ class TopologyTransactionProcessor(
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
-    terminateProcessing: TerminateProcessing,
+    val terminateProcessing: TerminateProcessing,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
@@ -494,7 +494,9 @@ class TopologyTransactionProcessor(
         .map(_.mapping)
 
       // TODO(#26580) Handle cancellation
-      _ = validUpgradeAnnouncements.foreach(terminateProcessing.notifyUpgradeAnnouncement)
+      _ = validUpgradeAnnouncements.foreach(announcement =>
+        terminateProcessing.notifyUpgradeAnnouncement(announcement.successor)
+      )
 
       _ <- synchronizeWithClosing("notify-topology-transaction-observers")(
         MonadUtil.sequentialTraverse(listeners.get()) { listenerGroup =>

@@ -35,7 +35,7 @@ object DisclosedContractCreator {
     val signatories: Set[Ref.Party] = Set(alice, bob)
     val keyMaintainers: Set[Ref.Party] = Set(bob)
     val createdAtSeconds = 1337L
-    val someDriverMetadataStr = "SomeDriverMetadata"
+    val someAuthenticationDataStr = "SomeAuthenticationData"
   }
 
   private object lf {
@@ -54,8 +54,8 @@ object DisclosedContractCreator {
 
     val lfContractId: ContractId.V1 = ContractId.V1.assertFromString(api.contractId)
 
-    private val driverMetadataBytes: Bytes =
-      Bytes.fromByteString(ByteString.copyFromUtf8(api.someDriverMetadataStr))
+    private val authenticationDataBytes: Bytes =
+      Bytes.fromByteString(ByteString.copyFromUtf8(api.someAuthenticationDataStr))
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
       LfValue.ValueRecord(
@@ -82,7 +82,7 @@ object DisclosedContractCreator {
       ),
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
-      cantonData = lf.driverMetadataBytes,
+      cantonData = lf.authenticationDataBytes,
     )
   }
 

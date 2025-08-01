@@ -1037,7 +1037,7 @@ class RichSequencerClientImpl(
       timeouts,
       states =>
         SequencerAggregator
-          .aggregateHealthResult(states, sequencersTransportState.getSequencerTrustThreshold),
+          .aggregateHealthResult(states, sequencersTransportState.getSequencerTrustThreshold, this),
       ComponentHealthState.failed("Disconnected from synchronizer"),
     )
 
@@ -1141,15 +1141,19 @@ class RichSequencerClientImpl(
           )
         )
 
-        sequencerTransports.sequencerToTransportMap.foreach {
+        val subscriptionsMap = sequencerTransports.sequencerToTransportMap.forgetNE.map {
           case (sequencerAlias, sequencerTransport) =>
-            createSubscription(
+            sequencerTransport.sequencerId -> createSubscription(
               sequencerAlias,
               sequencerTransport.sequencerId,
               preSubscriptionEvent,
               eventHandler,
-            ).discard
+            )
         }
+
+        // Set all the health dependencies subscriptions in one go to avoid going through intermediate failed states
+        // for being under the threshold which would happen if the subscriptions where added one by one
+        deferredSubscriptionHealth.setBatch(subscriptionsMap)
 
         // periodically acknowledge that we've successfully processed up to the clean counter
         // We only need to it setup once; the sequencer client will direct the acknowledgements to the
@@ -1254,8 +1258,6 @@ class RichSequencerClientImpl(
       timeouts,
       loggerFactoryWithSequencerAlias,
     )
-
-    deferredSubscriptionHealth.set(sequencerId, subscription)
 
     sequencersTransportState
       .addSubscription(

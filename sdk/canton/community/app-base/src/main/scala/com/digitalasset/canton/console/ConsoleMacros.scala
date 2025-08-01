@@ -38,7 +38,7 @@ import com.digitalasset.canton.console.commands.{
   PruningSchedulerAdministration,
   TopologyAdministrationGroup,
 }
-import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{
@@ -313,7 +313,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             rawContract = contractInstanceWithUpdatedContractIdReferences,
             createdAt = CantonTimestamp(contract.ledgerCreateTime.time),
             discriminator = discriminator,
-            contractSalt = contract.contractSalt,
+            authenticationData = contract.authenticationData,
             metadata = contract.metadata,
           )
 
@@ -344,14 +344,22 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         rawContract: SerializableRawContractInstance,
         createdAt: CantonTimestamp,
         discriminator: LfHash,
-        contractSalt: Salt,
+        authenticationData: ContractAuthenticationData,
         metadata: ContractMetadata,
     ): ContractId.V1 = {
       val unicumGenerator = new UnicumGenerator(cryptoPureApi)
       val cantonContractIdVersion = AuthenticatedContractIdVersionV11
+      val salt = authenticationData match {
+        case ContractAuthenticationDataV1(salt) => salt
+        case ContractAuthenticationDataV2() =>
+          // TODO(#23971) implement this
+          throw new IllegalArgumentException(
+            "Cannot generate a contract ID with authentication data V2"
+          )
+      }
       val unicum = unicumGenerator
         .recomputeUnicum(
-          contractSalt,
+          salt,
           CreationTime.CreatedAt(createdAt.toLf),
           metadata,
           rawContract.contractInstance.unversioned,

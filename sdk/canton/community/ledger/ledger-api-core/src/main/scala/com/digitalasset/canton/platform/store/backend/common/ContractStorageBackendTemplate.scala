@@ -106,9 +106,9 @@ class ContractStorageBackendTemplate(
       ~ byteArray("create_key_value").?
       ~ int("create_key_value_compression").?
       ~ array[Int]("create_key_maintainers").?
-      ~ byteArray("driver_metadata"))
+      ~ byteArray("authentication_data"))
       .map {
-        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ driverMetadata =>
+        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ authenticationData =>
           coid -> RawCreatedContract(
             templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
             packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
@@ -122,7 +122,7 @@ class ContractStorageBackendTemplate(
             createKeyCompression = createKeyCompression,
             keyMaintainers =
               keyMaintainers.map(_.view.map(i => stringInterning.party.externalize(i)).toSet),
-            driverMetadata = driverMetadata,
+            authenticationData = authenticationData,
           )
       }
 
@@ -144,7 +144,7 @@ class ContractStorageBackendTemplate(
            create_key_value,
            create_key_value_compression,
            create_key_maintainers,
-           driver_metadata
+           authentication_data
          FROM lapi_events_create
          WHERE
            contract_id ${queryStrategy.anyOfBinary(contractIds.map(_.toBytes.toByteArray))}
@@ -183,7 +183,7 @@ class ContractStorageBackendTemplate(
            create_key_value,
            create_key_value_compression,
            create_key_maintainers,
-           driver_metadata
+           authentication_data
          FROM lapi_events_assign, min_event_sequential_ids_of_assign
          WHERE
            event_sequential_id = min_event_sequential_ids_of_assign.min_event_sequential_id"""

@@ -747,7 +747,7 @@ private[events] object TransactionLogUpdatesConversions {
       createdEvent.ledgerEffectiveTime,
       createdEvent.eventOffset,
       createdEvent.nodeId,
-      createdEvent.driverMetadata,
+      createdEvent.authenticationData,
       createdWitnesses(createdEvent),
     )
   }
@@ -760,7 +760,7 @@ private[events] object TransactionLogUpdatesConversions {
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       nodeId: Int,
-      driverMetadata: Bytes,
+      authenticationData: Bytes,
       createdEventWitnesses: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace,
@@ -772,7 +772,7 @@ private[events] object TransactionLogUpdatesConversions {
         FatContractInstance.fromCreateNode(
           create,
           CreationTime.CreatedAt(ledgerEffectiveTime),
-          driverMetadata,
+          authenticationData,
         )
       )
 
@@ -849,7 +849,7 @@ private[events] object TransactionLogUpdatesConversions {
             ledgerEffectiveTime = assigned.ledgerEffectiveTime,
             offset = reassignmentAccepted.offset,
             nodeId = assigned.nodeId,
-            driverMetadata = assigned.contractMetadata,
+            authenticationData = assigned.contractAuthenticationData,
             createdEventWitnesses = assigned.createNode.stakeholders,
           ).map(createdEvent =>
             ApiReassignmentEvent(

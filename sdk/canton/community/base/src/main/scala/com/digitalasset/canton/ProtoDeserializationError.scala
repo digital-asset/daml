@@ -78,9 +78,10 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
       s"Message $protoMessage has no versioning information corresponding to protobuf $version"
   }
 
-  final case class UnknownDriverMetadataVersion(version: Int) extends ProtoDeserializationError {
+  final case class UnknownContractAuthenticationDataVersion(version: Int)
+      extends ProtoDeserializationError {
     override def message =
-      s"DriverMetadata serialization version $version is unknown"
+      s"ContractAuthenticationData serialization version $version is unknown"
   }
 
   /** Common Deserialization error code

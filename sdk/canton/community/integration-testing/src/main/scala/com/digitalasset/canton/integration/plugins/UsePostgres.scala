@@ -121,7 +121,7 @@ class UsePostgres(
       name: String,
       baseParameters: DbParametersConfig,
       baseDbConfig: Config,
-  ): StorageConfig = {
+  ): DbConfig = {
 
     val dbName = generateDbName(name)
 

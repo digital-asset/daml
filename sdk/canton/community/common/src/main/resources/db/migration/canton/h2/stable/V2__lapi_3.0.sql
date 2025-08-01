@@ -144,8 +144,8 @@ CREATE TABLE lapi_events_create (
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT,
 
-    -- * contract driver metadata
-    driver_metadata BINARY LARGE OBJECT NOT NULL,
+    -- * contract authentication data
+    authentication_data BINARY LARGE OBJECT NOT NULL,
 
     synchronizer_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT,
@@ -372,7 +372,7 @@ CREATE TABLE lapi_events_assign (
     create_argument_compression SMALLINT,
     create_key_value_compression SMALLINT,
     ledger_effective_time BIGINT NOT NULL,
-    driver_metadata BINARY LARGE OBJECT NOT NULL,
+    authentication_data BINARY LARGE OBJECT NOT NULL,
 
     trace_context BINARY LARGE OBJECT,
     record_time BIGINT NOT NULL

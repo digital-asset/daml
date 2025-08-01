@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.GeneratorsConfig
 import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.protocol.party.{
@@ -105,6 +106,14 @@ final class GeneratorsParticipant(
       )(version)
     )
 
+  // If this pattern match is not exhaustive anymore, update the message generator below
+  {
+    ((_: PartyReplicationSourceParticipantMessage.DataOrStatus) match {
+      case _: PartyReplicationSourceParticipantMessage.AcsBatch => ()
+      case PartyReplicationSourceParticipantMessage.EndOfACS => ()
+    }).discard
+  }
+
   implicit val partyReplicationSourceParticipantMessageArb
       : Arbitrary[PartyReplicationSourceParticipantMessage] =
     Arbitrary(
@@ -115,7 +124,6 @@ final class GeneratorsParticipant(
             PartyReplicationSourceParticipantMessage.AcsBatch(
               acsBatch
             ),
-            Gen.const(PartyReplicationSourceParticipantMessage.SourceParticipantIsReady),
             Gen.const(PartyReplicationSourceParticipantMessage.EndOfACS),
           )
       } yield PartyReplicationSourceParticipantMessage.apply(
@@ -124,18 +132,24 @@ final class GeneratorsParticipant(
       )
     )
 
+  // If this pattern match is not exhaustive anymore, update the instruction generator below
+  {
+    ((_: PartyReplicationTargetParticipantMessage.Instruction) match {
+      case _: PartyReplicationTargetParticipantMessage.Initialize => ()
+      case _: PartyReplicationTargetParticipantMessage.SendAcsUpTo => ()
+    }).discard
+  }
+
   implicit val partyReplicationTargetParticipantMessageArb
       : Arbitrary[PartyReplicationTargetParticipantMessage] = Arbitrary(
     for {
-      maxContractOrdinalInclusive <- nonNegativeIntArb.arbitrary
-      instruction =
-        PartyReplicationTargetParticipantMessage.SendAcsSnapshotUpTo(
-          maxContractOrdinalInclusive
+      contractOrdinal <- nonNegativeIntArb.arbitrary
+      instruction <- Gen
+        .oneOf[PartyReplicationTargetParticipantMessage.Instruction](
+          PartyReplicationTargetParticipantMessage.Initialize(contractOrdinal),
+          PartyReplicationTargetParticipantMessage.SendAcsUpTo(contractOrdinal),
         )
-    } yield PartyReplicationTargetParticipantMessage.apply(
-      instruction,
-      version,
-    )
+    } yield PartyReplicationTargetParticipantMessage.apply(instruction, version)
   )
 
 }

@@ -340,6 +340,9 @@ da_scala_library(
 da_scala_library(
     name = "base_util-external",
     srcs = glob(["base/util-external/src/main/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
     scalacopts = canton_scalacopts + [
         "-language:postfixOps",
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
@@ -348,6 +351,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:base-util-external:__VERSION__"],
     unused_dependency_checker_mode = "error",
     deps = [
+        "//libs-scala/nonempty",
         "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_pureconfig_pureconfig_generic_2_13",

@@ -65,6 +65,8 @@ sealed trait PublishesOnlinePartyReplicationEvents {
   * [[RecordOrderPublisher]] using [[tick]]. An event is published only when all sequencer counters
   * between `initSc` and its associated sequencer counter have been signalled.
   *
+  * The `private` constructor is to force using the factory, that sets the `synchronizerSuccessor`.
+  *
   * @param initSc
   *   The initial sequencer counter from which on events should be published
   * @param initTimestamp
@@ -110,6 +112,8 @@ class RecordOrderPublisher private (
 
   private val synchronizerSuccessor: AtomicReference[Option[SynchronizerSuccessor]] =
     new AtomicReference(None)
+
+  def getSynchronizerSuccessor: Option[SynchronizerSuccessor] = synchronizerSuccessor.get()
 
   private def onlyForTestingRecordAcceptedTransactions(event: SequencedUpdate): Unit =
     for {

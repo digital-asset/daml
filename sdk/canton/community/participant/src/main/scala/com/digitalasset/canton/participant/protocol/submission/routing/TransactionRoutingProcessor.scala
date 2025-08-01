@@ -101,11 +101,11 @@ class TransactionRoutingProcessor(
         .fromEither[FutureUnlessShutdown](
           for {
             _ <- explicitlyDisclosedContracts.toList
-              .traverse_(serializableContractAuthenticator.authenticateFat)
+              .traverse_(serializableContractAuthenticator.authenticate)
               .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
-                .parTraverse(ContractInstance.apply[CreationTime.CreatedAt])
+                .parTraverse(ContractInstance.create[CreationTime.CreatedAt])
                 .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
 
           } yield inputDisclosedContracts

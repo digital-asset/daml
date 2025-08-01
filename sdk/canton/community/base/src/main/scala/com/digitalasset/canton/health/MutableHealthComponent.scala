@@ -96,9 +96,10 @@ abstract class DelegatingMutableHealthQuasiComponent[Id, H <: HealthQuasiCompone
     reduceState(getDependencies.fmap(_.getState))
 
   def set(id: Id, element: H): Unit = setDependency(id, element)
+  def setBatch(add: Map[Id, H]): Unit = alterDependencies(Set.empty, add)
 }
 
-final class DelegatingMutableHealthComponent[Id](
+class DelegatingMutableHealthComponent[Id](
     override val loggerFactory: NamedLoggerFactory,
     name: String,
     override val timeouts: ProcessingTimeout,

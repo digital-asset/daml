@@ -11,6 +11,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting, PrettyUti
 import com.digitalasset.canton.util.ShowUtil
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
+import org.slf4j.event.Level
 
 /** Generic State implementation of a component This can be used as a base health state for most
   * component. However ComponentHealth (below) does not enforce the use of this class and a custom
@@ -38,6 +39,7 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
     case ComponentHealthState.Fatal(_) => true
     case _ => false
   }
+  def logLevel: Level
   override def toComponentHealthState: ComponentHealthState = this
   override protected def pretty: Pretty[ComponentHealthState] =
     ComponentHealthState.prettyComponentHealthState
@@ -78,17 +80,23 @@ object ComponentHealthState extends ShowUtil {
 
   /** Ok state
     */
-  final case class Ok(description: Option[String] = None) extends ComponentHealthState
+  final case class Ok(description: Option[String] = None)(override val logLevel: Level = Level.INFO)
+      extends ComponentHealthState
 
   object Ok {
-    implicit val okEncoder: Encoder[Ok.type] = Encoder.encodeString.contramap(_ => "ok")
+    implicit val okEncoder: Encoder[Ok] = Encoder.encodeString.contramap(_ => "ok")
+    def apply(): Ok = new Ok()()
+    def apply(description: Option[String]): Ok = new Ok(description)()
   }
 
-  def failed(description: String): Failed = Failed(UnhealthyState(Some(description)))
+  def failed(description: String, logLevel: Level = Level.INFO): Failed =
+    new Failed(UnhealthyState(Some(description)))(logLevel)
 
-  def degraded(description: String): Degraded = Degraded(UnhealthyState(Some(description)))
+  def degraded(description: String, logLevel: Level = Level.INFO): Degraded =
+    new Degraded(UnhealthyState(Some(description)))(logLevel)
 
-  def fatal(description: String): Fatal = Fatal(UnhealthyState(Some(description)))
+  def fatal(description: String, logLevel: Level = Level.INFO): Fatal =
+    new Fatal(UnhealthyState(Some(description)))(logLevel)
 
   /** Degraded state, as in not fully but still functional. A degraded component will NOT cause a
     * service to report NOT_SERVING
@@ -96,12 +104,15 @@ object ComponentHealthState extends ShowUtil {
     * @param state
     *   data
     */
-  final case class Degraded(state: UnhealthyState = UnhealthyState())
-      extends ComponentHealthState
+  final case class Degraded(state: UnhealthyState = UnhealthyState())(
+      override val logLevel: Level = Level.INFO
+  ) extends ComponentHealthState
       with HasUnhealthyState
 
   object Degraded {
-    implicit val degradedEncoder: Encoder[Degraded] = deriveEncoder[Degraded]
+    implicit val degradedEncoder: Encoder[Degraded] = Encoder.forProduct1("state")(_.state)
+    def apply(): Degraded = new Degraded()()
+    def apply(state: UnhealthyState): Degraded = new Degraded(state)()
   }
 
   /** The component has failed, any service that depends on it will report NOT_SERVING
@@ -109,21 +120,31 @@ object ComponentHealthState extends ShowUtil {
     * @param state
     *   data
     */
-  final case class Failed(state: UnhealthyState = UnhealthyState())
-      extends ComponentHealthState
+  final case class Failed(state: UnhealthyState = UnhealthyState())(
+      override val logLevel: Level = Level.INFO
+  ) extends ComponentHealthState
       with HasUnhealthyState
 
   object Failed {
-    implicit val failedEncoder: Encoder[Failed] = deriveEncoder[Failed]
+    implicit val failedEncoder: Encoder[Failed] = Encoder.forProduct1("state")(_.state)
+    def apply(): Failed = new Failed()()
+    def apply(state: UnhealthyState): Failed = new Failed(state)()
   }
 
   /** Used to indicate liveness problem, when the node should be restarted externally
     * @param state
     *   data
     */
-  final case class Fatal(state: UnhealthyState = UnhealthyState())
-      extends ComponentHealthState
+  final case class Fatal(state: UnhealthyState = UnhealthyState())(
+      override val logLevel: Level = Level.INFO
+  ) extends ComponentHealthState
       with HasUnhealthyState
+
+  object Fatal {
+    implicit val fatalEncoder: Encoder[Fatal] = Encoder.forProduct1("state")(_.state)
+    def apply(): Fatal = new Fatal()()
+    def apply(state: UnhealthyState): Fatal = new Fatal(state)()
+  }
 
   /** Unhealthy state data
     *

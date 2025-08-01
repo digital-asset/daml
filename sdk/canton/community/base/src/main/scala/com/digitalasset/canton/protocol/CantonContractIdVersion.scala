@@ -6,7 +6,6 @@ package com.digitalasset.canton.protocol
 import cats.syntax.either.*
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Bytes
@@ -19,6 +18,7 @@ object CantonContractIdVersion {
   def maximumSupportedVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
+    // TODO(#23971) Use V2 by default in dev
     if (protocolVersion >= ProtocolVersion.v34) Right(AuthenticatedContractIdVersionV11)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
@@ -50,7 +50,7 @@ object CantonContractIdVersion {
       )
     }
 
-  def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
+  private def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV11.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV11)
     } else if (contractSuffix.startsWith(AuthenticatedContractIdVersionV10.versionPrefixBytes)) {
@@ -62,14 +62,28 @@ object CantonContractIdVersion {
     }
 }
 
-sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
+sealed trait CantonContractIdVersion
     extends Ordered[CantonContractIdVersion]
     with Serializable
     with Product {
+
+  type AuthenticationData <: ContractAuthenticationData
+
+  protected def comparisonKey: Int
+
+  override final def compare(that: CantonContractIdVersion): Int =
+    this.comparisonKey.compare(that.comparisonKey)
+}
+
+sealed abstract class CantonContractIdV1Version(
+    override protected val comparisonKey: Int
+) extends CantonContractIdVersion {
   require(
     versionPrefixBytes.length == CantonContractIdVersion.versionPrefixBytesSize,
     s"Version prefix of size ${versionPrefixBytes.length} should have size ${CantonContractIdVersion.versionPrefixBytesSize}",
   )
+
+  override type AuthenticationData = ContractAuthenticationDataV1
 
   /** Set to true if upgrade friendly hashing should be used when constructing the contract hash */
   def useUpgradeFriendlyHashing: Boolean
@@ -78,21 +92,24 @@ sealed abstract class CantonContractIdVersion(val v: NonNegativeInt)
 
   def fromDiscriminator(discriminator: LfHash, unicum: Unicum): LfContractId.V1 =
     LfContractId.V1(discriminator, unicum.toContractIdSuffix(this))
-
-  override final def compare(that: CantonContractIdVersion): Int = this.v.compare(that.v)
-
 }
 
-case object AuthenticatedContractIdVersionV10
-    extends CantonContractIdVersion(NonNegativeInt.tryCreate(10)) {
+case object AuthenticatedContractIdVersionV10 extends CantonContractIdV1Version(10) {
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x10.toByte))
-  override val useUpgradeFriendlyHashing: Boolean = false
+  override def useUpgradeFriendlyHashing: Boolean = false
 }
 
-case object AuthenticatedContractIdVersionV11
-    extends CantonContractIdVersion(NonNegativeInt.tryCreate(11)) {
+case object AuthenticatedContractIdVersionV11 extends CantonContractIdV1Version(11) {
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x11.toByte))
-  override val useUpgradeFriendlyHashing: Boolean = true
+  override def useUpgradeFriendlyHashing: Boolean = true
+}
+
+sealed trait CantonContractIdV2Version extends CantonContractIdVersion {
+  override type AuthenticationData = ContractAuthenticationDataV2
+}
+
+case object CantonContractIdV2Version0 extends CantonContractIdV2Version {
+  override protected def comparisonKey: Int = 256
 }
 
 object ContractIdSyntax {

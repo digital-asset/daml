@@ -1124,7 +1124,7 @@ class TransactionProcessingSteps(
       inputContracts.toList
         .traverse_ { case (contractId, contract) =>
           serializableContractAuthenticator
-            .authenticateFat(contract.inst)
+            .authenticate(contract.inst)
             .leftMap(message => ContractAuthenticationFailed.Error(contractId, message).reported())
         }
     )
@@ -1235,8 +1235,8 @@ class TransactionProcessingSteps(
         .fromEither[FutureUnlessShutdown](txId.asLedgerTransactionId)
         .leftMap[TransactionProcessorError](FieldConversionError("Transaction Id", _))
 
-      contractMetadata =
-        // We deliberately do not forward the driver metadata
+      contractAuthenticationData =
+        // We deliberately do not forward the authentication data
         // for divulged contracts since they are not visible on the Ledger API
         (createdContracts ++ witnessed).view.map { case (contractId, contract) =>
           contractId -> contract.inst.cantonData
@@ -1260,7 +1260,7 @@ class TransactionProcessingSteps(
             ),
             transaction = LfCommittedTransaction(lfTx.unwrap),
             updateId = lfTxId,
-            contractMetadata = contractMetadata,
+            contractAuthenticationData = contractAuthenticationData,
             synchronizerId = psid.logical,
             recordTime = requestTime,
             externalTransactionHash = externalTransactionHash,
