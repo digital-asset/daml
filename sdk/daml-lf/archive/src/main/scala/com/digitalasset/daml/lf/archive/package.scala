@@ -66,12 +66,21 @@ package object archive {
         DamlLf.ArchivePayload.parseFrom(cos)
       )
     )
-  val Lf1PackageParser: GenReader[DamlLf1.Package] =
+  val lf1PackageParser: GenReader[DamlLf1.Package] =
     Base.andThen(cos =>
       attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
         DamlLf1.Package.parseFrom(cos)
       )
     )
+
+  def lf2PackageParser(minor: LanguageVersion.Minor): GenReader[DamlLf2.Package] =
+    Base.andThen { cos =>
+      discard(minor)
+      attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
+        DamlLf2.Package.parseFrom(cos)
+      )
+    }
+
   def archivePayloadDecoder(
       hash: PackageId,
       onlySerializableDataDefs: Boolean = false,

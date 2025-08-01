@@ -28,12 +28,21 @@ object Encode {
     val (pkgId, pkg) = idAndPkg
     val LanguageVersion(major, minor) = version
 
+    val lf2 =
+      try {
+        data.assertRight(SafeProto.toByteString(new EncodeV2(minor).encodePackage(pkgId, pkg)))
+      } catch {
+        case e: Throwable =>
+          e.printStackTrace(System.err)
+          throw e
+      }
+
     major match {
       case LanguageMajorVersion.V2 =>
         PLF.ArchivePayload
           .newBuilder()
           .setMinor(minor.toProtoIdentifier)
-          .setDamlLf2(new EncodeV2(minor).encodePackage(pkgId, pkg))
+          .setDamlLf2(lf2)
           .build()
       case _ =>
         sys.error(s"$version not supported")
