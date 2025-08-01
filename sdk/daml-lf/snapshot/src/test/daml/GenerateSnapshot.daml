@@ -13,5 +13,11 @@ generateSnapshot = do
 
 explode = do
   alice <- allocateParty "alice"
-  _ <- submit alice (createAndExerciseCmd (T alice 17) Explode)
+  _ <- submitMustFail alice (createAndExerciseCmd (T alice 17) Explode)
+  pure ()
+
+generateAndExplode = do
+  alice <- allocateParty "alice"
+  _ <- submit alice (createAndExerciseCmd (T alice 42) (Add 7))
+  _ <- submitMustFail alice (createAndExerciseCmd (T alice 17) Explode)
   pure ()

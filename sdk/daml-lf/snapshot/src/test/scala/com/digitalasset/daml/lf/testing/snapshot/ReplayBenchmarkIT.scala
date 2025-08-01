@@ -10,21 +10,24 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, FileSystems, Path}
 
 class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
 
 class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
     with AbstractScriptTest
-    with Matchers {
+    with Matchers
+    with BeforeAndAfterEach {
 
   val participantId = Ref.ParticipantId.assertFromString("participant0")
   val snapshotDir = Files.createTempDirectory("ReplayBenchmarkTest")
-  val snapshotFile = snapshotDir.resolve(s"snapshot-$participantId.bin")
+  val snapshotFileMatcher =
+    FileSystems.getDefault().getPathMatcher(s"glob:$snapshotDir/snapshot-$participantId*.bin")
 
   override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
@@ -35,48 +38,78 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
     Path.of(rlocation(s"daml-lf/snapshot/ReplayBenchmark-v${majorLanguageVersion.pretty}.dar"))
   override protected lazy val timeMode = ScriptTimeMode.WallClock
 
+  override def afterEach(): Unit = {
+    Files.newDirectoryStream(snapshotDir).forEach(Files.delete)
+  }
+
   "Ledger submission" should {
-    "generate a replayable snapshot file" in {
-      for {
-        clients <- scriptClients()
-        _ <- run(
-          clients,
-          Ref.QualifiedName.assertFromString("GenerateSnapshot:generateSnapshot"),
-          dar = dar,
-        )
-      } yield {
-        Files.exists(snapshotFile) should be(true)
-        Files.size(snapshotFile) should be > 0L
+    "on a happy path" should {
+      "generate a replayable snapshot file" in {
+        for {
+          clients <- scriptClients()
+          _ <- run(
+            clients,
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:generateSnapshot"),
+            dar = dar,
+          )
+        } yield {
+          val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+          snapshotFiles.size() should be(1)
 
-        // Replay and validate the snapshot file
-        val benchmark = new ReplayBenchmark
-        benchmark.darFile = darPath.toFile.getAbsolutePath
-        benchmark.choiceName = "ReplayBenchmark:T:Add"
-        benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+          val snapshotFile = snapshotFiles.get(0)
+          Files.exists(snapshotFile) should be(true)
+          Files.size(snapshotFile) should be > 0L
 
-        noException should be thrownBy benchmark.init()
+          // Replay and validate the snapshot file
+          val benchmark = new ReplayBenchmark
+          benchmark.darFile = darPath.toFile.getAbsolutePath
+          benchmark.choiceName = "ReplayBenchmark:T:Add"
+          benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+
+          noException should be thrownBy benchmark.init()
+        }
       }
     }
 
-    "survive Daml execeptions" in {
-      for {
-        clients <- scriptClients()
-        _ <- run(
-          clients,
-          Ref.QualifiedName.assertFromString("GenerateSnapshot:explode"),
-          dar = dar,
-        )
-      } yield {
-        Files.exists(snapshotFile) should be(true)
-        Files.size(snapshotFile) should be > 0L
+    "with Daml exceptions" should {
+      "not generate a snapshot file" in {
+        for {
+          clients <- scriptClients()
+          _ <- run(
+            clients,
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:explode"),
+            dar = dar,
+          )
+        } yield {
+          val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+          snapshotFiles.size() should be(0)
+        }
+      }
 
-        // Replay and validate the existing snapshot file
-        val benchmark = new ReplayBenchmark
-        benchmark.darFile = darPath.toFile.getAbsolutePath
-        benchmark.choiceName = "ReplayBenchmark:T:Add"
-        benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+      "not update or corrupt a snapshot file" in {
+        for {
+          clients <- scriptClients()
+          _ <- run(
+            clients,
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:generateAndExplode"),
+            dar = dar,
+          )
+        } yield {
+          val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+          snapshotFiles.size() should be(1)
 
-        noException should be thrownBy benchmark.init()
+          val snapshotFile = snapshotFiles.get(0)
+          Files.exists(snapshotFile) should be(true)
+          Files.size(snapshotFile) should be > 0L
+
+          // Replay and validate the snapshot file
+          val benchmark = new ReplayBenchmark
+          benchmark.darFile = darPath.toFile.getAbsolutePath
+          benchmark.choiceName = "ReplayBenchmark:T:Add"
+          benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+
+          noException should be thrownBy benchmark.init()
+        }
       }
     }
   }
