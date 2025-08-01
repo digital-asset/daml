@@ -16,24 +16,20 @@ import scala.jdk.CollectionConverters.{CollectionHasAsScala, SeqHasAsJava}
   * We use this wrapper to access the queue size in performance critical code paths because
   * reading the queue size from the executor itself can take an amount of time linear with the number of tasks waiting
   * in the queues.
+  *
+  * After shutdown is called, all attempts to submit tasks are ignored.
   */
 class QueueAwareExecutorService(
-    delegate: ExecutorService,
+    originalDelegate: ExecutorService,
     val name: String,
-) extends ExecutorService
+) extends ExecutorServiceWithoutSubmission(originalDelegate)
     with QueueAwareExecutor
     with NamedExecutor {
+  val delegate = new NoOpIfShutdownExecutorService(originalDelegate)
 
   private val queueTracking = new AtomicLong(0)
 
   def getQueueSize: Long = queueTracking.get()
-
-  override def shutdown(): Unit = delegate.shutdown()
-  override def shutdownNow(): util.List[Runnable] = delegate.shutdownNow()
-  override def isShutdown: Boolean = delegate.isShutdown
-  override def isTerminated: Boolean = delegate.isTerminated
-  override def awaitTermination(l: Long, timeUnit: TimeUnit): Boolean =
-    delegate.awaitTermination(l, timeUnit)
 
   override def submit[T](
       callable: Callable[T]
@@ -106,4 +102,52 @@ class QueueAwareExecutorService(
     }
   }
   override def queueSize: Long = queueTracking.get()
+}
+
+// Once the delegate is shutdown, submission methods are no longer forwarded to it.
+class NoOpIfShutdownExecutorService(delegate: ExecutorService)
+    extends ExecutorServiceWithoutSubmission(delegate) {
+  override def execute(runnable: Runnable): Unit = noOpIfShutdown(() => delegate.execute(runnable))
+
+  // These need to be converted to NoOps if we are shutdown
+  override def invokeAll[T](
+      collection: util.Collection[_ <: Callable[T]],
+      l: Long,
+      timeUnit: TimeUnit,
+  ): util.List[Future[T]] = noOpIfShutdown(() => delegate.invokeAll(collection, l, timeUnit))
+
+  override def invokeAll[T](collection: util.Collection[_ <: Callable[T]]): util.List[Future[T]] =
+    noOpIfShutdown(() => delegate.invokeAll(collection))
+
+  override def invokeAny[T](
+      collection: util.Collection[_ <: Callable[T]],
+      l: Long,
+      timeUnit: TimeUnit,
+  ): T = noOpIfShutdown(() => delegate.invokeAny(collection, l, timeUnit))
+
+  override def invokeAny[T](collection: util.Collection[_ <: Callable[T]]): T =
+    noOpIfShutdown(() => delegate.invokeAny(collection))
+
+  override def submit(runnable: Runnable): Future[_] =
+    noOpIfShutdown(() => delegate.submit(runnable))
+
+  override def submit[T](runnable: Runnable, t: T): Future[T] =
+    noOpIfShutdown(() => delegate.submit(runnable, t))
+
+  override def submit[T](callable: Callable[T]): Future[T] =
+    noOpIfShutdown(() => delegate.submit(callable))
+
+  private def noOpIfShutdown[T](delegate: Callable[T]): T =
+    if (isShutdown) null.asInstanceOf[T] // Not calling due to shutdown
+    else delegate.call()
+}
+
+// Provides scaffolding for classes to just override the submission methods, and defer the rest to the delegate.
+abstract class ExecutorServiceWithoutSubmission(delegate: ExecutorService) extends ExecutorService {
+  override def awaitTermination(l: Long, timeUnit: TimeUnit): Boolean =
+    delegate.awaitTermination(l, timeUnit)
+  override def isShutdown(): Boolean = delegate.isShutdown
+  override def isTerminated(): Boolean = delegate.isTerminated
+  override def shutdown(): Unit = delegate.shutdown()
+  override def shutdownNow(): util.List[Runnable] = delegate.shutdownNow()
 }
