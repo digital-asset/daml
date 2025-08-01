@@ -14,6 +14,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
+import java.io.File
 import java.nio.file.{Files, FileSystems, Path}
 
 class ReplayBenchmarkITV2 extends ReplayBenchmarkIT(LanguageMajorVersion.V2)
@@ -27,7 +28,9 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
   val participantId = Ref.ParticipantId.assertFromString("participant0")
   val snapshotDir = Files.createTempDirectory("ReplayBenchmarkTest")
   val snapshotFileMatcher =
-    FileSystems.getDefault().getPathMatcher(s"glob:$snapshotDir/snapshot-$participantId*.bin")
+    FileSystems
+      .getDefault()
+      .getPathMatcher(s"glob:$snapshotDir" + File.separator + s"snapshot-$participantId*.bin")
 
   override protected val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
@@ -43,13 +46,61 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
   }
 
   "Ledger submission" should {
-    "on a happy path" should {
-      "generate a replayable snapshot file" in {
+    "with a create" should {
+      "generate a snapshot file" in {
         for {
           clients <- scriptClients()
           _ <- run(
             clients,
-            Ref.QualifiedName.assertFromString("GenerateSnapshot:generateSnapshot"),
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:createOnly"),
+            dar = dar,
+          )
+        } yield {
+          val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+          snapshotFiles.size() should be(1)
+
+          val snapshotFile = snapshotFiles.get(0)
+          Files.exists(snapshotFile) should be(true)
+          Files.size(snapshotFile) should be > 0L
+
+          // As snapshot file contains no exercises, it can not be replayed
+        }
+      }
+    }
+
+    "with a create and exercise" should {
+      "generate a replayable snapshot file when contract is global" in {
+        for {
+          clients <- scriptClients()
+          _ <- run(
+            clients,
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:globalCreateAndExercise"),
+            dar = dar,
+          )
+        } yield {
+          val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+          snapshotFiles.size() should be(1)
+
+          val snapshotFile = snapshotFiles.get(0)
+          Files.exists(snapshotFile) should be(true)
+          Files.size(snapshotFile) should be > 0L
+
+          // Replay and validate the snapshot file
+          val benchmark = new ReplayBenchmark
+          benchmark.darFile = darPath.toFile.getAbsolutePath
+          benchmark.choiceName = "ReplayBenchmark:T:Add"
+          benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
+
+          noException should be thrownBy benchmark.init()
+        }
+      }
+
+      "generate a replayable snapshot file when contract is local" in {
+        for {
+          clients <- scriptClients()
+          _ <- run(
+            clients,
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:localCreateAndExercise"),
             dar = dar,
           )
         } yield {
@@ -91,7 +142,7 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
           clients <- scriptClients()
           _ <- run(
             clients,
-            Ref.QualifiedName.assertFromString("GenerateSnapshot:generateAndExplode"),
+            Ref.QualifiedName.assertFromString("GenerateSnapshot:createExerciseAndExplode"),
             dar = dar,
           )
         } yield {
@@ -113,5 +164,4 @@ class ReplayBenchmarkIT(override val majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
-
 }
