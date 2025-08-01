@@ -115,7 +115,9 @@ final class StoreBackedCommandInterpreter(
         commands.actAs,
         commands.readAs,
         submissionResult,
-        Map.empty,
+        commands.disclosedContracts.iterator
+          .map(c => c.fatContractInstance.contractId -> c.fatContractInstance)
+          .toMap,
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
@@ -275,7 +277,12 @@ final class StoreBackedCommandInterpreter(
 
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
+        case ResultNeedContract(acoid, resume) if disclosedContracts.contains(acoid) =>
+          println(s"Requesting disc contract: $acoid")
+          resolveStep(resume(disclosedContracts.get(acoid).map(c => ContractAndIdValidator.preValidated(c))))
+
         case ResultNeedContract(acoid, resume) =>
+          println(s"Requesting contract: $acoid")
           val start = System.nanoTime
           Timed
             .future(
