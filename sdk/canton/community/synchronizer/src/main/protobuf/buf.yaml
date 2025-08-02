@@ -16,6 +16,7 @@ lint:
     RPC_REQUEST_RESPONSE_UNIQUE:
       - com/digitalasset/canton/mediator/admin/v30/mediator_administration_service.proto
       - com/digitalasset/canton/sequencer/admin/v30/sequencer_pruning_administration_service.proto
+      - com/digitalasset/canton/sequencer/admin/v30/sequencer_bft_pruning_administration_service.proto
     RPC_REQUEST_STANDARD_NAME:
       - com/digitalasset/canton/mediator/admin/v30/mediator_administration_service.proto
       - com/digitalasset/canton/sequencer/admin/v30/sequencer_pruning_administration_service.proto

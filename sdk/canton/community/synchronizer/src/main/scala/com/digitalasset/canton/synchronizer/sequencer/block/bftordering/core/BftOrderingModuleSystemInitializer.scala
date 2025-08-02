@@ -46,6 +46,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   P2PNetworkOutModule,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
   SystemInitializer,
@@ -287,8 +288,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
           ),
         pruning = () =>
           new PruningModule(
-            config.pruning,
             stores,
+            clock,
             loggerFactory,
             timeouts,
           ),
@@ -463,6 +464,7 @@ object BftOrderingModuleSystemInitializer {
       epochStore: EpochStore[E],
       epochStoreReader: EpochStoreReader[E],
       outputStore: OutputMetadataStore[E],
+      pruningSchedulerStore: BftOrdererPruningSchedulerStore[E],
   )
 
   /** In case of onboarding, the topology query timestamps look as follows:

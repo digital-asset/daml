@@ -13,19 +13,18 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait PruningSchedulerStoreTest {
   this: AsyncWordSpec & BaseTest & FailOnShutdown =>
 
+  val schedule1 = PruningSchedule(
+    Cron.tryCreate("* /10 * * * ? *"),
+    PositiveSeconds.tryOfSeconds(1),
+    PositiveSeconds.tryOfSeconds(30),
+  )
+  val schedule2 = PruningSchedule(
+    Cron.tryCreate("* * 7,19 * * ? *"),
+    PositiveSeconds.tryOfHours(8),
+    PositiveSeconds.tryOfDays(14),
+  )
+
   protected def pruningSchedulerStore(mk: () => PruningSchedulerStore): Unit = {
-
-    val schedule1 = PruningSchedule(
-      Cron.tryCreate("* /10 * * * ? *"),
-      PositiveSeconds.tryOfSeconds(1),
-      PositiveSeconds.tryOfSeconds(30),
-    )
-    val schedule2 = PruningSchedule(
-      Cron.tryCreate("* * 7,19 * * ? *"),
-      PositiveSeconds.tryOfHours(8),
-      PositiveSeconds.tryOfDays(14),
-    )
-
     assert(schedule1.cron != schedule2.cron)
     assert(schedule1.maxDuration != schedule2.maxDuration)
     assert(schedule1.retention != schedule2.retention)
@@ -127,8 +126,8 @@ trait PruningSchedulerStoreTest {
     err <- leftOrFail(change)(clue)
     _errorMatchesExpected <-
       if (
-        err.equals(
-          s"Attempt to update $field of a schedule that has not been previously configured. Use set_schedule instead."
+        err.contains(
+          s"Attempt to update $field of a schedule that has not been previously configured"
         )
       ) FutureUnlessShutdown.unit
       else FutureUnlessShutdown.failed(new RuntimeException(s"Wrong error message: $err"))

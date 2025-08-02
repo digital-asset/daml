@@ -9,10 +9,12 @@ import com.digitalasset.canton.store.PruningSchedulerStore
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 trait HasPruningSchedulerStore extends PruningScheduler with FlagCloseable {
-  this: JobScheduler =>
+  this: ScheduleRefresher =>
+
+  implicit val ec: ExecutionContext
 
   protected def pruningSchedulerStore: PruningSchedulerStore
 

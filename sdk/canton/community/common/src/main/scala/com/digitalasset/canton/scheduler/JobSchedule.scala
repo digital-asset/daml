@@ -142,6 +142,19 @@ final class IntervalSchedule(interval: PositiveSeconds) extends IndividualSchedu
     NextRun(NonNegativeFiniteDuration(interval), this).some
 }
 
+class BftOrdererPruningCronSchedule(
+    cron: Cron,
+    maxDuration: PositiveSeconds,
+    retention: PositiveSeconds,
+    clock: Clock,
+    logger: TracedLogger,
+) extends PruningCronSchedule(cron, maxDuration, retention, clock, logger) {
+  override def determineNextRun(result: ScheduledRunResult)(implicit
+      traceContext: TraceContext
+  ): Option[NextRun] =
+    waitDurationUntilNextRun(result, clock.now, logger).map(NextRun(_, this))
+}
+
 /** Compound schedule allow combining multiple individual schedules into one schedule that
   * represents "the union" of all schedules.
   */

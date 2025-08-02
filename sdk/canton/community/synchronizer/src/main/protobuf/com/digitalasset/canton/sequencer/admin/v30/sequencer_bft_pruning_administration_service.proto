@@ -5,12 +5,37 @@ syntax = "proto3";
 
 package com.digitalasset.canton.sequencer.admin.v30;
 
+import "com/digitalasset/canton/admin/pruning/v30/pruning.proto";
 import "google/protobuf/duration.proto";
 
 service SequencerBftPruningAdministrationService {
   rpc BftPruningStatus(BftPruningStatusRequest) returns (BftPruningStatusResponse);
 
   rpc BftPrune(BftPruneRequest) returns (BftPruneResponse);
+
+  // Enable automatic pruning using the specified schedule parameters
+  // The following errors may occur on the SetSchedule or Update commands:
+  // - ``INVALID_ARGUMENT``: if a parameter is missing or an invalid cron expression or duration is passed.
+  rpc SetSchedule(com.digitalasset.canton.admin.pruning.v30.SetScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetScheduleResponse);
+
+  // Enable automatic pruning with bft-orderer-specific schedule parameters.
+  rpc SetBftSchedule(SetBftScheduleRequest) returns (SetBftScheduleResponse);
+
+  // Modify individual pruning schedule parameters.
+  // - ``INVALID_ARGUMENT``: if the payload is malformed or no schedule is configured
+  rpc SetCron(com.digitalasset.canton.admin.pruning.v30.SetCronRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetCronResponse);
+  rpc SetMaxDuration(com.digitalasset.canton.admin.pruning.v30.SetMaxDurationRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetMaxDurationResponse);
+  rpc SetRetention(com.digitalasset.canton.admin.pruning.v30.SetRetentionRequest) returns (com.digitalasset.canton.admin.pruning.v30.SetRetentionResponse);
+  // Disable automatic pruning and remove the persisted schedule configuration.
+  rpc ClearSchedule(com.digitalasset.canton.admin.pruning.v30.ClearScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.ClearScheduleResponse);
+  // Retrieve the automatic pruning configuration.
+  rpc GetSchedule(com.digitalasset.canton.admin.pruning.v30.GetScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.GetScheduleResponse);
+
+  // Retrieve the automatic, bft-orderer-specific pruning configuration.
+  rpc GetBftSchedule(GetBftScheduleRequest) returns (GetBftScheduleResponse);
+
+  // Min blocks to keep is a bft-orderer-specific pruning parameter.
+  rpc SetMinBlocksToKeep(SetMinBlocksToKeepRequest) returns (SetMinBlocksToKeepResponse);
 }
 
 message BftPruneRequest {
@@ -27,3 +52,22 @@ message BftPruningStatusResponse {
   int64 lower_bound_epoch = 1;
   int64 lower_bound_block = 2;
 }
+
+message SetBftScheduleRequest {
+  BftOrdererPruningSchedule schedule = 1;
+}
+message BftOrdererPruningSchedule {
+  com.digitalasset.canton.admin.pruning.v30.PruningSchedule schedule = 1;
+  int32 min_blocks_to_keep = 2;
+}
+message SetBftScheduleResponse {}
+
+message GetBftScheduleRequest {}
+message GetBftScheduleResponse {
+  BftOrdererPruningSchedule schedule = 1;
+}
+
+message SetMinBlocksToKeepRequest {
+  int32 min_blocks_to_keep = 1;
+}
+message SetMinBlocksToKeepResponse {}

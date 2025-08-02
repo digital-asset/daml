@@ -34,7 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
   BftOrderingSequencerAdminService,
-  BftOrderingSequencerPruningAdminService,
+  GrpcBftOrderingSequencerPruningAdminService,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
@@ -64,6 +64,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningScheduler
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftBlockOrdererConfig,
   BftOrderingModuleSystemInitializer,
@@ -249,6 +251,8 @@ final class BftBlockOrderer(
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
   private val epochStore = EpochStore(localStorage, timeouts, loggerFactory)
   private val outputStore = OutputMetadataStore(localStorage, timeouts, loggerFactory)
+  private val pruningSchedulerStore =
+    BftOrdererPruningSchedulerStore(localStorage, timeouts, loggerFactory)
 
   private val sequencerSnapshotAdditionalInfo = sequencerSnapshotInfo.map { snapshot =>
     implicit val traceContext: TraceContext = TraceContext.empty
@@ -346,6 +350,7 @@ final class BftBlockOrderer(
         epochStore,
         epochStoreReader = epochStore,
         outputStore,
+        pruningSchedulerStore,
       )
     new BftOrderingModuleSystemInitializer(
       thisNode,
@@ -364,6 +369,20 @@ final class BftBlockOrderer(
       loggerFactory,
       timeouts,
     )
+  }
+
+  private val pruningScheduler: BftOrdererPruningScheduler = {
+    val scheduler = new BftOrdererPruningScheduler(
+      pruningSchedulerStore,
+      initResult.pruningModuleRef,
+      loggerFactory,
+      timeouts,
+    )
+    implicit val traceContext: TraceContext = TraceContext.empty
+    timeouts.default.await(s"${getClass.getSimpleName} starting pruning scheduler")(
+      scheduler.start()
+    )
+    scheduler
   }
 
   private def createClientNetworkManager(P2PConnectionEventListener: P2PConnectionEventListener) =
@@ -540,6 +559,8 @@ final class BftBlockOrderer(
         SyncCloseable("outputStore.close()", outputStore.close()),
         SyncCloseable("availabilityStore.close()", availabilityStore.close()),
         SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
+        SyncCloseable("pruningScheduler.close()", pruningScheduler.close()),
+        SyncCloseable("pruningSchedulerStore.close()", pruningSchedulerStore.close()),
         SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
       ) ++
       Seq[Option[AsyncOrSyncCloseable]](
@@ -560,7 +581,11 @@ final class BftBlockOrderer(
         executionContext,
       ),
       v30.SequencerBftPruningAdministrationServiceGrpc.bindService(
-        new BftOrderingSequencerPruningAdminService(initResult.pruningModuleRef, loggerFactory)(
+        new GrpcBftOrderingSequencerPruningAdminService(
+          initResult.pruningModuleRef,
+          pruningScheduler,
+          loggerFactory,
+        )(
           executionContext,
           metricsContext,
           TraceContext.empty,

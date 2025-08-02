@@ -103,7 +103,7 @@ trait GrpcPruningScheduler {
     } yield v30.GetScheduleResponse(scheduleWithRetention.map(_.toProtoV30))
   }
 
-  private def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
+  protected def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
       traceContext: TraceContext
   ): Future[T] = f
     .leftMap(err => ProtoDeserializationFailure.Wrap(err).asGrpcError)
@@ -117,7 +117,7 @@ trait GrpcPruningScheduler {
     ProtoConverter.required(field, value).flatMap(f)
   )
 
-  private def handleUserError(update: EitherT[Future, String, Unit]): Future[Unit] =
+  protected def handleUserError(update: EitherT[Future, String, Unit]): Future[Unit] =
     EitherTUtil.toFuture(
       update.leftMap(
         Status.INVALID_ARGUMENT

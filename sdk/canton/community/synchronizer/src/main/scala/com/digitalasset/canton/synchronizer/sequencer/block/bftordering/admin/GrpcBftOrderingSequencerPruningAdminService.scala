@@ -3,14 +3,25 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
 
-import cats.syntax.bifunctor.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
+import com.digitalasset.canton.admin.grpc.{GrpcPruningScheduler, HasPruningScheduler}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftPruningAdministrationServiceGrpc.SequencerBftPruningAdministrationService
-import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.sequencer.admin.v30.{
+  GetBftScheduleRequest,
+  GetBftScheduleResponse,
+  SetBftScheduleRequest,
+  SetBftScheduleResponse,
+  SetMinBlocksToKeepRequest,
+  SetMinBlocksToKeepResponse,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
+  BftOrdererPruningSchedule,
+  BftOrdererPruningScheduler,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning.{
@@ -18,18 +29,21 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PruningStatusRequest,
 }
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class BftOrderingSequencerPruningAdminService(
+class GrpcBftOrderingSequencerPruningAdminService(
     pruningModuleRef: ModuleRef[Pruning.Message],
+    pruningScheduler: BftOrdererPruningScheduler,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
-    executionContext: ExecutionContext,
+    val ec: ExecutionContext,
     metricsContext: MetricsContext,
     traceContext: TraceContext,
 ) extends SequencerBftPruningAdministrationService
+    with HasPruningScheduler
+    with GrpcPruningScheduler
     with NamedLogging {
 
   override def bftPrune(request: v30.BftPruneRequest): Future[v30.BftPruneResponse] = {
@@ -59,10 +73,37 @@ class BftOrderingSequencerPruningAdminService(
     }
   }
 
-  private def convertF[T](f: => ProtoConverter.ParsingResult[T])(implicit
+  override def setBftSchedule(request: SetBftScheduleRequest): Future[SetBftScheduleResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    for {
+      bftOrdererSchedule <- convertRequiredF(
+        "bft_orderer_schedule",
+        request.schedule,
+        BftOrdererPruningSchedule.fromProtoV30,
+      )
+      _ <- handlePassiveHAStorageError(
+        pruningScheduler.setBftOrdererSchedule(bftOrdererSchedule),
+        "set_bft_orderer_schedule",
+      )
+    } yield v30.SetBftScheduleResponse()
+  }
+
+  override def getBftSchedule(request: GetBftScheduleRequest): Future[GetBftScheduleResponse] =
+    for {
+      schedule <- pruningScheduler.getBftOrdererSchedule()
+    } yield GetBftScheduleResponse(schedule.map(_.toProtoV30))
+
+  override def setMinBlocksToKeep(
+      request: SetMinBlocksToKeepRequest
+  ): Future[SetMinBlocksToKeepResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    for {
+      _ <- handleUserError(pruningScheduler.updateMinBlocksToKeep(request.minBlocksToKeep))
+    } yield v30.SetMinBlocksToKeepResponse()
+  }
+
+  override protected def ensureScheduler(implicit
       traceContext: TraceContext
-  ): Future[T] = f
-    .leftMap(err => ProtoDeserializationFailure.Wrap(err).asGrpcError)
-    .fold(Future.failed, Future.successful)
+  ): Future[PruningScheduler] = Future.successful(pruningScheduler)
 
 }

@@ -38,14 +38,14 @@ import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Status
 import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.{Materializer, ThrottleMode}
 
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.{Duration, DurationInt, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.jdk.DurationConverters.*
 import scala.util.chaining.*
@@ -65,7 +65,11 @@ import scala.util.chaining.*
   */
 trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCommon {
   import ReplayingSendsSequencerClientTransport.*
-  def replay(sendParallelism: Int): Future[SendReplayReport]
+
+  /** @param sendRatePerSecond
+    *   None means "as fast as possible".
+    */
+  def replay(sendParallelism: Int, sendRatePerSecond: Option[Int] = None): Future[SendReplayReport]
 
   def waitForIdle(
       duration: FiniteDuration,
@@ -231,13 +235,21 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     }
   }
 
-  override def replay(sendParallelism: Int): Future[SendReplayReport] =
+  override def replay(
+      sendParallelism: Int,
+      maybeSendRatePerSecond: Option[Int] = None,
+  ): Future[SendReplayReport] =
     withNewTraceContext("replay") { implicit traceContext =>
       logger.info(s"Replaying ${submissionRequests.size} sends")
 
-      val submissionReplay = Source(submissionRequests)
-        .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
-        .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
+      // Rates larger than 1 unit / nanosecond are not supported
+      val sendRate = maybeSendRatePerSecond.getOrElse(1_000_000_000)
+
+      val submissionReplay =
+        Source(submissionRequests)
+          .throttle(sendRate, per = 1.second, maximumBurst = 0, ThrottleMode.Shaping)
+          .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
+          .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 
       PekkoUtil.runSupervised(
         submissionReplay,
