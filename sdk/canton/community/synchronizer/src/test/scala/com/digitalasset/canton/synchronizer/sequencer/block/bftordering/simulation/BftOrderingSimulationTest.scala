@@ -23,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory.SimulationP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.memory.SimulationBftOrdererPruningSchedulerStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftBlockOrdererConfig,
   BftOrderingModuleSystemInitializer,
@@ -163,6 +164,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                 simulationEpochStore,
                 epochStoreReader = simulationEpochStore,
                 new SimulationOutputMetadataStore(fail(_)),
+                new SimulationBftOrdererPruningSchedulerStore(),
               )
             },
             initializeImmediately = true,
@@ -196,6 +198,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                   simulationEpochStore,
                   epochStoreReader = simulationEpochStore,
                   new SimulationOutputMetadataStore(fail(_)),
+                  new SimulationBftOrdererPruningSchedulerStore(),
                 )
               }
               endpointToTestBftNodeId(endpoint) -> SimulationTestNodeData(
@@ -834,7 +837,7 @@ class BftOrderingSimulationTestOffboarding extends BftOrderingSimulationTest {
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
   private val randomSourceToCreateSettings: Random =
-    new Random(4) // Manually remove the seed for fully randomized local runs.
+    new Random(2) // Manually remove the seed for fully randomized local runs.
 
   override def warnLogAssertion(logEntry: LogEntry): Assertion = {
     // We might get messages from off boarded nodes, don't count these as errors.

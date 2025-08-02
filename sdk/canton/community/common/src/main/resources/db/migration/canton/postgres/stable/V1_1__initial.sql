@@ -861,6 +861,16 @@ create table ord_output_lower_bound (
   block_number bigint not null
 );
 
+-- pruning_schedules with parameter specific to bft orderer pruning
+create table ord_pruning_schedules (
+    -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
+   lock char(1) not null default 'X' primary key check (lock = 'X'),
+   cron varchar collate "C" not null,
+   max_duration bigint not null, -- positive number of seconds
+   retention bigint not null, -- positive number of seconds
+   min_blocks_to_keep integer not null -- parameter specific to bft orderer pruning
+);
+
 create table ord_leader_selection_state (
     epoch_number bigint not null primary key,
     state bytea not null
