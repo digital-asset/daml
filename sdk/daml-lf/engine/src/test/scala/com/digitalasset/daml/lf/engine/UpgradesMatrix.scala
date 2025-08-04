@@ -1892,6 +1892,11 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
               )
             )
           )
+
+        // TODO: It is not longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+        case (_, ExerciseByKey | FetchByKey | LookupByKey, _, _, Disclosed) =>
+          None
+
         case (_, ExerciseByKey, _, Command, Global | Disclosed) =>
           Some(setupData =>
             ImmArray(
