@@ -40,10 +40,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
   DefaultMinRequestsInBatch,
   DefaultOutputFetchTimeout,
   DefaultOutputFetchTimeoutCap,
-  DefaultPruningConfig,
   LeaderSelectionPolicyConfig,
   P2PNetworkConfig,
-  PruningConfig,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
@@ -90,7 +88,6 @@ final case class BftBlockOrdererConfig(
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
     outputFetchTimeoutCap: FiniteDuration = DefaultOutputFetchTimeoutCap,
-    pruning: PruningConfig = DefaultPruningConfig,
     initialNetwork: Option[P2PNetworkConfig] = None,
     leaderSelectionPolicy: LeaderSelectionPolicyConfig = DefaultLeaderSelectionPolicy,
     storage: Option[StorageConfig] = None,
@@ -126,12 +123,7 @@ object BftBlockOrdererConfig {
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
   val DefaultOutputFetchTimeoutCap: FiniteDuration = 20.second
-  val DefaultPruningConfig: PruningConfig = PruningConfig(
-    enabled = true,
-    retentionPeriod = 30.days,
-    minNumberOfBlocksToKeep = 100,
-    pruningFrequency = 1.hour,
-  )
+
   val DefaultHowLongToBlackList: LeaderSelectionPolicyConfig.HowLongToBlacklist =
     LeaderSelectionPolicyConfig.HowLongToBlacklist.Linear
   val DefaultHowManyCanWeBlacklist: LeaderSelectionPolicyConfig.HowManyCanWeBlacklist =
@@ -230,17 +222,6 @@ object BftBlockOrdererConfig {
       port: Port,
       tls: Boolean,
   )
-
-  final case class PruningConfig(
-      enabled: Boolean = DefaultPruningConfig.enabled,
-      retentionPeriod: FiniteDuration = DefaultPruningConfig.retentionPeriod,
-      minNumberOfBlocksToKeep: Int = DefaultPruningConfig.minNumberOfBlocksToKeep,
-      pruningFrequency: FiniteDuration = DefaultPruningConfig.pruningFrequency,
-  ) extends UniformCantonConfigValidation
-  object PruningConfig {
-    implicit val pruningConfigCantonConfigValidator: CantonConfigValidator[PruningConfig] =
-      CantonConfigValidatorDerivation[PruningConfig]
-  }
 
   sealed trait LeaderSelectionPolicyConfig extends UniformCantonConfigValidation
 

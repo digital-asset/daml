@@ -669,6 +669,15 @@ create or replace view debug.ord_output_lower_bound as
     block_number
   from ord_output_lower_bound;
 
+create or replace view debug.ord_pruning_schedules as
+select
+    lock,
+    cron,
+    max_duration,
+    retention,
+    min_blocks_to_keep
+from ord_pruning_schedules;
+
 create or replace view debug.ord_leader_selection_state as
   select
     epoch_number,

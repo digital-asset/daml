@@ -4,9 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.SuppressionRule
+import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.BftSequencerBaseTest
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.PruningConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
@@ -16,7 +15,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.OutputBlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
+  BftOrdererPruningSchedule,
+  PruningModule,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
@@ -24,9 +27,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequestBatch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning.KickstartPruning
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning.{
+  KickstartPruning,
+  SchedulePruning,
+}
+import com.digitalasset.canton.time.{PositiveSeconds, SimClock}
 import org.scalatest.wordspec.AnyWordSpec
-import org.slf4j.event.Level
 
 import java.time.Instant
 import scala.concurrent.Promise
@@ -53,6 +59,44 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   val blockAtEpoch40 =
     Some(OutputBlockMetadata(EpochNumber(40), BlockNumber(400), CantonTimestamp.Epoch))
 
+  val pruningSchedule = BftOrdererPruningSchedule(
+    PruningSchedule(
+      Cron.tryCreate("* /10 * * * ? *"),
+      PositiveSeconds.tryOfSeconds(1),
+      PositiveSeconds.tryOfSeconds(30),
+    ),
+    minBlocksToKeep = 100,
+  )
+
+  private def moduleReadyToBePruned(): PruningModule[ProgrammableUnitTestEnv] = {
+    val epochStore: EpochStore[ProgrammableUnitTestEnv] =
+      mock[EpochStore[ProgrammableUnitTestEnv]]
+    val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
+      mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
+    val availabilityStore: AvailabilityStore[ProgrammableUnitTestEnv] =
+      mock[AvailabilityStore[ProgrammableUnitTestEnv]]
+
+    when(epochStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+      EpochStore.NumberOfRecords(10L, 10L, 0)
+    )
+    when(outputStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
+      OutputMetadataStore.NumberOfRecords(10L, 10L)
+    )
+    when(
+      availabilityStore.prune(
+        EpochNumber(40 - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+      )(traceContext)
+    ).thenReturn(() => AvailabilityStore.NumberOfRecords(10L))
+
+    when(outputStore.getLastConsecutiveBlock(traceContext)).thenReturn(() => Some(latestBlock))
+
+    createPruningModule[ProgrammableUnitTestEnv](
+      epochStore = epochStore,
+      outputStore = outputStore,
+      availabilityStore = availabilityStore,
+    )
+  }
+
   "PruningModule" when {
     "performing pruning" should {
       "try to perform pruning with latest pruning point when starting module" in {
@@ -71,7 +115,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         context.runPipedMessages() should contain only Pruning.PerformPruning(EpochNumber(10))
       }
 
-      "schedule pruning if no previous pruning point exists" in {
+      "do nothing on startup if no previous pruning point exists" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
@@ -82,7 +126,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         module.receiveInternal(Pruning.Start)
 
-        context.runPipedMessages() should contain only Pruning.SchedulePruning
+        context.runPipedMessages() shouldBe empty
       }
 
       "kickstart pruning by finding the latest block" in {
@@ -111,11 +155,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
           mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
 
-        val module = createPruningModule[ProgrammableUnitTestEnv](
-          retentionPeriod,
-          minNumberOfBlocksToKeep,
-          outputStore = outputStore,
-        )
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
 
         val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
         when(outputStore.getLatestBlockAtOrBefore(pruningTimestamp)(traceContext))
@@ -131,17 +171,13 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         context.runPipedMessages() should contain only Pruning.SaveNewLowerBound(EpochNumber(40))
       }
 
-      "when missing pruning point from retentionPeriod, schedule new pruning attempt" in {
+      "when missing pruning point from retentionPeriod, prune nothing" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
           mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
 
-        val module = createPruningModule[ProgrammableUnitTestEnv](
-          retentionPeriod,
-          minNumberOfBlocksToKeep,
-          outputStore = outputStore,
-        )
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
 
         // missing
         val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
@@ -155,20 +191,16 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           Pruning.ComputePruningPoint(latestBlock, retentionPeriod, minNumberOfBlocksToKeep)
         )
 
-        context.runPipedMessages() should contain only Pruning.SchedulePruning
+        context.runPipedMessages() shouldBe empty
       }
 
-      "when missing pruning point from minNumberOfBlocksToKeep, schedule new pruning attempt" in {
+      "when missing pruning point from minNumberOfBlocksToKeep, prune nothing" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
           mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
 
-        val module = createPruningModule[ProgrammableUnitTestEnv](
-          retentionPeriod,
-          minNumberOfBlocksToKeep,
-          outputStore = outputStore,
-        )
+        val module = createPruningModule[ProgrammableUnitTestEnv](outputStore = outputStore)
 
         val pruningTimestamp = latestBlock.blockBftTime.minus(retentionPeriod.toJava)
         when(outputStore.getLatestBlockAtOrBefore(pruningTimestamp)(traceContext))
@@ -182,7 +214,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           Pruning.ComputePruningPoint(latestBlock, retentionPeriod, minNumberOfBlocksToKeep)
         )
 
-        context.runPipedMessages() should contain only Pruning.SchedulePruning
+        context.runPipedMessages() shouldBe empty
       }
 
       "save new lower bound" in {
@@ -202,59 +234,42 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "perform pruning by pruning stores" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
-        val epochStore: EpochStore[ProgrammableUnitTestEnv] =
-          mock[EpochStore[ProgrammableUnitTestEnv]]
-        val outputStore: OutputMetadataStore[ProgrammableUnitTestEnv] =
-          mock[OutputMetadataStore[ProgrammableUnitTestEnv]]
-        val availabilityStore: AvailabilityStore[ProgrammableUnitTestEnv] =
-          mock[AvailabilityStore[ProgrammableUnitTestEnv]]
-
-        val module = createPruningModule[ProgrammableUnitTestEnv](
-          epochStore = epochStore,
-          outputStore = outputStore,
-          availabilityStore = availabilityStore,
-        )
-
-        when(epochStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
-          EpochStore.NumberOfRecords(10L, 10L, 0)
-        )
-        when(outputStore.prune(EpochNumber(40))(traceContext)).thenReturn(() =>
-          OutputMetadataStore.NumberOfRecords(10L, 10L)
-        )
-        when(
-          availabilityStore.prune(
-            EpochNumber(40 - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
-          )(traceContext)
-        ).thenReturn(() => AvailabilityStore.NumberOfRecords(10L))
-
+        val module = moduleReadyToBePruned()
         module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
-        context.runPipedMessages() should contain only Pruning.SchedulePruning
+        context.runPipedMessages() shouldBe empty
       }
 
-      "schedule pruning" in {
+      "schedule pruning should do nothing if pruning schedule has not been initialized" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
         val module = createPruningModule[ProgrammableUnitTestEnv]()
         module.receiveInternal(Pruning.SchedulePruning)
-        context.lastDelayedMessage should contain((1, KickstartPruning(30 days, 100, None)))
+        context.lastDelayedMessage shouldBe empty
       }
 
-      "do nothing when starting if pruning is configured to be disabled" in {
+      "should schedule when initializing schedule and reschedule when receiving schedule message" in {
         implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
           new ProgrammableUnitTestContext()
-        val module = createPruningModule[ProgrammableUnitTestEnv](enabled = false)
+        val module = createPruningModule[ProgrammableUnitTestEnv]()
+        module.receiveInternal(Pruning.StartPruningSchedule(pruningSchedule))
+        context.lastDelayedMessage should contain((1, KickstartPruning(30 seconds, 100, None)))
 
-        loggerFactory.assertLogs(SuppressionRule.Level(Level.INFO))(
-          module.receiveInternal(Pruning.Start),
-          log => {
-            log.level shouldBe Level.INFO
-            log.message should include(
-              "Pruning module won't start because pruning is disabled by config"
-            )
-          },
-        )
+        module.receiveInternal(Pruning.SchedulePruning)
+        context.lastDelayedMessage should contain((2, KickstartPruning(30 seconds, 100, None)))
+      }
 
-        context.runPipedMessages() shouldBe empty
+      "schedule pruning after performing pruning on a schedule" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val module = moduleReadyToBePruned()
+
+        module.receiveInternal(Pruning.StartPruningSchedule(pruningSchedule))
+        context.lastDelayedMessage should contain((1, KickstartPruning(30 seconds, 100, None)))
+        // kick-starting pruning without a promise indicates this is a scheduled operation
+        module.receiveInternal(KickstartPruning(30 seconds, 100, None))
+        module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
+
+        context.runPipedMessages() should contain(SchedulePruning)
       }
 
       "grpc requested pruning should complete the request promise with the operation description" in {
@@ -299,7 +314,7 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         ).thenReturn(() => AvailabilityStore.NumberOfRecords(10L))
 
         module.receiveInternal(Pruning.PerformPruning(EpochNumber(40)))
-        context.runPipedMessages() should contain only Pruning.SchedulePruning
+        context.runPipedMessages() shouldBe empty
 
         requestPromise.isCompleted shouldBe true
         requestPromise.future.value should contain(
@@ -308,6 +323,29 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             |EpochStore: pruned 10 epochs, 10 pbft messages.
             |OutputStore: pruned 10 epochs and 10 blocks.
             |AvailabilityStore: pruned 10 batches.""".stripMargin
+          )
+        )
+      }
+
+      "not allow concurrent pruning operations" in {
+        implicit val context: ProgrammableUnitTestContext[Pruning.Message] =
+          new ProgrammableUnitTestContext()
+        val module = createPruningModule[ProgrammableUnitTestEnv]()
+
+        val requestPromise = Promise[String]()
+        module.receiveInternal(
+          Pruning.KickstartPruning(retentionPeriod, minNumberOfBlocksToKeep, Some(requestPromise))
+        )
+        requestPromise.isCompleted shouldBe (false)
+
+        val requestPromise2 = Promise[String]()
+        module.receiveInternal(
+          Pruning.KickstartPruning(retentionPeriod, minNumberOfBlocksToKeep, Some(requestPromise2))
+        )
+
+        requestPromise2.future.value should contain(
+          Success(
+            "Pruning won't continue because an operation is already taking place"
           )
         )
       }
@@ -335,10 +373,6 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   }
 
   private def createPruningModule[E <: Env[E]](
-      retentionPeriod: FiniteDuration = 30.days,
-      minNumberOfBlocksToKeep: Int = 100,
-      pruningFrequency: FiniteDuration = 1.hour,
-      enabled: Boolean = true,
       epochStore: EpochStore[E] = mock[EpochStore[E]],
       outputStore: OutputMetadataStore[E] = mock[OutputMetadataStore[E]],
       availabilityStore: AvailabilityStore[E] = mock[AvailabilityStore[E]],
@@ -349,10 +383,11 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       epochStore,
       mock[EpochStoreReader[E]],
       outputStore,
+      mock[BftOrdererPruningSchedulerStore[E]],
     )
     val pruning = new PruningModule[E](
-      PruningConfig(enabled, retentionPeriod, minNumberOfBlocksToKeep, pruningFrequency),
       stores,
+      new SimClock(loggerFactory = loggerFactory),
       loggerFactory,
       timeouts,
     )

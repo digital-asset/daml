@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.OutputBlockMetadata
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningSchedule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 
@@ -34,5 +35,16 @@ object Pruning {
   final case class SaveNewLowerBound(epoch: EpochNumber) extends Message
   final case class PerformPruning(epoch: EpochNumber) extends Message
   final case class FailedDatabaseOperation(msg: String, exception: Throwable) extends Message
+
+  final case class StartPruningSchedule(schedule: BftOrdererPruningSchedule) extends Message
+  final case object CancelPruningSchedule extends Message
   case object SchedulePruning extends Message
+
+  sealed trait OngoingPruningOperation
+  object OngoingPruningOperation {
+    case object None extends OngoingPruningOperation
+    case object Scheduled extends OngoingPruningOperation
+    final case class Manual(resultPromise: Promise[String]) extends OngoingPruningOperation
+  }
+
 }
