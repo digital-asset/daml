@@ -177,7 +177,9 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
-      PLF.Kind.newBuilder().setInternedKind(kindTable.insert(k)).build()
+      if (languageVersion >= LV.Features.kindInterning)
+        PLF.Kind.newBuilder().setInternedKind(kindTable.insert(k)).build()
+      else encodeKindBuilder(k).build()
 
     private def encodeKindBuilder(k: Kind): PLF.Kind.Builder = {
       val builder = PLF.Kind.newBuilder()
@@ -349,7 +351,10 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     }
 
     private implicit def encodeExpr(expr: Expr): PLF.Expr =
-      PLF.Expr.newBuilder().setInternedExpr(exprTable.insert(expr)).build()
+      if (languageVersion >= LV.Features.exprInterning)
+        PLF.Expr.newBuilder().setInternedExpr(exprTable.insert(expr)).build()
+      else
+        encodeExprBuilder(expr).build()
 
     private implicit def encodeBinding(binding: Binding): PLF.Binding =
       PLF.Binding
