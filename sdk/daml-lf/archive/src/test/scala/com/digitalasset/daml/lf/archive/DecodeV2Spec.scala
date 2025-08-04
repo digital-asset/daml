@@ -43,6 +43,11 @@ class DecodeV2Spec
     .setBuiltinCon(DamlLf2.BuiltinCon.CON_FALSE)
     .build()
 
+  val unitType = DamlLf2.Type
+    .newBuilder()
+    .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
+    .build
+
   "The entries of primTypeInfos correspond to Protobuf DamlLf2.BuiltinType" in {
 
     (Set(DamlLf2.BuiltinType.UNRECOGNIZED) ++
@@ -261,16 +266,11 @@ class DecodeV2Spec
       val positiveTestCases =
         Table("field names", List("a", "a"), List("a", "b", "c", "a"), List("a", "b", "c", "b"))
 
-      val unit = DamlLf2.Type
-        .newBuilder()
-        .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
-        .build
-
       val stringTable = ImmArraySeq("a", "b", "c")
       val stringIdx = stringTable.zipWithIndex.toMap
 
       def fieldWithUnitWithInterning(s: String) =
-        DamlLf2.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
+        DamlLf2.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unitType)
 
       def buildTStructWithInterning(fields: Seq[String]) =
         DamlLf2.Type
@@ -1496,6 +1496,78 @@ class DecodeV2Spec
               Ref.PackageVersion.assertFromString("0.0.0"),
               None,
             )
+        }
+      }
+    }
+  }
+
+  "decodeArchivePayload" should {
+
+    "gracefully fail when expression too deep when version supports expression interning" in {
+      forEveryVersion { version =>
+        def buildLet(n: Int): DamlLf2.Expr = {
+          if (n == 0)
+            unitExpr
+          else
+            DamlLf2.Expr
+              .newBuilder()
+              .setApp(
+                DamlLf2.Expr.App
+                  .newBuilder()
+                  .setFun(buildLet(n - 1))
+                  .addArgs(unitExpr)
+                  .build()
+              )
+              .build()
+        }
+
+        val theLet = buildLet(1000)
+
+        val internedTZero = DamlLf2.Type
+          .newBuilder()
+          .setInternedType(0)
+          .build()
+
+        val theVal = DamlLf2.DefValue
+          .newBuilder()
+          .setNameWithType(
+            DamlLf2.DefValue.NameWithType
+              .newBuilder()
+              .setNameInternedDname(0)
+              .setType(internedTZero)
+          )
+          .setExpr(theLet)
+          .build()
+
+        val decoder = new DecodeV2(version.minor)
+        val pkgId = Ref.PackageId.assertFromString(
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        )
+        val metadata =
+          DamlLf2.PackageMetadata.newBuilder
+            .setNameInternedStr(0)
+            .setVersionInternedStr(1)
+            .build()
+
+        val ffs = DamlLf2.FeatureFlags
+          .newBuilder()
+          .setForbidPartyLiterals(true)
+          .setDontDivulgeContractIdsInCreateArguments(true)
+          .setDontDiscloseNonConsumingChoicesToObservers(true)
+          .build()
+
+        val pkg = DamlLf2.Package
+          .newBuilder()
+          .addInternedTypes(unitType)
+          .addInternedStrings("foobar")
+          .addInternedStrings("0.0.0")
+          .addInternedDottedNames(DamlLf2.InternedDottedName.newBuilder().addSegmentsInternedStr(0))
+          .setMetadata(metadata)
+          .addModules(DamlLf2.Module.newBuilder().addValues(theVal).setFlags(ffs))
+          .build()
+
+        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
+          pkg shouldBe pkg
         }
       }
     }
