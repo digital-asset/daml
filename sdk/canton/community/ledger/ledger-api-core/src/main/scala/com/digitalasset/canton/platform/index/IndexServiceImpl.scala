@@ -21,6 +21,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -1027,9 +1028,9 @@ object IndexServiceImpl {
   // TODO(#25385): Unit test coverage
   private def interfacesImplementedByWithUpgrades(
       metadata: PackageMetadata,
-      interfaceId: Ref.Identifier,
-  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[Identifier] =
-    metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty).flatMap {
+      interfaceId: FullIdentifier,
+  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[FullIdentifier] =
+    metadata.interfacesImplementedBy.getOrElse(interfaceId.toIdentifier, Set.empty).flatMap {
       originalInterfaceImplementation =>
         val packageIdVersionMap = metadata.packageIdVersionMap
         val (packageName, _packageVersion) =
@@ -1043,12 +1044,13 @@ object IndexServiceImpl {
               )
               .asGrpcError,
           )
-        metadata.resolveTypeConRef(
-          Ref.TypeConRef(
-            Ref.PackageRef.Name(packageName),
-            originalInterfaceImplementation.qualifiedName,
+        metadata
+          .resolveTypeConRef(
+            Ref.TypeConRef(
+              Ref.PackageRef.Name(packageName),
+              originalInterfaceImplementation.qualifiedName,
+            )
           )
-        )
     }
 
   private def templateIds(
@@ -1059,11 +1061,13 @@ object IndexServiceImpl {
       .map(_.interfaceTypeRef)
       .flatMap(metadata.resolveTypeConRef)
       .flatMap(interfacesImplementedByWithUpgrades(metadata, _).view)
+      .map(_.toIdentifier)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view
       .map(_.templateTypeRef)
       .flatMap(metadata.resolveTypeConRef)
+      .map(_.toIdentifier)
 
     fromInterfacesDefs ++ fromTemplateDefs
   }

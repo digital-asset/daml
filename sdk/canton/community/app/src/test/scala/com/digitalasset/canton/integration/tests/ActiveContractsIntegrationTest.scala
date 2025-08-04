@@ -702,12 +702,7 @@ class ActiveContractsIntegrationTest
 
       val contractTemplate = TemplateId.fromJavaProtoIdentifier(Iou.TEMPLATE_ID.toProto)
       // LAPI server throws if the template is not found, so we just get an unused but valid template ID here
-      val otherTemplate = TemplateId(
-        packageId = GetCash.PACKAGE_ID,
-        moduleName = GetCash.TEMPLATE_ID.getModuleName,
-        entityName = GetCash.TEMPLATE_ID.getEntityName,
-      )
-
+      val otherTemplate = TemplateId.fromJavaProtoIdentifier(GetCash.TEMPLATE_ID.toProto)
       val (out, _) = unassign(
         cid = contract.cid,
         source = daId,
