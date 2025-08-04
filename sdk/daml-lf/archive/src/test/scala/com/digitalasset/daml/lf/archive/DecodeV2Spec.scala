@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
+import com.daml.SafeProto
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
@@ -12,6 +13,7 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.archive.DamlLf2
+import com.digitalasset.daml.lf.archive.DamlLf
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -1566,9 +1568,35 @@ class DecodeV2Spec
           .addModules(DamlLf2.Module.newBuilder().addValues(theVal).setFlags(ffs))
           .build()
 
-        inside(decoder.decodePackage(pkgId, pkg, false)) { case Right(pkg) =>
-          pkg shouldBe pkg
+        // much cleaner version taken from Encode.scala in comments below: i
+        // cannot figure out where data.assertRight is coming from
+        val lf2 = SafeProto.toByteString(pkg) match {
+          case Right(v) =>
+            v
+          case Left(_) =>
+            throw new RuntimeException("Failed to toByteString")
         }
+
+        // val lf2 =
+        //   try {
+        //     data.assertRight(SafeProto.toByteString(pkg))
+        //   } catch {
+        //     case e: Throwable =>
+        //       e.printStackTrace(System.err)
+        //       throw e
+        //   }
+
+        val payload1 = P
+
+        val payload = DamlLf.ArchivePayload
+          .newBuilder()
+          .setMinor("2.dev")
+          .setDamlLf2(lf2)
+          .build()
+
+        an[Error.Parsing] should be thrownBy (
+          Decode.decodeArchivePayload(payload)
+        )
       }
     }
   }
