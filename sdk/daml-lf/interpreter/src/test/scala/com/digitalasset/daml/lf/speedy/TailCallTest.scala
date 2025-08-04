@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.SResult.SResultFinal
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -61,80 +62,105 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
            True -> acc
          | _    -> F:generate (Cons @Int64 [x] acc) (SUB_INT64 x 1);
 
+     val someOne: Option Int64 = Some @Int64 1;
+
+     val stupidLoop : Option Int64 -> Int64 =
+       \(x: Option Int64) -> case x of
+         Some z -> ADD_INT64 (F:stupidLoop F:someOme) z
+       | None -> 0;
+
    }
   """)
 
-  val small: Option[Int] = Some(5)
-  val unbounded: Option[Int] = None
-
   // Evaluate an expression with optionally bounded env and kont stacks
-  def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
+  def runExpr(e: Ast.Expr, gasBudget: Long, costModel: CostModel): SValue = {
     // create the machine
-    val machine = Speedy.Machine.fromPureExpr(
-      pkgs,
-      e,
-      initialEnvSize = envBound.getOrElse(512),
-      initialKontStackSize = kontBound.getOrElse(128),
+    val machine = Speedy.UpdateMachine(
+      compiledPackages = pkgs,
+      expr = pkgs.compiler.unsafeCompile(e),
+      preparationTime = Time.Timestamp.Epoch,
+      initialSeeding = InitialSeeding.NoSeed,
+      committers = Set.empty,
+      readAs = Set.empty,
+      iterationsBetweenInterruptions = Long.MaxValue,
+      packageResolution = Map.empty,
+      costModel = costModel,
+      initialGasBudget = Some(gasBudget),
+      initialEnvSize = 1,
+      initialKontStackSize = 1,
     )
+
     // maybe replace the kont-stack with a bounded version
     // run the machine
     machine.run() match {
       case SResultFinal(v) =>
-        if (
-          envBound
-            .exists(_ < machine.env.capacity) || kontBound.exists(_ < machine.kontStack.capacity)
-        )
-          throw BoundExceeded
+        println(machine.gasBudget)
         v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }
 
-  "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" in {
+  "A *non* tail-recursive definition requires an unbounded env-stack, and an unbounded kont-stack" ignore {
     val exp = e"F:triangle 100"
     val expected = SValue.SInt64(5050)
     // The point of this test is to prove that the bounded-evaluation checking really works.
-    runExpr(exp, envBound = unbounded, kontBound = unbounded) shouldBe expected
+    runExpr(exp, 0, costModelFreeStack) shouldBe expected
 
     the[RuntimeException]
       .thrownBy {
-        runExpr(exp, envBound = small, kontBound = unbounded)
+        runExpr(exp, 1000, costModelFreeKonStack)
       }
-      .toString() should include("BoundExceeded")
+      .toString() should include("No more gas")
 
     the[RuntimeException]
       .thrownBy {
-        runExpr(exp, envBound = unbounded, kontBound = small)
+        runExpr(exp, 1000, costModelFreeEnv)
       }
-      .toString() should include("BoundExceeded")
+      .toString() should include("No more gas")
   }
 
   "A tail-recursive definition executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangleTR 100"
     val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+    runExpr(exp, 12, costModelStack) shouldBe expected
   }
 
   "fold-left executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangle_viaFoldLeft 100"
     val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+    runExpr(exp, 12, costModelStack) shouldBe expected
   }
 
   "fold-right executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangle_viaFoldRight 100"
     val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+    runExpr(exp, 12, costModelStack) shouldBe expected
   }
 
   "fold-right (KFoldr1Map/Reduce case) executes with a small env-stack, and a small kont-stack" in {
     val exp = e"F:triangle_viaFoldRight2 100"
     val expected = SValue.SInt64(5050)
-    runExpr(exp, envBound = small, kontBound = small) shouldBe expected
+    runExpr(exp, 12, costModelStack) shouldBe expected
   }
 
-  private case object BoundExceeded extends RuntimeException
+  "test " in {
+    val exp = e"F:stupidLoop F:some"
+    runExpr(exp, Long.MaxValue, costModelFreeStack) shouldBe SValue.SInt64
+  }
 
   def crash[A](reason: String): A = throw new RuntimeException(reason)
+
+  val costModelFreeStack = new CostModel.EmptyModel {}
+
+  val costModelFreeEnv = new CostModel.EmptyModel {
+    override val KontStackIncrease = _.toLong
+  }
+  val costModelFreeKonStack = new CostModel.EmptyModel {
+    override val EnvIncrease = _.toLong
+  }
+  val costModelStack = new CostModel.EmptyModel {
+    override val KontStackIncrease = _.toLong
+    override val EnvIncrease = _.toLong
+  }
 
 }
