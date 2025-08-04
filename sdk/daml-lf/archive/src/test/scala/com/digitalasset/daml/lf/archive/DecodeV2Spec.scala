@@ -7,8 +7,10 @@ import com.daml.SafeProto
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf2 => PLF}
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -1506,7 +1508,7 @@ class DecodeV2Spec
   "decodeArchivePayload" should {
 
     "gracefully fail when expression too deep when version supports expression interning" in {
-      forEveryVersion { version =>
+      forEveryVersionSuchThat(_ >= LV.Features.flatArchive) { _ =>
         def buildLet(n: Int): DamlLf2.Expr = {
           if (n == 0)
             unitExpr
@@ -1541,10 +1543,6 @@ class DecodeV2Spec
           .setExpr(theLet)
           .build()
 
-        val decoder = new DecodeV2(version.minor)
-        val pkgId = Ref.PackageId.assertFromString(
-          "0000000000000000000000000000000000000000000000000000000000000000"
-        )
         val metadata =
           DamlLf2.PackageMetadata.newBuilder
             .setNameInternedStr(0)
@@ -1586,16 +1584,35 @@ class DecodeV2Spec
         //       throw e
         //   }
 
-        val payload1 = P
-
         val payload = DamlLf.ArchivePayload
           .newBuilder()
           .setMinor("2.dev")
           .setDamlLf2(lf2)
           .build()
 
+        val payloadBytes = SafeProto.toByteString(payload) match {
+          case Right(v) =>
+            v
+          case Left(_) =>
+            throw new RuntimeException("Failed to toByteString")
+        }
+
+        val hash = PackageId.assertFromString(
+          MessageDigestPrototype.Sha256.newDigest
+            .digest(payload.toByteArray)
+            .map("%02x" format _)
+            .mkString
+        )
+
+        val arch = DamlLf.Archive
+          .newBuilder()
+          .setHashFunction(DamlLf.HashFunction.SHA256)
+          .setPayload(payloadBytes)
+          .setHash(hash)
+          .build()
+
         an[Error.Parsing] should be thrownBy (
-          Decode.decodeArchivePayload(payload)
+          Decode.decodeArchive(arch)
         )
       }
     }
