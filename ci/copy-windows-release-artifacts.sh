@@ -23,7 +23,7 @@ else
   makedir="mkdir -p"
 fi
 
-for item in "github" "artifactory" "split-release" "oci"; do
+for item in "github" "artifactory" "split-release" "oci/${RELEASE_TAG}/${NAME}"; do
   ${makedir} "${OUTPUT_DIR}/${item}"
 done
 
