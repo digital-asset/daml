@@ -554,8 +554,12 @@ sealed trait OnlinePartyReplicationNegotiationTest
               val proposals = participant.ledger_api.state.acs
                 .of_all(filterTemplates =
                   Seq(
-                    TemplateId.fromIdentifier(PartyReplicationAdminWorkflow.proposalTemplate),
-                    TemplateId.fromIdentifier(PartyReplicationAdminWorkflow.agreementTemplate),
+                    TemplateId.fromIdentifier(
+                      PartyReplicationAdminWorkflow.proposalTemplatePkgName
+                    ),
+                    TemplateId.fromIdentifier(
+                      PartyReplicationAdminWorkflow.agreementTemplatePkgName
+                    ),
                   )
                 )
               proposals shouldBe Seq.empty

@@ -13,8 +13,9 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.CryptoSchemes
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
+import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -72,7 +73,9 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
   private[config] def genericValidations[C <: CantonConfig]
       : List[C => Validated[NonEmpty[Seq[String]], Unit]] =
     List(
-      developmentProtocolSafetyCheck,
+      alphaProtocolVersionRequiresNonStandard,
+      dbSequencerRequiresNonStandard,
+      snapshotDirRequiresNonStandard,
       warnIfUnsafeMinProtocolVersion,
       adminTokenSafetyCheckParticipants,
       adminTokenConfigsMatchOnParticipants,
@@ -191,10 +194,30 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
       (),
       NonEmpty(Seq, "At least one node must be defined in the configuration"),
     )
-
   }
 
-  private def developmentProtocolSafetyCheck(
+  private def alphaProtocolVersionRequiresNonStandard(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+
+    val errors = config.allNodes.toSeq.mapFilter { case (name, nodeConfig) =>
+      val nonStandardConfig = config.parameters.nonStandardConfig
+      val alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport
+      Option.when(!nonStandardConfig && alphaVersionSupport)(
+        alphaProtocolVersionRequiresNonStandardError(
+          nodeType = nodeConfig.nodeTypeName,
+          nodeName = name.unwrap,
+        )
+      )
+    }
+
+    toValidated(errors)
+  }
+
+  def alphaProtocolVersionRequiresNonStandardError(nodeType: String, nodeName: String) =
+    s"Enabling alpha-version-support for $nodeType $nodeName requires you to explicitly set canton.parameters.non-standard-config = yes"
+
+  def snapshotDirRequiresNonStandard(
       config: CantonConfig
   ): Validated[NonEmpty[Seq[String]], Unit] = {
 
@@ -206,16 +229,30 @@ object CommunityConfigValidations extends ConfigValidations with NamedLogging {
           s"Setting snapshot-dir for ${nodeConfig.nodeTypeName} ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
         )
 
-      case (name, nodeConfig) =>
-        val nonStandardConfig = config.parameters.nonStandardConfig
-        val alphaVersionSupport = nodeConfig.parameters.alphaVersionSupport
-        Option.when(!nonStandardConfig && alphaVersionSupport)(
-          s"Enabling alpha-version-support for ${nodeConfig.nodeTypeName} ${name.unwrap} requires you to explicitly set canton.parameters.non-standard-config = yes"
-        )
+      case _ =>
+        None
     }
 
     toValidated(errors)
   }
+
+  private def dbSequencerRequiresNonStandard(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = if (!config.parameters.nonStandardConfig) {
+      config.sequencers.toSeq.mapFilter { case (name, config) =>
+        config.sequencer match {
+          case _: SequencerConfig.Database => Some(dbSequencerRequiresNonStandardError(name.unwrap))
+          case _ => None
+        }
+      }
+    } else Nil
+
+    toValidated(errors)
+  }
+
+  def dbSequencerRequiresNonStandardError(nodeName: String): String =
+    s"Using DB sequencer config for sequencer $nodeName requires you to explicitly set canton.parameters.non-standard-config = yes"
 
   private def warnIfUnsafeMinProtocolVersion(
       config: CantonConfig

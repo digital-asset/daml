@@ -7,6 +7,7 @@ import cats.implicits.catsSyntaxSemigroup
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter}
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -82,7 +83,7 @@ class IndexServiceImplSpec
   }
 
   it should "change the result in case of new package arrived" in new Scope {
-    currentPackageMetadata = PackageMetadata()
+    currentPackageMetadata = packageMetadata_iface1
     val eventFormat = EventFormat(
       filtersByParty = Map(
         party -> CumulativeFilter(
@@ -116,8 +117,11 @@ class IndexServiceImplSpec
         EventProjectionProperties(
           verbose = true,
           templateWildcardCreatedEventBlobParties = Some(Set.empty),
-          witnessTemplateProjections =
-            Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false))),
+          witnessTemplateProjections = Map(
+            Some(party.toString) -> Map(
+              template1Full.toNameTypeConRef -> Projection(Set(iface1Full), false)
+            )
+          ),
         )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
       ) // filter gets complicated, filters template1 for iface1, projects iface1
 
@@ -141,8 +145,8 @@ class IndexServiceImplSpec
         verbose = true,
         witnessTemplateProjections = Map(
           Some(party.toString) -> Map(
-            template1 -> Projection(Set(iface1), false),
-            template2 -> Projection(Set(iface1), false),
+            template1Full.toNameTypeConRef -> Projection(Set(iface1Full), false),
+            template2Full.toNameTypeConRef -> Projection(Set(iface1Full), false),
           )
         ),
         templateWildcardCreatedEventBlobParties = Some(Set.empty),
@@ -368,7 +372,7 @@ class IndexServiceImplSpec
 
   it should "ignore template-wildcard filters and only include template filters" in new Scope {
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
@@ -380,7 +384,7 @@ class IndexServiceImplSpec
     ) shouldBe Map.empty
 
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter.templateWildcardFilter(),
@@ -398,7 +402,7 @@ class IndexServiceImplSpec
     )
 
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map(
           party2 -> CumulativeFilter(
@@ -437,7 +441,7 @@ class IndexServiceImplSpec
 
   it should "provide a template filter for a simple template filter" in new Scope {
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1,
       EventFormat(
         filtersByParty = Map(party -> CumulativeFilter(Set(template1Filter), Set(), None)),
         filtersForAnyParty = None,
@@ -446,7 +450,7 @@ class IndexServiceImplSpec
     ) shouldBe Map(template1 -> Some(Set(party)))
 
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1,
       EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(template1Filter), Set(), None)),
@@ -457,7 +461,7 @@ class IndexServiceImplSpec
 
   it should "provide an empty template filter if no template implementing this interface" in new Scope {
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1,
       EventFormat(
         filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None)),
         filtersForAnyParty = None,
@@ -466,7 +470,7 @@ class IndexServiceImplSpec
     ) shouldBe Map.empty
 
     templateFilter(
-      PackageMetadata(),
+      packageMetadata_iface1,
       EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(iface1Filter), None)),
@@ -1366,6 +1370,7 @@ object IndexServiceImplSpec {
     val packageName1: Ref.PackageName = Ref.PackageName.assertFromString("PackageName1")
     val packageName1Ref: Ref.PackageRef = Ref.PackageRef.Name(packageName1)
     val template1: Identifier = Identifier.assertFromString("PackageId:ModuleName:template1")
+    val template1Full: FullIdentifier = template1.toFullIdentifier(packageName1)
     val template1Filter: TemplateFilter =
       TemplateFilter(templateTypeRef = template1.toRef, includeCreatedEventBlob = false)
 
@@ -1375,12 +1380,14 @@ object IndexServiceImplSpec {
         includeCreatedEventBlob = false,
       )
     val template2: Identifier = Identifier.assertFromString("PackageId:ModuleName:template2")
+    val template2Full: FullIdentifier = template2.toFullIdentifier(packageName1)
     val template2Filter: TemplateFilter =
       TemplateFilter(templateTypeRef = template2.toRef, includeCreatedEventBlob = false)
     val template3: Identifier = Identifier.assertFromString("PackageId:ModuleName:template3")
     val template3Filter: TemplateFilter =
       TemplateFilter(templateTypeRef = template3.toRef, includeCreatedEventBlob = false)
     val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
+    val iface1Full: FullIdentifier = iface1.toFullIdentifier(packageName1)
     val iface1Filter: InterfaceFilter = InterfaceFilter(
       iface1.toRef,
       includeView = true,
@@ -1413,22 +1420,26 @@ object IndexServiceImplSpec {
       ),
       allPackageIdsForName = NonEmpty(Set, iface1.packageId),
     )
-    val packageMetadata_iface1_template1: PackageMetadata = PackageMetadata(
+    val packageMetadata_iface1: PackageMetadata = PackageMetadata(
       interfaces = Set(iface1),
-      templates = Set(template1),
-      interfacesImplementedBy = Map(iface1 -> Set(template1)),
+      templates = Set.empty,
+      interfacesImplementedBy = Map.empty,
       packageIdVersionMap = Map(
-        template1.packageId -> (packageName1 -> Ref.PackageVersion.assertFromString("1.0.0"))
+        iface1.packageId -> (packageName1 -> Ref.PackageVersion.assertFromString("1.0.0"))
       ),
       packageNameMap = Map(
         packageName1 -> PackageResolution(
           LocalPackagePreference(
             Ref.PackageVersion.assertFromString("1.0.0"),
-            template1.packageId,
+            iface1.packageId,
           ),
-          NonEmpty(Set, template1.packageId),
+          NonEmpty(Set, iface1.packageId),
         )
       ),
+    )
+    val packageMetadata_iface1_template1: PackageMetadata = packageMetadata_iface1.copy(
+      templates = Set(template1),
+      interfacesImplementedBy = Map(iface1 -> Set(template1)),
     )
 
     val packageMetadata_iface1_template2: PackageMetadata = PackageMetadata(

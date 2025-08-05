@@ -18,6 +18,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat as ProtoUpdateFormat,
   WildcardFilter,
 }
+import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.api.{
@@ -34,6 +35,7 @@ import com.digitalasset.canton.ledger.api.{
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.daml.lf.data.Ref.{PackageRef, TypeConRef}
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.std.list.*
@@ -227,7 +229,7 @@ object FormatValidator {
   ): Either[StatusRuntimeException, TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
-      typeConRef <- validateTypeConRef(templateId)
+      typeConRef <- validateTypeConRefWithWarning(templateId)
     } yield TemplateFilter(
       templateTypeRef = typeConRef,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
@@ -238,12 +240,28 @@ object FormatValidator {
   ): Either[StatusRuntimeException, InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
-      typeConRef <- validateTypeConRef(interfaceId)
+      typeConRef <- validateTypeConRefWithWarning(interfaceId)
     } yield InterfaceFilter(
       interfaceTypeRef = typeConRef,
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
+
+  private def validateTypeConRefWithWarning(identifier: Identifier)(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, TypeConRef] =
+    for {
+      typeConRef <- validateTypeConRef(identifier)
+      _ = typeConRef.pkg match {
+        case PackageRef.Name(_) => ()
+        case PackageRef.Id(id) =>
+          errorLoggingContext.logger.warn(
+            s"Received an identifier with package ID $id, but expected a package name. " +
+              "The query will be resolved for the package-name pertaining to the requested package-id instead." +
+              "The usage of package IDs in identifiers is deprecated and will be removed in a future release."
+          )(errorLoggingContext.traceContext)
+      }
+    } yield typeConRef
 
   private def validateNonEmptyFilters(
       templateFilters: Seq[ProtoTemplateFilter],

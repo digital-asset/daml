@@ -134,7 +134,6 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
           CommunityKmsFactory,
           arguments.config.parameters.caching.kmsMetadataCache,
           arguments.config.crypto.privateKeyStore,
-          arguments.parameters.nonStandardConfig,
           arguments.futureSupervisor,
           arguments.clock,
           arguments.executionContext,

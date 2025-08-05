@@ -2425,8 +2425,8 @@
       {
         "current": {
           "selected": true,
-          "text": ".999",
-          "value": ".999"
+          "text": ".95",
+          "value": ".95"
         },
         "hide": 0,
         "includeAll": false,
@@ -2465,17 +2465,22 @@
             "value": ".9"
           },
           {
+            "selected": true,
+            "text": ".95",
+            "value": ".95"
+          },
+          {
             "selected": false,
             "text": ".99",
             "value": ".99"
           },
           {
-            "selected": true,
+            "selected": false,
             "text": ".999",
             "value": ".999"
           }
         ],
-        "query": ".5,.6,.7,.75,.8,.9,.99,.999",
+        "query": ".5,.6,.7,.75,.8,.9,.95,.99,.999",
         "queryValue": "",
         "skipUrlSync": false,
         "type": "custom"

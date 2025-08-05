@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.scheduler
 
-import cats.data.EitherT
-import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -37,6 +35,7 @@ abstract class JobScheduler(
 )(implicit
     val ec: ExecutionContext
 ) extends Scheduler
+    with ScheduleRefresher
     with NamedLogging {
 
   /** Implements the code that is to be executed when the scheduled time has arrived for the
@@ -53,7 +52,7 @@ abstract class JobScheduler(
     *   for pruning) or to determine the type of work scheduled (e.g. pruning versus pruning metric
     *   update).
     */
-  def schedulerJob(schedule: IndividualSchedule)(implicit
+  protected def schedulerJob(schedule: IndividualSchedule)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[ScheduledRunResult]
 
@@ -61,7 +60,7 @@ abstract class JobScheduler(
     * @return
     *   if override returns Some[A] go ahead and schedule; if None don't
     */
-  def initializeSchedule()(implicit
+  protected def initializeSchedule()(implicit
       traceContext: TraceContext
   ): Future[Option[JobSchedule]]
 
@@ -136,25 +135,13 @@ abstract class JobScheduler(
       (),
     )
 
-  def reactivateSchedulerIfActive()(implicit traceContext: TraceContext): Future[Unit] =
+  override def reactivateSchedulerIfActive()(implicit traceContext: TraceContext): Future[Unit] =
     if (isActiveReplica.get) {
       // Stop and start scheduler executor to ensure the new schedule goes into effect asap.
       // This purposely emphasizes safety over efficiency.
       deactivate()
       activate()
     } else Future.unit
-
-  def reactivateSchedulerIfActiveET()(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, String, Unit] =
-    EitherT(reactivateSchedulerIfActive().map(_ => Either.unit[String]))
-
-  def updateScheduleAndReactivateIfActive(
-      update: => Future[Unit]
-  )(implicit traceContext: TraceContext): Future[Unit] = for {
-    _ <- update
-    _ <- reactivateSchedulerIfActive()
-  } yield ()
 
   private def runIfActive[T](code: ActiveSchedulerState => T, noOp: T)(implicit
       traceContext: TraceContext

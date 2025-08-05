@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
+import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter}
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
@@ -73,7 +74,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       filtersByParty = Map(
         party ->
           CumulativeFilter(
-            templateFilters = Set(TemplateFilter(template1.toRef, false)),
+            templateFilters = Set(TemplateFilter(template1.toIdentifier.toRef, false)),
             interfaceFilters = Set.empty,
             templateWildcardFilter = None,
           ),
@@ -151,10 +152,11 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         createdEventBlob = true,
       )
 
-      // createdEventBlob not enabled as it's only matched by the package-name scoped template filter with createdEventBlob = false
+      // createdEventBlob enabled as it's matched by the package-id scoped template filter for template1 with createdEventBlob = true
+      // which internally translates to package-name which is the same with that of template2
       eventProjectionProperties.render(Set(party), template2) shouldBe Projection(
         interfaces = Set.empty,
-        createdEventBlob = false,
+        createdEventBlob = true,
       )
     }
 
@@ -202,10 +204,11 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         createdEventBlob = true,
       )
 
-      // createdEventBlob not enabled as it's only matched by the package-name scoped template filter with createdEventBlob = false
+      // createdEventBlob enabled as it's matched by the package-id scoped template filter for template1 with createdEventBlob = true
+      // which internally translates to package-name which is the same with that of template2
       eventProjectionProperties.render(Set(party), template2) shouldBe Projection(
         interfaces = Set.empty,
-        createdEventBlob = false,
+        createdEventBlob = true,
       )
     }
 
@@ -622,7 +625,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         resolveTypeConRef = noTemplatesForPackageName,
       )
         .render(Set(party, party2), template1) shouldBe Projection(
-        Set(iface2, iface1),
+        Set(iface1, iface2),
         false,
       )
     }
@@ -775,10 +778,11 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
         createdEventBlob = true,
       )
 
-      // createdEventBlob not enabled as it's only matched by the package-name scoped template filter with createdEventBlob = false
+      // createdEventBlob enabled as it's matched by the package-id scoped template filter with createdEventBlob = true
+      // (it internally translates to package-name which is the same with that of template2)
       eventProjectionProperties.render(Set(party), template2) shouldBe Projection(
         interfaces = Set.empty,
-        createdEventBlob = false,
+        createdEventBlob = true,
       )
     }
 
@@ -873,7 +877,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     it should "project created_event_blob in case of match by interface, template-id (but both without flag enabled) and " +
       "package-name-scoped template (flag enabled)" ++ details in new Scope {
         val template2Filter: TemplateFilter =
-          TemplateFilter(template2.toRef, includeCreatedEventBlob = false)
+          TemplateFilter(template2.toIdentifier.toRef, includeCreatedEventBlob = false)
         private val filters =
           CumulativeFilter(
             templateFilters = Set(
@@ -914,9 +918,17 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
               packageNameScopedTemplate -> Set(template2),
             ),
           )
+
+        // createdEventBlob enabled as it's matched by the package-named scoped template filter with createdEventBlob = true
+        // (template1 internally translates to package-name which is the same with that of template2)
         eventProjectionProperties.render(
           Set(party),
           template1,
+        ) shouldBe Projection(Set.empty, true)
+
+        eventProjectionProperties.render(
+          Set(party),
+          template3,
         ) shouldBe Projection(Set.empty, false)
 
         // createdEventBlob enabled as it's matched by the package-name scoped template filter with createdEventBlob = true
@@ -960,6 +972,15 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       ).render(
         Set(party),
         template2,
+      ) shouldBe Projection(Set.empty, true)
+
+      EventProjectionProperties(
+        eventFormat = transactionFilter,
+        interfaceImplementedBy = interfaceImpl,
+        resolveTypeConRef = noTemplatesForPackageName,
+      ).render(
+        Set(party),
+        template3,
       ) shouldBe Projection(Set.empty, false)
 
     }
@@ -1004,13 +1025,17 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       eventProjectionProperties.render(
         Set(party),
         template2,
+      ) shouldBe Projection(Set.empty, true)
+      eventProjectionProperties.render(
+        Set(party),
+        template3,
       ) shouldBe Projection(Set.empty, false)
     }
 
     it should "project created_event_blob for wildcard templates, if it is specified explicitly via template filter" ++ details in new Scope {
       private val filters =
         CumulativeFilter(
-          templateFilters = Set(TemplateFilter(template1.toRef, true)),
+          templateFilters = Set(TemplateFilter(template1.toIdentifier.toRef, true)),
           interfaceFilters = Set.empty,
           templateWildcardFilter = None,
         )
@@ -1041,6 +1066,10 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       eventProjectionProperties.render(
         Set(party),
         template2,
+      ) shouldBe Projection(Set.empty, true)
+      eventProjectionProperties.render(
+        Set(party),
+        template3,
       ) shouldBe Projection(Set.empty, false)
     }
 
@@ -1053,29 +1082,42 @@ object EventProjectionPropertiesSpec {
     val qualifiedName: Ref.QualifiedName = Ref.QualifiedName.assertFromString("ModuleName:template")
     val packageNameScopedTemplate: Ref.TypeConRef = Ref.TypeConRef(packageRefName, qualifiedName)
 
-    val template1: Identifier = Identifier.assertFromString("PackageId2:ModuleName:template")
-    val template1Ref: Ref.TypeConRef = template1.toRef
+    val template1: FullIdentifier = Identifier
+      .assertFromString("PackageId2:ModuleName:template")
+      .toFullIdentifier(packageRefName.name)
+    val template1Ref: Ref.TypeConRef = template1.toIdentifier.toRef
     val template1Filter: TemplateFilter =
-      TemplateFilter(template1.toRef, includeCreatedEventBlob = false)
-    val template2: Identifier = Identifier.assertFromString("PackageId1:ModuleName:template")
-    val template2Ref: Ref.TypeConRef = template2.toRef
-    val template3: Identifier = Identifier.assertFromString("PackageId3:ModuleName:template")
-    val id: Identifier = Identifier.assertFromString("PackageId:ModuleName:id")
-    val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
-    val iface1Ref: TypeConRef = iface1.toRef
-    val iface2: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface2")
-    val iface2Ref: TypeConRef = iface2.toRef
+      TemplateFilter(template1.toIdentifier.toRef, includeCreatedEventBlob = false)
+    val template2: FullIdentifier = Identifier
+      .assertFromString("PackageId1:ModuleName:template")
+      .toFullIdentifier(packageRefName.name)
+    val template2Ref: Ref.TypeConRef = template2.toIdentifier.toRef
+    val template3: FullIdentifier = Identifier
+      .assertFromString("PackageId1:ModuleName:template3")
+      .toFullIdentifier(packageRefName.name)
+    val template3Ref: Ref.TypeConRef = template3.toIdentifier.toRef
+    val id: FullIdentifier =
+      Identifier.assertFromString("PackageId:ModuleName:id").toFullIdentifier(packageRefName.name)
+    val iface1: FullIdentifier = Identifier
+      .assertFromString("PackageId:ModuleName:iface1")
+      .toFullIdentifier(packageRefName.name)
+    val iface1Ref: TypeConRef = iface1.toIdentifier.toRef
+    val iface2: FullIdentifier = Identifier
+      .assertFromString("PackageId:ModuleName:iface2")
+      .toFullIdentifier(packageRefName.name)
+    val iface2Ref: TypeConRef = iface2.toIdentifier.toRef
     val packageNameScopedIface1 = Ref.TypeConRef(packageRefName, iface1.qualifiedName)
 
-    val noInterface: Identifier => Set[Identifier] = _ => Set.empty[Identifier]
-    val noTemplatesForPackageName: TypeConRef => Set[Identifier] =
+    val noInterface: FullIdentifier => Set[FullIdentifier] = _ => Set.empty[FullIdentifier]
+    val noTemplatesForPackageName: TypeConRef => Set[FullIdentifier] =
       Map(
         template1Ref -> Set(template1),
         template2Ref -> Set(template2),
+        template3Ref -> Set(template3),
         iface1Ref -> Set(iface1),
         iface2Ref -> Set(iface2),
       )
-    val templatesForPackageName: TypeConRef => Set[Identifier] =
+    val templatesForPackageName: TypeConRef => Set[FullIdentifier] =
       Map(
         template1Ref -> Set(template1),
         template2Ref -> Set(template2),
@@ -1085,9 +1127,9 @@ object EventProjectionPropertiesSpec {
         packageNameScopedIface1 -> Set(iface1),
       )
 
-    val interfaceImpl: Identifier => Set[Identifier] = {
+    val interfaceImpl: FullIdentifier => Set[FullIdentifier] = {
       case `iface1` => Set(template1)
-      case `iface2` => Set(template1, template2)
+      case `iface2` => Set(template1, template2, template3)
       case _ => Set.empty
     }
     val party: Party = Party.assertFromString("party")

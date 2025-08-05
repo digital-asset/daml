@@ -868,10 +868,11 @@ package http {
     * expectation of what the resolved ID will be, or neither, which indicates that resolving what
     * kind of ID this is will be part of the resolution.
     *
-    * Built-in equality is solely determined by the triple of package ID, module name, entity name.
-    * This is because there are likely insidious expectations that this be true dating to before
-    * contract type IDs were distinguished at all, and we are only interested in distinguishing them
-    * statically, which these types do, and by pattern-matching, which does work.
+    * Built-in equality is solely determined by the triple of package name, module name, entity
+    * name. This is because there are likely insidious expectations that this be true dating to
+    * before contract type IDs were distinguished at all, and we are only interested in
+    * distinguishing them statically, which these types do, and by pattern-matching, which does
+    * work.
     *
     * {{{
     *   val selector: ContractTypeId[Unit] = Template((), "M", "E")

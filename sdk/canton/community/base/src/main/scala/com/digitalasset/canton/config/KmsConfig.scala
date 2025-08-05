@@ -129,6 +129,7 @@ object KmsConfig {
       endpointOverride: Option[String] = None,
   ) extends KmsConfig
       with EnterpriseOnlyCantonConfigValidation
+
   object Aws {
     val defaultTestConfig: Aws = Aws(region = "us-east-1")
     val testConfigWithAudit: Aws = defaultTestConfig.copy(auditLogging = true)

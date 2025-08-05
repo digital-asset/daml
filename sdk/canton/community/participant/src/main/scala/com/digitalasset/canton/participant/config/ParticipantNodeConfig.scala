@@ -131,6 +131,7 @@ final case class ParticipantFeaturesConfig(
     snapshotDir: Option[Path] = None,
 ) extends PredicatedCantonConfigValidation {
   override protected def allowThisInCommunity: Boolean =
+    // DAMLe profiling is an enterprise-only supported feature
     profileDir.isEmpty
 }
 

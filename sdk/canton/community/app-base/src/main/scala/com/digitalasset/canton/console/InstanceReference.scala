@@ -7,7 +7,6 @@ import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
-  BftPruningStatus,
   MediatorStatus,
   NodeStatus,
   ParticipantStatus,
@@ -572,20 +571,20 @@ abstract class ParticipantReference(
     * synchronizer store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
-    val connected = synchronizers.list_connected().map(_.synchronizerId).toSet
+    val connected = synchronizers.list_connected().map(_.physicalSynchronizerId).toSet
     // for every participant
     consoleEnvironment.participants.all
       .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
         // for every synchronizer this participant is connected to as well
         participant.synchronizers.list_connected().foreach {
-          case item if connected.contains(item.synchronizerId) =>
+          case item if connected.contains(item.physicalSynchronizerId) =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the synchronizer match the ones in the authorized store
                 val onSynchronizer = participant.topology.vetted_packages
                   .list(
-                    store = item.synchronizerId.logical,
+                    store = item.synchronizerId,
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
@@ -604,12 +603,12 @@ abstract class ParticipantReference(
                 val ret = onParticipantAuthorizedStore == onSynchronizer
                 if (!ret) {
                   logger.debug(
-                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.synchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
+                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.physicalSynchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
                   )
                 }
                 ret
               },
-              show"Participant ${participant.name} has not observed all vetting txs of $id on synchronizer ${item.synchronizerId} within the given timeout.",
+              show"Participant ${participant.name} has not observed all vetting txs of $id on synchronizer ${item.physicalSynchronizerId} within the given timeout.",
             )
           case _ =>
         }
@@ -1254,32 +1253,16 @@ abstract class SequencerReference(
         runner.adminCommand(SequencerBftAdminCommands.SetPerformanceMetricsEnabled(false))
       }
 
-    object pruning {
-      @Help.Summary(
-        "Prune the BFT Orderer layer based on the retention period and minimum blocks to keep specified"
-      )
-      @Help.Description(
-        """Prunes the BFT Orderer layer based on the retention period and minimum blocks to keep specified
-          | returning a description of how the operation went."""
-      )
-      def prune(retention: PositiveDurationSeconds, minBlocksToKeep: Int): String =
-        consoleEnvironment.run {
-          runner.adminCommand(SequencerBftPruningAdminCommands.Prune(retention, minBlocksToKeep))
-        }
+    @Help.Summary("Commands to prune the sequencer's BFT Orderer", FeatureFlag.Preview)
+    @Help.Group("BFT Orderer Pruning")
+    def pruning: SequencerBftPruningAdministrationGroup = pruning_
 
-      @Help.Summary("Pruning status of the BFT Orderer")
-      @Help.Description(
-        """Provides a detailed breakdown of information required for pruning:
-          | - TODO(i26216): the current time according to this sequencer instance
-          | - the lower bound inclusive epoch number it current supports serving from
-          | - the lower bound inclusive block number it current supports serving from
-          |"""
+    private lazy val pruning_ =
+      new SequencerBftPruningAdministrationGroup(
+        runner,
+        consoleEnvironment,
+        loggerFactory,
       )
-      def status(): BftPruningStatus =
-        consoleEnvironment.run {
-          runner.adminCommand(SequencerBftPruningAdminCommands.Status())
-        }
-    }
 
     private def toInternal(endpoint: BftBlockOrdererConfig.EndpointId): P2PEndpoint.Id =
       P2PEndpoint.Id(endpoint.address, endpoint.port, endpoint.tls)
