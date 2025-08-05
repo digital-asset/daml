@@ -476,7 +476,7 @@ object ModelConformanceChecker {
               cid -> FatContractInstance.fromCreateNode(
                 enrichedNode,
                 storedContract.inst.createdAt: CreationTime,
-                storedContract.inst.cantonData,
+                storedContract.inst.authenticationData,
               )
             }
           }

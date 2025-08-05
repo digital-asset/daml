@@ -65,7 +65,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         )
         .leftMap(_.toString)
       authenticationData <- ContractAuthenticationData
-        .fromLfBytes(contractIdVersion, contract.cantonData)
+        .fromLfBytes(contractIdVersion, contract.authenticationData)
         .leftMap(_.toString)
       _ <- authenticate(
         contract.contractId,

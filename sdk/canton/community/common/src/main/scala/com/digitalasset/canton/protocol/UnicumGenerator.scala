@@ -242,7 +242,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
           contractInstance.contractKeyWithMaintainers.map(Versioned(contractInstance.version, _)),
       )
       authenticationData <- ContractAuthenticationData
-        .fromLfBytes(cantonContractIdVersion, contractInstance.cantonData)
+        .fromLfBytes(cantonContractIdVersion, contractInstance.authenticationData)
         .leftMap(err => s"Failed to decode canton metadata: $err")
       createdAt <- contractInstance.createdAt match {
         case createdAt: CreationTime.CreatedAt =>

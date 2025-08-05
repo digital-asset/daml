@@ -82,7 +82,7 @@ object DisclosedContractCreator {
       ),
       createTime =
         CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
-      cantonData = lf.authenticationDataBytes,
+      authenticationData = lf.authenticationDataBytes,
     )
   }
 

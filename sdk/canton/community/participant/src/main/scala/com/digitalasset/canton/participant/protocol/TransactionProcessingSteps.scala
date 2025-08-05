@@ -1239,7 +1239,7 @@ class TransactionProcessingSteps(
         // We deliberately do not forward the authentication data
         // for divulged contracts since they are not visible on the Ledger API
         (createdContracts ++ witnessed).view.map { case (contractId, contract) =>
-          contractId -> contract.inst.cantonData
+          contractId -> contract.inst.authenticationData
         }.toMap
 
       acceptedEvent =

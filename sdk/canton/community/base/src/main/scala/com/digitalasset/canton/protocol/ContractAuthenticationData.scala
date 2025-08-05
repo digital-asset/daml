@@ -20,7 +20,7 @@ import io.scalaland.chimney.dsl.*
 sealed trait ContractAuthenticationData extends PrettyPrinting {
 
   /** Defines the serialization of contract authentication data as stored inside
-    * [[com.digitalasset.daml.lf.transaction.FatContractInstance.cantonData]]
+    * [[com.digitalasset.daml.lf.transaction.FatContractInstance.authenticationData]]
     */
   def toLfBytes: LfBytes
 
