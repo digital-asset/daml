@@ -1198,10 +1198,13 @@ private[lf] object Speedy {
           val othersLength = newArgs.length - missing
 
           // Evaluate the arguments
-          var i = actualsSoFar.size
-          newArgs.foreach { newArg =>
-            actuals(i) = newArg.lookupValue(this)
+          // Evaluate the arguments
+          var i = 0
+          var j = actualsSoFar.size
+          while (i < newArgsLimit) {
+            actuals(j) = newArgs(i).lookupValue(this)
             i += 1
+            j += 1
           }
 
           // Not enough arguments. Return a PAP.
