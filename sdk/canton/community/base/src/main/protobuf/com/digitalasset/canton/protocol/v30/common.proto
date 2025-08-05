@@ -16,6 +16,6 @@ enum ViewType {
   VIEW_TYPE_ASSIGNMENT = 3;
 }
 
-message DriverContractMetadata {
+message ContractAuthenticationData {
   crypto.v30.Salt contract_salt = 1;
 }

@@ -3,30 +3,19 @@
 
 package com.digitalasset.canton.participant.store
 
-import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
+import com.digitalasset.canton.participant.protocol.DummyContractAuthenticator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageName
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value.{ValueText, ValueUnit}
 import org.scalatest.wordspec.AsyncWordSpec
 
 class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
-
-  private object dummyAuthenticator extends ContractAuthenticator {
-    override def authenticateSerializable(contract: SerializableContract): Either[String, Unit] =
-      Either.unit
-    override def authenticateFat(contract: FatContractInstance): Either[String, Unit] = Either.unit
-    override def verifyMetadata(
-        contract: GenContractInstance,
-        metadata: ContractMetadata,
-    ): Either[String, Unit] = Either.unit
-  }
 
   private val coid00: LfContractId = suffixedId(0, 0)
   private val coid01: LfContractId = suffixedId(0, 1)
@@ -79,7 +68,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
     val extendedStore = new ExtendedContractLookup(
       overwrites,
       Map(key00 -> Some(coid00), key1 -> None),
-      dummyAuthenticator,
+      DummyContractAuthenticator,
     )
 
     "not make up contracts" in {
@@ -114,7 +103,7 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
         new ExtendedContractLookup(
           Map(coid10 -> contract),
           Map.empty,
-          dummyAuthenticator,
+          DummyContractAuthenticator,
         )
       )
     }

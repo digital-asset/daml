@@ -119,7 +119,7 @@ final class RepairService(
       repairContract: RepairContract,
       ignoreAlreadyAdded: Boolean,
       acsState: Option[ActiveContractStore.Status],
-      storedContract: Option[SerializableContract],
+      storedContract: Option[ContractInstance],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = {
@@ -127,11 +127,14 @@ final class RepairService(
 
     def addContract(
         reassigningFrom: Option[Source[SynchronizerId]]
-    ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] = Right(
-      Option(
-        ContractToAdd(repairContract.contract, repairContract.reassignmentCounter, reassigningFrom)
+    ): EitherT[FutureUnlessShutdown, String, Option[ContractToAdd]] =
+      for {
+        contractInstance <- EitherT.fromEither[FutureUnlessShutdown](
+          ContractInstance.create(repairContract.contract)
+        )
+      } yield Option(
+        ContractToAdd(contractInstance, repairContract.reassignmentCounter, reassigningFrom)
       )
-    ).toEitherT[FutureUnlessShutdown]
 
     acsState match {
       case None => addContract(reassigningFrom = None)
@@ -146,7 +149,7 @@ final class RepairService(
               }
             )
             _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-              contractAlreadyThere == repairContract.contract,
+              contractAlreadyThere.inst == repairContract.contract,
               log(
                 s"Contract $contractId exists in synchronizer, but does not match with contract being added. "
                   + s"Existing contract is $contractAlreadyThere while contract supposed to be added ${repairContract.contract}"
@@ -202,7 +205,7 @@ final class RepairService(
   private def readRepairContractCurrentState(
       repairContract: RepairContract,
       acsState: Option[ActiveContractStore.Status],
-      storedContract: Option[SerializableContract],
+      storedContract: Option[ContractInstance],
       ignoreAlreadyAdded: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -210,7 +213,7 @@ final class RepairService(
     for {
       _ <- EitherT
         .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.authenticateSerializable(repairContract.contract)
+          contractAuthenticator.authenticate(repairContract.contract)
         )
         .leftMap(e =>
           log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")
@@ -333,16 +336,7 @@ final class RepairService(
                 "Unable to lookup contracts in contract store",
               ).map(_.flatten)
 
-            storedContracts <- EitherT.fromEither[FutureUnlessShutdown](
-              contractInstances
-                .traverse { contract =>
-                  SerializableContract
-                    .fromLfFatContractInst(contract.inst)
-                    .map(c => c.contractId -> c)
-                }
-                .map(_.toMap)
-            )
-
+            storedContracts = contractInstances.map(c => c.contractId -> c).toMap
             filteredContracts <- contracts.zip(contractStates).parTraverseFilter {
               case (contract, acsState) =>
                 readRepairContractCurrentState(
@@ -354,7 +348,7 @@ final class RepairService(
             }
 
             contractsByCreation = filteredContracts
-              .groupBy(_.contract.ledgerCreateTime)
+              .groupBy(_.contract.inst.createdAt)
               .toList
               .sortBy { case (ledgerCreateTime, _) => ledgerCreateTime.time }
 
@@ -374,7 +368,7 @@ final class RepairService(
                     )
 
                     allStakeholders = filteredContracts
-                      .flatMap(_.contract.metadata.stakeholders)
+                      .flatMap(_.contract.stakeholders)
                       .toSet
 
                     allHostedStakeholders <- EitherT.right(
@@ -748,9 +742,7 @@ final class RepairService(
     for {
       // All referenced templates known and vetted
       _packagesVetted <- contracts
-        .map(
-          _.contract.rawContractInstance.contractInstance.unversioned.template.packageId
-        )
+        .map(_.contract.templateId.packageId)
         .distinct
         .parTraverse_(packageKnown)
 
@@ -781,7 +773,7 @@ final class RepairService(
     val contractId = contractToAdd.cid
     for {
       _warnOnEmptyMaintainers <- EitherT.cond[FutureUnlessShutdown](
-        !contract.metadata.maybeKeyWithMaintainers.exists(_.maintainers.isEmpty),
+        !contract.contractKeyWithMaintainers.exists(_.maintainers.isEmpty),
         (),
         log(s"Contract $contractId has key without maintainers."),
       )
@@ -790,18 +782,18 @@ final class RepairService(
         if (ignoreStakeholderCheck) EitherT.rightT[FutureUnlessShutdown, String](())
         else {
           val localStakeholders =
-            allHostedStakeholders.intersect(contractToAdd.contract.metadata.stakeholders)
+            allHostedStakeholders.intersect(contractToAdd.contract.stakeholders)
 
           for {
             // At least one stakeholder is hosted locally
             _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
               localStakeholders.nonEmpty,
-              s"Contract ${contract.contractId} has stakeholders ${contract.metadata.stakeholders} but none of them are hosted locally",
+              s"Contract ${contract.contractId} has stakeholders ${contract.stakeholders} but none of them are hosted locally",
             )
 
             // All stakeholders exist on the synchronizer
             _ <- topologySnapshot
-              .allHaveActiveParticipants(contract.metadata.stakeholders)
+              .allHaveActiveParticipants(contract.stakeholders)
               .leftMap { missingStakeholders =>
                 log(
                   s"Synchronizer ${repair.synchronizer.alias} missing stakeholders $missingStakeholders of contract ${contract.contractId}"
@@ -830,7 +822,7 @@ final class RepairService(
   private def persistAddContracts(
       repair: RepairRequest,
       contractsToAdd: Seq[(ContractToAdd, TimeOfChange)],
-      storedContracts: Map[LfContractId, SerializableContract],
+      storedContracts: Map[LfContractId, ContractInstance],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
@@ -841,16 +833,13 @@ final class RepairService(
           case (contractToAdd, _) =>
             storedContracts.get(contractToAdd.cid) match {
               case None =>
-                EitherT.fromEither[FutureUnlessShutdown](
-                  ContractInstance(contractToAdd.contract).map(c => Some(c))
-                )
+                EitherT.rightT[FutureUnlessShutdown, String](Some(contractToAdd.contract))
               case Some(storedContract) =>
-                EitherTUtil
-                  .condUnitET[FutureUnlessShutdown](
-                    storedContract == contractToAdd.contract,
-                    s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
-                  )
-                  .map(_ => Option.empty[MissingContract])
+                EitherT.cond[FutureUnlessShutdown](
+                  storedContract == contractToAdd.contract,
+                  Option.empty[MissingContract],
+                  s"Contract ${contractToAdd.cid} already exists in the contract store, but differs from contract to be created. Contract to be created $contractToAdd versus existing contract $storedContract.",
+                )
             }
         }
 
@@ -999,7 +988,7 @@ final class RepairService(
         )
       ),
       updateId = repair.transactionId.tryAsLedgerTransactionId,
-      contractMetadata = Map.empty,
+      contractAuthenticationData = Map.empty,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repair.tryExactlyOneRepairCounter,
       recordTime = repair.timestamp,
@@ -1015,9 +1004,8 @@ final class RepairService(
       contractsAdded: Seq[ContractToAdd],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
-    val contractMetadata = contractsAdded.view.map { c =>
-      val cId = c.contract.contractId
-      cId -> c.driverMetadata(CantonContractIdVersion.tryCantonContractIdVersion(cId))
+    val contractAuthenticationData = contractsAdded.view.map { c =>
+      c.contract.contractId -> c.authenticationData
     }.toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
@@ -1039,7 +1027,7 @@ final class RepairService(
         )
       ),
       updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-      contractMetadata = contractMetadata,
+      contractAuthenticationData = contractAuthenticationData,
       synchronizerId = repair.synchronizer.psid.logical,
       repairCounter = repairCounter,
       recordTime = repair.timestamp,
@@ -1278,14 +1266,14 @@ final class RepairService(
 object RepairService {
 
   private final case class ContractToAdd(
-      contract: SerializableContract,
+      contract: ContractInstance,
       reassignmentCounter: ReassignmentCounter,
       reassigningFrom: Option[Source[SynchronizerId]],
   ) {
     def cid: LfContractId = contract.contractId
 
-    def driverMetadata(contractIdVersion: CantonContractIdVersion): Bytes =
-      DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
+    def authenticationData: Bytes =
+      contract.inst.authenticationData
 
   }
 }

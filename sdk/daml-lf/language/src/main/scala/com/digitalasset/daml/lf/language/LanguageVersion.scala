@@ -103,8 +103,9 @@ object LanguageVersion {
 
     val crypto = v2_1
 
-    val kindInterning = v2_dev
-    val exprInterning = v2_dev
+    val flatArchive = v2_dev
+    val kindInterning = flatArchive
+    val exprInterning = flatArchive
 
     val complexAnyType = v2_dev
 

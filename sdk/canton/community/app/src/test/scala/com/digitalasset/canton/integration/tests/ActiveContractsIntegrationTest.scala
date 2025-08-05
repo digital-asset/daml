@@ -207,6 +207,8 @@ class ActiveContractsIntegrationTest
       suffixedContractInstance = contractInst.unversioned,
       cantonContractIdVersion,
     )
+    val authenticationData =
+      ContractAuthenticationDataV1(contractSalt.unwrap)(cantonContractIdVersion)
 
     lazy val contractId = cantonContractIdVersion.fromDiscriminator(
       ExampleTransactionFactory.lfHash(1337),
@@ -224,17 +226,11 @@ class ActiveContractsIntegrationTest
 
     val repairContract = RepairContract(
       psid,
-      contract = SerializableContract(
-        contractId = contractId,
-        contractInstance = createNode.versionedCoinst,
-        metadata = ContractMetadata.tryCreate(
-          signatories = Set(signatory.toLf),
-          stakeholders = Set(signatory.toLf, observer.toLf),
-          maybeKeyWithMaintainersVersioned = None,
-        ),
-        ledgerTime = ledgerCreateTime,
-        contractSalt = contractSalt.unwrap,
-      ).getOrElse(throw new IllegalStateException),
+      contract = LfFatContractInst.fromCreateNode(
+        createNode,
+        CreationTime.CreatedAt(ledgerCreateTime.toLf),
+        authenticationData.toLfBytes,
+      ),
       ReassignmentCounter(0),
     )
 

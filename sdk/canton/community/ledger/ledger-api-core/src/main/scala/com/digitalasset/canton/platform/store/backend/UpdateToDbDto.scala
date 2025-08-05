@@ -362,11 +362,13 @@ object UpdateToDbDto {
         create_key_value_compression =
           compressionStrategy.createKeyValueCompression.id.filter(_ => createKeyValue.isDefined),
         event_sequential_id = 0, // this is filled later
-        driver_metadata = transactionAccepted.contractMetadata
+        authentication_data = transactionAccepted.contractAuthenticationData
           .get(create.coid)
           .map(_.toByteArray)
           .getOrElse(
-            throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}")
+            throw new IllegalStateException(
+              s"missing authentication data for contract ${create.coid}"
+            )
           ),
         synchronizer_id = transactionAccepted.synchronizerId.toProtoPrimitive,
         trace_context = serializedTraceContext,
@@ -620,7 +622,7 @@ object UpdateToDbDto {
           compressionStrategy.createKeyValueCompression.id.filter(_ => createKeyValue.isDefined),
         event_sequential_id = 0L, // this is filled later
         ledger_effective_time = assign.ledgerEffectiveTime.micros,
-        driver_metadata = assign.contractMetadata.toByteArray,
+        authentication_data = assign.contractAuthenticationData.toByteArray,
         source_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive,
         target_synchronizer_id =

@@ -203,6 +203,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
 
       // This flag, when set to true will unblock the target participant processor.
       var canTargetParticipantProceed: Boolean = false
+      val handfulOfContractsCountToProcessBeforePausing = 4
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
         alice,
         requestId,
@@ -218,7 +219,8 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         loggerFactory,
         PartyReplicationTestInterceptorImpl
           .targetParticipantProceedsIf(
-            canTargetParticipantProceed || _.getProcessedContractsCount.unwrap < 4
+            // wait for a handful of contracts
+            canTargetParticipantProceed || _.processedContractsCount.unwrap < handfulOfContractsCountToProcessBeforePausing
           ),
       )
 

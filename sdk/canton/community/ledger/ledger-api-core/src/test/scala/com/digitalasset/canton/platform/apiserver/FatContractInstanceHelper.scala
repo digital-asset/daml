@@ -22,7 +22,7 @@ object FatContractInstanceHelper {
       contractId: Value.ContractId,
       argument: Value,
       createdAt: Time.Timestamp,
-      driverMetadata: Bytes,
+      authenticationData: Bytes,
       signatories: Set[Ref.Party],
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
@@ -38,7 +38,11 @@ object FatContractInstanceHelper {
       keyOpt = keyOpt,
       version = version,
     )
-    FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createdAt), driverMetadata)
+    FatContractInstance.fromCreateNode(
+      create,
+      CreationTime.CreatedAt(createdAt),
+      authenticationData,
+    )
   }
 
 }

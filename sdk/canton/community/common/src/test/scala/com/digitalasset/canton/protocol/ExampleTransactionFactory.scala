@@ -104,7 +104,11 @@ object ExampleTransactionFactory {
   ): ContractInstance = {
     val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
     val contractIdVersion =
-      CantonContractIdVersion.maximumSupportedVersion(BaseTest.testedProtocolVersion).value
+      CantonContractIdVersion.maximumSupportedVersion(BaseTest.testedProtocolVersion).value match {
+        case v1: CantonContractIdV1Version => v1
+        case other =>
+          throw new IllegalArgumentException(s"Unsupported contract ID version: $other")
+      }
     val createdAt = CreationTime.CreatedAt(ledgerTime.toLf)
 
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
@@ -325,12 +329,17 @@ object ExampleTransactionFactory {
       suffix: Int,
       contractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
   ): LfContractId =
-    LfContractId.V1(
-      discriminator = lfHash(discriminator),
-      suffix = contractIdVersion.versionPrefixBytes ++ Bytes.fromByteString(
-        TestHash.digest(f"$suffix%04x").getCryptographicEvidence
-      ),
-    )
+    contractIdVersion match {
+      case v1: CantonContractIdV1Version =>
+        LfContractId.V1(
+          discriminator = lfHash(discriminator),
+          suffix = v1.versionPrefixBytes ++ Bytes.fromByteString(
+            TestHash.digest(f"$suffix%04x").getCryptographicEvidence
+          ),
+        )
+      case _ =>
+        throw new IllegalArgumentException(s"Unsupported contract ID version: $contractIdVersion")
+    }
 
   def unsuffixedId(index: Int): LfContractId.V1 = LfContractId.V1(lfHash(index))
 
@@ -353,6 +362,11 @@ object ExampleTransactionFactory {
     val contractIdVersion = CantonContractIdVersion
       .extractCantonContractIdVersion(contractId)
       .value
+    val contractIdV1Version = contractIdVersion match {
+      case v1: CantonContractIdV1Version => v1
+      case v2: CantonContractIdV2Version =>
+        throw new IllegalArgumentException(s"Unsupported contract ID version $v2")
+    }
     val createNode = LfNodeCreate(
       coid = contractId,
       packageName = contractInstance.unversioned.packageName,
@@ -366,9 +380,9 @@ object ExampleTransactionFactory {
     val fci = FatContractInstance.fromCreateNode(
       createNode,
       ledgerTime,
-      DriverContractMetadata(salt).toLfBytes(contractIdVersion),
+      ContractAuthenticationDataV1(salt)(contractIdV1Version).toLfBytes,
     )
-    ContractInstance(fci).value
+    ContractInstance.create(fci).value
   }
 
   private def instanceFromCreate(node: LfNodeCreate, salt: Salt): NewContractInstance =

@@ -5,7 +5,6 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
-import "com/digitalasset/canton/admin/crypto/v30/crypto.proto";
 import "google/protobuf/timestamp.proto";
 import "scalapb/scalapb.proto";
 
@@ -43,7 +42,7 @@ message Contract {
   bytes raw_contract_instance = 2;
   Metadata metadata = 3;
   google.protobuf.Timestamp ledger_create_time = 4; // in microseconds of UTC time since Unix epoch
-  com.digitalasset.canton.admin.crypto.v30.Salt contract_salt = 5; // optional
+  bytes authentication_data = 5;
 }
 
 // Schema definition for the exported active contract

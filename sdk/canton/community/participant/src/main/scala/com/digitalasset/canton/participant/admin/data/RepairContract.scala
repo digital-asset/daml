@@ -5,12 +5,11 @@ package com.digitalasset.canton.participant.admin.data
 
 import cats.implicits.*
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
-import com.digitalasset.canton.{LfVersioned, ReassignmentCounter}
-import com.digitalasset.daml.lf.transaction
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 
@@ -20,13 +19,13 @@ import java.io.ByteArrayInputStream
   */
 final case class RepairContract(
     synchronizerId: SynchronizerId,
-    contract: SerializableContract,
+    contract: LfFatContractInst,
     reassignmentCounter: ReassignmentCounter,
 ) {
   def contractId: LfContractId = contract.contractId
 
-  def withSerializableContract(
-      contract: SerializableContract
+  def withContractInstance(
+      contract: LfFatContractInst
   ): RepairContract = copy(contract = contract)
 }
 
@@ -70,52 +69,11 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-      contractInstance = LfThinContractInst(
-        fattyContract.packageName,
-        fattyContract.templateId,
-        transaction.Versioned(fattyContract.version, fattyContract.createArg),
-      )
-
-      maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]] =
-        fattyContract.contractKeyWithMaintainers.map { value =>
-          transaction.Versioned(
-            fattyContract.version,
-            LfGlobalKeyWithMaintainers(value.globalKey, value.maintainers),
-          )
-        }
-
-      rawContractInstance <- SerializableRawContractInstance
-        .create(contractInstance)
-        .leftMap(encodeError => s"Unable to encode contract instance: ${encodeError.errorMessage}")
-
-      contractMetadata <- ContractMetadata.create(
-        signatories = fattyContract.signatories,
-        stakeholders = fattyContract.stakeholders,
-        maybeKeyWithMaintainersVersioned,
-      )
-
       // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-      ledgerCreateTime <- (fattyContract.createdAt: CreationTime) match {
-        case absolute: CreationTime.CreatedAt => Right(absolute)
+      fatContractInstance <- (fattyContract.createdAt: CreationTime) match {
+        case absolute: CreationTime.CreatedAt => Right(fattyContract.updateCreateAt(absolute.time))
         case CreationTime.Now => Left("Unable to determine create time.")
       }
-
-      driverContractMetadata <-
-        DriverContractMetadata
-          .fromLfBytes(fattyContract.authenticationData.toByteArray)
-          .leftMap(deserializationError =>
-            s"Unable to deserialize driver contract metadata: ${deserializationError.message}"
-          )
-
-      contractSalt = driverContractMetadata.salt
-
-      serializableContract = new SerializableContract(
-        fattyContract.contractId,
-        rawContractInstance,
-        contractMetadata,
-        ledgerCreateTime,
-        contractSalt,
-      )
 
       synchronizerId <- SynchronizerId
         .fromString(contract.synchronizerId)
@@ -124,7 +82,7 @@ object RepairContract {
         )
     } yield RepairContract(
       synchronizerId,
-      serializableContract,
+      fatContractInstance,
       Counter(contract.reassignmentCounter),
     )
 

@@ -627,7 +627,7 @@ final class AssignmentProcessingStepsTest
         val fci = ExampleTransactionFactory
           .authenticatedContractInstance(metadata = baseMetadata)
           .inst: LfFatContractInst
-        ContractInstance(
+        ContractInstance.create(
           LfFatContractInst.fromCreateNode(
             fci.toCreateNode
               .focus(_.stakeholders)
@@ -635,7 +635,7 @@ final class AssignmentProcessingStepsTest
             fci.createdAt,
             fci.authenticationData,
           )
-        ).value
+          .value
       }
 
       // party2 is incorrectly registered as a signatory
@@ -646,7 +646,7 @@ final class AssignmentProcessingStepsTest
           )
           .inst: LfFatContractInst
 
-        ContractInstance(
+        ContractInstance.create(
           LfFatContractInst.fromCreateNode(
             fci.toCreateNode
               .focus(_.signatories)
@@ -654,7 +654,7 @@ final class AssignmentProcessingStepsTest
             fci.createdAt,
             fci.authenticationData,
           )
-        ).value
+          .value
       }
 
       val incorrectKey = ExampleTransactionFactory.globalKeyWithMaintainers(
@@ -669,7 +669,7 @@ final class AssignmentProcessingStepsTest
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
           .inst: LfFatContractInst
-        ContractInstance(
+        ContractInstance.create(
           LfFatContractInst.fromCreateNode(
             fci.toCreateNode
               .focus(_.keyOpt)
@@ -677,7 +677,7 @@ final class AssignmentProcessingStepsTest
             fci.createdAt,
             fci.authenticationData,
           )
-        ).value
+          .value
       }
 
       for {

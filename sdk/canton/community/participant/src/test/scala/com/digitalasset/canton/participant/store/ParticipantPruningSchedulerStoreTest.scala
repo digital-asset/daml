@@ -5,28 +5,16 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningSchedule
-import com.digitalasset.canton.scheduler.{Cron, PruningSchedule}
 import com.digitalasset.canton.store.PruningSchedulerStoreTest
-import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait ParticipantPruningSchedulerStoreTest extends PruningSchedulerStoreTest with FailOnShutdown {
   this: AsyncWordSpec & BaseTest =>
+
   protected def participantPruningSchedulerStore(
       mk: () => ParticipantPruningSchedulerStore
   ): Unit = {
-    val schedule1 = PruningSchedule(
-      Cron.tryCreate("* /10 * * * ? *"),
-      PositiveSeconds.tryOfSeconds(1),
-      PositiveSeconds.tryOfSeconds(30),
-    )
-    val schedule2 = PruningSchedule(
-      Cron.tryCreate("* * 7,19 * * ? *"),
-      PositiveSeconds.tryOfHours(8),
-      PositiveSeconds.tryOfDays(14),
-    )
-
     assert(schedule1.cron != schedule2.cron)
     assert(schedule1.maxDuration != schedule2.maxDuration)
     assert(schedule1.retention != schedule2.retention)

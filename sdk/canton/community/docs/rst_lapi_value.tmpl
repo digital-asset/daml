@@ -35,12 +35,16 @@ Message has no fields.
 {{range $message.Fields}}{{$field := . -}}
 
 {{if $field.IsOneof -}}
+{{if ne (index $field.OneofDecl 0) '_' -}} {{/* Check that the field is not part of a synthetic oneof (e.g. optional fields are synthetic oneofs) */}}
 .. _{{$message.FullName}}.{{$field.OneofDecl}}.{{$field.Name}}:
+{{- else -}}
+.. _{{$message.FullName}}.{{$field.Name}}:
+{{- end -}}
 {{- else -}}
 .. _{{$message.FullName}}.{{$field.Name}}:
 {{- end}}
 
-``{{if $field.IsOneof -}}oneof {{$field.OneofDecl}}.{{end -}}
+``{{if $field.IsOneof -}}{{if ne (index $field.OneofDecl 0) '_' -}}oneof {{$field.OneofDecl}}.{{end -}}{{end -}}
 {{$field.Name}}`` : :ref:`{{$field.LongType}} <{{$field.FullType}}>`
 {{- if len $field.Label}} ({{$field.Label}}){{end}}
 

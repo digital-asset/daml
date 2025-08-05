@@ -7,7 +7,7 @@ import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -24,13 +24,10 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.protocol.{
-  ContractMetadata,
-  DriverContractMetadata,
-  SerializableContract,
-}
+import com.digitalasset.canton.protocol.ContractMetadata
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -75,7 +72,7 @@ final class StoreBackedCommandInterpreter(
     packageSyncService: PackageSyncService,
     contractStore: ContractStore,
     metrics: LedgerApiServerMetrics,
-    authenticateSerializableContract: SerializableContract => Either[String, Unit],
+    authenticateFatContractInstance: AuthenticateFatContractInstance,
     config: EngineLoggingConfig,
     prefetchingRecursionLevel: PositiveInt,
     val loggerFactory: NamedLoggerFactory,
@@ -525,9 +522,9 @@ final class StoreBackedCommandInterpreter(
         // for contracts that are being upgraded. We do not support the upgrading of
         // divulged contracts.
         Some(s"Contract with $coid was not found.")
-      case MissingDriverMetadata =>
+      case MissingAuthenticationData =>
         Some(
-          s"Contract with $coid is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
+          s"Contract with $coid is missing the authentication data and cannot be upgraded. This can happen for contracts created with older Canton versions"
         )
     }
 
@@ -551,33 +548,13 @@ final class StoreBackedCommandInterpreter(
       originalContract: FatContract,
       recomputedMetadata: ContractMetadata,
   ) {
-    def originalMetadata: ContractMetadata = ContractMetadata.tryCreate(
+    private def originalMetadata: ContractMetadata = ContractMetadata.tryCreate(
       signatories = originalContract.signatories,
       stakeholders = originalContract.stakeholders,
       maybeKeyWithMaintainersVersioned = originalContract.contractKeyWithMaintainers.map(
         Versioned(originalContract.version, _)
       ),
     )
-    private def recomputedSerializableContract: Either[String, SerializableContract] =
-      for {
-        salt <- DriverContractMetadata
-          .fromLfBytes(originalContract.authenticationData.toByteArray)
-          .bimap(
-            e => s"Failed to build DriverContractMetadata ($e)",
-            m => m.salt,
-          )
-        contract <- SerializableContract(
-          contractId = originalContract.contractId,
-          contractInstance = ThinContract(
-            originalContract.packageName,
-            originalContract.templateId,
-            Versioned(originalContract.version, originalContract.createArg),
-          ),
-          metadata = recomputedMetadata,
-          ledgerTime = CantonTimestamp(originalContract.createdAt.time),
-          contractSalt = salt,
-        ).left.map(e => s"Failed to construct SerializableContract($e)")
-      } yield contract
 
     private def checkProvidedContractMetadataAgainstRecomputed
         : Either[NonEmptyChain[String], Unit] = {
@@ -616,10 +593,7 @@ final class StoreBackedCommandInterpreter(
     }.toEitherMergeNonaborts
 
     def validate: Either[String, Unit] =
-      (for {
-        sc <- recomputedSerializableContract
-        _ <- authenticateSerializableContract(sc)
-      } yield ()).leftMap { contractAuthenticationError =>
+      authenticateFatContractInstance(originalContract).leftMap { contractAuthenticationError =>
         val firstParticle =
           s"Upgrading contract with ${originalContract.contractId} failed authentication check with error: $contractAuthenticationError."
         checkProvidedContractMetadataAgainstRecomputed
@@ -708,5 +682,5 @@ private object UpgradeVerificationResult {
   case object Valid extends UpgradeVerificationResult
   final case class UpgradeFailure(message: String) extends UpgradeVerificationResult
   case object ContractNotFound extends UpgradeVerificationResult
-  case object MissingDriverMetadata extends UpgradeVerificationResult
+  case object MissingAuthenticationData extends UpgradeVerificationResult
 }

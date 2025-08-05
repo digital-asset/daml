@@ -372,7 +372,7 @@ final class LfValueTranslation(
           version = createArgument.version,
         ),
         createTime = CreationTime.CreatedAt(rawCreatedEvent.ledgerEffectiveTime),
-        authenticationData = Bytes.fromByteArray(rawCreatedEvent.driverMetadata),
+        authenticationData = Bytes.fromByteArray(rawCreatedEvent.authenticationData),
       )
 
     for {

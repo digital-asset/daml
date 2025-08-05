@@ -24,7 +24,7 @@ class ContractInstanceTest extends AnyWordSpec with HasCryptographicEvidenceTest
         example.createdAt,
         example.authenticationData,
       )
-      val err = ContractInstance(inst).left.value
+      val err = ContractInstance.create(inst).left.value
       err should fullyMatch regex "Failed to encode contract instance:.*Provided Daml-LF value to encode exceeds maximum nesting level of 100.*"
     }
   }

@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
+import com.digitalasset.canton.logging.SuppressionRule.FullSuppression
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule, TracedLogger}
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
@@ -246,10 +247,10 @@ class SequencerReaderTest
       }
 
     def storeAndWatermark(events: Seq[Sequenced[PayloadId]]): FutureUnlessShutdown[Unit] = {
-      val withPaylaods = events.map(
+      val withPayloads = events.map(
         _.map(id => BytesPayload(id, Batch.empty(testedProtocolVersion).toByteString))
       )
-      storePayloadsAndWatermark(withPaylaods)
+      storePayloadsAndWatermark(withPayloads)
     }
 
     def storePayloadsAndWatermark(
@@ -399,6 +400,77 @@ class SequencerReaderTest
         event5.value.previousTimestamp shouldBe Some(ts0.plusSeconds(4L))
         event5.value.timestamp shouldBe ts0.plusSeconds(5L)
       }
+    }
+
+    "use correct latestTopologyClientRecipientTimestamp with topology changes" in { env =>
+      // In this scenario, we test that SequencerReader correctly sets the latestTopologyClientRecipientTimestamp
+      // to the timestamp of the first topology client addressed message, for the case of reading from the beginning
+      // and having an additional topology tx between member's onboarding tx sequencing and effective times:
+      // - both alice and sequencer are initial members of TestingTopology, sequenced/effective @ Epoch.immediatePredecessor
+      // - we simulate alice becoming effective at ts(2) by registering her manually at ts(2)
+      // - we simulate an additional topology addressed message: deliver at ts(1)
+      // - we then inspect the logs and assert the latestTopologyClientRecipientTimestamp = ts(1)
+      // - prior buggy behavior: latestTopologyClientRecipientTimestamp = Epoch.immediatePredecessor
+      import env.*
+
+      for {
+        sequencerMemberId <- store.registerMember(topologyClientMember, ts(0)).failOnShutdown
+        aliceId <- store.registerMember(alice, ts(2)).failOnShutdown
+        addressToEverybody = NonEmpty(SortedSet, aliceId, sequencerMemberId)
+        delivers = (1 to 3)
+          .map(offset =>
+            Sequenced(
+              ts(offset),
+              mockDeliverStoreEvent(sender = sequencerMemberId, traceContext = traceContext)(
+                addressToEverybody
+              ),
+            )
+          )
+          .toList
+        _ <- storeAndWatermark(delivers)
+        queue <-
+          loggerFactory.assertLogsSeq(FullSuppression)(
+            readWithQueueFUS(alice, timestampInclusive = None),
+            logs =>
+              forAtLeast(1, logs)(
+                _.message should include(
+                  s"latest topology client timestamp = Some(${ts(1)})"
+                )
+              ),
+          )
+        event <- pullFromQueue(queue)
+        _ = queue.cancel() // cancel the queue now we're done with it
+      } yield {
+        // the first event expected to reach alice is at its registration timestamp (its topo mapping effective time)
+        event.value.timestamp shouldBe ts(2)
+      }
+    }
+
+    "use correct latestTopologyClientRecipientTimestamp with a lower bound" in { env =>
+      // In this scenario, we test that SequencerReader correctly sets the latestTopologyClientRecipientTimestamp
+      // when:
+      // - we have a lower bound (+ its latestTopologyClientRecipientTimestamp) is set
+      // - no topology addressed events are present
+      import env.*
+
+      for {
+        _ <- store.registerMember(topologyClientMember, ts(0)).failOnShutdown
+        _ <- store.registerMember(alice, ts(0)).failOnShutdown
+        _ <- store.saveLowerBound(ts(2), ts(1).some).valueOrFail("saveLowerBound")
+        _ <- store.saveWatermark(instanceIndex, ts(3)).valueOrFail("saveWatermark")
+        // from the beginning
+        queue <-
+          loggerFactory.assertLogsSeq(FullSuppression)(
+            readWithQueueFUS(alice, timestampInclusive = ts(3).some),
+            logs =>
+              forAtLeast(1, logs)(
+                _.message should include(
+                  s"latest topology client timestamp = Some(${ts(1)})"
+                )
+              ),
+          )
+        _ = queue.cancel() // cancel the queue now we're done with it
+      } yield succeed
     }
 
     "attempting to read an unregistered member returns error" in { env =>

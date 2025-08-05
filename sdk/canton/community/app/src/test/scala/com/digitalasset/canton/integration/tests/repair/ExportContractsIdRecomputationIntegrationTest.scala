@@ -106,9 +106,11 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
   protected def rearrange(contracts: List[LapiActiveContract]): List[LapiActiveContract] = contracts
 
   /** For every combination of ways to make an export and rearrange its contents:
-    *   1. enable a fresh party on `participant1` 2. create a few contracts with the given `setup`
-    *      method 3. apply the `break` functions to the export, as well as the `rearrange` method 4.
-    *      apply the `f` function to the export, passing its size and the owning party
+    *
+    *   - enable a fresh party on `participant1`
+    *   - create a few contracts with the given `setup` method
+    *   - apply the `break` functions to the export, as well as the `rearrange` method
+    *   - apply the `f` function to the export, passing its size and the owning party
     */
   protected def withExport(break: List[LapiActiveContract] => List[LapiActiveContract] = identity)(
       f: (File, Long, PartyId) => Assertion

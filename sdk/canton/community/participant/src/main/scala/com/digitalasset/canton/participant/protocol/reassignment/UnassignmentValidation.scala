@@ -97,13 +97,14 @@ private[reassignment] class UnassignmentValidation(
   ): FutureUnlessShutdown[UnassignmentValidationResult.CommonValidationResult] = {
     val fullTree = parsedRequest.fullViewTree
     val sourceTopologySnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
-    val metadataResultET = ReassignmentValidation.checkMetadata(contractAuthenticator, fullTree)
+    val authenticationResultET =
+      ReassignmentValidation.checkMetadata(contractAuthenticator, fullTree)
 
     for {
       activenessResult <- activenessF
       authenticationErrorO <- AuthenticationValidator.verifyViewSignature(parsedRequest)
 
-      // The metadata is validated in the `metadataResultET`, this is why we can use it here.
+      // The contract instance is validated in the `authenticationResultET`, this is why we can use it here.
       expectedStakeholders = fullTree.contracts.stakeholders
 
       submitterCheckResult <-
@@ -121,7 +122,7 @@ private[reassignment] class UnassignmentValidation(
     } yield UnassignmentValidationResult.CommonValidationResult(
       activenessResult = activenessResult,
       participantSignatureVerificationResult = authenticationErrorO,
-      contractAuthenticationResultF = metadataResultET,
+      contractAuthenticationResultF = authenticationResultET,
       submitterCheckResult = submitterCheckResult,
     )
   }

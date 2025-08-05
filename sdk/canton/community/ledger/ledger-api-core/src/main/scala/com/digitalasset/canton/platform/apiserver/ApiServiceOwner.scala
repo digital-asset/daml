@@ -33,10 +33,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
-  AuthenticateFatContractInstance,
-  AuthenticateSerializableContract,
-}
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
@@ -110,7 +107,6 @@ object ApiServiceOwner {
       engineLoggingConfig: EngineLoggingConfig,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
-      authenticateSerializableContract: AuthenticateSerializableContract,
       authenticateFatContractInstance: AuthenticateFatContractInstance,
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
@@ -204,7 +200,6 @@ object ApiServiceOwner {
         engineLoggingConfig = engineLoggingConfig,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        authenticateSerializableContract = authenticateSerializableContract,
         authenticateFatContractInstance = authenticateFatContractInstance,
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,

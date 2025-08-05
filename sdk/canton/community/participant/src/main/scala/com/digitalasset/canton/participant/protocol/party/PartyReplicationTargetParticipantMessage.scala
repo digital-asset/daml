@@ -46,17 +46,28 @@ object PartyReplicationTargetParticipantMessage
     instruction <- proto.instruction match {
       case v30.PartyReplicationTargetParticipantMessage.Instruction.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("instruction"))
-      case v30.PartyReplicationTargetParticipantMessage.Instruction.SendAcsSnapshotUpTo(
-            v30.PartyReplicationTargetParticipantMessage.SendAcsSnapshotUpTo(
+      case v30.PartyReplicationTargetParticipantMessage.Instruction.Initialize(
+            v30.PartyReplicationTargetParticipantMessage.Initialize(
+              initialContractOrdinalInclusive
+            )
+          ) =>
+        ProtoConverter
+          .parseNonNegativeInt(
+            "initial_contract_ordinal_inclusive",
+            initialContractOrdinalInclusive,
+          )
+          .map(Initialize.apply)
+      case v30.PartyReplicationTargetParticipantMessage.Instruction.SendAcsUpTo(
+            v30.PartyReplicationTargetParticipantMessage.SendAcsUpTo(
               maxContractOrdinalInclusive
             )
           ) =>
-        for {
-          maxContractOrdinalInclusive <- ProtoConverter.parseNonNegativeInt(
+        ProtoConverter
+          .parseNonNegativeInt(
             "max_contract_ordinal_inclusive",
             maxContractOrdinalInclusive,
           )
-        } yield SendAcsSnapshotUpTo(maxContractOrdinalInclusive)
+          .map[Instruction](SendAcsUpTo.apply)
     }
   } yield PartyReplicationTargetParticipantMessage(instruction)(rpv)
 
@@ -64,12 +75,19 @@ object PartyReplicationTargetParticipantMessage
     def toProtoV30: v30.PartyReplicationTargetParticipantMessage.Instruction
   }
 
-  final case class SendAcsSnapshotUpTo(maxContractOrdinalInclusive: NonNegativeInt)
-      extends Instruction {
+  final case class Initialize(initialContractOrdinalInclusive: NonNegativeInt) extends Instruction {
     override def toProtoV30: v30.PartyReplicationTargetParticipantMessage.Instruction =
-      v30.PartyReplicationTargetParticipantMessage.Instruction.SendAcsSnapshotUpTo(
+      v30.PartyReplicationTargetParticipantMessage.Instruction.Initialize(
         v30.PartyReplicationTargetParticipantMessage
-          .SendAcsSnapshotUpTo(maxContractOrdinalInclusive.value)
+          .Initialize(initialContractOrdinalInclusive.value)
+      )
+  }
+
+  final case class SendAcsUpTo(maxContractOrdinalInclusive: NonNegativeInt) extends Instruction {
+    override def toProtoV30: v30.PartyReplicationTargetParticipantMessage.Instruction =
+      v30.PartyReplicationTargetParticipantMessage.Instruction.SendAcsUpTo(
+        v30.PartyReplicationTargetParticipantMessage
+          .SendAcsUpTo(maxContractOrdinalInclusive.value)
       )
   }
 

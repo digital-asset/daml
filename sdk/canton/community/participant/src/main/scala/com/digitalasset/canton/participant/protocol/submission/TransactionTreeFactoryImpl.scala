@@ -554,16 +554,18 @@ class TransactionTreeFactoryImpl(
       create = suffixedCreateNode,
       // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
       createTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
-      authenticationData = DriverContractMetadata(contractSalt.unwrap).toLfBytes(cantonContractIdVersion),
+      authenticationData = ContractAuthenticationDataV1(contractSalt.unwrap)(cantonContractIdVersion).toLfBytes,
     )
 
     state.setUnicumFor(discriminator, unicum)
 
-    val createdInfo = ContractInstance(inst).valueOr(err =>
-      throw new IllegalArgumentException(
-        s"Failed to create contract instance well formed instrument: $err"
+    val createdInfo = ContractInstance
+      .create(inst)
+      .valueOr(err =>
+        throw new IllegalArgumentException(
+          s"Failed to create contract instance well formed instrument: $err"
+        )
       )
-    )
 
     state.setCreatedContractInfo(suffixedContractId, createdInfo)
 

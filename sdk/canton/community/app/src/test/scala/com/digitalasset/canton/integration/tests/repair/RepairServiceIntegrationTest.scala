@@ -41,7 +41,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
-import monocle.macros.syntax.lens.*
 import org.scalatest.{Assertion, Tag}
 
 import java.util.UUID
@@ -369,8 +368,16 @@ sealed trait RepairServiceIntegrationTestStableLf
             )
           }
 
-          val contractChfWithUsdContractId =
-            contractChf.focus(_.contract.contractId).replace(contractUsd.contract.contractId)
+          val contractChfWithUsdContractId = {
+            val fci = contractChf.contract
+            contractChf.copy(contract =
+              LfFatContractInst.fromCreateNode(
+                fci.toCreateNode.copy(coid = contractUsd.contract.contractId),
+                fci.createdAt,
+                fci.authenticationData,
+              )
+            )
+          }
 
           loggerFactory.assertThrowsAndLogs[CommandFailure](
             participant1.repair.add(daId, testedProtocolVersion, Seq(contractChfWithUsdContractId)),
@@ -615,12 +622,22 @@ sealed trait RepairServiceIntegrationTestStableLf
           }
 
           val cidActive = activeContract.contract.contractId
+          val modifiedContractId = {
+            val fci = activeContractModified.contract
+            activeContractModified.copy(contract =
+              LfFatContractInst.fromCreateNode(
+                fci.toCreateNode.copy(coid = cidActive),
+                fci.createdAt,
+                fci.authenticationData,
+              )
+            )
+          }
 
           loggerFactory.assertThrowsAndLogs[CommandFailure](
             participant1.repair.add(
               acmeId,
               testedProtocolVersion,
-              Seq(activeContractModified.focus(_.contract.contractId).replace(cidActive)),
+              Seq(modifiedContractId),
             ),
             _.commandFailureMessage should include(
               s"Failed to authenticate contract with id"
@@ -801,18 +818,25 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               suffixedContractInstance = contractInst.unversioned,
               authenticatedContractIdVersion,
             )
+            val authenticationData =
+              ContractAuthenticationDataV1(contractSalt.unwrap)(authenticatedContractIdVersion)
 
             lazy val contractId = authenticatedContractIdVersion.fromDiscriminator(
               ExampleTransactionFactory.lfHash(1337),
               unicum,
             )
 
-            val serializableContract = new SerializableContract(
+            val createNode = new SerializableContract(
               contractId,
               rawContract,
               contractMetadata,
               creationTime,
-              contractSalt.unwrap,
+              authenticationData,
+            ).toLf
+            val contractInstance = LfFatContractInst.fromCreateNode(
+              createNode,
+              creationTime,
+              authenticationData.toLfBytes,
             )
 
             loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -820,7 +844,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
                 .add(
                   daId,
                   testedProtocolVersion,
-                  Seq(RepairContract(daId, serializableContract, ReassignmentCounter.Genesis)),
+                  Seq(RepairContract(daId, contractInstance, ReassignmentCounter.Genesis)),
                 ),
               _.commandFailureMessage should (
                 include("InvalidIndependentOfSystemState") and include(

@@ -22,7 +22,7 @@ import com.digitalasset.canton.platform.apiserver.services.ErrorCause.Interpreta
 import com.digitalasset.canton.platform.config.CommandServiceConfig
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
-  DriverContractMetadata,
+  ContractAuthenticationDataV1,
   LfContractId,
   LfTransactionVersion,
 }
@@ -61,9 +61,9 @@ class StoreBackedCommandInterpreterSpec
     with BaseTest {
 
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto()
-  val salt: Bytes = DriverContractMetadata(
+  val salt: Bytes = ContractAuthenticationDataV1(
     Salt.tryDeriveSalt(SaltSeed.generate()(cryptoApi), 0, cryptoApi)
-  ).toLfBytes(AuthenticatedContractIdVersionV11)
+  )(AuthenticatedContractIdVersionV11).toLfBytes
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
   val packageName: PackageName = PackageName.assertFromString("pkg-name")
@@ -177,7 +177,7 @@ class StoreBackedCommandInterpreterSpec
       participant = Ref.ParticipantId.assertFromString("anId"),
       packageSyncService = mock[SyncService],
       contractStore = mock[ContractStore],
-      authenticateSerializableContract = _ => Either.unit,
+      authenticateFatContractInstance = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
       config = EngineLoggingConfig(),
       prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
@@ -291,7 +291,7 @@ class StoreBackedCommandInterpreterSpec
         contractId: Option[LfContractId],
         expected: Option[Option[String]],
         authenticationResult: Either[String, Unit] = Either.unit,
-        stakeholderContractDriverMetadata: Array[Byte] = salt.toByteArray,
+        stakeholderContractAuthenticationData: Array[Byte] = salt.toByteArray,
     ): Future[Assertion] = {
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
       val mockEngine = mock[Engine]
@@ -370,7 +370,7 @@ class StoreBackedCommandInterpreterSpec
             FatContract.fromCreateNode(
               stakeholderContract.contractInstance.toCreateNode,
               createTime = stakeholderContract.contractInstance.createdAt,
-              authenticationData = Bytes.fromByteArray(stakeholderContractDriverMetadata),
+              authenticationData = Bytes.fromByteArray(stakeholderContractAuthenticationData),
             )
           )
         )
@@ -387,7 +387,7 @@ class StoreBackedCommandInterpreterSpec
         mock[SyncService],
         store,
         metrics = LedgerApiServerMetrics.ForTesting,
-        authenticateSerializableContract = _ => authenticationResult,
+        authenticateFatContractInstance = _ => authenticationResult,
         EngineLoggingConfig(),
         prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
         loggerFactory = loggerFactory,

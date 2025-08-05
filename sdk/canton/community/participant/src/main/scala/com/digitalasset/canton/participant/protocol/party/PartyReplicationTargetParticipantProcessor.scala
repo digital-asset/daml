@@ -30,10 +30,8 @@ import com.digitalasset.canton.protocol.{ContractInstance, ReassignmentId, Trans
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
-import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
 
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -45,8 +43,7 @@ import scala.util.chaining.scalaUtilChainingOps
   * the target participant processor enforces the protocol guarantees made by a
   * [[PartyReplicationSourceParticipantProcessor]]. The following guarantees made by the target
   * participant processor are verifiable at the party replication protocol: The target participant
-  *   - only sends messages after receiving
-  *     [[PartyReplicationSourceParticipantMessage.SourceParticipantIsReady]],
+  *   - sends a [[PartyReplicationTargetParticipantMessage.Initialize]] upon (re-)connecting,
   *   - requests contracts in a strictly increasing contract ordinal order,
   *   - and sends only deserializable payloads.
   *
@@ -57,7 +54,9 @@ import scala.util.chaining.scalaUtilChainingOps
   * @param onComplete
   *   Callback notification that the target participant has received the entire ACS.
   * @param onError
-  *   Callback notification that the target participant has errored.
+  *   Callback notification that the target participant has encountered an error.
+  * @param onDisconnect
+  *   Callback notification that the target participant has disconnected.
   * @param testOnlyInterceptor
   *   Test interceptor only alters behavior in integration tests.
   */
@@ -78,11 +77,7 @@ final class PartyReplicationTargetParticipantProcessor(
     extends PartyReplicationProcessor {
 
   private val processorStore = InMemoryProcessorStore.targetParticipant()
-  private def requestedContractsCount = processorStore.requestedContractsCount
-  private def processedContractsCount = processorStore.processedContractsCount
   private val contractsToRequestEachTime = PositiveInt.tryCreate(10)
-  private val isSourceParticipantReady = new AtomicBoolean(false)
-  private val nextRepairCounter = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
 
   override protected val psid: PhysicalSynchronizerId = connectedSynchronizer.psid
 
@@ -97,13 +92,18 @@ final class PartyReplicationTargetParticipantProcessor(
     .add(partyToParticipantEffectiveAt.toProtoPrimitive)
     .finish()
 
-  override def replicatedContractsCount: NonNegativeInt = processedContractsCount.get()
+  override def replicatedContractsCount: NonNegativeInt = processorStore.processedContractsCount
 
   override protected def name: String = "party-replication-target-processor"
 
   override def onConnected()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = EitherTUtil.unitUS
+  ): EitherT[FutureUnlessShutdown, String, Unit] = execute("handle connect to SP") {
+    // Upon connecting or reconnecting, clear the initial contract ordinal.
+    processorStore.clearInitialContractOrdinalInclusive()
+    progressPartyReplication()
+    EitherTUtil.unitUS
+  }
 
   /** Consume status updates and ACS batches from the source participant.
     */
@@ -118,12 +118,8 @@ final class PartyReplicationTargetParticipantProcessor(
           .leftMap(_.message)
       )
       _ <- messageFromSP.dataOrStatus match {
-        case PartyReplicationSourceParticipantMessage.SourceParticipantIsReady =>
-          logger.info("Target participant notified that source participant is ready")
-          isSourceParticipantReady.set(true)
-          EitherT.rightT[FutureUnlessShutdown, String](())
         case PartyReplicationSourceParticipantMessage.AcsBatch(contracts) =>
-          val firstContractOrdinal = processedContractsCount.get()
+          val firstContractOrdinal = processorStore.processedContractsCount
           logger.debug(
             s"Received batch beginning at contract ordinal $firstContractOrdinal with contracts ${contracts
                 .map(_.contract.contractId)
@@ -133,12 +129,12 @@ final class PartyReplicationTargetParticipantProcessor(
           for {
             _ <- EitherT(
               contractsToAdd.forgetNE
-                .traverse(ContractInstance.apply)
+                .traverse(ContractInstance.fromSerializable)
                 .traverse(
                   participantNodePersistentState.value.contractStore.storeContracts
                 )
             )
-            repairCounter = RepairCounter(nextRepairCounter.getAndUpdate(_.map(_ + 1)).unwrap)
+            repairCounter = processorStore.getAndIncrementRepairCounter()
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
             contractAssignments = contracts.map {
               case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
@@ -157,20 +153,24 @@ final class PartyReplicationTargetParticipantProcessor(
               )
             reassignments <- EitherT.fromEither[FutureUnlessShutdown](contracts.toNEF.traverse {
               case ActiveContractOld(_, contract, reassignmentCounter) =>
-                ContractInstance(contract).map(ContractReassignment(_, reassignmentCounter))
+                ContractInstance
+                  .fromSerializable(contract)
+                  .map(ContractReassignment(_, reassignmentCounter))
             })
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
                 repairEventFromSerializedContract(repairCounter, reassignments)
               )
             )
-            _ = processedContractsCount.updateAndGet(_.map(_ + contracts.size)).discard
+            _ = processorStore
+              .increaseProcessedContractsCount(PositiveInt.size(contracts))
+              .discard
           } yield ()
         case PartyReplicationSourceParticipantMessage.EndOfACS =>
           logger.info(
-            s"Target participant has received end of data after ${processedContractsCount.get().unwrap} contracts"
+            s"Target participant has received end of data after ${processorStore.processedContractsCount.unwrap} contracts"
           )
-          hasEndOfACSBeenReached.set(true)
+          processorStore.setHasEndOfACSBeenReached()
           EitherT.rightT[FutureUnlessShutdown, String](())
       }
     } yield ()).bimap(
@@ -191,15 +191,14 @@ final class PartyReplicationTargetParticipantProcessor(
           isChannelOpenForCommunication &&
             testOnlyInterceptor.onTargetParticipantProgress(
               processorStore
-            ) == PartyReplicationTestInterceptor.Proceed &&
-            isSourceParticipantReady.get()
+            ) == PartyReplicationTestInterceptor.Proceed
         )(respondToSourceParticipant())
       )
     }
 
   private def respondToSourceParticipant()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = if (hasEndOfACSBeenReached.get()) {
+  ): EitherT[FutureUnlessShutdown, String, Unit] = if (hasEndOfACSBeenReached) {
     val recordOrderPublisher = connectedSynchronizer.ephemeral.recordOrderPublisher
     onComplete(traceContext)
     EitherT(
@@ -213,9 +212,24 @@ final class PartyReplicationTargetParticipantProcessor(
           ).value
         )
     )
-  } else if (processedContractsCount.get() == requestedContractsCount.get()) {
+  } else if (processorStore.initialContractOrdinalInclusiveO.isEmpty) {
+    val initialContractOrdinalInclusive = processorStore.processedContractsCount
+    logger.info(s"Connected. Requesting contracts from ${initialContractOrdinalInclusive.unwrap}")
+    val initializeSP = PartyReplicationTargetParticipantMessage(
+      PartyReplicationTargetParticipantMessage.Initialize(initialContractOrdinalInclusive)
+    )(
+      PartyReplicationTargetParticipantMessage.protocolVersionRepresentativeFor(protocolVersion)
+    )
+    sendPayload("initialize source participant", initializeSP.toByteString).map { _ =>
+      // Once the SP initialize message has been sent, set the initial contract ordinal
+      // and reset the requested contracts count to the processed contracts count.
+      processorStore.setInitialContractOrdinalInclusive(initialContractOrdinalInclusive)
+      processorStore.resetRequestedContractsCount(processorStore.processedContractsCount)
+      progressPartyReplication()
+    }
+  } else if (processorStore.processedContractsCount == processorStore.requestedContractsCount) {
     logger.debug(
-      s"Target participant has received all the contracts requested before ordinal ${processedContractsCount.get().unwrap}. " +
+      s"Target participant has received all the contracts requested before ordinal ${processorStore.processedContractsCount.unwrap}. " +
         s"Requesting ${contractsToRequestEachTime.unwrap} more contracts from source participant"
     )
     requestNextSetOfContracts()
@@ -227,10 +241,10 @@ final class PartyReplicationTargetParticipantProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     val updatedContractOrdinalRequestedExclusive =
-      requestedContractsCount.updateAndGet(_.map(_ + contractsToRequestEachTime.unwrap))
+      processorStore.increaseRequestedContractsCount(contractsToRequestEachTime)
     val inclusiveContractOrdinal = updatedContractOrdinalRequestedExclusive.unwrap - 1
     val instructionMessage = PartyReplicationTargetParticipantMessage(
-      PartyReplicationTargetParticipantMessage.SendAcsSnapshotUpTo(
+      PartyReplicationTargetParticipantMessage.SendAcsUpTo(
         NonNegativeInt.tryCreate(inclusiveContractOrdinal)
       )
     )(
@@ -241,6 +255,8 @@ final class PartyReplicationTargetParticipantProcessor(
       instructionMessage.toByteString,
     )
   }
+
+  override protected def hasEndOfACSBeenReached: Boolean = processorStore.hasEndOfACSBeenReached
 
   private def repairEventFromSerializedContract(
       repairCounter: RepairCounter,
@@ -298,8 +314,7 @@ final class PartyReplicationTargetParticipantProcessor(
             Reassignment.Assign(
               ledgerEffectiveTime = contract.inst.createdAt.time,
               createNode = contract.toLf,
-              contractMetadata =
-                LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
+              contractAuthenticationData = contract.inst.authenticationData,
               reassignmentCounter = reassignmentCounter.v,
               nodeId = idx,
             )

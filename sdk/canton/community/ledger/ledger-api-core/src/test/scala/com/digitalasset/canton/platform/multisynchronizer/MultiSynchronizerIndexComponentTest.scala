@@ -95,7 +95,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
             Reassignment.Assign(
               ledgerEffectiveTime = Time.Timestamp.now(),
               createNode = createNode,
-              contractMetadata = Bytes.Empty,
+              contractAuthenticationData = Bytes.Empty,
               reassignmentCounter = 15L,
               nodeId = 0,
             )
@@ -120,7 +120,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
             Reassignment.Assign(
               ledgerEffectiveTime = Time.Timestamp.now(),
               createNode = createNode,
-              contractMetadata = Bytes.Empty,
+              contractAuthenticationData = Bytes.Empty,
               reassignmentCounter = 15L,
               nodeId = 0,
             )

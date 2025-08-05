@@ -17,6 +17,8 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,7 +69,7 @@ object ContractIdsImportProcessor {
         _ <- Either.cond(
           maxSynchronizerVersion >= activeContractVersion,
           (),
-          s"Contract ID ${contract.contract.contractId} has version ${activeContractVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} only supports up to ${maxSynchronizerVersion.v}",
+          s"Contract ID ${contract.contract.contractId} has version $activeContractVersion but synchronizer ${contract.synchronizerId.toProtoPrimitive} only supports up to $maxSynchronizerVersion",
         )
       } yield contract
 
@@ -103,7 +105,7 @@ object ContractIdsImportProcessor {
     private val fullRemapping =
       TrieMap.empty[LfContractId, Eval[EitherT[Future, String, RepairContract]]]
 
-    private def getDiscriminator(c: SerializableContract): Either[String, Hash] =
+    private def getDiscriminator(c: LfFatContractInst): Either[String, Hash] =
       c.contractId match {
         case LfContractId.V1(discriminator, _) =>
           Right(discriminator)
@@ -127,49 +129,63 @@ object ContractIdsImportProcessor {
 
       for {
         discriminator <- EitherT.fromEither[Future](getDiscriminator(contract))
-        depsRemapping <- contract.contractInstance.unversioned.cids.toSeq
-          .parTraverse {
-            contractId => // parTraverse use is fine because computation is in-memory only
-              fullRemapping
-                .get(contractId)
-                .fold {
-                  logger.warn(
-                    s"Missing dependency with contract ID '${contractId.coid}'. The contract might have been archived. Its contract ID cannot be recomputed."
-                  )
-                  EitherT.rightT[Future, String](contractId -> contractId)
-                }(_.value.map(contract => contractId -> contract.contract.contractId))
+        depsRemapping <- contract.createArg.cids.toSeq
+          // parTraverse use is fine because computation is in-memory only
+          .parTraverse { contractId =>
+            fullRemapping
+              .get(contractId)
+              .fold {
+                logger.warn(
+                  s"Missing dependency with contract ID '${contractId.coid}'. The contract might have been archived. Its contract ID cannot be recomputed."
+                )
+                EitherT.rightT[Future, String](contractId -> contractId)
+              }(_.value.map(contract => contractId -> contract.contract.contractId))
           }
           .map(_.toMap)
-        newRawContractInstance <- EitherT
-          .fromEither[Future](
-            SerializableRawContractInstance.create(
-              contract.contractInstance
-                .copy(unversioned = contract.contractInstance.unversioned.mapCid(depsRemapping))
+        newThinContractInstance = ThinContractInstance(
+          contract.packageName,
+          contract.templateId,
+          contract.createArg.mapCid(depsRemapping),
+        )
+        contractIdV1Version <- EitherT.fromEither[Future](contractIdVersion match {
+          case v1: CantonContractIdV1Version => Right(v1)
+          case _ =>
+            // TODO(#23971) implement this if possible
+            Left(
+              s"Contract ID version $contractIdVersion is not supported for recomputation, only V1 versions are supported"
             )
-          )
-          .leftMap(_.errorMessage)
-        unicum <- EitherT {
-          Future.successful {
-            unicumGenerator
-              .recomputeUnicum(
-                contract.contractSalt,
-                contract.ledgerCreateTime,
-                contract.metadata,
-                newRawContractInstance.contractInstance.unversioned,
-                contractIdVersion,
-              )
-          }
-        }
-      } yield {
-        val newContractId = contractIdVersion.fromDiscriminator(discriminator, unicum)
-
-        repairContract.withSerializableContract(contract =
-          contract.copy(
-            contractId = newContractId,
-            rawContractInstance = newRawContractInstance,
+        })
+        authenticationData <- EitherT.fromEither[Future](
+          ContractAuthenticationData
+            .fromLfBytes(contractIdV1Version, contract.authenticationData)
+            .leftMap(err =>
+              s"Could not parse contract authentication data for contract ID ${contract.contractId}: $err"
+            )
+        )
+        metadata <- EitherT.fromEither[Future](
+          ContractMetadata.create(
+            signatories = contract.signatories,
+            stakeholders = contract.stakeholders,
+            maybeKeyWithMaintainersVersioned =
+              contract.contractKeyWithMaintainers.map(Versioned(contract.version, _)),
           )
         )
-      }
+        unicum <- EitherT.fromEither[Future] {
+          unicumGenerator.recomputeUnicum(
+            authenticationData.salt,
+            contract.createdAt,
+            metadata,
+            newThinContractInstance,
+            contractIdV1Version,
+          )
+        }
+        newContractId = contractIdV1Version.fromDiscriminator(discriminator, unicum)
+        newFatContractInstance = LfFatContractInst.fromCreateNode(
+          contract.toCreateNode.copy(coid = newContractId, arg = newThinContractInstance.arg),
+          contract.createdAt,
+          contract.authenticationData,
+        )
+      } yield repairContract.withContractInstance(newFatContractInstance)
     }
 
     // If the contract ID is already valid return the contract as is, eagerly and synchronously.
@@ -199,7 +215,7 @@ object ContractIdsImportProcessor {
         contracts: Seq[RepairContract]
     ): Either[String, Unit] = {
       val allContractIds = contracts.map(_.contract.contractId)
-      val allDependencies = contracts.flatMap(_.contract.contractInstance.unversioned.cids)
+      val allDependencies = contracts.flatMap(_.contract.createArg.cids)
       (allContractIds ++ allDependencies)
         .traverse {
           case contractId @ LfContractId.V1(discriminator, _) =>

@@ -393,7 +393,7 @@ private[platform] object InMemoryStateUpdater {
             version = createdEvent.createArgument.version,
           ),
           createTime = CreationTime.CreatedAt(createdEvent.ledgerEffectiveTime),
-          authenticationData = createdEvent.driverMetadata,
+          authenticationData = createdEvent.authenticationData,
         ),
         eventOffset = createdEvent.eventOffset,
       )
@@ -467,9 +467,11 @@ private[platform] object InMemoryStateUpdater {
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
-          driverMetadata = txAccepted.contractMetadata.getOrElse(
+          authenticationData = txAccepted.contractAuthenticationData.getOrElse(
             create.coid,
-            throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}"),
+            throw new IllegalStateException(
+              s"missing authentication data for contract ${create.coid}"
+            ),
           ),
         )
       case NodeInfo(nodeId, exercise: Exercise, lastDescendantNodeId) =>

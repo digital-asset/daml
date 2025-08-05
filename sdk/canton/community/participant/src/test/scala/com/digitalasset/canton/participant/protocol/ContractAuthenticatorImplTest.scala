@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.either.*
+import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.lfHash
@@ -18,6 +18,7 @@ import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.Value
+import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -26,6 +27,11 @@ import java.util.UUID
 
 class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
 
+  private def modifyCreateNode(
+      f: LfNodeCreate => LfNodeCreate
+  ): LfFatContractInst => LfFatContractInst =
+    fci => LfFatContractInst.fromCreateNode(f(fci.toCreateNode), fci.createdAt, fci.authenticationData)
+
   forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
     authContractIdVersion =>
       s"ContractAuthenticatorImpl with $authContractIdVersion" when {
@@ -33,7 +39,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "correctly authenticate the contract" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            contractAuthenticator.authenticateSerializable(contract) shouldBe Either.unit
+            contractAuthenticator.authenticate(fatContractInstance) shouldBe Either.unit
           }
         }
 
@@ -62,21 +68,12 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             ) {
               lazy override val contractInstance: LfThinContractInst =
                 baseInstance.map(_.copy(arg = normalizedArg))
-              contractAuthenticator.authenticateSerializable(contract) shouldBe Either.unit
+              contractAuthenticator.authenticate(fatContractInstance) shouldBe Either.unit
 
-              private val unNormalizedContract = SerializableContract(
-                contractId =
-                  contractId, // Here we are using the same contract id authenticated above
-                contractInstance = baseInstance.map(_.copy(arg = unNormalizedArg)),
-                metadata = contractMetadata,
-                ledgerTime = ledgerTime,
-                contractSalt = contractSalt.unwrap,
-              ).valueOrFail("Failed creating serializable contract instance")
+              private val unNormalizedContract =
+                modifyCreateNode(_.copy(arg = unNormalizedArg))(fatContractInstance)
 
-              contractAuthenticator.authenticateSerializable(
-                unNormalizedContract
-              ) shouldBe Either.unit
-
+              contractAuthenticator.authenticate(unNormalizedContract) shouldBe Either.unit
             }
           }
         }
@@ -90,10 +87,11 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             authContractIdVersion
           ) {
             val nonAuthenticatedContractId = genericContractId(1, 2)
-            contractAuthenticator.authenticateSerializable(
-              contract.copy(contractId = nonAuthenticatedContractId)
-            ) shouldBe Left(
-              "Unsupported contract authentication id scheme: Suffix 0002 is not a supported contract-id prefix"
+            val nonAuthenticatedContractInstance =
+              modifyCreateNode(_.copy(coid = nonAuthenticatedContractId))(fatContractInstance)
+
+            contractAuthenticator.authenticate(nonAuthenticatedContractInstance) shouldBe Left(
+              "malformed contract id 'ContractId(0000010000000000000000000000000000000000000000000000000000000000000002)'. Suffix 0002 is not a supported contract-id prefix"
             )
           }
         }
@@ -102,10 +100,17 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "fail authentication" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            val changedSalt = TestSalt.generateSalt(1337)
+            val changedAuthenticationData =
+              ContractAuthenticationDataV1(TestSalt.generateSalt(1337))(contractIdVersion)
             testFailedAuthentication(
-              _.copy(contractSalt = changedSalt),
-              testedSalt = changedSalt,
+              fci =>
+                LfFatContractInst
+                  .fromCreateNode(
+                    fci.toCreateNode,
+                    fci.createdAt,
+                    changedAuthenticationData.toLfBytes,
+                  ),
+              testedAuthenticationData = changedAuthenticationData,
             )
           }
         }
@@ -116,7 +121,12 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           ) {
             val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
             testFailedAuthentication(
-              _.copy(ledgerCreateTime = CreationTime.CreatedAt(changedLedgerTime.toLf)),
+              fci =>
+                LfFatContractInst.fromCreateNode(
+                  fci.toCreateNode,
+                  CreationTime.CreatedAt(changedLedgerTime.toLf),
+                  fci.authenticationData,
+                ),
               testedLedgerTime = changedLedgerTime,
             )
           }
@@ -126,13 +136,11 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "fail authentication" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            val changedContractInstance = ExampleTransactionFactory.contractInstance(
+            private val changedContractInstance = ExampleTransactionFactory.contractInstance(
               Seq(ExampleTransactionFactory.suffixedId(1, 2))
             )
             testFailedAuthentication(
-              _.copy(rawContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance)
-              ),
+              modifyCreateNode(_.copy(arg = changedContractInstance.unversioned.arg)),
               testedContractInstance =
                 ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
             )
@@ -143,15 +151,21 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "fail authentication" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            private val changedRawContractInstance: SerializableRawContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(
-                ExampleTransactionFactory.contractInstance(
-                  templateId = LfTemplateId.assertFromString("definitely:changed:templateid")
-                )
+            private val templateId = LfTemplateId.assertFromString("definitely:changed:templateid")
+            private val changedContractInstance: LfThinContractInst =
+              ExampleTransactionFactory.contractInstance(templateId = templateId)
+            private val changedContractKey = contractKey.map(
+              _.focus(_.globalKey).modify(gk =>
+                LfGlobalKey.assertBuild(templateId, gk.key, gk.packageName)
               )
+            )
             testFailedAuthentication(
-              _.copy(rawContractInstance = changedRawContractInstance),
-              testedContractInstance = changedRawContractInstance,
+              modifyCreateNode(
+                _.copy(templateId = templateId, keyOpt = Some(changedContractKey.unversioned))
+              ),
+              testedContractInstance =
+                ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
+              testedContractKey = Some(changedContractKey),
             )
           }
         }
@@ -160,15 +174,16 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "fail authentication" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            private val changedRawContractInstance: SerializableRawContractInstance =
-              ExampleTransactionFactory.asSerializableRaw(
-                ExampleTransactionFactory.contractInstance(
-                  packageName = LfPackageName.assertFromString("definitely-changed-package-name")
-                )
+            private val changedContractInstance: LfThinContractInst =
+              ExampleTransactionFactory.contractInstance(
+                packageName = LfPackageName.assertFromString("definitely-changed-package-name")
               )
             testFailedAuthentication(
-              _.copy(rawContractInstance = changedRawContractInstance),
-              testedContractInstance = changedRawContractInstance,
+              modifyCreateNode(
+                _.copy(packageName = changedContractInstance.unversioned.packageName)
+              ),
+              testedContractInstance =
+                ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
             )
           }
         }
@@ -180,14 +195,12 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             val changedSignatories = signatories - alice
             // As observers == stakeholders -- signatories, we also need to ensure that alice is not a stakeholder - or unicum's will be calculated incorrectly
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    changedSignatories,
-                    contract.metadata.stakeholders - alice,
-                    contract.metadata.maybeKeyWithMaintainersVersioned,
-                  )
-                ),
+              modifyCreateNode(
+                _.focus(_.signatories)
+                  .replace(changedSignatories)
+                  .focus(_.stakeholders)
+                  .modify(_ - alice)
+              ),
               testedSignatories = changedSignatories,
             )
           }
@@ -197,17 +210,10 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
           "fail authentication" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            val changedObservers =
-              observers ++ Set(LfPartyId.assertFromString("observer::changed"))
+            val additionalObserver = LfPartyId.assertFromString("observer::changed")
+            val changedObservers = observers incl additionalObserver
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders ++ changedObservers,
-                    contract.metadata.maybeKeyWithMaintainersVersioned,
-                  )
-                ),
+              modifyCreateNode(_.focus(_.stakeholders).modify(_ incl additionalObserver)),
               testedObservers = changedObservers,
             )
           }
@@ -218,15 +224,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             authContractIdVersion
           ) {
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata
-                    .tryCreate(
-                      contract.metadata.signatories,
-                      contract.metadata.stakeholders,
-                      None,
-                    )
-                ),
+              modifyCreateNode(_.copy(keyOpt = None)),
               testedContractKey = None,
             )
           }
@@ -245,14 +243,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
               maintainers = maintainers,
             )
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
+              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
               testedContractKey = Some(changedContractKey),
             )
           }
@@ -265,14 +256,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             val changedContractKey =
               ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set(alice))
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
+              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
               testedContractKey = Some(changedContractKey),
             )
           }
@@ -285,14 +269,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             val changedContractKey =
               ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set.empty)
             testFailedAuthentication(
-              contract =>
-                contract.copy(metadata =
-                  ContractMetadata.tryCreate(
-                    contract.metadata.signatories,
-                    contract.metadata.stakeholders,
-                    Some(changedContractKey),
-                  )
-                ),
+              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
               testedContractKey = Some(changedContractKey),
             )
           }
@@ -301,7 +278,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
   }
 }
 
-class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
+class WithContractAuthenticator(protected val contractIdVersion: CantonContractIdV1Version)
+    extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
   protected lazy val contractAuthenticator = new ContractAuthenticatorImpl(
     unicumGenerator
@@ -311,7 +289,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     ExampleTransactionFactory.contractInstance()
   protected lazy val ledgerTime: CantonTimestamp = CantonTimestamp.MinValue
   protected lazy val alice: IdString.Party = LfPartyId.assertFromString("alice")
-  protected lazy val signatories: Set[IdString.Party] =
+  protected lazy val signatories: Set[LfPartyId] =
     Set(ExampleTransactionFactory.signatory, alice)
   protected lazy val observers: Set[LfPartyId] = Set(ExampleTransactionFactory.observer)
   protected lazy val maintainers: Set[LfPartyId] = Set(ExampleTransactionFactory.signatory)
@@ -331,10 +309,24 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     suffixedContractInstance = contractInstance.unversioned,
     cantonContractIdVersion = contractIdVersion,
   )
+  protected lazy val authenticationData =
+    ContractAuthenticationDataV1(contractSalt.unwrap)(contractIdVersion)
 
   protected lazy val contractId = contractIdVersion.fromDiscriminator(
     ExampleTransactionFactory.lfHash(1337),
     unicum,
+  )
+
+  lazy val fatContractInstance = LfFatContractInst.fromCreateNode(
+    LfNodeCreate(
+      coid = contractId,
+      contract = contractInstance,
+      signatories = contractMetadata.signatories,
+      stakeholders = contractMetadata.stakeholders,
+      key = contractMetadata.maybeKeyWithMaintainers,
+    ),
+    CreationTime.CreatedAt(ledgerTime.toLf),
+    authenticationData.toLfBytes,
   )
 
   lazy val contract: SerializableContract =
@@ -343,12 +335,12 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       contractInstance = contractInstance,
       metadata = contractMetadata,
       ledgerTime = ledgerTime,
-      contractSalt = contractSalt.unwrap,
+      authenticationData = authenticationData,
     ).valueOrFail("Failed creating serializable contract instance")
 
   protected def testFailedAuthentication(
-      changeContract: SerializableContract => SerializableContract,
-      testedSalt: Salt = contractSalt.unwrap,
+      changeContract: LfFatContractInst => LfFatContractInst,
+      testedAuthenticationData: ContractAuthenticationData = authenticationData,
       testedLedgerTime: CantonTimestamp = ledgerTime,
       testedContractInstance: SerializableRawContractInstance =
         ExampleTransactionFactory.asSerializableRaw(contractInstance),
@@ -358,9 +350,15 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
         contractKey
       ),
   ): Assertion = {
+    val salt = testedAuthenticationData match {
+      case ContractAuthenticationDataV1(salt) => salt
+      case ContractAuthenticationDataV2() =>
+        // TODO(#23971) implement this
+        fail("ContractAuthenticatorImplTest does not support V2 authentication data")
+    }
     val recomputedUnicum = unicumGenerator
       .recomputeUnicum(
-        contractSalt = testedSalt,
+        contractSalt = salt,
         ledgerCreateTime = CreationTime.CreatedAt(testedLedgerTime.toLf),
         metadata = ContractMetadata
           .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
@@ -370,7 +368,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
       .valueOrFail("Failed unicum computation")
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)
     val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
-    contractAuthenticator.authenticateSerializable(changeContract(contract)) shouldBe Left(
+    contractAuthenticator.authenticate(changeContract(fatContractInstance)) shouldBe Left(
       s"Mismatching contract id suffixes. Expected: $expectedSuffix vs actual: $actualSuffix"
     )
   }
