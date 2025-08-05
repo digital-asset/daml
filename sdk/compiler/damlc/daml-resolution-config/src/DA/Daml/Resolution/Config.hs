@@ -155,7 +155,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
 findPackageResolutionData :: FilePath -> ResolutionData -> Maybe ValidPackageResolution
 findPackageResolutionData path (ResolutionData packages) =
   Map.lookup path packages <&> \case
-    ErrorPackageResolutionData err -> error $ "Couldn't resolve package " <> path <> ":\n" <> unlines err
+    ErrorPackageResolutionData errs -> error $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     ValidPackageResolutionData res -> res
 
 getResolutionData :: IO (Maybe ResolutionData)
@@ -170,7 +170,7 @@ data ResolutionData = ResolutionData
   deriving (Eq, Show)
 
 data PackageResolutionData
-  = ErrorPackageResolutionData [String]
+  = ErrorPackageResolutionData [ErrorPackageResolution]
   | ValidPackageResolutionData ValidPackageResolution
   deriving (Eq, Show)
 
@@ -180,16 +180,31 @@ data ValidPackageResolution = ValidPackageResolution
   }
   deriving (Eq, Show)
 
+data ErrorPackageResolution = ErrorPackageResolution
+  { cause :: String
+  , code :: String
+  }
+  deriving Eq
+
+instance Show ErrorPackageResolution where
+  show ErrorPackageResolution {..} = code <> ": " <> cause
+
 instance Aeson.FromJSON ResolutionData where
   parseJSON = Aeson.withObject "ResolutionData" $ \obj ->
     ResolutionData <$> obj .: "packages"
 
 instance Aeson.FromJSON PackageResolutionData where
   parseJSON = Aeson.withObject "PackageResolutionData" $ \obj -> do
-    mErrors <- obj .:? "error"
+    mErrors <- obj .:? "errors"
     case mErrors of
       Just errs -> pure $ ErrorPackageResolutionData errs
       Nothing ->
         fmap ValidPackageResolutionData $ ValidPackageResolution
-          <$> obj .: "components"
-          <*> obj .: "imports"
+          <$> obj .:? "components" .!= mempty
+          <*> obj .:? "imports" .!= mempty
+
+instance Aeson.FromJSON ErrorPackageResolution where
+  parseJSON = Aeson.withObject "ErrorPackageResolution" $ \obj ->
+    ErrorPackageResolution
+      <$> obj .: "cause"
+      <*> obj .: "code"

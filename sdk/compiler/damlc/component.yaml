@@ -16,5 +16,8 @@ spec:
       name: clean
       desc: Clean a daml package or project
       exec-args: ["clean"]
-
-
+  exports:
+    damlc-binary:
+      conflict-strategy: fail
+      paths:
+        - damlc-dist-no-script-service/damlc${EXE}
