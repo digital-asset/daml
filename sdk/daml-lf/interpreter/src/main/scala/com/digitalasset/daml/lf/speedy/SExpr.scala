@@ -22,7 +22,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => compileTime}
-import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
   * - variables represented by their runtime location
@@ -133,8 +132,7 @@ private[lf] object SExpr {
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        discard(actuals(i) = v)
-        discard(actuals(i) = v)
+        actuals(i) = v
         i += 1
       }
       builtin.execute(actuals, machine)
