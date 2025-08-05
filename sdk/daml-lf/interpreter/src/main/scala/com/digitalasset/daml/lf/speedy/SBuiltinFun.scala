@@ -13,7 +13,6 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.support._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.speedy.ArrayList.Implicits._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => SV, _}
@@ -46,10 +45,8 @@ import java.security.{
 import java.security.spec.{InvalidKeySpecException, X509EncodedKeySpec}
 import java.time.Duration
 import java.time.temporal.ChronoUnit
-import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
-import scala.jdk.CollectionConverters._
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Speedy builtins represent LF functional forms. As such, they *always* have a non-zero arity.
@@ -80,7 +77,7 @@ private[speedy] sealed abstract class SBuiltinFun(val arity: Int) {
   /** Execute the builtin with 'arity' number of arguments in 'args'.
     * Updates the machine state accordingly.
     */
-  private[speedy] def execute[Q](args: util.ArrayList[SValue], machine: Machine[Q]): Control[Q]
+  private[speedy] def execute[Q](args: Array[SValue], machine: Machine[Q]): Control[Q]
 }
 
 private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinFun(arity) {
@@ -91,10 +88,10 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
     * @param args arguments for executing the pure builtin
     * @return the pure builtin's resulting value (wrapped as a Control value)
     */
-  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
+  private[speedy] def executePure(args: Array[SValue]): SValue
 
   override private[speedy] final def execute[Q](
-      args: util.ArrayList[SValue],
+      args: Array[SValue],
       machine: Machine[Q],
   ): Control.Value = {
     Control.Value(executePure(args))
@@ -112,12 +109,12 @@ private[speedy] sealed abstract class UpdateBuiltin(arity: Int)
     * @return the builtin execution's resulting control value
     */
   protected def executeUpdate(
-      args: util.ArrayList[SValue],
+      args: Array[SValue],
       machine: UpdateMachine,
   ): Control[Question.Update]
 
   override private[speedy] final def execute[Q](
-      args: util.ArrayList[SValue],
+      args: Array[SValue],
       machine: Machine[Q],
   ): Control[Q] =
     machine.asUpdateMachine(productPrefix)(executeUpdate(args, _))
@@ -138,136 +135,136 @@ private[lf] object SBuiltinFun {
   protected def unexpectedType(i: Int, expected: String, found: SValue): Nothing =
     crash(s"type mismatch of argument $i: expect $expected but got $found")
 
-  final protected def getSBool(args: util.ArrayList[SValue], i: Int): Boolean =
-    args.get(i) match {
+  final protected def getSBool(args: Array[SValue], i: Int): Boolean =
+    args(i) match {
       case SBool(value) => value
       case otherwise => unexpectedType(i, "SBool", otherwise)
     }
 
-  final protected def getSUnit(args: util.ArrayList[SValue], i: Int): Unit =
-    args.get(i) match {
+  final protected def getSUnit(args: Array[SValue], i: Int): Unit =
+    args(i) match {
       case SUnit => ()
       case otherwise => unexpectedType(i, "SUnit", otherwise)
     }
 
-  final protected def getSInt64(args: util.ArrayList[SValue], i: Int): Long =
-    args.get(i) match {
+  final protected def getSInt64(args: Array[SValue], i: Int): Long =
+    args(i) match {
       case SInt64(value) => value
       case otherwise => unexpectedType(i, "SInt64", otherwise)
     }
 
-  final protected def getSText(args: util.ArrayList[SValue], i: Int): String =
-    args.get(i) match {
+  final protected def getSText(args: Array[SValue], i: Int): String =
+    args(i) match {
       case SText(value) => value
       case otherwise => unexpectedType(i, "SText", otherwise)
     }
 
-  final protected def getSNumeric(args: util.ArrayList[SValue], i: Int): Numeric =
-    args.get(i) match {
+  final protected def getSNumeric(args: Array[SValue], i: Int): Numeric =
+    args(i) match {
       case SNumeric(value) => value
       case otherwise => unexpectedType(i, "SNumeric", otherwise)
     }
 
-  final protected def getSDate(args: util.ArrayList[SValue], i: Int): Time.Date =
-    args.get(i) match {
+  final protected def getSDate(args: Array[SValue], i: Int): Time.Date =
+    args(i) match {
       case SDate(value) => value
       case otherwise => unexpectedType(i, "SDate", otherwise)
     }
 
-  final protected def getSTimestamp(args: util.ArrayList[SValue], i: Int): Time.Timestamp =
-    args.get(i) match {
+  final protected def getSTimestamp(args: Array[SValue], i: Int): Time.Timestamp =
+    args(i) match {
       case STimestamp(value) => value
       case otherwise => unexpectedType(i, "STimestamp", otherwise)
     }
 
-  final protected def getSScale(args: util.ArrayList[SValue], i: Int): Numeric.Scale =
+  final protected def getSScale(args: Array[SValue], i: Int): Numeric.Scale =
     Numeric.scale(getSNumeric(args, i))
 
-  final protected def getSParty(args: util.ArrayList[SValue], i: Int): Party =
-    args.get(i) match {
+  final protected def getSParty(args: Array[SValue], i: Int): Party =
+    args(i) match {
       case SParty(value) => value
       case otherwise => unexpectedType(i, "SParty", otherwise)
     }
 
-  final protected def getSContractId(args: util.ArrayList[SValue], i: Int): V.ContractId =
-    args.get(i) match {
+  final protected def getSContractId(args: Array[SValue], i: Int): V.ContractId =
+    args(i) match {
       case SContractId(value) => value
       case otherwise => unexpectedType(i, "SContractId", otherwise)
     }
 
-  final protected def getSBigNumeric(args: util.ArrayList[SValue], i: Int): java.math.BigDecimal =
-    args.get(i) match {
+  final protected def getSBigNumeric(args: Array[SValue], i: Int): java.math.BigDecimal =
+    args(i) match {
       case SBigNumeric(value) => value
       case otherwise => unexpectedType(i, "SBigNumeric", otherwise)
     }
 
-  final protected def getSList(args: util.ArrayList[SValue], i: Int): FrontStack[SValue] =
-    args.get(i) match {
+  final protected def getSList(args: Array[SValue], i: Int): FrontStack[SValue] =
+    args(i) match {
       case SList(value) => value
       case otherwise => unexpectedType(i, "SList", otherwise)
     }
 
-  final protected def getSOptional(args: util.ArrayList[SValue], i: Int): Option[SValue] =
-    args.get(i) match {
+  final protected def getSOptional(args: Array[SValue], i: Int): Option[SValue] =
+    args(i) match {
       case SOptional(value) => value
       case otherwise => unexpectedType(i, "SOptional", otherwise)
     }
 
-  final protected def getSMap(args: util.ArrayList[SValue], i: Int): SMap =
-    args.get(i) match {
+  final protected def getSMap(args: Array[SValue], i: Int): SMap =
+    args(i) match {
       case genMap: SMap => genMap
       case otherwise => unexpectedType(i, "SMap", otherwise)
     }
 
-  final protected def getSMapKey(args: util.ArrayList[SValue], i: Int): SValue = {
-    val key = args.get(i)
+  final protected def getSMapKey(args: Array[SValue], i: Int): SValue = {
+    val key = args(i)
     SMap.comparable(key)
     key
   }
 
-  final protected def getSRecord(args: util.ArrayList[SValue], i: Int): SRecord =
-    args.get(i) match {
+  final protected def getSRecord(args: Array[SValue], i: Int): SRecord =
+    args(i) match {
       case record: SRecord => record
       case otherwise => unexpectedType(i, "SRecord", otherwise)
     }
 
-  final protected def getSStruct(args: util.ArrayList[SValue], i: Int): SStruct =
-    args.get(i) match {
+  final protected def getSStruct(args: Array[SValue], i: Int): SStruct =
+    args(i) match {
       case struct: SStruct => struct
       case otherwise => unexpectedType(i, "SStruct", otherwise)
     }
 
-  final protected def getSAny(args: util.ArrayList[SValue], i: Int): SAny =
-    args.get(i) match {
+  final protected def getSAny(args: Array[SValue], i: Int): SAny =
+    args(i) match {
       case any: SAny => any
       case otherwise => unexpectedType(i, "SAny", otherwise)
     }
 
-  final protected def getSTypeRep(args: util.ArrayList[SValue], i: Int): Ast.Type =
-    args.get(i) match {
+  final protected def getSTypeRep(args: Array[SValue], i: Int): Ast.Type =
+    args(i) match {
       case STypeRep(ty) => ty
       case otherwise => unexpectedType(i, "STypeRep", otherwise)
     }
 
-  final protected def getSAnyException(args: util.ArrayList[SValue], i: Int): SRecord =
-    args.get(i) match {
+  final protected def getSAnyException(args: Array[SValue], i: Int): SRecord =
+    args(i) match {
       case SAnyException(exception) => exception
       case otherwise => unexpectedType(i, "Exception", otherwise)
     }
 
   final protected def getSAnyContract(
-      args: util.ArrayList[SValue],
+      args: Array[SValue],
       i: Int,
   ): (TypeConId, SRecord) =
-    args.get(i) match {
+    args(i) match {
       case SAny(Ast.TTyCon(tyCon), record: SRecord) =>
         assert(tyCon == record.id)
         (tyCon, record)
       case otherwise => unexpectedType(i, "AnyContract", otherwise)
     }
 
-  final protected def checkToken(args: util.ArrayList[SValue], i: Int): Unit =
-    args.get(i) match {
+  final protected def checkToken(args: Array[SValue], i: Int): Unit =
+    args(i) match {
       case SToken => ()
       case otherwise => unexpectedType(i, "SToken", otherwise)
     }
@@ -331,16 +328,16 @@ private[lf] object SBuiltinFun {
 
   sealed abstract class SBuiltinArithmetic(val name: String, arity: Int)
       extends SBuiltinFun(arity) {
-    private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue]
+    private[speedy] def compute(args: Array[SValue]): Option[SValue]
 
-    private[speedy] def buildException[Q](machine: Machine[Q], args: util.ArrayList[SValue]) =
+    private[speedy] def buildException[Q](machine: Machine[Q], args: Array[SValue]) =
       machine.sArithmeticError(
         name,
         args.view.map(litToText(getClass.getCanonicalName, _)).to(ImmArray),
       )
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] =
       compute(args) match {
@@ -353,7 +350,7 @@ private[lf] object SBuiltinFun {
 
   sealed abstract class SBBinaryOpInt64(name: String, op: (Long, Long) => Option[Long])
       extends SBuiltinArithmetic(name, 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] =
+    override private[speedy] def compute(args: Array[SValue]): Option[SValue] =
       op(getSInt64(args, 0), getSInt64(args, 1)).map(SInt64)
   }
 
@@ -383,7 +380,7 @@ private[lf] object SBuiltinFun {
 
   sealed abstract class SBBinaryOpNumeric(name: String, op: (Numeric, Numeric) => Option[Numeric])
       extends SBuiltinArithmetic(name, 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SValue] = {
       val a = getSNumeric(args, 0)
       val b = getSNumeric(args, 1)
       op(a, b).map(SNumeric(_))
@@ -394,7 +391,7 @@ private[lf] object SBuiltinFun {
       name: String,
       op: (Scale, Numeric, Numeric) => Option[Numeric],
   ) extends SBuiltinArithmetic(name, 3) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SValue] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SValue] = {
       val scale = getSScale(args, 0)
       val a = getSNumeric(args, 1)
       val b = getSNumeric(args, 2)
@@ -408,7 +405,7 @@ private[lf] object SBuiltinFun {
   final case object SBDivNumeric extends SBBinaryOpNumeric2("DIV_NUMERIC", divide)
 
   final case object SBRoundNumeric extends SBuiltinArithmetic("ROUND_NUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SNumeric] = {
       val prec = getSInt64(args, 0)
       val x = getSNumeric(args, 1)
       Numeric.round(prec, x).toOption.map(SNumeric(_))
@@ -416,7 +413,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBCastNumeric extends SBuiltinArithmetic("CAST_NUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SNumeric] = {
       val outputScale = getSScale(args, 0)
       val x = getSNumeric(args, 1)
       Numeric.fromBigDecimal(outputScale, x).toOption.map(SNumeric(_))
@@ -424,7 +421,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBShiftNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
+    override private[speedy] def executePure(args: Array[SValue]): SNumeric = {
       val outputScale = getSScale(args, 0)
       val x = getSNumeric(args, 1)
       val inputScale = x.scale
@@ -438,12 +435,12 @@ private[lf] object SBuiltinFun {
   // Text functions
   //
   final case object SBExplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(args: Array[SValue]): SList =
       SList(FrontStack.from(Utf8.explode(getSText(args, 0)).map(SText)))
   }
 
   final case object SBImplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+    override private[speedy] def executePure(args: Array[SValue]): SText = {
       val xs = getSList(args, 0)
       val ts = xs.map {
         case SText(t) => t
@@ -454,7 +451,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBAppendText extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
+    override private[speedy] def executePure(args: Array[SValue]): SText =
       SText(getSText(args, 0) + getSText(args, 1))
   }
 
@@ -475,13 +472,13 @@ private[lf] object SBuiltinFun {
     }
 
   final case object SBToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args.get(0)))
+    override private[speedy] def executePure(args: Array[SValue]): SText =
+      SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args(0)))
   }
 
   final case object SBContractIdToText extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Value = {
       val coid = getSContractId(args, 0).coid
@@ -495,12 +492,12 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBPartyToQuotedText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
+    override private[speedy] def executePure(args: Array[SValue]): SText =
       SText(s"'${getSParty(args, 0): String}'")
   }
 
   final case object SBCodePointsToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+    override private[speedy] def executePure(args: Array[SValue]): SText = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
       Utf8.pack(codePoints.toImmArray) match {
         case Right(value) =>
@@ -512,7 +509,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToParty extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(args: Array[SValue]): SOptional = {
       Party.fromString(getSText(args, 0)) match {
         case Left(_) => SV.None
         case Right(p) => SOptional(Some(SParty(p)))
@@ -523,7 +520,7 @@ private[lf] object SBuiltinFun {
   final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(args: Array[SValue]): SOptional = {
       val s = getSText(args, 0)
       if (pattern.matcher(s).matches())
         try {
@@ -545,7 +542,7 @@ private[lf] object SBuiltinFun {
     private val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(args: Array[SValue]): SOptional = {
       val scale = getSScale(args, 0)
       val string = getSText(args, 1)
       string match {
@@ -573,7 +570,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToCodePoints extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
+    override private[speedy] def executePure(args: Array[SValue]): SList = {
       val string = getSText(args, 0)
       val codePoints = Utf8.unpack(string)
       SList(FrontStack.from(codePoints.map(SInt64)))
@@ -582,7 +579,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBTextToContractId extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val value = getSText(args, 0)
@@ -594,13 +591,13 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
+    override private[speedy] def executePure(args: Array[SValue]): SText =
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
   final case object SBKECCAK256Text extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       try {
@@ -620,7 +617,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBSECP256K1Bool extends SBuiltinFun(3) {
     private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       try {
@@ -701,7 +698,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBDecodeHex extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       try {
@@ -724,7 +721,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBEncodeHex extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: Array[SValue]): SValue = {
       val arg = getSText(args, 0)
       val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg))
 
@@ -734,11 +731,11 @@ private[lf] object SBuiltinFun {
 
   final case object SBFoldl extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Value = {
-      val func = args.get(0)
-      val init = args.get(1)
+      val func = args(0)
+      val init = args(1)
       val list = getSList(args, 2)
       machine.pushKont(KFoldl(machine, func, list))
       Control.Value(init)
@@ -775,11 +772,11 @@ private[lf] object SBuiltinFun {
   // implementation of `foldr`.
   final case object SBFoldr extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val func = args.get(0).asInstanceOf[SPAP]
-      val init = args.get(1)
+      val func = args(0).asInstanceOf[SPAP]
+      val init = args(1)
       val list = getSList(args, 2)
       if (func.arity - func.actuals.size >= 2) {
         val array = list.toImmArray
@@ -800,37 +797,37 @@ private[lf] object SBuiltinFun {
 
   final case object SBMapToList extends SBuiltinPure(1) {
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(args: Array[SValue]): SList =
       SValue.toList(getSMap(args, 0).entries)
   }
 
   final case object SBMapInsert extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
-      getSMap(args, 2).insert(getSMapKey(args, 0), args.get(1))
+    override private[speedy] def executePure(args: Array[SValue]): SMap =
+      getSMap(args, 2).insert(getSMapKey(args, 0), args(1))
   }
 
   final case object SBMapLookup extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+    override private[speedy] def executePure(args: Array[SValue]): SOptional =
       SOptional(getSMap(args, 1).get(getSMapKey(args, 0)))
   }
 
   final case object SBMapDelete extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
+    override private[speedy] def executePure(args: Array[SValue]): SMap =
       getSMap(args, 1).delete(getSMapKey(args, 0))
   }
 
   final case object SBMapKeys extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(args: Array[SValue]): SList =
       SList(getSMap(args, 0).entries.keys.to(FrontStack))
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(args: Array[SValue]): SList =
       SList(getSMap(args, 0).entries.values.to(FrontStack))
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
+    override private[speedy] def executePure(args: Array[SValue]): SInt64 =
       SInt64(getSMap(args, 0).entries.size.toLong)
   }
 
@@ -839,7 +836,7 @@ private[lf] object SBuiltinFun {
   //
 
   final case object SBInt64ToNumeric extends SBuiltinArithmetic("INT64_TO_NUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SNumeric] = {
       val scale = getSScale(args, 0)
       val x = getSInt64(args, 1)
       Numeric.fromLong(scale, x).toOption.map(SNumeric(_))
@@ -847,32 +844,32 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBNumericToInt64 extends SBuiltinArithmetic("NUMERIC_TO_INT64", 1) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SInt64] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SInt64] = {
       val x = getSNumeric(args, 0)
       Numeric.toLong(x).toOption.map(SInt64)
     }
   }
 
   final case object SBDateToUnixDays extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
+    override private[speedy] def executePure(args: Array[SValue]): SInt64 =
       SInt64(getSDate(args, 0).days.toLong)
   }
 
   final case object SBUnixDaysToDate extends SBuiltinArithmetic("UNIX_DAYS_TO_DATE", 1) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SDate] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SDate] = {
       val days = getSInt64(args, 0)
       Time.Date.asInt(days).flatMap(Time.Date.fromDaysSinceEpoch).toOption.map(SDate)
     }
   }
 
   final case object SBTimestampToUnixMicroseconds extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
+    override private[speedy] def executePure(args: Array[SValue]): SInt64 =
       SInt64(getSTimestamp(args, 0).micros)
   }
 
   final case object SBUnixMicrosecondsToTimestamp
       extends SBuiltinArithmetic("UNIX_MICROSECONDS_TO_TIMESTAMP", 1) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[STimestamp] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[STimestamp] = {
       val micros = getSInt64(args, 0)
       Time.Timestamp.fromLong(micros).toOption.map(STimestamp)
     }
@@ -882,14 +879,14 @@ private[lf] object SBuiltinFun {
   // Equality and comparisons
   //
   final case object SBEqual extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
-      SBool(svalue.Equality.areEqual(args.get(0), args.get(1)))
+    override private[speedy] def executePure(args: Array[SValue]): SBool = {
+      SBool(svalue.Equality.areEqual(args(0), args(1)))
     }
   }
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
-      SBool(pred(svalue.Ordering.compare(args.get(0), args.get(1))))
+    override private[speedy] def executePure(args: Array[SValue]): SBool = {
+      SBool(pred(svalue.Ordering.compare(args(0), args(1))))
     }
   }
 
@@ -900,41 +897,41 @@ private[lf] object SBuiltinFun {
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(args: Array[SValue]): SList =
       SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
   }
 
   /** $cons :: a -> List a -> List a */
   final case object SBCons extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
-      SList(args.get(0) +: getSList(args, 1))
+    override private[speedy] def executePure(args: Array[SValue]): SList = {
+      SList(args(0) +: getSList(args, 1))
     }
   }
 
   /** $some :: a -> Optional a */
   final case object SBSome extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      SOptional(Some(args.get(0)))
+    override private[speedy] def executePure(args: Array[SValue]): SOptional = {
+      SOptional(Some(args(0)))
     }
   }
 
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(args: Array[SValue]): SValue = {
       SRecord(id, fields, args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
   final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(args: Array[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(field, args.get(1)))
+      val values2 = record.values.clone
+      discard(values2(field) = args(1))
       record.copy(values = values2)
     }
   }
@@ -942,14 +939,14 @@ private[lf] object SBuiltinFun {
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
   final case class SBRecUpdMulti(id: Identifier, updateFields: List[Int])
       extends SBuiltinPure(1 + updateFields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(args: Array[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      (updateFields.iterator zip args.iterator.asScala.drop(1)).foreach { case (updateField, arg) =>
-        values2.set(updateField, arg)
+      val values2 = record.values.clone
+      (updateFields.iterator zip args.iterator.drop(1)).foreach { case (updateField, arg) =>
+        values2(updateField) = arg
       }
       record.copy(values = values2)
     }
@@ -957,8 +954,8 @@ private[lf] object SBuiltinFun {
 
   /** $rproj[R, field] :: R -> a */
   final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
-      getSRecord(args, 0).values.get(field)
+    override private[speedy] final def executePure(args: Array[SValue]): SValue =
+      getSRecord(args, 0).values(field)
   }
 
   // SBStructCon sorts the field after evaluation of its arguments to preserve
@@ -967,9 +964,13 @@ private[lf] object SBuiltinFun {
   final case class SBStructCon(inputFieldsOrder: Struct[Int])
       extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
-      val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)
-      inputFieldsOrder.values.foreach(i => sortedFields.add(args.get(i)))
+    override private[speedy] def executePure(args: Array[SValue]): SStruct = {
+      val sortedFields = Array.ofDim[SValue](inputFieldsOrder.size)
+      var j = 0
+      inputFieldsOrder.values.foreach { i =>
+        sortedFields(j) = args(i)
+        j += 1
+      }
       SStruct(fieldNames, sortedFields)
     }
   }
@@ -981,19 +982,19 @@ private[lf] object SBuiltinFun {
     // avoid its reevaluations, hence obtaining an amortized constant
     // complexity.
     private[this] var fieldIndex = -1
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(args: Array[SValue]): SValue = {
       val struct = getSStruct(args, 0)
       if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
-      struct.values.get(fieldIndex)
+      struct.values(fieldIndex)
     }
   }
 
   /** $tupd[field] :: Struct -> a -> Struct */
   final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
+    override private[speedy] def executePure(args: Array[SValue]): SStruct = {
       val struct = getSStruct(args, 0)
-      val values = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values.set(struct.fieldNames.indexOf(field), args.get(1)))
+      val values = struct.values.clone
+      discard(values(struct.fieldNames.indexOf(field)) = args(1))
       struct.copy(values = values)
     }
   }
@@ -1001,25 +1002,25 @@ private[lf] object SBuiltinFun {
   /** $vcon[V, variant] :: a -> V */
   final case class SBVariantCon(id: Identifier, variant: Ast.VariantConName, constructorRank: Int)
       extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SVariant = {
-      SVariant(id, variant, constructorRank, args.get(0))
+    override private[speedy] def executePure(args: Array[SValue]): SVariant = {
+      SVariant(id, variant, constructorRank, args(0))
     }
   }
 
   final object SBScaleBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
+    override private[speedy] def executePure(args: Array[SValue]): SInt64 = {
       SInt64(getSBigNumeric(args, 0).scale().toLong)
     }
   }
 
   final object SBPrecisionBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
+    override private[speedy] def executePure(args: Array[SValue]): SInt64 = {
       SInt64(getSBigNumeric(args, 0).precision().toLong)
     }
   }
 
   final object SBAddBigNumeric extends SBuiltinArithmetic("ADD_BIGNUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
       SBigNumeric.fromBigDecimal(x add y).toOption
@@ -1027,7 +1028,7 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBSubBigNumeric extends SBuiltinArithmetic("SUB_BIGNUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
       SBigNumeric.fromBigDecimal(x subtract y).toOption
@@ -1035,7 +1036,7 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBMulBigNumeric extends SBuiltinArithmetic("MUL_BIGNUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SBigNumeric] = {
       val x = getSBigNumeric(args, 0)
       val y = getSBigNumeric(args, 1)
       SBigNumeric.fromBigDecimal(x multiply y).toOption
@@ -1043,7 +1044,7 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBDivBigNumeric extends SBuiltinArithmetic("DIV_BIGNUMERIC", 4) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SBigNumeric] = {
       val unchekedScale = getSInt64(args, 0)
       val unchekedRoundingMode = getSInt64(args, 1)
       val x = getSBigNumeric(args, 2)
@@ -1059,7 +1060,7 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBShiftRightBigNumeric extends SBuiltinArithmetic("SHIFT_RIGHT_BIGNUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SBigNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SBigNumeric] = {
       val shifting = getSInt64(args, 0)
       val x = getSBigNumeric(args, 1)
       if (x.signum() == 0)
@@ -1072,14 +1073,14 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBNumericToBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+    override private[speedy] def executePure(args: Array[SValue]): SBigNumeric = {
       val x = getSNumeric(args, 0)
       SBigNumeric.fromNumeric(x)
     }
   }
 
   final object SBBigNumericToNumeric extends SBuiltinArithmetic("BIGNUMERIC_TO_NUMERIC", 2) {
-    override private[speedy] def compute(args: util.ArrayList[SValue]): Option[SNumeric] = {
+    override private[speedy] def compute(args: Array[SValue]): Option[SNumeric] = {
       val scale = getSScale(args, 0)
       val x = getSBigNumeric(args, 1)
       Numeric.fromBigDecimal(scale, x).toOption.map(SNumeric(_))
@@ -1088,10 +1089,10 @@ private[lf] object SBuiltinFun {
 
   final case class SBUCreate(templateId: Identifier) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
-      val templateArg: SValue = args.get(0)
+      val templateArg: SValue = args(0)
 
       computeContractInfo(
         machine,
@@ -1152,12 +1153,12 @@ private[lf] object SBuiltinFun {
   ) extends UpdateBuiltin(6) {
 
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
 
       val coid = getSContractId(args, 1)
-      val templateArg: SValue = args.get(5)
+      val templateArg: SValue = args(5)
 
       getContractInfo(
         machine,
@@ -1170,8 +1171,8 @@ private[lf] object SBuiltinFun {
         val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
-        val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
-        val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
+        val chosenValue = args(0).toNormalizedValue(exerciseVersion)
+        val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(2))
         machine.enforceChoiceControllersLimit(
           controllers,
           coid,
@@ -1179,11 +1180,11 @@ private[lf] object SBuiltinFun {
           choiceId,
           chosenValue,
         )
-        val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(3))
+        val obsrs = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(3))
         machine.enforceChoiceObserversLimit(obsrs, coid, templateId, choiceId, chosenValue)
         val choiceAuthorizers =
           if (explicitChoiceAuthority) {
-            val authorizers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(4))
+            val authorizers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(4))
             machine.enforceChoiceAuthorizersLimit(
               authorizers,
               coid,
@@ -1193,7 +1194,7 @@ private[lf] object SBuiltinFun {
             )
             Some(authorizers)
           } else {
-            require(args.get(4) == SValue.SValue.EmptyList)
+            require(args(4) == SValue.SValue.EmptyList)
             None
           }
 
@@ -1260,7 +1261,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBExtractSAnyValue extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val (_, record) = getSAnyContract(args, 0)
@@ -1275,7 +1276,7 @@ private[lf] object SBuiltinFun {
     */
   final case class SBFetchInterface(interfaceId: TypeConId) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
@@ -1347,7 +1348,7 @@ private[lf] object SBuiltinFun {
 
   final case class SBFetchTemplate(templateId: TypeConId) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
@@ -1360,10 +1361,10 @@ private[lf] object SBuiltinFun {
       byInterface: Option[TypeConId],
   ) extends UpdateBuiltin(3) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control.Expression = {
-      val guard = args.get(0)
+      val guard = args(0)
       val (templateId, record) = getSAnyContract(args, 1)
       val coid = getSContractId(args, 2)
 
@@ -1375,7 +1376,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBGuardConstTrue extends SBuiltinPure(1) {
     override private[speedy] def executePure(
-        args: util.ArrayList[SValue]
+        args: Array[SValue]
     ): SBool = {
       discard(getSAnyContract(args, 0))
       SBool(true)
@@ -1387,7 +1388,7 @@ private[lf] object SBuiltinFun {
       requiringIfaceId: TypeConId,
   ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val contractId = getSContractId(args, 0)
@@ -1415,7 +1416,7 @@ private[lf] object SBuiltinFun {
       explicitChoiceAuthority: Boolean,
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
       val e = SEBuiltinFun(
@@ -1436,7 +1437,7 @@ private[lf] object SBuiltinFun {
       interfaceId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
       val e = SEBuiltinFun(
@@ -1453,7 +1454,7 @@ private[lf] object SBuiltinFun {
   // Return a definition matching the templateId of a given payload
   sealed class SBResolveVirtual(toDef: Ref.Identifier => SDefinitionRef) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Expression = {
       val (ty, record) = getSAnyContract(args, 0)
@@ -1472,7 +1473,7 @@ private[lf] object SBuiltinFun {
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
   final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
+    override private[speedy] def executePure(args: Array[SValue]): SAny = {
       SAnyContract(tplId, getSRecord(args, 0))
     }
   }
@@ -1484,7 +1485,7 @@ private[lf] object SBuiltinFun {
       dstTplId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       val (srcTplId, srcArg) = getSAnyContract(args, 0)
@@ -1527,7 +1528,7 @@ private[lf] object SBuiltinFun {
       tplId: TypeConId
   ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val coid = getSContractId(args, 0)
@@ -1547,7 +1548,7 @@ private[lf] object SBuiltinFun {
   ) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Value = {
       val (actualTemplateId, record) = getSAnyContract(args, 0)
@@ -1569,7 +1570,7 @@ private[lf] object SBuiltinFun {
   ) extends SBuiltinFun(2) {
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val coid = getSContractId(args, 0)
@@ -1594,7 +1595,7 @@ private[lf] object SBuiltinFun {
       methodName: MethodName,
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
@@ -1613,7 +1614,7 @@ private[lf] object SBuiltinFun {
       ifaceId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val (templateId, record) = getSAnyContract(args, 0)
@@ -1648,7 +1649,7 @@ private[lf] object SBuiltinFun {
   ) extends UpdateBuiltin(1) {
 
     protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       val coid = getSContractId(args, 0)
@@ -1688,14 +1689,14 @@ private[lf] object SBuiltinFun {
     */
   final case class SBUInsertLookupNode(templateId: TypeConId) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
-      val mbCoid = args.get(1) match {
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args(0))
+      val mbCoid = args(1) match {
         case SOptional(mb) =>
           mb.map {
             case SContractId(coid) => coid
@@ -1764,13 +1765,13 @@ private[lf] object SBuiltinFun {
   ) extends UpdateBuiltin(1)
       with Product {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
 
       val templateId = operation.templateId
 
-      val keyValue = args.get(0)
+      val keyValue = args(0)
       val version = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
@@ -1861,7 +1862,7 @@ private[lf] object SBuiltinFun {
   /** $getTime :: Token -> Timestamp */
   final case object SBUGetTime extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
@@ -1876,7 +1877,7 @@ private[lf] object SBuiltinFun {
   /** $ledgerTimeLT: Timestamp -> Token -> Bool */
   final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 1)
@@ -1904,23 +1905,23 @@ private[lf] object SBuiltinFun {
   /** $pure :: a -> Token -> a */
   final case object SBPure extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Value = {
       checkToken(args, 1)
-      Control.Value(args.get(0))
+      Control.Value(args(0))
     }
   }
 
   /** $trace :: Text -> a -> a */
   final case object SBTrace extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Value = {
       val message = getSText(args, 0)
       machine.traceLog.add(message, machine.getLastLocation)(machine.loggingContext)
-      Control.Value(args.get(1))
+      Control.Value(args(1))
     }
   }
 
@@ -1928,7 +1929,7 @@ private[lf] object SBuiltinFun {
   final case object SBUserError extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Error = {
       Control.Error(IE.UserError(getSText(args, 0)))
@@ -1939,11 +1940,11 @@ private[lf] object SBuiltinFun {
   final case class SBTemplatePreconditionViolated(templateId: Identifier) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control.Error = {
       Control.Error(
-        IE.TemplatePreconditionViolated(templateId, None, args.get(0).toUnnormalizedValue)
+        IE.TemplatePreconditionViolated(templateId, None, args(0).toUnnormalizedValue)
       )
     }
   }
@@ -1951,7 +1952,7 @@ private[lf] object SBuiltinFun {
   /** $throw :: AnyException -> a */
   final case object SBThrow extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val excep = getSAny(args, 0)
@@ -1963,7 +1964,7 @@ private[lf] object SBuiltinFun {
   private[speedy] final case class SBCrash(reason: String) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Nothing = {
       getSUnit(args, 0)
@@ -1975,7 +1976,7 @@ private[lf] object SBuiltinFun {
   /** $try-handler :: Optional (Token -> a) -> AnyException -> Token -> a (or re-throw) */
   final case object SBTryHandler extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       val opt = getSOptional(args, 0)
@@ -1993,13 +1994,13 @@ private[lf] object SBuiltinFun {
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case machine.valueArithmeticError.tyCon =>
-          Control.Value(exception.values.get(0))
+          Control.Value(exception.values(0))
         case tyCon =>
           val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(exception))
           Control.Expression(e)
@@ -2012,8 +2013,8 @@ private[lf] object SBuiltinFun {
     *    -> Any (where t = ty)
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
-      SAny(ty, args.get(0))
+    override private[speedy] def executePure(args: Array[SValue]): SAny = {
+      SAny(ty, args(0))
     }
   }
 
@@ -2022,7 +2023,7 @@ private[lf] object SBuiltinFun {
     *    -> Optional t (where t = expectedType)
     */
   final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(args: Array[SValue]): SOptional = {
       val any = getSAny(args, 0)
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
@@ -2033,7 +2034,7 @@ private[lf] object SBuiltinFun {
     *    -> TypeRep (where t = TTyCon(_))
     */
   final case class SBInterfaceTemplateTypeRep(tycon: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+    override private[speedy] def executePure(args: Array[SValue]): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
       STypeRep(Ast.TTyCon(tyCon))
     }
@@ -2044,7 +2045,7 @@ private[lf] object SBuiltinFun {
     *    -> Optional Text
     */
   final case object SBTypeRepTyConName extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+    override private[speedy] def executePure(args: Array[SValue]): SOptional =
       getSTypeRep(args, 0) match {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)
@@ -2112,16 +2113,16 @@ private[lf] object SBuiltinFun {
     private val closure: SValue = {
       val frame = Array.ofDim[SValue](0) // no free vars
       val arity = 3
-      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), ArrayList.empty, arity)
+      SPAP(PClosure(Profile.LabelUnset, equalListBody, frame), Array.empty, arity)
     }
 
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      val f = args.get(0)
-      val xs = args.get(1)
-      val ys = args.get(2)
+      val f = args(0)
+      val xs = args(1)
+      val ys = args(2)
       machine.enterApplication(
         closure,
         Array(SEValue(f), SEValue(xs), SEValue(ys)),
@@ -2133,7 +2134,7 @@ private[lf] object SBuiltinFun {
   /** $failWithStatus :: Text -> FailureCategory (Int64) -> Text -> TextMap Text -> a */
   final case object SBFailWithStatus extends SBuiltinFun(4) {
     override private[speedy] def execute[Q](
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
       val errorId = getSText(args, 0)
@@ -2156,7 +2157,7 @@ private[lf] object SBuiltinFun {
 
     private object SBExperimentalAnswer extends SBuiltinFun(1) {
       override private[speedy] def execute[Q](
-          args: util.ArrayList[SValue],
+          args: Array[SValue],
           machine: Machine[Q],
       ): Control.Value = {
         Control.Value(SInt64(42L))
@@ -2184,10 +2185,10 @@ private[lf] object SBuiltinFun {
   ) extends UpdateBuiltin(1) {
 
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
-      val contractInfoStruct = args.get(0)
+      val contractInfoStruct = args(0)
       val contractInfo = extractContractInfo(
         machine.tmplId2TxVersion,
         machine.tmplId2PackageName,
@@ -2239,11 +2240,11 @@ private[lf] object SBuiltinFun {
 
   final case class SBUSetLastCommand(cmd: Command) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
-        args: util.ArrayList[SValue],
+        args: Array[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       machine.lastCommand = Some(cmd)
-      Control.Value(args.get(0))
+      Control.Value(args(0))
     }
   }
 
@@ -2287,13 +2288,13 @@ private[lf] object SBuiltinFun {
   ): CachedKey =
     v match {
       case SStruct(_, vals) =>
-        val keyValue = vals.get(keyIdx)
+        val keyValue = vals(keyIdx)
         val gkey = Speedy.Machine.assertGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
         CachedKey(
           packageName = pkgName,
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
             gkey,
-            extractParties(NameOf.qualifiedNameOfCurrentFunc, vals.get(maintainerIdx)),
+            extractParties(NameOf.qualifiedNameOfCurrentFunc, vals(maintainerIdx)),
           ),
           key = keyValue,
         )
@@ -2328,7 +2329,7 @@ private[lf] object SBuiltinFun {
   ): ContractInfo = {
     contractInfoStruct match {
       case SStruct(_, vals) if vals.size == contractInfoPositionStruct.size =>
-        val templateId = vals.get(contractInfoStructTypeFieldIdx) match {
+        val templateId = vals(contractInfoStructTypeFieldIdx) match {
           case STypeRep(Ast.TTyCon(tycon)) => tycon
           case v =>
             throw SErrorCrash(
@@ -2338,7 +2339,7 @@ private[lf] object SBuiltinFun {
         }
         val version = tmplId2TxVersion(templateId)
         val pkgName = tmplId2PackageName(templateId)
-        val mbKey = vals.get(contractInfoStructKeyIdx) match {
+        val mbKey = vals(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
               extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
@@ -2353,14 +2354,14 @@ private[lf] object SBuiltinFun {
           version = version,
           packageName = pkgName,
           templateId = templateId,
-          value = vals.get(contractInfoStructArgIdx),
+          value = vals(contractInfoStructArgIdx),
           signatories = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
-            vals.get(contractInfoStructSignatoriesIdx),
+            vals(contractInfoStructSignatoriesIdx),
           ),
           observers = extractParties(
             NameOf.qualifiedNameOfCurrentFunc,
-            vals.get(contractInfoStructObserversIdx),
+            vals(contractInfoStructObserversIdx),
           ),
           keyOpt = mbKey,
         )

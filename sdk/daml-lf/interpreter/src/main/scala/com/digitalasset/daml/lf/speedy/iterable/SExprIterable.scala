@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.speedy.iterable
 
 import com.digitalasset.daml.lf.speedy.{SExpr, SValue}
 import com.digitalasset.daml.lf.speedy.SExpr.SExpr
-import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s
 // uniplate.
@@ -35,7 +34,7 @@ private[speedy] object SExprIterable {
   }
   private[this] def iterator(v: SValue): Iterator[SExpr] = v match {
     case SValue.SPAP(prim, actuals, _) =>
-      iterator(prim) ++ actuals.asScala.iterator.flatMap(iterator(_))
+      iterator(prim) ++ actuals.iterator.flatMap(iterator(_))
     case _: SValue.SBuiltinLit | SValue.STypeRep(_) | SValue.SToken | SValue.SAny(_, _) |
         SValue.SEnum(_, _, _) | SValue.SMap(_, _) | SValue.SList(_) | SValue.SOptional(_) |
         SValue.SRecord(_, _, _) | SValue.SStruct(_, _) | SValue.SVariant(_, _, _, _) =>

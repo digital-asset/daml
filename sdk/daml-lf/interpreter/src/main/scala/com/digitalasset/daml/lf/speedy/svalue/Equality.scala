@@ -9,8 +9,6 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.data.Bytes
 
-import scala.jdk.CollectionConverters._
-
 private[lf] object Equality {
 
   // Equality between two SValues of same type.
@@ -104,7 +102,7 @@ private[lf] object Equality {
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           success = xRank == yRank
         case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
-          push(xs.iterator().asScala, ys.iterator().asScala)
+          push(xs.iterator, ys.iterator)
         case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
           push(Iterator.single(x), Iterator.single(y))
           success = xRank == yRank
@@ -118,7 +116,7 @@ private[lf] object Equality {
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
           )
         case (SStruct(_, xs), SStruct(_, ys)) =>
-          push(xs.iterator().asScala, ys.iterator().asScala)
+          push(xs.iterator, ys.iterator)
         case (SAny(xType, x), SAny(yType, y)) =>
           push(Iterator.single(x), Iterator.single(y))
           success = xType == yType
