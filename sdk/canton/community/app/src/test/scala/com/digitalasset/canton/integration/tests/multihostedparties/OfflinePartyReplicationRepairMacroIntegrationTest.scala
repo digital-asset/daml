@@ -178,6 +178,8 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
       )
     )
 
+    val beforeActivationOffset = participant1.ledger_api.state.end()
+
     PartyToParticipantDeclarative.forParty(Set(participant1, participant3), daId)(
       participant1,
       alice,
@@ -188,15 +190,6 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
       ),
     )
 
-    val onboardingTx = participant1.topology.party_to_participant_mappings
-      .list(
-        synchronizerId = daId,
-        filterParty = alice.filterString,
-        filterParticipant = participant3.filterString,
-      )
-      .loneElement
-      .context
-
     silenceSynchronizerAndAwaitEffectiveness(daId, sequencer1, participant1, simClock)
 
     repair.party_replication.step1_hold_and_store_acs(
@@ -205,7 +198,7 @@ trait OfflinePartyReplicationRepairMacroIntegrationTest
       participant1,
       participant3.id,
       acsSnapshotPath,
-      onboardingTx.validFrom,
+      beforeActivationOffset,
     )
   }
 
