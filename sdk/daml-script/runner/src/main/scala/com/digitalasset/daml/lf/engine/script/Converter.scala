@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.speedy.{SValue}
 import com.digitalasset.daml.lf.typesig.EnvironmentSignature
 import com.digitalasset.daml.lf.typesig.reader.SignatureReader
 import com.digitalasset.daml.lf.value.Value
@@ -151,7 +151,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
-        vals.get(0) match {
+        vals(0) match {
           case SAny(TTyCon(ty), templateVal) => Right(AnyTemplate(ty, templateVal))
           case v => Left(s"Expected SAny but got $v")
         }
@@ -200,15 +200,15 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   private[lf] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
-      case SRecord(_, _, ArrayList(SAny(TTyCon(choiceCons), choiceVal), _)) =>
+      case SRecord(_, _, Array(SAny(TTyCon(choiceCons), choiceVal), _)) =>
         Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
-            ArrayList(
+            Array(
               SAny(
                 TStruct(Struct((_, TTyCon(choiceCons)), _)),
-                SStruct(_, ArrayList(choiceVal, _)),
+                SStruct(_, Array(choiceVal, _)),
               ),
               _,
             ),
@@ -220,7 +220,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
     v match {
-      case SRecord(_, _, ArrayList(SAny(ty, key), templateRep)) =>
+      case SRecord(_, _, Array(SAny(ty, key), templateRep)) =>
         typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
       case _ => Left(s"Expected AnyContractKey but got $v")
     }
@@ -229,7 +229,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   def typeRepToIdentifier(v: SValue): Either[String, Identifier] = {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 => {
-        vals.get(0) match {
+        vals(0) match {
           case STypeRep(TTyCon(ty)) => Right(ty)
           case x => Left(s"Expected STypeRep but got $x")
         }
@@ -317,7 +317,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case SRecord(
             _,
             _,
-            ArrayList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+            Array(unitId, module, file @ _, startLine, startCol, endLine, endCol),
           ) =>
         for {
           unitId <- toText(unitId)
@@ -338,7 +338,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toLocation(knownPackages: Map[String, PackageId], v: SValue): Either[String, Location] =
     v match {
-      case SRecord(_, _, ArrayList(definition, loc)) =>
+      case SRecord(_, _, Array(definition, loc)) =>
         for {
           // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
           //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
@@ -459,8 +459,8 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     v match {
       case SRecord(_, _, vals) if vals.size >= 2 =>
         for {
-          id <- toUserId(vals.get(0))
-          primaryParty <- toOptional(vals.get(1), toParty)
+          id <- toUserId(vals(0))
+          primaryParty <- toOptional(vals(1), toParty)
         } yield User(id, primaryParty)
       case _ => Left(s"Expected User but got $v")
     }
@@ -469,7 +469,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     v match {
       case SRecord(_, _, vals) if vals.size == 1 =>
         for {
-          userName <- toText(vals.get(0))
+          userName <- toText(vals(0))
           userId <- UserId.fromString(userName)
         } yield userId
       case _ => Left(s"Expected UserId but got $v")
@@ -561,7 +561,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toDisclosure(v: SValue): Either[String, Disclosure] =
     v match {
-      case SRecord(_, _, ArrayList(tplId, cid, blob)) =>
+      case SRecord(_, _, Array(tplId, cid, blob)) =>
         for {
           tplId <- typeRepToIdentifier(tplId)
           cid <- toContractId(cid)

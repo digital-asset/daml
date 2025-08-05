@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi.toApiIdentifier
@@ -327,7 +327,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toPackageId(v: SValue): Either[String, PackageId] =
     v match {
-      case SRecord(_, _, ArrayList(SText(packageId))) =>
+      case SRecord(_, _, Array(SText(packageId))) =>
         Right(PackageId.assertFromString(packageId))
       case _ => Left(s"Expected PackageId but got $v")
     }
@@ -343,8 +343,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             SRecord(
               _,
               _,
-              ArrayList(
-                SRecord(_, _, ArrayList(SText(name), SInt64(version), payload, locations, continue))
+              Array(
+                SRecord(_, _, Array(SText(name), SInt64(version), payload, locations, continue))
               ),
             ),
           ) =>
@@ -357,7 +357,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toCommandWithMeta(v: SValue): Either[String, ScriptLedgerClient.CommandWithMeta] =
     v match {
-      case SRecord(_, _, ArrayList(command, SBool(explicitPackageId))) =>
+      case SRecord(_, _, Array(command, SBool(explicitPackageId))) =>
         for {
           command <- toCommand(command)
         } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
@@ -366,7 +366,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
-      case SVariant(_, "Create", _, SRecord(_, _, ArrayList(anyTemplateSValue))) =>
+      case SVariant(_, "Create", _, SRecord(_, _, Array(anyTemplateSValue))) =>
         for {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)
         } yield command.ApiCommand.Create(
@@ -377,7 +377,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "Exercise",
             _,
-            SRecord(_, _, ArrayList(tIdSValue, cIdSValue, anyChoiceSValue)),
+            SRecord(_, _, Array(tIdSValue, cIdSValue, anyChoiceSValue)),
           ) =>
         for {
           typeId <- typeRepToIdentifier(tIdSValue)
@@ -393,7 +393,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "ExerciseByKey",
             _,
-            SRecord(_, _, ArrayList(tIdSValue, anyKeySValue, anyChoiceSValue)),
+            SRecord(_, _, Array(tIdSValue, anyKeySValue, anyChoiceSValue)),
           ) =>
         for {
           typeId <- typeRepToIdentifier(tIdSValue)
@@ -409,7 +409,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "CreateAndExercise",
             _,
-            SRecord(_, _, ArrayList(anyTemplateSValue, anyChoiceSValue)),
+            SRecord(_, _, Array(anyTemplateSValue, anyChoiceSValue)),
           ) =>
         for {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)

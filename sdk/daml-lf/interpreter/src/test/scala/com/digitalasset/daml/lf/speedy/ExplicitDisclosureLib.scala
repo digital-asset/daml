@@ -106,7 +106,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     SValue.SStruct(
       fieldNames =
         Struct.assertFromNameSeq(Seq("globalKey", "maintainers").map(Ref.Name.assertFromString)),
-      values = ArrayList(
+      values = Array(
         buildContractSKey(maintainerParty),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
       ),
@@ -151,7 +151,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       value = SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
-        ArrayList(SValue.SParty(owner), SValue.SParty(maintainer)),
+        Array(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
       signatories = Set(owner, maintainer),
       observers = Set.empty,
@@ -171,7 +171,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       value = SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("owner")),
-        ArrayList(SValue.SParty(owner)),
+        Array(SValue.SParty(owner)),
       ),
       signatories = Set(owner),
       observers = Set.empty,
@@ -199,7 +199,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     SValue.SRecord(
       keyType,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
-      ArrayList(
+      Array(
         SValue.SText(label),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
@@ -250,7 +250,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     val contract = SValue.SRecord(
       templateId,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
-      ArrayList(
+      Array(
         SValue.SText(label),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),

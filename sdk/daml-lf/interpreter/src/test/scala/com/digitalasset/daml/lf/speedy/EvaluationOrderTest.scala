@@ -375,7 +375,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         value = SRecord(
           Dummy,
           ImmArray(Ref.Name.assertFromString("signatory")),
-          ArrayList(SParty(signatory)),
+          Array(SParty(signatory)),
         ),
         signatories = Set(signatory),
         observers = Set.empty,

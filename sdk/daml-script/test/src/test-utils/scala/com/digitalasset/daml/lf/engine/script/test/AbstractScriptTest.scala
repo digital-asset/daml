@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.{
   ScriptLedgerClient,
 }
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
@@ -33,7 +33,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     SValue.SRecord(
       id = StablePackages(majorLanguageVersion).Tuple2,
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
-      values = ArrayList(a, b),
+      values = Array(a, b),
     )
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys

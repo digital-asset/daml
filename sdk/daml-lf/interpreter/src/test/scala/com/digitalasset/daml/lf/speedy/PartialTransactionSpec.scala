@@ -46,7 +46,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       version = txVersion,
       packageName = pkgName,
       templateId = templateId,
-      value = SValue.SRecord(templateId, ImmArray(), ArrayList()),
+      value = SValue.SRecord(templateId, ImmArray(), Array.empty),
       signatories = Set(party),
       observers = Set.empty,
       keyOpt = None,

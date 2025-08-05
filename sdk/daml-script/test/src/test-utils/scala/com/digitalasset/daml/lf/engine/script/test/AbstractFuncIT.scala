@@ -45,17 +45,17 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 5)
-          val alice = vals.get(0) match {
+          val alice = vals(0) match {
             case SParty(alice) => alice
             case v => fail(s"Expected SParty but got $v")
           }
-          val bob = vals.get(1) match {
+          val bob = vals(1) match {
             case SParty(bob) => bob
             case v => fail(s"Expected SParty but got $v")
           }
           // allocateParty should return a fresh party
           assert(alice != bob)
-          vals.get(2) match {
+          vals(2) match {
             case SList(
                   FrontStackCons(SRecord(_, _, t1), FrontStackCons(SRecord(_, _, t2), FrontStack()))
                 ) =>
@@ -63,8 +63,8 @@ abstract class AbstractFuncIT
               t2 should contain theSameElementsInOrderAs (Seq(SParty(alice), SParty(bob)))
             case v => fail(s"Expected SList but got $v")
           }
-          assert(vals.get(3) == SList(FrontStack.empty))
-          vals.get(4) match {
+          assert(vals(3) == SList(FrontStack.empty))
+          vals(4) match {
             case SList(FrontStackCons(SRecord(_, _, vals), FrontStack())) =>
               vals should contain theSameElementsInOrderAs (Seq[SValue](SParty(alice), SInt64(42)))
             case v => fail(s"Expected a single SRecord but got $v")
@@ -126,7 +126,7 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          assert(vals.get(0) == vals.get(1))
+          assert(vals(0) == vals(1))
         }
       }
     }
@@ -141,7 +141,7 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          assert(vals.get(0) == vals.get(1))
+          assert(vals(0) == vals(1))
         }
       }
     }
@@ -170,8 +170,8 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          val t0 = assertSTimestamp(vals.get(0))
-          val t1 = assertSTimestamp(vals.get(1))
+          val t0 = assertSTimestamp(vals(0))
+          val t1 = assertSTimestamp(vals(1))
           // Note that even in wallclock mode we cannot use strict inequality due to time
           // resolution (observed in CI)
           assert(t0 <= t1)
@@ -190,13 +190,13 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          inside(vals.get(0)) { case SParty(partyId) =>
+          inside(vals(0)) { case SParty(partyId) =>
             inside(partyId.split("::")) { case Array(prefix, suffix) =>
               prefix shouldBe "carol"
               suffix.length shouldBe 68
             }
           }
-          inside(vals.get(1)) { case SParty(partyId) =>
+          inside(vals(1)) { case SParty(partyId) =>
             inside(partyId.split("::")) { case Array(prefix, suffix) =>
               prefix shouldBe "dan"
               suffix.length shouldBe 68
@@ -216,9 +216,9 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          inside(vals.get(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
+          inside(vals(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
             details should contain theSameElementsInOrderAs (Seq(
-              vals.get(1),
+              vals(1),
               SBool(true),
             ))
           }
@@ -330,7 +330,7 @@ abstract class AbstractFuncIT
           )
         } yield {
           assert(vals.size == 2)
-          (vals.get(0), vals.get(1)) match {
+          (vals(0), vals(1)) match {
             case (SContractId(cid), SText(t)) =>
               assert(cid.coid == t)
             case (v0, v1) => fail(s"Expected SContractId, SText but got $v0, $v1")
