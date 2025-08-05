@@ -330,6 +330,16 @@ object PartyReplicationAdminWorkflow {
       M.partyreplication.PartyReplicationAgreement.TEMPLATE_ID_WITH_PACKAGE_ID
     )
 
+  @VisibleForTesting
+  lazy val proposalTemplatePkgName: Identifier =
+    apiIdentifierFromJavaIdentifier(
+      M.partyreplication.PartyReplicationProposal.TEMPLATE_ID
+    )
+  lazy val agreementTemplatePkgName: Identifier =
+    apiIdentifierFromJavaIdentifier(
+      M.partyreplication.PartyReplicationAgreement.TEMPLATE_ID
+    )
+
   private def isTemplatePartyReplicationRelated(id: Identifier) =
     id == proposalTemplate || id == agreementTemplate
 }

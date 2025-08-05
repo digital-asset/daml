@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.packagemeta
 
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
@@ -146,6 +147,11 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
   "PackageMetadata.resolveTypeConRef" should {
     "resolve all known upgradable template-ids for a (package-name, qualified-name) tuple" in new Scope {
       val packageMetadata = PackageMetadata(
+        packageIdVersionMap = Map(
+          pkgId1 -> (pkgName1, pkg1Version2),
+          pkgId3 -> (pkgName1, pkgVersion1),
+          pkgId4 -> (pkgName1, pkgVersion1),
+        ),
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             // Package ids 1, 3 and 4 share this package name.
@@ -159,11 +165,16 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
       packageMetadata.resolveTypeConRef(
         Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
-      ) shouldBe Set(template1B_v2, template1B_v3)
+      ) shouldBe Set(template1B_v2, template1B_v3).map(_.toFullIdentifier(pkgName1))
     }
 
     "resolve interfaces too" in new Scope {
       val packageMetadata = PackageMetadata(
+        packageIdVersionMap = Map(
+          pkgId1 -> (pkgName1, pkg1Version2),
+          pkgId3 -> (pkgName1, pkgVersion1),
+          pkgId4 -> (pkgName1, pkgVersion1),
+        ),
         packageNameMap = Map(
           pkgName1 -> PackageResolution(
             allPackageIdsForName = NonEmpty(Set, pkgId1, pkgId3, pkgId4),
@@ -176,7 +187,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
       packageMetadata.resolveTypeConRef(
         Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), interface1.qualifiedName)
-      ) shouldBe Set(interface1)
+      ) shouldBe Set(interface1).map(_.toFullIdentifier(pkgName1))
     }
 
     "return an empty set if any of the resolution sets in PackageMetadata are empty" in new Scope {
@@ -192,10 +203,12 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
         ),
       ).resolveTypeConRef(typeConRef) shouldBe Set.empty
 
-      PackageMetadata(
-        templates = Set(template1B), // We know about a template...
-        packageNameMap = Map.empty, // But not about package names.
-      ).resolveTypeConRef(typeConRef) shouldBe Set.empty
+      intercept[IllegalArgumentException](
+        PackageMetadata(
+          templates = Set(template1B), // We know about a template...
+          packageNameMap = Map.empty, // But not about package names.
+        ).resolveTypeConRef(typeConRef)
+      ).getMessage shouldBe s"Unknown package id: $pkgId1"
     }
   }
 
@@ -219,6 +232,7 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
     val pkg1Version1 = Ref.PackageVersion.assertFromString("1.1")
     val pkg1Version2 = Ref.PackageVersion.assertFromString("1.2")
+    val pkgVersion1 = Ref.PackageVersion.assertFromString("1.1")
 
     val pkgId1 = Ref.PackageId.assertFromString("PkgId1")
     val pkgId2 = Ref.PackageId.assertFromString("PkgId2")

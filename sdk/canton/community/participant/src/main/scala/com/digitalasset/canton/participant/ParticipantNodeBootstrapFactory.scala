@@ -44,6 +44,7 @@ trait ParticipantNodeBootstrapFactory {
     enableLfBeta = arguments.parameterConfig.betaVersionSupport,
     enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
     profileDir = arguments.config.features.profileDir,
+    snapshotDir = arguments.config.features.snapshotDir,
     iterationsBetweenInterruptions =
       arguments.parameterConfig.engine.iterationsBetweenInterruptions,
     paranoidMode = arguments.parameterConfig.engine.enableAdditionalConsistencyChecks,
@@ -133,7 +134,6 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
           CommunityKmsFactory,
           arguments.config.parameters.caching.kmsMetadataCache,
           arguments.config.crypto.privateKeyStore,
-          arguments.parameters.nonStandardConfig,
           arguments.futureSupervisor,
           arguments.clock,
           arguments.executionContext,

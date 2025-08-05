@@ -257,7 +257,7 @@ private[sync] class SynchronizerConnectionsManager(
     * @param isTriggeredManually
     *   True if the call of this method is triggered by an explicit call to the connectivity
     *   service, false if the call of this method is triggered by a node restart or transition to
-    *   active
+    *   active.
     *
     * @param mustBeActive
     *   If true, only executes if the instance is active
@@ -887,10 +887,14 @@ private[sync] class SynchronizerConnectionsManager(
             synchronizerAlias,
             synchronizerHandle.topologyClient,
             synchronizerConnectionConfigStore,
-            psid =>
-              EitherTUtil.toFutureUnlessShutdown(
-                connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
-              ),
+            new HandshakeWithPSId {
+              override def performHandshake(
+                  psid: PhysicalSynchronizerId
+              )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+                EitherTUtil.toFutureUnlessShutdown(
+                  connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
+                )
+            },
             parameters.automaticallyPerformLogicalSynchronizerUpgrade,
             loggerFactory,
           )

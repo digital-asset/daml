@@ -5,7 +5,8 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.ParticipantId
+import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
+import com.digitalasset.canton.ledger.api.{ParticipantId, Ref2}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
   AuthorizationEvent,
@@ -49,10 +50,11 @@ private[store] object StorageBackendTestValues {
   val someParticipantId: ParticipantId = ParticipantId(
     Ref.ParticipantId.assertFromString("participant")
   )
+  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkg-name")
   val someTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
+  val someTemplateIdFull: Ref2.FullIdentifier = someTemplateId.toFullIdentifier(somePackageName)
   val someTemplateId2: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template2")
   val someTemplateId3: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template3")
-  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkg-name")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")

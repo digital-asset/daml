@@ -246,7 +246,7 @@ class ParticipantPartiesAdministrationGroup(
     lazy val singleConnectedSynchronizer = reference.synchronizers.list_connected() match {
       case Seq() =>
         Left("not connected to any synchronizer")
-      case Seq(onlyOneSynchronizer) => Right(onlyOneSynchronizer.synchronizerId)
+      case Seq(onlyOneSynchronizer) => Right(onlyOneSynchronizer.physicalSynchronizerId)
       case _multiple =>
         Left(
           "cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer"

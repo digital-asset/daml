@@ -228,11 +228,12 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
       .filter(OfferToPaintHouseByOwner.COMPANION)(alice)
       .find(_.id.toLf == paintOfferId)
     paintOffer should not be empty
-    val iouTemplateId = TemplateId.templateIdsFromJava(Iou.TEMPLATE_ID_WITH_PACKAGE_ID).head
+    val iouTemplateIdPkgName = TemplateId.fromJavaIdentifier(Iou.TEMPLATE_ID)
+    val iouTemplateId = TemplateId.fromJavaIdentifier(Iou.TEMPLATE_ID_WITH_PACKAGE_ID)
     val iouCreated = P1.ledger_api.state.acs
       .of_party(
         party = bank,
-        filterTemplates = Seq(iouTemplateId),
+        filterTemplates = Seq(iouTemplateIdPkgName),
         includeCreatedEventBlob = true,
       )
       .find(_.event.contractId == paintOffer.value.data.iouId.contractId)

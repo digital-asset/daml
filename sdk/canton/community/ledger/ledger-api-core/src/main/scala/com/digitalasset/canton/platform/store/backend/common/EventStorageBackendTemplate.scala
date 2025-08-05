@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventParser,
@@ -215,8 +216,9 @@ object EventStorageBackendTemplate {
             offset = offset,
             nodeId = nodeId,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               eventWitnesses,
@@ -282,8 +284,9 @@ object EventStorageBackendTemplate {
             offset = eventOffset,
             nodeId = nodeId,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -346,8 +349,9 @@ object EventStorageBackendTemplate {
             offset = eventOffset,
             nodeId = nodeId,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = choice,
             exerciseArgument = exerciseArgument,
@@ -566,8 +570,9 @@ object EventStorageBackendTemplate {
               offset = offset,
               nodeId = nodeId,
               contractId = contractId,
-              templateId = stringInterning.templateId.externalize(templateId),
-              packageName = stringInterning.packageName.externalize(packageName),
+              templateId = stringInterning.templateId
+                .externalize(templateId)
+                .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
               witnessParties = filterAndExternalizeWitnesses(
                 allQueryingPartiesO,
                 flatEventWitnesses,
@@ -656,8 +661,9 @@ object EventStorageBackendTemplate {
             submitter = submitter.map(stringInterning.party.unsafe.externalize),
             reassignmentCounter = reassignmentCounter,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -738,8 +744,9 @@ object EventStorageBackendTemplate {
             offset = offset,
             nodeId = nodeId,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -819,8 +826,9 @@ object EventStorageBackendTemplate {
             offset = offset,
             nodeId = nodeId,
             contractId = contractId,
-            templateId = stringInterning.templateId.externalize(templateId),
-            packageName = stringInterning.packageName.externalize(packageName),
+            templateId = stringInterning.templateId
+              .externalize(templateId)
+              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,

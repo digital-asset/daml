@@ -28,6 +28,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TransactionShape}
@@ -396,7 +397,9 @@ private[events] object TransactionLogUpdatesConversions {
                   implementedInterfaces = lfValueTranslation.implementedInterfaces(
                     eventProjectionProperties,
                     witnessParties.toSet,
-                    exercisedEvent.templateId,
+                    exercisedEvent.templateId.toFullIdentifier(
+                      exercisedEvent.packageName
+                    ),
                   ),
                 )
               )
@@ -470,7 +473,9 @@ private[events] object TransactionLogUpdatesConversions {
                     lfValueTranslation.implementedInterfaces(
                       eventProjectionProperties,
                       witnessParties.toSet,
-                      exercisedEvent.templateId,
+                      exercisedEvent.templateId.toFullIdentifier(
+                        exercisedEvent.packageName
+                      ),
                     )
                   else Nil,
               )
@@ -698,7 +703,7 @@ private[events] object TransactionLogUpdatesConversions {
                 lfValueTranslation.implementedInterfaces(
                   eventProjectionProperties,
                   witnessParties.toSet,
-                  exercisedEvent.templateId,
+                  exercisedEvent.templateId.toFullIdentifier(exercisedEvent.packageName),
                 )
               else Nil,
           )
@@ -784,7 +789,7 @@ private[events] object TransactionLogUpdatesConversions {
       .toApiContractData(
         value = Versioned(create.version, create.arg),
         key = create.keyOpt.map(k => Versioned(create.version, k.value)),
-        templateId = create.templateId,
+        templateId = create.templateId.toFullIdentifier(create.packageName),
         witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
         fatContractInstance = getFatContractInstance,
