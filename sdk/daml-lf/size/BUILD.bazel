@@ -1,0 +1,33 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_test",
+)
+
+da_scala_test(
+    name = "size-test",
+    srcs = glob(["src/**/*"]),
+    deps = [
+       "//daml-lf/data",
+       "//daml-lf/interpreter",
+       "//daml-lf/transaction",
+       "//daml-lf/language",
+       "//daml-lf/transaction-test-lib",
+        "@maven//:org_openjdk_jol_jol_core",
+        "@maven//:com_google_protobuf_protobuf_java",
+ ],
+    jvm_flags = [
+        "-XX:-UseCompressedOops",
+        "-XX:-UseCompressedClassPointers",
+        "--add-opens java.base/java.math=ALL-UNNAMED"
+    ],
+     unused_dependency_checker_mode = "off",
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_wordspec",
+        "@maven//:org_scalatestplus_scalacheck_1_15",
+        "@maven//:org_scalaz_scalaz_core",
+    ]
+)
