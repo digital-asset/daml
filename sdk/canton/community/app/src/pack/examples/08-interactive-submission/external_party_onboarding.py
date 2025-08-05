@@ -273,7 +273,6 @@ def onboard_external_party(
     topology_write_client.AddTransactions(add_transactions_request)
     # [Loaded all three transactions onto the participant node]
 
-
     # [Authorize hosting from the confirming node]
     topology_write_client.Authorize(
         topology_manager_write_service_pb2.AuthorizeRequest(
