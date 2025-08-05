@@ -548,21 +548,21 @@ def _create_scaladoc_jar(
             tags = ["scaladoc"],
         )
 
-def _create_scala_repl(
-        name,
-        runtime_deps = [],
-        tags = [],
-        # hiding the following from the `scala_repl` rule
-        main_class = None,
-        exports = None,
-        scala_exports = None,
-        scalac_opts = None,
-        generated_srcs = None,
-        **kwargs):
-    name = name + "_repl"
-    runtime_deps = runtime_deps + ["@maven//:org_jline_jline"]
-    tags = tags + ["manual"]
-    _wrap_rule(scala_repl, name = name, runtime_deps = runtime_deps, tags = tags, **kwargs)
+#def _create_scala_repl(
+#        name,
+#        runtime_deps = [],
+#        tags = [],
+#        # hiding the following from the `scala_repl` rule
+#        main_class = None,
+#        exports = None,
+#        scala_exports = None,
+#        scalac_opts = None,
+#        generated_srcs = None,
+#        **kwargs):
+#    name = name + "_repl"
+#    runtime_deps = runtime_deps + ["@maven//:org_jline_jline"]
+#    tags = tags + ["manual"]
+#    _wrap_rule(scala_repl, name = name, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
 def da_scala_library(name, scaladoc = True, override_scalacopts = None, **kwargs):
     """
@@ -582,7 +582,8 @@ def da_scala_library(name, scaladoc = True, override_scalacopts = None, **kwargs
     _create_scala_source_jar(name = name, **arguments)
     if scaladoc == True:
         _create_scaladoc_jar(name = name, override_scalacopts = override_scalacopts, **arguments)
-    _create_scala_repl(name = name, override_scalacopts = override_scalacopts, **kwargs)
+
+    #    _create_scala_repl(name = name, override_scalacopts = override_scalacopts, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:
@@ -610,7 +611,7 @@ def da_scala_macro_library(name, **kwargs):
     _wrap_rule(scala_macro_library, name, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     _create_scaladoc_jar(name = name, **arguments)
-    _create_scala_repl(name = name, **kwargs)
+    #    _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
         for tag in arguments["tags"]:

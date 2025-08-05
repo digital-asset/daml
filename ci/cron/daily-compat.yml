@@ -2,7 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Do not run on PRs
-pr: none
+# pr: none
+pr:
+  autoCancel: true # cancel previous builds on push
+  branches:
+    include:
+      - main
+      - main-2.x
+      - release/*
 
 # Do not run on merge to main
 trigger: none
@@ -14,13 +21,13 @@ trigger: none
 # - run sufficiently after that that machines are initialized.
 #
 # Targeting 6AM UTC seems to fit that.
-schedules:
-- cron: "0 6 * * *"
-  displayName: daily checks and reporting
-  branches:
-    include:
-    - main
-  always: true
+#schedules:
+#- cron: "0 6 * * *"
+#  displayName: daily checks and reporting
+#  branches:
+#    include:
+#    - main
+#  always: true
 
 jobs:
   - job: compatibility_ts_libs
@@ -46,301 +53,301 @@ jobs:
       - template: ../clean-up.yml
       - template: ../compatibility.yml
 
-  - job: compatibility_windows
-    dependsOn: compatibility_ts_libs
-    timeoutInMinutes: 720
-    pool:
-      name: windows-pool
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-        clean: true
-      - template: ../compatibility-windows.yml
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Bazel Compatibility Logs'
+#  - job: compatibility_windows
+#    dependsOn: compatibility_ts_libs
+#    timeoutInMinutes: 720
+#    pool:
+#      name: windows-pool
+#      demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#        clean: true
+#      - template: ../compatibility-windows.yml
+#      - task: PublishBuildArtifacts@1
+#        condition: succeededOrFailed()
+#        inputs:
+#          pathtoPublish: '$(Build.StagingDirectory)'
+#          artifactName: 'Bazel Compatibility Logs'
 
-  - job: perf_speedy
-    timeoutInMinutes: 120
-    pool:
-      name: "ubuntu_20_04"
-      demands: assignment -equals default
-    # TODO(https://github.com/digital-asset/daml/issues/18222): re-enable once
-    #  the benchmark has been ported to Daml 3.
-    condition: False
-    steps:
-      - checkout: self
-        clean: true
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel for root workspace'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          cd sdk
-          eval "$(dev-env/bin/dade assist)"
-          source $(bash_lib)
+#  - job: perf_speedy
+#    timeoutInMinutes: 120
+#    pool:
+#      name: "ubuntu_20_04"
+#      demands: assignment -equals default
+#    # TODO(https://github.com/digital-asset/daml/issues/18222): re-enable once
+#    #  the benchmark has been ported to Daml 3.
+#    condition: False
+#    steps:
+#      - checkout: self
+#        clean: true
+#      - bash: ci/dev-env-install.sh
+#        displayName: 'Build/Install the Developer Environment'
+#      - bash: ci/configure-bazel.sh
+#        displayName: 'Configure Bazel for root workspace'
+#        env:
+#          IS_FORK: $(System.PullRequest.IsFork)
+#          # to upload to the bazel cache
+#          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#      - template: ../bash-lib.yml
+#        parameters:
+#          var_name: bash_lib
+#      - bash: |
+#          set -euo pipefail
+#          cd sdk
+#          eval "$(dev-env/bin/dade assist)"
+#          source $(bash_lib)
+#
+#          OUT="$(Build.StagingDirectory)/perf-results-speedy.json"
+#
+#          START=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
+#
+#          tmp=$(mktemp -d)/out.json
+#          bazel run daml-lf/scenario-interpreter:scenario-perf -- -rf json -rff $tmp >&2
+#          perf=$(printf '%.2f' $(cat $tmp | jq '.[0].primaryMetric.score'))
+#          if [ "" = "$perf" ]; then exit 1; fi
+#          sha=$(git rev-parse HEAD)
+#          echo '{"current-perf": '$perf', "current-sha": "'$sha'"}' > "$OUT"
+#          cat "$OUT"
+#
+#          gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
+#
+#          setvar speedy_perf "$perf ms/op"
+#
+#        displayName: measure perf
+#        name: out
+#        env:
+#          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#      - task: PublishPipelineArtifact@0
+#        inputs:
+#          targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
+#          artifactName: perf-speedy
 
-          OUT="$(Build.StagingDirectory)/perf-results-speedy.json"
-
-          START=$(git log -n1 --format=%cd --date=format:%Y%m%d).$(git rev-list --count HEAD).$(Build.BuildId).$(git log -n1 --format=%h --abbrev=8)
-
-          tmp=$(mktemp -d)/out.json
-          bazel run daml-lf/scenario-interpreter:scenario-perf -- -rf json -rff $tmp >&2
-          perf=$(printf '%.2f' $(cat $tmp | jq '.[0].primaryMetric.score'))
-          if [ "" = "$perf" ]; then exit 1; fi
-          sha=$(git rev-parse HEAD)
-          echo '{"current-perf": '$perf', "current-sha": "'$sha'"}' > "$OUT"
-          cat "$OUT"
-
-          gcs "$GCRED" cp "$OUT" gs://daml-data/perf/speedy/$START.json
-
-          setvar speedy_perf "$perf ms/op"
-
-        displayName: measure perf
-        name: out
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - task: PublishPipelineArtifact@0
-        inputs:
-          targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
-          artifactName: perf-speedy
-
-  - job: check_releases
-    timeoutInMinutes: 600
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    condition: eq(variables['Build.SourceBranchName'], 'main')
-    steps:
-      - checkout: self
-        clean: true
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-          eval "$(cd sdk; dev-env/bin/dade assist)"
-          source $(bash_lib)
-
-          export AUTH="$(get_gh_auth_header)"
-
-          wrap_gcloud "$GCRED" "ci/cron/check-releases.sh"
-        displayName: check releases
-        env:
-          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#  - job: check_releases
+#    timeoutInMinutes: 600
+#    pool:
+#      name: ubuntu_20_04
+#      demands: assignment -equals default
+#    condition: eq(variables['Build.SourceBranchName'], 'main')
+#    steps:
+#      - checkout: self
+#        clean: true
+#      - bash: ci/dev-env-install.sh
+#        displayName: 'Build/Install the Developer Environment'
+#      - template: ../bash-lib.yml
+#        parameters:
+#          var_name: bash_lib
+#      - bash: |
+#          set -euo pipefail
+#          eval "$(cd sdk; dev-env/bin/dade assist)"
+#          source $(bash_lib)
+#
+#          export AUTH="$(get_gh_auth_header)"
+#
+#          wrap_gcloud "$GCRED" "ci/cron/check-releases.sh"
+#        displayName: check releases
+#        env:
+#          GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - template: ../blackduck.yml
 
-  - job: run_notices_pr_build
-    timeoutInMinutes: 60
-    dependsOn: ["blackduck_scan"]
-    condition: and(succeeded(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
-    pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
-    variables:
-      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
-    steps:
-      - bash: |
-          cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
-          if [ "$(need_to_build)" == "true" ]; then
-              branch="notices-update-$(Build.BuildId)"
-              az extension add --name azure-devops
-              trap "az devops logout" EXIT
-              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-              az pipelines build queue --branch "$branch" \
-                                       --definition-name "PRs" \
-                                       --org "https://dev.azure.com/digitalasset" \
-                                       --project daml
-          fi
+#  - job: run_notices_pr_build
+#    timeoutInMinutes: 60
+#    dependsOn: ["blackduck_scan"]
+#    condition: and(succeeded(),
+#                   or(eq(variables['Build.SourceBranchName'], 'main'),
+#                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+#    pool:
+#      name: 'ubuntu_20_04'
+#      demands: assignment -equals default
+#    variables:
+#      need_to_build: $[ dependencies.blackduck_scan.outputs['out.need_to_build'] ]
+#    steps:
+#      - bash: |
+#          cd sdk
+#          eval "$(./dev-env/bin/dade-assist)"
+#          if [ "$(need_to_build)" == "true" ]; then
+#              branch="notices-update-$(Build.BuildId)"
+#              az extension add --name azure-devops
+#              trap "az devops logout" EXIT
+#              echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
+#              az pipelines build queue --branch "$branch" \
+#                                       --definition-name "PRs" \
+#                                       --org "https://dev.azure.com/digitalasset" \
+#                                       --project daml
+#          fi
+#
+#  - job: update_canton
+#    condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
+#    timeoutInMinutes: 60
+#    pool:
+#      name: ubuntu_20_04
+#      demands: assignment -equals default
+#    steps:
+#      - checkout: self
+#        clean: true
+#        persistCredentials: true
+#      - template: ../bash-lib.yml
+#        parameters:
+#          var_name: bash_lib
+#      - bash: |
+#          set -euo pipefail
+#
+#          cd sdk
+#          eval "$(./dev-env/bin/dade-assist)"
+#          source $(bash_lib)
+#
+#          git fetch
+#          git checkout origin/$(Build.SourceBranchName)
+#
+#          version=$(ci/refresh-canton.sh)
+#
+#          branch="main-canton-update-$version"
+#
+#          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
+#              echo "Already up-to-date with latest Canton source & snapshot."
+#          else
+#              if [ "main" = "$(Build.SourceBranchName)" ]; then
+#                  git add build.sh canton
+#                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
+#                  az pipelines build queue --branch "$branch" \
+#                                           --definition-name "PRs" \
+#                                           --org "https://dev.azure.com/digitalasset" \
+#                                           --project daml
+#              else
+#                  echo "Would open PR if this were running on main."
+#              fi
+#          fi
+#        env:
+#          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+#          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+#
+#  - job: compat_versions_pr
+#    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
+#                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
+#    pool:
+#      name: ubuntu_20_04
+#      demands: assignment -equals default
+#    steps:
+#    - checkout: self
+#      clean: true
+#      persistCredentials: true
+#    - bash: ci/dev-env-install.sh
+#    - template: ../bash-lib.yml
+#      parameters:
+#        var_name: bash_lib
+#    - bash: |
+#        set -euo pipefail
+#        cd sdk
+#        eval "$(./dev-env/bin/dade-assist)"
+#
+#        ## refresh tags, in case someone deleted one
+#        git fetch --prune --prune-tags
+#
+#        ## get latest version, in case it's already up to date
+#        git fetch origin
+#        git -c user.name="Azure Pipelines Daml Build" \
+#            -c user.email="support@digitalasset.com" \
+#            merge origin/main
+#
+#        source $(bash_lib)
+#
+#        cp .bazelrc compatibility/
+#        compatibility/update-versions.sh
+#        git add compatibility/versions.bzl compatibility/maven_install.json
+#
+#        if ! git diff --cached --quiet; then
+#          BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
+#          TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
+#          open_pr "$BRANCH" "$TITLE" "" "" "$(Build.SourceBranchName)"
+#          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
+#          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
+#        else
+#          echo "No changes"
+#        fi
+#
+#  - job: report
+#    dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
+#                perf_speedy, check_releases,
+#                blackduck_scan, run_notices_pr_build, update_canton,
+#                compat_versions_pr]
+#    condition: and(succeededOrFailed(),
+#                   or(eq(variables['Build.SourceBranchName'], 'main'),
+#                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
+#    pool:
+#      name: ubuntu_20_04
+#      demands: assignment -equals default
+#    variables:
+#      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
+#      compatibility_linux: $[ dependencies.compatibility_linux.result ]
+#      compatibility_windows: $[ dependencies.compatibility_windows.result ]
+#      perf_speedy: $[ dependencies.perf_speedy.result ]
+#      speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
+#      check_releases: $[ dependencies.check_releases.result ]
+#      blackduck_scan: $[ dependencies.blackduck_scan.result ]
+#      run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
+#      update_canton: $[ dependencies.update_canton.result ]
+#      compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
+#    steps:
+#    - template: ../bash-lib.yml
+#      parameters:
+#        var_name: bash_lib
+#    - bash: |
+#        set -euo pipefail
+#
+#        cd sdk
+#        eval "$(./dev-env/bin/dade-assist)"
+#        source $(bash_lib)
+#
+#        COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
+#        COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
+#
+#        if [[ "$(compatibility_ts_libs)" == "Succeeded"
+#           && "$(compatibility_linux)" == "Succeeded"
+#           && "$(compatibility_windows)" == "Succeeded"
+#           && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
+#           && "$(check_releases)" == "Succeeded"
+#           && "$(update_canton)" == "Succeeded"
+#           && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
+#           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
+#           && "$(compat_versions_pr)" == "Succeeded"
+#           ]]; then
+#          MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
+#          if [ "$(perf_speedy)" == "Skipped" ]; then
+#            REPORT="Perf test was skipped."
+#          else
+#            REPORT='```speedy_perf: $(speedy_perf)```'
+#          fi
+#          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
+#        else
+#          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
+#        fi
+#
+#        export GH_REPO=digital-asset/daml
+#        pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
+#        '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
+#        {{end}}' | grep -v 'rotate release duty')
+#        message="Open daml repo PRs to address:
+#
+#        $pr_list"
+#        tell_slack "$message" "$(Slack.team-sdk-updates)"
+#      env:
+#        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
 
-  - job: update_canton
-    condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
-    timeoutInMinutes: 60
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-      - checkout: self
-        clean: true
-        persistCredentials: true
-      - template: ../bash-lib.yml
-        parameters:
-          var_name: bash_lib
-      - bash: |
-          set -euo pipefail
-
-          cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
-          source $(bash_lib)
-
-          git fetch
-          git checkout origin/$(Build.SourceBranchName)
-
-          version=$(ci/refresh-canton.sh)
-
-          branch="main-canton-update-$version"
-
-          if git diff --exit-code origin/$(Build.SourceBranchName) -- canton build.sh >/dev/null; then
-              echo "Already up-to-date with latest Canton source & snapshot."
-          else
-              if [ "main" = "$(Build.SourceBranchName)" ]; then
-                  git add build.sh canton
-                  open_pr "$branch" "update canton to $version" "tell-slack: canton" "" "$(Build.SourceBranchName)"
-                  az pipelines build queue --branch "$branch" \
-                                           --definition-name "PRs" \
-                                           --org "https://dev.azure.com/digitalasset" \
-                                           --project daml
-              else
-                  echo "Would open PR if this were running on main."
-              fi
-          fi
-        env:
-          GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
-
-  - job: compat_versions_pr
-    condition: or(eq(variables['Build.SourceBranchName'], 'main'),
-                  eq(variables['Build.SourceBranchName'], 'main-2.x'))
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    steps:
-    - checkout: self
-      clean: true
-      persistCredentials: true
-    - bash: ci/dev-env-install.sh
-    - template: ../bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
-        cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
-
-        ## refresh tags, in case someone deleted one
-        git fetch --prune --prune-tags
-
-        ## get latest version, in case it's already up to date
-        git fetch origin
-        git -c user.name="Azure Pipelines Daml Build" \
-            -c user.email="support@digitalasset.com" \
-            merge origin/main
-
-        source $(bash_lib)
-
-        cp .bazelrc compatibility/
-        compatibility/update-versions.sh
-        git add compatibility/versions.bzl compatibility/maven_install.json
-
-        if ! git diff --cached --quiet; then
-          BRANCH=update-compat-versions-$(date -I)-$(Build.SourceBranchName)
-          TITLE="update compat versions ($(date -I) $(Build.SourceBranchName))"
-          open_pr "$BRANCH" "$TITLE" "" "" "$(Build.SourceBranchName)"
-          trigger_azure $(System.AccessToken) PRs --branch $BRANCH
-          trigger_azure $(System.AccessToken) digital-asset.daml-daily-compat --branch $BRANCH
-        else
-          echo "No changes"
-        fi
-
-  - job: report
-    dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
-                perf_speedy, check_releases,
-                blackduck_scan, run_notices_pr_build, update_canton,
-                compat_versions_pr]
-    condition: and(succeededOrFailed(),
-                   or(eq(variables['Build.SourceBranchName'], 'main'),
-                      eq(variables['Build.SourceBranchName'], 'main-2.x')))
-    pool:
-      name: ubuntu_20_04
-      demands: assignment -equals default
-    variables:
-      compatibility_ts_libs: $[ dependencies.compatibility_ts_libs.result ]
-      compatibility_linux: $[ dependencies.compatibility_linux.result ]
-      compatibility_windows: $[ dependencies.compatibility_windows.result ]
-      perf_speedy: $[ dependencies.perf_speedy.result ]
-      speedy_perf: $[ dependencies.perf_speedy.outputs['out.speedy_perf'] ]
-      check_releases: $[ dependencies.check_releases.result ]
-      blackduck_scan: $[ dependencies.blackduck_scan.result ]
-      run_notices_pr_build: $[ dependencies.run_notices_pr_build.result ]
-      update_canton: $[ dependencies.update_canton.result ]
-      compat_versions_pr: $[ dependencies.compat_versions_pr.result ]
-    steps:
-    - template: ../bash-lib.yml
-      parameters:
-        var_name: bash_lib
-    - bash: |
-        set -euo pipefail
-
-        cd sdk
-        eval "$(./dev-env/bin/dade-assist)"
-        source $(bash_lib)
-
-        COMMIT_TITLE="$(escape_slack "$(git log --pretty=format:%s -n1)")"
-        COMMIT_LINK="<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|${COMMIT_TITLE}>"
-
-        if [[ "$(compatibility_ts_libs)" == "Succeeded"
-           && "$(compatibility_linux)" == "Succeeded"
-           && "$(compatibility_windows)" == "Succeeded"
-           && ("$(perf_speedy)" == "Succeeded" || "$(perf_speedy)" == "Skipped")
-           && "$(check_releases)" == "Succeeded"
-           && "$(update_canton)" == "Succeeded"
-           && ("$(blackduck_scan)" == "Succeeded" || "$(blackduck_scan)" == "Skipped")
-           && ("$(run_notices_pr_build)" == "Succeeded" || "$(run_notices_pr_build)" == "Skipped")
-           && "$(compat_versions_pr)" == "Succeeded"
-           ]]; then
-          MSG="Daily tests passed ($(Build.SourceBranchName)): $COMMIT_LINK"
-          if [ "$(perf_speedy)" == "Skipped" ]; then
-            REPORT="Perf test was skipped."
-          else
-            REPORT='```speedy_perf: $(speedy_perf)```'
-          fi
-          tell_slack "$(echo -e "$MSG\n$REPORT\n")" "$(Slack.ci-failures-daml)"
-        else
-          tell_slack "Daily tests failed ($(Build.SourceBranchName)): $COMMIT_LINK." "$(Slack.ci-failures-daml)"
-        fi
-
-        export GH_REPO=digital-asset/daml
-        pr_list=$(gh pr list --search "is:open author:app/azure-pipelines" --json title,url,createdAt --template \
-        '{{range .}}{{slice .createdAt 0 10}} <{{.url}}|{{.title}}>
-        {{end}}' | grep -v 'rotate release duty')
-        message="Open daml repo PRs to address:
-
-        $pr_list"
-        tell_slack "$message" "$(Slack.team-sdk-updates)"
-      env:
-        GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
-
-  - job: snapshots
-    timeoutInMinutes: 60
-    condition: eq(variables['Build.SourceBranchName'], 'main')
-    pool:
-      name: 'ubuntu_20_04'
-      demands: assignment -equals default
-    steps:
-      - bash: |
-          cd sdk
-          eval "$(./dev-env/bin/dade-assist)"
-          sha=$(git rev-parse origin/main)
-          az pipelines run --org "https://dev.azure.com/digitalasset" \
-                            --project daml \
-                            --name "snapshot" \
-                            --commit-id main \
-                            --parameters "commit=$sha"
-        env:
-          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
+#  - job: snapshots
+#    timeoutInMinutes: 60
+#    condition: eq(variables['Build.SourceBranchName'], 'main')
+#    pool:
+#      name: 'ubuntu_20_04'
+#      demands: assignment -equals default
+#    steps:
+#      - bash: |
+#          cd sdk
+#          eval "$(./dev-env/bin/dade-assist)"
+#          sha=$(git rev-parse origin/main)
+#          az pipelines run --org "https://dev.azure.com/digitalasset" \
+#                            --project daml \
+#                            --name "snapshot" \
+#                            --commit-id main \
+#                            --parameters "commit=$sha"
+#        env:
+#          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

@@ -222,7 +222,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "openssl_dev_env",
