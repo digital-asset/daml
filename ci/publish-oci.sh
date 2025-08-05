@@ -31,7 +31,8 @@ fi
 
 STAGING_DIR=$1
 RELEASE_TAG=$2
-UNIFI_ASSISTANT_REGISTRY=$3
+# UNIFI_ASSISTANT_REGISTRY=$3
+UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
 # Should match the tars copied into /oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script daml2js codegen)
@@ -59,7 +60,7 @@ function on_exit() {
     printf "\n"
   fi
   info "Cleanup...\t\t\t\t"
-  rm -rf "${STAGING_DIR}"/dist && info_done
+  # rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
@@ -68,32 +69,29 @@ function publish_artifact {
   local artifact_name="${1}"
   declare -a artifact_platforms=( "linux-intel,linux/amd64" "linux-arm,linux/arm64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
   declare -a platform_args
-  for item in ${artifact_platforms[@]}; do
-    arch="${item##*,}"
-    plat="${item%%,*}"
-    ${makedir} "${arch}/${artifact_name}"
-    artifact_path=oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
-    ${unarchive} "${artifact_path}" --unlink-first -C "${arch}/${artifact_name}"
-    # Fix symlinks in the artifact: replace them with real files
-    find "${arch}/${artifact_name}/${artifact_name}" -type l | while read link; do
-      real_path="$(realpath "${link}")"
-      rm "${link}"
-      ${copy} -r --dereference "${real_path}" "${link}"
+  cd "${STAGING_DIR}" || exit 1
+  (
+    for item in ${artifact_platforms[@]}; do
+      arch="${item##*,}"
+      plat="${item%%,*}"
+      ${makedir} "dist/${arch}/${artifact_name}"
+      artifact_path=oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
+      ${unarchive} "${artifact_path}" --unlink-first -C "dist/${arch}/${artifact_name}"
+      if [ -f "dist/${arch}/${artifact_name}/is-agnostic" ]; then
+          # If agnostic, remove the marker, upload as generic platform and break out for other platforms
+          # (this will upload the first platform, i.e. linux-intel)
+          rm ${arch}/${artifact_name}/is-agnostic
+          platform_args+=( "--platform generic=dist/${arch}/${artifact_name} " )
+          break
+      fi
+      platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
-    if [ -f "${arch}/${artifact_name}/is-agnostic" ]; then
-        # If agnostic, remove the marker, upload as generic platform and break out for other platforms
-        # (this will upload the first platform, i.e. linux-intel)
-        rm ${arch}/${artifact_name}/is-agnostic
-        platform_args+=( "--platform generic=${arch}/${artifact_name} " )
-        break
-    fi
-    platform_args+=( "--platform ${arch}=${arch}/${artifact_name} " )
-  done
-  info "Uploading ${artifact_name} to oci registry...\n"
-  "${HOME}"/.unifi/bin/unifi \
-    repo publish-component \
-      "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
-      --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+    info "Uploading ${artifact_name} to oci registry...\n"
+    echo "${HOME}"/.unifi/bin/unifi \
+      repo publish-component \
+        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
+        --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+  )
 }
 
 for component in "${components[@]}"; do

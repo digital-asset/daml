@@ -5,12 +5,16 @@ apiVersion: digitalasset.com/v1
 kind: Component
 spec:
   commands:
-    - path: damlc${EXE}
+    - path: damlc-dist-no-script-service/damlc${EXE}
       name: damlc
       desc: Compiler and IDE backend for the Daml programming language
-    - path: damlc${EXE}
+    - path: damlc-dist-no-script-service/damlc${EXE}
       name: build
-      desc: Build a thing
+      desc: Build a daml package or project
       exec-args: ["build"]
+    - path: damlc-dist-no-script-service/damlc${EXE}
+      name: clean
+      desc: Clean a daml package or project
+      exec-args: ["clean"]
 
 

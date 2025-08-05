@@ -253,6 +253,7 @@ import System.Directory.Extra
 import System.Environment
 import System.Exit
 import System.FilePath
+import System.Info.Extra (isWindows)
 import System.IO.Extra
 import System.Process (CreateProcess(..),
                       proc,
@@ -1078,7 +1079,8 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
         case findPackageResolutionData location resolutionData of
           Just validPkgResolution ->
             case Map.lookup "damlc" $ components validPkgResolution of
-              Just damlcLocation -> pure $ damlcLocation </> "damlc" -- TODO: This will break on windows
+              -- TODO: fix this (by removing the additional directory) once top level symlinks in ORAS works
+              Just damlcLocation -> pure $ damlcLocation </> "damlc-dist-no-script-service" </> "damlc" <> if isWindows then ".exe" else ""
               Nothing -> error $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
           Nothing -> error $ "Failed to find DPM package resolution for " <> location <> ". This should never happen, contact support."
       Nothing -> do

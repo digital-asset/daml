@@ -5,6 +5,6 @@ apiVersion: digitalasset.com/v1
 kind: Component
 spec:
   commands:
-    - path: daml2js-dist${EXE}
+    - path: daml2js-dist/daml2js${EXE}
       name: daml2js
       desc: Daml to JavaScript compiler

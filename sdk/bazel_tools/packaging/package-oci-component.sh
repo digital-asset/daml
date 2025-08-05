@@ -71,7 +71,11 @@ fi
 for res in "$@"; do
   case $res in
     *.tar.gz)
-      $tar xf "$res" --strip-components=1 -C "$WORKDIR"
+      BASENAME=$(basename $res)
+      RAWNAME=${BASENAME%%.*}
+      # unzip to a directory, as these often have internal relative symlinks to top level, which oras can't handle right now
+      mkdir -p "$WORKDIR/$RAWNAME"
+      $tar xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
       ;;
     *)
       cp $res $WORKDIR

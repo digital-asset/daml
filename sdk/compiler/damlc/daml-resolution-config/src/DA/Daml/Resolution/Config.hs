@@ -155,7 +155,7 @@ findDarInDarInfos darInfos rawName lfVersion = do
 findPackageResolutionData :: FilePath -> ResolutionData -> Maybe ValidPackageResolution
 findPackageResolutionData path (ResolutionData packages) =
   Map.lookup path packages <&> \case
-    ErrorPackageResolutionData err -> error $ unlines err
+    ErrorPackageResolutionData err -> error $ "Couldn't resolve package " <> path <> ":\n" <> unlines err
     ValidPackageResolutionData res -> res
 
 getResolutionData :: IO (Maybe ResolutionData)
