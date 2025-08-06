@@ -37,7 +37,7 @@ RELEASE_TAG=$2
 # UNIFI_ASSISTANT_REGISTRY=$3
 UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
-# Should match the tars copied into /oci during copy-{OS}-release-artifacts.sh
+# Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script daml2js codegen)
 
 if [[ x"$DEBUG" != x ]]; then
@@ -63,7 +63,7 @@ function on_exit() {
     printf "\n"
   fi
   info "Cleanup...\t\t\t\t"
-  # rm -rf "${STAGING_DIR}"/dist && info_done
+  rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
@@ -78,7 +78,7 @@ function publish_artifact {
       arch="${item##*,}"
       plat="${item%%,*}"
       ${makedir} "dist/${arch}/${artifact_name}"
-      artifact_path=oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
+      artifact_path=release/oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
       ${unarchive} "${artifact_path}" --unlink-first -C "dist/${arch}/${artifact_name}"
       if [ -f "dist/${arch}/${artifact_name}/is-agnostic" ]; then
           # If agnostic, remove the marker, upload as generic platform and break out for other platforms
