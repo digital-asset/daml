@@ -1,14 +1,9 @@
 -- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- Please do not remove the commented lines, there are helpful to
--- quickly test the actual depth the engine handles.
-
--- If you are bitten by this test, you can lower the number of fields
--- down to 120 (but not lower!) by comment few more  lines and
--- adapting the corresponding Expected.ledger file. In any case ask
--- for review to Moritz and/or Remy.
-
+-- A version of LfStableManyFields with 500 (arbitrary) fields to assert that
+-- with interning, there should not be any effective cap on (nested) expression
+-- size!
 
 -- @SINCE-LF 2.dev
 module LfStableManyMoreFields where
