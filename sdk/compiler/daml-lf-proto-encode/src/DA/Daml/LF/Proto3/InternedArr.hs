@@ -10,7 +10,9 @@ expressions. The implementation is hidden in this module, as a separate Num
 tracks the length of the list. By encapsulating the constructor in here, we can
 be sure the Num and List are not modified externally.
 
-InternedArr, unlike InternedMap, does not implement sharing.
+InternedArr, unlike InternedMap, implements sharing (i.e. in the case of the
+same kind/type/expression occuring multiple times, sharing means having only one
+entry in the table with multiple pointers to it versus duplicate entries).
 -}
 
 module DA.Daml.LF.Proto3.InternedArr (
