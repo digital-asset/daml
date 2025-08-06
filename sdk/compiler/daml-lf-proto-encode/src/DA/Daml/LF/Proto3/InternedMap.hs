@@ -14,15 +14,17 @@ InternedMap, unlike InternedArr, does not implement sharing.
 -}
 
 module DA.Daml.LF.Proto3.InternedMap (
-  InternedMap, internState, toVec, empty
+  InternedMap
   ) where
 
 import           Control.Monad.State.Strict
 
 import           Data.Int
-import qualified Data.List           as L
-import qualified Data.Map.Strict     as Map
-import qualified Data.Vector         as V
+import qualified Data.List                  as L
+import qualified Data.Map.Strict            as Map
+import qualified Data.Vector                as V
+
+import qualified DA.Daml.LF.Proto3.Interned as G
 
 data InternedMap val where
   InternedMap
@@ -52,3 +54,8 @@ internState x = do
       else do
         put $ InternedMap (Map.insert x n mp) (n + 1)
         return n
+
+instance G.Interned InternedMap where
+  empty       = empty
+  toVec       = toVec
+  internState = internState

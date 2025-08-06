@@ -14,13 +14,15 @@ InternedArr, unlike InternedMap, does not implement sharing.
 -}
 
 module DA.Daml.LF.Proto3.InternedArr (
-  InternedArr, internState, toVec, empty
+  InternedArr
   ) where
 
 import           Control.Monad.State.Strict
 
 import           Data.Int
-import qualified Data.Vector         as V
+import qualified Data.Vector                as V
+
+import qualified DA.Daml.LF.Proto3.Interned as G
 
 data InternedArr val where
   InternedArr
@@ -39,3 +41,8 @@ internState x = do
   (InternedArr xs n) <- get
   put $ InternedArr (x : xs) (n + 1)
   return n
+
+instance G.Interned InternedArr where
+  empty       = empty
+  toVec       = toVec
+  internState = internState
