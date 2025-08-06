@@ -172,7 +172,7 @@ ${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)("""
            val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
-             |
+
 ${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)(s"""
            val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \\(party: Party) ->
              fetch_by_key @Mod:Person party;
