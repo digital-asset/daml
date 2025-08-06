@@ -170,8 +170,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       */
     private val kStar =
       PLF.Kind.newBuilder().setStar(PLF.Unit.newBuilder()).build()
-    // private val kNat =
-    //   PLF.Kind.newBuilder().setNat(PLF.Unit.newBuilder()).build()
     private val KArrows = RightRecMatcher[Kind, Kind]({ case KArrow(param, result) =>
       (param, result)
     })
@@ -191,7 +189,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
             .setArrow(
               PLF.Kind.Arrow
                 .newBuilder()
-                .accumulateLeft(params)(_ addParams encodeKindBuilder(_).build())
+                .accumulateLeft(params)(_ addParams encodeKind(_))
                 .setResult(kStar)
             )
         case KStar =>
