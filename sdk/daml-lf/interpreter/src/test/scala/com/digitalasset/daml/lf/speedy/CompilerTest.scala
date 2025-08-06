@@ -615,7 +615,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       Ref.Name.assertFromString("label"),
       Ref.Name.assertFromString("party"),
     ),
-    ArrayList(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
+    Array(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
   )
 
   def tokenApp(sexpr: SExpr): SExpr =
@@ -661,7 +661,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           Ref.Name.assertFromString("label"),
           Ref.Name.assertFromString("party"),
         ),
-        ArrayList(
+        Array(
           SValue.SBool(precondition),
           SValue.SText(label),
           SValue.SParty(maintainer),

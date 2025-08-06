@@ -7,14 +7,11 @@ import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.std.either._
 import scalaz.syntax.bind._
-
-import java.util
-import scala.jdk.CollectionConverters._
 
 class ConverterException(message: String) extends RuntimeException(message)
 
@@ -32,8 +29,7 @@ object Converter {
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
     val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
-    val args =
-      new util.ArrayList[SValue](fields.map({ case (_, v) => v }).asJava)
+    val args = fields.map(_._2).toArray
     SRecord(ty, fieldNames, args) // TODO: construct SRecord directly from Map
   }
 
@@ -61,7 +57,7 @@ object Converter {
 
   object DamlTuple2 {
     def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, ArrayList(fst, snd)) =>
+      case SRecord(Identifier(_, DaTypesTuple2), _, Array(fst, snd)) =>
         Some((fst, snd))
       case _ => None
     }
@@ -70,7 +66,7 @@ object Converter {
   object DamlAnyModuleRecord {
     def unapplySeq(v: SRecord): Some[(String, collection.Seq[SValue])] = {
       val Identifier(_, QualifiedName(_, name)) = v.id
-      Some((name.dottedName, v.values.asScala))
+      Some((name.dottedName, v.values.toSeq))
     }
   }
 

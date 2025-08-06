@@ -23,8 +23,6 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-import java.util
-
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
@@ -462,7 +460,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         SValue.SRecord(
           i"'-pkg3-':M:T",
           ImmArray(n"sig", n"obs", n"aNumber", n"optSig"),
-          ArrayList(
+          Array(
             SValue.SParty(alice),
             SValue.SParty(bob),
             SValue.SInt64(100),
@@ -752,7 +750,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"obs",
           n"aNumber",
         )
-        def values: util.ArrayList[SValue] = ArrayList(
+        def values: Array[SValue] = Array(
           SValue.SParty(alice), // And it needs to be a party
           SValue.SParty(bob),
           SValue.SInt64(100),
@@ -774,7 +772,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"aNumber",
           n"extraField",
         )
-        def values: util.ArrayList[SValue] = ArrayList(
+        def values: Array[SValue] = Array(
           SValue.SParty(alice),
           SValue.SParty(bob),
           SValue.SInt64(100),

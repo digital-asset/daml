@@ -32,7 +32,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.security.{KeyPairGenerator, PrivateKey}
-import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
@@ -2325,7 +2324,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArrayList(SText(k), v))
+  def mapEntry(k: String, v: SValue) = SStruct(entryFields, Array(SText(k), v))
 
   def lit2string(x: SValue): String =
     x match {
@@ -2342,7 +2341,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     Struct.assertFromNameSeq(
       Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
     ),
-    ArrayList(
+    Array(
       key,
       SValue.SList(FrontStack(SValue.SParty(maintainer))),
     ),
@@ -2361,22 +2360,22 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Ref.Name.assertFromString("label"),
         Ref.Name.assertFromString("maintainers"),
       ),
-      ArrayList(
+      Array(
         SValue.SText("test-key"),
         SValue.SList(FrontStack(SValue.SParty(maintainer))),
       ),
     )
     val fields = if (withKey) ImmArray("i", "u", "name", "k") else ImmArray("i", "u", "name")
-    val svalues: util.ArrayList[SValue] =
+    val svalues: Array[SValue] =
       if (withKey) {
-        ArrayList(
+        Array(
           SValue.SParty(owner),
           SValue.SParty(maintainer),
           SValue.SText("x"),
           SValue.SParty(maintainer),
         )
       } else {
-        ArrayList(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
+        Array(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
       }
     val sarg = SValue.SRecord(
       templateId,
