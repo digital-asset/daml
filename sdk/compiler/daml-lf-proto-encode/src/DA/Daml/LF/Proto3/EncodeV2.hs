@@ -29,6 +29,7 @@ import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
 import           DA.Daml.LF.Proto3.InternedMap as IM
+import           DA.Daml.LF.Proto3.InternedArr as IA
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
@@ -38,9 +39,9 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
-type InternedKindsMap = IM.InternedMap P.KindSum Int32
-type InternedTypesMap = IM.InternedMap P.TypeSum Int32
-type InternedExprsMap = IM.InternedMap P.ExprSum Int32
+type InternedKindsMap = IM.InternedMap P.KindSum
+type InternedTypesMap = IM.InternedMap P.TypeSum
+type InternedExprsMap = IA.InternedArr P.ExprSum
 
 type Encode a = State EncodeEnv a
 
@@ -71,7 +72,7 @@ initEncodeEnv version =
     , nextInternedDottedNameId = 0
     , internedKindsMap = IM.empty
     , internedTypesMap = IM.empty
-    , internedExprsMap = IM.empty
+    , internedExprsMap = IA.empty
     , ..
     }
 
@@ -701,7 +702,7 @@ internExpr f = do
       (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
           error "not allowed to add interned to interning table"
       (P.Expr l (Just e')) -> do
-          n <- zoom internedExprsMapLens $ IM.internState e'
+          n <- zoom internedExprsMapLens $ IA.internState e'
           return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
       (P.Expr _ Nothing) -> error "nothing expr during encoding"
     else return e
@@ -992,14 +993,14 @@ packInternedStrings :: HMS.HashMap T.Text Int32 -> V.Vector TL.Text
 packInternedStrings =
   V.fromList . map (encodeString . fst) . L.sortOn snd . HMS.toList
 
-packInternedKinds :: InternedMap P.KindSum key -> V.Vector P.Kind
+packInternedKinds :: InternedKindsMap -> V.Vector P.Kind
 packInternedKinds = V.map (P.Kind . Just) . IM.toVec
 
-packInternedTypes :: InternedMap P.TypeSum key -> V.Vector P.Type
+packInternedTypes :: InternedTypesMap -> V.Vector P.Type
 packInternedTypes = V.map (P.Type . Just) . IM.toVec
 
-packInternedExprs :: InternedMap P.ExprSum key -> V.Vector P.Expr
-packInternedExprs = V.map (P.Expr Nothing . Just) . IM.toVec
+packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
+packInternedExprs = V.map (P.Expr Nothing . Just) . IA.toVec
 
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =

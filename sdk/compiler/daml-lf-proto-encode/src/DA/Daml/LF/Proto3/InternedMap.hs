@@ -6,9 +6,11 @@
 
 {-
 This module containst the InternedMap datatype, used during the interning of
-kinds, types and expressions. The implementation is hidden in this module, as a
-separate Num tracks the length of the list. By encapsulating the constructor in
-here, we can be sure the Num and Map are not modified externally.
+kinds and types. The implementation is hidden in this module, as a separate Num
+tracks the length of the list. By encapsulating the constructor in here, we can
+be sure the Num and Map are not modified externally.
+
+InternedMap, unlike InternedArr, does not implement sharing.
 -}
 
 module DA.Daml.LF.Proto3.InternedMap (
@@ -17,21 +19,22 @@ module DA.Daml.LF.Proto3.InternedMap (
 
 import           Control.Monad.State.Strict
 
+import           Data.Int
 import qualified Data.List           as L
 import qualified Data.Map.Strict     as Map
 import qualified Data.Vector         as V
 
-data InternedMap val key where
+data InternedMap val where
   InternedMap
-      :: (Ord val, Ord key, Num key, Bounded key)
-      => !(Map.Map val key)
-      -> !key -- ^ the next available key
-      -> InternedMap val key
+      :: (Ord val)
+      => !(Map.Map val Int32)
+      -> !Int32 -- ^ the next available key
+      -> InternedMap val
 
-empty :: (Ord val, Ord key, Num key, Bounded key) => InternedMap val key
+empty :: (Ord val) => InternedMap val
 empty = InternedMap Map.empty 0
 
-toVec :: InternedMap val key -> V.Vector val
+toVec :: InternedMap val -> V.Vector val
 toVec (InternedMap mp n) =
   let vec = V.fromList $ map fst $ L.sortOn snd $ Map.toList mp
   in
@@ -39,7 +42,7 @@ toVec (InternedMap mp n) =
     then vec
     else error "internedKinds of incorrect length"
 
-internState :: val -> State (InternedMap val key) key
+internState :: val -> State (InternedMap val) Int32
 internState x = do
   (InternedMap mp n) <- get
   case x `Map.lookup` mp of
