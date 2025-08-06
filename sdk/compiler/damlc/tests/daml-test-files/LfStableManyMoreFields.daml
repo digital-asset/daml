@@ -1,0 +1,129 @@
+-- Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Please do not remove the commented lines, there are helpful to
+-- quickly test the actual depth the engine handles.
+
+-- If you are bitten by this test, you can lower the number of fields
+-- down to 120 (but not lower!) by comment few more  lines and
+-- adapting the corresponding Expected.ledger file. In any case ask
+-- for review to Moritz and/or Remy.
+
+
+-- @SINCE-LF 2.dev
+module LfStableManyMoreFields where
+
+import Daml.Script
+
+template BigTemplate
+  with
+    p: Party
+    x000: Int, x001: Int, x002: Int, x003: Int, x004: Int, x005: Int, x006: Int, x007: Int, x008: Int, x009: Int
+    x010: Int, x011: Int, x012: Int, x013: Int, x014: Int, x015: Int, x016: Int, x017: Int, x018: Int, x019: Int
+    x020: Int, x021: Int, x022: Int, x023: Int, x024: Int, x025: Int, x026: Int, x027: Int, x028: Int, x029: Int
+    x030: Int, x031: Int, x032: Int, x033: Int, x034: Int, x035: Int, x036: Int, x037: Int, x038: Int, x039: Int
+    x040: Int, x041: Int, x042: Int, x043: Int, x044: Int, x045: Int, x046: Int, x047: Int, x048: Int, x049: Int
+    x050: Int, x051: Int, x052: Int, x053: Int, x054: Int, x055: Int, x056: Int, x057: Int, x058: Int, x059: Int
+    x060: Int, x061: Int, x062: Int, x063: Int, x064: Int, x065: Int, x066: Int, x067: Int, x068: Int, x069: Int
+    x070: Int, x071: Int, x072: Int, x073: Int, x074: Int, x075: Int, x076: Int, x077: Int, x078: Int, x079: Int
+    x080: Int, x081: Int, x082: Int, x083: Int, x084: Int, x085: Int, x086: Int, x087: Int, x088: Int, x089: Int
+    x090: Int, x091: Int, x092: Int, x093: Int, x094: Int, x095: Int, x096: Int, x097: Int, x098: Int, x099: Int
+    x100: Int, x101: Int, x102: Int, x103: Int, x104: Int, x105: Int, x106: Int, x107: Int, x108: Int, x109: Int
+    x110: Int, x111: Int, x112: Int, x113: Int, x114: Int, x115: Int, x116: Int, x117: Int, x118: Int, x119: Int
+    x120: Int, x121: Int, x122: Int, x123: Int, x124: Int, x125: Int, x126: Int, x127: Int, x128: Int, x129: Int
+    x130: Int, x131: Int, x132: Int, x133: Int, x134: Int, x135: Int, x136: Int, x137: Int, x138: Int, x139: Int
+    x140: Int, x141: Int, x142: Int, x143: Int, x144: Int, x145: Int, x146: Int, x147: Int, x148: Int, x149: Int
+    x150: Int, x151: Int, x152: Int, x153: Int, x154: Int, x155: Int, x156: Int, x157: Int, x158: Int, x159: Int
+    x160: Int, x161: Int, x162: Int, x163: Int, x164: Int, x165: Int, x166: Int, x167: Int, x168: Int, x169: Int
+    x170: Int, x171: Int, x172: Int, x173: Int, x174: Int, x175: Int, x176: Int, x177: Int, x178: Int, x179: Int
+    x180: Int, x181: Int, x182: Int, x183: Int, x184: Int, x185: Int, x186: Int, x187: Int, x188: Int, x189: Int
+    x190: Int, x191: Int, x192: Int, x193: Int, x194: Int, x195: Int, x196: Int, x197: Int, x198: Int, x199: Int
+    x200: Int, x201: Int, x202: Int, x203: Int, x204: Int, x205: Int, x206: Int, x207: Int, x208: Int, x209: Int
+    x210: Int, x211: Int, x212: Int, x213: Int, x214: Int, x215: Int, x216: Int, x217: Int, x218: Int, x219: Int
+    x220: Int, x221: Int, x222: Int, x223: Int, x224: Int, x225: Int, x226: Int, x227: Int, x228: Int, x229: Int
+    x230: Int, x231: Int, x232: Int, x233: Int, x234: Int, x235: Int, x236: Int, x237: Int, x238: Int, x239: Int
+    x240: Int, x241: Int, x242: Int, x243: Int, x244: Int, x245: Int, x246: Int, x247: Int, x248: Int, x249: Int
+    x250: Int, x251: Int, x252: Int, x253: Int, x254: Int, x255: Int, x256: Int, x257: Int, x258: Int, x259: Int
+    x260: Int, x261: Int, x262: Int, x263: Int, x264: Int, x265: Int, x266: Int, x267: Int, x268: Int, x269: Int
+    x270: Int, x271: Int, x272: Int, x273: Int, x274: Int, x275: Int, x276: Int, x277: Int, x278: Int, x279: Int
+    x280: Int, x281: Int, x282: Int, x283: Int, x284: Int, x285: Int, x286: Int, x287: Int, x288: Int, x289: Int
+    x290: Int, x291: Int, x292: Int, x293: Int, x294: Int, x295: Int, x296: Int, x297: Int, x298: Int, x299: Int
+    x300: Int, x301: Int, x302: Int, x303: Int, x304: Int, x305: Int, x306: Int, x307: Int, x308: Int, x309: Int
+    x310: Int, x311: Int, x312: Int, x313: Int, x314: Int, x315: Int, x316: Int, x317: Int, x318: Int, x319: Int
+    x320: Int, x321: Int, x322: Int, x323: Int, x324: Int, x325: Int, x326: Int, x327: Int, x328: Int, x329: Int
+    x330: Int, x331: Int, x332: Int, x333: Int, x334: Int, x335: Int, x336: Int, x337: Int, x338: Int, x339: Int
+    x340: Int, x341: Int, x342: Int, x343: Int, x344: Int, x345: Int, x346: Int, x347: Int, x348: Int, x349: Int
+    x350: Int, x351: Int, x352: Int, x353: Int, x354: Int, x355: Int, x356: Int, x357: Int, x358: Int, x359: Int
+    x360: Int, x361: Int, x362: Int, x363: Int, x364: Int, x365: Int, x366: Int, x367: Int, x368: Int, x369: Int
+    x370: Int, x371: Int, x372: Int, x373: Int, x374: Int, x375: Int, x376: Int, x377: Int, x378: Int, x379: Int
+    x380: Int, x381: Int, x382: Int, x383: Int, x384: Int, x385: Int, x386: Int, x387: Int, x388: Int, x389: Int
+    x390: Int, x391: Int, x392: Int, x393: Int, x394: Int, x395: Int, x396: Int, x397: Int, x398: Int, x399: Int
+    x400: Int, x401: Int, x402: Int, x403: Int, x404: Int, x405: Int, x406: Int, x407: Int, x408: Int, x409: Int
+    x410: Int, x411: Int, x412: Int, x413: Int, x414: Int, x415: Int, x416: Int, x417: Int, x418: Int, x419: Int
+    x420: Int, x421: Int, x422: Int, x423: Int, x424: Int, x425: Int, x426: Int, x427: Int, x428: Int, x429: Int
+    x430: Int, x431: Int, x432: Int, x433: Int, x434: Int, x435: Int, x436: Int, x437: Int, x438: Int, x439: Int
+    x440: Int, x441: Int, x442: Int, x443: Int, x444: Int, x445: Int, x446: Int, x447: Int, x448: Int, x449: Int
+    x450: Int, x451: Int, x452: Int, x453: Int, x454: Int, x455: Int, x456: Int, x457: Int, x458: Int, x459: Int
+    x460: Int, x461: Int, x462: Int, x463: Int, x464: Int, x465: Int, x466: Int, x467: Int, x468: Int, x469: Int
+    x470: Int, x471: Int, x472: Int, x473: Int, x474: Int, x475: Int, x476: Int, x477: Int, x478: Int, x479: Int
+    x480: Int, x481: Int, x482: Int, x483: Int, x484: Int, x485: Int, x486: Int, x487: Int, x488: Int, x489: Int
+    x490: Int, x491: Int, x492: Int, x493: Int, x494: Int, x495: Int, x496: Int, x497: Int, x498: Int, x499: Int
+  where
+    signatory p
+
+-- @LEDGER run LfStableManyMoreFields.EXPECTED.ledger
+run = do
+  alice <- allocateParty "Alice"
+  submit alice do createCmd $
+                    BigTemplate
+                      alice
+                      000 001 002 003 004 005 006 007 008 009
+                      010 011 012 013 014 015 016 017 018 019
+                      020 021 022 023 024 025 026 027 028 029
+                      030 031 032 033 034 035 036 037 038 039
+                      040 041 042 043 044 045 046 047 048 049
+                      050 051 052 053 054 055 056 057 058 059
+                      060 061 062 063 064 065 066 067 068 069
+                      070 071 072 073 074 075 076 077 078 079
+                      080 081 082 083 084 085 086 087 088 089
+                      090 091 092 093 094 095 096 097 098 099
+                      100 101 102 103 104 105 106 107 108 109
+                      110 111 112 113 114 115 116 117 118 119
+                      120 121 122 123 124 125 126 127 128 129
+                      130 131 132 133 134 135 136 137 138 139
+                      140 141 142 143 144 145 146 147 148 149
+                      150 151 152 153 154 155 156 157 158 159
+                      160 161 162 163 164 165 166 167 168 169
+                      170 171 172 173 174 175 176 177 178 179
+                      180 181 182 183 184 185 186 187 188 189
+                      190 191 192 193 194 195 196 197 198 199
+                      200 201 202 203 204 205 206 207 208 209
+                      210 211 212 213 214 215 216 217 218 219
+                      220 221 222 223 224 225 226 227 228 229
+                      230 231 232 233 234 235 236 237 238 239
+                      240 241 242 243 244 245 246 247 248 249
+                      250 251 252 253 254 255 256 257 258 259
+                      260 261 262 263 264 265 266 267 268 269
+                      270 271 272 273 274 275 276 277 278 279
+                      280 281 282 283 284 285 286 287 288 289
+                      290 291 292 293 294 295 296 297 298 299
+                      300 301 302 303 304 305 306 307 308 309
+                      310 311 312 313 314 315 316 317 318 319
+                      320 321 322 323 324 325 326 327 328 329
+                      330 331 332 333 334 335 336 337 338 339
+                      340 341 342 343 344 345 346 347 348 349
+                      350 351 352 353 354 355 356 357 358 359
+                      360 361 362 363 364 365 366 367 368 369
+                      370 371 372 373 374 375 376 377 378 379
+                      380 381 382 383 384 385 386 387 388 389
+                      390 391 392 393 394 395 396 397 398 399
+                      400 401 402 403 404 405 406 407 408 409
+                      410 411 412 413 414 415 416 417 418 419
+                      420 421 422 423 424 425 426 427 428 429
+                      430 431 432 433 434 435 436 437 438 439
+                      440 441 442 443 444 445 446 447 448 449
+                      450 451 452 453 454 455 456 457 458 459
+                      460 461 462 463 464 465 466 467 468 469
+                      470 471 472 473 474 475 476 477 478 479
+                      480 481 482 483 484 485 486 487 488 489
+                      490 491 492 493 494 495 496 497 498 499
