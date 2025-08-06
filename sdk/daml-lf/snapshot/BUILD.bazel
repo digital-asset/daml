@@ -87,7 +87,7 @@ da_scala_benchmark_jmh(
             srcs = glob(
                 ["src/test/scala/**/*.scala"],
                 exclude = ["src/test/scala/**/GenerateSnapshots.scala"],
-                ),
+            ),
             data = [":ReplayBenchmark-v{}.dar".format(major)],
             scala_deps = [
                 "@maven//:org_apache_pekko_pekko_actor",
