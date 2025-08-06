@@ -87,7 +87,7 @@ function publish_artifact {
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
     info "Uploading ${artifact_name} to oci registry...\n"
-    echo "${HOME}"/.unifi/bin/unifi \
+    "${HOME}"/.unifi/bin/unifi \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
         --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
