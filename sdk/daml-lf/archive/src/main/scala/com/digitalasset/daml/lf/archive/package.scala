@@ -13,6 +13,8 @@ import scala.util.Using
 import scala.util.Using.Releasable
 import scala.util.control.NonFatal
 
+import Ordering.Implicits.infixOrderingOps
+
 package object archive {
 
   @throws[Error]
@@ -50,20 +52,20 @@ package object archive {
     })
 
   val ArchiveParser: GenReader[DamlLf.Archive] =
-    Base.andThen(cos =>
+    Base.andThen { cos =>
       attempt(getClass.getCanonicalName + ".ArchiveParser")(DamlLf.Archive.parseFrom(cos))
-    )
+    }
   val ArchiveReader: GenReader[ArchivePayload] =
     ArchiveParser.andThen(Reader.readArchive)
   val ArchiveDecoder: GenReader[(PackageId, Ast.Package)] =
     ArchiveReader.andThen(Decode.decodeArchivePayload(_))
 
   val ArchivePayloadParser: GenReader[DamlLf.ArchivePayload] =
-    Base.andThen(cos =>
+    Base.andThen { cos =>
       attempt(getClass.getCanonicalName + ".ArchivePayloadParser")(
         DamlLf.ArchivePayload.parseFrom(cos)
       )
-    )
+    }
   val lf1PackageParser: GenReader[DamlLf1.Package] =
     Base.andThen { cos =>
       discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
@@ -74,7 +76,6 @@ package object archive {
 
   def lf2PackageParser(minor: LanguageVersion.Minor): GenReader[DamlLf2.Package] =
     Base.andThen { cos =>
-      import Ordering.Implicits.infixOrderingOps
       val langVersion = LanguageVersion(LanguageVersion.Major.V2, minor)
       if (langVersion < LanguageVersion.Features.flatArchive)
         discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
@@ -95,9 +96,12 @@ package object archive {
     ver.major match {
       case LanguageVersion.Major.V2 =>
         Base
-          .andThen(cos =>
+          .andThen { cos =>
+            if (ver < LanguageVersion.Features.flatArchive)
+              discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
+            discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT)) // TEST DISCARD
             attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
-          )
+          }
           .andThen(new DecodeV2(ver.minor).decodeSingleModulePackage(pkgId, _))
       case _ =>
         new GenReader[Ast.Module](_ => Left(Error.Parsing(s"LF version $ver unsupported")))
