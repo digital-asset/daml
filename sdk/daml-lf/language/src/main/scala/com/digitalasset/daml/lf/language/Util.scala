@@ -284,10 +284,9 @@ object Util {
       case Module(name, definitions, templates, exceptions, interfaces, featureFlags) =>
         ModuleSignature(
           name = name,
-          definitions = definitions.transform {
-            case (_, dvalue: GenDValue[_]) => dvalue.copy(body = ())
-            case (_, dataType: DDataType) => dataType
-            case (_, typeSyn: DTypeSyn) => typeSyn
+          definitions = definitions.flatMap {
+            case (n, dataType: DDataType) if dataType.serializable => List(n -> dataType)
+            case _ => List.empty
           },
           templates = templates.transform((_, template) => toSignature(template)),
           exceptions = exceptions.transform((_, _) => DefExceptionSignature),
