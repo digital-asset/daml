@@ -55,6 +55,10 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         encodeKindBuilder(knd).build()
     }
 
+    // even though we have disabled sharing of expressions in damlc
+    // (https://github.com/digital-asset/daml/pull/21645) , we have it here
+    // because its simpler, the decoder doesn't care, and we only use this
+    // encoder for testing.
     private[this] val exprTable = new EncodeV2.TableBuilder[Expr, PLF.Expr] {
       override def toProto(expr: Expr): PLF.Expr =
         encodeExprBuilder(expr).build()

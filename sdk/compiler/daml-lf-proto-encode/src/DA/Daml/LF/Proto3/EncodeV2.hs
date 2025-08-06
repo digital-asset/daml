@@ -28,7 +28,9 @@ import           Data.Int
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
-import           DA.Daml.LF.Proto3.InternedMap as IM
+import           DA.Daml.LF.Proto3.Interned    as I
+import           DA.Daml.LF.Proto3.InternedMap
+import           DA.Daml.LF.Proto3.InternedArr
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
@@ -38,9 +40,9 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
-type InternedKindsMap = IM.InternedMap P.KindSum Int32
-type InternedTypesMap = IM.InternedMap P.TypeSum Int32
-type InternedExprsMap = IM.InternedMap P.ExprSum Int32
+type InternedKindsMap = InternedMap P.KindSum
+type InternedTypesMap = InternedMap P.TypeSum
+type InternedExprsMap = InternedArr P.ExprSum
 
 type Encode a = State EncodeEnv a
 
@@ -69,9 +71,9 @@ initEncodeEnv version =
     , internedStrings = HMS.empty
     , internedDottedNames = HMS.empty
     , nextInternedDottedNameId = 0
-    , internedKindsMap = IM.empty
-    , internedTypesMap = IM.empty
-    , internedExprsMap = IM.empty
+    , internedKindsMap = I.empty
+    , internedTypesMap = I.empty
+    , internedExprsMap = I.empty
     , ..
     }
 
@@ -271,7 +273,7 @@ internKind k =
     if isDevVersion version
       then case k of
         (P.Kind (Just k')) -> do
-            n <- zoom internedKindsMapLens $ IM.internState k'
+            n <- zoom internedKindsMapLens $ I.internState k'
             return $ (P.Kind . Just . P.KindSumInternedKind) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
@@ -354,7 +356,7 @@ allocType = internType . P.Type . Just
 internType :: P.Type -> Encode P.Type
 internType = \case
   (P.Type (Just t')) -> do
-    n <- zoom internedTypesMapLens $ IM.internState t'
+    n <- zoom internedTypesMapLens $ I.internState t'
     return $ (P.Type . Just . P.TypeSumInternedType) n
   (P.Type Nothing) -> error "nothing type during encoding"
 
@@ -701,7 +703,7 @@ internExpr f = do
       (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
           error "not allowed to add interned to interning table"
       (P.Expr l (Just e')) -> do
-          n <- zoom internedExprsMapLens $ IM.internState e'
+          n <- zoom internedExprsMapLens $ I.internState e'
           return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
       (P.Expr _ Nothing) -> error "nothing expr during encoding"
     else return e
@@ -992,14 +994,14 @@ packInternedStrings :: HMS.HashMap T.Text Int32 -> V.Vector TL.Text
 packInternedStrings =
   V.fromList . map (encodeString . fst) . L.sortOn snd . HMS.toList
 
-packInternedKinds :: InternedMap P.KindSum key -> V.Vector P.Kind
-packInternedKinds = V.map (P.Kind . Just) . IM.toVec
+packInternedKinds :: InternedKindsMap -> V.Vector P.Kind
+packInternedKinds = V.map (P.Kind . Just) . I.toVec
 
-packInternedTypes :: InternedMap P.TypeSum key -> V.Vector P.Type
-packInternedTypes = V.map (P.Type . Just) . IM.toVec
+packInternedTypes :: InternedTypesMap -> V.Vector P.Type
+packInternedTypes = V.map (P.Type . Just) . I.toVec
 
-packInternedExprs :: InternedMap P.ExprSum key -> V.Vector P.Expr
-packInternedExprs = V.map (P.Expr Nothing . Just) . IM.toVec
+packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
+packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata) =
