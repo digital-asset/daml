@@ -368,7 +368,7 @@ object TypecheckUpgrades {
     Try(t.map(f(_).get).toSeq)
 
   def typecheckUpgrades(
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, Ast.PackageSignature],
       present: (Ref.PackageId, Ast.PackageSignature),
       pastPackageId: Ref.PackageId,
       mbPastPkg: Option[Ast.PackageSignature],
@@ -377,11 +377,8 @@ object TypecheckUpgrades {
       case None =>
         fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
       case Some(pastPkg) =>
-        val (presentPackageId, presentPkg) = present
         val tc = TypecheckUpgrades(
-          packageMap +
-            (presentPackageId -> (presentPkg.pkgName, presentPkg.metadata.version)) +
-            (pastPackageId -> (pastPkg.pkgName, pastPkg.metadata.version)),
+          packageMap + present + (pastPackageId -> pastPkg),
           Upgrading((pastPackageId, pastPkg), present),
         )
         tc.check()
@@ -390,7 +387,7 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(
-    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+    packageMap: Map[Ref.PackageId, Ast.PackageSignature],
     packages: Upgrading[(Ref.PackageId, Ast.PackageSignature)],
 ) {
   import TypecheckUpgrades._
@@ -564,8 +561,8 @@ case class TypecheckUpgrades(
         // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
-        case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
-          pastName == presentName && pastVersion <= presentVersion
+        case (Some(pastPackage), Some(presentPackage)) =>
+          pastPackage.metadata.name == presentPackage.metadata.name && pastPackage.metadata.version <= presentPackage.metadata.version
         // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false
       }
