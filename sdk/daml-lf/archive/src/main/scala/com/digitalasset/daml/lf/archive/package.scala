@@ -99,7 +99,6 @@ package object archive {
           .andThen { cos =>
             if (ver < LanguageVersion.Features.flatArchive)
               discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT))
-            discard(cos.setRecursionLimit(EXTENDED_PROTOBUF_RECURSION_LIMIT)) // TEST DISCARD
             attempt(NameOf.qualifiedNameOfCurrentFunc)(DamlLf2.Package.parseFrom(cos))
           }
           .andThen(new DecodeV2(ver.minor).decodeSingleModulePackage(pkgId, _))

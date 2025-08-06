@@ -1619,7 +1619,7 @@ class DecodeV2Spec
       }
     }
 
-    "still accept reasonably deep expreesions when version does not support" in {
+    "still accept reasonably deep expressions when version does not support" in {
       forEveryVersionSuchThat(_ < LV.Features.flatArchive) { _ =>
         // explanation for "magic" number: see above
         Decode.decodeArchive(exprToArch(buildLet(498), "1")) shouldBe a[Right[_, _]]
