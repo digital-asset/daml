@@ -78,7 +78,7 @@ function publish_artifact {
       arch="${item##*,}"
       plat="${item%%,*}"
       ${makedir} "dist/${arch}/${artifact_name}"
-      artifact_path=release/oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
+      artifact_path=release-artifacts/oci/${RELEASE_TAG}/${plat}/${artifact_name}.tar.gz
       ${unarchive} "${artifact_path}" --unlink-first -C "dist/${arch}/${artifact_name}"
       if [ -f "dist/${arch}/${artifact_name}/is-agnostic" ]; then
           # If agnostic, remove the marker, upload as generic platform and break out for other platforms
