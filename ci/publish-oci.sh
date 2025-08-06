@@ -31,6 +31,9 @@ fi
 
 STAGING_DIR=$1
 RELEASE_TAG=$2
+# This script is called by an azure pipeline, which will always be from main.
+# To change the registry (for testing), it must be modified within this script.
+# Uncomment the relevant line on the published branch to control the registry used.
 # UNIFI_ASSISTANT_REGISTRY=$3
 UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
