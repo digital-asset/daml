@@ -151,7 +151,7 @@ object Util {
   @throws[IllegalArgumentException]
   def dependenciesInTopologicalOrder(
       pkgIds: List[Ref.PackageId],
-      packages: PartialFunction[Ref.PackageId, Package],
+      packages: PartialFunction[Ref.PackageId, GenPackage[_]],
   ): List[Ref.PackageId] = {
 
     @tailrec
@@ -341,7 +341,7 @@ object Util {
   }
 
   object PkgIdWithNameAndVersion {
-    def apply(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithNameAndVersion =
+    def apply(idWithPkg: (Ref.PackageId, Ast.GenPackage[_])): PkgIdWithNameAndVersion =
       PkgIdWithNameAndVersion(
         idWithPkg._1,
         idWithPkg._2.metadata.name,

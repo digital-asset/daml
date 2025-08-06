@@ -61,13 +61,13 @@ object UpgradeError {
       s"The upgraded template $templateName cannot change its key type."
   }
 
-  final case class TemplateRemovedKey(templateName: Ref.DottedName, key: Ast.TemplateKey)
+  final case class TemplateRemovedKey(templateName: Ref.DottedName, key: Ast.TemplateKeySignature)
       extends Error {
     override def message: String =
       s"The upgraded template $templateName cannot remove its key."
   }
 
-  final case class TemplateAddedKey(templateName: Ref.DottedName, key: Ast.TemplateKey)
+  final case class TemplateAddedKey(templateName: Ref.DottedName, key: Ast.TemplateKeySignature)
       extends Error {
     override def message: String =
       s"The upgraded template $templateName cannot add a key."
@@ -241,7 +241,7 @@ final case class TopLevel(datatype: Ref.DottedName) extends UpgradedRecordOrigin
     s"data type $datatype"
 }
 
-final case class ModuleWithMetadata(module: Ast.Module) {
+final case class ModuleWithMetadata(module: Ast.ModuleSignature) {
   type ChoiceNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.ChoiceName)]
 
   lazy val choiceNameMap: ChoiceNameMap =
@@ -369,12 +369,9 @@ object TypecheckUpgrades {
 
   def typecheckUpgrades(
       packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      present: (
-          Ref.PackageId,
-          Ast.Package,
-      ),
+      present: (Ref.PackageId, Ast.PackageSignature),
       pastPackageId: Ref.PackageId,
-      mbPastPkg: Option[Ast.Package],
+      mbPastPkg: Option[Ast.PackageSignature],
   ): Try[Unit] = {
     mbPastPkg match {
       case None =>
@@ -394,13 +391,11 @@ object TypecheckUpgrades {
 
 case class TypecheckUpgrades(
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-    packages: Upgrading[
-      (Ref.PackageId, Ast.Package)
-    ],
+    packages: Upgrading[(Ref.PackageId, Ast.PackageSignature)],
 ) {
   import TypecheckUpgrades._
 
-  private lazy val `package`: Upgrading[Ast.Package] = packages.map(_._2)
+  private lazy val `package`: Upgrading[Ast.PackageSignature] = packages.map(_._2)
 
   private def check(): Try[Unit] = {
     for {
@@ -408,17 +403,17 @@ case class TypecheckUpgrades(
       (upgradedModules, newModules @ _) <-
         checkDeleted(
           `package`.map(_.modules),
-          (name: Ref.ModuleName, _: Ast.Module) => UpgradeError.MissingModule(name),
+          (name: Ref.ModuleName, _: Ast.ModuleSignature) => UpgradeError.MissingModule(name),
         )
       _ <- tryAll(upgradedModules.values, checkModule(_))
     } yield ()
   }
 
   private def splitModuleDts(
-      module: Ast.Module
+      module: Ast.ModuleSignature
   ): (
-      Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)],
-      Map[Ref.DottedName, (Ast.DDataType, Ast.DefException)],
+      Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterfaceSignature)],
+      Map[Ref.DottedName, (Ast.DDataType, Ast.DefExceptionSignature)],
       Map[Ref.DottedName, Ast.DDataType],
   ) = {
     val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
@@ -432,13 +427,13 @@ case class TypecheckUpgrades(
   }
 
   private def lookupInterfaceOrException(
-      module: Ast.Module,
+      module: Ast.ModuleSignature,
       tcon: Ref.DottedName,
       dt: Ast.DDataType,
   ): Either[
-    (Ref.DottedName, (Ast.DDataType, Ast.DefInterface)),
+    (Ref.DottedName, (Ast.DDataType, Ast.DefInterfaceSignature)),
     Either[
-      (Ref.DottedName, (Ast.DDataType, Ast.DefException)),
+      (Ref.DottedName, (Ast.DDataType, Ast.DefExceptionSignature)),
       (Ref.DottedName, Ast.DDataType),
     ],
   ] = {
@@ -453,15 +448,18 @@ case class TypecheckUpgrades(
   }
 
   def flattenInstances(
-      module: Ast.Module
-  ): Map[(Ref.DottedName, Ref.TypeConId), (Ast.Template, Ast.TemplateImplements)] = {
+      module: Ast.ModuleSignature
+  ): Map[
+    (Ref.DottedName, Ref.TypeConId),
+    (Ast.TemplateSignature, Ast.TemplateImplementsSignature),
+  ] = {
     for {
       (templateName, template) <- module.templates
       (implName, impl) <- template.implements.toMap
     } yield ((templateName, implName), (template, impl))
   }
 
-  private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
+  private def checkModule(module: Upgrading[Ast.ModuleSignature]): Try[Unit] = {
     val (pastIfaceDts, pastExceptionDts, pastUnownedDts) = splitModuleDts(module.past)
     val (presentIfaceDts, presentExceptionDts, presentUnownedDts) = splitModuleDts(module.present)
     val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
@@ -472,7 +470,7 @@ case class TypecheckUpgrades(
     for {
       (existingTemplates, _) <- checkDeleted(
         module.map(_.templates),
-        (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
+        (name: Ref.DottedName, _: Ast.TemplateSignature) => UpgradeError.MissingTemplate(name),
       )
       _ <- tryAll(existingTemplates, checkTemplate(_))
 
@@ -497,11 +495,11 @@ case class TypecheckUpgrades(
   }
 
   private def checkContinuedIfaces(
-      ifaces: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)]]
+      ifaces: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterfaceSignature)]]
   ): Try[Unit] = {
     tryAll(
       ifaces,
-      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterface)])) => {
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefInterfaceSignature)])) => {
         val (name, _) = arg
         // TODO (dylant-da): Re-enable this line once the -Wupgrade-interfaces
         // flag on the compiler goes away and interface upgrades are always an
@@ -514,11 +512,11 @@ case class TypecheckUpgrades(
   }
 
   private def checkContinuedExceptions(
-      exceptions: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)]]
+      exceptions: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefExceptionSignature)]]
   ): Try[Unit] = {
     tryAll(
       exceptions,
-      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)])) => {
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefExceptionSignature)])) => {
         val (name, _) = arg
         // TODO (dylant-da): Re-enable this line once the -Wupgrade-exceptions
         // flag on the compiler goes away and exception upgrades are always an
@@ -531,7 +529,10 @@ case class TypecheckUpgrades(
   }
 
   private def checkDeletedInstances(
-      deletedInstances: Map[(Ref.DottedName, TypeConId), (Ast.Template, Ast.TemplateImplements)]
+      deletedInstances: Map[
+        (Ref.DottedName, TypeConId),
+        (Ast.TemplateSignature, Ast.TemplateImplementsSignature),
+      ]
   ): Try[Unit] =
     deletedInstances.headOption match {
       case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))
@@ -539,13 +540,13 @@ case class TypecheckUpgrades(
     }
 
   private def checkTemplate(
-      templateAndName: (Ref.DottedName, Upgrading[Ast.Template])
+      templateAndName: (Ref.DottedName, Upgrading[Ast.TemplateSignature])
   ): Try[Unit] = {
     val (templateName, template) = templateAndName
     for {
       (existingChoices, _) <- checkDeleted(
         template.map(_.choices),
-        (name: Ref.ChoiceName, _: Ast.TemplateChoice) => UpgradeError.MissingChoice(name),
+        (name: Ref.ChoiceName, _: Ast.TemplateChoiceSignature) => UpgradeError.MissingChoice(name),
       )
 
       _ <- tryAll(existingChoices.values, checkChoice(_))
@@ -613,7 +614,7 @@ case class TypecheckUpgrades(
 
   private def checkKey(
       templateName: Ref.DottedName,
-      key: Upgrading[Option[Ast.TemplateKey]],
+      key: Upgrading[Option[Ast.TemplateKeySignature]],
   ): Try[Unit] = {
     key match {
       case Upgrading(None, None) => Success(());
@@ -631,7 +632,7 @@ case class TypecheckUpgrades(
     }
   }
 
-  private def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
+  private def checkChoice(choice: Upgrading[Ast.TemplateChoiceSignature]): Try[Unit] = {
     val returnType = choice.map(_.returnType)
     if (checkType(returnType.map(Closure(Env(), _)))) {
       Success(())

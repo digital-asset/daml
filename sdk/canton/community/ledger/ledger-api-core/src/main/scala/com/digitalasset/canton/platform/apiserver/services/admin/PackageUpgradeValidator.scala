@@ -32,14 +32,10 @@ object PackageUpgradeValidator {
   type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
 }
 
-class PackageUpgradeValidator(
-    getLfArchive: LoggingContextWithTrace => Ref.PackageId => FutureUnlessShutdown[Option[Archive]],
-    val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext)
-    extends NamedLogging {
+class PackageUpgradeValidator(val loggerFactory: NamedLoggerFactory)(implicit executionContext: ExecutionContext) extends NamedLogging {
 
   def validateUpgrade(
-      upgradingPackages: List[(Ref.PackageId, Ast.Package)],
+      upgradingPackages: List[(Ref.PackageId, Ast.PackageSignature)],
       packageMetadataSnapshot: PackageMetadata,
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -52,6 +48,7 @@ class PackageUpgradeValidator(
 
     def go(
         packageMap: PackageMap,
+        packageSigs: Map[Ref.PackageId, Ast.PackageSignature],
         deps: List[Ref.PackageId],
     ): EitherT[FutureUnlessShutdown, RpcError, PackageMap] = deps match {
       case Nil => EitherT.pure[FutureUnlessShutdown, RpcError](packageMap)
@@ -64,12 +61,16 @@ class PackageUpgradeValidator(
             // will load them from the DB and decode them. If one were to upload many packages that upgrade each
             // other, we will end up decoding the same package many times. Some of these cases could be sped up
             // by a cache depending on the order in which the packages are uploaded.
-            validatePackageUpgrade((pkgId, pkg), packageMap, upgradingPackagesMap)
+            validatePackageUpgrade((pkgId, pkg), packageMap, packageSigs)
           )
-          res <- go(packageMap + ((pkgId, (pkg.metadata.name, pkg.metadata.version))), rest)
+          res <- go(
+            packageMap + (pkgId -> (pkg.metadata.name, pkg.metadata.version)),
+            packageSigs + (pkgId -> pkg),
+            rest
+          )
         } yield res
     }
-    go(packageMap, packagesInTopologicalOrder).map(_ => ())
+    go(packageMap, packageMetadataSnapshot.packages, packagesInTopologicalOrder).map(_ => ())
   }
 
   private def getUpgradablePackageIdVersionMap(
@@ -86,17 +87,15 @@ class PackageUpgradeValidator(
     }.toMap
 
   private def validatePackageUpgrade(
-      uploadedPackage: (Ref.PackageId, Ast.Package),
+      uploadedPackage: (Ref.PackageId, Ast.PackageSignature),
       packageMap: PackageMap,
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
+      packageSigs: Map[PackageId, Ast.PackageSignature]
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] = {
     val (uploadedPackageId, uploadedPackageAst) = uploadedPackage
     val optUpgradingDar = Some(uploadedPackage)
-    val uploadedPackageIdWithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(
-      uploadedPackage
-    )
+    val uploadedPackageIdWithMeta = PkgIdWithNameAndVersion(uploadedPackage)
     logger.info(
       s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
@@ -127,22 +126,14 @@ class PackageUpgradeValidator(
           }
 
         case None =>
+          val optMaximalDar = maximalVersionedDar(uploadedPackageAst, packageMap, packageSigs)
+          val optMinimalDar = minimalVersionedDar(uploadedPackageAst, packageMap, packageSigs)
           for {
-            optMaximalDar <- EitherT.right[RpcError](
-              maximalVersionedDar(
-                uploadedPackageAst,
-                packageMap,
-                upgradingPackagesMap,
-              )
-            )
             _ <- typecheckUpgrades(
               TypecheckUpgrades.MaximalDarCheck,
               packageMap,
               optUpgradingDar,
               optMaximalDar,
-            )
-            optMinimalDar <- EitherT.right[RpcError](
-              minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
             )
             _ <- typecheckUpgrades(
               TypecheckUpgrades.MinimalDarCheck,
@@ -156,91 +147,57 @@ class PackageUpgradeValidator(
     }
   }
 
-  /** Looks up [[pkgId]], first in the [[upgradingPackagesMap]] and then in the package store.
-    */
-  private def lookupDar(
-      pkgId: Ref.PackageId,
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
-  )(implicit
-      loggingContextWithTrace: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(Ref.PackageId, Ast.Package)]] =
-    upgradingPackagesMap.get(pkgId) match {
-      case Some(pkg) => FutureUnlessShutdown.pure(Some((pkgId, pkg)))
-      case None =>
-        for {
-          optArchive <- getLfArchive(loggingContextWithTrace)(pkgId)
-          optPackage <- FutureUnlessShutdown.fromTry {
-            optArchive
-              .traverse(Decode.decodeArchive(_))
-              .handleError(Validation.handleLfArchiveError)
-          }
-        } yield optPackage
-    }
-
-  private def existingVersionedPackageId(
-      pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-  ): Option[Ref.PackageId] = {
+  private def existingVersionedPackageId(pkg: Ast.PackageSignature, packageMap: PackageMap): Option[Ref.PackageId] = {
     val pkgName = pkg.metadata.name
     val pkgVersion = pkg.metadata.version
     packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`)) => pkgId }
   }
 
   private def minimalVersionedDar(
-      pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(Ref.PackageId, Ast.Package)]] = {
-    val pkgName = pkg.metadata.name
+    pkg: Ast.PackageSignature,
+    packageMap: PackageMap,
+    packageSigs: Map[PackageId, Ast.PackageSignature],
+  ): Option[(Ref.PackageId, Ast.PackageSignature)] =
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .collect { case (pkgId, (pkgName, pkgVersion)) if pkgName == pkg.metadata.name && pkgVersion > pkg.metadata.version =>
         (pkgId, pkgVersion)
       }
-      .filter { case (_, version) => pkg.metadata.version < version }
       .minByOption { case (_, version) => version }
-      .traverse { case (pId, _) =>
-        lookupDar(pId, upgradingPackagesMap).map(
-          _.getOrElse {
-            val errorMessage = s"failed to look up dar of package $pId present in package map"
-            logger.error(errorMessage)
-            throw new IllegalStateException(errorMessage)
-          }
+      .map { case (pkgId, _) => 
+        val pkgSig = packageSigs.getOrElse(
+          pkgId,
+          throw new IllegalStateException(
+            s"Inconsistent package metadata: package-id $pkgId present in packageIdVersionMap, missing from packages"
+          )
         )
-      }
+        (pkgId, pkgSig)
   }
 
   private def maximalVersionedDar(
-      pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
-      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(Ref.PackageId, Ast.Package)]] = {
-    val pkgName = pkg.metadata.name
+    pkg: Ast.PackageSignature,
+    packageMap: PackageMap,
+    packageSigs: Map[PackageId, Ast.PackageSignature],
+  ): Option[(Ref.PackageId, Ast.PackageSignature)] =
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .collect { case (pkgId, (pkgName, pkgVersion)) if pkgName == pkg.metadata.name && pkgVersion < pkg.metadata.version =>
         (pkgId, pkgVersion)
       }
-      .filter { case (_, version) => pkg.metadata.version > version }
       .maxByOption { case (_, version) => version }
-      .traverse { case (pId, _) =>
-        lookupDar(pId, upgradingPackagesMap)(loggingContext).map(
-          _.getOrElse {
-            val errorMessage = s"failed to look up dar of package $pId present in package map"
-            logger.error(errorMessage)
-            throw new IllegalStateException(errorMessage)
-          }
+      .map { case (pkgId, _) => 
+        val pkgSig = packageSigs.getOrElse(
+          pkgId,
+          throw new IllegalStateException(
+            s"Inconsistent package metadata: package-id $pkgId present in packageIdVersionMap, missing from packages"
+          )
         )
-      }
+        (pkgId, pkgSig)
   }
 
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
       packageMap: PackageMap,
-      newDar1: (Ref.PackageId, Ast.Package),
-      oldDar2: (Ref.PackageId, Ast.Package),
+      newDar1: (Ref.PackageId, Ast.PackageSignature),
+      oldDar2: (Ref.PackageId, Ast.PackageSignature),
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
@@ -277,8 +234,8 @@ class PackageUpgradeValidator(
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
       packageMap: PackageMap,
-      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
-      optOldDar2: Option[(Ref.PackageId, Ast.Package)],
+      optNewDar1: Option[(Ref.PackageId, Ast.PackageSignature)],
+      optOldDar2: Option[(Ref.PackageId, Ast.PackageSignature)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =

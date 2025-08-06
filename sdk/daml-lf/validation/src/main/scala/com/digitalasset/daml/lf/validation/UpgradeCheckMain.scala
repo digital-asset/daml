@@ -10,8 +10,9 @@ import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.archive.{Error => ArchiveError}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Util
 
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
 import scala.concurrent.{ExecutionContext, Await}
 import scala.concurrent.duration._
@@ -37,10 +38,7 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
     result.left.map(CouldNotReadDar(path, _))
   }
 
-  val validator = new PackageUpgradeValidator(
-    getLfArchive = _ => _ => FutureUnlessShutdown.pure(None),
-    loggerFactory = loggerFactory,
-  )
+  val validator = new PackageUpgradeValidator(loggerFactory)
 
   def check(paths: Array[String]): Int = {
     logger.debug(s"Called UpgradeCheckMain with paths: ${paths.toSeq.mkString("\n")}")
@@ -50,13 +48,13 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       1
     } else {
-      val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
-        logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.metadata}")
-        archive
+      val packageSigs = for { dar <- dars; (pkgId, pkg) <- dar.all.toSeq } yield {
+        logger.debug(s"Package with ID $pkgId and metadata ${pkg.metadata}")
+        pkgId -> Util.toSignature(pkg)
       }
 
       val validation = validator.validateUpgrade(
-        upgradingPackages = archives.toList,
+        upgradingPackages = packageSigs.toList,
         packageMetadataSnapshot = new PackageMetadata(),
       )
       Await.result(validation.value, Duration.Inf) match {
