@@ -83,7 +83,7 @@ function publish_artifact {
       if [ -f "dist/${arch}/${artifact_name}/is-agnostic" ]; then
           # If agnostic, remove the marker, upload as generic platform and break out for other platforms
           # (this will upload the first platform, i.e. linux-intel)
-          rm ${arch}/${artifact_name}/is-agnostic
+          rm dist/${arch}/${artifact_name}/is-agnostic
           platform_args+=( "--platform generic=dist/${arch}/${artifact_name} " )
           break
       fi
