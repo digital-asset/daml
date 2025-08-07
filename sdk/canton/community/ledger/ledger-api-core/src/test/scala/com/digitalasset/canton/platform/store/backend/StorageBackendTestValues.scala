@@ -5,8 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.Ref2.{NameTypeConRef, NameTypeConRefConverter}
-import com.digitalasset.canton.ledger.api.{ParticipantId, Ref2}
+import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
   AuthorizationEvent,
@@ -22,6 +21,7 @@ import com.digitalasset.canton.tracing.SerializableTraceContextConverter.Seriali
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -52,7 +52,7 @@ private[store] object StorageBackendTestValues {
   )
   val somePackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkg")
   val someTemplateId: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template")
-  val someTemplateIdFull: Ref2.FullIdentifier = someTemplateId.toFullIdentifier(somePackageId)
+  val someTemplateIdFull: Ref.FullIdentifier = someTemplateId.toFullIdentifier(somePackageId)
   val someTemplateId2: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)

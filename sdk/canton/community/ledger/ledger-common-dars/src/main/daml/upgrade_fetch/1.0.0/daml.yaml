@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250805.14057.0.v9ea47985
+sdk-version: 3.4.0-snapshot.20250806.14069.0.v2ba6b8f0
 name: upgrade-fetch-tests
 source: .
 version: 1.0.0

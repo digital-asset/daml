@@ -28,7 +28,6 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.{IdentifierConverter, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TransactionShape}
@@ -52,7 +51,7 @@ import com.digitalasset.canton.platform.{
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{IdentifierConverter, NameTypeConRef, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.{

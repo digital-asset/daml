@@ -233,9 +233,8 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
           e.level shouldBe Level.WARN
           e.warningMessage should include regex "UNKNOWN_CONTRACT_SYNCHRONIZERS.*: The synchronizers for the contracts .* are currently unknown due to ongoing contract reassignments or disconnected synchronizers"
         },
-        // UNKNOWN_CONTRACT_SYNCHRONIZERS
-        // Allow the mediator to optionally have a slow start with the restarted sequencer.
-        LogEntryOptionality.Optional -> { e =>
+        // Allow the participants and mediator to optionally have a slow start with the restarted sequencer.
+        LogEntryOptionality.OptionalMany -> { e =>
           e.loggerName should (include("Mediator") or include("ConnectedSynchronizer"))
           e.warningMessage should include regex
             "Detected late processing \\(or clock skew\\) of batch with timestamp .* after sequencing"

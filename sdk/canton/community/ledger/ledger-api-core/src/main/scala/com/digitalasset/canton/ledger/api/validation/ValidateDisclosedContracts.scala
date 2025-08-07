@@ -102,11 +102,10 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
           ),
         )
-        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-        lfFatContractInst <- ((fatContractInstance.createdAt: CreationTime) match {
-          case CreationTime.CreatedAt(time) => Right(time)
-          case CreationTime.Now => Left(invalidArgument("Contract creation time cannot be 'Now'"))
-        }).map(fatContractInstance.updateCreateAt)
+        lfFatContractInst <- fatContractInstance.traverseCreateAt {
+          case time: CreationTime.CreatedAt => Right(time)
+          case _ => Left(invalidArgument("Contract creation time cannot be 'Now'"))
+        }
         _ <- authenticateFatContractInstance(lfFatContractInst).leftMap { error =>
           invalidArgument(
             s"Contract authentication failed for attached disclosed contract with id (${disclosedContract.contractId}): $error"

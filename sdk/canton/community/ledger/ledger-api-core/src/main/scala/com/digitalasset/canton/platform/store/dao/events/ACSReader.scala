@@ -14,7 +14,6 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.{SpanAttribute, Spans}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -47,6 +46,7 @@ import com.digitalasset.canton.platform.store.utils.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.FullIdentifier
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed

@@ -69,10 +69,9 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-      fatContractInstance <- (fattyContract.createdAt: CreationTime) match {
-        case absolute: CreationTime.CreatedAt => Right(fattyContract.updateCreateAt(absolute.time))
-        case CreationTime.Now => Left("Unable to determine create time.")
+      fatContractInstance <- fattyContract.traverseCreateAt {
+        case absolute: CreationTime.CreatedAt => Right(absolute)
+        case _ => Left("Unable to determine create time.")
       }
 
       synchronizerId <- SynchronizerId
