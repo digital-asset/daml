@@ -5,7 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da
 load("//daml-lf/language:daml-lf.bzl", "lf_docs_version")
 load("//rules_daml:daml.bzl", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("//bazel_tools/runfiles:defs.bzl", "add_data")
 load(":util.bzl", "ghc_pkg")
 load("//bazel_tools/sh:sh.bzl", "sh_inline_test")
@@ -129,6 +129,35 @@ package_app(
     visibility = ["//visibility:public"],
 )
 
+# When publishing for DPM, script service is part of a different component
+package_app(
+    name = "damlc-dist-no-script-service",
+    binary = ":damlc",
+    resources = [
+        ":daml-base-anchors.json",
+        ":ghc-pkg-dist",
+        "//compiler/damlc:ghcversion",
+        "//compiler/damlc:hpp-dist",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "//compiler/damlc/pkg-db",
+        "//compiler/damlc/stable-packages",
+        "@static_asset_d3plus//:js/d3.min.js",
+        "@static_asset_d3plus//:js/d3plus.min.js",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+package_oci_component(
+    name = "damlc-oci",
+    component_manifest = ":component.yaml",
+    resources = [
+        ":damlc-dist-no-script-service",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
 # ghc-pkg is linked dynamically on Linux by default so we need to run it through package_app
 # before we distribute it.
 package_app(
@@ -244,6 +273,7 @@ da_haskell_library(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-desugar",
         "//compiler/damlc/daml-doc",
+        "//compiler/damlc/daml-extract-dar",
         "//compiler/damlc/daml-ide",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
@@ -251,6 +281,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-resolution-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/script-service/client",
         "//compiler/script-service/protos:script_service_haskell_proto",

@@ -81,7 +81,7 @@ withScriptService lfVersion action = do
   logger <- Logger.newStderrLogger Logger.Error "script-service"
   let scriptConfig = SS.defaultScriptServiceConfig {SS.cnfJvmOptions = ["-Xmx200M"]}
   -- Spinning up the script service is expensive so we do it once at the beginning.
-  SS.withScriptService lfVersion logger scriptConfig action
+  SS.withScriptService lfVersion logger scriptConfig Nothing action
 
 withPackageDBAndIdeState :: SdkVersioned => LF.Version -> IO SS.Handle -> (IdeState -> IO ()) -> IO ()
 withPackageDBAndIdeState lfVersion getScriptService action = do

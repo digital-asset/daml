@@ -21,6 +21,7 @@ load(
     "mangle_for_java",
     "test_exclusions",
 )
+load("//bazel_tools/packaging:packaging.bzl", "package_oci_component")
 load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_VERSIONS",
@@ -206,6 +207,17 @@ scaladoc_jar(
 scala_source_jar(
     name = "binary_src",
     srcs = [],
+)
+
+package_oci_component(
+    name = "codegen-oci",
+    component_manifest = ":component.yaml",
+    platform_agnostic = True,
+    resources = [
+        ":binary.jar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
 )
 
 [

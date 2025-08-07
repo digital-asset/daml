@@ -109,8 +109,8 @@ data RunInfo = RunInfo
 withSem :: QSemN -> IO a -> IO a
 withSem sem = bracket_ (waitQSemN sem 1) (signalQSemN sem 1)
 
-withScriptService :: LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> (Handle -> IO a) -> IO a
-withScriptService ver loggerH scriptConfig f = do
+withScriptService :: LF.Version -> Logger.Handle IO -> ScriptServiceConfig -> Maybe FilePath -> (Handle -> IO a) -> IO a
+withScriptService ver loggerH scriptConfig mbScriptServiceJar f = do
   hOptions <- getOptions
   LowLevel.withScriptService (toLowLevelOpts ver hOptions) $ \hLowLevelHandle ->
       bracket
@@ -126,7 +126,7 @@ withScriptService ver loggerH scriptConfig f = do
                  -- Wait for gRPC requests to exit, otherwise gRPC gets very unhappy.
                  liftIO (waitQSemN hConcurrencySem $ optMaxConcurrency hOptions)
   where getOptions = do
-            serverJar <- LowLevel.findServerJar
+            serverJar <- maybe LowLevel.findServerJar pure mbScriptServiceJar
             let ssLogHandle = Logger.tagHandle loggerH "ScriptService"
             let wrapLog f = f ssLogHandle . T.pack
             pure Options
@@ -143,10 +143,11 @@ withScriptService'
     -> LF.Version
     -> Logger.Handle IO
     -> ScriptServiceConfig
+    -> Maybe FilePath
     -> (Maybe Handle -> IO a)
     -> IO a
-withScriptService' (EnableScriptService enable) ver loggerH conf f
-    | enable = withScriptService ver loggerH conf (f . Just)
+withScriptService' (EnableScriptService enable) ver loggerH conf mbScriptJar f
+    | enable = withScriptService ver loggerH conf mbScriptJar (f . Just)
     | otherwise = f Nothing
 
 data ScriptServiceConfig = ScriptServiceConfig
