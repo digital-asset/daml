@@ -8,6 +8,7 @@ module DA.Daml.Resolution.Config
   ( findPackageResolutionData
   , expandSdkPackagesDpm
   , getResolutionData
+  , resolutionFileEnvVar
   , ResolutionData (..)
   , PackageResolutionData (..)
   , ValidPackageResolution (..)
@@ -158,11 +159,14 @@ findPackageResolutionData path (ResolutionData packages) =
     ErrorPackageResolutionData errs -> error $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
     ValidPackageResolutionData res -> res
 
+resolutionFileEnvVar :: String
+resolutionFileEnvVar = "UNIFI_ASSISTANT_RESOLUTION_FILE"
+
 getResolutionData :: IO (Maybe ResolutionData)
 getResolutionData = do
-  mPath <- lookupEnv "UNIFI_ASSISTANT_RESOLUTION_FILE"
+  mPath <- lookupEnv resolutionFileEnvVar
   forM mPath $ \path ->
-    either (\err -> error $ "Failed to decode UNIFI_ASSISTANT_RESOLUTION_FILE at " <> path <> "\n" <> show err) id <$> decodeFileEither path
+    either (\err -> error $ "Failed to decode " <> resolutionFileEnvVar <> " at " <> path <> "\n" <> show err) id <$> decodeFileEither path
 
 data ResolutionData = ResolutionData
   { packages :: Map.Map FilePath PackageResolutionData

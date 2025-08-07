@@ -14,3 +14,7 @@ spec:
       paths:
         - ./daml-script-2.1.dar
         - ./daml-script-2.dev.dar
+    script-service:
+      conflict-strategy: fail
+      paths:
+        - ./script-service.jar

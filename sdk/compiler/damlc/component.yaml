@@ -10,12 +10,28 @@ spec:
       desc: Compiler and IDE backend for the Daml programming language
     - path: damlc-dist-no-script-service/damlc${EXE}
       name: build
-      desc: Build a daml package or project
+      desc: Build a Daml package or project
       exec-args: ["build"]
     - path: damlc-dist-no-script-service/damlc${EXE}
       name: clean
-      desc: Clean a daml package or project
+      desc: Clean a Daml package or project
       exec-args: ["clean"]
+    - path: damlc-dist-no-script-service/damlc${EXE}
+      name: test
+      desc: Test the current Daml project or the given files by running all test declarations.
+      exec-args: ["test"]
+    - path: damlc-dist-no-script-service/damlc${EXE}
+      name: docs
+      desc: Generate documentation for a daml package from its documentation comments
+      exec-args: ["docs"]
+    - path: damlc-dist-no-script-service/damlc${EXE}
+      name: inspect-dar
+      desc: Inspect a DAR archive
+      exec-args: ["inspect-dar"]
+    - path: damlc-dist-no-script-service/damlc${EXE}
+      name: validate-dar
+      desc: Validate a DAR archive
+      exec-args: ["validate-dar"]
   exports:
     damlc-binary:
       conflict-strategy: fail

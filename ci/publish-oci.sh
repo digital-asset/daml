@@ -34,8 +34,8 @@ RELEASE_TAG=$2
 # This script is called by an azure pipeline, which will always be from main.
 # To change the registry (for testing), it must be modified within this script.
 # Uncomment the relevant line on the published branch to control the registry used.
-# UNIFI_ASSISTANT_REGISTRY=$3
-UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
+UNIFI_ASSISTANT_REGISTRY=$3
+# UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
 # Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script daml2js codegen)
