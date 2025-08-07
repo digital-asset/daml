@@ -742,6 +742,16 @@ singletonIfLfFlat xs = do
     then error $ printf "multiple arguments disallowed since lf version %s supports flat archives" $ show v
     else return xs
 
+nullIfLfFlat :: Foldable t => t a -> Decode (t a)
+nullIfLfFlat xs = do
+  v <- asks version
+  if v `supports` featureFlatArchive && (not $ null xs)
+    then error $ printf "argument(s) disallowed since lf version %s supports flat archives" $ show v
+    else return xs
+
+nullIfLfFlat_ :: Foldable t => t a -> Decode ()
+nullIfLfFlat_ x = nullIfLfFlat x >> return ()
+
 decodeKind :: LF2.Kind -> Decode Kind
 decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumStar LF2.Unit -> pure KStar
@@ -790,7 +800,8 @@ decodeTypeLevelNat m =
 
 decodeType :: LF2.Type -> Decode Type
 decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
-  LF2.TypeSumVar (LF2.Type_Var var args) ->
+  LF2.TypeSumVar (LF2.Type_Var var args) -> do
+    nullIfLfFlat_ args
     decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF2.TypeSumCon (LF2.Type_Con mbCon args) ->
@@ -809,6 +820,7 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumInternedType n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n
+  LF2.TypeSumTapp _ -> error "not implemented"
   where
     decodeWithArgs :: V.Vector LF2.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args
