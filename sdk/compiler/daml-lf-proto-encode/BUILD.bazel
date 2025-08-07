@@ -37,6 +37,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "containers",
+        "extra",
         "mtl",
         "lens",
         "text",
@@ -50,7 +51,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
-        "//libs-haskell/da-hs-base",
+        "//libs-haskell/da-hs-base"
     ],
 )
 
