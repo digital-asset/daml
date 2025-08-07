@@ -180,7 +180,7 @@ import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
@@ -1450,7 +1450,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
       opts <- addResolutionData opts
 
       -- Can't yet support doc test as we have no default resolution, and doctest does not assume package context
-      when (isJust (optResolutionData cliOptions)) $
+      when (isJust (optResolutionData opts)) $
         error "DPM/Unifi does not currently support doctest"
 
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
