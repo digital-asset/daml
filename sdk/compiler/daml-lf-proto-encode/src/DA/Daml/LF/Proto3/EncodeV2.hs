@@ -268,7 +268,7 @@ internKind :: P.Kind -> Encode P.Kind
 internKind k =
   do
     EncodeEnv{version} <- get
-    if isDevVersion version
+    if version `supports` featureFlatArchive
       then case k of
         (P.Kind (Just k')) -> do
             n <- zoom internedKindsMapLens $ IM.internState k'
@@ -696,7 +696,7 @@ internExpr :: Encode P.Expr -> Encode P.Expr
 internExpr f = do
   e <- f
   EncodeEnv{version} <- get
-  if isDevVersion version
+  if version `supports` featureFlatArchive
     then case e of
       (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
           error "not allowed to add interned to interning table"

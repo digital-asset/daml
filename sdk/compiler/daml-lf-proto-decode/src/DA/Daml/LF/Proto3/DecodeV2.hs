@@ -735,6 +735,12 @@ decodeNumericLit (T.unpack -> str) = case readMaybe str of
     Nothing -> throwError $ ParseError $ "bad Numeric literal: " ++ show str
     Just n -> pure $ BENumeric n
 
+singletonIfLfFlat :: Foldable t => t a -> Decode (t a)
+singletonIfLfFlat xs = do
+  v <- asks version
+  if v `supports` featureFlatArchive && length xs /= 1
+    then error $ printf "multiple arguments disallowed since lf version %s supports flat archives" $ show v
+    else return xs
 
 decodeKind :: LF2.Kind -> Decode Kind
 decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
@@ -742,10 +748,11 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumNat LF2.Unit -> pure KNat
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
-    foldr KArrow result <$> traverse decodeKind (V.toList params)
+    prms <- singletonIfLfFlat $ V.toList params
+    foldr KArrow result <$> traverse decodeKind prms
   LF2.KindSumInternedKind n -> do
     DecodeEnv{internedKinds, version} <- ask
-    if version `supports` featureKindInterning
+    if version `supports` featureFlatArchive
       then lookupInterned internedKinds BadKindId n
       else error $ printf "kind interning not supported in version %s" (show version)
 
