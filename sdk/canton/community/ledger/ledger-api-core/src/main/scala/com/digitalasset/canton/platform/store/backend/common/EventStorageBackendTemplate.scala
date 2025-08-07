@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.Ref2.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
@@ -42,6 +41,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.value.Value.ContractId
 

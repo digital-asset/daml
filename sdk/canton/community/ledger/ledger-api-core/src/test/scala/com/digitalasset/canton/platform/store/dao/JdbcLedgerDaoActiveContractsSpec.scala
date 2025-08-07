@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.dao
 
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
-import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
@@ -13,7 +12,7 @@ import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
   UseOriginalViewPackageId,
 }
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, IdentifierConverter, Party}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
 import org.scalatest.*

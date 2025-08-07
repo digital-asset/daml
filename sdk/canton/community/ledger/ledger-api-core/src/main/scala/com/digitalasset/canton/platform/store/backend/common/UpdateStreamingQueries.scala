@@ -4,12 +4,12 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 
 import java.sql.Connection
 

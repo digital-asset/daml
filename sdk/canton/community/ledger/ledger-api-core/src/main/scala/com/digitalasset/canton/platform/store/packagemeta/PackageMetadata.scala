@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.packagemeta
 import cats.kernel.Semigroup
 import cats.syntax.semigroup.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
@@ -41,13 +40,13 @@ final case class PackageMetadata(
     * package-version), we filter the previous result by intersection with the set of all known
     * identifiers (both template-ids and interface-ids).
     */
-  def resolveTypeConRef(ref: Ref.TypeConRef): Set[FullIdentifier] = ref match {
+  def resolveTypeConRef(ref: Ref.TypeConRef): Set[Ref.FullIdentifier] = ref match {
     case Ref.TypeConRef(Ref.PackageRef.Name(packageName), qualifiedName) =>
       packageNameMap
         .get(packageName)
         .map(_.allPackageIdsForName.iterator)
         .getOrElse(Iterator.empty)
-        .map(packageId => FullIdentifier(packageId, packageName, qualifiedName))
+        .map(packageId => Ref.FullIdentifier(packageId, packageName, qualifiedName))
         .toSet
         .intersect(allTypeConIds)
     case Ref.TypeConRef(Ref.PackageRef.Id(packageId), qName) =>
@@ -55,10 +54,10 @@ final case class PackageMetadata(
         .get(packageId)
         .map(_._1)
         .getOrElse(throw new IllegalArgumentException(s"Unknown package id: $packageId"))
-      Set(FullIdentifier(packageId, packageName, qName))
+      Set(Ref.FullIdentifier(packageId, packageName, qName))
   }
 
-  lazy val allTypeConIds: Set[FullIdentifier] = templates.union(interfaces).map { id =>
+  lazy val allTypeConIds: Set[Ref.FullIdentifier] = templates.union(interfaces).map { id =>
     val packageName =
       packageIdVersionMap
         .get(id.packageId)
@@ -66,7 +65,7 @@ final case class PackageMetadata(
         .getOrElse(
           throw new IllegalArgumentException(s"Unknown package id: ${id.packageId}")
         )
-    FullIdentifier(id.packageId, packageName, id.qualifiedName)
+    Ref.FullIdentifier(id.packageId, packageName, id.qualifiedName)
   }
 }
 

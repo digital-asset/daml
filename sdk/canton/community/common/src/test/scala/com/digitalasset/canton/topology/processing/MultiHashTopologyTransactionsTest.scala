@@ -28,7 +28,7 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
   private val multiHash = MultiTransactionSignature(
     transactionHashes = NonEmpty.mk(Set, transactionHash, TxHash(TestHash.digest("test"))),
-    signature = Signature.noSignature,
+    signature = makeSig("multi-sig", "multi-sig-fingerprint"),
   )
 
   private def makeSig(content: String, fingerprint: String) =
@@ -50,7 +50,7 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
       )
 
       val signedTx = SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(Set, signature1, Signature.noSignature),
           isProposal = false,
@@ -69,17 +69,17 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
     }
 
     "successfully merge single into single signature" in {
-      val signedTx = SignedTopologyTransaction.create(
+      val signedTx = SignedTopologyTransaction.tryCreate(
         Factory.dns1.transaction,
         NonEmpty.mk(Set, Signature.noSignature),
         isProposal = false,
       )(SignedTopologyTransaction.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion))
 
-      val newSingleSignature = makeSig("new_sig", "no-fingerprint")
+      val newSingleSignature = makeSig("new_sig", "no-fingerprint-2")
 
       signedTx.addSingleSignatures(
         NonEmpty.mk(Set, newSingleSignature)
-      ) shouldBe SignedTopologyTransaction.create(
+      ) shouldBe SignedTopologyTransaction.tryCreate(
         Factory.dns1.transaction,
         NonEmpty.mk(
           Set,
@@ -93,7 +93,7 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
     }
 
     "successfully merge multi into single signature" in {
-      val signedTx = SignedTopologyTransaction.create(
+      val signedTx = SignedTopologyTransaction.tryCreate(
         Factory.dns1.transaction,
         NonEmpty.mk(Set, Signature.noSignature),
         isProposal = false,
@@ -101,7 +101,7 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
       signedTx
         .addSignatures(NonEmpty.mk(Set, multiHash)) shouldBe SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(
             Set,
@@ -115,19 +115,19 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
     "successfully merge single into multi signature" in {
       val signedTx = SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(Set, multiHash),
           isProposal = false,
           BaseTest.testedProtocolVersion,
         )
 
-      val newSingleSignature = makeSig("new_sig", "no-fingerprint")
+      val newSingleSignature = makeSig("new_sig", "no-fingerprint-2")
 
       signedTx.addSingleSignatures(
         NonEmpty.mk(Set, newSingleSignature)
       ) shouldBe SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(
             Set,
@@ -141,14 +141,14 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
     "successfully merge multi into multi signature" in {
       val signedTx = SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(Set, multiHash),
           isProposal = false,
           BaseTest.testedProtocolVersion,
         )
 
-      val newSingleSignature = makeSig("new_sig", "no-fingerprint")
+      val newSingleSignature = makeSig("new_sig", "no-fingerprint-2")
 
       val multiHash2 = MultiTransactionSignature(
         transactionHashes =
@@ -158,7 +158,7 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
       signedTx
         .addSignatures(NonEmpty.mk(Set, multiHash2)) shouldBe SignedTopologyTransaction
-        .create(
+        .tryCreate(
           Factory.dns1.transaction,
           NonEmpty.mk(Set, multiHash, multiHash2),
           isProposal = false,

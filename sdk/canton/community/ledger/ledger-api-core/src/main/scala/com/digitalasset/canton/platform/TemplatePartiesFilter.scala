@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform
 
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 
 /** This class represents the filters used in transactions and contracts fetching based on the
   * templates or interfaces they implement and the parties included.

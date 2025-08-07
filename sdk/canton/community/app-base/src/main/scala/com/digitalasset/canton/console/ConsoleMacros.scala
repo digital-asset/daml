@@ -34,10 +34,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
-import com.digitalasset.canton.console.commands.{
-  PruningSchedulerAdministration,
-  TopologyAdministrationGroup,
-}
+import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -675,7 +672,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         proposedOrExisting.reduceLeft[SignedTopologyTransaction[
           TopologyChangeOp,
           DecentralizedNamespaceDefinition,
-        ]]((txA, txB) => txA.addSignaturesFromTransaction(txB))
+        ]]((txA, txB) => txA.addSignatures(txB.signatures))
 
       val ownerNSDs = owners.flatMap(_.topology.transactions.identity_transactions())
       val foundingTransactions = ownerNSDs :+ decentralizedNamespaceDefinition
@@ -834,7 +831,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .distinct
 
       val merged =
-        TopologyAdministrationGroup.merge(initialTopologyState, updateIsProposal = Some(false))
+        SignedTopologyTransactions.compact(initialTopologyState).map(_.updateIsProposal(false))
 
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>

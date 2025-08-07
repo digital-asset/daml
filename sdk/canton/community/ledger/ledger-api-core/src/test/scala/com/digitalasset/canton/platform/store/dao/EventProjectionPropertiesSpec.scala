@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
@@ -14,7 +13,14 @@ import com.digitalasset.canton.ledger.api.{
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.canton.platform.store.dao.EventProjectionPropertiesSpec.Scope
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{
+  FullIdentifier,
+  Identifier,
+  IdentifierConverter,
+  NameTypeConRef,
+  Party,
+  TypeConRef,
+}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 

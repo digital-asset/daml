@@ -325,7 +325,7 @@ class TopologyStateProcessor private (
   ): (Boolean, GenericSignedTopologyTransaction) =
     inStore match {
       case Some(value) if value.hash == toValidate.hash =>
-        (true, value.addSignaturesFromTransaction(toValidate))
+        (true, value.addSignatures(toValidate.signatures))
 
       case _ => (false, toValidate)
     }
@@ -336,7 +336,7 @@ class TopologyStateProcessor private (
     proposalsForTx.get(toValidate.hash) match {
       case None => toValidate
       case Some(existingProposal) =>
-        toValidate.addSignaturesFromTransaction(existingProposal.validatedTx.transaction)
+        toValidate.addSignatures(existingProposal.validatedTx.transaction.signatures)
     }
 
   private def validateAndMerge(

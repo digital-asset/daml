@@ -8,7 +8,6 @@ import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
-import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -36,7 +35,7 @@ import com.digitalasset.canton.platform.{
   Value as LfValue,
 }
 import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
+import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier, Party}
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine as LfEngine
 import com.digitalasset.daml.lf.engine.{Engine, Enricher}

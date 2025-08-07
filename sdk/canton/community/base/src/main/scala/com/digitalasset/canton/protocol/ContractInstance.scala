@@ -42,6 +42,10 @@ sealed trait GenContractInstance extends PrettyPrinting {
 
   def contractAuthenticationData: Either[String, ContractAuthenticationData] =
     ContractInstance.contractAuthenticationData(inst)
+
+  def traverseCreatedAt[NewCreatedAtTime <: CreationTime](
+      f: InstCreatedAtTime => Either[String, NewCreatedAtTime]
+  ): Either[String, GenContractInstance { type InstCreatedAtTime <: NewCreatedAtTime }]
 }
 
 object ContractInstance {
@@ -51,6 +55,19 @@ object ContractInstance {
       override val serialization: ByteString,
   ) extends GenContractInstance {
     override type InstCreatedAtTime = Time
+
+    @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+    override def traverseCreatedAt[NewCreatedAtTime <: CreationTime](
+        f: Time => Either[String, NewCreatedAtTime]
+    ): Either[String, GenContractInstance { type InstCreatedAtTime <: NewCreatedAtTime }] =
+      inst.traverseCreateAt(f).flatMap { fci =>
+        if (fci eq inst)
+          Right(
+            this.asInstanceOf[GenContractInstance { type InstCreatedAtTime <: NewCreatedAtTime }]
+          )
+        else
+          ContractInstance.create[NewCreatedAtTime](fci)
+      }
   }
 
   def unapply[Time <: CreationTime](
@@ -133,12 +150,10 @@ object ContractInstance {
       contract <- create[decoded.CreatedAtTime](decoded)
     } yield contract
 
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def decodeWithCreatedAt(bytes: ByteString): Either[String, ContractInstance] =
     decode(bytes).flatMap { decoded =>
-      decoded.inst.createdAt match {
-        case _: CreationTime.CreatedAt =>
-          Right(decoded.asInstanceOf[ContractInstance])
+      decoded.traverseCreatedAt {
+        case createdAt: CreationTime.CreatedAt => Right(createdAt)
         case _ =>
           Left(
             s"Creation time must be CreatedAt for contract instances with id ${decoded.contractId}"

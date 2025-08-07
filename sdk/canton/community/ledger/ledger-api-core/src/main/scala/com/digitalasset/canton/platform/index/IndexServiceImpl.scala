@@ -21,7 +21,6 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -68,7 +67,14 @@ import com.digitalasset.canton.platform.{
   *,
 }
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageRef, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{
+  FullIdentifier,
+  Identifier,
+  NameTypeConRef,
+  PackageId,
+  PackageRef,
+  TypeConRef,
+}
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.google.rpc.Status
 import io.grpc.StatusRuntimeException

@@ -59,8 +59,8 @@ abstract class InitialTopologySnapshotValidatorTest
           dtcp1_k1 -> false,
           dnd_proposal_k3
             .copy(isProposal = false)
-            .addSignaturesFromTransaction(dnd_proposal_k1)
-            .addSignaturesFromTransaction(dnd_proposal_k2)
+            .addSignatures(dnd_proposal_k1.signatures)
+            .addSignatures(dnd_proposal_k2.signatures)
             -> false,
           okm1bk5k1E_k1 -> false,
         ).map { case (tx, expireImmediately) =>
