@@ -124,13 +124,21 @@ private[snapshot] object TransactionSnapshot {
     var archives = List.empty[ByteString]
     var result = Option.empty[TransactionSnapshot]
 
-    def decodeTx(txEntry: Snapshot.TransactionEntry) = {
+    def toLocalContractId(coid: ContractId): ContractId = coid match {
+      case ContractId.V1(discriminator, _) =>
+        ContractId.V1(discriminator)
+
+      case ContractId.V2(local, _) =>
+        ContractId.V2(local, Bytes.Empty)
+    }
+
+    def decodeTx(txEntry: Snapshot.TransactionEntry): SubmittedTx = {
       val protoTx = TxOuterClass.Transaction.parseFrom(txEntry.getRawTransaction)
       TxCoder
         .decodeTransaction(protoTx)
         .fold(
           err => sys.error("Decoding Error: " + err.errorMessage),
-          SubmittedTx(_),
+          tx => SubmittedTx(tx.mapCid(toLocalContractId)),
         )
     }
 
@@ -140,7 +148,7 @@ private[snapshot] object TransactionSnapshot {
         case _ => false
       }
 
-    def updateWithTx(tx: SubmittedTx) =
+    def updateWithTx(tx: SubmittedTx): Unit =
       tx.foreachInExecutionOrder(
         exerciseBegin = { (_, exe) =>
           if (exe.consuming) activeCreates = activeCreates - exe.targetCoid
@@ -155,7 +163,7 @@ private[snapshot] object TransactionSnapshot {
         rollbackEnd = (_, _) => (),
       )
 
-    def updateWithArchive(archive: ByteString) =
+    def updateWithArchive(archive: ByteString): Unit =
       archives = archive :: archives
 
     def buildSnapshot(
@@ -200,9 +208,13 @@ private[snapshot] object TransactionSnapshot {
         entry.getEntryCase match {
           case EntryCase.TRANSACTION =>
             val tx = decodeTx(entry.getTransaction)
-            if (matchingTx(tx))
-              if (idx == 0) result = Some(buildSnapshot(entry.getTransaction, tx))
-              else idx -= 1
+            if (matchingTx(tx)) {
+              if (idx == 0) {
+                result = Some(buildSnapshot(entry.getTransaction, tx))
+              } else {
+                idx -= 1
+              }
+            }
             updateWithTx(tx)
 
           case EntryCase.ARCHIVES =>

@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
+import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -419,7 +420,7 @@ object EventStorageBackend {
   )
 
   sealed trait RawEvent {
-    def templateId: Identifier
+    def templateId: FullIdentifier
     def witnessParties: Set[String]
   }
   // TODO(#23504) rename to RawAcsDeltaEvent?
@@ -434,8 +435,7 @@ object EventStorageBackend {
       offset: Long,
       nodeId: Int,
       contractId: ContractId,
-      templateId: Identifier,
-      packageName: PackageName,
+      templateId: FullIdentifier,
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
@@ -455,8 +455,7 @@ object EventStorageBackend {
       offset: Long,
       nodeId: Int,
       contractId: ContractId,
-      templateId: Identifier,
-      packageName: PackageName,
+      templateId: FullIdentifier,
       witnessParties: Set[String],
   ) extends RawFlatEvent
 
@@ -465,8 +464,7 @@ object EventStorageBackend {
       offset: Long,
       nodeId: Int,
       contractId: ContractId,
-      templateId: Identifier,
-      packageName: PackageName,
+      templateId: FullIdentifier,
       exerciseConsuming: Boolean,
       exerciseChoice: String,
       exerciseArgument: Array[Byte],
@@ -493,8 +491,7 @@ object EventStorageBackend {
       submitter: Option[String],
       reassignmentCounter: Long,
       contractId: ContractId,
-      templateId: Identifier,
-      packageName: PackageName,
+      templateId: FullIdentifier,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
       nodeId: Int,
@@ -508,7 +505,7 @@ object EventStorageBackend {
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
   ) extends RawReassignmentEvent {
-    override def templateId: Identifier = rawCreatedEvent.templateId
+    override def templateId: FullIdentifier = rawCreatedEvent.templateId
     override def witnessParties: Set[String] = rawCreatedEvent.witnessParties
   }
 

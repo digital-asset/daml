@@ -427,7 +427,9 @@ trait AcsCommitmentToolingIntegrationTest
             participant2.repair.purge(daName, Seq(cids1da.headOption.value.id.toLf))
             participant2.synchronizers.reconnect_all()
             eventually() {
-              participant2.synchronizers.list_connected().map(_.synchronizerId) should contain(daId)
+              participant2.synchronizers
+                .list_connected()
+                .map(_.physicalSynchronizerId) should contain(daId)
             }
 
             logger.debug(
@@ -541,9 +543,9 @@ trait AcsCommitmentToolingIntegrationTest
             participant1.repair.purge(daName, Seq(cids1da.headOption.value.id.toLf))
             participant1.synchronizers.reconnect_all()
             eventually() {
-              participant1.synchronizers.list_connected().map(_.synchronizerId) should contain {
-                daId
-              }
+              participant1.synchronizers
+                .list_connected()
+                .map(_.physicalSynchronizerId) should contain(daId)
             }
             alreadyDeployedContracts =
               alreadyDeployedContracts.toSet.removedAll(Set(cids1da.head)).toSeq
@@ -619,7 +621,7 @@ trait AcsCommitmentToolingIntegrationTest
       "the participant didn't send the given commitment" in { implicit env =>
         import env.*
 
-        val (_createdCids, period, commitment) = deployThreeAndCheck(daId)
+        val (_createdCids, period, _commitment) = deployThreeAndCheck(daId)
         val notSentCmt = LtHash16().getByteString()
         val hashedNotSentCmd = AcsCommitment.hashCommitment(notSentCmt)
 

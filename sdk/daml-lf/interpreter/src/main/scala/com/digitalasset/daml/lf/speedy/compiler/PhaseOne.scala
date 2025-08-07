@@ -545,7 +545,7 @@ private[lf] final class PhaseOne(
     tapp match {
       case TypeConApp(tycon, _) =>
         if (fields.isEmpty)
-          Return(SEValue(SRecord(tycon, ImmArray.Empty, ArrayList.empty)))
+          Return(SEValue(SRecord(tycon, ImmArray.Empty, Array.empty)))
         else {
           val exps = fields.toList.map(_._2)
           compileExps(env, exps) { exps =>

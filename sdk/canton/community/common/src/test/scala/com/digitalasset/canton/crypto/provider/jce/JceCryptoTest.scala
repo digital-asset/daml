@@ -47,7 +47,6 @@ class JceCryptoTest
           CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
           CommunityKmsFactory, // Does not matter for the test as we do not use KMS
           testedReleaseProtocolVersion,
-          nonStandardConfig = false,
           futureSupervisor,
           wallClock,
           executionContext,

@@ -314,7 +314,7 @@ final class PartyReplicationTargetParticipantProcessor(
             Reassignment.Assign(
               ledgerEffectiveTime = contract.inst.createdAt.time,
               createNode = contract.toLf,
-              contractAuthenticationData = contract.inst.cantonData,
+              contractAuthenticationData = contract.inst.authenticationData,
               reassignmentCounter = reassignmentCounter.v,
               nodeId = idx,
             )

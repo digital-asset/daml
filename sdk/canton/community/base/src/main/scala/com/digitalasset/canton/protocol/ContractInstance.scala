@@ -70,9 +70,9 @@ object ContractInstance {
       contractIdVersion: CantonContractIdVersion,
       inst: FatContractInstance,
   ): Either[String, contractIdVersion.AuthenticationData] =
-    if (inst.cantonData.toByteArray.nonEmpty)
+    if (inst.authenticationData.toByteArray.nonEmpty)
       ContractAuthenticationData
-        .fromLfBytes(contractIdVersion, inst.cantonData)
+        .fromLfBytes(contractIdVersion, inst.authenticationData)
         .leftMap(err => s"Failed parsing disclosed contract authentication data: $err")
     else Left("Missing authentication data in provided disclosed contract")
 

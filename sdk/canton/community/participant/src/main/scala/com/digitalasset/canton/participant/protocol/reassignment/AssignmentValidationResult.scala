@@ -91,7 +91,7 @@ final case class AssignmentValidationResult(
       Reassignment.Assign(
         ledgerEffectiveTime = contract.inst.createdAt.time,
         createNode = createNode,
-        contractAuthenticationData = contract.inst.cantonData,
+        contractAuthenticationData = contract.inst.authenticationData,
         reassignmentCounter = reassign.counter.unwrap,
         nodeId = idx,
       )

@@ -374,7 +374,7 @@ sealed trait RepairServiceIntegrationTestStableLf
               LfFatContractInst.fromCreateNode(
                 fci.toCreateNode.copy(coid = contractUsd.contract.contractId),
                 fci.createdAt,
-                fci.cantonData,
+                fci.authenticationData,
               )
             )
           }
@@ -628,7 +628,7 @@ sealed trait RepairServiceIntegrationTestStableLf
               LfFatContractInst.fromCreateNode(
                 fci.toCreateNode.copy(coid = cidActive),
                 fci.createdAt,
-                fci.cantonData,
+                fci.authenticationData,
               )
             )
           }

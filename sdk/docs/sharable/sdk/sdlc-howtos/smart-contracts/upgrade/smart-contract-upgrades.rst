@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 .. wip::
-    Turn into a proper how-to guide, remove mentions to contract keys.
+    Turn into a proper how-to guide.
 
 .. _smart-contract-upgrades:
 
@@ -305,7 +305,7 @@ data transformations that cannot be made using SCU upgrades:
 
 -  Upgrading interface and exception definitions
 
--  Adding/removing an interface instance on a template
+-  Removing an interface instance from a template
 
 These restrictions are required to give a simple model of runtime
 upgrades, avoiding ambiguity and non-obvious side effects. If you
@@ -315,10 +315,6 @@ redeployment with downtime, either using the approach suggested in
 
 In this version of SCU, the following functionality has not yet
 been implemented, but may be implemented in future releases.
-
--  Retroactive interface instances are not compatible with SCU upgrades.
-   SCU allows instances to be changed in an upgrade. However, a new interface
-   instance cannot be added to a template in an upgrade; it requires an offline migration.
 
 -  Daml Script does not support SCU or LF1.17, you must use Daml Script LTS.
 
@@ -1611,8 +1607,7 @@ reupload the two versions:
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
   upload-dar did not succeed: ... Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
 
-Packages with new versions can however add an interface instance to an existing
-template. For example, restore the instance deleted in the previous step
+As another example, restore the instance deleted in the previous step
 and remove the ``HasValue`` interface from ``v2/my-pkg/daml/Main.daml`` instead.
 Then restart the sandbox and try to reupload the two versions.
 

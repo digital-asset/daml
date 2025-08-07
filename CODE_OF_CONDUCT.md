@@ -44,4 +44,4 @@ This Code of Conduct is adapted from the [Contributor Covenant][homepage], versi
 
 [homepage]: https://www.contributor-covenant.org
 
-For answers to common questions about this code of conduct, see https://www.contributor-covenant.org/faq
+For answers to common questions about this code of conduct, see https://www.contributor-covenant.org/faq.

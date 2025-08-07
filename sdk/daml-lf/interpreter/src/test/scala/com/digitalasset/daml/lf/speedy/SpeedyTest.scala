@@ -165,7 +165,7 @@ module M {
           Some(
             SStruct(
               Struct.assertFromNameSeq(List(n"x1", n"x2")),
-              ArrayList(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
+              Array(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             )
           )
         )
@@ -213,7 +213,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               ImmArray(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice"))),
+              Array(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
@@ -234,7 +234,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice"))),
+              Array(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
@@ -252,7 +252,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice"))),
+              Array(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
@@ -276,7 +276,7 @@ module M {
               SRecord(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
                 ImmArray(Name.assertFromString("party")),
-                ArrayList(SParty(Party.assertFromString("Alice"))),
+                Array(SParty(Party.assertFromString("Alice"))),
               )
             )
           )
@@ -304,7 +304,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              ArrayList(SParty(Party.assertFromString("Alice"))),
+              Array(SParty(Party.assertFromString("Alice"))),
             )
           )
         )
@@ -357,7 +357,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(1), SInt64(0)),
+            Array(SInt64(1), SInt64(0)),
           )
         )
     }
@@ -391,7 +391,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(1), SInt64(2)),
+            Array(SInt64(1), SInt64(2)),
           )
         )
     }
@@ -437,7 +437,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(3), SInt64(4)),
+            Array(SInt64(3), SInt64(4)),
           )
         )
     }
@@ -478,7 +478,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(6), SInt64(8)),
+            Array(SInt64(6), SInt64(8)),
           )
         )
     }
@@ -512,7 +512,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            ArrayList(SInt64(3), SInt64(2)),
+            Array(SInt64(3), SInt64(2)),
           )
         )
     }

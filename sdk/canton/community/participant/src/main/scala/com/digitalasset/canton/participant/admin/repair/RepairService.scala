@@ -1273,7 +1273,7 @@ object RepairService {
     def cid: LfContractId = contract.contractId
 
     def authenticationData: Bytes =
-      contract.inst.cantonData
+      contract.inst.authenticationData
 
   }
 }

@@ -386,7 +386,7 @@ class ParticipantTestingGroup(
   ): Unit =
     check(FeatureFlag.Testing) {
       participantRef.synchronizers.list_connected().foreach { item =>
-        fetch_synchronizer_time(item.synchronizerId, timeout).discard[CantonTimestamp]
+        fetch_synchronizer_time(item.physicalSynchronizerId, timeout).discard[CantonTimestamp]
       }
     }
 
@@ -1749,20 +1749,20 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_connected().exists { r =>
         r.synchronizerAlias == synchronizerAlias &&
         r.healthy &&
-        participantIsActiveOnSynchronizer(r.synchronizerId.logical, id)
+        participantIsActiveOnSynchronizer(r.synchronizerId, id)
       }
 
     @Help.Summary(
       "Test whether a participant is connected to a synchronizer"
     )
     def is_connected(synchronizerId: SynchronizerId): Boolean =
-      list_connected().exists(_.synchronizerId.logical == synchronizerId)
+      list_connected().exists(_.synchronizerId == synchronizerId)
 
     @Help.Summary(
       "Test whether a participant is connected to physical a synchronizer"
     )
     def is_connected(synchronizerId: PhysicalSynchronizerId): Boolean =
-      list_connected().exists(_.synchronizerId == synchronizerId)
+      list_connected().exists(_.physicalSynchronizerId == synchronizerId)
 
     @Help.Summary(
       "Test whether a participant is connected to a synchronizer"

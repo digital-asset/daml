@@ -571,20 +571,20 @@ abstract class ParticipantReference(
     * synchronizer store.
     */
   override protected def waitPackagesVetted(timeout: NonNegativeDuration): Unit = {
-    val connected = synchronizers.list_connected().map(_.synchronizerId).toSet
+    val connected = synchronizers.list_connected().map(_.physicalSynchronizerId).toSet
     // for every participant
     consoleEnvironment.participants.all
       .filter(p => p.health.is_running() && p.health.initialized())
       .foreach { participant =>
         // for every synchronizer this participant is connected to as well
         participant.synchronizers.list_connected().foreach {
-          case item if connected.contains(item.synchronizerId) =>
+          case item if connected.contains(item.physicalSynchronizerId) =>
             ConsoleMacros.utils.retry_until_true(timeout)(
               {
                 // ensure that vetted packages on the synchronizer match the ones in the authorized store
                 val onSynchronizer = participant.topology.vetted_packages
                   .list(
-                    store = item.synchronizerId.logical,
+                    store = item.synchronizerId,
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
@@ -603,12 +603,12 @@ abstract class ParticipantReference(
                 val ret = onParticipantAuthorizedStore == onSynchronizer
                 if (!ret) {
                   logger.debug(
-                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.synchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
+                    show"Still waiting for package vetting updates to be observed by Participant ${participant.name} on ${item.physicalSynchronizerId}: vetted -- onSynchronizer is ${onParticipantAuthorizedStore -- onSynchronizer} while onSynchronizer -- vetted is ${onSynchronizer -- onParticipantAuthorizedStore}"
                   )
                 }
                 ret
               },
-              show"Participant ${participant.name} has not observed all vetting txs of $id on synchronizer ${item.synchronizerId} within the given timeout.",
+              show"Participant ${participant.name} has not observed all vetting txs of $id on synchronizer ${item.physicalSynchronizerId} within the given timeout.",
             )
           case _ =>
         }

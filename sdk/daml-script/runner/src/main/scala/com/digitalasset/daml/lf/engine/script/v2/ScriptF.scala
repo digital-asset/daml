@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBThrow, SBToAny, SBVariantCon}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{ArrayList, SError, SValue}
+import com.digitalasset.daml.lf.speedy.{SError, SValue}
 import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -153,18 +153,18 @@ object ScriptF {
       (exc, convertLegacyExceptions) match {
         // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
         // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
-        case (SAnyException(SRecord(`invalidUserId`, _, ArrayList(SText(msg)))), true) =>
+        case (SAnyException(SRecord(`invalidUserId`, _, Array(SText(msg)))), true) =>
           makeFailureStatus(invalidUserId, msg)
         case (
               SAnyException(
-                SRecord(`userAlreadyExists`, _, ArrayList(SRecord(_, _, ArrayList(SText(userId)))))
+                SRecord(`userAlreadyExists`, _, Array(SRecord(_, _, Array(SText(userId)))))
               ),
               true,
             ) =>
           makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
         case (
               SAnyException(
-                SRecord(`userNotFound`, _, ArrayList(SRecord(_, _, ArrayList(SText(userId)))))
+                SRecord(`userNotFound`, _, Array(SRecord(_, _, Array(SText(userId)))))
               ),
               true,
             ) =>
@@ -999,8 +999,8 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            ArrayList(
-              SRecord(_, _, ArrayList(hdAct, SList(tlAct))),
+            Array(
+              SRecord(_, _, Array(hdAct, SList(tlAct))),
               SList(readAs),
               SList(disclosures),
               SOptional(optPackagePreference),
@@ -1039,7 +1039,7 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            ArrayList(SList(submissions)),
+            Array(SList(submissions)),
           ) =>
         for {
           submissions <- submissions.traverse(parseSubmission(_, knownPackages))
@@ -1049,7 +1049,7 @@ object ScriptF {
 
   private def parseQueryACS(v: SValue): Either[String, QueryACS] =
     v match {
-      case SRecord(_, _, ArrayList(readAs, tplId)) =>
+      case SRecord(_, _, Array(readAs, tplId)) =>
         for {
           readAs <- Converter.toParties(readAs)
           tplId <- Converter
@@ -1060,7 +1060,7 @@ object ScriptF {
 
   private def parseQueryContractId(v: SValue): Either[String, QueryContractId] =
     v match {
-      case SRecord(_, _, ArrayList(actAs, tplId, cid)) =>
+      case SRecord(_, _, Array(actAs, tplId, cid)) =>
         for {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
@@ -1071,7 +1071,7 @@ object ScriptF {
 
   private def parseQueryInterface(v: SValue): Either[String, QueryInterface] =
     v match {
-      case SRecord(_, _, ArrayList(actAs, interfaceId)) =>
+      case SRecord(_, _, Array(actAs, interfaceId)) =>
         for {
           actAs <- Converter.toParties(actAs)
           interfaceId <- Converter.typeRepToIdentifier(interfaceId)
@@ -1081,7 +1081,7 @@ object ScriptF {
 
   private def parseQueryInterfaceContractId(v: SValue): Either[String, QueryInterfaceContractId] =
     v match {
-      case SRecord(_, _, ArrayList(actAs, interfaceId, cid)) =>
+      case SRecord(_, _, Array(actAs, interfaceId, cid)) =>
         for {
           actAs <- Converter.toParties(actAs)
           interfaceId <- Converter.typeRepToIdentifier(interfaceId)
@@ -1092,7 +1092,7 @@ object ScriptF {
 
   private def parseQueryContractKey(v: SValue): Either[String, QueryContractKey] =
     v match {
-      case SRecord(_, _, ArrayList(actAs, tplId, key)) =>
+      case SRecord(_, _, Array(actAs, tplId, key)) =>
         for {
           actAs <- Converter.toParties(actAs)
           tplId <- Converter.typeRepToIdentifier(tplId)
@@ -1103,7 +1103,7 @@ object ScriptF {
 
   private def parseAllocPartyV1(v: SValue): Either[String, AllocParty] =
     v match {
-      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
+      case SRecord(_, _, Array(SText(requestedName), SText(givenHint), participantName)) =>
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
@@ -1113,7 +1113,7 @@ object ScriptF {
 
   private def parseAllocPartyV2(v: SValue): Either[String, AllocParty] =
     v match {
-      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantNames)) =>
+      case SRecord(_, _, Array(SText(requestedName), SText(givenHint), participantNames)) =>
         for {
           participantNames <- Converter.toParticipantNames(participantNames)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
@@ -1123,7 +1123,7 @@ object ScriptF {
 
   private def parseListKnownParties(v: SValue): Either[String, ListKnownParties] =
     v match {
-      case SRecord(_, _, ArrayList(participantName)) =>
+      case SRecord(_, _, Array(participantName)) =>
         for {
           participantName <- Converter.toOptionalParticipantName(participantName)
         } yield ListKnownParties(participantName)
@@ -1132,13 +1132,13 @@ object ScriptF {
 
   private def parseEmpty[A](result: A)(v: SValue): Either[String, A] =
     v match {
-      case SRecord(_, _, ArrayList()) => Right(result)
+      case SRecord(_, _, Array()) => Right(result)
       case _ => Left(s"Expected ${result.getClass.getSimpleName} payload but got $v")
     }
 
   private def parseSetTime(v: SValue): Either[String, SetTime] =
     v match {
-      case SRecord(_, _, ArrayList(time)) =>
+      case SRecord(_, _, Array(time)) =>
         for {
           time <- Converter.toTimestamp(time)
         } yield SetTime(time)
@@ -1147,7 +1147,7 @@ object ScriptF {
 
   private def parseSecp256k1Sign(v: SValue): Either[String, Secp256k1Sign] =
     v match {
-      case SRecord(_, _, ArrayList(pk, msg)) =>
+      case SRecord(_, _, Array(pk, msg)) =>
         for {
           pk <- toText(pk)
           msg <- toText(msg)
@@ -1157,7 +1157,7 @@ object ScriptF {
 
   private def parseSleep(v: SValue): Either[String, Sleep] =
     v match {
-      case SRecord(_, _, ArrayList(SRecord(_, _, ArrayList(SInt64(micros))))) =>
+      case SRecord(_, _, Array(SRecord(_, _, Array(SInt64(micros))))) =>
         Right(Sleep(micros))
       case _ => Left(s"Expected Sleep payload but got $v")
     }
@@ -1165,26 +1165,26 @@ object ScriptF {
   private def parseCatch(v: SValue): Either[String, Catch] =
     v match {
       // Catch includes a dummy field for old style typeclass LF encoding, we ignore it here.
-      case SRecord(_, _, ArrayList(act, _)) => Right(Catch(act))
+      case SRecord(_, _, Array(act, _)) => Right(Catch(act))
       case _ => Left(s"Expected Catch payload but got $v")
     }
 
   private def parseThrow(v: SValue): Either[String, Throw] =
     v match {
-      case SRecord(_, _, ArrayList(exc: SAny)) => Right(Throw(exc))
+      case SRecord(_, _, Array(exc: SAny)) => Right(Throw(exc))
       case _ => Left(s"Expected Throw payload but got $v")
     }
 
   private def parseTryFailureStatus(v: SValue): Either[String, TryFailureStatus] =
     v match {
       // TryFailureStatus includes a dummy field for old style typeclass LF encoding, we ignore it here.
-      case SRecord(_, _, ArrayList(act, _)) => Right(TryFailureStatus(act))
+      case SRecord(_, _, Array(act, _)) => Right(TryFailureStatus(act))
       case _ => Left(s"Expected TryFailureStatus payload but got $v")
     }
 
   private def parseValidateUserId(v: SValue): Either[String, ValidateUserId] =
     v match {
-      case SRecord(_, _, ArrayList(userName)) =>
+      case SRecord(_, _, Array(userName)) =>
         for {
           userName <- toText(userName)
         } yield ValidateUserId(userName)
@@ -1193,7 +1193,7 @@ object ScriptF {
 
   private def parseCreateUser(v: SValue): Either[String, CreateUser] =
     v match {
-      case SRecord(_, _, ArrayList(user, rights, participant)) =>
+      case SRecord(_, _, Array(user, rights, participant)) =>
         for {
           user <- Converter.toUser(user)
           participant <- Converter.toOptionalParticipantName(participant)
@@ -1204,7 +1204,7 @@ object ScriptF {
 
   private def parseGetUser(v: SValue): Either[String, GetUser] =
     v match {
-      case SRecord(_, _, ArrayList(userId, participant)) =>
+      case SRecord(_, _, Array(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
@@ -1214,7 +1214,7 @@ object ScriptF {
 
   private def parseDeleteUser(v: SValue): Either[String, DeleteUser] =
     v match {
-      case SRecord(_, _, ArrayList(userId, participant)) =>
+      case SRecord(_, _, Array(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
@@ -1224,7 +1224,7 @@ object ScriptF {
 
   private def parseListAllUsers(v: SValue): Either[String, ListAllUsers] =
     v match {
-      case SRecord(_, _, ArrayList(participant)) =>
+      case SRecord(_, _, Array(participant)) =>
         for {
           participant <- Converter.toOptionalParticipantName(participant)
         } yield ListAllUsers(participant)
@@ -1233,7 +1233,7 @@ object ScriptF {
 
   private def parseGrantUserRights(v: SValue): Either[String, GrantUserRights] =
     v match {
-      case SRecord(_, _, ArrayList(userId, rights, participant)) =>
+      case SRecord(_, _, Array(userId, rights, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
@@ -1244,7 +1244,7 @@ object ScriptF {
 
   private def parseRevokeUserRights(v: SValue): Either[String, RevokeUserRights] =
     v match {
-      case SRecord(_, _, ArrayList(userId, rights, participant)) =>
+      case SRecord(_, _, Array(userId, rights, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
@@ -1255,7 +1255,7 @@ object ScriptF {
 
   private def parseListUserRights(v: SValue): Either[String, ListUserRights] =
     v match {
-      case SRecord(_, _, ArrayList(userId, participant)) =>
+      case SRecord(_, _, Array(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
           participant <- Converter.toOptionalParticipantName(participant)
@@ -1269,7 +1269,7 @@ object ScriptF {
   ): Either[String, A] = {
     def toReadablePackageId(s: SValue): Either[String, ScriptLedgerClient.ReadablePackageId] =
       s match {
-        case SRecord(_, _, ArrayList(SText(name), SText(version))) =>
+        case SRecord(_, _, Array(SText(name), SText(version))) =>
           for {
             pname <- PackageName.fromString(name)
             pversion <- PackageVersion.fromString(version)
@@ -1277,7 +1277,7 @@ object ScriptF {
         case _ => Left(s"Expected PackageName but got $s")
       }
     v match {
-      case SRecord(_, _, ArrayList(packages, participant)) =>
+      case SRecord(_, _, Array(packages, participant)) =>
         for {
           packageIds <- Converter.toList(packages, toReadablePackageId)
           participant <- Converter.toOptionalParticipantName(participant)
@@ -1288,7 +1288,7 @@ object ScriptF {
 
   private def parseTryCommands(v: SValue): Either[String, TryCommands] =
     v match {
-      case SRecord(_, _, ArrayList(act)) => Right(TryCommands(act))
+      case SRecord(_, _, Array(act)) => Right(TryCommands(act))
       case _ => Left(s"Expected TryCommands payload but got $v")
     }
 
@@ -1297,11 +1297,11 @@ object ScriptF {
       case SRecord(
             _,
             _,
-            ArrayList(
+            Array(
               SRecord(
                 _,
                 _,
-                ArrayList(SText(errorId), SInt64(categoryId), SText(message), SMap(true, treeMap)),
+                Array(SText(errorId), SInt64(categoryId), SText(message), SMap(true, treeMap)),
               )
             ),
           ) =>

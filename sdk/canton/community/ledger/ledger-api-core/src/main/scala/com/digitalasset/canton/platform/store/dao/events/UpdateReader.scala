@@ -335,8 +335,8 @@ private[dao] object UpdateReader {
       offset = offset,
       reassignmentId = rawUnassignEvent.reassignmentId,
       contractId = rawUnassignEvent.contractId.coid,
-      templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId)),
-      packageName = rawUnassignEvent.packageName,
+      templateId = Some(LfEngineToApi.toApiIdentifier(rawUnassignEvent.templateId.toIdentifier)),
+      packageName = rawUnassignEvent.templateId.pkgName,
       source = rawUnassignEvent.sourceSynchronizerId,
       target = rawUnassignEvent.targetSynchronizerId,
       submitter = rawUnassignEvent.submitter.getOrElse(""),
@@ -515,7 +515,7 @@ private[dao] object UpdateReader {
         rawEvents.filter(entry =>
           // at least one of the witnesses exist in the template wildcard filter
           entry.event.witnessParties.exists(templateWildcardPartiesStrings) ||
-            (templateSpecifiedPartiesMap.get(entry.event.templateId) match {
+            (templateSpecifiedPartiesMap.get(entry.event.templateId.toIdentifier) match {
               // the event's template id was not found in the filters
               case None => false
               case Some(partiesO) => partiesO.fold(true)(entry.event.witnessParties.exists)

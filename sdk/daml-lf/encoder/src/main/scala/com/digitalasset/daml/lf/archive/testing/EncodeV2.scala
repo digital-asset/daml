@@ -50,6 +50,20 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         encodeTypeBuilder(typ).build()
     }
 
+    private[this] val kindTable = new EncodeV2.TableBuilder[Kind, PLF.Kind] {
+      override def toProto(knd: Kind): PLF.Kind =
+        encodeKindBuilder(knd).build()
+    }
+
+    // even though we have disabled sharing of expressions in damlc
+    // (https://github.com/digital-asset/daml/pull/21645) , we have it here
+    // because its simpler, the decoder doesn't care, and we only use this
+    // encoder for testing.
+    private[this] val exprTable = new EncodeV2.TableBuilder[Expr, PLF.Expr] {
+      override def toProto(expr: Expr): PLF.Expr =
+        encodeExprBuilder(expr).build()
+    }
+
     def encode(pkg: Package): PLF.Package = {
       val builder = PLF.Package.newBuilder()
       pkg.modules.sortByKey.values.foreach(m => builder.addModules(encodeModule(m)))
@@ -69,6 +83,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       builder.setMetadata(metadataBuilder.build)
 
       typeTable.build.foreach(builder.addInternedTypes)
+      kindTable.build.foreach(builder.addInternedKinds)
+      exprTable.build.foreach(builder.addInternedExprs)
       dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
 
@@ -158,31 +174,36 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       */
     private val kStar =
       PLF.Kind.newBuilder().setStar(PLF.Unit.newBuilder()).build()
-    private val kNat =
-      PLF.Kind.newBuilder().setNat(PLF.Unit.newBuilder()).build()
     private val KArrows = RightRecMatcher[Kind, Kind]({ case KArrow(param, result) =>
       (param, result)
     })
 
     private implicit def encodeKind(k: Kind): PLF.Kind =
+      if (languageVersion >= LV.Features.kindInterning)
+        PLF.Kind.newBuilder().setInternedKind(kindTable.insert(k)).build()
+      else encodeKindBuilder(k).build()
+
+    private def encodeKindBuilder(k: Kind): PLF.Kind.Builder = {
+      val builder = PLF.Kind.newBuilder()
       // KArrows breaks the exhaustiveness checker.
       (k: @unchecked) match {
         case KArrows(params, result) =>
           expect(result == KStar)
-          PLF.Kind
-            .newBuilder()
+          builder
             .setArrow(
               PLF.Kind.Arrow
                 .newBuilder()
                 .accumulateLeft(params)(_ addParams encodeKind(_))
                 .setResult(kStar)
             )
-            .build()
         case KStar =>
-          kStar
+          builder
+            .setStar(unit)
         case KNat =>
-          kNat
+          builder
+            .setNat(unit)
       }
+    }
 
     /** * Encoding of types **
       */
@@ -331,8 +352,11 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         .build()
     }
 
-    private implicit def encodeExpr(expr0: Expr): PLF.Expr =
-      encodeExprBuilder(expr0).build()
+    private implicit def encodeExpr(expr: Expr): PLF.Expr =
+      if (languageVersion >= LV.Features.exprInterning)
+        PLF.Expr.newBuilder().setInternedExpr(exprTable.insert(expr)).build()
+      else
+        encodeExprBuilder(expr).build()
 
     private implicit def encodeBinding(binding: Binding): PLF.Binding =
       PLF.Binding

@@ -473,7 +473,6 @@ abstract class CantonNodeBootstrapImpl[
             arguments.cryptoPrivateStoreFactory,
             arguments.kmsFactory,
             ReleaseProtocolVersion.latest,
-            arguments.parameterConfig.nonStandardConfig,
             arguments.futureSupervisor,
             arguments.clock,
             executionContext,

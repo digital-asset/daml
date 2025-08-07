@@ -27,8 +27,8 @@ class FuncStaticTimeIT(override val majorLanguageVersion: LanguageMajorVersion)
         )
       } yield {
         assert(vals.size == 2)
-        val t0 = assertSTimestamp(vals.get(0))
-        val t1 = assertSTimestamp(vals.get(1))
+        val t0 = assertSTimestamp(vals(0))
+        val t1 = assertSTimestamp(vals(1))
         assert(t0 == Timestamp.assertFromString("1970-01-01T00:00:00Z"))
         assert(t1 == Timestamp.assertFromString("2000-02-02T00:01:02Z"))
       }
