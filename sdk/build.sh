@@ -38,8 +38,7 @@ has_regenerate_stackage_trailer() {
   [[ $regenerate_stackage == "true" ]]
 }
 
-# Don't run any targets that require manual tag
-tag_filter="-manual"
+tag_filter=""
 case $test_mode in
   main)
     echo "running all tests because test mode is 'main'"
@@ -51,7 +50,7 @@ case $test_mode in
       echo "ignoring 'pr' test mode because the commit message features 'run-all-tests: true'"
     else
       echo "running fewer tests because test mode is 'pr'"
-      tag_filter="$tag_filter,-main-only"
+      tag_filter="-main-only"
     fi
     ;;
   *)
