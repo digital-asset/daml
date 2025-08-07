@@ -4,9 +4,11 @@
 package com.digitalasset.canton.platform.store.interning
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.{Identifier, PackageName, Party}
+import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import scala.concurrent.{Future, blocking}
 
@@ -14,7 +16,7 @@ class DomainStringIterators(
     val parties: Iterator[String],
     val templateIds: Iterator[String],
     val synchronizerIds: Iterator[String],
-    val packageNames: Iterator[String],
+    val packageIds: Iterator[String],
 )
 
 trait InternizingStringInterningView {
@@ -96,13 +98,13 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
   private val TemplatePrefix = "t|"
   private val PartyPrefix = "p|"
   private val SynchronizerIdPrefix = "d|"
-  private val PackageNamePrefix = "n|"
+  private val PackageIdPrefix = "i|"
 
-  override val templateId: StringInterningDomain[Identifier] =
+  override val templateId: StringInterningDomain[NameTypeConRef] =
     StringInterningDomain.prefixing(
       prefix = TemplatePrefix,
       prefixedAccessor = rawAccessor,
-      to = Identifier.assertFromString,
+      to = NameTypeConRef.assertFromString,
       from = _.toString,
     )
 
@@ -122,11 +124,11 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = _.toProtoPrimitive,
     )
 
-  override val packageName: StringInterningDomain[PackageName] =
+  override val packageId: StringInterningDomain[PackageId] =
     StringInterningDomain.prefixing(
-      prefix = PackageNamePrefix,
+      prefix = PackageIdPrefix,
       prefixedAccessor = rawAccessor,
-      to = PackageName.assertFromString,
+      to = PackageId.assertFromString,
       from = identity,
     )
 
@@ -136,7 +138,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
           domainStringIterators.synchronizerIds.map(SynchronizerIdPrefix + _) ++
-          domainStringIterators.packageNames.map(PackageNamePrefix + _)
+          domainStringIterators.packageIds.map(PackageIdPrefix + _)
 
       val newEntries = RawStringInterning.newEntries(
         strings = allPrefixedStrings,

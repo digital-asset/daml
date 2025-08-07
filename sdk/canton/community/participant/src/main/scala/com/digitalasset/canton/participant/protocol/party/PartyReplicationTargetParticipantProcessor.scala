@@ -51,7 +51,7 @@ import scala.util.chaining.scalaUtilChainingOps
   *   The party id of the party to replicate active contracts for.
   * @param partyToParticipantEffectiveAt
   *   The timestamp immediately on which the ACS snapshot is based.
-  * @param onComplete
+  * @param onAcsFullyReplicated
   *   Callback notification that the target participant has received the entire ACS.
   * @param onError
   *   Callback notification that the target participant has encountered an error.
@@ -63,7 +63,7 @@ import scala.util.chaining.scalaUtilChainingOps
 final class PartyReplicationTargetParticipantProcessor(
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
-    protected val onComplete: TraceContext => Unit,
+    protected val onAcsFullyReplicated: TraceContext => Unit,
     protected val onError: String => Unit,
     protected val onDisconnect: (String, TraceContext) => Unit,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
@@ -200,7 +200,7 @@ final class PartyReplicationTargetParticipantProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = if (hasEndOfACSBeenReached) {
     val recordOrderPublisher = connectedSynchronizer.ephemeral.recordOrderPublisher
-    onComplete(traceContext)
+    onAcsFullyReplicated(traceContext)
     EitherT(
       FutureUnlessShutdown
         .lift(

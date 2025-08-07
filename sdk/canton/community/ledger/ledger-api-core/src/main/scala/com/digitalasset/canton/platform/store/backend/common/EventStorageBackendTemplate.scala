@@ -6,8 +6,9 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
+import com.digitalasset.canton.ledger.api.Ref2.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventParser,
   contractId,
@@ -37,7 +38,6 @@ import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.{Identifier, Party}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
@@ -62,7 +62,7 @@ object EventStorageBackendTemplate {
       "workflow_id",
       "contract_id",
       "template_id",
-      "package_name",
+      "package_id",
       "create_argument",
       "create_argument_compression",
       "create_signatories",
@@ -89,7 +89,7 @@ object EventStorageBackendTemplate {
       "workflow_id",
       "contract_id",
       "template_id",
-      "package_name",
+      "package_id",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
@@ -125,7 +125,7 @@ object EventStorageBackendTemplate {
       contractId("contract_id") ~
       timestampFromMicros("ledger_effective_time") ~
       int("template_id") ~
-      int("package_name") ~
+      int("package_id") ~
       str("command_id").? ~
       str("workflow_id").? ~
       array[Int]("event_witnesses") ~
@@ -185,7 +185,7 @@ object EventStorageBackendTemplate {
           contractId ~
           ledgerEffectiveTime ~
           templateId ~
-          packageName ~
+          packageId ~
           commandId ~
           workflowId ~
 
@@ -218,7 +218,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               eventWitnesses,
@@ -258,7 +258,7 @@ object EventStorageBackendTemplate {
           contractId ~
           ledgerEffectiveTime ~
           templateId ~
-          packageName ~
+          packageId ~
           commandId ~
           workflowId ~
           flatEventWitnesses ~
@@ -286,7 +286,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -315,7 +315,7 @@ object EventStorageBackendTemplate {
           contractId ~
           ledgerEffectiveTime ~
           templateId ~
-          packageName ~
+          packageId ~
           commandId ~
           workflowId ~
           treeEventWitnesses ~
@@ -351,7 +351,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             exerciseConsuming = exerciseConsuming,
             exerciseChoice = choice,
             exerciseArgument = exerciseArgument,
@@ -385,7 +385,7 @@ object EventStorageBackendTemplate {
     "contract_id",
     "ledger_effective_time",
     "template_id",
-    "package_name",
+    "package_id",
     "workflow_id",
     "create_argument",
     "create_argument_compression",
@@ -418,7 +418,7 @@ object EventStorageBackendTemplate {
     "contract_id",
     "ledger_effective_time",
     "template_id",
-    "package_name",
+    "package_id",
     "workflow_id",
     "NULL as create_argument",
     "NULL as create_argument_compression",
@@ -497,7 +497,7 @@ object EventStorageBackendTemplate {
       str("update_id") ~
       contractId("contract_id") ~
       int("template_id") ~
-      int("package_name") ~
+      int("package_id") ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -530,7 +530,7 @@ object EventStorageBackendTemplate {
           updateId ~
           contractId ~
           templateId ~
-          packageName ~
+          packageId ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -572,7 +572,7 @@ object EventStorageBackendTemplate {
               contractId = contractId,
               templateId = stringInterning.templateId
                 .externalize(templateId)
-                .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+                .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
               witnessParties = filterAndExternalizeWitnesses(
                 allQueryingPartiesO,
                 flatEventWitnesses,
@@ -610,7 +610,7 @@ object EventStorageBackendTemplate {
       str("update_id") ~
       contractId("contract_id") ~
       int("template_id") ~
-      int("package_name") ~
+      int("package_id") ~
       array[Int]("flat_event_witnesses") ~
       timestampFromMicros("assignment_exclusivity").? ~
       byteArray("trace_context").? ~
@@ -634,7 +634,7 @@ object EventStorageBackendTemplate {
           updateId ~
           contractId ~
           templateId ~
-          packageName ~
+          packageId ~
           flatEventWitnesses ~
           assignmentExclusivity ~
           traceContext ~
@@ -663,7 +663,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -694,7 +694,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       contractId("contract_id") ~
       int("template_id") ~
-      int("package_name") ~
+      int("package_id") ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -721,7 +721,7 @@ object EventStorageBackendTemplate {
           offset ~
           contractId ~
           templateId ~
-          packageName ~
+          packageId ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -746,7 +746,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -777,7 +777,7 @@ object EventStorageBackendTemplate {
       long("event_offset") ~
       contractId("contract_id") ~
       int("template_id") ~
-      int("package_name") ~
+      int("package_id") ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -803,7 +803,7 @@ object EventStorageBackendTemplate {
           offset ~
           contractId ~
           templateId ~
-          packageName ~
+          packageId ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -828,7 +828,7 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId
               .externalize(templateId)
-              .toFullIdentifier(stringInterning.packageName.externalize(packageName)),
+              .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -1469,7 +1469,7 @@ abstract class EventStorageBackendTemplate(
 
   override def fetchAssignEventIdsForStakeholder(
       stakeholderO: Option[Party],
-      templateId: Option[Identifier],
+      templateId: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
@@ -1486,7 +1486,7 @@ abstract class EventStorageBackendTemplate(
 
   override def fetchUnassignEventIdsForStakeholder(
       stakeholderO: Option[Party],
-      templateId: Option[Identifier],
+      templateId: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,

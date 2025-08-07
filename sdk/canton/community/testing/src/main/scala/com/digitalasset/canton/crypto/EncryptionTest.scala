@@ -4,7 +4,8 @@
 package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
-import com.digitalasset.canton.crypto.DecryptionError.FailedToDecrypt
+import com.digitalasset.canton.crypto.DecryptionError.{DecryptionWithWrongKey, FailedToDecrypt}
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.version.HasToByteString
@@ -218,7 +219,7 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
 
     "fail decrypt with a different encryption private key" in {
       val message = TestMessage(ByteString.copyFromUtf8("foobar"))
-      val res = for {
+      for {
         crypto <- newCrypto
         publicKeys <- getTwoEncryptionPublicKeys(crypto, encryptionKeySpec)
         (publicKey, publicKey2) = publicKeys
@@ -231,7 +232,23 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
           encrypted.encryptionAlgorithmSpec,
           publicKey2.id,
         )
-        message2 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        messageErr1 <- crypto.cryptoPrivateStore match {
+          case extended: CryptoPrivateStoreExtended =>
+            val privateKey = extended
+              .exportPrivateKey(publicKey.id)
+              .valueOrFail("export private key")
+              .futureValueUS
+              .valueOrFail("no private key")
+              .asInstanceOf[EncryptionPrivateKey]
+            FutureUnlessShutdown.pure(
+              Some(
+                crypto.pureCrypto
+                  .decryptWith(encrypted2, privateKey)(TestMessage.fromByteString)
+              )
+            )
+          case _ => FutureUnlessShutdown.pure(None)
+        }
+        messageErr2 <- loggerFactory.assertLoggedWarningsAndErrorsSeq(
           crypto.privateCrypto
             .decrypt(encrypted2)(TestMessage.fromByteString)
             .value,
@@ -246,9 +263,10 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
             ),
           ),
         )
-      } yield message2
-
-      res.map(res => res.left.value shouldBe a[FailedToDecrypt])
+      } yield {
+        messageErr1.map(_.left.value shouldBe a[DecryptionWithWrongKey])
+        messageErr2.left.value shouldBe a[FailedToDecrypt]
+      }
     }
   }
 

@@ -31,13 +31,14 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       case _ => fail(s"unsupported key type")
     }
 
-  private def keyValidationTest[K <: PublicKey](
+  private def publicKeyValidationTest[K <: PublicKey](
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       name: String,
       newCrypto: => Future[Crypto],
       newPublicKey: Crypto => Future[PublicKey],
   ): Unit =
-    // change format
+    // Modify the public key to have a different encoding format than expected,
+    // to verify that parseAndValidatePublicKey correctly rejects mismatched formats.
     forAll(supportedCryptoKeyFormats) { format =>
       s"Validate $name public key with format \"$format\"" in {
         for {
@@ -47,29 +48,28 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           validationRes = CryptoKeyValidation.parseAndValidatePublicKey(
             newPublicKeyWithTargetFormat,
             errString => errString,
+            cacheValidation = false,
           )
         } yield
           if (format == publicKey.format || format == CryptoKeyFormat.Symbolic)
             validationRes shouldEqual Either.unit
           else
             validationRes.left.value should include(
-              s"Failed to deserialize $format public key: KeyParseAndValidateError"
+              s"Failed to deserialize or validate $format public key: KeyParseAndValidateError"
             )
       }
     }
 
-  /** Test key validation
-    */
-  def keyValidationProvider(
+  def publicKeyValidationProvider(
       supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
       javaPrivateKeyRetentionTime: PositiveFiniteDuration,
   ): Unit =
-    "Validate keys" should {
+    "Validate public keys" should {
       forAll(supportedSigningKeySpecs) { signingKeySpec =>
-        keyValidationTest[SigningPublicKey](
+        publicKeyValidationTest[SigningPublicKey](
           supportedCryptoKeyFormats,
           if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString,
           newCrypto,
@@ -83,7 +83,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       }
 
       forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
-        keyValidationTest[EncryptionPublicKey](
+        publicKeyValidationTest[EncryptionPublicKey](
           supportedCryptoKeyFormats,
           if (encryptionKeySpec.toString == "EC-P256") "EC-P256-Encryption"
           else encryptionKeySpec.toString,
@@ -100,6 +100,9 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
             SigningKeyUsage.ProtocolOnly,
             SigningKeySpec.EcP256,
           ).failOnShutdown
+          // clear the cache because this fingerprint is now considered validated, and the next 'invalid' key will
+          // reuse the same fingerprint.
+          _ = CryptoKeyValidation.clearValidationCaches()
           // use a different curve (P-384) compared to the one on which the public key was generated (P-256)
           validationRes =
             SigningPublicKey.create(
@@ -108,7 +111,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
               SigningKeySpec.EcP384,
               publicKeyEcP256.usage,
             )
-        } yield validationRes.left.value.message should include(
+        } yield validationRes.left.value.toString should include(
           s"EC key not in curve"
         )
       }
@@ -124,7 +127,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
             invalidPublicKey,
             EncryptionKeySpec.Rsa2048,
           )
-        validationRes.left.value.message should include(
+        validationRes.left.value.toString should include(
           s"RSA key modulus size ${4096} does not match expected " +
             s"size ${EncryptionKeySpec.Rsa2048.keySizeInBits}"
         )

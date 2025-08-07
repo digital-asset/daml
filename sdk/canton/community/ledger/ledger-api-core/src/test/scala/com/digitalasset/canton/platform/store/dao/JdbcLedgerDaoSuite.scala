@@ -86,7 +86,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
-  protected final val somePackageName = PackageName.assertFromString("pkg-name")
+  protected final val somePackageName = PackageName.assertFromString("model-tests")
   protected final val someTemplateIdFull = someTemplateId.toFullIdentifier(somePackageName)
   protected final val somePackageVersion = PackageVersion.assertFromString("1.0")
   protected final val someTemplateIdFilter =

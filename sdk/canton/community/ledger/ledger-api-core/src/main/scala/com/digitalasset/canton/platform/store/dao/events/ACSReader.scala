@@ -494,7 +494,7 @@ class ACSReader(
     }
     def eventMeetsConstraints(templateId: FullIdentifier, witnesses: Set[String]): Boolean =
       stringWildcardParties.fold(true)(_.exists(witnesses)) || (
-        templateFilters.get(templateId.toIdentifier) match {
+        templateFilters.get(templateId.toNameTypeConRef) match {
           case Some(Some(filterParties)) => filterParties.exists(witnesses)
           case Some(None) => true // party wildcard
           case None =>

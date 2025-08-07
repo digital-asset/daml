@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.digitalasset.canton.platform.{Identifier, PackageName, Party}
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
+import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.daml.lf.data.Ref.PackageId
 
 /** The facade for all supported string-interning domains
   *
@@ -13,8 +15,8 @@ import com.digitalasset.canton.topology.SynchronizerId
   *   [[StringInterningView.internize]] and [[StringInterningView.update]].
   */
 trait StringInterning {
-  def templateId: StringInterningDomain[Identifier]
-  def packageName: StringInterningDomain[PackageName]
+  def templateId: StringInterningDomain[NameTypeConRef]
+  def packageId: StringInterningDomain[PackageId]
   def party: StringInterningDomain[Party]
   def synchronizerId: StringInterningDomain[SynchronizerId]
 }

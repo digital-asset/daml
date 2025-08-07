@@ -73,30 +73,32 @@ class SymbolicPrivateCrypto(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] =
     genKeyPair((pubKey, privKey) =>
-      SigningKeyPair.create(
-        CryptoKeyFormat.Symbolic,
-        pubKey,
-        CryptoKeyFormat.Symbolic,
-        privKey,
-        keySpec,
-        usage,
-      )
+      SigningKeyPair
+        .create(
+          CryptoKeyFormat.Symbolic,
+          pubKey,
+          CryptoKeyFormat.Symbolic,
+          privKey,
+          keySpec,
+          usage,
+        )
+        .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.KeyCreationError.apply)
     ).toEitherT[FutureUnlessShutdown]
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptionKeyGenerationError, EncryptionKeyPair] =
-    EitherT.rightT(
-      genKeyPair((pubKey, privKey) =>
-        EncryptionKeyPair.create(
+    genKeyPair((pubKey, privKey) =>
+      EncryptionKeyPair
+        .create(
           CryptoKeyFormat.Symbolic,
           pubKey,
           CryptoKeyFormat.Symbolic,
           privKey,
           keySpec,
         )
-      )
-    )
+        .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.KeyCreationError.apply)
+    ).toEitherT[FutureUnlessShutdown]
 
   override def name: String = "symbolic-private-crypto"
 

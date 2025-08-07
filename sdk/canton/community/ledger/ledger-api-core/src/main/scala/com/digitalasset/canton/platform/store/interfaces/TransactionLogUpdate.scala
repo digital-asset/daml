@@ -111,6 +111,7 @@ object TransactionLogUpdate {
     def witnesses(transactionShape: TransactionShape): Set[Party]
     def submitters: Set[Party]
     def templateId: Identifier
+    def packageName: PackageName
     def contractId: ContractId
   }
 

@@ -627,13 +627,15 @@ final class AssignmentProcessingStepsTest
         val fci = ExampleTransactionFactory
           .authenticatedContractInstance(metadata = baseMetadata)
           .inst: LfFatContractInst
-        ContractInstance.create(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.stakeholders)
-              .modify(_ incl party2),
-            fci.createdAt,
-            fci.authenticationData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.stakeholders)
+                .modify(_ incl party2),
+              fci.createdAt,
+              fci.authenticationData,
+            )
           )
           .value
       }
@@ -646,13 +648,15 @@ final class AssignmentProcessingStepsTest
           )
           .inst: LfFatContractInst
 
-        ContractInstance.create(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.signatories)
-              .modify(_ incl party2),
-            fci.createdAt,
-            fci.authenticationData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.signatories)
+                .modify(_ incl party2),
+              fci.createdAt,
+              fci.authenticationData,
+            )
           )
           .value
       }
@@ -669,13 +673,15 @@ final class AssignmentProcessingStepsTest
             metadata = testMetadata(stakeholders = baseMetadata.stakeholders + party2)
           )
           .inst: LfFatContractInst
-        ContractInstance.create(
-          LfFatContractInst.fromCreateNode(
-            fci.toCreateNode
-              .focus(_.keyOpt)
-              .replace(Some(incorrectKey.unversioned)),
-            fci.createdAt,
-            fci.authenticationData,
+        ContractInstance
+          .create(
+            LfFatContractInst.fromCreateNode(
+              fci.toCreateNode
+                .focus(_.keyOpt)
+                .replace(Some(incorrectKey.unversioned)),
+              fci.createdAt,
+              fci.authenticationData,
+            )
           )
           .value
       }

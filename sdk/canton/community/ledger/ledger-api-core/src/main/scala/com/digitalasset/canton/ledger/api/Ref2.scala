@@ -12,10 +12,52 @@ import com.digitalasset.daml.lf.data.Ref.{
   PackageRef,
   QualifiedName,
 }
+import com.digitalasset.daml.lf.data.assertRight
 
 object Ref2 {
   type IdTypeConRef = FullReference[PackageRef.Id]
   type NameTypeConRef = FullReference[PackageRef.Name]
+
+  // TODO(#26862) remove this once the PR to move this code into daml-lf is merged
+  sealed abstract class FullReferenceCompanion2[X] {
+
+    def pkgFromString(s: String): Either[String, X]
+
+    private def splitInTwo(s: String, splitCh: Char): Option[(String, String)] = {
+      val splitIndex = s.indexOf(splitCh.toInt)
+      if (splitIndex < 0) None
+      else Some((s.substring(0, splitIndex), s.substring(splitIndex + 1)))
+    }
+
+    final def fromString(s: String): Either[String, FullReference[X]] =
+      splitInTwo(s, ':') match {
+        case Some((packageString, qualifiedNameString)) =>
+          for {
+            pkgRef <- pkgFromString(packageString)
+            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+          } yield FullReference(pkgRef, qualifiedName)
+        case None =>
+          Left(s"Separator ':' between package identifier and qualified name not found in $s")
+      }
+
+    @throws[IllegalArgumentException]
+    final def assertFromString(s: String): FullReference[X] = assertRight(fromString(s))
+
+    final def apply(pkg: X, qualifiedName: QualifiedName): FullReference[X] =
+      FullReference(pkg, qualifiedName)
+
+    final def unapply(f: FullReference[X]): Some[(X, QualifiedName)] = Some(
+      (f.pkg, f.qualifiedName)
+    )
+  }
+
+  object NameTypeConRef extends FullReferenceCompanion2[PackageRef.Name] {
+    override def pkgFromString(s: String): Either[String, PackageRef.Name] =
+      PackageRef.fromString(s).flatMap {
+        case name: PackageRef.Name => Right(name)
+        case _: PackageRef.Id => Left("Expected PackageRef.Name, but got PackageRef.Id")
+      }
+  }
 
   final case class FullIdentifier(
       pkgId: PackageId,

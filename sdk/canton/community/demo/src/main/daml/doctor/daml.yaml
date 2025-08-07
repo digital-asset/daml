@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250731.14044.0.v9ee36ae7
+sdk-version: 3.4.0-snapshot.20250805.14057.0.v9ea47985
 build-options: 
 - --target=2.1
 name: doctor

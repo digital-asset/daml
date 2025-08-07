@@ -121,7 +121,14 @@ message GetAddPartyStatusResponse {
       google.protobuf.Timestamp timestamp = 2;
       uint32 contracts_replicated = 3;
     }
-    // This participant has completed its part of the ACS replication.
+    // This participant has completed its part of the ACS replication: In case of the source participant
+    // all contracts have been sent, and for the target participant all contracts have been received.
+    message FullyReplicatedAcs {
+      string sequencer_uid = 1;
+      google.protobuf.Timestamp timestamp = 2;
+      uint32 contracts_replicated = 3;
+    }
+    // The party has been added to the target participant.
     message Completed {
       string sequencer_uid = 1;
       google.protobuf.Timestamp timestamp = 2;
@@ -150,13 +157,16 @@ message GetAddPartyStatusResponse {
       // Party Replication ACS replication
       ConnectionEstablished connection_established = 4;
       ReplicatingAcs replicating_acs = 5;
-      Completed completed = 6;
+      FullyReplicatedAcs fully_replicated_acs = 6;
+
+      // Completed indicating that party successfully has been added to target participant.
+      Completed completed = 7;
 
       // Error indicating that party replication has failed.
-      Error error = 7;
+      Error error = 8;
 
       // Conditions that party replication is attempting to recover from.
-      Disconnected disconnected = 8;
+      Disconnected disconnected = 9;
     }
   }
 

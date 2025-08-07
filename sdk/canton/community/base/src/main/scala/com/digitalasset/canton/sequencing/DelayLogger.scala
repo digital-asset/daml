@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
-import com.daml.metrics.api.MetricHandle.Gauge
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.sequencing.protocol.Deliver
+import com.digitalasset.canton.metrics.SequencingTimeMetrics
 import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
@@ -23,7 +23,7 @@ class DelayLogger(
     clock: Clock,
     logger: TracedLogger,
     threshold: NonNegativeFiniteDuration,
-    gauge: Gauge[Long],
+    metrics: SequencingTimeMetrics,
 ) {
   private val caughtUp = new AtomicBoolean(false)
 
@@ -34,29 +34,30 @@ class DelayLogger(
       case _ => ()
     }
 
+  private def handleTimestamp(ts: CantonTimestamp)(implicit tc: TraceContext): Unit = {
+    metrics.lastSequencingTime.updateValue(ts.toMicros)
+    val now = clock.now
+    val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
+    val deltaMs = delta.toMillis
+    metrics.delay.updateValue(deltaMs)
+    val thresholdDuration = threshold.unwrap
+    if (delta.compareTo(thresholdDuration) > 0) {
+      if (caughtUp.compareAndSet(true, false)) {
+        logger.warn(
+          s"Detected late processing (or clock skew) of batch with timestamp = $ts; delta = $delta " +
+            s"after sequencing (> threshold = $thresholdDuration)"
+        )
+      }
+    } else if (caughtUp.compareAndSet(false, true)) {
+      logger.info(
+        s"Caught up with sequencer on batch with timestamp = $ts; delta = $delta " +
+          s"(threshold = $thresholdDuration)"
+      )
+    }
+  }
+
   def checkForDelay_(event: SequencedEventWithTraceContext[?]): Unit = {
     implicit val traceContext: TraceContext = event.traceContext
-    event.signedEvent.content match {
-      case Deliver(_, ts, _, _, _, _, _) =>
-        val now = clock.now
-        val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
-        val deltaMs = delta.toMillis
-        gauge.updateValue(deltaMs)
-        val thresholdDuration = threshold.unwrap
-        if (delta.compareTo(thresholdDuration) > 0) {
-          if (caughtUp.compareAndSet(true, false)) {
-            logger.warn(
-              s"Detected late processing (or clock skew) of batch with timestamp = $ts; delta = $delta " +
-                s"after sequencing (> threshold = $thresholdDuration)"
-            )
-          }
-        } else if (caughtUp.compareAndSet(false, true)) {
-          logger.info(
-            s"Caught up with sequencer on batch with timestamp = $ts; delta = $delta " +
-              s"(threshold = $thresholdDuration)"
-          )
-        }
-      case _ => ()
-    }
+    handleTimestamp(event.signedEvent.content.timestamp)
   }
 }

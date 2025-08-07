@@ -90,7 +90,7 @@ private[dao] sealed class EventsReader(
                   witnessesMatch(internalEventFormat.templatePartiesFilter.templateWildcardParties)
                 def templatePartiesFilterMatch: Boolean =
                   internalEventFormat.templatePartiesFilter.relation
-                    .get(createEvent.templateId.toIdentifier)
+                    .get(createEvent.templateId.toNameTypeConRef)
                     .exists(witnessesMatch)
                 wildcardPartiesMatch || templatePartiesFilterMatch
               }

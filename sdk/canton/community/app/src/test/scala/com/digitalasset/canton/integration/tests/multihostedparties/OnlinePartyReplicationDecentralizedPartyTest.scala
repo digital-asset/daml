@@ -21,9 +21,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.ledger.client.LedgerClientUtils
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.participant.admin.workflows.java.canton.internal as M
 import com.digitalasset.canton.participant.party.PartyReplicationTestInterceptorImpl
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
@@ -263,24 +261,6 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       )
       coinsAtTargetParticipant.size shouldBe numContractsInCreateBatch
     }
-
-    // Archive the party replication agreement, so that subsequent tests have a clean slate.
-    val agreement = targetParticipant.ledger_api.javaapi.state.acs
-      .await(M.partyreplication.PartyReplicationAgreement.COMPANION)(
-        sourceParticipant.adminParty
-      )
-    targetParticipant.ledger_api.commands
-      .submit(
-        actAs = Seq(targetParticipant.adminParty),
-        commands = agreement.id
-          .exerciseDone(targetParticipant.adminParty.toLf)
-          .commands
-          .asScala
-          .toSeq
-          .map(LedgerClientUtils.javaCodegenToScalaProto),
-        synchronizerId = Some(daId),
-      )
-      .discard
   }
 
   private def createDecentralizedParty(

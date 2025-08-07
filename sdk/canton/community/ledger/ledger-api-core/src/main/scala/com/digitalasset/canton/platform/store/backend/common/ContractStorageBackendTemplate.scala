@@ -97,7 +97,7 @@ class ContractStorageBackendTemplate(
       : RowParser[(ContractId, ContractStorageBackend.RawCreatedContract)] =
     (contractId("contract_id")
       ~ int("template_id")
-      ~ int("package_name")
+      ~ int("package_id")
       ~ array[Int]("flat_event_witnesses")
       ~ byteArray("create_argument")
       ~ int("create_argument_compression").?
@@ -108,10 +108,10 @@ class ContractStorageBackendTemplate(
       ~ array[Int]("create_key_maintainers").?
       ~ byteArray("authentication_data"))
       .map {
-        case coid ~ internedTemplateId ~ internedPackageName ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ authenticationData =>
+        case coid ~ internedTemplateId ~ internedPackageId ~ flatEventWitnesses ~ createArgument ~ createArgumentCompression ~ ledgerEffectiveTime ~ signatories ~ createKey ~ createKeyCompression ~ keyMaintainers ~ authenticationData =>
           coid -> RawCreatedContract(
             templateId = stringInterning.templateId.unsafe.externalize(internedTemplateId),
-            packageName = stringInterning.packageName.unsafe.externalize(internedPackageName),
+            packageId = stringInterning.packageId.unsafe.externalize(internedPackageId),
             flatEventWitnesses =
               flatEventWitnesses.view.map(stringInterning.party.externalize).toSet,
             createArgument = createArgument,
@@ -135,7 +135,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
-           package_name,
+           package_id,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,
@@ -174,7 +174,7 @@ class ContractStorageBackendTemplate(
          SELECT
            contract_id,
            template_id,
-           package_name,
+           package_id,
            flat_event_witnesses,
            create_argument,
            create_argument_compression,

@@ -4,13 +4,17 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.api.client.data.BftPruningStatus
 import com.digitalasset.canton.admin.pruning.v30.PruningSchedule
 import com.digitalasset.canton.config.PositiveDurationSeconds
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftPruningAdministrationServiceGrpc.SequencerBftPruningAdministrationServiceStub
 import com.digitalasset.canton.sequencer.admin.v30.SetMinBlocksToKeepResponse
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningSchedule
+import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
+  BftOrdererPruningSchedule,
+  BftPruningStatus,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -70,8 +74,20 @@ object SequencerBftPruningAdminCommands {
 
     override protected def handleResponse(
         response: v30.BftPruningStatusResponse
-    ): Either[String, BftPruningStatus] = Right(
-      BftPruningStatus(EpochNumber(response.lowerBoundEpoch), BlockNumber(response.lowerBoundBlock))
+    ): Either[String, BftPruningStatus] = for {
+      latestBlockTimestamp <- ProtoConverter
+        .parseRequired(
+          CantonTimestamp.fromProtoTimestamp,
+          "latest_block_timestamp",
+          response.latestBlockTimestamp,
+        )
+        .leftMap(_.toString)
+    } yield BftPruningStatus(
+      latestBlockEpochNumber = EpochNumber(response.latestBlockEpoch),
+      latestBlockNumber = BlockNumber(response.latestBlock),
+      latestBlockTimestamp = latestBlockTimestamp,
+      lowerBoundEpochNumber = EpochNumber(response.lowerBoundEpoch),
+      lowerBoundBlockNumber = BlockNumber(response.lowerBoundBlock),
     )
   }
 

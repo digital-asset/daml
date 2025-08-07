@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
+import com.digitalasset.canton.ledger.api.Ref2
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -39,34 +40,34 @@ class MockStringInterning extends StringInterning {
 
     }
 
-  override val templateId: StringInterningDomain[Ref.Identifier] =
-    new StringInterningDomain[Ref.Identifier] {
+  override val templateId: StringInterningDomain[Ref2.NameTypeConRef] =
+    new StringInterningDomain[Ref2.NameTypeConRef] {
       override val unsafe: StringInterningAccessor[String] = rawStringInterning
 
-      override def internalize(t: Ref.Identifier): Int = tryInternalize(t).get
+      override def internalize(t: Ref2.NameTypeConRef): Int = tryInternalize(t).get
 
-      override def tryInternalize(t: Ref.Identifier): Option[Int] =
+      override def tryInternalize(t: Ref2.NameTypeConRef): Option[Int] =
         rawStringInterning.tryInternalize(t.toString)
 
-      override def externalize(id: Int): Ref.Identifier = tryExternalize(id).get
+      override def externalize(id: Int): Ref2.NameTypeConRef = tryExternalize(id).get
 
-      override def tryExternalize(id: Int): Option[Ref.Identifier] =
-        rawStringInterning.tryExternalize(id).map(Ref.Identifier.assertFromString)
+      override def tryExternalize(id: Int): Option[Ref2.NameTypeConRef] =
+        rawStringInterning.tryExternalize(id).map(Ref2.NameTypeConRef.assertFromString)
     }
 
-  override val packageName: StringInterningDomain[Ref.PackageName] =
-    new StringInterningDomain[Ref.PackageName] {
+  override val packageId: StringInterningDomain[Ref.PackageId] =
+    new StringInterningDomain[Ref.PackageId] {
       override val unsafe: StringInterningAccessor[String] = rawStringInterning
 
-      override def internalize(t: Ref.PackageName): Int = tryInternalize(t).get
+      override def internalize(t: Ref.PackageId): Int = tryInternalize(t).get
 
-      override def tryInternalize(t: Ref.PackageName): Option[Int] =
+      override def tryInternalize(t: Ref.PackageId): Option[Int] =
         rawStringInterning.tryInternalize(t.toString)
 
-      override def externalize(id: Int): Ref.PackageName = tryExternalize(id).get
+      override def externalize(id: Int): Ref.PackageId = tryExternalize(id).get
 
-      override def tryExternalize(id: Int): Option[Ref.PackageName] =
-        rawStringInterning.tryExternalize(id).map(Ref.PackageName.assertFromString)
+      override def tryExternalize(id: Int): Option[Ref.PackageId] =
+        rawStringInterning.tryExternalize(id).map(Ref.PackageId.assertFromString)
     }
 
   override def party: StringInterningDomain[Party] =

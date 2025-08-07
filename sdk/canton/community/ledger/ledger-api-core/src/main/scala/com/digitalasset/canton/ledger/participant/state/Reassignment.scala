@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.Value
 
 sealed trait Reassignment {
   def templateId: Ref.Identifier
+  def packageName: Ref.PackageName
   def stakeholders: Set[Ref.Party]
   def nodeId: Int
 }
@@ -79,6 +80,7 @@ object Reassignment {
       nodeId: Int,
   ) extends Reassignment {
     def templateId: Ref.Identifier = createNode.templateId
+    def packageName: Ref.PackageName = createNode.packageName
     def stakeholders: Set[Ref.Party] = createNode.stakeholders
   }
 }

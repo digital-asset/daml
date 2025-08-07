@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.ParticipantReference
 
 import scala.concurrent.duration.*
+import scala.util.Try
 
 /** Utilities for testing online party replication.
   */
@@ -25,26 +26,28 @@ private[multihostedparties] trait OnlinePartyReplicationTestHelpers {
       expectedNumContracts: NonNegativeInt,
   ): Unit =
     eventually(retryOnTestFailuresOnly = false, maxPollInterval = 10.millis) {
-      val spStatus = sourceParticipant.parties.get_add_party_status(addPartyRequestId)
+      // The try handles the optional `CommandFailure`, so that we don't give up while the SP is stopped.
+      val spStatusO =
+        Try(sourceParticipant.parties.get_add_party_status(addPartyRequestId)).toOption
       val tpStatus = targetParticipant.parties.get_add_party_status(addPartyRequestId)
-      (spStatus.status, tpStatus.status) match {
+      (spStatusO.map(_.status), tpStatus.status) match {
         case (
-              AddPartyStatus.Completed(_, _, `expectedNumContracts`),
+              Some(spStatus @ AddPartyStatus.Completed(_, _, `expectedNumContracts`)),
               AddPartyStatus.Completed(_, _, `expectedNumContracts`),
             ) =>
           logger.info(
             s"SP and TP completed party replication with status $spStatus and $tpStatus"
           )
         case (
-              AddPartyStatus.Completed(_, _, numSpContracts),
+              Some(AddPartyStatus.Completed(_, _, numSpContracts)),
               AddPartyStatus.Completed(_, _, numTpContracts),
             ) =>
           logger.warn(
             s"SP and TP completed party replication but had unexpected number of contracts: $numSpContracts and $numTpContracts, expected $expectedNumContracts"
           )
-        case (sourceStatus, targetStatus) =>
+        case (sourceStatusO, targetStatus) =>
           fail(
-            s"TP and SP did not complete party replication. SP and TP status: $sourceStatus and $targetStatus"
+            s"TP and SP did not complete party replication. SP and TP status: $sourceStatusO and $targetStatus"
           )
       }
     }

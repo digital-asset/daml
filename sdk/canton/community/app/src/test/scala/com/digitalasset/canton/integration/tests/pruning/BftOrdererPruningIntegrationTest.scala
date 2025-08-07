@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.pruning
 
-import com.digitalasset.canton.admin.api.client.data.BftPruningStatus
 import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -39,7 +38,7 @@ class BftOrdererPruningIntegrationTest extends CommunityIntegrationTest with Sha
     simClock.advance(Duration.ofSeconds(10))
     participant2.health.maybe_ping(participant1) shouldBe defined
 
-    sequencer1.bft.pruning.status() shouldBe BftPruningStatus(EpochNumber.First, BlockNumber.First)
+    sequencer1.bft.pruning.status().lowerBoundBlockNumber shouldBe BlockNumber.First
 
     // user-manual-entry-begin: BftSequencerPruning
     sequencer1.bft.pruning.prune(retention = 30.days, minBlocksToKeep = 100)
@@ -47,7 +46,7 @@ class BftOrdererPruningIntegrationTest extends CommunityIntegrationTest with Sha
     // user-manual-entry-end: BftSequencerPruning
 
     // nothing got pruned
-    status shouldBe BftPruningStatus(EpochNumber.First, BlockNumber.First)
+    status.lowerBoundBlockNumber shouldBe EpochNumber.First
 
     // shorter with shorter retention period and minBlocksToKeep, stuff will get pruned much more aggressively
     sequencer1.bft.pruning.prune(retention = 1.second, minBlocksToKeep = 5)
