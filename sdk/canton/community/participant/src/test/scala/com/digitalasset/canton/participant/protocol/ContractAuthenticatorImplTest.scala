@@ -30,7 +30,8 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
   private def modifyCreateNode(
       f: LfNodeCreate => LfNodeCreate
   ): LfFatContractInst => LfFatContractInst =
-    fci => LfFatContractInst.fromCreateNode(f(fci.toCreateNode), fci.createdAt, fci.authenticationData)
+    fci =>
+      LfFatContractInst.fromCreateNode(f(fci.toCreateNode), fci.createdAt, fci.authenticationData)
 
   forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
     authContractIdVersion =>

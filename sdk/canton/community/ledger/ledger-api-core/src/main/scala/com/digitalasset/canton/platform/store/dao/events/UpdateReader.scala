@@ -515,7 +515,7 @@ private[dao] object UpdateReader {
         rawEvents.filter(entry =>
           // at least one of the witnesses exist in the template wildcard filter
           entry.event.witnessParties.exists(templateWildcardPartiesStrings) ||
-            (templateSpecifiedPartiesMap.get(entry.event.templateId.toIdentifier) match {
+            (templateSpecifiedPartiesMap.get(entry.event.templateId.toNameTypeConRef) match {
               // the event's template id was not found in the filters
               case None => false
               case Some(partiesO) => partiesO.fold(true)(entry.event.witnessParties.exists)

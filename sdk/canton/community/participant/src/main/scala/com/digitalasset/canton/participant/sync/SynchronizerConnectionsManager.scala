@@ -723,7 +723,7 @@ private[sync] class SynchronizerConnectionsManager(
   ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
     connectQueue.executeEUS(
       if (connectedSynchronizers.isConnected(psid)) {
-        logger.debug(s"Synchronizer $psid already registered")
+        logger.debug(s"Already connected to $psid, no need to register $psid")
         EitherT.rightT(psid)
       } else {
         logger.debug(s"About to perform handshake with synchronizer: $psid")
@@ -895,7 +895,8 @@ private[sync] class SynchronizerConnectionsManager(
                   connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
                 )
             },
-            parameters.automaticallyPerformLogicalSynchronizerUpgrade,
+            automaticallyConnectToUpgradedSynchronizer =
+              parameters.automaticallyPerformLogicalSynchronizerUpgrade,
             loggerFactory,
           )
 

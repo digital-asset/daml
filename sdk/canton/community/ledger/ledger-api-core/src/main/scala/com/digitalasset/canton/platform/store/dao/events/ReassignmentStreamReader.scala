@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -234,7 +235,7 @@ object ReassignmentStreamReader {
   trait IdDbQuery {
     def fetchIds(
         stakeholder: Option[Party],
-        templateIdO: Option[Ref.Identifier],
+        templateIdO: Option[NameTypeConRef],
         startExclusive: Long,
         endInclusive: Long,
         limit: Int,

@@ -23,7 +23,7 @@ object DbDto {
       node_id: Int,
       contract_id: Array[Byte],
       template_id: String,
-      package_name: String,
+      package_id: String,
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Array[Byte],
@@ -54,7 +54,7 @@ object DbDto {
       node_id: Int,
       contract_id: Array[Byte],
       template_id: String,
-      package_name: String,
+      package_id: String,
       flat_event_witnesses: Set[
         String
       ], // only for consuming, for non-consuming exercise this field is omitted
@@ -84,7 +84,7 @@ object DbDto {
       node_id: Int,
       contract_id: Array[Byte],
       template_id: String,
-      package_name: String,
+      package_id: String,
       flat_event_witnesses: Set[String],
       create_argument: Array[Byte],
       create_signatories: Set[String],
@@ -114,7 +114,7 @@ object DbDto {
       node_id: Int,
       contract_id: Array[Byte],
       template_id: String,
-      package_name: String,
+      package_id: String,
       flat_event_witnesses: Set[String],
       event_sequential_id: Long,
       source_synchronizer_id: String,

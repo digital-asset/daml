@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPublicStore}
 import com.digitalasset.canton.crypto.{Crypto, CryptoSchemes}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.util.EitherUtil
 
 import scala.concurrent.ExecutionContext
 
@@ -30,8 +31,10 @@ object JceCrypto {
       ec: ExecutionContext
   ): Either[String, Crypto] =
     for {
-      _ <- Either
-        .cond(config.provider == CryptoProvider.Jce, (), "JCE provider must be configured")
+      _ <- EitherUtil.condUnit(
+        config.provider == CryptoProvider.Jce,
+        "JCE provider must be configured",
+      )
       cryptoSchemes <- CryptoSchemes.fromConfig(config)
       cryptoPrivateStoreExtended <- cryptoPrivateStore.toExtended
         .toRight(

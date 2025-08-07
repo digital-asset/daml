@@ -91,4 +91,18 @@ object PartyReplicationAgreementParams {
       proposal.serial,
       proposal.participantPermission,
     )
+
+  def fromAgreedReplicationStatus(
+      agreedStatus: PartyReplicationStatus.AgreedReplicationStatus
+  ): PartyReplicationAgreementParams =
+    PartyReplicationAgreementParams(
+      agreedStatus.params.requestId,
+      agreedStatus.params.partyId,
+      agreedStatus.params.synchronizerId,
+      agreedStatus.params.sourceParticipantId,
+      agreedStatus.params.targetParticipantId,
+      agreedStatus.sequencerId,
+      agreedStatus.params.serial,
+      agreedStatus.params.participantPermission,
+    )
 }

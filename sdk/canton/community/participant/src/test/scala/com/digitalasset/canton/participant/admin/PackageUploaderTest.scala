@@ -374,7 +374,11 @@ class PackageUploaderTest
       packageMetadataViewConfig = PackageMetadataViewConfig(),
       timeouts = ProcessingTimeout(),
     )
-    val packageUpgradeValidator = new PackageUpgradeValidator(loggerFactory)
+    val packageUpgradeValidator = new PackageUpgradeValidator(
+      getLfArchive = loggingContextWithTrace =>
+        packageId => packageStore.getPackage(packageId)(loggingContextWithTrace.traceContext),
+      loggerFactory = loggerFactory,
+    )
     val packageUploader = new PackageUploader(
       clock = clock,
       packageStore = packageStore,

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.flatMap.*
@@ -49,9 +48,8 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
@@ -280,78 +278,11 @@ object SequencedEventValidator extends HasLoggerName {
   )(implicit
       loggingContext: NamedLoggingContext,
       executionContext: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TopologyTimestampVerificationError, SyncCryptoApi] =
-    validateTopologyTimestampInternal(
-      syncCryptoApi,
-      topologyTimestamp,
-      sequencingTimestamp,
-      latestTopologyClientTimestamp,
-      protocolVersion,
-      warnIfApproximate,
-      getTolerance,
-    )(
-      SyncCryptoClient.getSnapshotForTimestamp _,
-      _.withTraceContext(implicit traceContext => _.findDynamicSynchronizerParameters()),
-    )
-
-  def validateTopologyTimestampUS(
-      syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      topologyTimestamp: CantonTimestamp,
-      sequencingTimestamp: CantonTimestamp,
-      latestTopologyClientTimestamp: Option[CantonTimestamp],
-      protocolVersion: ProtocolVersion,
-      warnIfApproximate: Boolean,
-      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
-  )(implicit
-      loggingContext: NamedLoggingContext,
-      executionContext: ExecutionContext,
       closeContext: CloseContext,
-  ): EitherT[FutureUnlessShutdown, TopologyTimestampVerificationError, SyncCryptoApi] =
-    validateTopologyTimestampInternal(
-      syncCryptoApi,
-      topologyTimestamp,
-      sequencingTimestamp,
-      latestTopologyClientTimestamp,
-      protocolVersion,
-      warnIfApproximate,
-      getTolerance,
-    )(
-      SyncCryptoClient.getSnapshotForTimestamp _,
-      _.withTraceContext { implicit traceContext => topology =>
-        closeContext.context.synchronizeWithClosing("get-dynamic-parameters")(
-          topology.findDynamicSynchronizerParameters()
-        )
-      },
-    )
-
-  // Base version of validateSigningTimestamp abstracting over the effect type to allow for
-  // a `Future` and `FutureUnlessShutdown` version. Once we migrate all usages to the US version, this abstraction
-  // should not be needed anymore
-  private def validateTopologyTimestampInternal[F[_]: Monad](
-      syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      topologyTimestamp: CantonTimestamp,
-      sequencingTimestamp: CantonTimestamp,
-      latestTopologyClientTimestamp: Option[CantonTimestamp],
-      protocolVersion: ProtocolVersion,
-      warnIfApproximate: Boolean,
-      getTolerance: DynamicSynchronizerParametersWithValidity => NonNegativeFiniteDuration,
-  )(
-      getSnapshotF: (
-          SyncCryptoClient[SyncCryptoApi],
-          CantonTimestamp,
-          Option[CantonTimestamp],
-          ProtocolVersion,
-          Boolean,
-      ) => F[SyncCryptoApi],
-      getDynamicSynchronizerParameters: Traced[TopologySnapshot] => F[
-        Either[String, DynamicSynchronizerParametersWithValidity]
-      ],
-  )(implicit
-      loggingContext: NamedLoggingContext
-  ): EitherT[F, TopologyTimestampVerificationError, SyncCryptoApi] = {
+  ): EitherT[FutureUnlessShutdown, TopologyTimestampVerificationError, SyncCryptoApi] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
 
-    def snapshotF: F[SyncCryptoApi] = getSnapshotF(
+    def snapshotF: FutureUnlessShutdown[SyncCryptoApi] = SyncCryptoClient.getSnapshotForTimestamp(
       syncCryptoApi,
       // As we use topologyTimestamp here (as opposed to sequencingTimestamp),
       // a valid topologyTimestamp can be used until topologyTimestamp + tolerance.
@@ -364,8 +295,11 @@ object SequencedEventValidator extends HasLoggerName {
 
     def validateWithSnapshot(
         snapshot: SyncCryptoApi
-    ): F[Either[TopologyTimestampVerificationError, SyncCryptoApi]] =
-      getDynamicSynchronizerParameters(Traced(snapshot.ipsSnapshot))
+    ): FutureUnlessShutdown[Either[TopologyTimestampVerificationError, SyncCryptoApi]] =
+      closeContext.context
+        .synchronizeWithClosing("get-dynamic-parameters")(
+          snapshot.ipsSnapshot.findDynamicSynchronizerParameters()(traceContext)
+        )
         .map { dynamicSynchronizerParametersE =>
           for {
             dynamicSynchronizerParameters <- dynamicSynchronizerParametersE.leftMap(
@@ -381,7 +315,7 @@ object SequencedEventValidator extends HasLoggerName {
         }
 
     if (topologyTimestamp > sequencingTimestamp) {
-      EitherT.leftT[F, SyncCryptoApi](TopologyTimestampAfterSequencingTime)
+      EitherT.leftT[FutureUnlessShutdown, SyncCryptoApi](TopologyTimestampAfterSequencingTime)
     } else if (topologyTimestamp == sequencingTimestamp) {
       // If the signing timestamp is the same as the sequencing timestamp,
       // we don't need to check the tolerance because it is always non-negative.
@@ -635,7 +569,7 @@ class SequencedEventValidatorImpl(
         _ <- EitherT.fromEither[FutureUnlessShutdown](checkNoTimestampOfSigningKey(event))
         _ = logger.debug("Successfully checked that there's no timestamp of signing key")
         snapshot <- SequencedEventValidator
-          .validateTopologyTimestampUS(
+          .validateTopologyTimestamp(
             syncCryptoApi,
             signingTs,
             event.timestamp,

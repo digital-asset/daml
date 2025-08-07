@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter}
+import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
@@ -74,7 +74,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       filtersByParty = Map(
         party ->
           CumulativeFilter(
-            templateFilters = Set(TemplateFilter(template1.toIdentifier.toRef, false)),
+            templateFilters = Set(TemplateFilter(template1Full.toIdentifier.toRef, false)),
             interfaceFilters = Set.empty,
             templateWildcardFilter = None,
           ),
@@ -877,7 +877,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     it should "project created_event_blob in case of match by interface, template-id (but both without flag enabled) and " +
       "package-name-scoped template (flag enabled)" ++ details in new Scope {
         val template2Filter: TemplateFilter =
-          TemplateFilter(template2.toIdentifier.toRef, includeCreatedEventBlob = false)
+          TemplateFilter(template2Full.toIdentifier.toRef, includeCreatedEventBlob = false)
         private val filters =
           CumulativeFilter(
             templateFilters = Set(
@@ -911,11 +911,11 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
             eventFormat = transactionFilter,
             interfaceImplementedBy = interfaceImpl,
             resolveTypeConRef = Map(
-              template1Ref -> Set(template1),
-              template2Ref -> Set(template2),
+              template1Ref -> Set(template1Full),
+              template2Ref -> Set(template2Full),
               iface1Ref -> Set(iface1),
               iface2Ref -> Set(iface2),
-              packageNameScopedTemplate -> Set(template2),
+              packageNameScopedTemplate -> Set(template2Full),
             ),
           )
 
@@ -1035,7 +1035,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     it should "project created_event_blob for wildcard templates, if it is specified explicitly via template filter" ++ details in new Scope {
       private val filters =
         CumulativeFilter(
-          templateFilters = Set(TemplateFilter(template1.toIdentifier.toRef, true)),
+          templateFilters = Set(TemplateFilter(template1Full.toIdentifier.toRef, true)),
           interfaceFilters = Set.empty,
           templateWildcardFilter = None,
         )
@@ -1082,22 +1082,25 @@ object EventProjectionPropertiesSpec {
     val qualifiedName: Ref.QualifiedName = Ref.QualifiedName.assertFromString("ModuleName:template")
     val packageNameScopedTemplate: Ref.TypeConRef = Ref.TypeConRef(packageRefName, qualifiedName)
 
-    val template1: FullIdentifier = Identifier
+    val template1Full: FullIdentifier = Identifier
       .assertFromString("PackageId2:ModuleName:template")
       .toFullIdentifier(packageRefName.name)
-    val template1Ref: Ref.TypeConRef = template1.toIdentifier.toRef
+    val template1: NameTypeConRef = template1Full.toNameTypeConRef
+    val template1Ref: Ref.TypeConRef = template1Full.toIdentifier.toRef
     val template1Filter: TemplateFilter =
-      TemplateFilter(template1.toIdentifier.toRef, includeCreatedEventBlob = false)
-    val template2: FullIdentifier = Identifier
+      TemplateFilter(template1Full.toIdentifier.toRef, includeCreatedEventBlob = false)
+    val template2Full: FullIdentifier = Identifier
       .assertFromString("PackageId1:ModuleName:template")
       .toFullIdentifier(packageRefName.name)
-    val template2Ref: Ref.TypeConRef = template2.toIdentifier.toRef
-    val template3: FullIdentifier = Identifier
+    val template2: NameTypeConRef = template2Full.toNameTypeConRef
+    val template2Ref: Ref.TypeConRef = template2Full.toIdentifier.toRef
+    val template3Full: FullIdentifier = Identifier
       .assertFromString("PackageId1:ModuleName:template3")
       .toFullIdentifier(packageRefName.name)
-    val template3Ref: Ref.TypeConRef = template3.toIdentifier.toRef
-    val id: FullIdentifier =
-      Identifier.assertFromString("PackageId:ModuleName:id").toFullIdentifier(packageRefName.name)
+    val template3: NameTypeConRef = template3Full.toNameTypeConRef
+    val template3Ref: Ref.TypeConRef = template3Full.toIdentifier.toRef
+    val id: NameTypeConRef =
+      NameTypeConRef.assertFromString(s"$packageRefName:ModuleName:id")
     val iface1: FullIdentifier = Identifier
       .assertFromString("PackageId:ModuleName:iface1")
       .toFullIdentifier(packageRefName.name)
@@ -1111,25 +1114,25 @@ object EventProjectionPropertiesSpec {
     val noInterface: FullIdentifier => Set[FullIdentifier] = _ => Set.empty[FullIdentifier]
     val noTemplatesForPackageName: TypeConRef => Set[FullIdentifier] =
       Map(
-        template1Ref -> Set(template1),
-        template2Ref -> Set(template2),
-        template3Ref -> Set(template3),
+        template1Ref -> Set(template1Full),
+        template2Ref -> Set(template2Full),
+        template3Ref -> Set(template3Full),
         iface1Ref -> Set(iface1),
         iface2Ref -> Set(iface2),
       )
     val templatesForPackageName: TypeConRef => Set[FullIdentifier] =
       Map(
-        template1Ref -> Set(template1),
-        template2Ref -> Set(template2),
+        template1Ref -> Set(template1Full),
+        template2Ref -> Set(template2Full),
         iface1Ref -> Set(iface1),
         iface2Ref -> Set(iface2),
-        packageNameScopedTemplate -> Set(template1, template2),
+        packageNameScopedTemplate -> Set(template1Full, template2Full),
         packageNameScopedIface1 -> Set(iface1),
       )
 
     val interfaceImpl: FullIdentifier => Set[FullIdentifier] = {
-      case `iface1` => Set(template1)
-      case `iface2` => Set(template1, template2, template3)
+      case `iface1` => Set(template1Full)
+      case `iface2` => Set(template1Full, template2Full, template3Full)
       case _ => Set.empty
     }
     val party: Party = Party.assertFromString("party")

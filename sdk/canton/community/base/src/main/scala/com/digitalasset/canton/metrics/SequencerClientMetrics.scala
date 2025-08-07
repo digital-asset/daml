@@ -56,6 +56,11 @@ class SequencerClientHistograms(basePrefix: MetricName)(implicit
 
 }
 
+final case class SequencingTimeMetrics(
+    delay: Gauge[Long],
+    lastSequencingTime: Gauge[Long],
+)
+
 class SequencerClientMetrics(
     histograms: SequencerClientHistograms,
     val metricsFactory: LabeledMetricsFactory,
@@ -103,16 +108,37 @@ class SequencerClientMetrics(
       0L,
     )
 
-    private val connectionDelayMetrics: TrieMap[SequencerAlias, Eval[Gauge[Long]]] =
-      TrieMap.empty[SequencerAlias, Eval[Gauge[Long]]]
+    val lastSequencingTime: Gauge[Long] = metricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "last-sequencing-time-micros",
+        summary =
+          "The sequencing time of the last processed event in microseconds since unix epoch",
+        description = """Every message received from the sequencer carries a timestamp that was assigned
+                      |by the sequencer when it sequenced the message. This timestamp is called the sequencing timestamp.
+                      |The component receiving the message on the participant or mediator is the sequencer client,
+                      |while on the block sequencer itself, it's the block update generator.
+                      |Upon having received the same message from enough sequencers (as configured by the trust threshold),
+                      |this metric is updated with the sequencing time of that message.""",
+        qualification = MetricQualification.Debug,
+      ),
+      0L,
+    )
 
-    def connectionDelay(alias: SequencerAlias): Gauge[Long] = {
-      def createConnectionDelayGauge: Gauge[Long] = metricsFactory.gauge(
-        MetricInfo(
-          prefix :+ "delay-per-connection",
-          summary =
-            "The delay on receiving an event over the given sequencer connection in milliseconds",
-          description = """Every message received from the sequencer carries a timestamp that was assigned
+    val sequencingTimeMetrics: SequencingTimeMetrics =
+      SequencingTimeMetrics(delay, lastSequencingTime)
+
+    private val connectionMetrics: TrieMap[SequencerAlias, Eval[SequencingTimeMetrics]] =
+      TrieMap.empty[SequencerAlias, Eval[SequencingTimeMetrics]]
+
+    def connectionMetrics(alias: SequencerAlias): SequencingTimeMetrics = {
+      def createConnectionMetrics: SequencingTimeMetrics = {
+        val connectionContext = context.withExtraLabels("sequencer" -> alias.unwrap)
+        val delay = metricsFactory.gauge(
+          MetricInfo(
+            prefix :+ "delay-per-connection",
+            summary =
+              "The delay on receiving an event over the given sequencer connection in milliseconds",
+            description = """Every message received from the sequencer carries a timestamp that was assigned
               |by the sequencers when they sequenced the message. This timestamp is called the sequencing timestamp.
               |The component receiving the message on the participant or mediator is the sequencer client.
               |Upon receiving the message, the sequencer client compares the time difference between the
@@ -124,16 +150,33 @@ class SequencerClientMetrics(
               |catch up with events that the sequencers sequenced a while ago.
               |This can happen after having been offline for a while or if the node is
               |too slow to keep up with the messaging load.""",
-          qualification = MetricQualification.Debug,
-        ),
-        0L,
-      )(context.withExtraLabels("sequencer" -> alias.unwrap))
+            qualification = MetricQualification.Debug,
+          ),
+          0L,
+        )(connectionContext)
+        val lastSequencingTime = metricsFactory.gauge(
+          MetricInfo(
+            prefix :+ "last-sequencing-time-micros-per-connection",
+            summary = "The sequencing time of the last processed event in microseconds",
+            description = """Every message received from the sequencer carries a timestamp that was assigned
+              |by the sequencers when they sequenced the message. This timestamp is called the sequencing timestamp.
+              |The component receiving the message on the participant or mediator is the sequencer client.
+              |Upon receiving the message, this metric is updated.""",
+            qualification = MetricQualification.Debug,
+          ),
+          0L,
+        )(connectionContext)
+        SequencingTimeMetrics(
+          delay = delay,
+          lastSequencingTime = lastSequencingTime,
+        )
+      }
 
       // Two concurrent calls with the same synchronizer alias may cause getOrElseUpdate to evaluate the new value expression twice,
       // even though only one of the results will be stored in the map.
       // Eval.later ensures that we actually create only one instance of ConnectedSynchronizerMetrics in such a case
       // by delaying the creation until the getOrElseUpdate call has finished.
-      connectionDelayMetrics.getOrElseUpdate(alias, Eval.later(createConnectionDelayGauge)).value
+      connectionMetrics.getOrElseUpdate(alias, Eval.later(createConnectionMetrics)).value
     }
 
     val actualInFlightEventBatches: Counter =

@@ -21,7 +21,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
+import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -997,7 +997,7 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit contextualizedErrorLogger: ErrorLoggingContext): Option[InternalEventFormat] = {
-    val templateFilter: Map[Identifier, Option[Set[Party]]] =
+    val templateFilter: Map[NameTypeConRef, Option[Set[Party]]] =
       IndexServiceImpl.templateFilter(metadata, eventFormat)
 
     val templateWildcardFilter: Option[Set[Party]] =
@@ -1056,18 +1056,18 @@ object IndexServiceImpl {
   private def templateIds(
       metadata: PackageMetadata,
       cumulativeFilter: CumulativeFilter,
-  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[Identifier] = {
+  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[NameTypeConRef] = {
     val fromInterfacesDefs = cumulativeFilter.interfaceFilters.view
       .map(_.interfaceTypeRef)
       .flatMap(metadata.resolveTypeConRef)
       .flatMap(interfacesImplementedByWithUpgrades(metadata, _).view)
-      .map(_.toIdentifier)
+      .map(_.toNameTypeConRef)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view
       .map(_.templateTypeRef)
       .flatMap(metadata.resolveTypeConRef)
-      .map(_.toIdentifier)
+      .map(_.toNameTypeConRef)
 
     fromInterfacesDefs ++ fromTemplateDefs
   }
@@ -1077,9 +1077,9 @@ object IndexServiceImpl {
       eventFormat: EventFormat,
   )(implicit
       contextualizedErrorLogger: ErrorLoggingContext
-  ): Map[Identifier, Option[Set[Party]]] = {
+  ): Map[NameTypeConRef, Option[Set[Party]]] = {
     val templatesFilterByParty =
-      eventFormat.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {
+      eventFormat.filtersByParty.view.foldLeft(Map.empty[NameTypeConRef, Option[Set[Party]]]) {
         case (acc, (party, cumulativeFilter)) =>
           templateIds(metadata, cumulativeFilter).foldLeft(acc) { case (acc, templateId) =>
             val updatedPartySet = acc.getOrElse(templateId, Some(Set.empty[Party])).map(_ + party)
@@ -1088,9 +1088,9 @@ object IndexServiceImpl {
       }
 
     // templates filter for all the parties
-    val templatesFilterForAnyParty: Map[Identifier, Option[Set[Party]]] =
+    val templatesFilterForAnyParty: Map[NameTypeConRef, Option[Set[Party]]] =
       eventFormat.filtersForAnyParty
-        .fold(Set.empty[Identifier])(templateIds(metadata, _))
+        .fold(Set.empty[NameTypeConRef])(templateIds(metadata, _))
         .map((_, None))
         .toMap
 

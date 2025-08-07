@@ -26,7 +26,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
-  DefaultDeserializationError,
+  CryptoValidationError,
   DeterministicEncoding,
   HasCryptographicEvidence,
   ProtoConverter,
@@ -34,6 +34,7 @@ import com.digitalasset.canton.serialization.{
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.{
   HasVersionedMessageCompanion,
   HasVersionedMessageCompanionDbHelpers,
@@ -540,12 +541,18 @@ object SignatureDelegation {
   ): ParsingResult[SignatureDelegation] =
     for {
       scheme <- SigningKeySpec.fromProtoEnum("session_key_spec", signatureP.sessionKeySpec)
-      sessionKey <- SigningPublicKey.create(
-        CryptoKeyFormat.DerX509Spki,
-        signatureP.sessionKey,
-        scheme,
-        SigningKeyUsage.ProtocolOnly,
-      )
+      sessionKey <- SigningPublicKey
+        .create(
+          CryptoKeyFormat.DerX509Spki,
+          signatureP.sessionKey,
+          scheme,
+          SigningKeyUsage.ProtocolOnly,
+        )
+        .leftMap(err =>
+          ProtoDeserializationError.CryptoDeserializationError(
+            CryptoValidationError(err.show)
+          )
+        )
       fromInclusive <-
         CantonTimestamp.fromProtoPrimitive(
           signatureP.validityPeriodFromInclusive
@@ -1172,23 +1179,13 @@ object SigningKeyPair {
       privateKeyBytes: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SigningKeyGenerationError, SigningKeyPair] = {
+  ): Either[SigningKeyCreationError, SigningKeyPair] = {
     val usageUpdate = SigningKeyUsage.addProofOfOwnership(usage)
     for {
       publicKey <- SigningPublicKey
         .create(publicFormat, publicKeyBytes, keySpec, usageUpdate)
-        .leftMap[SigningKeyGenerationError](err =>
-          SigningKeyGenerationError.GeneralError(
-            new IllegalStateException(s"Failed to create public signing key: $err")
-          )
-        )
       privateKey <- SigningPrivateKey
         .create(publicKey.id, privateFormat, privateKeyBytes, keySpec, usageUpdate)
-        .leftMap[SigningKeyGenerationError](err =>
-          SigningKeyGenerationError.GeneralError(
-            new IllegalStateException(s"Failed to create private signing key: $err")
-          )
-        )
     } yield SigningKeyPair.create(publicKey, privateKey)
   }
 
@@ -1238,12 +1235,11 @@ final case class SigningPublicKey private (
   override protected def companionObj: SigningPublicKey.type = SigningPublicKey
 
   // TODO(#15649): Make SigningPublicKey object invariant
-  protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
+  protected def validated: Either[SigningKeyCreationError.KeyParseAndValidateError, this.type] =
     CryptoKeyValidation
       .parseAndValidatePublicKey(
         this,
-        errMsg =>
-          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(errMsg)),
+        errMsg => SigningKeyCreationError.KeyParseAndValidateError(errMsg),
       )
       .map(_ => this)
 
@@ -1368,21 +1364,15 @@ object SigningPublicKey
       key: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
+  ): Either[SigningKeyCreationError, SigningPublicKey] =
     for {
-      _ <- Either
-        .cond(
+      _ <- EitherUtil
+        .condUnit(
           SigningKeyUsage.isUsageValid(usage),
-          (),
-          s"Invalid usage $usage",
+          SigningKeyCreationError.InvalidKeyUsage(usage),
         )
-        .leftMap(err =>
-          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
-        )
-      dataForFingerprintO <- getDataForFingerprint(keySpec, format, key).leftMap(err =>
-        ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
-      )
-
+      dataForFingerprintO <- getDataForFingerprint(keySpec, format, key)
+        .leftMap(err => SigningKeyCreationError.KeyParseAndValidateError(err.show))
       keyBeforeMigration = SigningPublicKey(
         format,
         key,
@@ -1394,9 +1384,7 @@ object SigningPublicKey
       )()
       keyAfterMigrationO <- keyBeforeMigration
         .migrate()
-        .leftMap(err =>
-          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
-        )
+        .leftMap(err => SigningKeyCreationError.KeyParseAndValidateError(err.show))
       keyAfterMigration = keyAfterMigrationO match {
         case None => keyBeforeMigration
         case Some(migratedKey) if migratedKey.id == keyBeforeMigration.id =>
@@ -1421,12 +1409,18 @@ object SigningPublicKey
         publicKeyP.scheme,
       )
       usage <- SigningKeyUsage.fromProtoListWithDefault(publicKeyP.usage)
-      signingPublicKey <- SigningPublicKey.create(
-        format,
-        publicKeyP.publicKey,
-        keySpec,
-        usage,
-      )
+      signingPublicKey <- SigningPublicKey
+        .create(
+          format,
+          publicKeyP.publicKey,
+          keySpec,
+          usage,
+        )
+        .leftMap[ProtoDeserializationError](err =>
+          ProtoDeserializationError.CryptoDeserializationError(
+            CryptoValidationError(err.toString)
+          )
+        )
     } yield signingPublicKey
 
   def collect(initialKeys: Map[Member, Seq[PublicKey]]): Map[Member, Seq[SigningPublicKey]] =
@@ -1473,6 +1467,14 @@ final case class SigningPrivateKey private (
   require(SigningKeyUsage.isUsageValid(usage), s"Invalid usage $usage")
 
   override protected def companionObj: SigningPrivateKey.type = SigningPrivateKey
+
+  protected def validated: Either[SigningKeyCreationError.KeyParseAndValidateError, this.type] =
+    CryptoKeyValidation
+      .parseAndValidatePrivateKey(
+        this,
+        errMsg => SigningKeyCreationError.KeyParseAndValidateError(errMsg),
+      )
+      .map(_ => this)
 
   def toProtoV30: v30.SigningPrivateKey =
     v30.SigningPrivateKey(
@@ -1545,8 +1547,13 @@ final case class SigningPrivateKey private (
     }
 
   @VisibleForTesting
-  def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPrivateKey =
+  private[crypto] def replaceUsage(usage: NonEmpty[Set[SigningKeyUsage]]): SigningPrivateKey =
     this.copy(usage = usage)(migrated)
+
+  @VisibleForTesting
+  private[crypto] def replaceFormat(format: CryptoKeyFormat): SigningPrivateKey =
+    this.copy(format = format)(migrated)
+
 }
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
@@ -1566,26 +1573,25 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
       key: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPrivateKey] =
-    Either.cond(
-      SigningKeyUsage.isUsageValid(usage), {
-        val keyBeforeMigration = SigningPrivateKey(
-          id,
-          format,
-          key,
-          keySpec,
-          // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
-          // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
-          SigningKeyUsage.addProofOfOwnership(usage),
-        )()
-
-        val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
-        keyAfterMigration
-      },
-      ProtoDeserializationError.CryptoDeserializationError(
-        DefaultDeserializationError(s"Invalid usage $usage")
-      ),
-    )
+  ): Either[SigningKeyCreationError, SigningPrivateKey] =
+    for {
+      _ <- EitherUtil
+        .condUnit(
+          SigningKeyUsage.isUsageValid(usage),
+          SigningKeyCreationError.InvalidKeyUsage(usage),
+        )
+      keyBeforeMigration = SigningPrivateKey(
+        id,
+        format,
+        key,
+        keySpec,
+        // if a key is something else than a namespace or identity delegation, then it can be used to sign itself to
+        // prove ownership for OwnerToKeyMapping and PartyToKeyMapping requests.
+        SigningKeyUsage.addProofOfOwnership(usage),
+      )()
+      keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+      validatedKey <- keyAfterMigration.validated
+    } yield validatedKey
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -1599,7 +1605,13 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
         privateKeyP.scheme,
       )
       usage <- SigningKeyUsage.fromProtoListWithDefault(privateKeyP.usage)
-      key <- SigningPrivateKey.create(id, format, privateKeyP.privateKey, keySpec, usage)
+      key <- SigningPrivateKey
+        .create(id, format, privateKeyP.privateKey, keySpec, usage)
+        .leftMap(err =>
+          ProtoDeserializationError.CryptoDeserializationError(
+            CryptoValidationError(err.show)
+          )
+        )
     } yield key
 
 }
@@ -1692,6 +1704,11 @@ object SigningError {
   }
 }
 
+/** Errors that happen when generating new signing keys.
+  *
+  * This means creating key material from scratch. Different from errors that happen when creating
+  * keys from existing key material.
+  */
 sealed trait SigningKeyGenerationError extends Product with Serializable with PrettyPrinting
 object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
 
@@ -1716,9 +1733,10 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
     )
   }
 
-  final case class NameInvalidError(error: String) extends SigningKeyGenerationError {
-    override protected def pretty: Pretty[NameInvalidError] = prettyOfClass(
-      unnamedParam(_.error.unquoted)
+  final case class KeyCreationError(error: SigningKeyCreationError)
+      extends SigningKeyGenerationError {
+    override protected def pretty: Pretty[KeyCreationError] = prettyOfParam(
+      _.error
     )
   }
 
@@ -1745,6 +1763,27 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
     )
   }
 
+}
+
+/** Errors that happen when creating signing keys from existing key material.
+  *
+  * This includes parsing, validating, or checking the key data. Different from errors that happen
+  * during key generation (creating new key material).
+  */
+sealed trait SigningKeyCreationError extends Product with Serializable with PrettyPrinting
+object SigningKeyCreationError {
+  final case class InvalidKeyUsage(
+      keyUsage: Set[SigningKeyUsage]
+  ) extends SigningKeyCreationError {
+    override def pretty: Pretty[InvalidKeyUsage] = prettyOfClass(
+      param("keyUsage", _.keyUsage)
+    )
+  }
+  final case class KeyParseAndValidateError(error: String) extends SigningKeyCreationError {
+    override protected def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
+  }
 }
 
 sealed trait SignatureCheckError extends Product with Serializable with PrettyPrinting

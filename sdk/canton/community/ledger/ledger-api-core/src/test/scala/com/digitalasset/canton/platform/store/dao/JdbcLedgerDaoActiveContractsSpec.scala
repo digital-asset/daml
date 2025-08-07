@@ -127,8 +127,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         ledgerDao.updateReader
           .getActiveContracts(
             activeAt = ledgerEnd.map(_.lastOffset),
-            filter =
-              TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(party1))), Some(Set.empty)),
+            filter = TemplatePartiesFilter(
+              Map(otherTemplateIdFull.toNameTypeConRef -> Some(Set(party1))),
+              Some(Set.empty),
+            ),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               witnessTemplateProjections =
@@ -164,7 +166,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                otherTemplateId -> Some(Set(party1, party2))
+                otherTemplateIdFull.toNameTypeConRef -> Some(Set(party1, party2))
               ),
               Some(Set.empty),
             ),
@@ -212,7 +214,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                otherTemplateId2 -> None
+                otherTemplateId2Full.toNameTypeConRef -> None
               ),
               Some(Set.empty),
             ),
@@ -260,8 +262,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1)),
-                otherTemplateId -> Some(Set(party2)),
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1)),
+                otherTemplateIdFull.toNameTypeConRef -> Some(Set(party2)),
               ),
               Some(Set.empty),
             ),
@@ -309,8 +311,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                otherTemplateId3 -> None,
-                otherTemplateId4 -> None,
+                otherTemplateId3Full.toNameTypeConRef -> None,
+                otherTemplateId4Full.toNameTypeConRef -> None,
               ),
               Some(Set.empty),
             ),
@@ -354,7 +356,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1))
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1))
               ),
               Some(Set(party2)),
             ),
@@ -401,7 +403,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
-                otherTemplateId5 -> None
+                otherTemplateId5Full.toNameTypeConRef -> None
               ),
               templateWildcardParties = Some(Set(party2)),
             ),
@@ -456,7 +458,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1))
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1))
               ),
               Some(Set(party2)),
             ),
@@ -474,7 +476,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1))
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1))
               ),
               Some(Set(party2, unknownParty)),
             ),
@@ -492,8 +494,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1)),
-                unknownTemplate -> Some(Set(party1)),
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1)),
+                unknownTemplateFull.toNameTypeConRef -> Some(Set(party1)),
               ),
               Some(Set(party2)),
             ),
@@ -514,8 +516,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
-                someTemplateId -> Some(Set(party1)),
-                unknownTemplate -> None,
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1)),
+                unknownTemplateFull.toNameTypeConRef -> None,
               ),
               templateWildcardParties = Some(Set(party2)),
             ),
@@ -538,8 +540,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                someTemplateId -> Some(Set(party1)),
-                unknownTemplate -> Some(Set(party1)),
+                someTemplateIdFull.toNameTypeConRef -> Some(Set(party1)),
+                unknownTemplateFull.toNameTypeConRef -> Some(Set(party1)),
               ),
               Some(Set(party2, unknownParty)),
             ),
@@ -560,7 +562,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             activeAt = ledgerEnd.map(_.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
-                unknownTemplate -> Some(Set(unknownParty))
+                unknownTemplateFull.toNameTypeConRef -> Some(Set(unknownParty))
               ),
               Some(Set.empty),
             ),

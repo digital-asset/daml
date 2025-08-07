@@ -522,8 +522,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             sequencingTimestamp,
             submissionTopologyTimestamp,
             crypto,
-            logger,
-          )
+          )(loggingContext, ec)
 
         case Seq() =>
           // This can only happen if there are no root hash messages.

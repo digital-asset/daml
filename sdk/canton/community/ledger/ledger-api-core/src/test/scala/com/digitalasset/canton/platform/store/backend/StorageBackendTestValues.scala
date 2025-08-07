@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
+import com.digitalasset.canton.ledger.api.Ref2.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.canton.ledger.api.{ParticipantId, Ref2}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -50,11 +50,10 @@ private[store] object StorageBackendTestValues {
   val someParticipantId: ParticipantId = ParticipantId(
     Ref.ParticipantId.assertFromString("participant")
   )
-  val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("pkg-name")
-  val someTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template")
-  val someTemplateIdFull: Ref2.FullIdentifier = someTemplateId.toFullIdentifier(somePackageName)
-  val someTemplateId2: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template2")
-  val someTemplateId3: Ref.Identifier = Ref.Identifier.assertFromString("pkg:Mod:Template3")
+  val somePackageId: Ref.PackageId = Ref.PackageId.assertFromString("pkg")
+  val someTemplateId: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template")
+  val someTemplateIdFull: Ref2.FullIdentifier = someTemplateId.toFullIdentifier(somePackageId)
+  val someTemplateId2: NameTypeConRef = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
   val someIdentityParams: ParameterStorageBackend.IdentityParams =
     ParameterStorageBackend.IdentityParams(someParticipantId)
   val someParty: Ref.Party = Ref.Party.assertFromString("party")
@@ -128,7 +127,7 @@ private[store] object StorageBackendTestValues {
       node_id = 0,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
-      package_name = somePackageName.toString,
+      package_id = somePackageId.toString,
       flat_event_witnesses = stakeholders,
       tree_event_witnesses = informees,
       create_argument = someSerializedDamlLfValue,
@@ -181,7 +180,7 @@ private[store] object StorageBackendTestValues {
       node_id = 0,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
-      package_name = somePackageName,
+      package_id = somePackageId,
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
       create_key_value = None,
@@ -225,7 +224,7 @@ private[store] object StorageBackendTestValues {
       node_id = nodeId,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
-      package_name = somePackageName.toString,
+      package_id = somePackageId.toString,
       flat_event_witnesses = Set(signatory, observer),
       create_argument = someSerializedDamlLfValue,
       create_signatories = Set(signatory),
@@ -270,7 +269,7 @@ private[store] object StorageBackendTestValues {
       node_id = nodeId,
       contract_id = contractId.toBytes.toByteArray,
       template_id = someTemplateId.toString,
-      package_name = somePackageName,
+      package_id = somePackageId,
       flat_event_witnesses = Set(signatory, observer),
       event_sequential_id = eventSequentialId,
       source_synchronizer_id = sourceSynchronizerId,
@@ -366,7 +365,7 @@ private[store] object StorageBackendTestValues {
 
   def dtoCreateFilter(
       event_sequential_id: Long,
-      template_id: Ref.Identifier,
+      template_id: NameTypeConRef,
       party_id: String,
   ): DbDto.IdFilterCreateStakeholder =
     DbDto.IdFilterCreateStakeholder(event_sequential_id, template_id.toString, party_id)

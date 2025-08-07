@@ -437,7 +437,7 @@ final class LfValueTranslation(
       loggingContext: LoggingContextWithTrace,
   ): Future[ApiContractData] = {
     val renderResult =
-      eventProjectionProperties.render(witnesses, templateId)
+      eventProjectionProperties.render(witnesses, templateId.toNameTypeConRef)
     val verbose = eventProjectionProperties.verbose
     def asyncContractArguments =
       enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId.toIdentifier, _))
@@ -504,7 +504,7 @@ final class LfValueTranslation(
       witnessParties: Set[String],
       templateId: FullIdentifier,
   ): Seq[value.Identifier] = eventProjectionProperties
-    .render(witnessParties, templateId)
+    .render(witnessParties, templateId.toNameTypeConRef)
     .interfaces
     .view
     .map(_.toIdentifier)

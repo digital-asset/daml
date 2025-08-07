@@ -47,11 +47,11 @@ final case class EventProjectionProperties(
     //       regular argument list
     val interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade
 ) {
-  def render(witnesses: Set[String], templateId: FullIdentifier): Projection =
+  def render(witnesses: Set[String], templateId: NameTypeConRef): Projection =
     (witnesses.iterator.map(Some(_))
       ++ Iterator(None)) // for the party-wildcard template specific projections)
       .flatMap(witnessTemplateProjections.get(_).iterator)
-      .flatMap(_.get(templateId.toNameTypeConRef).iterator)
+      .flatMap(_.get(templateId).iterator)
       .foldLeft(
         Projection(
           createdEventBlob = templateWildcardCreatedEventBlobParties

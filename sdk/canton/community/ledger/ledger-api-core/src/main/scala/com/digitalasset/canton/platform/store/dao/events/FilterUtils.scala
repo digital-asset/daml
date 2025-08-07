@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.platform.{Identifier, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
+import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 
-final case class DecomposedFilter(party: Option[Party], templateId: Option[Identifier])
+final case class DecomposedFilter(party: Option[Party], templateId: Option[NameTypeConRef])
 
 object FilterUtils {
   def decomposeFilters(filter: TemplatePartiesFilter): Seq[DecomposedFilter] = {
