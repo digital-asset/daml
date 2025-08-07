@@ -1,59 +1,41 @@
-Unifi
+Enterprise Suite for Canton
 #####
 
-.. wip::
-   * CREATE A VIDEO / ANIMATED RECORDING
-     
-   * REVIEW the open source vs enterprise split.
-     right now its very canton focused.
-     zero about utilties
-
-   * Review the downloading section.
-     Add CN artifacts if there are any offerings on that,
-     refer to https://docs.sync.global/ for OSS docs
-
-
 ..
-  What is Unifi?
+  Digital Asset’s Enterprise Products
   **************
+
+  Digital Asset offers an enterprise distribution of Canton as well as complementary
+    application modules and services geared towards helping institutions bring robust
+    financial assets, applications and services to Canton Network quickly. The offering
+    includes tooling to:
+  
+  **Connect**: An enterprise grade validator node distribution with additional reliability
+    and security features like high availability deployments and KMS integrations.
+  
+  **Build**: Additional integration components like PQS and Shell offer developers a faster
+    path to high scale applications.
+  
+  **DA Utilities**: Composable modules and ready-to-go services on the network take care of
+    the core of tokenization-related builds for Canton network
+  
+  **Subnets**: Enterprise grade infrastructure components for running private subnets of
+    Canton Network give institutions additional independence and controls needed to bring
+    some use cases to Canton Network at scale.
+
+  **Support**: 24x7x365 SLA based support with escalation paths to the core developers of
+    the Canton blockchain.
   
   
-  Unifi is the enterprise platform built for all enterprises navigating the Canton Network.
-  It consists of ready-made solutions and services down to the infrastructure. Unifi provides
-  a set of tools and services that enable enterprises to build, deploy, and manage multi-party
-  applications on the Canton Network. It includes tokenization utilities, node infrastructure,
-  and network infrastructure.
-  
-  Unifi services and products are:
-  
-  **Tokenization Utilities**: These are tools and services that enable enterprises to create,
-  manage, and trade digital assets on the Canton Network. They provide a secure and efficient
-  way to tokenize real-world assets and facilitate their transfer between parties.
-  
-  **SDK**: The Software Development Kit (SDK) is a set of tools and libraries to allow developers
-  to build applications for the Canton Network. Whether you integrate with an existing application
-  or whether you build one from scratch, the SDK provides the necessary tools to get started.
-  
-  **Participant**: The Participant is a core component of the Canton Network. Participants
-  are the nodes that run the distributed applications and maintain the privacy preserving
-  state of the network. The Unifi Participant is an enterprise grade version of its open source
-  counterpart, providing the necessary additional features and support required by enterprises.
-  
-  **Synchronizer**: The synchronizer is a component of the Canton Network that enables new
-  networks to be created to extend the existing network infrastructure. The Unifi Synchronizer
-  2provides a set of highly available and highly performant synchronizers component that can be used
-  for high volume applications.
-  
-  
-  Unifi or Open Source
+  Enterprise or Open Source
   ********************
   
-  The Canton distributed ledger is included with Unifi, or available as open source. Which role the application takes
-  depends on the configuration. The main administration interface of the Canton application is the embedded console, which
-  is part of the application.
-  
-  Canton releases come in two variants: Open-Source or Enterprise. Both support the full Canton protocol, but differ in
-  terms of enterprise and non-functional capabilities:
+  All capabilities of the Canton blockchain are available using the Open Source distributions
+    of Canton and the Daml SDK. The enterprise distribution offers additional accelerators,
+    quality of life features, streamlined packaging, robustness and scalability enhancements,
+    and enterprise grade support which are essential for bridging mission critical use cases
+    to market fast. The differences and similarities are summarized below.
+    Please contact sales@digitalasset.com for more information.
   
   .. list-table:: Differences between Enterprise and Open Source Edition
       :widths: 50,25,25
@@ -100,7 +82,7 @@ Unifi
   
   .. _downloading:
   
-  Downloading Unifi
+  Obtaining The Enterprise Edition
   *****************
   
   Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
