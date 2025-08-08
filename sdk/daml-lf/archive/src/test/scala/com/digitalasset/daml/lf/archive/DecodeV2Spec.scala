@@ -1318,25 +1318,25 @@ class DecodeV2Spec
       ArchiveReader.fromFile(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
 
     lazy val extId = {
-      val dalf1 = pkgProto
-      val iix = dalf1
+      val dalf = pkgProto
+      val iix = dalf
         .getModules(0)
         .getValuesList
         .asScala
         .collectFirst {
           case dv
-              if dalf1.getInternedDottedNamesList
+              if dalf.getInternedDottedNamesList
                 .asScala(dv.getNameWithType.getNameInternedDname)
                 .getSegmentsInternedStrList
                 .asScala
                 .lastOption
-                .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
+                .map(x => dalf.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
             val pr = dv.getExpr.getVal.getModule.getPackageId
             pr.getSumCase shouldBe DamlLf2.SelfOrImportedPackageId.SumCase.IMPORTED_PACKAGE_ID_INTERNED_STR
             pr.getImportedPackageIdInternedStr
         }
         .value
-      dalf1.getInternedStringsList.asScala.lift(iix.toInt).value
+      dalf.getInternedStringsList.asScala.lift(iix.toInt).value
     }
 
     "take a dalf with interned IDs" in {
@@ -1344,7 +1344,7 @@ class DecodeV2Spec
       minorVersion.identifier should !==("dev")
 
       extId should not be empty
-      (extId: String) should !==(pkgId: String)
+      extId should !==(pkgId)
     }
 
     "decode resolving the interned package ID" in {
@@ -1353,9 +1353,13 @@ class DecodeV2Spec
         inside(
           pkg
             .modules(Ref.DottedName.assertFromString("DarReaderTest"))
-            .definitions(Ref.DottedName.assertFromString("reverseCopy"))
-        ) { case Ast.DValue(_, Ast.ELocation(_, Ast.EVal(Ref.Identifier(resolvedExtId, _)))) =>
-          (resolvedExtId: String) should ===(extId: String)
+            .definitions(Ref.DottedName.assertFromString("trueOrFalse"))
+        ) {
+          case Ast.DValue(
+                _,
+                Ast.ELocation(_, Ast.EApp(Ast.EVal(Ref.Identifier(resolvedExtId, _)), _)),
+              ) =>
+            (resolvedExtId: String) should ===(extId: String)
         }
       }
     }
