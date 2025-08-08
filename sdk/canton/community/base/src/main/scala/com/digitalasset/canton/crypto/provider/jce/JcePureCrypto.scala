@@ -33,8 +33,6 @@ import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
-import org.bouncycastle.asn1.ASN1OctetString
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
@@ -157,7 +155,7 @@ class JcePureCrypto(
   /** Converts a public key to a java public key. We store the deserialization result in a cache.
     *
     * @return
-    *   Either an error or the converted java private key
+    *   Either an error or the converted java public key
     */
   private def toJavaPublicKey[E, T <: JPublicKey](
       publicKey: PublicKey,
@@ -165,7 +163,7 @@ class JcePureCrypto(
       errFn: String => E,
   ): Either[E, T] =
     for {
-      publicKey <- javaPublicKeyCache
+      javaPublicKey <- javaPublicKeyCache
         .get(
           publicKey.id,
           _ =>
@@ -176,57 +174,63 @@ class JcePureCrypto(
               ),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${publicKey.format} public key: $err"))
-      checkedPublicKey <- typeMatcher(publicKey)
+      checkedPublicKey <- typeMatcher(javaPublicKey)
     } yield checkedPublicKey
 
-  /** Parses and converts a private key. We store the deserialization result in a cache.
+  /** Converts a private key to a java private key. We store the deserialization result in a cache.
     *
-    * For Ed25519 private keys, the raw key bytes are extracted directly from the PKCS #8 encoding
-    * because Tink's `Ed25519Sign` primitive expects raw private keys rather than java private keys.
-    * For other key types, the private key is converted to a JPrivateKey.
+    * @return
+    *   Either an error or the converted java private key
+    */
+  private def toJavaPrivateKey[E, T <: JPrivateKey](
+      privateKey: PrivateKey,
+      typeMatcher: PartialFunction[JPrivateKey, Either[E, T]],
+      errFn: String => E,
+  ): Either[E, T] =
+    for {
+      privateKeyE <- javaPrivateKeyCache
+        .get(
+          privateKey.id,
+          _ =>
+            JceJavaKeyConverter
+              .toJava(privateKey)
+              .leftMap(err =>
+                KeyParseAndValidateError(s"Failed to convert private key to java key: ${err.show}")
+              )
+              .map(Right(_)),
+        )
+        .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
+      checkedPrivateKey <- privateKeyE match {
+        case Left(_) => Left(errFn(s"Expected java private key but got raw key bytes"))
+        case Right(javaPrivateKey) => typeMatcher(javaPrivateKey)
+      }
+    } yield checkedPrivateKey
+
+  /** Parses and converts a private key. We store the deserialization result in a cache. The raw key
+    * bytes are extracted directly from the PKCS #8 encoding.
     *
     * @return
     *   Either an error or the converted key
     */
-  private def parseAndGetPrivateKey[E, T](
+  private def parseAndGetRawPrivateKey[E, T](
       privateKey: PrivateKey,
-      checker: PartialFunction[Either[ByteString, JPrivateKey], Either[E, T]],
+      typeMatcher: PartialFunction[ByteString, Either[E, T]],
       errFn: String => E,
   ): Either[E, T] =
     for {
-      privateKey <- javaPrivateKeyCache
+      privateKeyE <- javaPrivateKeyCache
         .get(
           privateKey.id,
           _ =>
-            privateKey match {
-              case ed25519Key @ SigningPrivateKey(_, _, _, SigningKeySpec.EcCurve25519, _) =>
-                Either
-                  .catchOnly[IllegalArgumentException] {
-                    val privateKeyInfo = PrivateKeyInfo.getInstance(ed25519Key.key.toByteArray)
-                    Left[ByteString, JPrivateKey](
-                      ByteString.copyFrom(
-                        ASN1OctetString
-                          .getInstance(privateKeyInfo.getPrivateKey.getOctets)
-                          .getOctets
-                      )
-                    )
-                  }
-                  .leftMap(err =>
-                    KeyParseAndValidateError(show"Failed to parse PKCS #8 format: $err")
-                  )
-              case _ =>
-                JceJavaKeyConverter
-                  .toJava(privateKey)
-                  .map(Right[ByteString, JPrivateKey])
-                  .leftMap(err =>
-                    KeyParseAndValidateError(
-                      s"Failed to convert private key to java key: ${err.show}"
-                    )
-                  )
-            },
+            CryptoKeyFormat
+              .extractPrivateKeyFromPkcs8Pki(privateKey.key)
+              .map(rawPrivKey => Left(ByteString.copyFrom(rawPrivKey))),
         )
         .leftMap(err => errFn(s"Failed to deserialize ${privateKey.format} private key: $err"))
-      checkedPrivateKey <- checker(privateKey)
+      checkedPrivateKey <- privateKeyE match {
+        case Left(rawKeyBytes) => typeMatcher(rawKeyBytes)
+        case Right(_) => Left(errFn(s"Expected raw key bytes but got a java private key"))
+      }
     } yield checkedPrivateKey
 
   private def encryptAes128Gcm(
@@ -288,9 +292,9 @@ class JcePureCrypto(
       hashType: HashType,
   )(implicit traceContext: TraceContext): Either[SigningError, PublicKeySign] =
     for {
-      ecPrivateKey <- parseAndGetPrivateKey(
+      ecPrivateKey <- toJavaPrivateKey(
         signingKey,
-        { case Right(k: ECPrivateKey) => Right(k) },
+        { case k: ECPrivateKey => Right(k) },
         SigningError.InvalidSigningKey.apply,
       )
       signer <- {
@@ -396,9 +400,10 @@ class JcePureCrypto(
 
   private def edDsaSigner(signingKey: SigningPrivateKey): Either[SigningError, PublicKeySign] =
     for {
-      edPrivateKey <- parseAndGetPrivateKey(
+      // Extract the Ed25519 raw key bytes directly from the PKCS #8 encoding
+      edPrivateKey <- parseAndGetRawPrivateKey(
         signingKey,
-        { case Left(k) => Right(k) },
+        { case k => Right(k) },
         SigningError.InvalidSigningKey.apply,
       )
       signer <- Either
@@ -443,27 +448,19 @@ class JcePureCrypto(
     scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         val key128 = generateRandomByteString(scheme.keySizeInBytes)
-        Right(SymmetricKey(CryptoKeyFormat.Raw, key128, scheme))
+        SymmetricKey
+          .create(CryptoKeyFormat.Raw, key128, scheme)
+          .leftMap(EncryptionKeyGenerationError.KeyCreationError.apply)
     }
 
   override def createSymmetricKey(
       bytes: SecureRandomness,
       scheme: SymmetricKeyScheme,
-  ): Either[EncryptionKeyCreationError, SymmetricKey] = {
-    val randomnessLength = bytes.unwrap.size()
-    val keyLength = scheme.keySizeInBytes
-
-    for {
-      _ <- EitherUtil.condUnit(
-        randomnessLength == keyLength,
-        EncryptionKeyCreationError.InvalidRandomnessLength(randomnessLength, keyLength),
-      )
-      key = scheme match {
-        case SymmetricKeyScheme.Aes128Gcm =>
-          SymmetricKey(CryptoKeyFormat.Raw, bytes.unwrap, scheme)
-      }
-    } yield key
-  }
+  ): Either[EncryptionKeyCreationError, SymmetricKey] =
+    scheme match {
+      case SymmetricKeyScheme.Aes128Gcm =>
+        SymmetricKey.create(CryptoKeyFormat.Raw, bytes.unwrap, scheme)
+    }
 
   override protected[crypto] def signBytes(
       bytes: ByteString,
@@ -494,12 +491,6 @@ class JcePureCrypto(
           signingKey.id,
           SigningError.InvalidKeyUsage.apply,
         )
-      // TODO(#26423): private key format should be validated at key creation/deserialization
-      _ <- CryptoKeyValidation.ensureFormat(
-        signingKey.format,
-        Set(CryptoKeyFormat.DerPkcs8Pki),
-        SigningError.UnsupportedKeyFormat.apply,
-      )
       validAlgorithmSpec <- CryptoKeyValidation
         .selectSigningAlgorithmSpec(
           signingKey.keySpec,
@@ -599,29 +590,6 @@ class JcePureCrypto(
     } yield ()
   }
 
-  private def checkEcKeyInCurve[K <: ECKey](key: K, keyId: Fingerprint): Either[String, K] = {
-    val curve = EllipticCurves.getNistP256Params.getCurve
-    Either.cond(
-      key.getParams.getCurve.equals(curve),
-      key,
-      s"EC key $keyId is not a key in curve $curve",
-    )
-  }
-
-  private def checkRsaKeySize[K <: RSAKey](
-      key: K,
-      keyId: Fingerprint,
-      size: Int,
-  ): Either[String, K] = {
-    val keySizeInBits = key.getModulus.bitLength()
-    Either.cond(
-      keySizeInBits == size,
-      key,
-      s"RSA key $keyId does not have the correct size. " +
-        s"Expected: $size but got: $keySizeInBits.",
-    )
-  }
-
   private def encryptWithEciesP256HmacSha256Aes128Gcm[M <: HasToByteString](
       message: M,
       publicKey: EncryptionPublicKey,
@@ -714,22 +682,7 @@ class JcePureCrypto(
     for {
       rsaPublicKey <- toJavaPublicKey(
         publicKey,
-        { case k: RSAPublicKey =>
-          for {
-            size <- publicKey.keySpec match {
-              case EncryptionKeySpec.Rsa2048 => Right(EncryptionKeySpec.Rsa2048.keySizeInBits)
-              case wrongKeySpec =>
-                Left(
-                  EncryptionError.InvalidEncryptionKey(
-                    s"Expected a ${EncryptionKeySpec.Rsa2048} public key, but got a $wrongKeySpec public key instead"
-                  )
-                )
-            }
-            key <- checkRsaKeySize(k, publicKey.id, size).leftMap(err =>
-              EncryptionError.InvalidEncryptionKey(err)
-            )
-          } yield key
-        },
+        { case k: RSAPublicKey => Right(k) },
         EncryptionError.InvalidEncryptionKey.apply,
       )
       encrypter <- Either
@@ -861,18 +814,13 @@ class JcePureCrypto(
           DecryptionError.KeyAlgoSpecsMismatch(_, encrypted.encryptionAlgorithmSpec, _),
           DecryptionError.UnsupportedAlgorithmSpec.apply,
         )
-      // TODO(#26423): private key format should be validated at key creation/deserialization
       plaintext <-
         encrypted.encryptionAlgorithmSpec match {
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
             for {
-              ecPrivateKey <- parseAndGetPrivateKey(
+              ecPrivateKey <- toJavaPrivateKey(
                 privateKey,
-                // TODO(#26423): Remove once private key validation is implemented
-                { case Right(k: ECPrivateKey) =>
-                  checkEcKeyInCurve(k, privateKey.id)
-                    .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
-                },
+                { case k: ECPrivateKey => Right(k) },
                 DecryptionError.InvalidEncryptionKey.apply,
               )
               decrypter <- Either
@@ -900,13 +848,9 @@ class JcePureCrypto(
             } yield message
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
             for {
-              ecPrivateKey <- parseAndGetPrivateKey(
+              ecPrivateKey <- toJavaPrivateKey(
                 privateKey,
-                // TODO(#26423): Remove once private key validation is implemented
-                { case Right(k: ECPrivateKey) =>
-                  checkEcKeyInCurve(k, privateKey.id)
-                    .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
-                },
+                { case k: ECPrivateKey => Right(k) },
                 DecryptionError.InvalidEncryptionKey.apply,
               )
               /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
@@ -950,24 +894,9 @@ class JcePureCrypto(
             } yield message
           case EncryptionAlgorithmSpec.RsaOaepSha256 =>
             for {
-              rsaPrivateKey <- parseAndGetPrivateKey(
+              rsaPrivateKey <- toJavaPrivateKey(
                 privateKey,
-                { case Right(k: RSAPrivateKey) =>
-                  for {
-                    size <- privateKey.keySpec match {
-                      case EncryptionKeySpec.Rsa2048 =>
-                        Right(EncryptionKeySpec.Rsa2048.keySizeInBits)
-                      case wrongKeySpec =>
-                        Left(
-                          DecryptionError.InvalidEncryptionKey(
-                            s"Expected a ${EncryptionKeySpec.Rsa2048} private key, but got a $wrongKeySpec private key instead"
-                          )
-                        )
-                    }
-                    key <- checkRsaKeySize(k, privateKey.id, size)
-                      .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
-                  } yield key
-                },
+                { case k: RSAPrivateKey => Right(k) },
                 DecryptionError.InvalidEncryptionKey.apply,
               )
               decrypter <- Either
@@ -1007,15 +936,7 @@ class JcePureCrypto(
   ): Either[EncryptionError, ByteString] =
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
-        for {
-          // TODO(#26423): private key format should be validated at key creation/deserialization
-          _ <- CryptoKeyValidation.ensureFormat(
-            symmetricKey.format,
-            Set(CryptoKeyFormat.Raw),
-            EncryptionError.UnsupportedKeyFormat.apply,
-          )
-          ciphertext <- encryptAes128Gcm(data, symmetricKey.key)
-        } yield ciphertext
+        encryptAes128Gcm(data, symmetricKey.key)
     }
 
   override def decryptWith[M](encrypted: Encrypted[M], symmetricKey: SymmetricKey)(
@@ -1024,12 +945,6 @@ class JcePureCrypto(
     symmetricKey.scheme match {
       case SymmetricKeyScheme.Aes128Gcm =>
         for {
-          // TODO(#26423): key format should be validated at key creation/deserialization
-          _ <- CryptoKeyValidation.ensureFormat(
-            symmetricKey.format,
-            Set(CryptoKeyFormat.Raw),
-            DecryptionError.UnsupportedKeyFormat.apply,
-          )
           plaintext <- decryptAes128Gcm(encrypted.ciphertext, symmetricKey.key)
           message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize.apply)
         } yield message
@@ -1062,17 +977,19 @@ class JcePureCrypto(
         val keyBytes = new Array[Byte](keyLength)
         val keyLen = argon2.generateBytes(password.toCharArray, keyBytes)
 
-        val key =
-          SymmetricKey(CryptoKeyFormat.Raw, ByteString.copyFrom(keyBytes), symmetricKeyScheme)
-
-        Either.cond(
-          keyLen == keyLength,
-          PasswordBasedEncryptionKey(key = key, salt = salt),
-          PasswordBasedEncryptionError.PbkdfOutputLengthInvalid(
-            expectedLength = keyLength,
-            actualLength = keyLen,
-          ),
-        )
+        SymmetricKey
+          .create(CryptoKeyFormat.Raw, ByteString.copyFrom(keyBytes), symmetricKeyScheme)
+          .leftMap(PasswordBasedEncryptionError.KeyCreationError.apply)
+          .flatMap { key =>
+            Either.cond(
+              keyLen == keyLength,
+              PasswordBasedEncryptionKey(key = key, salt = salt),
+              PasswordBasedEncryptionError.PbkdfOutputLengthInvalid(
+                expectedLength = keyLength,
+                actualLength = keyLen,
+              ),
+            )
+          }
     }
 
 }

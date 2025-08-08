@@ -280,6 +280,7 @@ object Update {
     override protected def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
+        paramIfDefined("repairCounter", _.repairCounterO),
         param("updateId", _.updateId),
         param("transactionMeta", _.transactionMeta),
         paramIfDefined("completion", _.completionInfoO),
@@ -368,6 +369,7 @@ object Update {
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
+        paramIfDefined("repairCounter", _.repairCounterO),
         param("updateId", _.updateId),
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceSynchronizer),

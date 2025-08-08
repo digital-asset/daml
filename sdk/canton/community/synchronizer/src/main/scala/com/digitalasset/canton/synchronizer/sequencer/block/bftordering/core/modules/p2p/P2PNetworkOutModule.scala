@@ -10,9 +10,9 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+  PeerConnectionStatus,
   PeerEndpointHealth,
   PeerEndpointHealthStatus,
-  PeerEndpointStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
@@ -313,7 +313,7 @@ final class P2PNetworkOutModule[
           val defined = known.isDefined(endpointId)
           val connected = known.isConnected(endpointId)
           val maybeNodeId = known.getNode(endpointId)
-          PeerEndpointStatus(
+          PeerConnectionStatus.PeerEndpointIdStatus(
             endpointId,
             health = (defined, connected, maybeNodeId) match {
               case (false, _, _) =>

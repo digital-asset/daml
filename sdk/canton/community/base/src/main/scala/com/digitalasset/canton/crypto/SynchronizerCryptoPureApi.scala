@@ -17,8 +17,6 @@ import com.google.protobuf.ByteString
   * potentially use a downgraded scheme. For other methods, such as key generation, signing, or
   * encryption by this (honest) participant, we rely on the synchronizer handshake to ensure that
   * only supported schemes within the synchronizer are used.
-  *
-  * TODO(#25260): Refactor SynchronizerCryptoPureApi
   */
 final class SynchronizerCryptoPureApi(
     override val staticSynchronizerParameters: StaticSynchronizerParameters,

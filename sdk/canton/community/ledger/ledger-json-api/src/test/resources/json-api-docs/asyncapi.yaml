@@ -827,6 +827,7 @@ components:
       - createdEventBlob
       - createdAt
       - packageName
+      - acsDelta
       properties:
         offset:
           description: |-
@@ -941,6 +942,12 @@ components:
             The package name of the created contract.
             Required
           type: string
+        acsDelta:
+          description: |-
+            Whether this event would be part of respective ACS_DELTA shaped stream,
+            and should therefore considered when tracking contract activeness on the client-side.
+            Required
+          type: boolean
     JsInterfaceView:
       title: JsInterfaceView
       description: View of a create event matched by an interface filter.
@@ -1819,6 +1826,7 @@ components:
       - lastDescendantNodeId
       - exerciseResult
       - packageName
+      - acsDelta
       properties:
         offset:
           description: |-
@@ -1934,6 +1942,12 @@ components:
           type: array
           items:
             type: string
+        acsDelta:
+          description: |-
+            Whether this event would be part of respective ACS_DELTA shaped stream,
+            and should therefore considered when tracking contract activeness on the client-side.
+            Required
+          type: boolean
     Either_JsCantonError_JsGetUpdateTreesResponse:
       title: Either_JsCantonError_JsGetUpdateTreesResponse
       oneOf:

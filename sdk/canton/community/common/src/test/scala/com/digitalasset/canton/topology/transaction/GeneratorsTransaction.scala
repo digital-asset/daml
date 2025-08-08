@@ -134,7 +134,7 @@ final class GeneratorsTransaction(
       .value
   )
 
-  val restrictionWithNamespaceDelegation = Gen.oneOf(
+  val restrictionWithNamespaceDelegation: Gen[DelegationRestriction] = Gen.oneOf(
     Gen.const(CanSignAllMappings),
     Generators
       // generate a random sequence of codes,
@@ -144,7 +144,7 @@ final class GeneratorsTransaction(
       .map(CanSignSpecificMappings(_)),
   )
 
-  val restrictionWithoutNamespaceDelegation = Gen.oneOf(
+  val restrictionWithoutNamespaceDelegation: Gen[DelegationRestriction] = Gen.oneOf(
     Gen.const(CanSignAllButNamespaceDelegations),
     Generators
       .nonEmptySetGen(
@@ -238,7 +238,7 @@ final class GeneratorsTransaction(
     Generators.nonEmptySet[Hash].arbitrary.map(_.map(TxHash(_)))
   )
 
-  def multiTransactionSignaturesGen(transactionHash: TxHash) = for {
+  def multiTransactionSignaturesGen(transactionHash: TxHash): Gen[MultiTransactionSignature] = for {
     hashes <- Arbitrary.arbitrary[NonEmpty[Set[TxHash]]]
     signatures <- Arbitrary.arbitrary[Signature]
   } yield MultiTransactionSignature(
@@ -263,21 +263,18 @@ final class GeneratorsTransaction(
       proposal <- Arbitrary.arbBool.arbitrary
 
       signatures <- {
-        implicit val localSignatureArb = topologyTransactionSignatureArb(transaction.hash)
+        implicit val localSignatureArb: Arbitrary[TopologyTransactionSignature] =
+          topologyTransactionSignatureArb(transaction.hash)
         Generators.nonEmptySetGen[TopologyTransactionSignature]
       }
-
-      /*
-      A duplicate signature (two signatures for the same key) is discarded upon serialization,
-      which means that (de)serialization test will fail. Filtering here avoids flakiness.
-       */
-      signaturesWithoutDuplicates = signatures
-        .groupBy1(_.authorizingLongTermKey)
-        .map { case (_, signatures) => signatures.head1 }
-        .toSet
+      // multiple signatures by the same signing key are not allowed.
+      // therefore, ensure that we don't create flakes here.
+      signaturesWithoutDuplicates = TopologyTransactionSignature.distinctSignatures(
+        signatures.toSeq
+      )
 
     } yield SignedTopologyTransaction
-      .create(transaction, signaturesWithoutDuplicates, proposal, protocolVersion)
+      .tryCreate(transaction, signaturesWithoutDuplicates, proposal, protocolVersion)
   )
 
   implicit val signedTopologyTransactionsArb

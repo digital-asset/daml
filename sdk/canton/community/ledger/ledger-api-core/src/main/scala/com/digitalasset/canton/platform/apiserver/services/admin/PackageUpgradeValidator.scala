@@ -4,18 +4,14 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import cats.data.EitherT
-import cats.implicits.toTraverseOps
 import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.apiserver.services.admin.ApiPackageManagementService.ErrorValidations
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.daml.lf.archive.DamlLf.Archive
-import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import com.digitalasset.daml.lf.language.Util.{
@@ -64,7 +60,9 @@ class PackageUpgradeValidator(val loggerFactory: NamedLoggerFactory)(implicit
     go(packageMap, packagesInTopologicalOrder).map(_ => ())
   }
 
-  private def getUpgradablePackageMap(packageMetadataSnapshot: PackageMetadata): Map[PackageId, PackageSignature] =
+  private def getUpgradablePackageMap(
+      packageMetadataSnapshot: PackageMetadata
+  ): Map[PackageId, PackageSignature] =
     packageMetadataSnapshot.packages.view.filterKeys { packageId =>
       packageMetadataSnapshot.packageUpgradabilityMap
         .getOrElse(

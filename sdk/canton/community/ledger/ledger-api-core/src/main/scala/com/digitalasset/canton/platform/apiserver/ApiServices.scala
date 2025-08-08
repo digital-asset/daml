@@ -380,6 +380,8 @@ object ApiServices {
             interactiveSubmissionServiceConfig,
             contractStore,
             packagePreferenceBackend,
+            transactionSubmissionTracker,
+            commandConfig.defaultTrackingTimeout,
             loggerFactory,
           )
 

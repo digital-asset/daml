@@ -31,7 +31,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       case _ => fail(s"unsupported key type")
     }
 
-  private def publicKeyValidationTest[K <: PublicKey](
+  private def publicKeyValidationTest(
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       name: String,
       newCrypto: => Future[Crypto],
@@ -69,9 +69,12 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   ): Unit =
     "Validate public keys" should {
       forAll(supportedSigningKeySpecs) { signingKeySpec =>
-        publicKeyValidationTest[SigningPublicKey](
+        val keySpecName =
+          if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString
+
+        publicKeyValidationTest(
           supportedCryptoKeyFormats,
-          if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString,
+          keySpecName,
           newCrypto,
           crypto =>
             getSigningPublicKey(
@@ -83,10 +86,13 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       }
 
       forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
-        publicKeyValidationTest[EncryptionPublicKey](
-          supportedCryptoKeyFormats,
+        val keySpecName =
           if (encryptionKeySpec.toString == "EC-P256") "EC-P256-Encryption"
-          else encryptionKeySpec.toString,
+          else encryptionKeySpec.toString
+
+        publicKeyValidationTest(
+          supportedCryptoKeyFormats,
+          keySpecName,
           newCrypto,
           crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
         )

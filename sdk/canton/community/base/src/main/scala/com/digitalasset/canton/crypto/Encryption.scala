@@ -18,7 +18,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
-  CryptoValidationError,
+  CryptoParseAndValidationError,
   DeserializationError,
   ProtoConverter,
 }
@@ -495,14 +495,21 @@ object SymmetricKeyScheme {
     }
 }
 
-final case class SymmetricKey(
+final case class SymmetricKey private (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     scheme: SymmetricKeyScheme,
 ) extends CryptoKey
-    with HasVersionedWrapper[SymmetricKey]
-    with NoCopy {
+    with HasVersionedWrapper[SymmetricKey] {
   override protected def companionObj: SymmetricKey.type = SymmetricKey
+
+  protected def validated: Either[EncryptionKeyCreationError, this.type] =
+    CryptoKeyValidation
+      .validateSymmetricKey(
+        this,
+        errMsg => EncryptionKeyCreationError.KeyParseAndValidateError(errMsg),
+      )
+      .map(_ => this)
 
   def toProtoV30: v30.SymmetricKey =
     v30.SymmetricKey(format = format.toProtoEnum, key = key, scheme = scheme.toProtoEnum)
@@ -519,11 +526,25 @@ object SymmetricKey extends HasVersionedMessageCompanion[SymmetricKey] {
     )
   )
 
+  def create(
+      format: CryptoKeyFormat,
+      key: ByteString,
+      keyScheme: SymmetricKeyScheme,
+  ): Either[EncryptionKeyCreationError, SymmetricKey] =
+    SymmetricKey(format, key, keyScheme).validated
+
   def fromProtoV30(keyP: v30.SymmetricKey): ParsingResult[SymmetricKey] =
     for {
       format <- CryptoKeyFormat.fromProtoEnum("format", keyP.format)
       scheme <- SymmetricKeyScheme.fromProtoEnum("scheme", keyP.scheme)
-    } yield new SymmetricKey(format, keyP.key, scheme)
+      key <- SymmetricKey
+        .create(format, keyP.key, scheme)
+        .leftMap(err =>
+          ProtoDeserializationError.CryptoDeserializationError(
+            CryptoParseAndValidationError(err.show)
+          )
+        )
+    } yield key
 }
 
 final case class EncryptionKeyPair private (
@@ -597,7 +618,6 @@ final case class EncryptionPublicKey private (
 
   protected override val dataForFingerprintO: Option[ByteString] = None
 
-  // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[EncryptionKeyCreationError.KeyParseAndValidateError, this.type] =
     CryptoKeyValidation
       .parseAndValidatePublicKey(
@@ -700,7 +720,7 @@ object EncryptionPublicKey
         )
         .leftMap(err =>
           ProtoDeserializationError.CryptoDeserializationError(
-            CryptoValidationError(err.show)
+            CryptoParseAndValidationError(err.show)
           )
         )
     } yield encryptionPublicKey
@@ -832,7 +852,7 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
         .create(id, format, privateKeyP.privateKey, keySpec)
         .leftMap(err =>
           ProtoDeserializationError.CryptoDeserializationError(
-            CryptoValidationError(err.show)
+            CryptoParseAndValidationError(err.show)
           )
         )
     } yield epk
@@ -1045,18 +1065,25 @@ object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup 
   * during key generation (creating new key material).
   */
 sealed trait EncryptionKeyCreationError extends Product with Serializable with PrettyPrinting
-object EncryptionKeyCreationError {
+object EncryptionKeyCreationError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that an encryption key could not be created.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "ENCRYPTION_KEY_CREATION_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Wrap(reason: EncryptionKeyCreationError)
+        extends CantonBaseError.Impl(cause = "An error occurred during encryption key creation")
+
+    final case class WrapStr(reason: String)
+        extends CantonBaseError.Impl(cause = "An error occurred during encryption key creation")
+  }
+
   final case class KeyParseAndValidateError(error: String) extends EncryptionKeyCreationError {
     override protected def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
-  final case class InvalidRandomnessLength(randomnessLength: Int, expectedKeyLength: Int)
-      extends EncryptionKeyCreationError {
-    override protected def pretty: Pretty[InvalidRandomnessLength] = prettyOfClass(
-      param("provided randomness length", _.randomnessLength),
-      param("expected key length", _.expectedKeyLength),
-    )
-  }
-
 }

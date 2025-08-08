@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.DecryptionError.{DecryptionWithWrongKey, FailedToDecrypt}
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
@@ -105,6 +106,21 @@ trait EncryptionTest extends AsyncWordSpec with BaseTest with CryptoTestHelper w
               .valueOrFail("encrypt")
             message2 = crypto.pureCrypto.decryptWith(encrypted, key2)(TestMessage.fromByteString)
           } yield message2.left.value shouldBe a[FailedToDecrypt]
+        }
+
+        "fail decrypt when secure randomness key size is invalid" in {
+          for {
+            crypto <- newCrypto
+            _ = assume(!crypto.isInstanceOf[SymbolicCrypto], "Test ignored for SymbolicCrypto")
+            randomness =
+              crypto.pureCrypto.generateSecureRandomness(symmetricKeyScheme.keySizeInBytes - 1)
+            res = crypto.pureCrypto.createSymmetricKey(randomness, symmetricKeyScheme)
+          } yield {
+            res.left.value.toString should include(
+              s"AES128 key size ${symmetricKeyScheme.keySizeInBytes - 1} does not match expected " +
+                s"size ${SymmetricKeyScheme.Aes128Gcm.keySizeInBytes}."
+            )
+          }
         }
 
       }

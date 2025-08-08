@@ -8,12 +8,22 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution, RpcError}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+  RpcError,
+}
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultServiceError.InvalidKeyPairAlarm
 import com.digitalasset.canton.crypto.admin.v30
 import com.digitalasset.canton.crypto.kms.KmsError.{KmsCannotFindKeyError, KmsKeyDisabledError}
 import com.digitalasset.canton.crypto.kms.KmsKeyId
+import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
 import com.digitalasset.canton.crypto.provider.kms.KmsPrivateCrypto
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.WrapperKeyAlreadyInUse
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, EncryptedCryptoPrivateStore}
@@ -577,7 +587,7 @@ class GrpcVaultService(
       )
 
       // Decrypt the keypair if a password is provided
-      keyPair <-
+      parsedKeyPair <-
         OptionUtil.emptyStringAsNone(request.password) match {
           case Some(password) =>
             val resultE = for {
@@ -601,8 +611,50 @@ class GrpcVaultService(
               ProtoDeserializationFailure.WrapNoLoggingStr(err.message).asGrpcError
             }
         }
+      // TODO(#26948): change protobuf message to remove the ignored public key field and remove warning message
+      derivedPublicKey <- JcePrivateCrypto
+        .derivePublicKey(parsedKeyPair.privateKey)
+        .toFutureUS { errMsg =>
+          ProtoDeserializationFailure.WrapNoLoggingStr(errMsg).asGrpcError
+        }
+      // Check if the public key derived from the private key matches the provided public key.
+      // Log a warning if they differ, since this may indicate a key pair mismatch or data corruption.
+      _ = if (derivedPublicKey != parsedKeyPair.publicKey) {
+        InvalidKeyPairAlarm
+          .Warn(
+            s"The derived public key (${derivedPublicKey.id}) does not match the " +
+              s"provided public key (${parsedKeyPair.publicKey.id}). " +
+              "This may indicate an invalid or mismatched key pair."
+          )
+          .report()
+      }
 
-      _ <- loadKeyPair(validatedName, keyPair)
+      // The ID in the private key might not match the ID of the derived public key,
+      // so we regenerate the private key with the correct ID. This can only happen if a malicious operator
+      // tampers with the imported private key and assigns it an incorrect ID.
+      derivedKeyPair <- (derivedPublicKey, parsedKeyPair.privateKey) match {
+        case (pub: SigningPublicKey, priv: SigningPrivateKey) =>
+          SigningPrivateKey
+            .create(pub.id, priv.format, priv.key, priv.keySpec, priv.usage)
+            .map(newPrivateKey => SigningKeyPair.create(pub, newPrivateKey))
+            .toFutureUS { errMsg =>
+              throw SigningKeyCreationError.ErrorCode.Wrap(errMsg).asGrpcError
+            }
+        case (pub: EncryptionPublicKey, priv: EncryptionPrivateKey) =>
+          EncryptionPrivateKey
+            .create(pub.id, priv.format, priv.key, priv.keySpec)
+            .map(newPrivateKey => EncryptionKeyPair.create(pub, newPrivateKey))
+            .toFutureUS { errMsg =>
+              throw EncryptionKeyCreationError.ErrorCode.Wrap(errMsg).asGrpcError
+            }
+        case _ =>
+          FutureUnlessShutdown.failed(
+            Status.INVALID_ARGUMENT
+              .withDescription("Public and private key types do not match.")
+              .asRuntimeException()
+          )
+      }
+      _ <- loadKeyPair(validatedName, derivedKeyPair)
     } yield v30.ImportKeyPairResponse()
   }.failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 
@@ -635,6 +687,17 @@ class GrpcVaultService(
 sealed trait GrpcVaultServiceError extends RpcError with Product with Serializable
 
 object GrpcVaultServiceError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation(
+    """The gRPC vault service has received, as part of an import keys' request, a key pair where the public key
+      |does not match the private key. This is a security concern, indicating either a malicious operator
+      |or a critical bug. The provided public key is ignored, and the correct one is derived instead, but
+      |this incident should be investigated."""
+  )
+  @Resolution("Investigate the operator for misbehavior. Contact support.")
+  object InvalidKeyPairAlarm extends AlarmErrorCode(id = "INVALID_KEY_PAIR_ALARM") {
+    final case class Warn(override val cause: String) extends Alarm(cause)
+  }
 
   @Explanation("Internal error emitted upon internal wrapper key rotation errors")
   @Resolution("Contact support")

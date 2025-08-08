@@ -838,7 +838,7 @@ trait TopologyManagementIntegrationTest
       val tx2 = create(2)
 
       // steal the sig of tx2 and use it for tx1
-      val fakeTx = SignedTopologyTransaction.create(
+      val fakeTx = SignedTopologyTransaction.tryCreate(
         transaction = tx1.transaction,
         signatures = tx2.signatures,
         isProposal = tx1.isProposal,

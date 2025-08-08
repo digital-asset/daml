@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.*
 import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.ledger.api.Ref2.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.Conversions.{
@@ -42,6 +41,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{NameTypeConRef, NameTypeConRefConverter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -77,6 +77,7 @@ object EventStorageBackendTemplate {
       "trace_context",
       "record_time",
       "external_transaction_hash",
+      "flat_event_witnesses",
     )
 
   private val baseColumnsForFlatTransactionsExercise =
@@ -104,6 +105,7 @@ object EventStorageBackendTemplate {
       "trace_context",
       "record_time",
       "external_transaction_hash",
+      "flat_event_witnesses",
     )
 
   val selectColumnsForFlatTransactionsCreate: String =
@@ -138,7 +140,7 @@ object EventStorageBackendTemplate {
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~
-      Array[Byte]
+      Array[Byte] ~ Array[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -150,11 +152,12 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("authentication_data")
+      byteArray("authentication_data") ~
+      array[Int]("flat_event_witnesses")
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Int
+      Array[Int] ~ Int ~ Option[Array[Int]]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -166,7 +169,8 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      int("exercise_last_descendant_node_id")
+      int("exercise_last_descendant_node_id") ~
+      array[Int]("flat_event_witnesses").?
   }
 
   private type ArchiveEventRow = SharedRow
@@ -203,7 +207,8 @@ object EventStorageBackendTemplate {
           createKeyHash ~
           createKeyValueCompression ~
           createKeyMaintainers ~
-          authenticationData =>
+          authenticationData ~
+          flatEventWitnesses =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -222,6 +227,11 @@ object EventStorageBackendTemplate {
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               eventWitnesses,
+              stringInterning,
+            ),
+            flatEventWitnesses = filterAndExternalizeWitnesses(
+              allQueryingPartiesO,
+              flatEventWitnesses,
               stringInterning,
             ),
             signatories =
@@ -331,7 +341,8 @@ object EventStorageBackendTemplate {
           exerciseResult ~
           exerciseResultCompression ~
           exerciseActors ~
-          exerciseLastDescendantNodeId =>
+          exerciseLastDescendantNodeId ~
+          flatEventWitnesses =>
         Entry(
           offset = eventOffset,
           updateId = updateId,
@@ -364,6 +375,11 @@ object EventStorageBackendTemplate {
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               treeEventWitnesses,
+              stringInterning,
+            ),
+            flatEventWitnesses = filterAndExternalizeWitnesses(
+              allQueryingPartiesO,
+              flatEventWitnesses.getOrElse(Array.empty),
               stringInterning,
             ),
           ),
@@ -408,40 +424,43 @@ object EventStorageBackendTemplate {
     "trace_context",
     "record_time",
     "external_transaction_hash",
+    "flat_event_witnesses",
   ).mkString(", ")
 
-  val selectColumnsForTransactionTreeExercise: String = Seq(
-    "event_offset",
-    "update_id",
-    "node_id",
-    "event_sequential_id",
-    "contract_id",
-    "ledger_effective_time",
-    "template_id",
-    "package_id",
-    "workflow_id",
-    "NULL as create_argument",
-    "NULL as create_argument_compression",
-    "NULL as create_signatories",
-    "NULL as create_observers",
-    "create_key_value",
-    "NULL as create_key_hash",
-    "create_key_value_compression",
-    "NULL as create_key_maintainers",
-    "exercise_choice",
-    "exercise_argument",
-    "exercise_argument_compression",
-    "exercise_result",
-    "exercise_result_compression",
-    "exercise_actors",
-    "exercise_last_descendant_node_id",
-    "submitters",
-    "NULL as authentication_data",
-    "synchronizer_id",
-    "trace_context",
-    "record_time",
-    "external_transaction_hash",
-  ).mkString(", ")
+  def selectColumnsForTransactionTreeExercise(includeFlatEventWitnesses: Boolean): String =
+    Seq(
+      "event_offset",
+      "update_id",
+      "node_id",
+      "event_sequential_id",
+      "contract_id",
+      "ledger_effective_time",
+      "template_id",
+      "package_id",
+      "workflow_id",
+      "NULL as create_argument",
+      "NULL as create_argument_compression",
+      "NULL as create_signatories",
+      "NULL as create_observers",
+      "create_key_value",
+      "NULL as create_key_hash",
+      "create_key_value_compression",
+      "NULL as create_key_maintainers",
+      "exercise_choice",
+      "exercise_argument",
+      "exercise_argument_compression",
+      "exercise_result",
+      "exercise_result_compression",
+      "exercise_actors",
+      "exercise_last_descendant_node_id",
+      "submitters",
+      "NULL as authentication_data",
+      "synchronizer_id",
+      "trace_context",
+      "record_time",
+      "external_transaction_hash",
+      (if (includeFlatEventWitnesses) "" else "NULL as ") + "flat_event_witnesses",
+    ).mkString(", ")
 
   val EventSequentialIdFirstLast: RowParser[(Long, Long)] =
     long("event_sequential_id_first") ~ long("event_sequential_id_last") map {
@@ -546,6 +565,11 @@ object EventStorageBackendTemplate {
           recordTime ~
           eventSequentialId ~
           nodeId =>
+        val witnessParties = filterAndExternalizeWitnesses(
+          allQueryingPartiesO,
+          flatEventWitnesses,
+          stringInterning,
+        )
         Entry(
           offset = offset,
           updateId = updateId,
@@ -573,11 +597,8 @@ object EventStorageBackendTemplate {
               templateId = stringInterning.templateId
                 .externalize(templateId)
                 .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
-              witnessParties = filterAndExternalizeWitnesses(
-                allQueryingPartiesO,
-                flatEventWitnesses,
-                stringInterning,
-              ),
+              witnessParties = witnessParties,
+              flatEventWitnesses = witnessParties,
               signatories =
                 createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
               observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
@@ -735,6 +756,11 @@ object EventStorageBackendTemplate {
           authenticationData ~
           eventSequentialId ~
           nodeId =>
+        val witnessParties = filterAndExternalizeWitnesses(
+          allQueryingPartiesO,
+          flatEventWitnesses,
+          stringInterning,
+        )
         RawActiveContract(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
@@ -747,11 +773,8 @@ object EventStorageBackendTemplate {
             templateId = stringInterning.templateId
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
-            witnessParties = filterAndExternalizeWitnesses(
-              allQueryingPartiesO,
-              flatEventWitnesses,
-              stringInterning,
-            ),
+            witnessParties = witnessParties,
+            flatEventWitnesses = witnessParties,
             signatories =
               createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
             observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
@@ -817,6 +840,11 @@ object EventStorageBackendTemplate {
           authenticationData ~
           eventSequentialId ~
           nodeId =>
+        val witnessParties = filterAndExternalizeWitnesses(
+          allQueryingPartiesO,
+          flatEventWitnesses,
+          stringInterning,
+        )
         RawActiveContract(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
@@ -829,11 +857,8 @@ object EventStorageBackendTemplate {
             templateId = stringInterning.templateId
               .externalize(templateId)
               .toFullIdentifier(stringInterning.packageId.externalize(packageId)),
-            witnessParties = filterAndExternalizeWitnesses(
-              allQueryingPartiesO,
-              flatEventWitnesses,
-              stringInterning,
-            ),
+            witnessParties = witnessParties,
+            flatEventWitnesses = witnessParties,
             signatories =
               createSignatories.view.map(stringInterning.party.unsafe.externalize).toSet,
             observers = createObservers.view.map(stringInterning.party.unsafe.externalize).toSet,
@@ -1906,7 +1931,8 @@ abstract class EventStorageBackendTemplate(
         fetchLedgerEffectsEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
+            s"${selectColumnsForTransactionTreeExercise(includeFlatEventWitnesses = true)}, ${QueryStrategy
+                .constBooleanSelect(true)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)
@@ -1922,7 +1948,8 @@ abstract class EventStorageBackendTemplate(
         fetchLedgerEffectsEvents(
           tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
+            s"${selectColumnsForTransactionTreeExercise(includeFlatEventWitnesses = false)}, ${QueryStrategy
+                .constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)

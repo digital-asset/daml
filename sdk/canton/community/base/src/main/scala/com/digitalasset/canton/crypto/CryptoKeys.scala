@@ -198,7 +198,6 @@ trait PublicKey extends CryptoKeyPairKey {
   protected def dataForFingerprintO: Option[ByteString]
 
   override lazy val id: Fingerprint =
-    // TODO(i15649): Consider the key format and fingerprint scheme before computing
     Fingerprint.create(dataForFingerprintO.getOrElse(key))
 
   def purpose: KeyPurpose

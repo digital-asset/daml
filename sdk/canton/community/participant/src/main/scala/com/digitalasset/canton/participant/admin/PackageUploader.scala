@@ -40,8 +40,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.engine.{Engine, Error as EngineError}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Util
+import com.digitalasset.daml.lf.language.{Ast, Util}
 import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream

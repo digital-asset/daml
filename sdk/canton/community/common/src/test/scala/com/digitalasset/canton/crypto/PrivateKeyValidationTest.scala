@@ -28,7 +28,7 @@ trait PrivateKeyValidationTest extends BaseTest with CryptoTestHelper { this: As
       case _ => fail(s"unsupported key type")
     }
 
-  private def privateKeyValidationTest[K <: PrivateKey](
+  private def privateKeyValidationTest(
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       name: String,
       newCrypto: => Future[Crypto],
@@ -65,7 +65,7 @@ trait PrivateKeyValidationTest extends BaseTest with CryptoTestHelper { this: As
   ): Unit =
     "Validate private keys" should {
       forAll(supportedSigningKeySpecs) { signingKeySpec =>
-        privateKeyValidationTest[SigningPrivateKey](
+        privateKeyValidationTest(
           supportedCryptoKeyFormats,
           if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString,
           newCrypto,
@@ -79,7 +79,7 @@ trait PrivateKeyValidationTest extends BaseTest with CryptoTestHelper { this: As
       }
 
       forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
-        privateKeyValidationTest[EncryptionPrivateKey](
+        privateKeyValidationTest(
           supportedCryptoKeyFormats,
           if (encryptionKeySpec.toString == "EC-P256") "EC-P256-Encryption"
           else encryptionKeySpec.toString,

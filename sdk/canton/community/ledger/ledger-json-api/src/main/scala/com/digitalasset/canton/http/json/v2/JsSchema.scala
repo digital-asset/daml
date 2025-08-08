@@ -237,6 +237,7 @@ object JsSchema {
         observers: Seq[String],
         createdAt: protobuf.timestamp.Timestamp,
         packageName: String,
+        acsDelta: Boolean,
     ) extends Event
 
     final case class ArchivedEvent(
@@ -264,6 +265,7 @@ object JsSchema {
         exerciseResult: Json,
         packageName: String,
         implementedInterfaces: Seq[Identifier],
+        acsDelta: Boolean,
     ) extends Event
   }
 

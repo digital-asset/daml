@@ -582,22 +582,41 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               .copy(signature = ByteString.empty())
           )
           .value
-        val newSig: NonEmpty[Set[TopologyTransactionSignature]] = if (multiTransactionHash) {
-          NonEmpty.mk(
-            Set,
-            MultiTransactionSignature(NonEmpty.mk(Set, ns1k1_k1.hash), sig_k1_emptySignature),
-          )
-        } else {
-          NonEmpty.mk(Set, SingleTransactionSignature(ns1k1_k1.hash, sig_k1_emptySignature))
-        }
-        val ns1k1_k1WithEmptySignature =
+        val ns1k1_k1WithEmptySignature = {
+          val newSig: NonEmpty[Set[TopologyTransactionSignature]] = if (multiTransactionHash) {
+            NonEmpty.mk(
+              Set,
+              MultiTransactionSignature(NonEmpty.mk(Set, ns1k1_k1.hash), sig_k1_emptySignature),
+            )
+          } else {
+            NonEmpty.mk(Set, SingleTransactionSignature(ns1k1_k1.hash, sig_k1_emptySignature))
+          }
           ns1k1_k1.copy(signatures = newSig)
+        }
+
+        val ns1k1_k1WithSignatureNotCoveringHash = {
+          val newSig: NonEmpty[Set[TopologyTransactionSignature]] = if (multiTransactionHash) {
+            NonEmpty.mk(
+              Set,
+              MultiTransactionSignature(
+                ns1k2_k1.signatures.head1.hashesCovered,
+                ns1k2_k1.signatures.head1.signature,
+              ),
+            )
+          } else {
+            NonEmpty.mk(
+              Set,
+              SingleTransactionSignature(ns1k2_k1.hash, ns1k2_k1.signatures.head1.signature),
+            )
+          }
+          ns1k1_k1.copy(signatures = newSig)
+        }
 
         for {
           res <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1WithEmptySignature, ns1k2_k1),
+            List(ns1k1_k1WithEmptySignature, ns1k1_k1WithSignatureNotCoveringHash, ns1k2_k1),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -610,6 +629,10 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
                       InvalidSignature(`sig_k1_emptySignature`, _, _)
                     ) =>
                   true
+                case _ => false
+              },
+              Some {
+                case _: MultiTransactionHashMismatch => true
                 case _ => false
               },
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
@@ -995,7 +1018,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             ts(2),
             // Analogously to how the TopologyStateProcessor merges the signatures of proposals
             // with the same serial, combine the signature of the previous proposal to the current proposal.
-            List(dns3.addSignaturesFromTransaction(dns2)),
+            List(dns3.addSignatures(dns2.signatures)),
             (decentralizedNamespaceWithMultipleOwnerThreshold ++ proposeDecentralizedNamespaceWithLowerThresholdAndOwnerNumber)
               .map(tx => tx.mapping.uniqueKey -> tx)
               .toMap,
@@ -1424,7 +1447,7 @@ class TopologyTransactionAuthorizationValidatorTestMultiTransactionHash
         signatures = NonEmpty.from(newSig).value
       )
       // Add the signature to the original OTK
-      .addSignaturesFromTransaction(signatureFromKey5ForParticipant2)
+      .addSignatures(signatureFromKey5ForParticipant2.signatures)
   }
 
   "topology transaction authorization" should {

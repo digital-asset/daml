@@ -545,7 +545,6 @@ sealed trait KmsError extends Product with Serializable with PrettyPrinting {
 
 object KmsError {
 
-  // todo i10029: create error codes for these exceptions
   final case class KmsCreateClientError(reason: String) extends KmsError {
     override protected def pretty: Pretty[KmsCreateClientError] =
       prettyOfClass(param("reason", _.reason.unquoted))

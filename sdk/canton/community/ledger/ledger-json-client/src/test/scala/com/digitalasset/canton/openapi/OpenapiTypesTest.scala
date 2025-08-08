@@ -145,7 +145,7 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
 
     // as stated above this split is needed to ensure that mappings initialization do not exceed max 64kB method size
     val allMappings =
-      JsMappings.value ++ GrpcMappings1.value ++ GrpcMappings2.value ++ GrpcMappings3.value
+      JsMappings1.value ++ JsMappings2.value ++ GrpcMappings1.value ++ GrpcMappings2.value ++ GrpcMappings3.value
 
     object GrpcMappings1 {
       val value: Seq[Mapping[_, _]] = Seq(
@@ -765,10 +765,16 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.WildcardFilter.fromJson
         ),
+        Mapping[
+          v2.interactive.interactive_submission_service.ExecuteSubmissionAndWaitResponse,
+          openapi.ExecuteSubmissionAndWaitResponse,
+        ](
+          openapi.ExecuteSubmissionAndWaitResponse.fromJson
+        ),
       )
     }
-    object JsMappings {
-      val value: Seq[Mapping[_, _]] = {
+    object JsMappings1 {
+      val value: Seq[Mapping[_, _]] =
         Seq(
           Mapping[json.JsCommands, openapi.JsCommands](
             openapi.JsCommands.fromJson
@@ -829,60 +835,70 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
           Mapping[json.JsGetUpdatesResponse, openapi.JsGetUpdatesResponse](
             openapi.JsGetUpdatesResponse.fromJson
           ),
-          Mapping[json.JsGetUpdateTreesResponse, openapi.JsGetUpdateTreesResponse](
-            openapi.JsGetUpdateTreesResponse.fromJson
-          ),
-          Mapping[json.JsContractEntry.JsIncompleteAssigned, openapi.JsIncompleteAssigned](
-            openapi.JsIncompleteAssigned.fromJson
-          ),
-          Mapping[json.JsContractEntry.JsIncompleteUnassigned, openapi.JsIncompleteUnassigned](
-            openapi.JsIncompleteUnassigned.fromJson
-          ),
-          Mapping[json.JsSchema.JsInterfaceView, openapi.JsInterfaceView](
-            openapi.JsInterfaceView.fromJson
-          ),
-          Mapping[json.JsPrepareSubmissionRequest, openapi.JsPrepareSubmissionRequest](
-            openapi.JsPrepareSubmissionRequest.fromJson
-          ),
-          Mapping[json.JsPrepareSubmissionResponse, openapi.JsPrepareSubmissionResponse](
-            openapi.JsPrepareSubmissionResponse.fromJson
-          ),
-          Mapping[
-            json.JsSchema.JsReassignmentEvent.JsReassignmentEvent,
-            openapi.JsReassignmentEvent,
-          ](
-            openapi.JsReassignmentEvent.fromJson
-          ),
-          Mapping[json.JsSchema.JsReassignment, openapi.JsReassignment](
-            openapi.JsReassignment.fromJson
-          ),
-          Mapping[
-            json.JsSubmitAndWaitForReassignmentResponse,
-            openapi.JsSubmitAndWaitForReassignmentResponse,
-          ](openapi.JsSubmitAndWaitForReassignmentResponse.fromJson),
-          Mapping[
-            json.JsSubmitAndWaitForTransactionRequest,
-            openapi.JsSubmitAndWaitForTransactionRequest,
-          ](openapi.JsSubmitAndWaitForTransactionRequest.fromJson),
-          Mapping[
-            json.JsSubmitAndWaitForTransactionResponse,
-            openapi.JsSubmitAndWaitForTransactionResponse,
-          ](openapi.JsSubmitAndWaitForTransactionResponse.fromJson),
-          Mapping[
-            json.JsSubmitAndWaitForTransactionTreeResponse,
-            openapi.JsSubmitAndWaitForTransactionTreeResponse,
-          ](openapi.JsSubmitAndWaitForTransactionTreeResponse.fromJson),
-          Mapping[json.JsSchema.JsTransaction, openapi.JsTransaction](
-            openapi.JsTransaction.fromJson
-          ),
-          Mapping[json.JsSchema.JsTransactionTree, openapi.JsTransactionTree](
-            openapi.JsTransactionTree.fromJson
-          ),
-          Mapping[json.JsSchema.JsReassignmentEvent.JsUnassignedEvent, openapi.JsUnassignedEvent](
-            openapi.JsUnassignedEvent.fromJson
-          ),
         )
-      }
+    }
+
+    object JsMappings2 {
+      val value: Seq[Mapping[_, _]] = Seq(
+        Mapping[json.JsGetUpdateTreesResponse, openapi.JsGetUpdateTreesResponse](
+          openapi.JsGetUpdateTreesResponse.fromJson
+        ),
+        Mapping[json.JsContractEntry.JsIncompleteAssigned, openapi.JsIncompleteAssigned](
+          openapi.JsIncompleteAssigned.fromJson
+        ),
+        Mapping[json.JsContractEntry.JsIncompleteUnassigned, openapi.JsIncompleteUnassigned](
+          openapi.JsIncompleteUnassigned.fromJson
+        ),
+        Mapping[json.JsSchema.JsInterfaceView, openapi.JsInterfaceView](
+          openapi.JsInterfaceView.fromJson
+        ),
+        Mapping[json.JsPrepareSubmissionRequest, openapi.JsPrepareSubmissionRequest](
+          openapi.JsPrepareSubmissionRequest.fromJson
+        ),
+        Mapping[json.JsPrepareSubmissionResponse, openapi.JsPrepareSubmissionResponse](
+          openapi.JsPrepareSubmissionResponse.fromJson
+        ),
+        Mapping[
+          json.JsSchema.JsReassignmentEvent.JsReassignmentEvent,
+          openapi.JsReassignmentEvent,
+        ](
+          openapi.JsReassignmentEvent.fromJson
+        ),
+        Mapping[json.JsSchema.JsReassignment, openapi.JsReassignment](
+          openapi.JsReassignment.fromJson
+        ),
+        Mapping[
+          json.JsSubmitAndWaitForReassignmentResponse,
+          openapi.JsSubmitAndWaitForReassignmentResponse,
+        ](openapi.JsSubmitAndWaitForReassignmentResponse.fromJson),
+        Mapping[
+          json.JsSubmitAndWaitForTransactionRequest,
+          openapi.JsSubmitAndWaitForTransactionRequest,
+        ](openapi.JsSubmitAndWaitForTransactionRequest.fromJson),
+        Mapping[
+          json.JsSubmitAndWaitForTransactionResponse,
+          openapi.JsSubmitAndWaitForTransactionResponse,
+        ](openapi.JsSubmitAndWaitForTransactionResponse.fromJson),
+        Mapping[
+          json.JsSubmitAndWaitForTransactionTreeResponse,
+          openapi.JsSubmitAndWaitForTransactionTreeResponse,
+        ](openapi.JsSubmitAndWaitForTransactionTreeResponse.fromJson),
+        Mapping[json.JsSchema.JsTransaction, openapi.JsTransaction](
+          openapi.JsTransaction.fromJson
+        ),
+        Mapping[json.JsSchema.JsTransactionTree, openapi.JsTransactionTree](
+          openapi.JsTransactionTree.fromJson
+        ),
+        Mapping[json.JsSchema.JsReassignmentEvent.JsUnassignedEvent, openapi.JsUnassignedEvent](
+          openapi.JsUnassignedEvent.fromJson
+        ),
+        Mapping[
+          json.JsExecuteSubmissionAndWaitRequest,
+          openapi.JsExecuteSubmissionAndWaitRequest,
+        ](
+          openapi.JsExecuteSubmissionAndWaitRequest.fromJson
+        ),
+      )
     }
   }
 }

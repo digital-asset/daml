@@ -84,9 +84,23 @@ final case class TrafficConsumed(
       trafficControlConfig.baseRate * deltaMicros.map(_.toDouble)
     ).map(_.toLong)
 
+    val accumulatedTraffic = Either
+      .catchOnly[ArithmeticException](
+        math.addExact(trafficAllowedSinceLastTimestamp.value, baseTrafficRemainder.value)
+      )
+      .leftMap { overflow =>
+        logger.debug(
+          s"Base traffic remainder calculation for $member overflowed a Long, truncating to Long.Max.",
+          overflow,
+        )
+        NonNegativeLong.maxValue
+      }
+      .map(NonNegativeLong.tryCreate)
+      .merge
+
     implicitly[Ordering[NonNegativeLong]].min(
       trafficControlConfig.maxBaseTrafficAmount,
-      trafficAllowedSinceLastTimestamp + baseTrafficRemainder,
+      accumulatedTraffic,
     )
   }
 

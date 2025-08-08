@@ -36,8 +36,6 @@ import scala.concurrent.blocking
 object CryptoKeyValidation {
 
   // Keeps track of the public keys that have been validated.
-  // TODO(#15634): Once the crypto provider is available in the validation context, move this to the provider object
-  // and replace it with a proper cache.
   private lazy val validatedPublicKeys
       : TrieMap[Fingerprint, Either[KeyParseAndValidateError, Unit]] =
     TrieMap.empty
@@ -55,6 +53,41 @@ object CryptoKeyValidation {
   // To prevent concurrent cache cleanups
   private val cachePrivateLock = new Object
   private val cachePublicLock = new Object
+
+  /** Validates a symmetric key by checking:
+    *   - Symmetric key format
+    *   - Symmetric key has the correct length
+    */
+  private[crypto] def validateSymmetricKey[E](
+      symmetricKey: SymmetricKey,
+      errFn: String => E,
+  ): Either[E, Unit] = {
+
+    def validateAes128Key(): Either[KeyParseAndValidateError, Unit] =
+      EitherUtil.condUnit(
+        symmetricKey.key.size() == SymmetricKeyScheme.Aes128Gcm.keySizeInBytes,
+        KeyParseAndValidateError(
+          s"AES128 key size ${symmetricKey.key.size()} does not match expected " +
+            s"size ${SymmetricKeyScheme.Aes128Gcm.keySizeInBytes}."
+        ),
+      )
+
+    @nowarn("msg=Der in object CryptoKeyFormat is deprecated")
+    lazy val parseRes = symmetricKey.format match {
+      case CryptoKeyFormat.Raw =>
+        symmetricKey.scheme match {
+          case SymmetricKeyScheme.Aes128Gcm =>
+            validateAes128Key()
+        }
+      case CryptoKeyFormat.Symbolic =>
+        Either.unit
+      case format @ (CryptoKeyFormat.Der | CryptoKeyFormat.DerX509Spki |
+          CryptoKeyFormat.DerPkcs8Pki) =>
+        Left(KeyParseAndValidateError(s"Invalid format for symmetric key: $format"))
+    }
+
+    parseRes.leftMap(err => errFn(s"Failed to validate ${symmetricKey.format} symmetric key: $err"))
+  }
 
   private[crypto] def parseAndValidateDerPublicKey(
       publicKey: PublicKey
@@ -157,7 +190,7 @@ object CryptoKeyValidation {
       )
 
       // the private key scalar `d` must be within the valid range for the curve: 1 <= d < order. Refer to
-      // https://www.secg.org/sec1-v2.pdf section 3.2.1 Elliptic Curve Key Pair Generation Primitive.
+      // https://www.secg.org/sec1-v2.pdf, section 3.2.1 Elliptic Curve Key Pair Generation Primitive.
       d = BigInt(s)
       order = BigInt(orderEcSpec)
       _ <- EitherUtil.condUnit(
@@ -268,7 +301,6 @@ object CryptoKeyValidation {
     } yield ()
   }
 
-  // TODO(#15634): Verify crypto scheme as part of key validation
   /** Parses and validates a private key. Validates:
     *   - Private key format and serialization
     *   - Elliptic curve private key scalar is within the valid range for the curve
@@ -308,7 +340,6 @@ object CryptoKeyValidation {
     }
 
     // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    // TODO(#15634): Remove this once `validatedPrivateKeys` uses a proper cache.
     blocking {
       cachePrivateLock.synchronized {
         if (
@@ -326,7 +357,6 @@ object CryptoKeyValidation {
     )
   }
 
-  // TODO(#15634): Verify crypto scheme as part of key validation
   /** Parses and validates a public key. Validates:
     *   - Public key format and serialization
     *   - Elliptic curve public key point on the curve
@@ -366,7 +396,6 @@ object CryptoKeyValidation {
     }
 
     // Temporary workaround to clear this TrieMap and prevent memory leaks.
-    // TODO(#15634): Remove this once `validatedPublicKeys` uses a proper cache.
     blocking {
       cachePublicLock.synchronized {
         if (

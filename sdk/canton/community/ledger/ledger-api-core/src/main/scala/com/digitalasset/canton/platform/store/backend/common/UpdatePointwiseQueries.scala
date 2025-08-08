@@ -77,12 +77,14 @@ class UpdatePointwiseQueries(
         SelectTable(
           tableName = "lapi_events_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
+            s"${selectColumnsForTransactionTreeExercise(includeFlatEventWitnesses = true)}, ${QueryStrategy
+                .constBooleanSelect(true)} as exercise_consuming",
         ),
         SelectTable(
           tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
+            s"${selectColumnsForTransactionTreeExercise(includeFlatEventWitnesses = false)}, ${QueryStrategy
+                .constBooleanSelect(false)} as exercise_consuming",
         ),
       ),
       requestingParties = requestingParties,

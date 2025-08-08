@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 
 final case class DecomposedFilter(party: Option[Party], templateId: Option[NameTypeConRef])
 

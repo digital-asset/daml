@@ -365,6 +365,7 @@ object Generators {
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       signatories <- Gen.listOf(Gen.asciiPrintableStr)
       observers <- Gen.listOf(Gen.asciiPrintableStr)
+      isAcsDelta <- Arbitrary.arbBool.arbitrary
     } yield v2.EventOuterClass.CreatedEvent
       .newBuilder()
       .setCreatedAt(createdAt)
@@ -379,6 +380,7 @@ object Generators {
       .addAllWitnessParties(witnessParties.asJava)
       .addAllSignatories(signatories.asJava)
       .addAllObservers(observers.asJava)
+      .setAcsDelta(isAcsDelta)
       .build()
 
   val createdEventGen: Gen[v2.EventOuterClass.CreatedEvent] =
@@ -425,6 +427,7 @@ object Generators {
       isConsuming <- Arbitrary.arbBool.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       exerciseResult <- valueGen
+      isAcsDelta <- Arbitrary.arbBool.arbitrary
     } yield v2.EventOuterClass.ExercisedEvent
       .newBuilder()
       .setContractId(contractId)
@@ -438,6 +441,7 @@ object Generators {
       .setLastDescendantNodeId(lastDescendantNodeId)
       .addAllWitnessParties(witnessParties.asJava)
       .setExerciseResult(exerciseResult)
+      .setAcsDelta(isAcsDelta)
       .build()
 
   val participantPermissionGen: Gen[StateServiceOuterClass.ParticipantPermission] =

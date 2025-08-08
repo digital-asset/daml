@@ -64,7 +64,7 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
     override def message =
       field.fold(error)(field => s"Invariant violation in field `$field`: $error")
   }
-  final case class CryptoValidationError(error: String) extends ProtoDeserializationError {
+  final case class CryptoParseAndValidationError(error: String) extends ProtoDeserializationError {
     override def message = error
   }
   final case class MaxBytesToDecompressExceeded(error: String) extends ProtoDeserializationError {

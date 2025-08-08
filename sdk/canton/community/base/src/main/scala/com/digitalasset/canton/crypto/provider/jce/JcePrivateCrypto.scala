@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.CryptoKeyFormat.Symbolic
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.health.ComponentHealthState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -20,9 +21,25 @@ import org.bouncycastle.asn1.DEROctetString
 import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
 import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.jce.ECNamedCurveTable
+import org.bouncycastle.jce.spec.ECNamedCurveSpec
 
-import java.security.spec.{ECGenParameterSpec, RSAKeyGenParameterSpec}
-import java.security.{GeneralSecurityException, KeyPair as JKeyPair, KeyPairGenerator}
+import java.security.interfaces.{ECPrivateKey, RSAPrivateKey}
+import java.security.spec.{
+  ECGenParameterSpec,
+  ECPublicKeySpec,
+  InvalidKeySpecException,
+  RSAKeyGenParameterSpec,
+  RSAPublicKeySpec,
+}
+import java.security.{
+  GeneralSecurityException,
+  KeyFactory,
+  KeyPair as JKeyPair,
+  KeyPairGenerator,
+  spec,
+}
 import scala.concurrent.ExecutionContext
 
 class JcePrivateCrypto(
@@ -225,4 +242,140 @@ object JcePrivateCrypto {
       )
     } yield keyPair
   }
+
+  /** Derives the public key from the given private key material. This is used when importing a key
+    * pair via the `importKeyPair` console command to prevent a malicious admin from injecting
+    * mismatched keys.
+    */
+  private[crypto] def derivePublicKey(
+      privateKey: PrivateKey
+  ): Either[String, PublicKey] = {
+
+    // Derives the public key from an Ed25519 private key. Assumes private key is PKCS#8-encoded.
+    def deriveEd25519PublicKey(privateKey: PrivateKey): Either[String, ByteString] =
+      for {
+        rawPrivateKeyBytes <- CryptoKeyFormat
+          .extractPrivateKeyFromPkcs8Pki(privateKey.key)
+          .leftMap(_.toString)
+        ed25519PubKey <- Either
+          .catchOnly[IllegalArgumentException] {
+            // Derive the raw public key bytes
+            val rawPublicKey = new Ed25519PrivateKeyParameters(rawPrivateKeyBytes, 0)
+              .generatePublicKey()
+
+            // Encode the raw public key bytes in SubjectPublicKeyInfo (DER X.509 SPKI)
+            val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
+            val spki = new SubjectPublicKeyInfo(algoId, rawPublicKey.getEncoded)
+            ByteString.copyFrom(spki.getEncoded)
+          }
+          .leftMap(_.toString)
+      } yield ed25519PubKey
+
+    // Derives the public key point (Q = d * G) from the EC private key.
+    def deriveEcPublicKey(
+        curveName: String,
+        privateKey: PrivateKey,
+    ): Either[String, ByteString] =
+      for {
+        jKey <- JceJavaKeyConverter.toJava(privateKey).leftMap(_.toString)
+        ecPrivateKey <- jKey match {
+          case ecPrivateKey: ECPrivateKey => Right(ecPrivateKey)
+          case _ => Left("Invalid EC key")
+        }
+
+        params <- Option(ECNamedCurveTable.getParameterSpec(curveName))
+          .toRight(s"Cannot get parameters from curve $curveName")
+        d = ecPrivateKey.getS
+
+        // Compute Q = d * G. Refer to https://www.secg.org/sec1-v2.pdf, section 3.2.1 Elliptic Curve Key Pair
+        // Generation Primitive.
+        publicPoint <-
+          Either
+            .catchOnly[ArithmeticException](params.getG.multiply(d).normalize())
+            .leftMap(_.toString)
+
+        // Convert BC ECPoint → java.security.spec.ECPoint
+        affineX = publicPoint.getAffineXCoord.toBigInteger
+        affineY = publicPoint.getAffineYCoord.toBigInteger
+        javaPoint = new spec.ECPoint(affineX, affineY)
+
+        // Convert BC curve spec → standard Java spec
+        javaParams = new ECNamedCurveSpec(
+          curveName,
+          params.getCurve,
+          params.getG,
+          params.getN,
+          params.getH,
+          params.getSeed,
+        )
+
+        pubSpec = new ECPublicKeySpec(javaPoint, javaParams)
+        keyFactory = KeyFactory.getInstance("EC", JceSecurityProvider.bouncyCastleProvider)
+        derivedPublicKey <- Either
+          .catchOnly[InvalidKeySpecException](keyFactory.generatePublic(pubSpec).getEncoded)
+          .leftMap(err => s"Failed to derive EC public key: $err")
+      } yield ByteString.copyFrom(derivedPublicKey)
+
+    // Derives the public key from an RSA private key using the private key’s modulus and the standard exponent (e = 65537).
+    def deriveRsaPublicKey(
+        privateKey: PrivateKey
+    ): Either[String, ByteString] =
+      for {
+        jKey <- JceJavaKeyConverter.toJava(privateKey).leftMap(_.toString)
+        rsaPrivateKey <- jKey match {
+          case rsaPrivateKey: RSAPrivateKey => Right(rsaPrivateKey)
+          case _ => Left(s"Invalid RSA key [${privateKey.id}]")
+        }
+        modulus = rsaPrivateKey.getModulus
+        pubSpec = new RSAPublicKeySpec(modulus, RSAKeyGenParameterSpec.F4)
+        keyFactory = KeyFactory.getInstance("RSA", JceSecurityProvider.bouncyCastleProvider)
+        derivedPublicKey <- Either
+          .catchOnly[InvalidKeySpecException](keyFactory.generatePublic(pubSpec).getEncoded)
+          .leftMap(err => s"Failed to derive RSA public key: $err")
+      } yield ByteString.copyFrom(derivedPublicKey)
+
+    (privateKey: @unchecked) match {
+      case SigningPrivateKey(_, Symbolic, _, _, _) | EncryptionPrivateKey(_, Symbolic, _, _) =>
+        // we cannot derive a public key when using symbolic keys
+        Left(s"Unsupported key format: $Symbolic")
+      case signingPrivateKey @ SigningPrivateKey(_, _, _, keySpec, usage) =>
+        val signingPublicKeyE = keySpec match {
+          case SigningKeySpec.EcCurve25519 =>
+            deriveEd25519PublicKey(signingPrivateKey)
+          case SigningKeySpec.EcP256 =>
+            deriveEcPublicKey(SigningKeySpec.EcP256.jcaCurveName, signingPrivateKey)
+          case SigningKeySpec.EcP384 =>
+            deriveEcPublicKey(SigningKeySpec.EcP384.jcaCurveName, signingPrivateKey)
+          case SigningKeySpec.EcSecp256k1 =>
+            deriveEcPublicKey(SigningKeySpec.EcSecp256k1.jcaCurveName, signingPrivateKey)
+        }
+        signingPublicKeyE.flatMap(derivedPublicKey =>
+          SigningPublicKey
+            .create(
+              CryptoKeyFormat.DerX509Spki,
+              derivedPublicKey,
+              keySpec,
+              usage,
+            )
+            .leftMap(_.toString)
+        )
+      case encryptionPrivateKey @ EncryptionPrivateKey(_, _, _, keySpec) =>
+        val encryptionPublicKeyE = keySpec match {
+          case EncryptionKeySpec.EcP256 =>
+            deriveEcPublicKey(SigningKeySpec.EcP256.jcaCurveName, encryptionPrivateKey)
+          case EncryptionKeySpec.Rsa2048 =>
+            deriveRsaPublicKey(encryptionPrivateKey)
+        }
+        encryptionPublicKeyE.flatMap(derivedPublicKey =>
+          EncryptionPublicKey
+            .create(
+              CryptoKeyFormat.DerX509Spki,
+              derivedPublicKey,
+              keySpec,
+            )
+            .leftMap(_.toString)
+        )
+    }
+  }
+
 }
