@@ -314,7 +314,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         )
         val Right(cmds) = preprocessor
           .preprocessApiCommands(Map.empty, ImmArray(cmd))
-          .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
+          .consumeValidated(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
         engine
           .interpretCommands(
             validating = false,
@@ -325,7 +325,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             preparationTime = let,
             seeding = seeding,
           )
-          .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
+          .consumeValidated(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)
       }
 
       val emptyRecord = ValueRecord(None, ImmArray.Empty)
