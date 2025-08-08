@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.crypto.SignatureCheckError.{
+  InconsistentSignatureCheckAlarm,
   SignatureWithWrongKey,
   SignerHasNoValidKeys,
 }
@@ -68,8 +69,6 @@ class SyncCryptoVerifier(
     * key (generated in software). Except for the supported signing schemes, all other schemes are
     * not needed. Therefore, we use fixed schemes (i.e. placeholders) for the other crypto
     * parameters.
-    *
-    * //TODO(#23731): Split up pure crypto into smaller modules and only use the signing module here
     */
   private lazy val verifyPublicApiSoftwareBased: SynchronizerCryptoPureApi = {
     val pureCryptoForSessionKeys = new JcePureCrypto(
@@ -424,10 +423,11 @@ class SyncCryptoVerifier(
           validSigners.distinct.sizeIs >= threshold.value, {
             if (signatureCheckErrors.nonEmpty) {
               val errors = SignatureCheckError.MultipleErrors(signatureCheckErrors)
-              // TODO(i13206): Replace with an Alarm
-              logger.warn(
-                s"Signature check passed for $groupName, although there were errors: $errors"
-              )
+              InconsistentSignatureCheckAlarm
+                .Warn(
+                  s"Signature check passed for $groupName, although there were errors: $errors"
+                )
+                .report()
             }
             ()
           },

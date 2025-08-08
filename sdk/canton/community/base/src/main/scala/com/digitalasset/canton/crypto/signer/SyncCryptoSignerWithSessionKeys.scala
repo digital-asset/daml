@@ -72,8 +72,6 @@ class SyncCryptoSignerWithSessionKeys(
     * signing key (generated in software). Except for the signing scheme, when signing with session
     * keys is enabled, all other schemes are not needed. Therefore, we use fixed schemes (i.e.
     * placeholders) for the other crypto parameters.
-    *
-    * //TODO(#23731): Split up pure crypto into smaller modules and only use the signing module here
     */
   private lazy val signPublicApiSoftwareBased: SynchronizerCryptoPureApi = {
     val pureCryptoForSessionKeys = new JcePureCrypto(
@@ -138,7 +136,6 @@ class SyncCryptoSignerWithSessionKeys(
   @VisibleForTesting
   private[crypto] val sessionKeysSigningCache: Cache[Fingerprint, SessionKeyAndDelegation] =
     Scaffeine()
-      // TODO(#24566): Use scheduler instead of expireAfter
       .expireAfter[Fingerprint, SessionKeyAndDelegation](
         create = (_, _) => sessionKeyEvictionPeriod.get(),
         update = (_, _, d) => d,
@@ -238,7 +235,6 @@ class SyncCryptoSignerWithSessionKeys(
      */
     val margin = cutOffDuration.asJava.dividedBy(2) // cuttoff/2
     val validityStart =
-      // TODO(#25524): Add unit test to check that this IllegalArgumentException is correctly thrown
       Either
         .catchOnly[IllegalArgumentException](
           topologySnapshot.timestamp.minus(margin)

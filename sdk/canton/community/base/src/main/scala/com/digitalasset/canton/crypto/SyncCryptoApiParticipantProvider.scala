@@ -51,8 +51,6 @@ import scala.concurrent.duration.*
   * resolve the right keys to use for signing / decryption based on synchronizer and timestamp. This
   * API is intended only for participants and covers all usages of protocol signing keys, thus,
   * session keys will be used if they are enabled.
-  *
-  * TODO(#23810): Reuse SyncCryptoApiParticipantProvider for all nodes and not only participants
   */
 class SyncCryptoApiParticipantProvider(
     val member: Member,

@@ -346,6 +346,10 @@ template Divulgence2
       controller div2Fetcher
       do archive div1ToArchive
 
+    nonconsuming choice Divulgence2ImmediateDivulge: ContractId Divulgence1
+      controller div2Fetcher
+      do create Divulgence1 with div1Party = div2Fetcher
+
 template DecimalRounding
   with
     party: Party

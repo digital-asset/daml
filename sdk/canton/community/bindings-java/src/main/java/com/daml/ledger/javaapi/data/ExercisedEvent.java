@@ -39,6 +39,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
 
   private final List<Identifier> implementedInterfaces;
 
+  private final @NonNull Boolean acsDelta;
+
   public ExercisedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull Long offset,
@@ -53,7 +55,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
       boolean consuming,
       @NonNull Integer lastDescendantNodeId,
       @NonNull Value exerciseResult,
-      @NonNull List<@NonNull Identifier> implementedInterfaces) {
+      @NonNull List<@NonNull Identifier> implementedInterfaces,
+      @NonNull Boolean acsDelta) {
     this.witnessParties = witnessParties;
     this.offset = offset;
     this.nodeId = nodeId;
@@ -68,6 +71,7 @@ public final class ExercisedEvent implements TreeEvent, Event {
     this.lastDescendantNodeId = lastDescendantNodeId;
     this.exerciseResult = exerciseResult;
     this.implementedInterfaces = implementedInterfaces;
+    this.acsDelta = acsDelta;
   }
 
   @NonNull
@@ -144,6 +148,10 @@ public final class ExercisedEvent implements TreeEvent, Event {
     return implementedInterfaces;
   }
 
+  public boolean isAcsDelta() {
+    return acsDelta;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -162,7 +170,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
         && Objects.equals(actingParties, that.actingParties)
         && Objects.equals(lastDescendantNodeId, that.lastDescendantNodeId)
         && Objects.equals(exerciseResult, that.exerciseResult)
-        && Objects.equals(implementedInterfaces, that.implementedInterfaces);
+        && Objects.equals(implementedInterfaces, that.implementedInterfaces)
+        && Objects.equals(acsDelta, that.acsDelta);
   }
 
   @Override
@@ -182,7 +191,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
         lastDescendantNodeId,
         consuming,
         exerciseResult,
-        implementedInterfaces);
+        implementedInterfaces,
+        acsDelta);
   }
 
   @Override
@@ -218,6 +228,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
         + exerciseResult
         + ", implementedInterfaces='"
         + implementedInterfaces
+        + ", acsDelta='"
+        + acsDelta
         + '}';
   }
 
@@ -237,7 +249,8 @@ public final class ExercisedEvent implements TreeEvent, Event {
             .setLastDescendantNodeId(getLastDescendantNodeId())
             .setExerciseResult(getExerciseResult().toProto())
             .addAllImplementedInterfaces(
-                getImplementedInterfaces().stream().map(Identifier::toProto).toList());
+                getImplementedInterfaces().stream().map(Identifier::toProto).toList())
+            .setAcsDelta(isAcsDelta());
     interfaceId.ifPresent(i -> builder.setInterfaceId(i.toProto()));
     return builder.build();
   }
@@ -259,6 +272,7 @@ public final class ExercisedEvent implements TreeEvent, Event {
         exercisedEvent.getConsuming(),
         exercisedEvent.getLastDescendantNodeId(),
         Value.fromProto(exercisedEvent.getExerciseResult()),
-        exercisedEvent.getImplementedInterfacesList().stream().map(Identifier::fromProto).toList());
+        exercisedEvent.getImplementedInterfacesList().stream().map(Identifier::fromProto).toList(),
+        exercisedEvent.getAcsDelta());
   }
 }

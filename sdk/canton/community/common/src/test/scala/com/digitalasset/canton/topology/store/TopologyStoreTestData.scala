@@ -66,7 +66,7 @@ class TopologyStoreTestData(
       .getOrElse(fail("no keys provided"))
       .toSet
 
-    SignedTopologyTransaction.create[Op, M](
+    SignedTopologyTransaction.tryCreate[Op, M](
       tx,
       signatures = signatures,
       isProposal = isProposal,

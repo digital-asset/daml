@@ -8,7 +8,14 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.digitalasset.base.error.{
+  Alarm,
+  AlarmErrorCode,
+  ErrorCategory,
+  ErrorCode,
+  Explanation,
+  Resolution,
+}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
@@ -26,7 +33,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
-  CryptoValidationError,
+  CryptoParseAndValidationError,
   DeterministicEncoding,
   HasCryptographicEvidence,
   ProtoConverter,
@@ -550,7 +557,7 @@ object SignatureDelegation {
         )
         .leftMap(err =>
           ProtoDeserializationError.CryptoDeserializationError(
-            CryptoValidationError(err.show)
+            CryptoParseAndValidationError(err.show)
           )
         )
       fromInclusive <-
@@ -1163,6 +1170,13 @@ final case class SigningKeyPair private (publicKey: SigningPublicKey, privateKey
       privateKey = privateKey.replaceUsage(usage),
     )
 
+  @VisibleForTesting
+  private[canton] def replacePrivateKey(privateKey: SigningPrivateKey): SigningKeyPair =
+    this.copy(
+      publicKey = publicKey,
+      privateKey = privateKey.replaceId(publicKey.id),
+    )
+
   protected def toProtoV30: v30.SigningKeyPair =
     v30.SigningKeyPair(Some(publicKey.toProtoV30), Some(privateKey.toProtoV30))
 
@@ -1234,7 +1248,6 @@ final case class SigningPublicKey private (
 
   override protected def companionObj: SigningPublicKey.type = SigningPublicKey
 
-  // TODO(#15649): Make SigningPublicKey object invariant
   protected def validated: Either[SigningKeyCreationError.KeyParseAndValidateError, this.type] =
     CryptoKeyValidation
       .parseAndValidatePublicKey(
@@ -1418,7 +1431,7 @@ object SigningPublicKey
         )
         .leftMap[ProtoDeserializationError](err =>
           ProtoDeserializationError.CryptoDeserializationError(
-            CryptoValidationError(err.toString)
+            CryptoParseAndValidationError(err.toString)
           )
         )
     } yield signingPublicKey
@@ -1528,7 +1541,7 @@ final case class SigningPrivateKey private (
           ASN1OctetString.getInstance(privateKeyInfo.getPrivateKey.getOctets).getOctets
 
         Some(
-          new SigningPrivateKey(
+          SigningPrivateKey(
             id,
             CryptoKeyFormat.Raw,
             ByteString.copyFrom(privateKeyData),
@@ -1553,6 +1566,10 @@ final case class SigningPrivateKey private (
   @VisibleForTesting
   private[crypto] def replaceFormat(format: CryptoKeyFormat): SigningPrivateKey =
     this.copy(format = format)(migrated)
+
+  @VisibleForTesting
+  private[crypto] def replaceId(id: Fingerprint): SigningPrivateKey =
+    this.copy(id = id)(migrated)
 
 }
 
@@ -1609,7 +1626,7 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
         .create(id, format, privateKeyP.privateKey, keySpec, usage)
         .leftMap(err =>
           ProtoDeserializationError.CryptoDeserializationError(
-            CryptoValidationError(err.show)
+            CryptoParseAndValidationError(err.show)
           )
         )
     } yield key
@@ -1771,7 +1788,22 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
   * during key generation (creating new key material).
   */
 sealed trait SigningKeyCreationError extends Product with Serializable with PrettyPrinting
-object SigningKeyCreationError {
+object SigningKeyCreationError extends CantonErrorGroups.CommandErrorGroup {
+
+  @Explanation("This error indicates that an encryption key could not be created.")
+  @Resolution("Inspect the error details")
+  object ErrorCode
+      extends ErrorCode(
+        id = "SIGNING_KEY_CREATION_ERROR",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Wrap(reason: SigningKeyCreationError)
+        extends CantonBaseError.Impl(cause = "An error occurred during signing key creation")
+
+    final case class WrapStr(reason: String)
+        extends CantonBaseError.Impl(cause = "An error occurred during signing key creation")
+  }
+
   final case class InvalidKeyUsage(
       keyUsage: Set[SigningKeyUsage]
   ) extends SigningKeyCreationError {
@@ -1787,7 +1819,20 @@ object SigningKeyCreationError {
 }
 
 sealed trait SignatureCheckError extends Product with Serializable with PrettyPrinting
-object SignatureCheckError {
+object SignatureCheckError extends CantonErrorGroups.AuthorizationChecksErrorGroup {
+
+  @Explanation(
+    """Signature verification passed for a mediator group, but some individual signature checks failed.
+      |This situation can occur when the number of valid signatures is sufficient to reach a threshold,
+      |even though some signatures were rejected due to mismatches or validation errors.
+      |While this does not block progress, it may indicate incorrect or malicious key usage, configuration issues,
+      |or a bug in the signing process. The affected signatures were ignored, but the system proceeded."""
+  )
+  @Resolution("Contact support")
+  object InconsistentSignatureCheckAlarm
+      extends AlarmErrorCode(id = "INCONSISTENT_SIGNATURE_CHECK_ALARM") {
+    final case class Warn(override val cause: String) extends Alarm(cause)
+  }
 
   final case class MultipleErrors(errors: Seq[SignatureCheckError], message: Option[String] = None)
       extends SignatureCheckError {

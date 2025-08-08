@@ -43,13 +43,46 @@ private[backend] trait StorageBackendTestsContracts
       backend.contract.archivedContracts(contractId :: Nil, offset(1))
     )
 
-    createdContracts.get(contractId).isDefined shouldBe true
+    createdContracts.contains(contractId) shouldBe true
     createdContracts.get(contractId).foreach { c =>
       c.templateId shouldBe someTemplateId.toString
       c.createArgumentCompression shouldBe None
       c.flatEventWitnesses shouldBe Set(signatory, observer)
     }
-    archivedContracts.isEmpty shouldBe true
+    archivedContracts shouldBe empty
+  }
+
+  it should "not find an active contract with empty flat event witnesses" in {
+    val contractId = hashCid("#1")
+    val signatory = Ref.Party.assertFromString("signatory")
+
+    val dtos: Vector[DbDto] = Vector(
+      // 1: transaction with create node with no flat event witnesses
+      dtoCreate(
+        offset(1),
+        1L,
+        contractId = contractId,
+        signatory = signatory,
+        emptyFlatEventWitnesses = true,
+      ),
+      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, signatory),
+      dtoCompletion(offset(1)),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(1), 1L)
+    )
+    val createdContracts = executeSql(
+      backend.contract.createdContracts(contractId :: Nil, offset(1))
+    )
+    val archivedContracts = executeSql(
+      backend.contract.archivedContracts(contractId :: Nil, offset(1))
+    )
+
+    createdContracts shouldBe empty
+    archivedContracts shouldBe empty
   }
 
   it should "correctly find a contract from assigned table" in {
@@ -81,14 +114,14 @@ private[backend] trait StorageBackendTestsContracts
         .assignedContracts(Seq(contractId1, contractId2, contractId3), offset(2))
     )
     assignedContracts1.size shouldBe 2
-    assignedContracts1.get(contractId1).isDefined shouldBe true
+    assignedContracts1.contains(contractId1) shouldBe true
     assignedContracts1.get(contractId1).foreach { raw =>
       raw.templateId shouldBe someTemplateId.toString
       raw.createArgumentCompression shouldBe Some(123)
       raw.flatEventWitnesses shouldBe Set(signatory, observer)
       raw.signatories shouldBe Set(signatory)
     }
-    assignedContracts1.get(contractId2).isDefined shouldBe true
+    assignedContracts1.contains(contractId2) shouldBe true
     assignedContracts1.get(contractId2).foreach { raw =>
       raw.templateId shouldBe someTemplateId.toString
       raw.createArgumentCompression shouldBe Some(123)
@@ -96,14 +129,14 @@ private[backend] trait StorageBackendTestsContracts
       raw.signatories shouldBe Set(signatory)
     }
     assignedContracts2.size shouldBe 1
-    assignedContracts2.get(contractId1).isDefined shouldBe true
+    assignedContracts2.contains(contractId1) shouldBe true
     assignedContracts2.get(contractId1).foreach { raw =>
       raw.templateId shouldBe someTemplateId.toString
       raw.createArgumentCompression shouldBe Some(123)
       raw.flatEventWitnesses shouldBe Set(signatory, observer)
       raw.signatories shouldBe Set(signatory)
     }
-    assignedContracts2.get(contractId2).isDefined shouldBe false
+    assignedContracts2.contains(contractId2) shouldBe false
   }
 
   it should "not find an archived contract" in {
@@ -139,23 +172,66 @@ private[backend] trait StorageBackendTestsContracts
       backend.contract.archivedContracts(contractId :: Nil, offset(2))
     )
 
-    createdContracts1.get(contractId).isDefined shouldBe true
+    createdContracts1.contains(contractId) shouldBe true
     createdContracts1.get(contractId).foreach { c =>
       c.templateId shouldBe someTemplateId.toString
       c.createArgumentCompression shouldBe None
       c.flatEventWitnesses shouldBe Set(signatory, observer)
     }
     archivedContracts1.get(contractId) shouldBe None
-    createdContracts2.get(contractId).isDefined shouldBe true
+    createdContracts2.contains(contractId) shouldBe true
     createdContracts2.get(contractId).foreach { c =>
       c.templateId shouldBe someTemplateId.toString
       c.createArgumentCompression shouldBe None
       c.flatEventWitnesses shouldBe Set(signatory, observer)
     }
-    archivedContracts2.get(contractId).isDefined shouldBe true
+    archivedContracts2.contains(contractId) shouldBe true
     archivedContracts2.get(contractId).foreach { c =>
       c.flatEventWitnesses shouldBe Set(signatory)
     }
+  }
+  it should "not find an archived contract with empty flat event witnesses" in {
+    val contractId = hashCid("#1")
+    val signatory = Ref.Party.assertFromString("signatory")
+
+    val dtos: Vector[DbDto] = Vector(
+      // 1: transaction with create node
+      dtoCreate(
+        offset(1),
+        1L,
+        contractId = contractId,
+        signatory = signatory,
+        emptyFlatEventWitnesses = true,
+      ),
+      DbDto.IdFilterCreateNonStakeholderInformee(1L, someTemplateId.toString, signatory),
+      dtoCompletion(offset(1)),
+      // 2: transaction that archives the contract
+      dtoExercise(offset(2), 2L, consuming = true, contractId, emptyFlatEventWitnesses = true),
+      dtoCompletion(offset(2)),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dtos, _))
+    executeSql(
+      updateLedgerEnd(offset(2), 2L)
+    )
+    val createdContracts1 = executeSql(
+      backend.contract.createdContracts(contractId :: Nil, offset(1))
+    )
+    val archivedContracts1 = executeSql(
+      backend.contract.archivedContracts(contractId :: Nil, offset(1))
+    )
+    val createdContracts2 = executeSql(
+      backend.contract.createdContracts(contractId :: Nil, offset(2))
+    )
+    val archivedContracts2 = executeSql(
+      backend.contract.archivedContracts(contractId :: Nil, offset(2))
+    )
+
+    createdContracts1 shouldBe empty
+    archivedContracts1 shouldBe empty
+    createdContracts2 shouldBe empty
+    archivedContracts2 shouldBe empty
   }
 
   it should "retrieve multiple contracts correctly for batched contract state query" in {
@@ -174,7 +250,7 @@ private[backend] trait StorageBackendTestsContracts
       dtoCreate(offset(1), 3L, contractId = contractId3, signatory = signatory),
       dtoCreate(offset(1), 4L, contractId = contractId4, signatory = signatory),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 5L, true, contractId1),
+      dtoExercise(offset(2), 5L, consuming = true, contractId1),
       // 3: transaction that creates one more contract
       dtoCreate(offset(3), 6L, contractId = contractId5, signatory = signatory),
     )
