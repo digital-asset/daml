@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.integration
@@ -11,7 +10,6 @@ import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
-import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -109,39 +107,15 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
   )(implicit env: integration.TestConsoleEnvironment): (String, PositiveInt) = {
     import env.*
 
-    // Expect both batches owned by the replicated party.
-    val expectedNumContracts = numContractsInCreateBatch * 2
-    val amounts = (1 to numContractsInCreateBatch.unwrap)
-    clue(s"create ${expectedNumContracts.unwrap} IOUs") {
-      IouSyntax.createIous(participant1, partyToReplicate, fellowContractStakeholder, amounts)
-      IouSyntax.createIous(participant1, fellowContractStakeholder, partyToReplicate, amounts)
-    }
-
     val (sourceParticipant, targetParticipant) = (participant1, participant2)
 
-    val serial = clue(s"$partyToReplicate agrees to have target participant co-host them")(
-      participant1.topology.party_to_participant_mappings
-        .propose_delta(
-          party = partyToReplicate,
-          adds = Seq((targetParticipant, ParticipantPermission.Submission)),
-          store = daId,
-          serial = None,
-          requiresPartyToBeOnboarded = true,
-        )
-        .transaction
-        .serial
+    val onPRSetup = createSharedContractsAndProposeTopologyForOnPR(
+      sourceParticipant,
+      targetParticipant,
+      partyToReplicate,
+      fellowContractStakeholder,
+      numContractsInCreateBatch,
     )
-
-    eventually() {
-      Seq(sourceParticipant, targetParticipant).foreach(
-        _.topology.party_to_participant_mappings
-          .list(daId, filterParty = partyToReplicate.filterString, proposals = true)
-          .flatMap(_.item.participants.map(_.participantId)) shouldBe Seq(
-          sourceParticipant.id,
-          targetParticipant.id,
-        )
-      )
-    }
 
     // Reset the test interceptor for the next test.
     hasSourceParticipantBeenPaused = false
@@ -152,7 +126,7 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         party = partyToReplicate,
         synchronizerId = daId,
         sourceParticipant = sourceParticipant,
-        serial = serial,
+        serial = onPRSetup.topologySerial,
         participantPermission = ParticipantPermission.Submission,
       )
     )
@@ -161,11 +135,8 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
       hasSourceParticipantBeenPaused shouldBe true
     })
 
-    (requestId, expectedNumContracts)
+    (requestId, onPRSetup.expectedNumContracts)
   }
-
-  // Wait for 5 seconds to ensure the disruption produces a noticed "outage" longer than a blip.
-  private def sleepLongEnoughForDisruptionToBeNoticed(): Unit = Threading.sleep(5000)
 
   "Finish replicating party after sequencer restart" onlyRunWith ProtocolVersion.dev in {
     implicit env =>
@@ -227,15 +198,23 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
             loggerAssertion = _ should include("ResilientSequencerSubscription"),
           )
         },
+        // Transient log noise marking agreement contract done.
+        LogEntryOptionality.OptionalMany -> { e =>
+          e.loggerName should include("TransactionProcessor")
+          e.warningMessage should include regex "Failed to submit submission due to .*No connection available"
+        },
+        LogEntryOptionality.OptionalMany -> { e =>
+          e.loggerName should include("PartyReplicationAdminWorkflow")
+          e.warningMessage should include regex "Failed to submit submit .*SEQUENCER_REQUEST_FAILED"
+        },
         // TODO(#26698): Remove UnknownContractSynchronizers warning.
         LogEntryOptionality.OptionalMany -> { e =>
           e.loggerName should include("PartyReplicationAdminWorkflow")
           e.level shouldBe Level.WARN
           e.warningMessage should include regex "UNKNOWN_CONTRACT_SYNCHRONIZERS.*: The synchronizers for the contracts .* are currently unknown due to ongoing contract reassignments or disconnected synchronizers"
         },
-        // UNKNOWN_CONTRACT_SYNCHRONIZERS
-        // Allow the mediator to optionally have a slow start with the restarted sequencer.
-        LogEntryOptionality.Optional -> { e =>
+        // Allow the participants and mediator to optionally have a slow start with the restarted sequencer.
+        LogEntryOptionality.OptionalMany -> { e =>
           e.loggerName should (include("Mediator") or include("ConnectedSynchronizer"))
           e.warningMessage should include regex
             "Detected late processing \\(or clock skew\\) of batch with timestamp .* after sequencing"
@@ -280,11 +259,15 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         // On the sequencer-channel-service side, expect warnings about the SP cancelling and forwarding the error to the TP.
         LogEntryOptionality.Required -> { entry =>
           entry.loggerName should include("GrpcSequencerChannelMemberMessageHandler")
-          entry.warningMessage should include regex "Member message handler received error CANCELLED: client cancelled. Forwarding error to recipient"
+          entry.warningMessage should include(
+            "Member message handler received error \"CANCELLED: client cancelled\". Forwarding error to recipient"
+          )
         },
         LogEntryOptionality.Required -> { entry =>
           entry.loggerName should include("GrpcSequencerChannelMemberMessageHandler")
-          entry.warningMessage should include regex "Request stream error CANCELLED: client cancelled has terminated connection"
+          entry.warningMessage should include(
+            "Request stream error \"CANCELLED: client cancelled\" has terminated connection"
+          )
         },
       )
   }
@@ -325,11 +308,15 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
         // On the sequencer-channel-service side, expect warnings about the SP cancelling and forwarding the error to the TP.
         LogEntryOptionality.Required -> { entry =>
           entry.loggerName should include("GrpcSequencerChannelMemberMessageHandler")
-          entry.warningMessage should include regex "Member message handler received error CANCELLED: client cancelled. Forwarding error to recipient"
+          entry.warningMessage should include(
+            "Member message handler received error \"CANCELLED: client cancelled\". Forwarding error to recipient"
+          )
         },
         LogEntryOptionality.Required -> { entry =>
           entry.loggerName should include("GrpcSequencerChannelMemberMessageHandler")
-          entry.warningMessage should include regex "Request stream error CANCELLED: client cancelled has terminated connection"
+          entry.warningMessage should include(
+            "Request stream error \"CANCELLED: client cancelled\" has terminated connection"
+          )
         },
         // Allow a slow start with the restarted source participant.
         LogEntryOptionality.Optional -> { e =>

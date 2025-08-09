@@ -134,6 +134,16 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
       pubKey2 <- getSigningPublicKey(crypto, usage, keySpec)
     } yield (pubKey1, pubKey2)
 
+  protected def getPrivateKey(
+      crypto: Crypto,
+      id: Fingerprint,
+  ): FutureUnlessShutdown[PrivateKey] =
+    crypto.cryptoPrivateStore
+      .asInstanceOf[CryptoPrivateStoreExtended]
+      .exportPrivateKey(id)
+      .map(_.valueOrFail("private key not found"))
+      .valueOrFail("export private key")
+
 }
 
 object CryptoTestHelper {

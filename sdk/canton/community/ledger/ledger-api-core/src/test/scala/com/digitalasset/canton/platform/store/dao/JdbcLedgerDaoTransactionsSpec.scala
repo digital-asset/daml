@@ -230,26 +230,16 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "hide events on transient contracts to the original submitter" in {
+  it should "hide transactions with transient contracts" in {
     for {
-      (offset, tx) <- store(fullyTransient())
+      (offset, tx) <- store(fullyTransient(), contractActivenessChanged = false)
       resultById <- ledgerDao.updateReader
         .lookupTransactionById(tx.updateId, transactionFormatForWildcardParties(tx.actAs.toSet))
       resultByOffset <- ledgerDao.updateReader
         .lookupTransactionByOffset(offset, transactionFormatForWildcardParties(tx.actAs.toSet))
     } yield {
-      inside(resultById.value.transaction) { case Some(transaction) =>
-        transaction.commandId shouldBe tx.commandId.value
-        transaction.offset shouldBe offset.unwrap
-        transaction.updateId shouldBe tx.updateId
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe tx.ledgerEffectiveTime
-        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        transaction.events shouldBe Seq.empty
-      }
-      resultByOffset shouldBe resultById
+      resultById shouldBe empty
+      resultByOffset shouldBe empty
     }
   }
 
@@ -459,9 +449,9 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
     }
   }
 
-  it should "hide events on transient contracts to the original submitter" in {
+  it should "hide transactions with transient contracts" in {
     for {
-      (offset, tx) <- store(fullyTransient())
+      (offset, tx) <- store(fullyTransient(), contractActivenessChanged = false)
       resultById <- ledgerDao.updateReader
         .lookupUpdateBy(
           LookupKey.UpdateId(tx.updateId),
@@ -470,18 +460,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultByOffset <- ledgerDao.updateReader
         .lookupUpdateBy(LookupKey.Offset(offset), updateFormatForWildcardParties(tx.actAs.toSet))
     } yield {
-      inside(resultById.value.update.transaction) { case Some(transaction) =>
-        transaction.commandId shouldBe tx.commandId.value
-        transaction.offset shouldBe offset.unwrap
-        transaction.updateId shouldBe tx.updateId
-        TimestampConversion.toLf(
-          transaction.effectiveAt.value,
-          TimestampConversion.ConversionMode.Exact,
-        ) shouldBe tx.ledgerEffectiveTime
-        transaction.workflowId shouldBe tx.workflowId.getOrElse("")
-        transaction.events shouldBe Seq.empty
-      }
-      resultByOffset shouldBe resultById
+      resultById shouldBe empty
+      resultByOffset shouldBe empty
     }
   }
 

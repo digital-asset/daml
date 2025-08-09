@@ -3,13 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, NameTypeConRef}
-import com.digitalasset.canton.ledger.api.{
-  CumulativeFilter,
-  EventFormat,
-  Ref2,
-  TemplateWildcardFilter,
-}
+import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
 import com.digitalasset.canton.platform.index.IndexServiceImpl.InterfaceViewPackageUpgrade
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref
@@ -37,7 +31,7 @@ import scala.concurrent.Future
 final case class EventProjectionProperties(
     verbose: Boolean,
     // Map((witness or wildcard) -> Map(template -> projection)), where a None key denotes a party wildcard
-    witnessTemplateProjections: Map[Option[String], Map[Ref2.NameTypeConRef, Projection]] =
+    witnessTemplateProjections: Map[Option[String], Map[Ref.NameTypeConRef, Projection]] =
       Map.empty,
     templateWildcardCreatedEventBlobParties: Option[Set[String]] = Some(
       Set.empty

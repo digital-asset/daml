@@ -119,7 +119,7 @@ final class PartyReplicationSourceParticipantProcessor private (
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     logger.debug(
-      s"Source participant has received instruction to send up to contract $maxContractOrdinalInclusive"
+      s"Source participant has received instruction to send up to contract ordinal $maxContractOrdinalInclusive"
     )
     for {
       // Check that the target participant has initialized this SP.
@@ -189,9 +189,7 @@ final class PartyReplicationSourceParticipantProcessor private (
     notifyCounterParticipantAndPartyReplicatorOnError {
       val fromInclusive = processorStore.sentContractsCount
       val toInclusive: NonNegativeInt = processorStore.contractOrdinalToSendUpToExclusive.map(_ - 1)
-      logger.debug(
-        s"Source participant has received instruction to send up to contract ordinal ${toInclusive.unwrap}"
-      )
+      logger.debug(s"Source participant about to send up to contract ordinal ${toInclusive.unwrap}")
       for {
         contracts <- readContracts(fromInclusive, toInclusive)
         numContractsSending = contracts.flatten.size

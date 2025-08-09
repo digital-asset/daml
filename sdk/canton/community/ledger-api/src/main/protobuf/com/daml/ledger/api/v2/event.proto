@@ -130,6 +130,11 @@ message CreatedEvent {
   // The package name of the created contract.
   // Required
   string package_name = 13;
+
+  // Whether this event would be part of respective ACS_DELTA shaped stream,
+  // and should therefore considered when tracking contract activeness on the client-side.
+  // Required
+  bool acs_delta = 14;
 }
 
 // View of a create event matched by an interface filter.
@@ -299,4 +304,9 @@ message ExercisedEvent {
   //
   // Optional
   repeated Identifier implemented_interfaces = 14;
+
+  // Whether this event would be part of respective ACS_DELTA shaped stream,
+  // and should therefore considered when tracking contract activeness on the client-side.
+  // Required
+  bool acs_delta = 15;
 }

@@ -174,7 +174,6 @@ class KmsPrivateCrypto(
                     SigningError.InvalidKeyUsage.apply,
                   )
                   .toEitherT[FutureUnlessShutdown]
-                // TODO(#26423): private key format should be validated at key creation/deserialization
                 validAlgorithmSpec <- CryptoKeyValidation
                   .selectSigningAlgorithmSpec(
                     pubKey.keySpec,

@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.digitalasset.canton.ledger.api.Ref2
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -40,19 +39,19 @@ class MockStringInterning extends StringInterning {
 
     }
 
-  override val templateId: StringInterningDomain[Ref2.NameTypeConRef] =
-    new StringInterningDomain[Ref2.NameTypeConRef] {
+  override val templateId: StringInterningDomain[Ref.NameTypeConRef] =
+    new StringInterningDomain[Ref.NameTypeConRef] {
       override val unsafe: StringInterningAccessor[String] = rawStringInterning
 
-      override def internalize(t: Ref2.NameTypeConRef): Int = tryInternalize(t).get
+      override def internalize(t: Ref.NameTypeConRef): Int = tryInternalize(t).get
 
-      override def tryInternalize(t: Ref2.NameTypeConRef): Option[Int] =
+      override def tryInternalize(t: Ref.NameTypeConRef): Option[Int] =
         rawStringInterning.tryInternalize(t.toString)
 
-      override def externalize(id: Int): Ref2.NameTypeConRef = tryExternalize(id).get
+      override def externalize(id: Int): Ref.NameTypeConRef = tryExternalize(id).get
 
-      override def tryExternalize(id: Int): Option[Ref2.NameTypeConRef] =
-        rawStringInterning.tryExternalize(id).map(Ref2.NameTypeConRef.assertFromString)
+      override def tryExternalize(id: Int): Option[Ref.NameTypeConRef] =
+        rawStringInterning.tryExternalize(id).map(Ref.NameTypeConRef.assertFromString)
     }
 
   override val packageId: StringInterningDomain[Ref.PackageId] =

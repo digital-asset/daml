@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.ledger.api.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -13,7 +12,14 @@ import com.digitalasset.canton.testing.utils.TestModels
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Decode}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, Party}
+import com.digitalasset.daml.lf.data.Ref.{
+  Identifier,
+  IdentifierConverter,
+  PackageId,
+  PackageName,
+  PackageVersion,
+  Party,
+}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -188,6 +194,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offset: Offset,
+      contractActivenessChanged: Boolean,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     for {
       _ <- ledgerDao.storeTransaction(
@@ -198,6 +205,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         offset = offset,
         transaction = tx.transaction,
         recordTime = tx.recordedAt,
+        contractActivenessChanged = contractActivenessChanged,
       )
     } yield offset -> tx
 
@@ -369,6 +377,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       stakeholders: Set[Party],
       key: Option[GlobalKeyWithMaintainers],
       contractArgument: LfValue = someContractArgument,
+      contractActivenessChanged: Boolean = true,
   ): Future[(Offset, LedgerEntry.Transaction)] =
     store(
       singleCreate(
@@ -382,7 +391,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
           )
         },
         actAs = submittingParties.toList,
-      )
+      ),
+      contractActivenessChanged = contractActivenessChanged,
     )
 
   protected def singleExercise(
@@ -625,11 +635,12 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   }
 
   protected final def store(
-      offsetAndTx: (Offset, LedgerEntry.Transaction)
+      offsetAndTx: (Offset, LedgerEntry.Transaction),
+      contractActivenessChanged: Boolean = true,
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
     val info = completionInfoFrom(entry)
-    store(info, entry, offset)
+    store(info, entry, offset, contractActivenessChanged)
   }
 
   protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
@@ -656,7 +667,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
 
     // force synchronous future processing with Free monad
     // to provide the guarantees that all transactions persisted in the specified order
-    commands traverseFM store
+    commands traverseFM (store(_))
   }
 
   /** A transaction that creates the given key */

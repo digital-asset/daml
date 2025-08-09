@@ -121,7 +121,7 @@ class DbCryptoPublicStore(
         functionFullName,
       )
 
-  override private[crypto] def deleteKey(
+  override def deleteKey(
       keyId: Fingerprint
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage
