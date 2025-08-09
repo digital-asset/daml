@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawCreatedEvent,
   RawTreeEvent,
@@ -13,6 +12,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 import com.digitalasset.canton.tracing.SerializableTraceContextConverter.SerializableTraceContextExtension
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
 import org.scalatest.flatspec.AnyFlatSpec

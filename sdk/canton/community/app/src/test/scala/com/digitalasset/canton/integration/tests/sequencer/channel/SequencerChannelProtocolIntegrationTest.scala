@@ -314,7 +314,7 @@ sealed trait SequencerChannelProtocolIntegrationTest
           entry => {
             entry.loggerName should include("GrpcSequencerChannelMemberMessageHandler")
             entry.warningMessage should include(
-              s"Member message handler received error $serverSideCancelMessage."
+              s"Member message handler received error \"$serverSideCancelMessage\"."
             )
           },
         ),

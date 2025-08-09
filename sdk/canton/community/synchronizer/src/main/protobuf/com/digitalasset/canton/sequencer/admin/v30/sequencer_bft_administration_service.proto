@@ -57,6 +57,10 @@ message RemovePeerEndpointResponse {
   bool removed = 1;
 }
 
+message Authenticated {
+  string sequencer_id = 1;
+}
+
 message PeerEndpointHealthStatus {
   oneof status {
     UnknownEndpoint unknown_endpoint = 1;
@@ -68,9 +72,6 @@ message PeerEndpointHealthStatus {
   message UnknownEndpoint {}
   message Disconnected {}
   message Unauthenticated {}
-  message Authenticated {
-    string sequencer_id = 1;
-  }
 }
 
 message PeerEndpointHealth {
@@ -83,13 +84,20 @@ message PeerEndpointStatus {
   PeerEndpointHealth health = 2;
 }
 
+message PeerConnectionStatus {
+  oneof status {
+    PeerEndpointStatus peer_endpoint_id_status = 1;
+    Authenticated peer_incoming_connection = 2;
+  }
+}
+
 message GetPeerNetworkStatusRequest {
   // If empty, the status of all known endpoints will be returned
   repeated PeerEndpointId endpoint_ids = 1;
 }
 
 message GetPeerNetworkStatusResponse {
-  repeated PeerEndpointStatus statuses = 1;
+  repeated PeerConnectionStatus statuses = 1;
 }
 
 message GetOrderingTopologyRequest {}

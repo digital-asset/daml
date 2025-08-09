@@ -33,7 +33,7 @@ object DbVersionCheck extends HasLoggerName {
     val either: Either[DbMigrations.Error, Unit] = profile match {
 
       case Profile.Postgres(_) =>
-        val expectedPostgresVersions = NonEmpty(Seq, 13, 14, 15, 16, 17)
+        val expectedPostgresVersions = NonEmpty(Seq, 14, 15, 16, 17)
         val expectedPostgresVersionsStr =
           s"${(expectedPostgresVersions.dropRight(1)).mkString(", ")}, or ${expectedPostgresVersions
               .takeRight(1)

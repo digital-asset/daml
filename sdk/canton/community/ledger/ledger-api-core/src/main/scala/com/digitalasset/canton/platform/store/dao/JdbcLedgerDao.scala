@@ -452,8 +452,7 @@ private class JdbcLedgerDao(
       loggerFactory,
     )
 
-  /** This is a combined store transaction method to support sandbox-classic and tests !!! Usage of
-    * this is discouraged, with the removal of sandbox-classic this will be removed
+  /** This is a combined store transaction method to support tests !!! Usage of this is discouraged
     */
   @SuppressWarnings(Array("org.wartremover.warts.Null"))
   override def storeTransaction(
@@ -464,6 +463,7 @@ private class JdbcLedgerDao(
       offset: Offset,
       transaction: CommittedTransaction,
       recordTime: Timestamp,
+      contractActivenessChanged: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse] = {
@@ -503,7 +503,8 @@ private class JdbcLedgerDao(
               synchronizerId = SynchronizerId.tryFromString("invalid::deadbeef"),
               recordTime = CantonTimestamp(recordTime),
               externalTransactionHash = None,
-              acsChangeFactory = TestAcsChangeFactory,
+              acsChangeFactory =
+                TestAcsChangeFactory(contractActivenessChanged = contractActivenessChanged),
             )
           ),
         )

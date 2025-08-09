@@ -1659,6 +1659,38 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/interactive-submission/executeAndWait:
+    post:
+      description: Execute a signed transaction and wait for its completion
+      operationId: postV2Interactive-submissionExecuteandwait
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsExecuteSubmissionAndWaitRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecuteSubmissionAndWaitResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/interactive-submission/preferred-package-version:
     get:
       description: Get the preferred package version for constructing a command submission
@@ -2276,6 +2308,7 @@ components:
       - createdEventBlob
       - createdAt
       - packageName
+      - acsDelta
       properties:
         offset:
           description: |-
@@ -2390,6 +2423,12 @@ components:
             The package name of the created contract.
             Required
           type: string
+        acsDelta:
+          description: |-
+            Whether this event would be part of respective ACS_DELTA shaped stream,
+            and should therefore considered when tracking contract activeness on the client-side.
+            Required
+          type: boolean
     CreatedTreeEvent:
       title: CreatedTreeEvent
       type: object
@@ -2515,9 +2554,6 @@ components:
             $ref: '#/components/schemas/Empty3'
     DeduplicationPeriod2:
       title: DeduplicationPeriod
-      description: |-
-        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
-        If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
         required:
@@ -2688,6 +2724,25 @@ components:
             In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
             Optional
           type: boolean
+    ExecuteSubmissionAndWaitResponse:
+      title: ExecuteSubmissionAndWaitResponse
+      type: object
+      required:
+      - updateId
+      - completionOffset
+      properties:
+        updateId:
+          description: |-
+            The id of the transaction that resulted from the submitted command.
+            Must be a valid LedgerString (as described in ``value.proto``).
+            Required
+          type: string
+        completionOffset:
+          description: |-
+            The details of the offset field are described in ``community/ledger-api/README.md``.
+            Required
+          type: integer
+          format: int64
     ExecuteSubmissionResponse:
       title: ExecuteSubmissionResponse
       type: object
@@ -2773,6 +2828,7 @@ components:
       - lastDescendantNodeId
       - exerciseResult
       - packageName
+      - acsDelta
       properties:
         offset:
           description: |-
@@ -2888,6 +2944,12 @@ components:
           type: array
           items:
             type: string
+        acsDelta:
+          description: |-
+            Whether this event would be part of respective ACS_DELTA shaped stream,
+            and should therefore considered when tracking contract activeness on the client-side.
+            Required
+          type: boolean
     ExercisedTreeEvent:
       title: ExercisedTreeEvent
       type: object
@@ -3927,6 +3989,51 @@ components:
     JsEmpty:
       title: JsEmpty
       type: object
+    JsExecuteSubmissionAndWaitRequest:
+      title: JsExecuteSubmissionAndWaitRequest
+      type: object
+      required:
+      - deduplicationPeriod
+      - submissionId
+      - userId
+      - hashingSchemeVersion
+      properties:
+        preparedTransaction:
+          description: |-
+            the prepared transaction
+            Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+            obtained from calling `prepareSubmission`.
+          type: string
+        partySignatures:
+          $ref: '#/components/schemas/PartySignatures'
+          description: |-
+            The party(ies) signatures that authorize the prepared submission to be executed by this node.
+            Each party can provide one or more signatures..
+            and one or more parties can sign.
+            Note that currently, only single party submissions are supported.
+        deduplicationPeriod:
+          $ref: '#/components/schemas/DeduplicationPeriod2'
+        submissionId:
+          description: |-
+            A unique identifier to distinguish completions for different submissions with the same change ID.
+            Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+            with the same change ID.
+            Must be a valid LedgerString (as described in ``value.proto``).
+
+            Required
+          type: string
+        userId:
+          description: See [PrepareSubmissionRequest.user_id]
+          type: string
+        hashingSchemeVersion:
+          description: The hashing scheme version used when building the hash
+          type: string
+        minLedgerTime:
+          $ref: '#/components/schemas/MinLedgerTime'
+          description: |-
+            If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+            should be scheduled to executed within the window allowed by synchronizer.
+            Optional
     JsExecuteSubmissionRequest:
       title: JsExecuteSubmissionRequest
       type: object

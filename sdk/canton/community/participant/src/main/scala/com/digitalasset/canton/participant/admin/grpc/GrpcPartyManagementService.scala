@@ -118,9 +118,7 @@ class GrpcPartyManagementService(
 
   override def getAddPartyStatus(
       request: v30.GetAddPartyStatusRequest
-  ): Future[v30.GetAddPartyStatusResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-
+  ): Future[v30.GetAddPartyStatusResponse] =
     (for {
       adminWorkflow <- ensureAdminWorkflowIfOnlinePartyReplicationEnabled()
 
@@ -149,7 +147,6 @@ class GrpcPartyManagementService(
       )
     })
       .fold(Future.failed, Future.successful)
-  }
 
   private def toStatusRuntimeException(status: Status)(err: String): StatusRuntimeException =
     status.withDescription(err).asRuntimeException()

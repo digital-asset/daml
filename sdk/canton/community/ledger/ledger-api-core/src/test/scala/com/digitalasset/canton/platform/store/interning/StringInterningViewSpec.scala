@@ -4,7 +4,6 @@
 package com.digitalasset.canton.platform.store.interning
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Assertion
@@ -293,10 +292,10 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     interningEntryAbsent(view.party, party, Ref.Party.assertFromString)
 
   private def templatePresent(view: StringInterning, template: String, id: Int) =
-    interningEntryPresent(view.templateId, template, id, NameTypeConRef.assertFromString)
+    interningEntryPresent(view.templateId, template, id, Ref.NameTypeConRef.assertFromString)
 
   private def templateAbsent(view: StringInterning, template: String) =
-    interningEntryAbsent(view.templateId, template, NameTypeConRef.assertFromString)
+    interningEntryAbsent(view.templateId, template, Ref.NameTypeConRef.assertFromString)
 
   private def synchronizerIdPresent(view: StringInterning, synchronizerId: String, id: Int) =
     interningEntryPresent(view.synchronizerId, synchronizerId, id, SynchronizerId.tryFromString)

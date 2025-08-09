@@ -47,6 +47,7 @@ class LocalSequencerStateEventSignaller(
     PekkoUtil.runSupervised(
       Source
         .queue[WriteNotification](1, OverflowStrategy.backpressure)
+        // this conflate kicks in, when there is no downstream consumer, to not exert backpressure to the upstream producer
         .conflate(_ union _)
         .toMat(BroadcastHub.sink(1))(Keep.both),
       errorLogMessagePrefix = "LocalStateEventSignaller flow failed",
@@ -71,6 +72,9 @@ class LocalSequencerStateEventSignaller(
     notificationsHubSource
       .filter(_.includes(memberId))
       .map(_ => ReadSignal)
+      // this conflate ensures that a slow consumer doesn't cause backpressure and therefore
+      // block the stream of signals for other consumers
+      .conflate((_, _) => ReadSignal)
   }
 
   private def queueWithLogging(name: String, queue: SourceQueueWithComplete[WriteNotification])(

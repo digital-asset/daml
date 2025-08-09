@@ -22,8 +22,6 @@ import scala.concurrent.ExecutionContext
   * crucial because a malicious counter participant could potentially use a downgraded scheme. For
   * other methods, such as key generation, or signing by this (honest) participant, we rely on the
   * synchronizer handshake to ensure that only supported schemes within the synchronizer are used.
-  *
-  * TODO(#25260): Refactor SynchronizerCryptoPrivateApi
   */
 final class SynchronizerCryptoPrivateApi(
     override val staticSynchronizerParameters: StaticSynchronizerParameters,

@@ -70,7 +70,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion: BaseVersioningCompanion[T, Context, DeserializedValueClass, Dependency],
       context: Context,
       protocolVersion: ProtocolVersion,
-      warnWhenTestRunsLongerThan: Duration = 1.second,
+      warnWhenTestRunsLongerThan: Duration = 2.second,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,

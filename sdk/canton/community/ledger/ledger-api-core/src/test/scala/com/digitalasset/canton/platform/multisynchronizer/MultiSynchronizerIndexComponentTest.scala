@@ -103,7 +103,7 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           repairCounter = RepairCounter.Genesis,
           recordTime = CantonTimestamp(recordTime),
           synchronizerId = synchronizer2,
-          acsChangeFactory = TestAcsChangeFactory,
+          acsChangeFactory = TestAcsChangeFactory(),
         )
       else
         Update.RepairReassignmentAccepted(
