@@ -810,6 +810,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
             )
           )
+        case PLF.Type.SumCase.TAPP =>
+          val tapp = lfType.getTapp
+          Work.bind(uncheckedDecodeType(tapp.getLhs())) { lhs =>
+            Work.bind(uncheckedDecodeType(tapp.getRhs())) { rhs =>
+              Ret(TApp(lhs, rhs))
+            }
+          }
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Type.SUM_NOT_SET")
       }

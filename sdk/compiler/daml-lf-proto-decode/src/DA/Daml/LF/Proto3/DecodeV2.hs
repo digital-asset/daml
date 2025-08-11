@@ -739,18 +739,21 @@ singletonIfLfFlat :: Foldable t => t a -> Decode (t a)
 singletonIfLfFlat xs = do
   v <- asks version
   if v `supports` featureFlatArchive && length xs /= 1
-    then error $ printf "multiple arguments disallowed since lf version %s supports flat archives" $ show v
+    then error $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
     else return xs
 
-nullIfLfFlat :: Foldable t => t a -> Decode (t a)
-nullIfLfFlat xs = do
+singletonIfLfFlat_ :: Foldable t => t a -> Decode ()
+singletonIfLfFlat_ = void . singletonIfLfFlat
+
+nullIfLfFlat :: Foldable t => t a -> String -> Decode (t a)
+nullIfLfFlat xs str = do
   v <- asks version
   if v `supports` featureFlatArchive && (not $ null xs)
-    then error $ printf "argument(s) disallowed since lf version %s supports flat archives" $ show v
+    then error $ printf "argument(s) disallowed since lf %s supports flat archives, origin: %s" (show v) str
     else return xs
 
-nullIfLfFlat_ :: Foldable t => t a -> Decode ()
-nullIfLfFlat_ x = nullIfLfFlat x >> return ()
+nullIfLfFlat_ :: Foldable t => t a -> String -> Decode ()
+nullIfLfFlat_ x str = void $ nullIfLfFlat x str
 
 decodeKind :: LF2.Kind -> Decode Kind
 decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
@@ -801,18 +804,24 @@ decodeTypeLevelNat m =
 decodeType :: LF2.Type -> Decode Type
 decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumVar (LF2.Type_Var var args) -> do
-    nullIfLfFlat_ args
+    nullIfLfFlat_ args "Type_Var"
     decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
-  LF2.TypeSumCon (LF2.Type_Con mbCon args) ->
+  LF2.TypeSumCon (LF2.Type_Con mbCon args) -> do
+    nullIfLfFlat_ args "Type_Con"
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConId
-  LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
+  LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) -> do
+    -- TODO[RB]: Uncomment after we determine why TSynApp has a list of
+    -- applications? Why does TSyn Even exist? Wy not just TSyn?
+
+    -- nullIfLfFlat_ args "Type_Syn"
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynId <*> traverse decodeType (V.toList args)
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
     decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Builtin" idx)
   LF2.TypeSumForall (LF2.Type_Forall binders mbBody) -> do
+    singletonIfLfFlat_ binders
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF2.TypeSumStruct (LF2.Type_Struct flds) ->
@@ -820,7 +829,9 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumInternedType n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n
-  LF2.TypeSumTapp _ -> error "not implemented"
+  LF2.TypeSumTapp (LF2.Type_TApp lhs rhs) ->
+    TApp <$> mayDecode "type_TApp_lhs" lhs decodeType
+         <*> mayDecode "type_TApp_rhs" rhs decodeType
   where
     decodeWithArgs :: V.Vector LF2.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args

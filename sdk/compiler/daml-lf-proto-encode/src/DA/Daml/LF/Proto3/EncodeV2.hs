@@ -345,8 +345,10 @@ encodeType' typ = do
         let type_BuiltinBuiltin = encodeBuiltinType bltn
         type_BuiltinArgs <- encodeList encodeType' args
         pure $ P.TypeSumBuiltin P.Type_Builtin{..}
-    (t@TForall{}, []) -> do
-        let (binders, body) = t ^. _TForalls
+    (t@(TForall bn bdy), []) -> do
+        (binders, body) <- ifSupportsFlattening
+            {-then-} ([bn], bdy)
+            {-else-} (t ^. _TForalls)
         type_ForallVars <- encodeTypeVarsWithKinds binders
         type_ForallBody <- encodeType body
         pure $ P.TypeSumForall P.Type_Forall{..}
