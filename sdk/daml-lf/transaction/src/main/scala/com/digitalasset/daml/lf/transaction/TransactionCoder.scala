@@ -166,7 +166,7 @@ object TransactionCoder {
               val fatContractInstance = FatContractInstance.fromCreateNode(
                 create = nc,
                 createTime = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
-                cantonData = data.Bytes.Empty,
+                authenticationData = data.Bytes.Empty,
               )
               for {
                 unversioned <- encodeFatContractInstanceInternal(fatContractInstance)
@@ -401,7 +401,7 @@ object TransactionCoder {
         DecodeError("unexpected created_at field in create node"),
       )
       _ <- Either.cond(
-        contract.cantonData.isEmpty,
+        contract.authenticationData.isEmpty,
         (),
         DecodeError("unexpected canton_data field in create node"),
       )
@@ -743,7 +743,7 @@ object TransactionCoder {
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
       discard(builder.setCreatedAt(CreationTime.encode(createdAt)))
-      discard(builder.setCantonData(cantonData.toByteString))
+      discard(builder.setAuthenticationData(authenticationData.toByteString))
       builder.build()
     }
   }
@@ -803,7 +803,7 @@ object TransactionCoder {
         case None => Right(signatories | nonSignatoryStakeholders)
       }
       createdAt <- CreationTime.decode(msg.getCreatedAt).left.map(DecodeError)
-      cantonData = msg.getCantonData
+      authenticationData = msg.getAuthenticationData
     } yield FatContractInstanceImpl(
       version = txVersion,
       contractId = contractId,
@@ -814,7 +814,7 @@ object TransactionCoder {
       stakeholders = stakeholders,
       createdAt = createdAt,
       contractKeyWithMaintainers = keyWithMaintainers,
-      cantonData = data.Bytes.fromByteString(cantonData),
+      authenticationData = data.Bytes.fromByteString(authenticationData),
     )
 
   @nowarn("cat=unused-pat-vars") // suppress wrong warnings that version and unversioned are unused

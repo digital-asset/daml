@@ -206,7 +206,7 @@ abstract class SequencerApiTest
             // TODO(#25250): was `forAll`; tighten these log checks back once the BFT sequencer logs are more stable
             forAtLeast(1, _) { entry =>
               entry.message should ((include(suppressedMessageContent) and {
-                include(ExceededMaxSequencingTime.id) or include("Observed Send")
+                include(ExceededMaxSequencingTime.id) or include regex "Send of .* at"
               }) or include("Detected new members without sequencer counter") or
                 include regex "Creating .* at block height None" or
                 include("Received `Start` message") or
@@ -260,11 +260,9 @@ abstract class SequencerApiTest
             forAll(_) { entry =>
               // block update generator will log every send
               entry.message should (include("Detected new members without sequencer counter") or
-                (include(ExceededMaxSequencingTime.id) or include(
-                  "Observed Send"
-                ) and include(
-                  suppressedMessageContent
-                )) or (include("Observed Send") and include(normalMessageContent)))
+                include(ExceededMaxSequencingTime.id) or
+                include regex s"Send of .*$suppressedMessageContent.* at " or
+                include regex s"Send of .*$normalMessageContent.* at")
             },
           )
         } yield {

@@ -16,9 +16,11 @@ import com.typesafe.scalalogging.LazyLogging
 
 final case class ListConnectedSynchronizersResult(
     synchronizerAlias: SynchronizerAlias,
-    synchronizerId: PhysicalSynchronizerId,
+    physicalSynchronizerId: PhysicalSynchronizerId,
     healthy: Boolean,
-)
+) {
+  def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+}
 
 object ListConnectedSynchronizersResult {
 
@@ -54,7 +56,7 @@ object ListConnectedSynchronizersResult {
 
     } yield ListConnectedSynchronizersResult(
       synchronizerAlias = synchronizerAlias,
-      synchronizerId = psid,
+      physicalSynchronizerId = psid,
       healthy = healthy,
     )
   }

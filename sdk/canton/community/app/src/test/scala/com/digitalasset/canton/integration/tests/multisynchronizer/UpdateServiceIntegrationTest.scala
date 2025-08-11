@@ -197,17 +197,19 @@ abstract class UpdateServiceIntegrationTest
     )
 
     // reassignments for specific party and single specific template
-    checkReassignments(
-      partyIds = Set(submittingParty.toLf),
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
-      ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
-      ledgerEndAfterAssignments = ledgerEndAfterAssignments,
-      expectedReassignmentsSize = 2,
+    suppressPackageIdWarning(
+      checkReassignments(
+        partyIds = Set(submittingParty.toLf),
+        templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
+        ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
+        ledgerEndAfterAssignments = ledgerEndAfterAssignments,
+        expectedReassignmentsSize = 2,
+      )
     )
 
     checkReassignmentsPointwise(
       partyIds = Set(submittingParty.toLf),
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID),
       expectedReassignmentsSize = 2,
       reassignments = reassignments,
     )
@@ -215,7 +217,7 @@ abstract class UpdateServiceIntegrationTest
     // reassignments for specific party and both specific templates
     checkReassignments(
       partyIds = Set(submittingParty.toLf),
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID, Dummy.TEMPLATE_ID),
       ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
       ledgerEndAfterAssignments = ledgerEndAfterAssignments,
       expectedReassignmentsSize = 4,
@@ -223,7 +225,7 @@ abstract class UpdateServiceIntegrationTest
 
     checkReassignmentsPointwise(
       partyIds = Set(submittingParty.toLf),
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID, Dummy.TEMPLATE_ID),
       expectedReassignmentsSize = 4,
       reassignments = reassignments,
     )
@@ -247,7 +249,7 @@ abstract class UpdateServiceIntegrationTest
     // reassignments for all parties and single specific template
     checkReassignments(
       partyIds = Set.empty,
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID),
       ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
       ledgerEndAfterAssignments = ledgerEndAfterAssignments,
       expectedReassignmentsSize = 2,
@@ -255,7 +257,7 @@ abstract class UpdateServiceIntegrationTest
 
     checkReassignmentsPointwise(
       partyIds = Set.empty,
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID),
       expectedReassignmentsSize = 2,
       reassignments = reassignments,
     )
@@ -263,7 +265,7 @@ abstract class UpdateServiceIntegrationTest
     // reassignments for all parties and both specific template
     checkReassignments(
       partyIds = Set.empty,
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID, Dummy.TEMPLATE_ID),
       ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
       ledgerEndAfterAssignments = ledgerEndAfterAssignments,
       expectedReassignmentsSize = 4,
@@ -271,7 +273,7 @@ abstract class UpdateServiceIntegrationTest
 
     checkReassignmentsPointwise(
       partyIds = Set.empty,
-      templateIds = Seq(Iou.TEMPLATE_ID_WITH_PACKAGE_ID, Dummy.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(Iou.TEMPLATE_ID, Dummy.TEMPLATE_ID),
       expectedReassignmentsSize = 4,
       reassignments = reassignments,
     )
@@ -295,7 +297,7 @@ abstract class UpdateServiceIntegrationTest
     // reassignments for irrelevant template
     checkReassignments(
       partyIds = Set.empty,
-      templateIds = Seq(GetCash.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(GetCash.TEMPLATE_ID),
       ledgerEndBeforeUnassignments = ledgerEndBeforeUnassignments,
       ledgerEndAfterAssignments = ledgerEndAfterAssignments,
       expectedReassignmentsSize = 0,
@@ -303,7 +305,7 @@ abstract class UpdateServiceIntegrationTest
 
     checkReassignmentsPointwise(
       partyIds = Set.empty,
-      templateIds = Seq(GetCash.TEMPLATE_ID_WITH_PACKAGE_ID),
+      templateIds = Seq(GetCash.TEMPLATE_ID),
       expectedReassignmentsSize = 0,
       reassignments = reassignments,
     )

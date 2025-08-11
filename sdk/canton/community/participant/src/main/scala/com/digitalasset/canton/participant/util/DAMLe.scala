@@ -54,6 +54,7 @@ object DAMLe {
       enableLfBeta: Boolean,
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
+      snapshotDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
         10000, // 10000 is the default value in the engine configuration,
       paranoidMode: Boolean,
@@ -68,6 +69,7 @@ object DAMLe {
         packageValidation = false,
         stackTraceMode = enableStackTraces,
         profileDir = profileDir,
+        snapshotDir = snapshotDir,
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,

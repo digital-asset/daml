@@ -32,6 +32,7 @@ import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventInt,
   participantPermissionInt,
 }
+import com.digitalasset.canton.platform.store.backend.UpdateToDbDto.templateIdWithPackageName
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
   CompressionStrategy,
@@ -241,8 +242,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = Some(completionInfo.actAs.toSet),
         node_id = createNodeId.index,
         contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName.toString,
+        template_id = templateIdWithPackageName(createNode),
+        package_id = createNode.templateId.packageId.toString,
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -298,10 +299,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory1"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory2"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory3"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory1"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory2"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory3"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
       )
       dtos.size shouldEqual 7
     }
@@ -357,8 +358,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNode.templateId.toString,
-          package_name = exerciseNode.packageName,
+          template_id = templateIdWithPackageName(exerciseNode),
+          package_id = exerciseNode.templateId.packageId,
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -378,12 +379,12 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "observer",
         ),
         DbDto.CommandCompletion(
@@ -469,8 +470,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNode.templateId.toString,
-          package_name = exerciseNode.packageName,
+          template_id = templateIdWithPackageName(exerciseNode),
+          package_id = exerciseNode.templateId.packageId,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -490,7 +491,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -614,8 +615,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeAId.index,
           contract_id = exerciseNodeA.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNodeA.templateId.toString,
-          package_name = exerciseNodeA.packageName,
+          template_id = templateIdWithPackageName(exerciseNodeA),
+          package_id = exerciseNodeA.templateId.packageId,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -635,7 +636,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
-          template_id = exerciseNodeA.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNodeA),
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -649,8 +650,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeBId.index,
           contract_id = exerciseNodeB.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNodeB.templateId.toString,
-          package_name = exerciseNodeB.packageName,
+          template_id = templateIdWithPackageName(exerciseNodeB),
+          package_id = exerciseNodeB.templateId.packageId,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -670,7 +671,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
-          template_id = exerciseNodeB.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNodeB),
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -684,8 +685,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeCId.index,
           contract_id = exerciseNodeC.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNodeC.templateId.toString,
-          package_name = exerciseNodeC.packageName,
+          template_id = templateIdWithPackageName(exerciseNodeC),
+          package_id = exerciseNodeC.templateId.packageId,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -705,7 +706,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
-          template_id = exerciseNodeC.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNodeC),
           party_id = "signatory",
         ),
         DbDto.EventExercise(
@@ -719,8 +720,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeDId.index,
           contract_id = exerciseNodeD.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNodeD.templateId.toString,
-          package_name = exerciseNodeD.packageName,
+          template_id = templateIdWithPackageName(exerciseNodeD),
+          package_id = exerciseNodeD.templateId.packageId,
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -740,7 +741,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterNonConsumingInformee(
           event_sequential_id = 0,
-          template_id = exerciseNodeD.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNodeD),
           party_id = "signatory",
         ),
         DbDto.CommandCompletion(
@@ -908,8 +909,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           submitters = Some(completionInfo.actAs.toSet),
           node_id = exerciseNodeId.index,
           contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
-          template_id = exerciseNode.templateId.toString,
-          package_name = exerciseNode.packageName,
+          template_id = templateIdWithPackageName(exerciseNode),
+          package_id = exerciseNode.templateId.packageId,
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer", "divulgee"),
           create_key_value = None,
@@ -929,17 +930,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "signatory",
         ),
         DbDto.IdFilterConsumingStakeholder(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "observer",
         ),
         DbDto.IdFilterConsumingNonStakeholderInformee(
           event_sequential_id = 0,
-          template_id = exerciseNode.templateId.toString,
+          template_id = templateIdWithPackageName(exerciseNode),
           party_id = "divulgee",
         ),
         DbDto.CommandCompletion(
@@ -1026,8 +1027,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = Some(completionInfo.actAs.toSet),
         node_id = createNodeId.index,
         contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName.toString,
+        template_id = templateIdWithPackageName(createNode),
+        package_id = createNode.templateId.packageId.toString,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1046,8 +1047,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
       )
       dtos(3) shouldEqual DbDto.EventExercise(
         consuming = true,
@@ -1060,8 +1061,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = Some(completionInfo.actAs.toSet),
         node_id = exerciseNodeId.index,
         contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
-        template_id = exerciseNode.templateId.toString,
-        package_name = exerciseNode.packageName,
+        template_id = templateIdWithPackageName(exerciseNode),
+        package_id = exerciseNode.templateId.packageId,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer", "divulgee"),
         create_key_value = None,
@@ -1081,17 +1082,17 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       )
       dtos(4) shouldEqual DbDto.IdFilterConsumingStakeholder(
         event_sequential_id = 0,
-        template_id = exerciseNode.templateId.toString,
+        template_id = templateIdWithPackageName(exerciseNode),
         party_id = "signatory",
       )
       dtos(5) shouldEqual DbDto.IdFilterConsumingStakeholder(
         event_sequential_id = 0,
-        template_id = exerciseNode.templateId.toString,
+        template_id = templateIdWithPackageName(exerciseNode),
         party_id = "observer",
       )
       dtos(6) shouldEqual DbDto.IdFilterConsumingNonStakeholderInformee(
         event_sequential_id = 0,
-        template_id = exerciseNode.templateId.toString,
+        template_id = templateIdWithPackageName(exerciseNode),
         party_id = "divulgee",
       )
       dtos(7) shouldEqual DbDto.CommandCompletion(
@@ -1241,8 +1242,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitters = None,
         node_id = createNodeId.index,
         contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName.toString,
+        template_id = templateIdWithPackageName(createNode),
+        package_id = createNode.templateId.packageId.toString,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1261,8 +1262,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
+        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
       )
       dtos.size shouldEqual 4
     }
@@ -1378,8 +1379,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             submitters = Some(completionInfo.actAs.toSet),
             node_id = createNodeId.index,
             contract_id = createNode.coid.toBytes.toByteArray,
-            template_id = createNode.templateId.toString,
-            package_name = createNode.packageName.toString,
+            template_id = templateIdWithPackageName(createNode),
+            package_id = createNode.templateId.packageId.toString,
             flat_event_witnesses = Set("signatory", "observer"), // stakeholders
             tree_event_witnesses = Set("signatory", "observer"), // informees
             create_argument = emptyArray,
@@ -1398,8 +1399,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
           )
           Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-            DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
-            DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
+            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
+            DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
           )
           dtos(3) shouldEqual DbDto.CommandCompletion(
             completion_offset = someOffset.unwrap,
@@ -1483,8 +1484,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitter = Option(someParty),
         node_id = 0,
         contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName.toString,
+        template_id = templateIdWithPackageName(createNode),
+        package_id = createNode.templateId.packageId.toString,
         flat_event_witnesses = Set("signatory", "observer", "observer2"),
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
@@ -1534,9 +1535,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "observer"),
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "observer2"),
+        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "signatory"),
+        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+        DbDto.IdFilterAssignStakeholder(0L, templateIdWithPackageName(createNode), "observer2"),
       )
       dtos.size shouldEqual 6
     }
@@ -1593,8 +1594,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         submitter = someParty,
         node_id = 0,
         contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName,
+        template_id = templateIdWithPackageName(createNode),
+        package_id = createNode.templateId.packageId,
         flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
         event_sequential_id = 0,
         source_synchronizer_id = "x::synchronizer1",
@@ -1635,9 +1636,9 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "signatory12"),
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "observer23"),
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "asdasdasd"),
+        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "signatory12"),
+        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "observer23"),
+        DbDto.IdFilterUnassignStakeholder(0L, templateIdWithPackageName(createNode), "asdasdasd"),
       )
       dtos.size shouldEqual 6
     }

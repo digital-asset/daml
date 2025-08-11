@@ -18,7 +18,8 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class EncodeV2Spec extends EncodeSpec(LanguageVersion.v2_dev)
+class EncodeV21Spec extends EncodeSpec(LanguageVersion.v2_1)
+class EncodeV2devSpec extends EncodeSpec(LanguageVersion.v2_dev)
 
 abstract class EncodeSpec(languageVersion: LanguageVersion)
     extends AnyWordSpec
@@ -40,11 +41,14 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
   private val defaultParserParameters: ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion)
 
+  def onlyIf(cond: Boolean)(s: String) = if (cond) s else ""
+
   "Encode and Decode" should {
     "form a prism" in {
 
       implicit val defaultParserParameters2: ParserParameters[this.type] =
         defaultParserParameters
+      import Ordering.Implicits._
 
       val pkg: Ast.Package =
         p"""
@@ -96,7 +100,9 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
                 method asParty = Mod:Person {person} this;
                 method getName = Mod:Person {name} this;
               };
+${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)("""
               key @Party (Mod:Person {person} this) (\ (p: Party) -> Cons @Party [p] (Nil @Party));
+""")}
             };
 
            variant Tree (a : * ) = Leaf : Unit | Node : Mod:Tree.Node a ;
@@ -166,10 +172,13 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
            val identity: forall (a: *). a -> a = /\ (a: *). \(x: a) -> x;
            val anExercise: (ContractId Mod:Person) -> Update Unit = \(cId: ContractId Mod:Person) ->
              exercise @Mod:Person Sleep (Mod:identity @(ContractId Mod:Person) cId) ();
-           val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \(party: Party) ->
+
+${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)(s"""
+           val aFecthByKey: Party -> Update ($tuple2TyCon (ContractId Mod:Person) Mod:Person) = \\(party: Party) ->
              fetch_by_key @Mod:Person party;
-           val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) = \(party: Party) ->
+           val aLookUpByKey: Party -> Update (Option (ContractId Mod:Person)) =\\(party: Party) ->
              lookup_by_key @Mod:Person party;
+""")}
            val aGetTime: Update Timestamp =
              uget_time;
            val aLedgerTimeLT: Timestamp -> Update Bool = \(time: Timestamp) ->
@@ -177,8 +186,11 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
            val anEmbedExpr: forall (a: *). Update a -> Update a = /\ (a: *). \ (x: Update a) ->
              uembed_expr @a x;
            val isZero: Int64 -> Bool = EQUAL @Int64 0;
+
+${onlyIf(languageVersion >= LanguageVersion.Features.contractKeys)("""
            val isOne: BigNumeric -> Bool = EQUAL @BigNumeric (NUMERIC_TO_BIGNUMERIC @10 1.0000000000);
            val defaultRounding: RoundingMode = ROUNDING_UP;
+""")}
 
            record @serializable MyException = { message: Text } ;
            exception MyException = {
@@ -225,6 +237,7 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
            val concrete_observer_interface: Mod:Planet -> List Party =
              \ (p: Mod:Planet) -> observer_interface @Mod:Planet p;
 
+${onlyIf(languageVersion >= LanguageVersion.Features.choiceFuncs)("""
            val concrete_template_choice_controller: Mod:Person -> Int64 -> List Party =
              \ (p : Mod:Person) (i : Int64) -> choice_controller @Mod:Person Nap p i;
            val concrete_template_choice_observer: Mod:Person -> Int64 -> List Party =
@@ -233,6 +246,7 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
              \ (p : Mod:Human) (i : Int64) -> choice_controller @Mod:Human HumanNap p i;
            val concrete_interface_choice_observer: Mod:Human -> Int64 -> List Party =
              \ (p : Mod:Human) (i : Int64) -> choice_observer @Mod:Human HumanNap p i;
+""")}
 
            interface (this: Root) = {
              viewtype Mod:MyUnit;

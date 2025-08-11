@@ -41,7 +41,7 @@ import scala.jdk.CollectionConverters._
 final class Profile {
   import Profile._
   private val start: Long = System.nanoTime()
-  private[lf] val events: util.ArrayList[Event] = ArrayList.empty
+  private[lf] val events: util.ArrayList[Event] = new util.ArrayList
   var name: String = "Daml Engine profile"
 
   def addOpenEvent(label: Label): Unit = {
@@ -154,7 +154,7 @@ object Profile {
       def fromProfile(profile: Profile) = {
         import scala.collection.mutable.HashMap
 
-        val frames = ArrayList.empty[FrameJson]
+        val frames = new util.ArrayList[FrameJson]
         val frameIndices = HashMap.empty[String, Int]
         var endValue = 0L
         val events = profile.events.asScala.toList.map { event =>

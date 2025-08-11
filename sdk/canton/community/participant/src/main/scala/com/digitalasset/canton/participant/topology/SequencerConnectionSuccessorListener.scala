@@ -165,5 +165,7 @@ class SequencerConnectionSuccessorListener(
 }
 
 trait HandshakeWithPSId {
-  def performHandshake(psid: PhysicalSynchronizerId): FutureUnlessShutdown[Unit]
+  def performHandshake(psid: PhysicalSynchronizerId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }

@@ -59,6 +59,7 @@ final case class CantonConfig(
     targetScope: Option[String] = None,
     disableUpgradeValidation: Boolean = false,
     enableRemoteJavaDebugging: Boolean = false,
+    snapshotDir: Option[String] = None,
 ) {
 
   lazy val tlsConfig =

@@ -634,7 +634,7 @@ final class AssignmentProcessingStepsTest
                 .focus(_.stakeholders)
                 .modify(_ incl party2),
               fci.createdAt,
-              fci.cantonData,
+              fci.authenticationData,
             )
           )
           .value
@@ -655,7 +655,7 @@ final class AssignmentProcessingStepsTest
                 .focus(_.signatories)
                 .modify(_ incl party2),
               fci.createdAt,
-              fci.cantonData,
+              fci.authenticationData,
             )
           )
           .value
@@ -680,7 +680,7 @@ final class AssignmentProcessingStepsTest
                 .focus(_.keyOpt)
                 .replace(Some(incorrectKey.unversioned)),
               fci.createdAt,
-              fci.cantonData,
+              fci.authenticationData,
             )
           )
           .value

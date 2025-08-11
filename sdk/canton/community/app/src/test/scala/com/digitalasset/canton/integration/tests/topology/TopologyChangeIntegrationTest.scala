@@ -223,7 +223,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
         participant1.parties.list("indirect").headOption.valueOrFail("must be there").party
       val syncId = participant1.synchronizers
         .list_connected()
-        .map(_.synchronizerId)
+        .map(_.physicalSynchronizerId)
         .headOption
         .valueOrFail("it's there")
 
@@ -300,7 +300,6 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       .headOption
       .valueOrFail("must be there")
       .synchronizerId
-      .logical
 
     compare(_.topology.decentralized_namespaces.list(store = fs).map(_.item))
     compare(_.topology.namespace_delegations.list(store = fs).map(_.item))

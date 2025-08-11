@@ -96,11 +96,11 @@ object JcePrivateCrypto {
     JavaEncodedKeyPair(keyId, publicKey, privateKey)
   }
 
-  def fromJavaSigningKeyPair(
+  private def fromJavaSigningKeyPair(
       javaKeyPair: JKeyPair,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
-  ): Either[SigningKeyGenerationError, SigningKeyPair] = {
+  ): Either[SigningKeyCreationError, SigningKeyPair] = {
     val javaEncodedKeyPair = fromJavaKeyPair(javaKeyPair)
     SigningKeyPair.create(
       publicFormat = CryptoKeyFormat.DerX509Spki,
@@ -122,6 +122,7 @@ object JcePrivateCrypto {
         .catchOnly[GeneralSecurityException](EllipticCurves.generateKeyPair(curveType))
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
       keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
+        .leftMap(SigningKeyGenerationError.KeyCreationError.apply)
     } yield keyPair
 
   private[crypto] def generateSigningKeypair(
@@ -148,6 +149,7 @@ object JcePrivateCrypto {
             keySpec = keySpec,
             usage = usage,
           )
+          .leftMap(SigningKeyGenerationError.KeyCreationError.apply)
       } yield keyPair
 
     case SigningKeySpec.EcP256 =>
@@ -171,6 +173,7 @@ object JcePrivateCrypto {
             .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
 
         keyPair <- fromJavaSigningKeyPair(javaKeyPair, keySpec, usage)
+          .leftMap(SigningKeyGenerationError.KeyCreationError.apply)
       } yield keyPair
 
   }
@@ -179,9 +182,9 @@ object JcePrivateCrypto {
       keySpec: EncryptionKeySpec
   ): Either[EncryptionKeyGenerationError, EncryptionKeyPair] = {
 
-    def convertJavaKeyPair(
+    def fromJavaSigningKeyPair(
         javaKeyPair: JKeyPair
-    ): EncryptionKeyPair = {
+    ): Either[EncryptionKeyCreationError, EncryptionKeyPair] = {
       val rawKeyPair = fromJavaKeyPair(javaKeyPair)
       EncryptionKeyPair.create(
         publicFormat = CryptoKeyFormat.DerX509Spki,
@@ -217,6 +220,9 @@ object JcePrivateCrypto {
             )
             .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
       }
-    } yield convertJavaKeyPair(javaKeyPair)
+      keyPair <- fromJavaSigningKeyPair(javaKeyPair).leftMap(
+        EncryptionKeyGenerationError.KeyCreationError.apply
+      )
+    } yield keyPair
   }
 }

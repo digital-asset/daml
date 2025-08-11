@@ -26,9 +26,9 @@ class FuncWallClockIT(override val majorLanguageVersion: LanguageMajorVersion)
         )
       } yield {
         assert(vals.size == 3)
-        val t0 = assertSTimestamp(vals.get(0))
-        val t1 = assertSTimestamp(vals.get(1))
-        val t2 = assertSTimestamp(vals.get(2))
+        val t0 = assertSTimestamp(vals(0))
+        val t1 = assertSTimestamp(vals(1))
+        val t2 = assertSTimestamp(vals(2))
         assert(Duration.between(t0.toInstant, t1.toInstant).compareTo(Duration.ofSeconds(1)) >= 0)
         assert(Duration.between(t1.toInstant, t2.toInstant).compareTo(Duration.ofSeconds(2)) >= 0)
       }

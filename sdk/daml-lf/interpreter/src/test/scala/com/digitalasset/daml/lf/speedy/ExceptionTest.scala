@@ -1313,7 +1313,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                   Ref.Name.assertFromString("label"),
                   Ref.Name.assertFromString("maintainers"),
                 ),
-                ArrayList(
+                Array(
                   SValue.SText("test-key"),
                   SValue.SList(FrontStack(SValue.SParty(alice))),
                 ),
@@ -1339,7 +1339,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 SValue.SRecord(
                   templateId,
                   ImmArray(Ref.Name.assertFromString("p")),
-                  ArrayList(SValue.SParty(alice)),
+                  Array(SValue.SParty(alice)),
                 ),
                 Set(alice),
                 Set.empty,

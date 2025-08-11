@@ -59,13 +59,14 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
       extends ProtoDeserializationError {
     override val message = s"Unable to convert numeric field `$field`: $error"
   }
-
   final case class InvariantViolation(field: Option[String], error: String)
       extends ProtoDeserializationError {
     override def message =
       field.fold(error)(field => s"Invariant violation in field `$field`: $error")
   }
-
+  final case class CryptoValidationError(error: String) extends ProtoDeserializationError {
+    override def message = error
+  }
   final case class MaxBytesToDecompressExceeded(error: String) extends ProtoDeserializationError {
     override def message = error
   }
@@ -77,7 +78,6 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
     override def message =
       s"Message $protoMessage has no versioning information corresponding to protobuf $version"
   }
-
   final case class UnknownContractAuthenticationDataVersion(version: Int)
       extends ProtoDeserializationError {
     override def message =

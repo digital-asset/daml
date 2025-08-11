@@ -8,7 +8,6 @@ import com.digitalasset.canton.admin.api.client.commands.{
   PruningSchedulerCommands,
   SequencerBftPruningAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.BftPruningStatus
 import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -21,7 +20,10 @@ import com.digitalasset.canton.console.{
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftPruningAdministrationServiceGrpc
 import com.digitalasset.canton.sequencer.admin.v30.SequencerBftPruningAdministrationServiceGrpc.SequencerBftPruningAdministrationServiceStub
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningSchedule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
+  BftOrdererPruningSchedule,
+  BftPruningStatus,
+}
 
 class SequencerBftPruningAdministrationGroup(
     runner: AdminCommandRunner,
@@ -59,7 +61,9 @@ class SequencerBftPruningAdministrationGroup(
   @Help.Summary("Pruning status of the BFT Orderer")
   @Help.Description(
     """Provides a detailed breakdown of information required for pruning:
-      | - TODO(i26216): the current time according to this sequencer instance
+      | - the latest block number
+      | - the latest block epoch number
+      | - the latest block timestamp
       | - the lower bound inclusive epoch number it current supports serving from
       | - the lower bound inclusive block number it current supports serving from
       |"""

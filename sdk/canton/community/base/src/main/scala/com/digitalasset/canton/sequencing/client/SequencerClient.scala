@@ -1298,7 +1298,7 @@ class RichSequencerClientImpl(
       logger,
       // Only feed the metric, but do not log warnings
       time.NonNegativeFiniteDuration.MaxValue,
-      metrics.handler.connectionDelay(sequencerAlias),
+      metrics.handler.connectionMetrics(sequencerAlias),
     )
 
     def handleEvent(

@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules
 
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore.OutputBlockMetadata
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningSchedule
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
+  BftOrdererPruningSchedule,
+  BftPruningStatus,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
 
@@ -18,8 +20,7 @@ object Pruning {
   sealed trait Message extends Product
 
   case object Start extends Message
-  final case class PruningStatusRequest(promise: Promise[OutputMetadataStore.LowerBound])
-      extends Message
+  final case class PruningStatusRequest(promise: Promise[BftPruningStatus]) extends Message
 
   final case class KickstartPruning(
       retention: FiniteDuration,

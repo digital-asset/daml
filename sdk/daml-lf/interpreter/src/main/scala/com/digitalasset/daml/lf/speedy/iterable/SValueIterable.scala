@@ -4,16 +4,15 @@
 package com.digitalasset.daml.lf.speedy.iterable
 
 import com.digitalasset.daml.lf.speedy.SValue
-import scala.jdk.CollectionConverters._
 
 // Iterates only over immediate children similar to Haskell’s
 // uniplate.
 private[speedy] object SValueIterable {
   that =>
   private[iterable] def iterator(v: SValue): Iterator[SValue] = v match {
-    case SValue.SPAP(prim, actuals, _) => iterator(prim) ++ actuals.asScala.iterator
-    case SValue.SRecord(_, _, values) => values.asScala.iterator
-    case SValue.SStruct(_, values) => values.asScala.iterator
+    case SValue.SPAP(prim, actuals, _) => iterator(prim) ++ actuals.iterator
+    case SValue.SRecord(_, _, values) => values.iterator
+    case SValue.SStruct(_, values) => values.iterator
     case SValue.SVariant(_, _, _, value) => Iterator(value)
     case SValue.SEnum(_, _, _) => Iterator.empty
     case SValue.SOptional(value) => value.iterator

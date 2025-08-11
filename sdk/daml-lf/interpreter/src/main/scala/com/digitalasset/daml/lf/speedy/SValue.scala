@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import java.util
 import com.digitalasset.daml.lf.data.{TreeMap => _, _}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
@@ -16,7 +15,6 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
-import scala.jdk.CollectionConverters._
 import scala.collection.immutable.TreeMap
 import scala.util.hashing.MurmurHash3
 
@@ -74,11 +72,11 @@ sealed abstract class SValue {
         case SRecord(id, names0, values0) =>
           val n =
             if (keepTrailingNoneFields)
-              values0.size()
+              values0.size
             else
               // we drop trailing None fields
-              values0.asScala.reverseIterator.dropWhile(_ == SValue.SValue.None).size
-          val values = (names0.toSeq.view.take(n) zip values0.asScala)
+              values0.reverseIterator.dropWhile(_ == SValue.SValue.None).size
+          val values = (names0.toSeq.view.take(n) zip values0)
             .map { case (name, sv) =>
               Option.when(keepFieldName)(name) -> go(sv, nextMaxNesting)
             }
@@ -143,7 +141,9 @@ object SValue {
   /** A partially applied primitive.
     * An SPAP is *never* fully applied. This is asserted on construction.
     */
-  final case class SPAP(prim: Prim, actuals: util.ArrayList[SValue], arity: Int) extends SValue {
+  final case class SPAP(prim: Prim, actuals: Array[SValue], arity: Int)
+      extends SValue
+      with SomeArrayEquals {
     if (actuals.size >= arity) {
       throw SError.SErrorCrash(
         NameOf.qualifiedNameOf(SPAP),
@@ -152,7 +152,7 @@ object SValue {
     }
 
     override def toString: String =
-      s"SPAP($prim, ${actuals.asScala.mkString("[", ",", "]")}, $arity)"
+      s"SPAP($prim, ${actuals.mkString("[", ",", "]")}, $arity)"
   }
 
   /** We split SRecord (interface) from SRecordRep (implementation/representation)
@@ -179,12 +179,15 @@ object SValue {
     * And is also used when we convert the svalue back to a normalised LF value.
     */
 
-  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
+  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: Array[SValue])
       extends SValue
+      with SomeArrayEquals
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames
-  final case class SStruct(fieldNames: Struct[Unit], values: util.ArrayList[SValue]) extends SValue
+  final case class SStruct(fieldNames: Struct[Unit], values: Array[SValue])
+      extends SValue
+      with SomeArrayEquals
 
   final case class SVariant(
       id: Identifier,
@@ -306,8 +309,9 @@ object SValue {
   class SArithmeticError(valueArithmeticError: ValueArithmeticError) {
     val fields: ImmArray[Ref.Name] = ImmArray(valueArithmeticError.fieldName)
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
-      val array = ArrayList.single[SValue](
-        SText(s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")}).")
+      val array = Array.ofDim[SValue](1)
+      array(0) = SText(
+        s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
       )
       SAny(valueArithmeticError.typ, SRecord(valueArithmeticError.tyCon, fields, array))
     }
@@ -416,7 +420,12 @@ object SValue {
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
       entries.view
-        .map { case (k, v) => SStruct(entryFields, ArrayList.double(k, v)) }
+        .map { case (k, v) =>
+          val entry = Array.ofDim[SValue](2)
+          entry(0) = k
+          entry(1) = v
+          SStruct(entryFields, entry)
+        }
         .to(FrontStack)
     )
 

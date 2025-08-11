@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, Pa
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.command.{ApiCommand, ApiContractKey}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError}
-import com.digitalasset.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
+import com.digitalasset.daml.lf.speedy.{Command, DisclosedContract, SValue}
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   ValueInt64,
@@ -630,7 +630,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       contractKeyWithMaintainers =
         key.map(k => GlobalKeyWithMaintainers.assertBuild(templateId, k, signatories, pkgName)),
       createdAt = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
-      cantonData = Bytes.Empty,
+      authenticationData = Bytes.Empty,
     )
   }
 
@@ -656,7 +656,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
               Ref.Name.assertFromString("owners"),
               Ref.Name.assertFromString("data"),
             )
-            values shouldBe ArrayList(
+            values shouldBe Array(
               SValue.SList(FrontStack(SValue.SParty(alice))),
               SValue.SInt64(42L),
             )

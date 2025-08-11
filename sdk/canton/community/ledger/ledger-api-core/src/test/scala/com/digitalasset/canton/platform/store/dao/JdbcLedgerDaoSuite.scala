@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.IdentifierConverter
 import com.digitalasset.canton.ledger.api.TemplateFilter
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -85,7 +86,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val someTemplateId = testIdentifier("ParameterShowcase")
-  protected final val somePackageName = PackageName.assertFromString("pkg-name")
+  protected final val somePackageName = PackageName.assertFromString("model-tests")
+  protected final val someTemplateIdFull = someTemplateId.toFullIdentifier(somePackageName)
   protected final val somePackageVersion = PackageVersion.assertFromString("1.0")
   protected final val someTemplateIdFilter =
     TemplateFilter(someTemplateId.toRef, includeCreatedEventBlob = false)
@@ -155,6 +157,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final val someVersionedContractInstance = Versioned(txVersion, someContractInstance)
 
   protected final val otherTemplateId = testIdentifier("Dummy")
+  protected final val otherTemplateIdFull =
+    otherTemplateId.toFullIdentifier(Ref.PackageName.assertFromString("model-tests"))
   protected final val otherTemplateIdFilter =
     TemplateFilter(otherTemplateId.toRef, includeCreatedEventBlob = false)
   protected final val otherContractArgument = LfValue.ValueRecord(
@@ -163,10 +167,18 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   )
 
   protected final val otherTemplateId2 = testIdentifier("DummyFactory")
+  protected final val otherTemplateId2Full =
+    otherTemplateId2.toFullIdentifier(Ref.PackageName.assertFromString("model-tests"))
   protected final val otherTemplateId3 = testIdentifier("DummyContractFactory")
+  protected final val otherTemplateId3Full =
+    otherTemplateId3.toFullIdentifier(Ref.PackageName.assertFromString("model-tests"))
   protected final val otherTemplateId4 = testIdentifier("DummyWithParam")
+  protected final val otherTemplateId4Full =
+    otherTemplateId4.toFullIdentifier(Ref.PackageName.assertFromString("model-tests"))
 
   protected final val otherTemplateId5 = testIdentifier("DummyWithAnnotation")
+  protected final val otherTemplateId5Full =
+    otherTemplateId5.toFullIdentifier(Ref.PackageName.assertFromString("model-tests"))
   protected final val otherContractArgument5 = LfValue.ValueRecord(
     None,
     ImmArray(None -> LfValue.ValueParty(alice), None -> someValueText),

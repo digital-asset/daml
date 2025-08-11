@@ -47,10 +47,10 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
           )
         } yield {
           vals should have size 2
-          inside(vals.get(0)) { case SParty(p) =>
+          inside(vals(0)) { case SParty(p) =>
             p should startWith("alice::")
           }
-          inside(vals.get(1)) { case SParty(p) =>
+          inside(vals(1)) { case SParty(p) =>
             p should startWith("bob::")
           }
         }
@@ -74,14 +74,14 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
               tuple(SText("p2"), SBool(false)),
             )
           )
-          assert(vals.get(0) == first)
+          assert(vals(0) == first)
           val second = SList(
             FrontStack(
               tuple(SText("p1"), SBool(false)),
               tuple(SText("p2"), SBool(true)),
             )
           )
-          assert(vals.get(1) == second)
+          assert(vals(1) == second)
         }
 
       }

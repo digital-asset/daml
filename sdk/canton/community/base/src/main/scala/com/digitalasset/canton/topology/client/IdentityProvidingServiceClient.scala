@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParameters,
@@ -169,8 +169,9 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   def awaitSnapshotUSSupervised(description: => String, warnAfter: Duration = 30.seconds)(
       timestamp: CantonTimestamp
   )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[T] = supervisedUS(description, warnAfter)(awaitSnapshot(timestamp))
+      loggingContext: ErrorLoggingContext
+  ): FutureUnlessShutdown[T] =
+    supervisedUS(description, warnAfter)(awaitSnapshot(timestamp)(loggingContext.traceContext))
 
   /** Returns the topology information at a certain point in time
     *

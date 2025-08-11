@@ -26,6 +26,7 @@ class JceCryptoTest
     with PasswordBasedEncryptionTest
     with RandomTest
     with PublicKeyValidationTest
+    with PrivateKeyValidationTest
     with CryptoKeyFormatMigrationTest {
 
   "JceCrypto" can {
@@ -47,7 +48,6 @@ class JceCryptoTest
           CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
           CommunityKmsFactory, // Does not matter for the test as we do not use KMS
           testedReleaseProtocolVersion,
-          nonStandardConfig = false,
           futureSupervisor,
           wallClock,
           executionContext,
@@ -138,12 +138,19 @@ class JceCryptoTest
       jceCrypto().map(_.pureCrypto),
     )
 
-    behave like keyValidationProvider(
+    behave like publicKeyValidationProvider(
       Jce.signingKeys.supported,
       Jce.encryptionKeys.supported,
       Jce.supportedCryptoKeyFormats,
       jceCrypto().failOnShutdown,
       javaKeyCacheDuration,
+    )
+
+    behave like privateKeyValidationProvider(
+      Jce.signingKeys.supported,
+      Jce.encryptionKeys.supported,
+      Jce.supportedCryptoKeyFormats,
+      jceCrypto().failOnShutdown,
     )
   }
 }

@@ -192,7 +192,7 @@ private[lf] object Free {
         w <- v match {
           // Unwrap Script type and apply to ()
           // Second value in record is dummy unit, ignored
-          case SRecord(_, _, ArrayList(expr @ SPAP(_, _, _), _)) =>
+          case SRecord(_, _, Array(expr @ SPAP(_, _, _), _)) =>
             runFreeMonad(SEAppAtomic(SEValue(expr), Array(SEValue(SUnit))))
           case v =>
             convError(s"Expected record with 1 field but got $v").toResult
@@ -244,11 +244,11 @@ private[lf] object Free {
               SRecord(
                 _,
                 _,
-                ArrayList(
+                Array(
                   SRecord(
                     _,
                     _,
-                    ArrayList(SText(name), SInt64(version), payload, locations, continue),
+                    Array(SText(name), SInt64(version), payload, locations, continue),
                   )
                 ),
               ),
@@ -289,7 +289,7 @@ private[lf] object Free {
             } yield res
           case Left(v) =>
             v match {
-              case SRecord(_, _, ArrayList(result, _)) =>
+              case SRecord(_, _, Array(result, _)) =>
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Result.successful(result)
               case _ =>
@@ -304,7 +304,7 @@ private[lf] object Free {
         case SRecord(
               _,
               _,
-              ArrayList(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+              Array(unitId, module, file @ _, startLine, startCol, endLine, endCol),
             ) =>
           for {
             unitId <- toText(unitId)
@@ -343,7 +343,7 @@ private[lf] object Free {
 
     def toLocation(v: SValue): ErrOr[Ref.Location] =
       v match {
-        case SRecord(_, _, ArrayList(definition, loc)) =>
+        case SRecord(_, _, Array(definition, loc)) =>
           for {
             // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
             //   However, the call-stack only gives us access to the inner definition, `submit` in this case.

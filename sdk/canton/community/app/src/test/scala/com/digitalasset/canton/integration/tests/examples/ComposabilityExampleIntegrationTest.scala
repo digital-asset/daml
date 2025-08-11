@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.examples
 
-import com.digitalasset.canton.annotations.UnstableTest
 import com.digitalasset.canton.integration.CommunityIntegrationTest
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.composabilityConfiguration
@@ -39,8 +38,6 @@ abstract class ComposabilityExampleIntegrationTest
   }
 }
 
-// TODO(#16831): remove unstable annotation when the flakiness is resolved
-@UnstableTest
 final class ComposabilityExampleIntegrationTestPostgres
     extends ComposabilityExampleIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))

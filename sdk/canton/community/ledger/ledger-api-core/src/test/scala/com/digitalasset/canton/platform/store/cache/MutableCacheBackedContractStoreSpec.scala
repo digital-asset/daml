@@ -412,7 +412,7 @@ object MutableCacheBackedContractStoreSpec {
         version = thinContract.version,
       ),
       createTime = CreationTime.CreatedAt(createLedgerEffectiveTime),
-      cantonData = authenticationData,
+      authenticationData = authenticationData,
     )
 
   private def contractId(id: Int): ContractId =

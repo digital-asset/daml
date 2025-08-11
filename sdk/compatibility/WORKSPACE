@@ -166,7 +166,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "tar_dev_env",
@@ -186,7 +186,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "gzip_dev_env",
@@ -213,6 +213,55 @@ filegroup(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
+) if not is_windows else None
+
+dev_env_tool(
+    name = "postgresql_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
+    nix_label = "@postgresql_nix",
+    nix_paths = [
+        "bin/createdb",
+        "bin/dropdb",
+        "bin/initdb",
+        "bin/pg_ctl",
+        "bin/postgres",
+    ],
+    required_tools = {
+        "initdb": ["postgres"],
+        "pg_ctl": ["postgres"],
+    },
+    tools = [
+        "createdb",
+        "dropdb",
+        "initdb",
+        "pg_ctl",
+        "postgres",
+    ],
+    win_include = [
+        "mingw64/bin",
+        "mingw64/include",
+        "mingw64/lib",
+        "mingw64/share",
+    ],
+    win_include_as = {
+        "mingw64/bin": "bin",
+        "mingw64/include": "include",
+        "mingw64/lib": "lib",
+        "mingw64/share": "share",
+    },
+    win_paths = [
+        "bin/createdb.exe",
+        "bin/dropdb.exe",
+        "bin/initdb.exe",
+        "bin/pg_ctl.exe",
+        "bin/postgres.exe",
+    ],
+    win_tool = "msys2",
 )
 
 nixpkgs_package(
@@ -222,7 +271,8 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
+# Nix is not available on Windows, hence these are conditional.
 
 dev_env_tool(
     name = "openssl_dev_env",
@@ -244,7 +294,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "node_nix",
@@ -254,7 +304,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 node_repositories(
     node_version = "18.12.1",
@@ -267,7 +317,7 @@ nixpkgs_package(
     nix_file = "@daml//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "patch_dev_env",

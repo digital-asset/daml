@@ -107,7 +107,7 @@ private[lf] object Speedy {
 
   private type Frame = Array[SValue]
 
-  private type Actuals = util.ArrayList[SValue]
+  private type Actuals = Array[SValue]
 
   sealed abstract class LedgerMode extends Product with Serializable
 
@@ -879,7 +879,7 @@ private[lf] object Speedy {
               // status exists. Instead we directly pull out its message field and build a failure status immediately using that.
               case (
                     valueArithmeticError.tyCon,
-                    SAnyException(SRecord(_, _, ArrayList(SText(message)))),
+                    SAnyException(SRecord(_, _, Array(SText(message)))),
                   ) =>
                 buildFailureStatus(exceptionId, message)
               case _ =>
@@ -1004,7 +1004,7 @@ private[lf] object Speedy {
 
     // Variables which reside in the args array of the current frame. Indexed by absolute offset.
     @inline
-    private[speedy] final def getEnvArg(i: Int): SValue = actuals.get(i)
+    private[speedy] final def getEnvArg(i: Int): SValue = actuals(i)
 
     // Variables which reside in the free-vars array of the current frame. Indexed by absolute offset.
     @inline
@@ -1192,18 +1192,19 @@ private[lf] object Speedy {
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
 
-          val actuals = new util.ArrayList[SValue](actualsSoFar.size + newArgsLimit)
-          discard[Boolean](actuals.addAll(actualsSoFar))
+          val actuals = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
+          Array.copy(actualsSoFar, 0, actuals, 0, actualsSoFar.size)
 
           val othersLength = newArgs.length - missing
 
           // Evaluate the arguments
+          // Evaluate the arguments
           var i = 0
+          var j = actualsSoFar.size
           while (i < newArgsLimit) {
-            val newArg = newArgs(i)
-            val v = newArg.lookupValue(this)
-            discard[Boolean](actuals.add(v))
+            actuals(j) = newArgs(i).lookupValue(this)
             i += 1
+            j += 1
           }
 
           // Not enough arguments. Return a PAP.
@@ -1343,7 +1344,7 @@ private[lf] object Speedy {
                     }
                   }.toList
 
-                val values: util.ArrayList[SValue] = {
+                val values: Array[SValue] = {
                   if (numT > numS) {
                     // UPGRADE
 
@@ -1360,7 +1361,7 @@ private[lf] object Speedy {
                   } else {
                     values0
                   }
-                }.to(ArrayList)
+                }.to(Array)
 
                 SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
 
@@ -1662,82 +1663,6 @@ private[lf] object Speedy {
   object KOverApp {
     def apply[Q](machine: Machine[Q], newArgs: Array[SExprAtomic]): KOverApp[Q] =
       KOverApp(machine, machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
-  }
-
-  /** The function-closure and arguments have been evaluated. Now execute the body. */
-  private[speedy] final case class KFun[Q] private (
-      machine: Machine[Q],
-      savedBase: Int,
-      closure: SValue.PClosure,
-      actuals: util.ArrayList[SValue],
-  ) extends Kont[Q]
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute(v: SValue): Control.Expression = {
-      discard[Boolean](actuals.add(v))
-      // Set frame/actuals to allow access to the function arguments and closure free-varables.
-      machine.restoreBase(savedBase)
-      machine.restoreFrameAndActuals(closure.frame, actuals)
-      // Maybe push a continuation for the profiler
-      val label = closure.label
-      if (label != null) {
-        machine.profile.addOpenEvent(label)
-        machine.pushKont(KLeaveClosure(machine, label))
-      }
-      // Start evaluating the body of the closure.
-      machine.popTempStackToBase()
-      Control.Expression(closure.expr)
-    }
-  }
-
-  object KFun {
-    def apply[Q](
-        machine: Machine[Q],
-        closure: SValue.PClosure,
-        actuals: util.ArrayList[SValue],
-    ): KFun[Q] =
-      KFun(machine, machine.markBase(), closure, actuals)
-  }
-
-  /** The builtin arguments have been evaluated. Now execute the builtin. */
-  private[speedy] final case class KBuiltin[Q] private (
-      machine: Machine[Q],
-      savedBase: Int,
-      builtin: SBuiltinFun,
-      actuals: util.ArrayList[SValue],
-  ) extends Kont[Q]
-      with SomeArrayEquals
-      with NoCopy {
-    override def execute(v: SValue): Control[Q] = {
-      discard[Boolean](actuals.add(v))
-      // A builtin has no free-vars, so we set the frame to null.
-      machine.restoreBase(savedBase)
-      machine.restoreFrameAndActuals(null, actuals)
-      builtin.execute(actuals, machine)
-    }
-  }
-
-  object KBuiltin {
-    def apply[Q](
-        machine: Machine[Q],
-        builtin: SBuiltinFun,
-        actuals: util.ArrayList[SValue],
-    ): KBuiltin[Q] =
-      KBuiltin(machine, machine.markBase(), builtin, actuals)
-  }
-
-  /** The function's partial-arguments have been evaluated. Construct and return the PAP */
-  private[speedy] final case class KPap[Q](
-      prim: SValue.Prim,
-      actuals: util.ArrayList[SValue],
-      arity: Int,
-  ) extends Kont[Q] {
-
-    override def execute(v: SValue): Control.Value = {
-      discard[Boolean](actuals.add(v))
-      val pap = SValue.SPAP(prim, actuals, arity)
-      Control.Value(pap)
-    }
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */

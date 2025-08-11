@@ -22,7 +22,7 @@ import com.digitalasset.canton.serialization.{
   DeterministicEncoding,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
+import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.github.blemale.scaffeine.Cache
 import com.google.common.annotations.VisibleForTesting
@@ -454,9 +454,8 @@ class JcePureCrypto(
     val keyLength = scheme.keySizeInBytes
 
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
         randomnessLength == keyLength,
-        (),
         EncryptionKeyCreationError.InvalidRandomnessLength(randomnessLength, keyLength),
       )
       key = scheme match {
@@ -538,9 +537,8 @@ class JcePureCrypto(
         )
 
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
         signature.signedBy == publicKey.id,
-        (),
         SignatureCheckError.SignatureWithWrongKey(
           s"Signature signed by ${signature.signedBy} instead of ${publicKey.id}"
         ),
@@ -847,17 +845,24 @@ class JcePureCrypto(
   )(
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] =
-    CryptoKeyValidation
-      .ensureCryptoSpec(
-        privateKey.keySpec,
-        encrypted.encryptionAlgorithmSpec,
-        encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
-        encryptionAlgorithmSpecs.allowed,
-        DecryptionError.KeyAlgoSpecsMismatch(_, encrypted.encryptionAlgorithmSpec, _),
-        DecryptionError.UnsupportedAlgorithmSpec.apply,
+    for {
+      _ <- EitherUtil.condUnit(
+        encrypted.encryptedFor == privateKey.id,
+        DecryptionError.DecryptionWithWrongKey(
+          s"Ciphertext encrypted for ${encrypted.encryptedFor} instead of ${privateKey.id}"
+        ),
       )
-      .flatMap { _ =>
-        // TODO(#26423): private key format should be validated at key creation/deserialization
+      _ <- CryptoKeyValidation
+        .ensureCryptoSpec(
+          privateKey.keySpec,
+          encrypted.encryptionAlgorithmSpec,
+          encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
+          encryptionAlgorithmSpecs.allowed,
+          DecryptionError.KeyAlgoSpecsMismatch(_, encrypted.encryptionAlgorithmSpec, _),
+          DecryptionError.UnsupportedAlgorithmSpec.apply,
+        )
+      // TODO(#26423): private key format should be validated at key creation/deserialization
+      plaintext <-
         encrypted.encryptionAlgorithmSpec match {
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
             for {
@@ -994,7 +999,7 @@ class JcePureCrypto(
                 .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message
         }
-      }
+    } yield plaintext
 
   override private[crypto] def encryptSymmetricWith(
       data: ByteString,
@@ -1101,8 +1106,10 @@ object JcePureCrypto {
       Seq(encryptionDurationOpt, signingDurationOpt).flatten.minOption
 
     for {
-      _ <- Either
-        .cond(config.provider == CryptoProvider.Jce, (), "JCE provider must be configured")
+      _ <- EitherUtil.condUnit(
+        config.provider == CryptoProvider.Jce,
+        "JCE provider must be configured",
+      )
       _ = Security.addProvider(JceSecurityProvider.bouncyCastleProvider)
       schemes <- CryptoSchemes.fromConfig(config)
       pbkdfSchemes <- schemes.pbkdfSchemes.toRight("PBKDF schemes must be defined for JCE provider")

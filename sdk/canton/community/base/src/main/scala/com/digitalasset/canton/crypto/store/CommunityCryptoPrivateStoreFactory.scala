@@ -25,7 +25,6 @@ class CommunityCryptoPrivateStoreFactory(
     kmsFactory: KmsFactory,
     kmsStoreCacheConfig: CacheConfig,
     privateKeyStoreConfig: PrivateKeyStoreConfig,
-    nonStandardConfig: Boolean,
     futureSupervisor: FutureSupervisor,
     clock: Clock,
     executionContext: ExecutionContext,
@@ -47,7 +46,6 @@ class CommunityCryptoPrivateStoreFactory(
     kms <- kmsFactory
       .create(
         kmsConfig,
-        nonStandardConfig,
         timeouts,
         futureSupervisor,
         tracerProvider,

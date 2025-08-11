@@ -28,6 +28,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.{IdentifierConverter, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TransactionShape}
@@ -43,7 +44,6 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
 }
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.canton.platform.{
-  Identifier,
   InternalTransactionFormat,
   InternalUpdateFormat,
   TemplatePartiesFilter,
@@ -117,7 +117,9 @@ private[events] object TransactionLogUpdatesConversions {
           val filteredReassignments = u.reassignment.iterator.filter { r =>
             partiesMatchFilter(
               reassignmentFormat.templatePartiesFilter,
-              u.reassignment.iterator.map(_.templateId).toSet,
+              u.reassignment.iterator
+                .map(r => r.templateId.toFullIdentifier(r.packageName).toNameTypeConRef)
+                .toSet,
             )(r.stakeholders)
           }
           NonEmpty
@@ -298,7 +300,7 @@ private[events] object TransactionLogUpdatesConversions {
     )(event: TransactionLogUpdate.Event): Boolean =
       partiesMatchFilter(
         transactionFormat.internalEventFormat.templatePartiesFilter,
-        Set(event.templateId),
+        Set(event.templateId.toFullIdentifier(event.packageName).toNameTypeConRef),
       )(event.witnesses(transactionFormat.transactionShape))
 
     private def topologyEventPredicate(
@@ -340,7 +342,7 @@ private[events] object TransactionLogUpdatesConversions {
 
     private def partiesMatchFilter(
         filter: TemplatePartiesFilter,
-        templateIds: Set[Identifier],
+        templateIds: Set[NameTypeConRef],
     )(parties: Set[Party]) = {
       val matchesByWildcard: Boolean =
         filter.templateWildcardParties match {
@@ -348,7 +350,7 @@ private[events] object TransactionLogUpdatesConversions {
           case None => true
         }
 
-      def matchesByTemplateId(templateId: Identifier): Boolean =
+      def matchesByTemplateId(templateId: NameTypeConRef): Boolean =
         filter.relation.get(templateId) match {
           case Some(Some(include)) => parties.exists(include)
           case Some(None) => true // party wildcard
@@ -396,7 +398,9 @@ private[events] object TransactionLogUpdatesConversions {
                   implementedInterfaces = lfValueTranslation.implementedInterfaces(
                     eventProjectionProperties,
                     witnessParties.toSet,
-                    exercisedEvent.templateId,
+                    exercisedEvent.templateId.toFullIdentifier(
+                      exercisedEvent.packageName
+                    ),
                   ),
                 )
               )
@@ -470,7 +474,9 @@ private[events] object TransactionLogUpdatesConversions {
                     lfValueTranslation.implementedInterfaces(
                       eventProjectionProperties,
                       witnessParties.toSet,
-                      exercisedEvent.templateId,
+                      exercisedEvent.templateId.toFullIdentifier(
+                        exercisedEvent.packageName
+                      ),
                     )
                   else Nil,
               )
@@ -698,7 +704,7 @@ private[events] object TransactionLogUpdatesConversions {
                 lfValueTranslation.implementedInterfaces(
                   eventProjectionProperties,
                   witnessParties.toSet,
-                  exercisedEvent.templateId,
+                  exercisedEvent.templateId.toFullIdentifier(exercisedEvent.packageName),
                 )
               else Nil,
           )
@@ -784,7 +790,7 @@ private[events] object TransactionLogUpdatesConversions {
       .toApiContractData(
         value = Versioned(create.version, create.arg),
         key = create.keyOpt.map(k => Versioned(create.version, k.value)),
-        templateId = create.templateId,
+        templateId = create.templateId.toFullIdentifier(create.packageName),
         witnesses = witnesses,
         eventProjectionProperties = eventProjectionProperties,
         fatContractInstance = getFatContractInstance,

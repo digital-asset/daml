@@ -15,7 +15,6 @@ trait UseCommunityKms extends UseKms {
     CommunityKmsFactory
       .create(
         kmsConfig,
-        nonStandardConfig = false,
         timeouts,
         FutureSupervisor.Noop,
         NoReportingTracerProvider,

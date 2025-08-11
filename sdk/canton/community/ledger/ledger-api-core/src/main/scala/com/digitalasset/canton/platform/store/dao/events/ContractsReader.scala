@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
@@ -20,7 +21,6 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.daml.lf.data.Bytes
-import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 
@@ -90,8 +90,8 @@ private[dao] sealed class ContractsReader(
             val deserializationTimer =
               metrics.index.db.lookupCreatedContractsDbMetrics.translationTimer
 
-            val packageName = PackageName.assertFromString(raw.packageName)
-            val templateId = Identifier.assertFromString(raw.templateId)
+            val packageId = PackageId.assertFromString(raw.packageId)
+            val templateId = NameTypeConRef.assertFromString(raw.templateId)
             val createArg = {
               val argCompression = Compression.Algorithm.assertLookup(raw.createArgumentCompression)
               val decompressed = decompress(raw.createArgument, argCompression, decompressionTimer)
@@ -115,10 +115,10 @@ private[dao] sealed class ContractsReader(
                 )
                 Some(
                   GlobalKeyWithMaintainers.assertBuild(
-                    templateId = templateId,
+                    templateId = templateId.copy(pkg = packageId),
                     value = value.unversioned,
                     maintainers = maintainers,
-                    packageName = packageName,
+                    packageName = templateId.pkg.name,
                   )
                 )
               case (keyOpt, _) =>
@@ -132,8 +132,8 @@ private[dao] sealed class ContractsReader(
               FatContract.fromCreateNode(
                 Node.Create(
                   coid = contractId,
-                  packageName = packageName,
-                  templateId = templateId,
+                  packageName = templateId.pkg.name,
+                  templateId = templateId.copy(pkg = packageId),
                   arg = createArg.unversioned,
                   signatories = raw.signatories,
                   stakeholders = raw.flatEventWitnesses,
@@ -141,7 +141,7 @@ private[dao] sealed class ContractsReader(
                   version = createArg.version,
                 ),
                 createTime = CreationTime.CreatedAt(raw.ledgerEffectiveTime),
-                cantonData = Bytes.fromByteArray(raw.authenticationData),
+                authenticationData = Bytes.fromByteArray(raw.authenticationData),
               )
             )
           case raw: RawArchivedContract => ArchivedContract(raw.flatEventWitnesses)
