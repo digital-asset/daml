@@ -88,16 +88,17 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
   /** Pure builtins do not modify the machine state and do not ask questions of the ledger. As a result, pure builtin
     * execution is immediate.
     *
+    * @param costModel cost model used by this machine instance
     * @param args arguments for executing the pure builtin
     * @return the pure builtin's resulting value (wrapped as a Control value)
     */
-  private[speedy] def executePure(args: util.ArrayList[SValue]): SValue
+  private[speedy] def executePure(costModel: CostModel, args: util.ArrayList[SValue]): SValue
 
   override private[speedy] final def execute[Q](
       args: util.ArrayList[SValue],
       machine: Machine[Q],
   ): Control.Value = {
-    Control.Value(executePure(args))
+    Control.Value(executePure(machine.costModel, args))
   }
 }
 
@@ -424,9 +425,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBShiftNumeric extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SNumeric = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SNumeric = {
       val outputScale = getSScale(args, 0)
       val x = getSNumeric(args, 1)
+
+      costModel.update(costModel.BShiftNumeric.cost(outputScale, x))
+
       val inputScale = x.scale
       SNumeric(
         Numeric.assertFromBigDecimal(outputScale, x.scaleByPowerOfTen(inputScale - outputScale))
@@ -438,24 +445,47 @@ private[lf] object SBuiltinFun {
   // Text functions
   //
   final case object SBExplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(FrontStack.from(Utf8.explode(getSText(args, 0)).map(SText)))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      val arg0 = getSText(args, 0)
+
+      costModel.update(costModel.BExplodeText.cost(arg0))
+
+      SList(FrontStack.from(Utf8.explode(arg0).map(SText)))
+    }
   }
 
   final case object SBImplodeText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
       val xs = getSList(args, 0)
       val ts = xs.map {
         case SText(t) => t
         case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
+
+      costModel.costAware(costModel.BImplodeText)
+
       SText(Utf8.implode(ts.toImmArray))
     }
   }
 
   final case object SBAppendText extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(getSText(args, 0) + getSText(args, 1))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
+      val arg0 = getSText(args, 0)
+      val arg1 = getSText(args, 1)
+
+      costModel.update(costModel.BAppendText.cost(arg0, arg1))
+
+      SText(arg0 + arg1)
+    }
   }
 
   private[this] def litToText(location: String, x: SValue): String =
@@ -475,8 +505,14 @@ private[lf] object SBuiltinFun {
     }
 
   final case object SBToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
+      // No cost model update as new data created
+
       SText(litToText(NameOf.qualifiedNameOfCurrentFunc, args.get(0)))
+    }
   }
 
   final case object SBContractIdToText extends SBuiltinFun(1) {
@@ -495,13 +531,27 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBPartyToQuotedText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(s"'${getSParty(args, 0): String}'")
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
+      val arg0 = getSParty(args, 0)
+
+      costModel.update(costModel.BPartyToText.cost(arg0))
+
+      SText(s"'${arg0: String}'")
+    }
   }
 
   final case object SBCodePointsToText extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
       val codePoints = getSList(args, 0).map(_.asInstanceOf[SInt64].value)
+
+      costModel.update(costModel.BCodePointsToText.cost(codePoints))
+
       Utf8.pack(codePoints.toImmArray) match {
         case Right(value) =>
           SText(value)
@@ -512,8 +562,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToParty extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
-      Party.fromString(getSText(args, 0)) match {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
+      val arg0 = getSText(args, 0)
+
+      costModel.update(costModel.BTextToParty.cost(arg0))
+
+      Party.fromString(arg0) match {
         case Left(_) => SV.None
         case Right(p) => SOptional(Some(SParty(p)))
       }
@@ -523,8 +580,14 @@ private[lf] object SBuiltinFun {
   final case object SBTextToInt64 extends SBuiltinPure(1) {
     private val pattern = """[+-]?\d+""".r.pattern
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
       val s = getSText(args, 0)
+
+      costModel.update(costModel.BTextToInt64.cost(s))
+
       if (pattern.matcher(s).matches())
         try {
           SOptional(Some(SInt64(java.lang.Long.parseLong(s))))
@@ -545,9 +608,15 @@ private[lf] object SBuiltinFun {
     private val validFormat =
       """([+-]?)0*(\d+)(\.(\d*[1-9]|0)0*)?""".r
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
       val scale = getSScale(args, 0)
       val string = getSText(args, 1)
+
+      costModel.update(costModel.BTextToNumeric.cost(scale, string))
+
       string match {
         case validFormat(signPart, intPart, _, decPartOrNull) =>
           val decPart = Option(decPartOrNull).filterNot(_ == "0").getOrElse("")
@@ -573,8 +642,14 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTextToCodePoints extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
       val string = getSText(args, 0)
+
+      costModel.update(costModel.BTextToCodePoints.cost(string))
+
       val codePoints = Utf8.unpack(string)
       SList(FrontStack.from(codePoints.map(SInt64)))
     }
@@ -594,8 +669,16 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
-      SText(Utf8.sha256(getSText(args, 0)))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SText = {
+      val arg0 = getSText(args, 0)
+
+      costModel.update(costModel.BSHA256Text.cost(arg0))
+
+      SText(Utf8.sha256(arg0))
+    }
   }
 
   final case object SBKECCAK256Text extends SBuiltinFun(1) {
@@ -724,10 +807,15 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBEncodeHex extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
-      val arg = getSText(args, 0)
-      val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
+      val arg0 = getSText(args, 0)
 
+      costModel.update(costModel.BEncodeHex.cost(arg0))
+
+      val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg0))
       SText(hexArg)
     }
   }
@@ -800,38 +888,118 @@ private[lf] object SBuiltinFun {
 
   final case object SBMapToList extends SBuiltinPure(1) {
 
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SValue.toList(getSMap(args, 0).entries)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      val arg0 = getSMap(args, 0)
+
+      if (arg0.isTextMap) {
+        costModel.update(costModel.BTextMapToList.cost(arg0))
+      } else {
+        costModel.update(costModel.BGenMapToList.cost(arg0))
+      }
+
+      SValue.toList(arg0.entries)
+    }
   }
 
   final case object SBMapInsert extends SBuiltinPure(3) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
-      getSMap(args, 2).insert(getSMapKey(args, 0), args.get(1))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SMap = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = args.get(1)
+      val arg2 = getSMap(args, 2)
+
+      if (arg2.isTextMap) {
+        costModel.update(costModel.BTextMapInsert.cost(arg0, arg1, arg2))
+      } else {
+        costModel.update(costModel.BGenMapInsert.cost(arg0, arg1, arg2))
+      }
+
+      arg2.insert(arg0, arg1)
+    }
   }
 
   final case object SBMapLookup extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
-      SOptional(getSMap(args, 1).get(getSMapKey(args, 0)))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = getSMap(args, 1)
+
+      if (arg1.isTextMap) {
+        costModel.update(costModel.BTextMapLookup.cost(arg0, arg1))
+      } else {
+        costModel.update(costModel.BGenMapLookup.cost(arg0, arg1))
+      }
+
+      SOptional(arg1.get(arg0))
+    }
   }
 
   final case object SBMapDelete extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SMap =
-      getSMap(args, 1).delete(getSMapKey(args, 0))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SMap = {
+      val arg0 = getSMapKey(args, 0)
+      val arg1 = getSMap(args, 1)
+
+      if (arg1.isTextMap) {
+        costModel.update(costModel.BTextMapDelete.cost(arg0, arg1))
+      } else {
+        costModel.update(costModel.BGenMapDelete.cost(arg0, arg1))
+      }
+
+      arg1.delete(arg0)
+    }
   }
 
   final case object SBMapKeys extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(getSMap(args, 0).entries.keys.to(FrontStack))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      val arg0 = getSMap(args, 0)
+
+      costModel.update(costModel.BGenMapKeys.cost(arg0))
+
+      SList(arg0.entries.keys.to(FrontStack))
+    }
   }
 
   final case object SBMapValues extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
-      SList(getSMap(args, 0).entries.values.to(FrontStack))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      val arg0 = getSMap(args, 0)
+
+      costModel.update(costModel.BGenMapValues.cost(arg0))
+
+      SList(arg0.entries.values.to(FrontStack))
+    }
   }
 
   final case object SBMapSize extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
-      SInt64(getSMap(args, 0).entries.size.toLong)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SInt64 = {
+      val arg0 = getSMap(args, 0)
+
+      if (arg0.isTextMap) {
+        costModel.update(costModel.BTextMapSize.cost(arg0))
+      } else {
+        costModel.update(costModel.BGenMapSize.cost(arg0))
+      }
+
+      SInt64(arg0.entries.size.toLong)
+    }
   }
 
   //
@@ -854,8 +1022,16 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBDateToUnixDays extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
-      SInt64(getSDate(args, 0).days.toLong)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SInt64 = {
+      val date = getSDate(args, 0).days.toLong
+
+      costModel.update(costModel.BDateToUnixDays.cost(date))
+
+      SInt64(date)
+    }
   }
 
   final case object SBUnixDaysToDate extends SBuiltinArithmetic("UNIX_DAYS_TO_DATE", 1) {
@@ -866,8 +1042,16 @@ private[lf] object SBuiltinFun {
   }
 
   final case object SBTimestampToUnixMicroseconds extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 =
-      SInt64(getSTimestamp(args, 0).micros)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SInt64 = {
+      val arg0 = getSTimestamp(args, 0).micros
+
+      costModel.update(costModel.BTimestampToUnixMicroseconds.cost(arg0))
+
+      SInt64(arg0)
+    }
   }
 
   final case object SBUnixMicrosecondsToTimestamp
@@ -882,38 +1066,87 @@ private[lf] object SBuiltinFun {
   // Equality and comparisons
   //
   final case object SBEqual extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
-      SBool(svalue.Equality.areEqual(args.get(0), args.get(1)))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SBool = {
+      val arg0 = args.get(0)
+      val arg1 = args.get(1)
+
+      costModel.update(costModel.BEqual.cost(arg0, arg1))
+
+      SBool(svalue.Equality.areEqual(arg0, arg1))
     }
   }
 
   sealed abstract class SBCompare(pred: Int => Boolean) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBool = {
-      SBool(pred(svalue.Ordering.compare(args.get(0), args.get(1))))
+    def predCost(costModel: CostModel, arg0: SValue, arg1: SValue): CostModel.Cost
+
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SBool = {
+      val arg0 = args.get(0)
+      val arg1 = args.get(1)
+
+      costModel.update(predCost(costModel, arg0, arg1))
+
+      SBool(pred(svalue.Ordering.compare(arg0, arg1)))
     }
   }
 
-  final case object SBLess extends SBCompare(_ < 0)
-  final case object SBLessEq extends SBCompare(_ <= 0)
-  final case object SBGreater extends SBCompare(_ > 0)
-  final case object SBGreaterEq extends SBCompare(_ >= 0)
+  final case object SBLess extends SBCompare(_ < 0) {
+    override def predCost(costModel: CostModel, arg0: SValue, arg1: SValue): CostModel.Cost =
+      costModel.BLess.cost(arg0, arg1)
+  }
+  final case object SBLessEq extends SBCompare(_ <= 0) {
+    override def predCost(costModel: CostModel, arg0: SValue, arg1: SValue): CostModel.Cost =
+      costModel.BLessEq.cost(arg0, arg1)
+  }
+  final case object SBGreater extends SBCompare(_ > 0) {
+    override def predCost(costModel: CostModel, arg0: SValue, arg1: SValue): CostModel.Cost =
+      costModel.BGreater.cost(arg0, arg1)
+  }
+  final case object SBGreaterEq extends SBCompare(_ >= 0) {
+    override def predCost(costModel: CostModel, arg0: SValue, arg1: SValue): CostModel.Cost =
+      costModel.BGreaterEq.cost(arg0, arg1)
+  }
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltinPure(1 + n) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList =
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      // No cost model update as no new data is created
+
       SList(args.view.slice(0, n).to(ImmArray) ++: getSList(args, n))
+    }
   }
 
   /** $cons :: a -> List a -> List a */
   final case object SBCons extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SList = {
-      SList(args.get(0) +: getSList(args, 1))
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SList = {
+      val headSValue = args.get(0)
+      val tailSList = getSList(args, 1)
+
+      // No cost model update as no new data is created
+
+      SList(headSValue +: tailSList)
     }
   }
 
   /** $some :: a -> Optional a */
   final case object SBSome extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
+      // No cost model update as no new data is created
+
       SOptional(Some(args.get(0)))
     }
   }
@@ -921,15 +1154,26 @@ private[lf] object SBuiltinFun {
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
+      // No cost model update as no new data is created
+
       SRecord(id, fields, args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
   final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
       val record = getSRecord(args, 0)
+
+      // No cost model update as no new data is created
+
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -942,8 +1186,14 @@ private[lf] object SBuiltinFun {
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
   final case class SBRecUpdMulti(id: Identifier, updateFields: List[Int])
       extends SBuiltinPure(1 + updateFields.length) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] final def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
       val record = getSRecord(args, 0)
+
+      // No cost model update as no new data is created
+
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
@@ -957,8 +1207,14 @@ private[lf] object SBuiltinFun {
 
   /** $rproj[R, field] :: R -> a */
   final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
-    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+    override private[speedy] final def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
+      // No cost model update as no new data is created
+
       getSRecord(args, 0).values.get(field)
+    }
   }
 
   // SBStructCon sorts the field after evaluation of its arguments to preserve
@@ -967,9 +1223,15 @@ private[lf] object SBuiltinFun {
   final case class SBStructCon(inputFieldsOrder: Struct[Int])
       extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SStruct = {
       val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)
       inputFieldsOrder.values.foreach(i => sortedFields.add(args.get(i)))
+
+      // No cost model update as no new data is created
+
       SStruct(fieldNames, sortedFields)
     }
   }
@@ -981,8 +1243,14 @@ private[lf] object SBuiltinFun {
     // avoid its reevaluations, hence obtaining an amortized constant
     // complexity.
     private[this] var fieldIndex = -1
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SValue = {
       val struct = getSStruct(args, 0)
+
+      // No cost model update as no new data is created
+
       if (fieldIndex < 0) fieldIndex = struct.fieldNames.indexOf(field)
       struct.values.get(fieldIndex)
     }
@@ -990,8 +1258,14 @@ private[lf] object SBuiltinFun {
 
   /** $tupd[field] :: Struct -> a -> Struct */
   final case class SBStructUpd(field: Ast.FieldName) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SStruct = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SStruct = {
       val struct = getSStruct(args, 0)
+
+      // No cost model update as no new data is created
+
       val values = struct.values.clone.asInstanceOf[util.ArrayList[SValue]]
       discard(values.set(struct.fieldNames.indexOf(field), args.get(1)))
       struct.copy(values = values)
@@ -1001,20 +1275,39 @@ private[lf] object SBuiltinFun {
   /** $vcon[V, variant] :: a -> V */
   final case class SBVariantCon(id: Identifier, variant: Ast.VariantConName, constructorRank: Int)
       extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SVariant = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SVariant = {
+      // No cost model update as no new data is created
+
       SVariant(id, variant, constructorRank, args.get(0))
     }
   }
 
   final object SBScaleBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
-      SInt64(getSBigNumeric(args, 0).scale().toLong)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SInt64 = {
+      val arg0 = getSBigNumeric(args, 0)
+
+      costModel.undefined(costModel.BScaleBigNumeric)
+
+      SInt64(arg0.scale().toLong)
     }
   }
 
   final object SBPrecisionBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SInt64 = {
-      SInt64(getSBigNumeric(args, 0).precision().toLong)
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SInt64 = {
+      val arg0 = getSBigNumeric(args, 0)
+
+      costModel.undefined(costModel.BPrecisionBigNumeric)
+
+      SInt64(arg0.precision().toLong)
     }
   }
 
@@ -1072,8 +1365,14 @@ private[lf] object SBuiltinFun {
   }
 
   final object SBNumericToBigNumeric extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SBigNumeric = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SBigNumeric = {
       val x = getSNumeric(args, 0)
+
+      costModel.undefined(costModel.BNumericToBigNumeric)
+
       SBigNumeric.fromNumeric(x)
     }
   }
@@ -1375,9 +1674,13 @@ private[lf] object SBuiltinFun {
 
   final case object SBGuardConstTrue extends SBuiltinPure(1) {
     override private[speedy] def executePure(
-        args: util.ArrayList[SValue]
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
     ): SBool = {
       discard(getSAnyContract(args, 0))
+
+      // No cost model update as no new data is created
+
       SBool(true)
     }
   }
@@ -1472,7 +1775,12 @@ private[lf] object SBuiltinFun {
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
   final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SAny = {
+      // No cost model update as no new data is created
+
       SAnyContract(tplId, getSRecord(args, 0))
     }
   }
@@ -2012,7 +2320,12 @@ private[lf] object SBuiltinFun {
     *    -> Any (where t = ty)
     */
   final case class SBToAny(ty: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SAny = {
+      // No cost model update as no new data is created
+
       SAny(ty, args.get(0))
     }
   }
@@ -2022,8 +2335,14 @@ private[lf] object SBuiltinFun {
     *    -> Optional t (where t = expectedType)
     */
   final case class SBFromAny(expectedTy: Ast.Type) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
       val any = getSAny(args, 0)
+
+      // No cost model update as no new data is created
+
       if (any.ty == expectedTy) SOptional(Some(any.value)) else SValue.SValue.None
     }
   }
@@ -2033,8 +2352,14 @@ private[lf] object SBuiltinFun {
     *    -> TypeRep (where t = TTyCon(_))
     */
   final case class SBInterfaceTemplateTypeRep(tycon: TypeConId) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
+
+      // No cost model update as no new data is created
+
       STypeRep(Ast.TTyCon(tyCon))
     }
   }
@@ -2044,11 +2369,17 @@ private[lf] object SBuiltinFun {
     *    -> Optional Text
     */
   final case object SBTypeRepTyConName extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional =
+    override private[speedy] def executePure(
+        costModel: CostModel,
+        args: util.ArrayList[SValue],
+    ): SOptional = {
+      // No cost model update as no new data is created
+
       getSTypeRep(args, 0) match {
         case Ast.TTyCon(name) => SOptional(Some(SText(name.toString)))
         case _ => SOptional(None)
       }
+    }
   }
 
   /** EQUAL_LIST :: (a -> a -> Bool) -> [a] -> [a] -> Bool */
