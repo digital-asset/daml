@@ -1,9 +1,9 @@
 Enterprise Suite for Canton
-#####
+###########################
 
 ..
   Digital Asset’s Enterprise Products
-  **************
+  ***********************************
 
   Digital Asset offers an enterprise distribution of Canton as well as complementary
     application modules and services geared towards helping institutions bring robust
@@ -28,19 +28,19 @@ Enterprise Suite for Canton
   
   
   Enterprise or Open Source
-  ********************
-  
+  *************************
+
   All capabilities of the Canton blockchain are available using the Open Source distributions
     of Canton and the Daml SDK. The enterprise distribution offers additional accelerators,
     quality of life features, streamlined packaging, robustness and scalability enhancements,
     and enterprise grade support which are essential for bridging mission critical use cases
     to market fast. The differences and similarities are summarized below.
     Please contact sales@digitalasset.com for more information.
-  
+
   .. list-table:: Differences between Enterprise and Open Source Edition
       :widths: 50,25,25
       :header-rows: 1
-  
+
       * - Capability
         - Enterprise
         - Open-Source
@@ -77,13 +77,13 @@ Enterprise Suite for Canton
       * - Postgres Backend
         - Yes
         - Yes
-  
+
   Please follow below instructions in order to obtain your copy of Canton.
-  
+
   .. _downloading:
-  
+
   Obtaining The Enterprise Edition
-  *****************
+  ********************************
   
   Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
   respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
