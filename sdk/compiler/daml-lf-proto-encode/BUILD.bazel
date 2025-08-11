@@ -32,6 +32,8 @@ da_haskell_library(
     name = "daml-lf-proto-encode-internal",
     srcs = [
         "src/DA/Daml/LF/Proto3/EncodeV2.hs",
+        "src/DA/Daml/LF/Proto3/Interned.hs",
+        "src/DA/Daml/LF/Proto3/InternedArr.hs",
         "src/DA/Daml/LF/Proto3/InternedMap.hs",
     ],
     hackage_deps = [

@@ -4,7 +4,7 @@ da_haskell_library(
     name = "with-postgres",
     srcs = ["lib/WithPostgres.hs"],
     data = [
-        "@postgresql_nix//:all",
+        "@postgresql_dev_env//:all",
     ],
     hackage_deps = [
         "base",

@@ -7,6 +7,7 @@ import better.files.*
 import cats.syntax.either.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -25,7 +26,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, TextFileUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 
-import java.time.Instant
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
@@ -351,7 +351,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
   @Help.Group("Party Replication")
   object party_replication extends Helpful {
 
-    private def ensureSynchronizerHasBeenQuiet(
+    private def ensureSynchronizerHasBeenSilent(
         participant: ParticipantReference,
         synchronizerId: SynchronizerId,
     )(implicit env: ConsoleEnvironment): Unit = {
@@ -401,7 +401,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         _ <- Either.cond(
           maxRate.unwrap == 0,
           (),
-          s"confirmationRequestsMaxRate must be 0, but was ${maxRate.unwrap} for synchronizer $activeSynchronizer. We need a quiet synchronizer for party replication.",
+          s"confirmationRequestsMaxRate must be 0, but was ${maxRate.unwrap} for synchronizer $activeSynchronizer. We need a silent synchronizer for party replication.",
         )
         validFrom <- CantonTimestamp.fromInstant(validFromInstant)
         validAfter = validFrom
@@ -417,21 +417,55 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       check.valueOr(env.raiseError)
     }
 
+    /** Initiates the first step of the party replication repair macro.
+      *
+      *   - Ensures synchronizer is silent before starting.
+      *   - Finds ledger offset at which the party was activated on the target participant.
+      *   - Exports the party's ACS from the source participant to file.
+      *
+      * Assumptions before running this step:
+      *   - Synchronizer has been silenced.
+      *   - Party has been authorized on the target participant, that is it has been activated.
+      *   - The `beginOffsetExclusive` refers to an offset on the source participant which is before
+      *     the party to participant mapping topology transactions
+      *
+      * @param partyId
+      *   The party to be replicated.
+      * @param synchronizerId
+      *   The synchronizer on which the party replication happens.
+      * @param sourceParticipant
+      *   The participant from where the party's ACS will be exported.
+      * @param targetParticipantId
+      *   The participant which onboards the party through party replication.
+      * @param targetFile
+      *   The party's ACS export file path.
+      * @param beginOffsetExclusive
+      *   The ledger offset after which to begin searching for the party's activation on the target
+      *   participant.
+      */
     def step1_hold_and_store_acs(
         partyId: PartyId,
         synchronizerId: SynchronizerId,
         sourceParticipant: ParticipantReference,
         targetParticipantId: ParticipantId,
         targetFile: String,
-        topologyTransactionEffectiveTime: Instant,
-        synchronize: Boolean = true,
+        beginOffsetExclusive: Long,
     )(implicit env: ConsoleEnvironment): Unit = {
-      ensureSynchronizerHasBeenQuiet(sourceParticipant, synchronizerId)
-      sourceParticipant.parties.export_acs_at_timestamp(
-        Set(partyId),
+      ensureSynchronizerHasBeenSilent(sourceParticipant, synchronizerId)
+
+      val acsExportOffset = sourceParticipant.parties.find_party_max_activation_offset(
+        partyId,
+        targetParticipantId,
         synchronizerId,
-        topologyTransactionEffectiveTime,
-        targetFile,
+        beginOffsetExclusive = beginOffsetExclusive,
+        completeAfter = PositiveInt.one,
+      )
+
+      sourceParticipant.parties.export_acs(
+        parties = Set(partyId),
+        synchronizerId = Some(synchronizerId),
+        ledgerOffset = acsExportOffset,
+        exportFilePath = targetFile,
       )
 
       val synchronizers = Set(synchronizerId)
@@ -441,33 +475,21 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         targetParticipantId,
         synchronizers,
       )
-      if (synchronize) {
-        synchronizers.foreach(synchronizerId =>
-          // wait to observe either the fully authorized party mapping or the proposal.
-          // normally it would be a proposal, but it could be a fully authorized transaction, if
-          // the target participant signed a NamespaceDelegation for a
-          // key available on the source participant
-          ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
-            sourceParticipant.topology.party_to_participant_mappings
-              .list(
-                synchronizerId,
-                proposals = true,
-                filterParty = partyId.filterString,
-                filterParticipant = targetParticipantId.filterString,
-              )
-              .nonEmpty ||
-              sourceParticipant.topology.party_to_participant_mappings
-                .list(
-                  synchronizerId,
-                  filterParty = partyId.filterString,
-                  filterParticipant = targetParticipantId.filterString,
-                )
-                .nonEmpty
-          )
-        )
-      }
     }
 
+    /** Completes the party replication repair macro in a second step.
+      *
+      * @param partyId
+      *   The party to be replicated.
+      * @param synchronizerId
+      *   The synchronizer on which the party replication happens.
+      * @param targetParticipant
+      *   The participant which onboards the party through party replication.
+      * @param sourceFile
+      *   The party's ACS export file path.
+      * @param workflowIdPrefix
+      *   Optional prefix for the workflow ID.
+      */
     def step2_import_acs(
         partyId: PartyId,
         synchronizerId: SynchronizerId,

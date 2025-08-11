@@ -23,12 +23,15 @@ sealed trait DeserializationError extends PrettyPrinting {
     this match {
       case DefaultDeserializationError(message) =>
         ProtoDeserializationError.OtherError(message)
+      case CryptoValidationError(message) =>
+        ProtoDeserializationError.CryptoValidationError(message)
       case MaxByteToDecompressExceeded(message) =>
         ProtoDeserializationError.MaxBytesToDecompressExceeded(message)
     }
 }
 final case class DefaultDeserializationError(message: String) extends DeserializationError
 final case class MaxByteToDecompressExceeded(message: String) extends DeserializationError
+final case class CryptoValidationError(message: String) extends DeserializationError
 
 /** The methods in this object should be used when a <strong>deterministic</strong> encoding is
   * needed. They are not meant for computing serializations for a wire format. Protobuf is a better

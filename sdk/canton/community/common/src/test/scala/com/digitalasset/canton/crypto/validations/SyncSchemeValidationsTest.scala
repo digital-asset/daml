@@ -38,7 +38,6 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       CommunityKmsFactory,
       testedReleaseProtocolVersion,
-      nonStandardConfig = false,
       futureSupervisor,
       wallClock,
       executorService,

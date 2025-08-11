@@ -14,8 +14,6 @@ package speedy
   *
   * These are the expressions forms which execute on the Speedy machine.
   */
-import java.util
-
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast
@@ -24,7 +22,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => compileTime}
-import com.daml.scalautil.Statement.discard
 
 /** The speedy expression:
   * - variables represented by their runtime location
@@ -89,9 +86,9 @@ private[lf] object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, ArrayList.empty)
+          SRecord(id, fields, Array.empty)
         case _ =>
-          SPAP(PBuiltin(b), ArrayList.empty, b.arity)
+          SPAP(PBuiltin(b), Array.empty, b.arity)
       }
     }
   }
@@ -130,12 +127,12 @@ private[lf] object SExpr {
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
       val arity = builtin.arity
-      val actuals = new util.ArrayList[SValue](arity)
+      val actuals = Array.ofDim[SValue](arity)
       var i = 0
       while (i < arity) {
         val arg = args(i)
         val v = arg.lookupValue(machine)
-        discard(actuals.add(v))
+        actuals(i) = v
         i += 1
       }
       builtin.execute(actuals, machine)
@@ -168,7 +165,7 @@ private[lf] object SExpr {
         sValues(i) = fvs(i).lookupValue(machine)
         i += 1
       }
-      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArrayList.empty, arity)
+      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), Array.empty, arity)
       Control.Value(pap)
     }
   }
@@ -225,12 +222,11 @@ private[lf] object SExpr {
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       val arity = builtin.arity
-      val actuals = new util.ArrayList[SValue](arity)
+      val actuals = Array.ofDim[SValue](arity)
       var i = 0
       while (i < arity) {
         val arg = args(i)
-        val v = arg.lookupValue(machine)
-        discard(actuals.add(v))
+        actuals(i) = arg.lookupValue(machine)
         i += 1
       }
       val v = builtin.executePure(actuals)
@@ -248,12 +244,11 @@ private[lf] object SExpr {
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
       val arity = builtin.arity
-      val actuals = new util.ArrayList[SValue](arity)
+      val actuals = Array.ofDim[SValue](arity)
       var i = 0
       while (i < arity) {
         val arg = args(i)
-        val v = arg.lookupValue(machine)
-        discard(actuals.add(v))
+        actuals(i) = arg.lookupValue(machine)
         i += 1
       }
       builtin.compute(actuals) match {

@@ -4,10 +4,11 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
+import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
 import com.digitalasset.canton.platform.store.interning.StringInterning
-import com.digitalasset.canton.platform.{Identifier, Party}
 import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
@@ -38,7 +39,7 @@ class UpdateStreamingQueries(
 
   def fetchEventIds(target: EventIdSource)(
       stakeholderO: Option[Party],
-      templateIdO: Option[Identifier],
+      templateIdO: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
@@ -97,7 +98,7 @@ class UpdateStreamingQueries(
 
   def fetchIdsOfCreateEventsForStakeholder(
       stakeholderO: Option[Ref.Party],
-      templateIdO: Option[Ref.Identifier],
+      templateIdO: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
@@ -114,7 +115,7 @@ class UpdateStreamingQueries(
 
   private def fetchIdsOfConsumingEventsForStakeholder(
       stakeholder: Option[Ref.Party],
-      templateIdO: Option[Ref.Identifier],
+      templateIdO: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,
@@ -145,7 +146,7 @@ object UpdateStreamingQueries {
   def fetchEventIds(
       tableName: String,
       witnessO: Option[Ref.Party],
-      templateIdO: Option[Ref.Identifier],
+      templateIdO: Option[NameTypeConRef],
       startExclusive: Long,
       endInclusive: Long,
       limit: Int,

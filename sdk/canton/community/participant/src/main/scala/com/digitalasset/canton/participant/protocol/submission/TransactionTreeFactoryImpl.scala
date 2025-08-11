@@ -554,7 +554,7 @@ class TransactionTreeFactoryImpl(
       create = suffixedCreateNode,
       // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
       createTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
-      cantonData =
+      authenticationData =
         ContractAuthenticationDataV1(contractSalt.unwrap)(cantonContractIdVersion).toLfBytes,
     )
 

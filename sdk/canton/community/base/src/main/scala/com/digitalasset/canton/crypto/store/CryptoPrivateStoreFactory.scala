@@ -46,7 +46,6 @@ object CryptoPrivateStoreFactory {
       kmsFactory = CommunityKmsFactory,
       kmsStoreCacheConfig = CachingConfigs.kmsMetadataCache,
       privateKeyStoreConfig = PrivateKeyStoreConfig(),
-      nonStandardConfig = false,
       futureSupervisor = FutureSupervisor.Noop,
       clock = clock,
       executionContext = executionContext,

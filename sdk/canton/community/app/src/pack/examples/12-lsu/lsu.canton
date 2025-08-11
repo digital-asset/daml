@@ -1,0 +1,174 @@
+// -----------------------------------------------------
+// Imports
+import com.digitalasset.canton.discard.Implicits._
+import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.console.{InstanceReference, MediatorReference, SequencerReference}
+import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf.ByteString
+import better.files.File
+import com.digitalasset.canton.examples.java.iou.Iou
+
+// -----------------------------------------------------
+// Filesystem
+val exportDirectory = File("lsu-files")
+if(exportDirectory.exists)
+    exportDirectory.delete()
+exportDirectory.createDirectoryIfNotExists()
+
+// -----------------------------------------------------
+// Bootstrap
+val clock = consoleEnvironment.environment.clock.asInstanceOf[com.digitalasset.canton.time.SimClock]
+implicit val traceContext = TraceContext.empty
+
+sequencer1.start()
+mediator1.start()
+participant1.start()
+participant2.start()
+
+bootstrap.synchronizer(
+  synchronizerName = "da",
+  sequencers = Seq(sequencer1),
+  mediators = Seq(mediator1),
+  synchronizerOwners = Seq(sequencer1),
+  synchronizerThreshold = PositiveInt.one,
+  staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
+)
+
+participants.all.synchronizers.connect_local(sequencer1, alias = "da")
+participants.all.dars.upload("dars/CantonExamples.dar")
+participant1.health.ping(participant2)
+
+// Parties and contracts
+val alice = participant1.parties.enable("Alice")
+val bank = participant2.parties.enable("Bank")
+
+val pkgIou = participant1.packages.find_by_module("Iou").head
+val createIouCmd = ledger_api_utils.create(
+    pkgIou.packageId,
+    "Iou",
+    "Iou",
+    Map(
+      "payer" -> bank,
+      "owner" -> alice,
+      "amount" -> Map("value" -> 100.0, "currency" -> "CHF"),
+      "viewers" -> List()
+    )
+)
+
+participant2.ledger_api.commands.submit(Seq(bank), Seq(createIouCmd))
+
+val currentPhysicalSynchronizerId = sequencer1.physical_synchronizer_id
+val currentSynchronizerId = sequencer1.synchronizer_id
+val currentStaticSynchronizerParameters = sequencer1.synchronizer_parameters.static.get
+val newStaticSynchronizerParameters = currentStaticSynchronizerParameters.copy(protocolVersion = ProtocolVersion.dev)
+val newPhysicalSynchronizerId = PhysicalSynchronizerId(currentSynchronizerId, newStaticSynchronizerParameters.toInternal)
+
+// -----------------------------------------------------
+// Helpers methods
+def writeUidToFile(node: InstanceReference): Unit =
+  BinaryFileUtil.writeByteStringToFile(
+    s"${exportDirectory / node.name}-uid",
+    ByteString.copyFromUtf8(node.id.uid.toProtoPrimitive),
+  )
+
+def writeKeysToFile(
+    node: InstanceReference
+): Unit = {
+  val publicKeysWithNames = node.keys.public.list()
+  publicKeysWithNames.foreach { pb =>
+    node.keys.secret.download_to(
+      pb.id,
+      outputFile =
+        s"$exportDirectory/${pb.name.map(_.toProtoPrimitive).getOrElse("key")}.keys",
+    )
+  }
+}
+
+def writeAuthorizeStoreToFile(node: InstanceReference): Unit = {
+  val byteString = node.topology.transactions
+    .export_topology_snapshot(
+      filterMappings =
+        Seq(NamespaceDelegation.code, OwnerToKeyMapping.code, VettedPackages.code),
+      filterNamespace = node.id.uid.namespace.filterString,
+    )
+  BinaryFileUtil.writeByteStringToFile(
+    s"${exportDirectory / node.name}-authorized-store",
+    byteString,
+  )
+}
+
+def writeSequencerGenesisState(sequencer: SequencerReference): Unit = {
+  val genesisState = sequencer.topology.transactions.logical_upgrade_state()
+  BinaryFileUtil.writeByteStringToFile(
+    s"${exportDirectory / sequencer.name}-genesis-state",
+    genesisState,
+  )
+}
+
+def writeSynchronizerNodesDataToFiles() = {
+  println("Writing identities of sequencer1 and mediator1 to file")
+  val nodes = Seq(sequencer1, mediator1)
+
+  nodes.foreach(writeUidToFile)
+  nodes.foreach(writeKeysToFile)
+  nodes.foreach(writeAuthorizeStoreToFile)
+
+  println("Writing topology state to file")
+  writeSequencerGenesisState(sequencer1)
+}
+
+def migrateNode(
+  migratedNode: InstanceReference,
+  oldNodeName: String,
+): Unit = {
+  val nodeName = migratedNode.name
+
+  println(s"[$nodeName] Importing node identity from $oldNodeName")
+  Seq("namespace", "signing", "sequencer-auth").foreach { kind =>
+    val file = exportDirectory / s"$oldNodeName-$kind.keys"
+    val key = BinaryFileUtil.tryReadByteStringFromFile(file.canonicalPath)
+    migratedNode.keys.secret.upload(key, Some(kind))
+  }
+
+  val nodeUid = UniqueIdentifier.tryFromProtoPrimitive(
+    (exportDirectory / s"$oldNodeName-uid").contentAsString
+  )
+
+  val authorizedStore = BinaryFileUtil.tryReadByteStringFromFile(
+    (exportDirectory / s"$oldNodeName-authorized-store").canonicalPath
+  )
+
+  migratedNode.topology.init_id_from_uid(nodeUid)
+  migratedNode.health.wait_for_ready_for_node_topology()
+  println(s"[$nodeName] Importing authorized store")
+  migratedNode.topology.transactions
+    .import_topology_snapshot(authorizedStore, TopologyStoreId.Authorized)
+
+  migratedNode match {
+    case newSequencer: SequencerReference =>
+      println(s"[$nodeName] Initializing with new synchronizer parameters and topology state")
+      val genesisState = BinaryFileUtil.tryReadByteStringFromFile(
+        (exportDirectory / s"$oldNodeName-genesis-state").canonicalPath
+      )
+      newSequencer.health.wait_for_ready_for_initialization()
+      newSequencer.setup.initialize_from_synchronizer_predecessor(
+        genesisState,
+        newStaticSynchronizerParameters,
+      )
+
+    case newMediator: MediatorReference =>
+      println(s"[$nodeName] Assigning sequencers")
+      newMediator.setup.assign(
+        newPhysicalSynchronizerId,
+        SequencerConnections.tryMany(
+          Seq(sequencer2)
+            .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
+          PositiveInt.one,
+          SubmissionRequestAmplification.NoAmplification,
+        ),
+      )
+
+    case _ => throw new IllegalStateException("Unsupported")
+  }
+}

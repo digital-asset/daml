@@ -3,7 +3,13 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
+import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, NameTypeConRef}
+import com.digitalasset.canton.ledger.api.{
+  CumulativeFilter,
+  EventFormat,
+  Ref2,
+  TemplateWildcardFilter,
+}
 import com.digitalasset.canton.platform.index.IndexServiceImpl.InterfaceViewPackageUpgrade
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
 import com.digitalasset.daml.lf.data.Ref
@@ -31,7 +37,8 @@ import scala.concurrent.Future
 final case class EventProjectionProperties(
     verbose: Boolean,
     // Map((witness or wildcard) -> Map(template -> projection)), where a None key denotes a party wildcard
-    witnessTemplateProjections: Map[Option[String], Map[Identifier, Projection]] = Map.empty,
+    witnessTemplateProjections: Map[Option[String], Map[Ref2.NameTypeConRef, Projection]] =
+      Map.empty,
     templateWildcardCreatedEventBlobParties: Option[Set[String]] = Some(
       Set.empty
     ),
@@ -40,7 +47,7 @@ final case class EventProjectionProperties(
     //       regular argument list
     val interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade
 ) {
-  def render(witnesses: Set[String], templateId: Identifier): Projection =
+  def render(witnesses: Set[String], templateId: NameTypeConRef): Projection =
     (witnesses.iterator.map(Some(_))
       ++ Iterator(None)) // for the party-wildcard template specific projections)
       .flatMap(witnessTemplateProjections.get(_).iterator)
@@ -56,7 +63,7 @@ final case class EventProjectionProperties(
 object EventProjectionProperties {
 
   final case class Projection(
-      interfaces: Set[Identifier] = Set.empty,
+      interfaces: Set[FullIdentifier] = Set.empty,
       createdEventBlob: Boolean = false,
   ) {
     def append(other: Projection): Projection =
@@ -77,8 +84,8 @@ object EventProjectionProperties {
     */
   def apply(
       eventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
-      resolveTypeConRef: TypeConRef => Set[Identifier],
+      interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
+      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
       interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   ): EventProjectionProperties =
     EventProjectionProperties(
@@ -102,8 +109,8 @@ object EventProjectionProperties {
   @VisibleForTesting
   def apply(
       eventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
-      resolveTypeConRef: TypeConRef => Set[Identifier],
+      interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
+      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
   ): EventProjectionProperties =
     EventProjectionProperties(
       eventFormat = eventFormat,
@@ -139,9 +146,9 @@ object EventProjectionProperties {
 
   private def witnessTemplateProjections(
       apiEventFormat: EventFormat,
-      interfaceImplementedBy: Identifier => Set[Identifier],
-      resolveTypeConRef: TypeConRef => Set[Identifier],
-  ): Map[Option[String], Map[Identifier, Projection]] = {
+      interfaceImplementedBy: FullIdentifier => Set[FullIdentifier],
+      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+  ): Map[Option[String], Map[NameTypeConRef, Projection]] = {
     val partyFilterPairs =
       apiEventFormat.filtersByParty.view.map { case (p, f) =>
         (Some(p), f)
@@ -154,7 +161,7 @@ object EventProjectionProperties {
         interfaceFilter <- cumulativeFilter.interfaceFilters.view
         interfaceId <- resolveTypeConRef(interfaceFilter.interfaceTypeRef)
         implementor <- interfaceImplementedBy(interfaceId).view
-      } yield implementor -> Projection(
+      } yield implementor.toNameTypeConRef -> Projection(
         interfaces = if (interfaceFilter.includeView) Set(interfaceId) else Set.empty,
         createdEventBlob = interfaceFilter.includeCreatedEventBlob,
       )
@@ -172,12 +179,12 @@ object EventProjectionProperties {
 
   private def getTemplateProjections(
       cumulativeFilter: CumulativeFilter,
-      resolveTypeConRef: TypeConRef => Set[Identifier],
-  ): View[(Identifier, Projection)] =
+      resolveTypeConRef: TypeConRef => Set[FullIdentifier],
+  ): View[(NameTypeConRef, Projection)] =
     for {
       templateFilter <- cumulativeFilter.templateFilters.view
       templateId <- resolveTypeConRef(templateFilter.templateTypeRef).view
-    } yield templateId -> Projection(
+    } yield templateId.toNameTypeConRef -> Projection(
       interfaces = Set.empty,
       createdEventBlob = templateFilter.includeCreatedEventBlob,
     )

@@ -3,15 +3,19 @@
 
 package com.digitalasset.daml.lf.archive
 
+import com.daml.SafeProto
 import java.math.BigDecimal
 import java.nio.file.Paths
 import com.daml.bazeltools.BazelRunfiles._
+import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.archive.{DamlLf2 => PLF}
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.archive.DamlLf2
+import com.digitalasset.daml.lf.archive.DamlLf
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import org.scalatest.{Inside, OptionValues}
 import org.scalatest.matchers.should.Matchers
@@ -42,6 +46,11 @@ class DecodeV2Spec
     .newBuilder()
     .setBuiltinCon(DamlLf2.BuiltinCon.CON_FALSE)
     .build()
+
+  val unitType = DamlLf2.Type
+    .newBuilder()
+    .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
+    .build
 
   "The entries of primTypeInfos correspond to Protobuf DamlLf2.BuiltinType" in {
 
@@ -261,16 +270,11 @@ class DecodeV2Spec
       val positiveTestCases =
         Table("field names", List("a", "a"), List("a", "b", "c", "a"), List("a", "b", "c", "b"))
 
-      val unit = DamlLf2.Type
-        .newBuilder()
-        .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
-        .build
-
       val stringTable = ImmArraySeq("a", "b", "c")
       val stringIdx = stringTable.zipWithIndex.toMap
 
       def fieldWithUnitWithInterning(s: String) =
-        DamlLf2.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unit)
+        DamlLf2.FieldWithType.newBuilder().setFieldInternedStr(stringIdx(s)).setType(unitType)
 
       def buildTStructWithInterning(fields: Seq[String]) =
         DamlLf2.Type
@@ -1497,6 +1501,128 @@ class DecodeV2Spec
               None,
             )
         }
+      }
+    }
+  }
+
+  "decodeArchivePayload" should {
+
+    def exprToArch(expr: DamlLf2.Expr, minor: String) = {
+      val internedTZero = DamlLf2.Type
+        .newBuilder()
+        .setInternedType(0)
+        .build()
+
+      val theVal = DamlLf2.DefValue
+        .newBuilder()
+        .setNameWithType(
+          DamlLf2.DefValue.NameWithType
+            .newBuilder()
+            .setNameInternedDname(0)
+            .setType(internedTZero)
+        )
+        .setExpr(expr)
+        .build()
+
+      val metadata =
+        DamlLf2.PackageMetadata.newBuilder
+          .setNameInternedStr(0)
+          .setVersionInternedStr(1)
+          .build()
+
+      val ffs = DamlLf2.FeatureFlags
+        .newBuilder()
+        .setForbidPartyLiterals(true)
+        .setDontDivulgeContractIdsInCreateArguments(true)
+        .setDontDiscloseNonConsumingChoicesToObservers(true)
+        .build()
+
+      val pkg = DamlLf2.Package
+        .newBuilder()
+        .addInternedTypes(unitType)
+        .addInternedStrings("foobar")
+        .addInternedStrings("0.0.0")
+        .addInternedDottedNames(DamlLf2.InternedDottedName.newBuilder().addSegmentsInternedStr(0))
+        .setMetadata(metadata)
+        .addModules(DamlLf2.Module.newBuilder().addValues(theVal).setFlags(ffs))
+        .build()
+
+      val lf2 = SafeProto.toByteString(pkg) match {
+        case Right(v) =>
+          v
+        case Left(_) =>
+          throw new RuntimeException("Failed to toByteString")
+      }
+
+      val payload = DamlLf.ArchivePayload
+        .newBuilder()
+        .setMinor(minor)
+        .setDamlLf2(lf2)
+        .build()
+
+      val payloadBytes = SafeProto.toByteString(payload) match {
+        case Right(v) =>
+          v
+        case Left(_) =>
+          throw new RuntimeException("Failed to toByteString")
+      }
+
+      val hash = PackageId.assertFromString(
+        MessageDigestPrototype.Sha256.newDigest
+          .digest(payload.toByteArray)
+          .map("%02x" format _)
+          .mkString
+      )
+
+      DamlLf.Archive
+        .newBuilder()
+        .setHashFunction(DamlLf.HashFunction.SHA256)
+        .setPayload(payloadBytes)
+        .setHash(hash)
+        .build()
+    }
+
+    def buildLet(n: Int): DamlLf2.Expr = {
+      if (n == 0)
+        unitExpr
+      else
+        DamlLf2.Expr
+          .newBuilder()
+          .setApp(
+            DamlLf2.Expr.App
+              .newBuilder()
+              .setFun(buildLet(n - 1))
+              .addArgs(unitExpr)
+              .build()
+          )
+          .build()
+    }
+
+    "gracefully fail when expression too deep when version supports expression interning" in {
+      forEveryVersionSuchThat(_ >= LV.Features.flatArchive) { _ =>
+        inside(Decode.decodeArchive(exprToArch(buildLet(500), "dev"))) { case Left(err) =>
+          err shouldBe an[Error.IO]
+        }
+      }
+    }
+
+    "not fail when expression deep but not too deep when version supports expression interning" in {
+      forEveryVersionSuchThat(_ >= LV.Features.flatArchive) { _ =>
+        // explanation for "magic" number:
+        //
+        // The amount of nested lets is not equal to the proto limit since there
+        // are several message layers between each let constructor
+        //
+        // Subject to change when proto message structure changes (safe to
+        // adjust, if with explanation and still reasonably deep)
+        Decode.decodeArchive(exprToArch(buildLet(48), "dev")) shouldBe a[Right[_, _]]
+      }
+    }
+
+    "still accept reasonably deep expressions when version does not support" in {
+      forEveryVersionSuchThat(_ < LV.Features.flatArchive) { _ =>
+        // explanation for "magic" number: see above
+        Decode.decodeArchive(exprToArch(buildLet(498), "1")) shouldBe a[Right[_, _]]
       }
     }
   }

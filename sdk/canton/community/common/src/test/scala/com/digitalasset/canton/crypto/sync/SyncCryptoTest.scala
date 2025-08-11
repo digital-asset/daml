@@ -119,7 +119,6 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
       CryptoPrivateStoreFactory.withoutKms(wallClock, parallelExecutionContext),
       CommunityKmsFactory,
       testedReleaseProtocolVersion,
-      nonStandardConfig = false,
       futureSupervisor,
       wallClock,
       executorService,

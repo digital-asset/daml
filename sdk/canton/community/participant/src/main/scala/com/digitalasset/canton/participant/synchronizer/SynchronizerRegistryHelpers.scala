@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
@@ -323,7 +323,16 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         sequencerClient,
         partyNotifier,
         sequencerAggregatedInfo,
-      )
+      ).thereafter {
+        case Success(AbortedDueToShutdown) =>
+          /*
+           Without that, the synchronizer handler is not returned, and never closed.
+           In particular, the sequencer client is never closed.
+           */
+          sequencerClient.close()
+
+        case _ => ()
+      }
 
       sequencerChannelClientO <- EitherT.fromEither[FutureUnlessShutdown](
         sequencerChannelClientFactoryO.traverse { sequencerChannelClientFactory =>

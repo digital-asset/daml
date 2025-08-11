@@ -8,7 +8,7 @@ package preprocessing
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.TypeDestructor
-import com.digitalasset.daml.lf.speedy.{ArrayList, SValue}
+import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
@@ -259,7 +259,7 @@ private[lf] final class ValueTranslator(
             SValue.SRecord(
               tyCon,
               ImmArray.from(translatedCorrectFields.map(_._1)),
-              translatedCorrectFields.map(_._2).to(ArrayList),
+              translatedCorrectFields.map(_._2).to(Array),
             )
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
             checkUserTypeId(tyCon, mbId)

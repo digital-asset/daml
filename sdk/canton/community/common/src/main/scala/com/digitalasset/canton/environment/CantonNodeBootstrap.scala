@@ -158,7 +158,7 @@ trait CantonNodeBootstrap[+T <: CantonNode]
   def getNode: Option[T]
 
   /** Access to the private and public store to support local key inspection commands */
-  def crypto: Option[Crypto]
+  protected[canton] def crypto: Option[Crypto]
   def isActive: Boolean
 
   def metrics: BaseMetrics
@@ -369,7 +369,8 @@ abstract class CantonNodeBootstrapImpl[
     startupStage.start().onShutdown(Left("Aborted due to shutdown"))
 
   override def getNode: Option[T] = startupStage.getNode
-  override def crypto: Option[Crypto] = startupStage.next.flatMap(_.next).map(_.crypto)
+  override protected[canton] def crypto: Option[Crypto] =
+    startupStage.next.flatMap(_.next).map(_.crypto)
 
   /** callback for topology read service
     *
@@ -473,7 +474,6 @@ abstract class CantonNodeBootstrapImpl[
             arguments.cryptoPrivateStoreFactory,
             arguments.kmsFactory,
             ReleaseProtocolVersion.latest,
-            arguments.parameterConfig.nonStandardConfig,
             arguments.futureSupervisor,
             arguments.clock,
             executionContext,

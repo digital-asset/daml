@@ -75,10 +75,7 @@ object AddPartyStatus {
       for {
         commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
         (sequencerId, timestamp) = commonFields
-        contractsReplicated <- ProtoConverter.parseNonNegativeInt(
-          "contracts_replicated",
-          status.contractsReplicated,
-        )
+        contractsReplicated <- parseContractsReplicated(status.contractsReplicated)
       } yield ReplicatingAcs(sequencerId, timestamp, contractsReplicated)
 
     statusP match {
@@ -99,14 +96,17 @@ object AddPartyStatus {
         parseConnectedStatus(status)
       case v30.GetAddPartyStatusResponse.Status.Status.ReplicatingAcs(status) =>
         parseReplicatingStatus(status)
+      case v30.GetAddPartyStatusResponse.Status.Status.FullyReplicatedAcs(status) =>
+        for {
+          commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
+          (sequencerId, timestamp) = commonFields
+          contractsReplicated <- parseContractsReplicated(status.contractsReplicated)
+        } yield FullyReplicatedAcs(sequencerId, timestamp, contractsReplicated)
       case v30.GetAddPartyStatusResponse.Status.Status.Completed(status) =>
         for {
           commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
           (sequencerId, timestamp) = commonFields
-          contractsReplicated <- ProtoConverter.parseNonNegativeInt(
-            "contracts_replicated",
-            status.contractsReplicated,
-          )
+          contractsReplicated <- parseContractsReplicated(status.contractsReplicated)
         } yield Completed(sequencerId, timestamp, contractsReplicated)
       case v30.GetAddPartyStatusResponse.Status.Status.Error(status) =>
         for {
@@ -166,6 +166,9 @@ object AddPartyStatus {
     timestamp <- CantonTimestamp.fromProtoTimestamp(timestampP)
   } yield (sequencerId, timestamp)
 
+  private def parseContractsReplicated(contractsReplicatedP: Int): ParsingResult[NonNegativeInt] =
+    ProtoConverter.parseNonNegativeInt("contracts_replicated", contractsReplicatedP)
+
   sealed trait Status
   final case object ProposalProcessed extends Status
   final case class AgreementAccepted(sequencerId: SequencerId) extends Status
@@ -183,6 +186,11 @@ object AddPartyStatus {
       timestamp: CantonTimestamp,
       contractsReplicated: NonNegativeInt,
   ) extends ActivelyReplicatingStatus
+  final case class FullyReplicatedAcs(
+      sequencerId: SequencerId,
+      timestamp: CantonTimestamp,
+      contractsReplicated: NonNegativeInt,
+  ) extends Status
   final case class Completed(
       sequencerId: SequencerId,
       timestamp: CantonTimestamp,

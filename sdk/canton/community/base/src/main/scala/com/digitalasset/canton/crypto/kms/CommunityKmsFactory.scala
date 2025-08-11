@@ -21,7 +21,6 @@ object CommunityKmsFactory extends KmsFactory {
 
   def create(
       config: KmsConfig,
-      nonStandardConfig: Boolean,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       tracerProvider: TracerProvider,

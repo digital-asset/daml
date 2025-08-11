@@ -157,7 +157,7 @@ object ContractIdsImportProcessor {
         })
         authenticationData <- EitherT.fromEither[Future](
           ContractAuthenticationData
-            .fromLfBytes(contractIdV1Version, contract.cantonData)
+            .fromLfBytes(contractIdV1Version, contract.authenticationData)
             .leftMap(err =>
               s"Could not parse contract authentication data for contract ID ${contract.contractId}: $err"
             )
@@ -183,7 +183,7 @@ object ContractIdsImportProcessor {
         newFatContractInstance = LfFatContractInst.fromCreateNode(
           contract.toCreateNode.copy(coid = newContractId, arg = newThinContractInstance.arg),
           contract.createdAt,
-          contract.cantonData,
+          contract.authenticationData,
         )
       } yield repairContract.withContractInstance(newFatContractInstance)
     }

@@ -37,9 +37,9 @@ export POSTGRESQL_PORT=54321
 export POSTGRESQL_USERNAME='test'
 function start_postgresql() {
   mkdir -p "$POSTGRESQL_DATA_DIR"
-  bazel run -- @postgresql_nix//:bin/initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
+  bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
   eval "echo \"$(cat ../ci/postgresql.conf)\"" > "$POSTGRESQL_DATA_DIR/postgresql.conf"
-  bazel run -- @postgresql_nix//:bin/pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
+  bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
     if [[ -f "$POSTGRESQL_LOG_FILE" ]]; then
       echo >&2 'PostgreSQL logs:'
       cat >&2 "$POSTGRESQL_LOG_FILE"
@@ -49,7 +49,7 @@ function start_postgresql() {
 }
 function stop_postgresql() {
   if [[ -e "$POSTGRESQL_DATA_DIR" ]]; then
-    bazel run -- @postgresql_nix//:bin/pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --mode=immediate stop || :
+    bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --mode=immediate stop || :
     rm -rf "$POSTGRESQL_ROOT_DIR"
   fi
 }

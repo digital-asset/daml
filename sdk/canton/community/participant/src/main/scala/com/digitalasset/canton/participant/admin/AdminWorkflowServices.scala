@@ -22,10 +22,7 @@ import com.digitalasset.canton.ledger.client.{LedgerClient, ResilientLedgerSubsc
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.party.{
-  PartyReplicationAdminWorkflow,
-  PartyReplicator,
-}
+import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
 import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -123,20 +120,11 @@ class AdminWorkflowServices(
         new PartyReplicationAdminWorkflow(
           connection,
           participantId,
-          // See the note in the PartyReplicator pertaining to lifetime.
-          new PartyReplicator(
-            participantId,
-            syncService,
-            clock,
-            config,
-            futureSupervisor,
-            parameters.exitOnFatalFailures,
-            parameters.processingTimeouts,
-            loggerFactory,
-          ),
           syncService,
           clock,
+          config,
           futureSupervisor,
+          parameters.exitOnFatalFailures,
           timeouts,
           loggerFactory,
         )

@@ -108,7 +108,7 @@ message FatContractInstance {
   // Long.MinValue denotes that the creation time is unknown and should be derived from the context
   // For Create nodes, this must be set to 0.
   sfixed64 created_at = 7;
-  bytes canton_data = 8;
+  bytes authentication_data = 8;
   KeyWithMaintainers contract_key_with_maintainers = 1001; // optional *since dev*
 }
 

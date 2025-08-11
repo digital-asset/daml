@@ -29,13 +29,7 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.speedy.{
-  ArrayList,
-  DisclosedContract,
-  InitialSeeding,
-  SValue,
-  svalue,
-}
+import com.digitalasset.daml.lf.speedy.{DisclosedContract, InitialSeeding, SValue, svalue}
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.crypto.Hash
@@ -684,9 +678,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
-            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), ArrayList(SParty(alice))),
+            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), Array(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
-          choiceArgument = SRecord(sumToKId, ImmArray.empty, ArrayList.empty),
+          choiceArgument = SRecord(sumToKId, ImmArray.empty, Array.empty),
         )
       )
       val submitters = Set(alice)
@@ -863,7 +857,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           key = SRecord(
             BasicTests_WithKey,
             ImmArray("_1", "_2"),
-            ArrayList(SParty(alice), SInt64(43)),
+            Array(SParty(alice), SInt64(43)),
           ),
         )
       )
@@ -910,9 +904,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val cmds = ImmArray(
         speedy.Command.CreateAndExercise(
           templateId = templateId,
-          SRecord(templateId, ImmArray("p"), ArrayList(SParty(alice))),
+          SRecord(templateId, ImmArray("p"), Array(SParty(alice))),
           "FetchAfterLookup",
-          SRecord(templateId, ImmArray("n"), ArrayList(SInt64(43))),
+          SRecord(templateId, ImmArray("n"), Array(SInt64(43))),
         )
       )
 
@@ -956,7 +950,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        values = Array(SValue.SParty(alice), SValue.SInt64(42)),
       )
       val usedContractKey = usedContractSKey.toNormalizedValue(txVersion)
       val usedDisclosedContract = buildDisclosedContract(
@@ -967,14 +961,14 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+          Array(SValue.SParty(alice), SValue.SInt64(42)),
         ),
         Some(usedContractKey),
       )
       val unusedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
+        values = Array(SValue.SParty(alice), SValue.SInt64(69)),
       )
       val unusedDisclosedContract =
         buildDisclosedContract(
@@ -985,7 +979,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           SValue.SRecord(
             templateId,
             ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-            ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
+            Array(SValue.SParty(alice), SValue.SInt64(69)),
           ),
           Some(unusedContractSKey.toNormalizedValue(txVersion)),
         )
@@ -1786,7 +1780,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+        values = Array(SValue.SParty(alice), SValue.SInt64(42)),
       )
       val usedContractKey = Value.ValueRecord(
         None,
@@ -1803,7 +1797,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(42)),
+          Array(SValue.SParty(alice), SValue.SInt64(42)),
         ),
         Some(usedContractKey),
       )
@@ -1822,7 +1816,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          ArrayList(SValue.SParty(alice), SValue.SInt64(69)),
+          Array(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         Some(unusedContractKey),
       )
@@ -1849,7 +1843,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
-        ArrayList(SValue.SParty(alice)),
+        Array(SValue.SParty(alice)),
       ),
       None,
     )
@@ -1861,7 +1855,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
-        ArrayList(SValue.SParty(alice)),
+        Array(SValue.SParty(alice)),
       ),
       None,
     )

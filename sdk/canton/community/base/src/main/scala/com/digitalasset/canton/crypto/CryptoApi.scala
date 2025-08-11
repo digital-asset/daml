@@ -347,7 +347,6 @@ object Crypto {
       cryptoPrivateStoreFactory: CryptoPrivateStoreFactory,
       kmsFactory: KmsFactory,
       releaseProtocolVersion: ReleaseProtocolVersion,
-      nonStandardConfig: Boolean,
       futureSupervisor: FutureSupervisor,
       clock: Clock,
       executionContext: ExecutionContext,
@@ -386,7 +385,6 @@ object Crypto {
               kms <- kmsFactory
                 .create(
                   kmsConfig,
-                  nonStandardConfig,
                   timeouts,
                   futureSupervisor,
                   tracerProvider,

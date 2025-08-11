@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.version.HasToByteString
@@ -31,6 +32,33 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     crypto
       .generateEncryptionKey(encryptionKeySpec)
       .valueOrFail("generate encryption key")
+
+  /** Gets a new encryption private key by generating a new key. This is only available when using a
+    * JCE provider where private keys are stored either in memory or in a database.
+    *
+    * @param crypto
+    *   determines the algorithms used for signing, hashing, and encryption, used on the client side
+    *   for serialization.
+    * @param encryptionKeySpec
+    *   the encryption key specification for the new key.
+    * @return
+    *   an encryption private key
+    */
+  protected def getEncryptionPrivateKey(
+      crypto: Crypto,
+      encryptionKeySpec: EncryptionKeySpec,
+  ): FutureUnlessShutdown[EncryptionPrivateKey] = {
+    val cryptoPrivateStore = crypto.cryptoPrivateStore.asInstanceOf[CryptoPrivateStoreExtended]
+    for {
+      publicKey <- crypto
+        .generateEncryptionKey(encryptionKeySpec)
+        .valueOrFail("generate encryption key")
+      privateKey <- cryptoPrivateStore
+        .exportPrivateKey(publicKey.id)
+        .valueOrFail("export private key")
+        .map(pkO => pkO.valueOrFail("no encryption private key").asInstanceOf[EncryptionPrivateKey])
+    } yield privateKey
+  }
 
   /** Helper method to get two different encryption public keys.
     */
@@ -63,6 +91,36 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     crypto
       .generateSigningKey(keySpec, usage)
       .valueOrFail("generate signing key")
+
+  /** Gets a new signing key by generating a new key. This is only available when using a JCE
+    * provider where private keys are stored either in memory or in a database.
+    *
+    * @param crypto
+    *   determines the algorithms used for signing, hashing, and encryption, used on the client side
+    *   for serialization.
+    * @param usage
+    *   what the key must be used for
+    * @param keySpec
+    *   the signing key specification for the new key.
+    * @return
+    *   a signing private key
+    */
+  protected def getSigningPrivateKey(
+      crypto: Crypto,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+      keySpec: SigningKeySpec,
+  ): FutureUnlessShutdown[SigningPrivateKey] = {
+    val cryptoPrivateStore = crypto.cryptoPrivateStore.asInstanceOf[CryptoPrivateStoreExtended]
+    for {
+      publicKey <- crypto
+        .generateSigningKey(keySpec, usage)
+        .valueOrFail("generate signing key")
+      privateKey <- cryptoPrivateStore
+        .exportPrivateKey(publicKey.id)
+        .valueOrFail("export private key")
+        .map(pkO => pkO.valueOrFail("no signing private key").asInstanceOf[SigningPrivateKey])
+    } yield privateKey
+  }
 
   /** Helper method to get two different signing public keys.
     */

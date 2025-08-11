@@ -86,7 +86,7 @@ final case class ParticipantNodeConfig(
     override val parameters: ParticipantNodeParameterConfig = ParticipantNodeParameterConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     replication: Option[ReplicationConfig] = None,
-    features: EnterpriseParticipantFeaturesConfig = EnterpriseParticipantFeaturesConfig.default,
+    features: ParticipantFeaturesConfig = ParticipantFeaturesConfig.default,
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
     alphaDynamic: DeclarativeParticipantConfig = DeclarativeParticipantConfig(),
@@ -119,24 +119,28 @@ object ParticipantNodeConfig {
     CantonConfigValidatorDerivation[ParticipantNodeConfig]
 }
 
-/** Enterprise features configuration
+/** Participant features configuration
   *
   * @param profileDir
   *   path to the directory used for Daml profiling
+  * @param snapshotDir
+  *   path to the directory used for saving transaction tree snapshots
   */
-final case class EnterpriseParticipantFeaturesConfig(
-    profileDir: Option[Path] = None
+final case class ParticipantFeaturesConfig(
+    profileDir: Option[Path] = None,
+    snapshotDir: Option[Path] = None,
 ) extends PredicatedCantonConfigValidation {
   override protected def allowThisInCommunity: Boolean =
-    this == EnterpriseParticipantFeaturesConfig.default
+    // DAMLe profiling is an enterprise-only supported feature
+    profileDir.isEmpty
 }
 
-object EnterpriseParticipantFeaturesConfig {
-  val default: EnterpriseParticipantFeaturesConfig = EnterpriseParticipantFeaturesConfig()
+object ParticipantFeaturesConfig {
+  val default: ParticipantFeaturesConfig = ParticipantFeaturesConfig()
 
-  implicit val enterpriseParticipantFeaturesConfigCantonConfigValidator
-      : CantonConfigValidator[EnterpriseParticipantFeaturesConfig] =
-    CantonConfigValidatorDerivation[EnterpriseParticipantFeaturesConfig]
+  implicit val participantFeaturesConfigCantonConfigValidator
+      : CantonConfigValidator[ParticipantFeaturesConfig] =
+    CantonConfigValidatorDerivation[ParticipantFeaturesConfig]
 }
 
 /** Configuration to connect the console to a participant running remotely.

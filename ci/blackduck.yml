@@ -47,6 +47,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.bazel.cquery.options="--build_tag_filters=-manual" \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
@@ -69,6 +70,7 @@ jobs:
       --detect.tools=BAZEL \
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
+      --detect.bazel.cquery.options="--build_tag_filters=-manual" \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500

@@ -108,6 +108,8 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     runScript(interactiveSubmissionFolder / "multi-hosted.canton")(environment)
     environment.writePortsFile()
 
+    val privateKeyFile = File.newTemporaryFile()
+
     runAndAssertCommandSuccess(
       Process(
         Seq(
@@ -115,13 +117,46 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
           (interactiveSubmissionFolder / "external_party_onboarding_multi_hosting.py").pathAsString,
           "--party-name",
           "alice",
+          "--private-key-file",
+          privateKeyFile.pathAsString,
           "--threshold",
           "2",
-          "--participant-endpoints",
-          portsFiles.pathAsString,
+          "--admin-endpoint",
+          s"${participant1.config.adminApi.address}:${participant1.config.adminApi.port.unwrap}",
+          s"${participant2.config.adminApi.address}:${participant2.config.adminApi.port.unwrap}",
           "--synchronizer-id",
           sequencer1.synchronizer_id.toProtoPrimitive,
           "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
+          "onboard",
+        ),
+        cwd = interactiveSubmissionFolder.toJava,
+      ),
+      processLogger,
+    )
+
+    val alice = eventually() {
+      participant1.parties.list().find(_.party.toProtoPrimitive.contains("alice")).value.party
+    }
+
+    runAndAssertCommandSuccess(
+      Process(
+        Seq(
+          "python",
+          (interactiveSubmissionFolder / "external_party_onboarding_multi_hosting.py").pathAsString,
+          "--private-key-file",
+          privateKeyFile.pathAsString,
+          "--threshold",
+          "2",
+          "--admin-endpoint",
+          s"${participant3.config.adminApi.address}:${participant3.config.adminApi.port.unwrap}",
+          "--synchronizer-id",
+          sequencer1.synchronizer_id.toProtoPrimitive,
+          "-a", // Automatically accept all transactions (by default the script stops to ask users to explicitly confirm)
+          "update",
+          "--party-id",
+          alice.toProtoPrimitive,
+          "--participant-permission",
+          "confirmation",
         ),
         cwd = interactiveSubmissionFolder.toJava,
       ),

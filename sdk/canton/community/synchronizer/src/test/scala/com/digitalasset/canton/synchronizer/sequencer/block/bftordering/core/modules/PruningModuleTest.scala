@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
   BftOrdererPruningSchedule,
+  BftPruningStatus,
   PruningModule,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
@@ -361,13 +362,24 @@ class PruningModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         val lowerBound = OutputMetadataStore.LowerBound(EpochNumber(5L), BlockNumber(50L))
         when(outputStore.getLowerBound()(traceContext)).thenReturn(() => Some(lowerBound))
+        when(outputStore.getLastConsecutiveBlock(traceContext)).thenReturn(() => Some(latestBlock))
 
-        val requestPromise = Promise[OutputMetadataStore.LowerBound]()
+        val requestPromise = Promise[BftPruningStatus]()
         module.receiveInternal(Pruning.PruningStatusRequest(requestPromise))
         context.runPipedMessages() shouldBe empty
 
         requestPromise.isCompleted shouldBe true
-        requestPromise.future.value should contain(Success(lowerBound))
+        requestPromise.future.value should contain(
+          Success(
+            BftPruningStatus(
+              latestBlock.epochNumber,
+              latestBlock.blockNumber,
+              latestBlock.blockBftTime,
+              EpochNumber(5L),
+              BlockNumber(50L),
+            )
+          )
+        )
       }
     }
   }

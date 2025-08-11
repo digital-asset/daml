@@ -4,8 +4,7 @@
 package com.digitalasset.canton.concurrent
 
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -13,7 +12,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Mixin-trait for classes that want to run some futures with supervision using a
   * [[FutureSupervisor]] strategy
   */
-trait HasFutureSupervision { this: NamedLogging =>
+trait HasFutureSupervision {
 
   protected def futureSupervisor: FutureSupervisor
 
@@ -21,11 +20,11 @@ trait HasFutureSupervision { this: NamedLogging =>
 
   protected def supervised[T](description: => String, warnAfter: Duration = 10.seconds)(
       fut: Future[T]
-  )(implicit traceContext: TraceContext): Future[T] =
+  )(implicit loggingContext: ErrorLoggingContext): Future[T] =
     futureSupervisor.supervised(description, warnAfter)(fut)
 
   def supervisedUS[T](description: => String, warnAfter: Duration = 10.seconds)(
       fut: FutureUnlessShutdown[T]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[T] =
+  )(implicit loggingContext: ErrorLoggingContext): FutureUnlessShutdown[T] =
     FutureUnlessShutdown(supervised(description, warnAfter)(fut.unwrap))
 }

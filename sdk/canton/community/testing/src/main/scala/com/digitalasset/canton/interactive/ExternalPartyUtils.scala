@@ -63,7 +63,6 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       CryptoPrivateStoreFactory.withoutKms(wallClock, externalPartyExecutionContext),
       CommunityKmsFactory,
       testedReleaseProtocolVersion,
-      nonStandardConfig = false,
       futureSupervisor,
       wallClock,
       externalPartyExecutionContext,

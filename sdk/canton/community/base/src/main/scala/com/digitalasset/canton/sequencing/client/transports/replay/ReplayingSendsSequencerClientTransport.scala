@@ -69,7 +69,11 @@ trait ReplayingSendsSequencerClientTransport extends SequencerClientTransportCom
   /** @param sendRatePerSecond
     *   None means "as fast as possible".
     */
-  def replay(sendParallelism: Int, sendRatePerSecond: Option[Int] = None): Future[SendReplayReport]
+  def replay(
+      sendParallelism: Int,
+      sendRatePerSecond: Option[Int] = None,
+      cycles: Int = 1,
+  ): Future[SendReplayReport]
 
   def waitForIdle(
       duration: FiniteDuration,
@@ -237,17 +241,27 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
   override def replay(
       sendParallelism: Int,
-      maybeSendRatePerSecond: Option[Int] = None,
+      maybeSendRatePerSecond: Option[Int],
+      cycles: Int,
   ): Future[SendReplayReport] =
     withNewTraceContext("replay") { implicit traceContext =>
       logger.info(s"Replaying ${submissionRequests.size} sends")
 
-      // Rates larger than 1 unit / nanosecond are not supported
-      val sendRate = maybeSendRatePerSecond.getOrElse(1_000_000_000)
+      val baseSource =
+        Source
+          .cycle(() => submissionRequests.iterator)
+          .take(submissionRequests.size.toLong * cycles)
+
+      val intermediateSource =
+        maybeSendRatePerSecond match {
+          case None =>
+            baseSource
+          case Some(sendRate) =>
+            baseSource.throttle(sendRate, per = 1.second, maximumBurst = 0, ThrottleMode.Shaping)
+        }
 
       val submissionReplay =
-        Source(submissionRequests)
-          .throttle(sendRate, per = 1.second, maximumBurst = 0, ThrottleMode.Shaping)
+        intermediateSource
           .mapAsyncUnordered(sendParallelism)(replaySubmit(_).unwrap)
           .toMat(Sink.fold(SendReplayReport()(sendDuration))(_.update(_)))(Keep.right)
 

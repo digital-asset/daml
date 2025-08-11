@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.packagemeta
 import cats.kernel.Semigroup
 import cats.syntax.semigroup.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ledger.api.Ref2.FullIdentifier
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
   PackageResolution,
@@ -40,20 +41,33 @@ final case class PackageMetadata(
     * package-version), we filter the previous result by intersection with the set of all known
     * identifiers (both template-ids and interface-ids).
     */
-  def resolveTypeConRef(ref: Ref.TypeConRef): Set[Ref.Identifier] = ref match {
+  def resolveTypeConRef(ref: Ref.TypeConRef): Set[FullIdentifier] = ref match {
     case Ref.TypeConRef(Ref.PackageRef.Name(packageName), qualifiedName) =>
       packageNameMap
         .get(packageName)
         .map(_.allPackageIdsForName.iterator)
         .getOrElse(Iterator.empty)
-        .map(packageId => Ref.Identifier(packageId, qualifiedName))
+        .map(packageId => FullIdentifier(packageId, packageName, qualifiedName))
         .toSet
         .intersect(allTypeConIds)
     case Ref.TypeConRef(Ref.PackageRef.Id(packageId), qName) =>
-      Set(Ref.Identifier(packageId, qName))
+      val packageName = packageIdVersionMap
+        .get(packageId)
+        .map(_._1)
+        .getOrElse(throw new IllegalArgumentException(s"Unknown package id: $packageId"))
+      Set(FullIdentifier(packageId, packageName, qName))
   }
 
-  lazy val allTypeConIds: Set[Ref.Identifier] = templates.union(interfaces)
+  lazy val allTypeConIds: Set[FullIdentifier] = templates.union(interfaces).map { id =>
+    val packageName =
+      packageIdVersionMap
+        .get(id.packageId)
+        .map(_._1)
+        .getOrElse(
+          throw new IllegalArgumentException(s"Unknown package id: ${id.packageId}")
+        )
+    FullIdentifier(id.packageId, packageName, id.qualifiedName)
+  }
 }
 
 object PackageMetadata {

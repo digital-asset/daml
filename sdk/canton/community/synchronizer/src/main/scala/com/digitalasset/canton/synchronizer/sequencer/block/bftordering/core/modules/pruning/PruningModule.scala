@@ -5,11 +5,11 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.scheduler.{BftOrdererPruningCronSchedule, JobScheduler}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -184,12 +184,25 @@ final class PruningModule[E <: Env[E]](
         pruningSchedule.foreach(schedule => schedulePruning(schedule))
 
       case Pruning.PruningStatusRequest(promise) =>
-        pipeToSelfOpt(stores.outputStore.getLowerBound()) { result =>
+        pipeToSelfOpt(
+          context.zipFuture(
+            stores.outputStore.getLowerBound(),
+            stores.outputStore.getLastConsecutiveBlock,
+          )
+        ) { result =>
           (result match {
-            case Success(Some(lowerBound)) => promise.complete(Success(lowerBound))
-            case Success(None) =>
-              val lowerBound = OutputMetadataStore.LowerBound(EpochNumber.First, BlockNumber.First)
-              promise.complete(Success(lowerBound))
+            case Success((lowerBound, latestBlock)) =>
+              promise.complete(
+                Success(
+                  BftPruningStatus(
+                    latestBlockNumber = latestBlock.fold(BlockNumber.First)(_.blockNumber),
+                    latestBlockEpochNumber = latestBlock.fold(EpochNumber.First)(_.epochNumber),
+                    latestBlockTimestamp = latestBlock.fold(CantonTimestamp.Epoch)(_.blockBftTime),
+                    lowerBoundEpochNumber = lowerBound.fold(EpochNumber.First)(_.epochNumber),
+                    lowerBoundBlockNumber = lowerBound.fold(BlockNumber.First)(_.blockNumber),
+                  )
+                )
+              )
             case Failure(exception) => promise.failure(exception)
           }).discard
           None

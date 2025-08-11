@@ -123,7 +123,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
       val builtin = SBuiltinFun.SBToText
       // function are incomparable
-      val fun = SPAP(SValue.PBuiltin(builtin), ArrayList.empty, builtin.arity)
+      val fun = SPAP(SValue.PBuiltin(builtin), Array.empty, builtin.arity)
       val testCases = Table[Seq[(SValue, SValue)]](
         "entries",
         ImmArray(left(fun) -> SValue.SValue.True, right(SText("0")) -> SValue.SValue.False).toSeq,
@@ -147,7 +147,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
       def right(v: SValue) = SValue.SVariant(tyConEither, rightName, 1, v)
       val builtin = SBuiltinFun.SBToText
       // functions are incomparable
-      val fun = SPAP(SValue.PBuiltin(builtin), ArrayList.empty, builtin.arity)
+      val fun = SPAP(SValue.PBuiltin(builtin), Array.empty, builtin.arity)
       val testCases = Table[SMap](
         "entries",
         SMap(true, left(SText("1")) -> SValue.SValue.True, left(SText("2")) -> SValue.SValue.False),

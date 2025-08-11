@@ -77,10 +77,10 @@ withSharedPostgres (host, port, user) f = do
             , "--user=" <> user
             ]
         createdb name = callProcess
-            "external/postgresql_nix/bin/createdb"
+            "external/postgresql_dev_env/createdb"
             (name : connArgs)
         dropdb name = callProcess
-            "external/postgresql_nix/bin/dropdb"
+            "external/postgresql_dev_env/dropdb"
             (name : connArgs)
 
 -- Launch a temporary postgres instance and provide a jdbc url to access that database.
@@ -94,7 +94,7 @@ withEphemeralPostgres f = do
     -- work here. Hardcoding the paths to external/... matches what we do in
     -- com.daml.testing.postgresql.Tool.
     callProcess
-        "external/postgresql_nix/bin/initdb"
+        "external/postgresql_dev_env/initdb"
         [ "--username=" <> T.unpack dbUser
         , dataDir
         , "--locale=en_US.UTF-8"
@@ -108,7 +108,7 @@ withEphemeralPostgres f = do
       f (jdbcUrl port)
   where startPostgres dataDir logFile =
             callProcess
-                "external/postgresql_nix/bin/pg_ctl"
+                "external/postgresql_dev_env/pg_ctl"
                 ["-w", "-D", dataDir, "-l", logFile, "start"]
             `catchIO` (\e -> do
                 postgresLog <- readFileUTF8 logFile
@@ -119,11 +119,11 @@ withEphemeralPostgres f = do
                 throwIO e)
         stopPostgres dataDir =
             callProcess
-                "external/postgresql_nix/bin/pg_ctl"
+                "external/postgresql_dev_env/pg_ctl"
                 ["-w", "-D", dataDir, "-m", "immediate", "stop"]
         createDatabase port =
             callProcess
-                "external/postgresql_nix/bin/createdb"
+                "external/postgresql_dev_env/createdb"
                 [ "-h", "localhost"
                 , "-U", T.unpack dbUser
                 , "-p", show port

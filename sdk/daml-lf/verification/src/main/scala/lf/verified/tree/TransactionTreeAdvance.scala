@@ -85,7 +85,7 @@ object TransactionTreeAdvanceDef {
     *  - The direction i.e. if that's the first or the second time we enter the node
     *
     * @param tr   The transaction that is being processed
-    * @param init The activeState and teh rollbackStack of the initial state of the traversal
+    * @param init The activeState and the rollbackStack of the initial state of the traversal
     */
   @pure
   def scanActiveState(

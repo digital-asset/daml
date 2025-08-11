@@ -35,7 +35,7 @@ trait PartyReplicationProcessor extends SequencerChannelProtocolProcessor {
 
   protected def testOnlyInterceptor: PartyReplicationTestInterceptor
 
-  protected def onComplete: TraceContext => Unit
+  protected def onAcsFullyReplicated: TraceContext => Unit
   protected def onError: String => Unit
   protected def onDisconnect: (String, TraceContext) => Unit
 

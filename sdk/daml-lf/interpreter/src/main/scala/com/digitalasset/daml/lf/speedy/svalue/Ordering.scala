@@ -10,8 +10,6 @@ import data.{Bytes, Utf8}
 import language.TypeOrdering
 import value.Value.ContractId
 
-import scala.jdk.CollectionConverters._
-
 object Ordering extends scala.math.Ordering[SValue] {
 
   @throws[SError.SError]
@@ -64,7 +62,7 @@ object Ordering extends scala.math.Ordering[SValue] {
         case (SEnum(_, _, xRank), SEnum(_, _, yRank)) =>
           diff = xRank compareTo yRank
         case (SRecord(_, _, xs), SRecord(_, _, ys)) =>
-          push(xs.iterator().asScala, ys.iterator().asScala)
+          push(xs.iterator, ys.iterator)
         case (SVariant(_, _, xRank, x), SVariant(_, _, yRank, y)) =>
           diff = xRank compareTo yRank
           push(Iterator.single(x), Iterator.single(y))
@@ -78,7 +76,7 @@ object Ordering extends scala.math.Ordering[SValue] {
             new InterlacedIterator(yMap.keys.iterator, yMap.values.iterator),
           )
         case (SStruct(_, xs), SStruct(_, ys)) =>
-          push(xs.iterator().asScala, ys.iterator().asScala)
+          push(xs.iterator, ys.iterator)
         case (SAny(xType, x), SAny(yType, y)) =>
           diff = TypeOrdering.compare(xType, yType)
           push(Iterator.single(x), Iterator.single(y))

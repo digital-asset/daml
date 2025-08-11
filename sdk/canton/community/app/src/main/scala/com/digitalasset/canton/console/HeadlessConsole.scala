@@ -148,15 +148,23 @@ object HeadlessConsole extends NoTracing {
       )
     )
 
+    val cantonImplicitPredefInfo = {
+      // There is an interesting issue where this predef code is executed successfully to build the
+      // predef object but the script is given access to it by injecting an import of its fields.
+      // At that point, it appears that if another script has already registered a predef object of
+      // the same name we _can_ get an error which is reported as a failure of the synthetic import.
+      // We can work around this by ensuring the object is always registered with a unique name.
+      // There is no need to explicitly refer to the predef object in our code, as the intent is
+      // that its fields are available at the top-level in scripts.
+      import java.util.UUID
+      val objectName = Name(s"CantonImplicitPredef-${UUID.randomUUID().toString}")
+      PredefInfo(objectName, interactivePredef(false), hardcoded = false, None)
+    }
+
     val result = interpreter.initializePredef(
       basePredefs = Seq(
         PredefInfo(Name("BindingsPredef"), bindingsPredef, hardcoded = false, None),
-        PredefInfo(
-          Name("CantonImplicitPredef"),
-          interactivePredef(false),
-          hardcoded = false,
-          None,
-        ),
+        cantonImplicitPredefInfo,
       ),
       customPredefs = Seq(),
       extraBridges = holder,

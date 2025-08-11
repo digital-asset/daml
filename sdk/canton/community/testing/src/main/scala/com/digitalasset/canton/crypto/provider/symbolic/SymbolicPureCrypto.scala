@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.serialization.{DeserializationError, DeterministicEncoding}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ByteStringUtil
+import com.digitalasset.canton.util.{ByteStringUtil, EitherUtil}
 import com.digitalasset.canton.version.HasToByteString
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -71,9 +71,8 @@ class SymbolicPureCrypto extends CryptoPureApi {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): Either[SignatureCheckError, Unit] =
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
         publicKey.id == signature.signedBy,
-        (),
         SignatureCheckError.SignatureWithWrongKey(
           s"Signature was signed by ${signature.signedBy} whereas key is ${publicKey.id}"
         ),
@@ -103,9 +102,8 @@ class SymbolicPureCrypto extends CryptoPureApi {
           s"Symbolic signature ${signature.unwrap} lacks the four randomness bytes at the end",
         ),
       )
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
         signedContent == bytes,
-        (),
         SignatureCheckError.InvalidSignature(
           signature,
           bytes,
@@ -136,9 +134,8 @@ class SymbolicPureCrypto extends CryptoPureApi {
       randomized: Boolean,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
         publicKey.format == CryptoKeyFormat.Symbolic,
-        (),
         EncryptionError.InvalidEncryptionKey(s"Provided key not a symbolic key: $publicKey"),
       )
       // For a symbolic encrypted message, prepend the key id that was used to encrypt
@@ -183,9 +180,14 @@ class SymbolicPureCrypto extends CryptoPureApi {
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] =
     for {
-      _ <- Either.cond(
+      _ <- EitherUtil.condUnit(
+        privateKey.id == encrypted.encryptedFor,
+        DecryptionError.DecryptionWithWrongKey(
+          s"Ciphertext encrypted for ${encrypted.encryptedFor} instead of ${privateKey.id}"
+        ),
+      )
+      _ <- EitherUtil.condUnit(
         privateKey.format == CryptoKeyFormat.Symbolic,
-        (),
         DecryptionError.InvalidEncryptionKey(s"Provided key not a symbolic key: $privateKey"),
       )
       // Remove iv

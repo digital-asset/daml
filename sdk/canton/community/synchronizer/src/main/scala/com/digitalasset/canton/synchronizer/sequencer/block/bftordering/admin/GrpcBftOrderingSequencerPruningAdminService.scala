@@ -17,10 +17,10 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   SetMinBlocksToKeepRequest,
   SetMinBlocksToKeepResponse,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.{
   BftOrdererPruningSchedule,
   BftOrdererPruningScheduler,
+  BftPruningStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Pruning
@@ -63,14 +63,9 @@ class GrpcBftOrderingSequencerPruningAdminService(
   def bftPruningStatus(
       request: v30.BftPruningStatusRequest
   ): scala.concurrent.Future[v30.BftPruningStatusResponse] = {
-    val promise = Promise[OutputMetadataStore.LowerBound]()
+    val promise = Promise[BftPruningStatus]()
     pruningModuleRef.asyncSend(PruningStatusRequest(promise))
-    promise.future.map { lowerBound =>
-      v30.BftPruningStatusResponse(
-        lowerBoundEpoch = lowerBound.epochNumber,
-        lowerBoundBlock = lowerBound.blockNumber,
-      )
-    }
+    promise.future.map(_.toProto)
   }
 
   override def setBftSchedule(request: SetBftScheduleRequest): Future[SetBftScheduleResponse] = {

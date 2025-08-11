@@ -53,6 +53,9 @@ final class SourceParticipantStore {
       )
       .sentContractsCount
 
+  private[party] def resetContractsCount(count: NonNegativeInt): Unit =
+    state.updateAndGet(_.copy(sentContractsCount = count)).discard
+
   private[party] def contractOrdinalToSendUpToExclusive: NonNegativeInt =
     state.get().contractOrdinalToSendUpToExclusive
   private[party] def setContractOrdinalToSendUpToExclusive(n: NonNegativeInt): Unit =

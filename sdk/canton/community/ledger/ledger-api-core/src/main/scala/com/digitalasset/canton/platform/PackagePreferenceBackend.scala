@@ -411,7 +411,10 @@ object PackagePreferenceBackend {
                   acc.updated(
                     missingRequiredPackageName,
                     Left(
-                      show"Party $party has no vetted packages for '$missingRequiredPackageName'"
+                      if (other.isEmpty)
+                        show"Party $party is either not known on the synchronizer or it has no uniformly-vetted packages"
+                      else
+                        show"Party $party has no vetted packages for '$missingRequiredPackageName'"
                     ),
                   )
               }

@@ -257,7 +257,7 @@ private[sync] class SynchronizerConnectionsManager(
     * @param isTriggeredManually
     *   True if the call of this method is triggered by an explicit call to the connectivity
     *   service, false if the call of this method is triggered by a node restart or transition to
-    *   active
+    *   active.
     *
     * @param mustBeActive
     *   If true, only executes if the instance is active
@@ -723,7 +723,7 @@ private[sync] class SynchronizerConnectionsManager(
   ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
     connectQueue.executeEUS(
       if (connectedSynchronizers.isConnected(psid)) {
-        logger.debug(s"Synchronizer $psid already registered")
+        logger.debug(s"Already connected to $psid, no need to register $psid")
         EitherT.rightT(psid)
       } else {
         logger.debug(s"About to perform handshake with synchronizer: $psid")
@@ -887,11 +887,16 @@ private[sync] class SynchronizerConnectionsManager(
             synchronizerAlias,
             synchronizerHandle.topologyClient,
             synchronizerConnectionConfigStore,
-            psid =>
-              EitherTUtil.toFutureUnlessShutdown(
-                connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
-              ),
-            parameters.automaticallyPerformLogicalSynchronizerUpgrade,
+            new HandshakeWithPSId {
+              override def performHandshake(
+                  psid: PhysicalSynchronizerId
+              )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+                EitherTUtil.toFutureUnlessShutdown(
+                  connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
+                )
+            },
+            automaticallyConnectToUpgradedSynchronizer =
+              parameters.automaticallyPerformLogicalSynchronizerUpgrade,
             loggerFactory,
           )
 

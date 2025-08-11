@@ -97,7 +97,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       stakeholders = immutable.TreeSet(setupData.alice),
       contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
       createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
-      cantonData = Bytes.assertFromString("00"),
+      authenticationData = Bytes.assertFromString("00"),
     )
 
     val participant = ParticipantId.assertFromString("participant")

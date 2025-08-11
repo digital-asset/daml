@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawCreatedEvent,
   RawTreeEvent,
@@ -176,7 +177,7 @@ private[backend] trait StorageBackendTestsEvents
     val partySignatory = Ref.Party.assertFromString("signatory")
     val partyObserver1 = Ref.Party.assertFromString("observer1")
     val partyObserver2 = Ref.Party.assertFromString("observer2")
-    val otherTemplate = Ref.Identifier.assertFromString("pkg:Mod:Template2")
+    val otherTemplate = NameTypeConRef.assertFromString("#pkg-name:Mod:Template2")
 
     val dtos = Vector(
       dtoCreate(
@@ -249,7 +250,7 @@ private[backend] trait StorageBackendTestsEvents
     val partySignatory = Ref.Party.assertFromString("signatory")
     val partyObserver = Ref.Party.assertFromString("observer")
     val partyUnknown = Ref.Party.assertFromString("unknown")
-    val unknownTemplate = Ref.Identifier.assertFromString("unknown:unknown:unknown")
+    val unknownTemplate = NameTypeConRef.assertFromString("#unknown:unknown:unknown")
 
     val dtos = Vector(
       dtoCreate(
