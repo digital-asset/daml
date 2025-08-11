@@ -103,6 +103,63 @@ private[snapshot] object TransactionSnapshot {
     engine
   }
 
+  def getAllChoiceNames(dumpFile: Path): Set[String] = {
+    val inputStream = new BufferedInputStream(Files.newInputStream(dumpFile))
+
+    val entries = new Iterator[Snapshot.SubmissionEntry] {
+      override def hasNext: Boolean = (inputStream.available() != 0)
+
+      override def next(): Snapshot.SubmissionEntry = {
+        Snapshot.SubmissionEntry.parseDelimitedFrom(inputStream)
+      }
+    }
+
+    var result = Set.empty[String]
+
+    def decodeTx(txEntry: Snapshot.TransactionEntry): SubmittedTx = {
+      val protoTx = TxOuterClass.Transaction.parseFrom(txEntry.getRawTransaction)
+      TxCoder
+        .decodeTransaction(protoTx)
+        .fold(
+          err => sys.error("Decoding Error: " + err.errorMessage),
+          tx => SubmittedTx(tx),
+        )
+    }
+
+    def updateWithChoicesFromTx(tx: SubmittedTx): Unit =
+      tx.foreachInExecutionOrder(
+        exerciseBegin = { (_, exe) =>
+          result = result + s"${exe.templateId}:${exe.choiceId}"
+          ChildrenRecursion.DoRecurse
+        },
+        rollbackBegin = (_, _) => ChildrenRecursion.DoNotRecurse,
+        leaf = (_, _) => (),
+        exerciseEnd = (_, _) => (),
+        rollbackEnd = (_, _) => (),
+      )
+
+    try {
+      while (entries.hasNext) {
+        val entry = entries.next()
+        entry.getEntryCase match {
+          case EntryCase.TRANSACTION =>
+            val tx = decodeTx(entry.getTransaction)
+            updateWithChoicesFromTx(tx)
+
+          case EntryCase.ARCHIVES =>
+            // No work to do
+
+          case EntryCase.ENTRY_NOT_SET =>
+            sys.error("Decoding Error: Unexpected EntryCase.ENTRY_NOT_SET")
+        }
+      }
+    } finally {
+      inputStream.close()
+    }
+
+    result
+  }
+
   def loadBenchmark(
       dumpFile: Path,
       choice: (Ref.QualifiedName, Ref.Name),

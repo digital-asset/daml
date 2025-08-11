@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.AbstractScriptTest
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -17,15 +16,13 @@ import java.nio.file.{Files, FileSystems, Path}
 
 class GenerateSnapshotsV2 extends GenerateSnapshots(LanguageMajorVersion.V2)
 
-/** Generate snapshot data by running Daml script code and then validate the generated snapshot data by replaying
-  * it using a choice name (that the Daml script code may have exercised).
+/** Generate and save snapshot data by running Daml script code.
   *
   * The following environment variables provide test arguments:
   * - DAR_FILE:     defines the actual Dar file containing the script code
-  * - CHOICE_NAME:  defines the choice that will be exercised during snapshot replay validation - e.g. Module:Template:Choice
   * - SCRIPT_NAME:  defines the script function that should be ran to generate transaction entries for the snapshot file - e.g. Module:Script
   * - SNAPSHOT_DIR: defines the (base) directory used for storing snapshot data. Snapshot files are saved in the file with
-  *   path $SNAPSHOT_DIR/$(basename DAR_FILE)/Choice/snapshot-participant0*.bin (where Choice is the exercise choice name defined by $CHOICE_NAME)
+  *   path $SNAPSHOT_DIR/$(basename DAR_FILE)/Script/snapshot-participant0*.bin (where Script is the script function name defined by $SCRIPT_NAME)
   */
 class GenerateSnapshots(override val majorLanguageVersion: LanguageMajorVersion)
     extends AsyncWordSpec
@@ -33,18 +30,17 @@ class GenerateSnapshots(override val majorLanguageVersion: LanguageMajorVersion)
     with Matchers {
 
   if (
-    Seq("DAR_FILE", "CHOICE_NAME", "SCRIPT_NAME", "SNAPSHOT_DIR")
+    Seq("DAR_FILE", "SCRIPT_NAME", "SNAPSHOT_DIR")
       .exists(envVar => sys.env.get(envVar).isEmpty)
   ) {
     throw new AssertionError(
-      "The environment variables DAR_FILE, CHOICE_NAME, SCRIPT_NAME and SNAPSHOT_DIR all need to be set"
+      "The environment variables DAR_FILE, SCRIPT_NAME and SNAPSHOT_DIR all need to be set"
     )
   }
 
   val snapshotBaseDir = Path.of(sys.env("SNAPSHOT_DIR"))
   val darFile = Path.of(sys.env("DAR_FILE"))
   val scriptEntryPoint = Ref.QualifiedName.assertFromString(sys.env("SCRIPT_NAME"))
-  val choiceEntryPoint = sys.env("CHOICE_NAME")
   val snapshotDir = snapshotBaseDir.resolve(s"${darFile.getFileName}/${scriptEntryPoint.name}")
   val participantId = Ref.ParticipantId.assertFromString("participant0")
   val snapshotFileMatcher =
@@ -60,41 +56,12 @@ class GenerateSnapshots(override val majorLanguageVersion: LanguageMajorVersion)
   override lazy val darPath = darFile
 
   s"Generate snapshot data for ${darFile.getFileName}/${scriptEntryPoint.name}" in {
-    val existingSnapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
-
-    if (existingSnapshotFiles.size() >= 1) {
-      val snapshotFile = existingSnapshotFiles.get(0)
-
-      validateSnapshotFile(darFile, snapshotFile, choiceEntryPoint)
-    } else {
-      for {
-        clients <- scriptClients()
-        _ <- run(clients, scriptEntryPoint, dar = dar)
-      } yield {
-        val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
-        snapshotFiles.size() should be(1)
-
-        val snapshotFile = snapshotFiles.get(0)
-
-        validateSnapshotFile(darFile, snapshotFile, choiceEntryPoint)
-      }
+    for {
+      clients <- scriptClients()
+      _ <- run(clients, scriptEntryPoint, dar = dar)
+    } yield {
+      val snapshotFiles = Files.list(snapshotDir).filter(snapshotFileMatcher.matches).toList
+      snapshotFiles.size() should be(1)
     }
-  }
-
-  private def validateSnapshotFile(
-      darFile: Path,
-      snapshotFile: Path,
-      choiceEntryPoint: String,
-  ): Assertion = {
-    Files.exists(snapshotFile) should be(true)
-    Files.size(snapshotFile) should be > 0L
-
-    // Replay and validate the snapshot file
-    val benchmark = new ReplayBenchmark
-    benchmark.darFile = darFile.toFile.getAbsolutePath
-    benchmark.choiceName = choiceEntryPoint
-    benchmark.entriesFile = snapshotFile.toFile.getAbsolutePath
-
-    noException should be thrownBy benchmark.init()
   }
 }
