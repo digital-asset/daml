@@ -50,7 +50,7 @@ Functions
 .. _function-damldocswarnings-myfunc-41459:
 
 `myFunc <function-damldocswarnings-myfunc-41459_>`_
-  \: `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  \: `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
   .. warning::
     **DEPRECATED**\:

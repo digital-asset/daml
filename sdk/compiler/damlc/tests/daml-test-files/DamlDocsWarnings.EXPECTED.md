@@ -34,7 +34,7 @@ My module
 
 <a name="function-damldocswarnings-myfunc-41459"></a>[myFunc](#function-damldocswarnings-myfunc-41459)
 
-> : [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> : [Int](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261) -\> [Int](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 >
 > **DEPRECATED**: 
 > myFunc deprecated line 1
