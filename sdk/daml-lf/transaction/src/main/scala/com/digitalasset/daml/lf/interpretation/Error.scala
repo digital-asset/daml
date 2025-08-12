@@ -198,6 +198,14 @@ object Error {
     final case class MalformedContractId(value: String) extends Error
   }
 
+  sealed case class Cost(error: Cost.Error) extends Error
+
+  object Cost {
+    sealed abstract class Error extends Serializable with Product
+
+    final case class BudgetExceeded(cause: String) extends Error
+  }
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 

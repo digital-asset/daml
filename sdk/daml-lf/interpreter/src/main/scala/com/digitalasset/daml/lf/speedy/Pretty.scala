@@ -172,6 +172,12 @@ private[lf] object Pretty {
               text(cause)
           case Crypto.MalformedContractId(value) => text(s"Malformed contract id \"$value\"")
         }
+      case Cost(error) =>
+        error match {
+          case Cost.BudgetExceeded(cause) =>
+            text("Cost budget has been exceeded:") /
+              text(cause)
+        }
       case Dev(_, error) =>
         error match {
           case Dev.Conformance(provided, recomputed, details) =>

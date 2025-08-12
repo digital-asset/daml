@@ -94,8 +94,13 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
   override private[speedy] final def execute[Q](
       args: Array[SValue],
       machine: Machine[Q],
-  ): Control.Value = {
-    Control.Value(executePure(machine.costModel, args))
+  ): Control[Q] = {
+    try {
+      Control.Value(executePure(machine.costModel, args))
+    } catch {
+      case SErrorCrash(_, cause) =>
+        Control.Error(IE.Cost(IE.Cost.BudgetExceeded(cause)))
+    }
   }
 }
 
