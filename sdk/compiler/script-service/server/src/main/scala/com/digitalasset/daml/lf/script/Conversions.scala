@@ -291,6 +291,12 @@ final class Conversions(
                     speedy.Pretty.prettyDamlException(interpretationError).render(80)
                   )
                 )
+              case _: Cost =>
+                builder.setCostError(
+                  proto.ScriptError.CostError.newbuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
             }
