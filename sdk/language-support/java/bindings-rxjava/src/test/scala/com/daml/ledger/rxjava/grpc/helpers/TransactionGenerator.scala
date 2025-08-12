@@ -239,6 +239,7 @@ object TransactionGenerator {
         observers = observers,
         createdAt = Some(scalaCreatedAtTimestamp),
         packageName = packageName,
+        acsDelta = acsDelta,
       )
     ),
     new data.CreatedEvent(
@@ -330,6 +331,7 @@ object TransactionGenerator {
         exerciseResult = Some(scalaExerciseResult),
         packageName = pkgName,
         implementedInterfaces = scalaInterfaces,
+        acsDelta = acsDelta,
       )
     ),
     new data.ExercisedEvent(
