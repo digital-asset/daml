@@ -598,19 +598,29 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
     for {
       // find signing keys
       keys <- determineKeysToUse(transaction.transaction, signingKeys, forceFlags)
-      keyWithUsage = assignExpectedUsageToKeys(
-        transaction.mapping,
-        keys,
-        forSigning = true,
-      )
-      signatures <- keyWithUsage.toList.toNEF.parTraverse { case (key, usage) =>
-        crypto.privateCrypto
-          .sign(transaction.hash.hash, key, usage)
-          .leftMap(err =>
-            TopologyManagerError.InternalError.TopologySigningError(err): TopologyManagerError
+      keysWithNoExistingSignature = keys.diff(transaction.signatures.map(_.authorizingLongTermKey))
+      updatedSignedTransaction <- NonEmpty.from(keysWithNoExistingSignature) match {
+        case Some(keysWithNoExistingSignatureNE) =>
+          val keyWithUsage = assignExpectedUsageToKeys(
+            transaction.mapping,
+            keysWithNoExistingSignatureNE,
+            forSigning = true,
           )
+          keyWithUsage.toList.toNEF
+            .parTraverse { case (key, usage) =>
+              crypto.privateCrypto
+                .sign(transaction.hash.hash, key, usage)
+                .leftMap(err =>
+                  TopologyManagerError.InternalError.TopologySigningError(err): TopologyManagerError
+                )
+            }
+            .map(signatures => transaction.addSingleSignatures(signatures.fromNEF.toSet))
+
+        case None =>
+          logger.info("No keys available to this node can provide additional signatures.")
+          EitherT.rightT[FutureUnlessShutdown, TopologyManagerError](transaction)
       }
-    } yield transaction.addSingleSignatures(signatures.toSet)
+    } yield updatedSignedTransaction
 
   private def determineKeysToUse(
       transaction: GenericTopologyTransaction,

@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoClient}
+import com.digitalasset.canton.data.SynchronizerSuccessor
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
@@ -60,10 +61,13 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.topology.transaction.{
   MediatorSynchronizerState,
   SequencerSynchronizerState,
   SynchronizerTrustCertificate,
+  SynchronizerUpgradeAnnouncement,
+  TopologyChangeOp,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
@@ -353,6 +357,34 @@ class SequencerRuntime(
     }
   })
 
+  logger.info("Subscribing to topology transactions for logical synchronizer upgrade announcements")
+  topologyProcessor.subscribe(new TopologyTransactionProcessingSubscriber {
+
+    override def observed(
+        sequencedTimestamp: SequencedTime,
+        effectiveTimestamp: EffectiveTime,
+        sequencerCounter: SequencerCounter,
+        transactions: Seq[GenericSignedTopologyTransaction],
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+      val removeO = transactions
+        .find(tx =>
+          tx.operation == TopologyChangeOp.Remove && tx.mapping.code == Code.SynchronizerUpgradeAnnouncement
+        )
+        .map(_ => Option.empty[SynchronizerSuccessor])
+      val replaceO = transactions.collectFirst {
+        case tx
+            if tx.operation == TopologyChangeOp.Replace && tx.mapping.code == Code.SynchronizerUpgradeAnnouncement =>
+          tx.mapping.select[SynchronizerUpgradeAnnouncement].map(_.successor)
+      }
+      // Some(Some(successor)) - replacement, otherwise Some(None) - removal, otherwise None - noop
+      // Replace op takes precedence over Remove op
+      replaceO
+        .orElse(removeO)
+        .foreach(sequencer.updateSynchronizerSuccessor(_, effectiveTimestamp))
+      FutureUnlessShutdown.unit
+    }
+  })
+
   private lazy val synchronizerOutboxO: Option[SynchronizerOutboxHandle] =
     maybeSynchronizerOutboxFactory
       .map(
@@ -410,7 +442,14 @@ class SequencerRuntime(
       _ <- synchronizerOutboxO
         .map(_.startup())
         .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
+      // Note: we use head snapshot as we want the latest announced upgrade anyway, an overlapping update is idempotent
+      synchronizerUpgradeO <- EitherT.right(
+        topologyClient.headSnapshot.isSynchronizerUpgradeOngoing()
+      )
     } yield {
+      synchronizerUpgradeO.foreach { case (successor, effectiveTime) =>
+        sequencer.updateSynchronizerSuccessor(Some(successor), effectiveTime)
+      }
       logger.info("Sequencer runtime initialized")
       runtimeReadyPromise.outcome_(())
     }

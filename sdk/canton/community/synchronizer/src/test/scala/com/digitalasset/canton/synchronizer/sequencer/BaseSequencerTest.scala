@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.Storage
@@ -36,6 +36,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
   participant2,
   sequencerId,
 }
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{Member, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -197,6 +198,11 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
     override def awaitContainingBlockLastTimestamp(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencerError, CantonTimestamp] = ???
+
+    override private[sequencer] def updateSynchronizerSuccessor(
+        successorO: Option[SynchronizerSuccessor],
+        announcementEffectiveTime: EffectiveTime,
+    )(implicit traceContext: TraceContext): Unit = ???
   }
 
   "sendAsyncSigned" should {

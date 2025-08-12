@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.SigningKeyUsage.matchesRelevantUsages
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
@@ -348,57 +349,78 @@ sealed trait KeyManagementIntegrationTest
       rotateIntermediateNamespaceKeyAndPing(sequencer1, None)
     }
 
-    def downloadUploadTest(
+    def getCryptoKeyPair(
         node: LocalInstanceReference,
         keyNameO: Option[String],
-        usageO: Option[NonEmpty[Set[SigningKeyUsage]]] = None,
-    ) = {
-
+    ): (Option[KeyName], CryptoKeyPair[PublicKey, PrivateKey]) = {
       val privateKey = node.keys.secret
         .list(
           filterName = OptionUtil.noneAsEmptyString(keyNameO),
           filterPurpose = Set(KeyPurpose.Signing),
         )
         .head
-      val privateKeyName = privateKey.name
       val privateKeyId = privateKey.publicKey.id
       val privateKeyNew = node.keys.secret.download(privateKeyId)
 
-      // If the usage is set, we forcefully replace the keys' usage.
-      val keyPair = usageO match {
-        case Some(usage) =>
-          val ckp = CryptoKeyPair
-            .fromTrustedByteString(privateKeyNew)
-            .valueOrFail("parsing of crypto key pair")
-            .asInstanceOf[SigningKeyPair]
-            .replaceUsage(usage)
-          ckp.privateKey.usage shouldBe usage
-          ckp
-        case None =>
-          CryptoKeyPair
-            .fromTrustedByteString(privateKeyNew)
-            .valueOrFail("parsing of crypto key pair")
+      (
+        privateKey.name,
+        CryptoKeyPair
+          .fromTrustedByteString(privateKeyNew)
+          .valueOrFail("parsing of crypto key pair"),
+      )
+    }
+
+    def changeSigningCryptoKeyPair(
+        oldCryptoKeyPair: CryptoKeyPair[PublicKey, PrivateKey],
+        usageO: Option[NonEmpty[Set[SigningKeyUsage]]] = None,
+        signingPrivateKeyO: Option[SigningPrivateKey] = None,
+    ) =
+      // If `usage` or `publicKey` is set, forcibly replace these parameters in the crypto key pair.
+      oldCryptoKeyPair match {
+        case skp: SigningKeyPair =>
+          List(
+            // change the usage of both keys in the crypto key pair
+            usageO.map(usage => (skp: SigningKeyPair) => skp.replaceUsage(usage)),
+            // replace the private key to intentionally fail the key pair matching checks
+            signingPrivateKeyO.map(privKey =>
+              (skp: SigningKeyPair) => skp.replacePrivateKey(privKey)
+            ),
+          ).flatten.foldLeft(skp)((state, f) => f(state))
+        case _ => oldCryptoKeyPair
       }
 
-      // The old format was just the protobuf message serialized to bytestring
-      val privateKeyOld = keyPair.toProtoCryptoKeyPairV30.toByteString
+    def downloadUploadTest(
+        node: LocalInstanceReference,
+        cryptoKeyPair: CryptoKeyPair[PublicKey, PrivateKey],
+        privateKeyId: Fingerprint,
+        privateKeyName: Option[KeyName],
+    ) = {
+
+      val cryptoKeyPairSerialized = cryptoKeyPair.toProtoCryptoKeyPairV30.toByteString
 
       val force = true
       // Delete the secret key before re-uploading
       // user-manual-entry-begin: DeletePrivateKey
       node.keys.secret.delete(privateKeyId, force)
       // user-manual-entry-end: DeletePrivateKey
-      node.keys.secret.list(filterFingerprint = privateKeyId.unwrap) should have size 0
+      eventually() {
+        node.keys.secret.list(filterFingerprint = privateKeyId.unwrap) should have size 0
+        node.keys.public.list(filterFingerprint = privateKeyId.unwrap) should have size 0
+      }
 
-      node.keys.secret.upload(privateKeyOld, privateKeyName.map(_.unwrap))
+      node.keys.secret.upload(cryptoKeyPairSerialized, privateKeyName.map(_.unwrap))
 
-      node.keys.secret.list(filterFingerprint = privateKeyId.unwrap) should have size 1
+      eventually() {
+        node.keys.secret.list(filterFingerprint = privateKeyId.unwrap) should have size 1
+        node.keys.public.list(filterFingerprint = privateKeyId.unwrap) should have size 1
+      }
 
     }
 
     "download and upload private keys locally" in { implicit env =>
       import env.*
-      downloadUploadTest(sequencer1, None)
+      val (keyName, cryptoKeyPair) = getCryptoKeyPair(sequencer1, None)
+      downloadUploadTest(sequencer1, cryptoKeyPair, cryptoKeyPair.privateKey.id, keyName)
     }
 
     // This test covers a scenario where an older key, exported from a different Canton version,
@@ -424,7 +446,13 @@ sealed trait KeyManagementIntegrationTest
         .futureValueUS
         .valueOrFail("generate signing key")
 
-      downloadUploadTest(participant1, Some(keyName), Some(keyUsageNoPoO))
+      val (privateKeyName, cryptoKeyPair) = getCryptoKeyPair(participant1, Some(keyName))
+      downloadUploadTest(
+        participant1,
+        changeSigningCryptoKeyPair(cryptoKeyPair, Some(keyUsageNoPoO)),
+        cryptoKeyPair.privateKey.id,
+        privateKeyName,
+      )
 
       val privateKeyMetadata = participant1.keys.secret.list(filterName = keyName).head
 
@@ -462,6 +490,76 @@ sealed trait KeyManagementIntegrationTest
       )
 
       participant1.keys.secret.delete(privateKeyMetadata.id, force = true)
+    }
+
+    "upload a key pair where the private and public keys do not match" in { implicit env =>
+      import env.*
+
+      val testKeyAName = KeyName.tryCreate("upload_key_pair_test_A")
+      val testKeyBName = KeyName.tryCreate("upload_key_pair_test_B")
+
+      val publicSigningKeyA = participant1.crypto
+        .generateSigningKey(
+          usage = SigningKeyUsage.ProtocolOnly,
+          name = Some(testKeyAName),
+        )
+        .valueOrFail("create signing key")
+        .futureValueUS
+
+      val publicSigningKeyB = participant1.crypto
+        .generateSigningKey(
+          usage = SigningKeyUsage.ProtocolOnly,
+          name = Some(testKeyBName),
+        )
+        .valueOrFail("create signing key")
+        .futureValueUS
+
+      val privateSigningKeyB = participant1.crypto.cryptoPrivateStore
+        .asInstanceOf[CryptoPrivateStoreExtended]
+        .exportPrivateKey(publicSigningKeyB.id)
+        .valueOrFail("export private key")
+        .futureValueUS
+        .valueOrFail("no private key")
+        .asInstanceOf[SigningPrivateKey]
+
+      val (_, cryptoKeyPairA) = getCryptoKeyPair(participant1, Some(testKeyAName.unwrap))
+
+      cryptoKeyPairA.privateKey.asInstanceOf[SigningPrivateKey] should not be privateSigningKeyB
+
+      // change the crypto key pair so the private and public keys don't match
+      val updatedKeyPair = changeSigningCryptoKeyPair(
+        cryptoKeyPairA,
+        signingPrivateKeyO = Some(privateSigningKeyB),
+      )
+
+      // delete test key
+      participant1.keys.secret.delete(publicSigningKeyA.id, force = true)
+
+      val publicKeys = participant1.keys.public
+        .list(
+          filterPurpose = Set(KeyPurpose.Signing)
+        )
+
+      publicKeys should not contain publicSigningKeyA
+
+      // this will not fail because the 'wrong' public key is ignored and will be derived from the private key
+      downloadUploadTest(
+        participant1,
+        updatedKeyPair,
+        privateSigningKeyB.id,
+        Some(testKeyBName),
+      )
+
+      // the derived key should match the initial public key
+      participant1.keys.public
+        .list(
+          filterPurpose = Set(KeyPurpose.Signing)
+        )
+        .find(_.name.contains(testKeyBName))
+        .valueOrFail("cannot find public key")
+        .publicKey
+        .asSigningKey
+        .valueOrFail("not a signing key") shouldBe publicSigningKeyB
     }
 
     "download and upload private keys remotely" in { implicit env =>

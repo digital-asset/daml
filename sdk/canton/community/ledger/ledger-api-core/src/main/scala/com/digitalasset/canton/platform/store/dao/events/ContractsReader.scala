@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.dao.events
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.NameTypeConRef
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
@@ -21,6 +20,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.daml.lf.data.Bytes
+import com.digitalasset.daml.lf.data.Ref.NameTypeConRef
 import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 

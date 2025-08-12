@@ -173,6 +173,13 @@ sealed trait PasswordBasedEncryptionError extends Product with Serializable with
 
 object PasswordBasedEncryptionError {
 
+  final case class KeyCreationError(error: EncryptionKeyCreationError)
+      extends PasswordBasedEncryptionError {
+    override protected def pretty: Pretty[KeyCreationError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
+  }
+
   final case class DecryptError(error: DecryptionError) extends PasswordBasedEncryptionError {
     override protected def pretty: Pretty[DecryptError] = prettyOfClass(
       unnamedParam(_.error)

@@ -9,16 +9,30 @@ import com.digitalasset.canton.admin.api.client.commands.{
   MediatorAdminCommands,
   ParticipantAdminCommands,
   SequencerAdminCommands,
+  TopologyAdminCommands,
 }
-import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
+import com.digitalasset.canton.admin.api.client.data.{
+  CantonStatus,
+  DynamicSynchronizerParameters as ConsoleDynamicSynchronizerParameters,
+  NodeStatus,
+}
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
+import com.digitalasset.canton.console.HealthDumpGenerator.ParametersWithValidity
 import com.digitalasset.canton.environment.Environment
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricsSnapshot
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
+import com.digitalasset.canton.topology.admin.grpc.BaseQuery
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer
+import com.digitalasset.canton.topology.store.TimeQuery
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp
 import com.digitalasset.canton.version.ReleaseVersion
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import io.circe.syntax.*
+
+import java.time.Instant
 
 /** Generates a health dump zip file containing information about the current Canton process This is
   * the core of the implementation of the HealthDump gRPC endpoint.
@@ -26,11 +40,19 @@ import io.circe.syntax.*
 class HealthDumpGenerator(
     val environment: Environment,
     val grpcAdminCommandRunner: GrpcAdminCommandRunner,
-) {
+    override val loggerFactory: NamedLoggerFactory,
+) extends NamedLogging {
   private implicit val statusEncoder: Encoder[CantonStatus] = {
     import io.circe.generic.auto.*
     import CantonHealthAdministrationEncoders.*
     deriveEncoder[CantonStatus]
+  }
+
+  private implicit val dynamicSynchronizerParametersEncoder
+      : Encoder[ConsoleDynamicSynchronizerParameters] = {
+    import io.circe.generic.auto.*
+    import CantonHealthAdministrationEncoders.*
+    deriveEncoder[ConsoleDynamicSynchronizerParameters]
   }
 
   def status(): CantonStatus =
@@ -48,6 +70,45 @@ class HealthDumpGenerator(
         ParticipantAdminCommands.Health.ParticipantStatusCommand(),
       ),
     )
+
+  private def getSynchronizerParametersForNode(
+      nodeName: String,
+      nodeConfig: LocalNodeConfig,
+      synchronizerId: PhysicalSynchronizerId,
+  ): List[ParametersWithValidity] =
+    grpcAdminCommandRunner
+      .runCommand(
+        nodeName,
+        TopologyAdminCommands.Read.ListSynchronizerParametersState(
+          BaseQuery(
+            store = Synchronizer(synchronizerId),
+            proposals = false,
+            TimeQuery.HeadState,
+            Some(TopologyChangeOp.Replace),
+            filterSigningKey = "",
+            protocolVersion = None,
+          ),
+          filterSynchronizerId = "",
+        ),
+        nodeConfig.clientAdminApi,
+        token = None,
+      ) match {
+      case CommandSuccessful(value) =>
+        value
+          .map(result =>
+            ParametersWithValidity(
+              validFrom = result.context.validFrom,
+              validUntil = result.context.validUntil,
+              parameters = ConsoleDynamicSynchronizerParameters(result.item),
+            )
+          )
+          .toList
+      case err: CommandError =>
+        logger.underlying.warn(
+          s"Ignoring a failure to retrieve synchronizer parameters for node $nodeName: $err"
+        )
+        List.empty
+    }
 
   private def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
@@ -89,6 +150,9 @@ class HealthDumpGenerator(
         status: CantonStatus,
         metrics: MetricsSnapshot,
         traces: Map[Thread, Array[StackTraceElement]],
+        synchronizerParameters: Map[String, Map[PhysicalSynchronizerId, List[
+          ParametersWithValidity
+        ]]],
     )
 
     val javaVersion = System.getProperty("java.version")
@@ -105,7 +169,65 @@ class HealthDumpGenerator(
       Thread.getAllStackTraces.asScala.toMap
     }
 
-    val dump = CantonDump(cantonVersion, env, config, status(), metricsSnapshot, traces)
+    val currentStatus = status()
+    val sequencersParameters = environment.config.sequencersByString.flatMap {
+      case (nodeName, nodeConfig) =>
+        val synchronizerId = currentStatus.sequencerStatus.get(nodeName) match {
+          case Some(status) => status.synchronizerId
+          case _ =>
+            throw new IllegalStateException(s"Sequencer $nodeName is not ready")
+        }
+
+        val parameters = getSynchronizerParametersForNode(
+          nodeName,
+          nodeConfig,
+          synchronizerId,
+        )
+
+        Some(nodeName -> Map(synchronizerId -> parameters))
+      case _ => None
+    }
+
+    val mediatorsParameters = environment.config.mediatorsByString.flatMap {
+      case (nodeName, nodeConfig) =>
+        val synchronizerId = currentStatus.mediatorStatus.get(nodeName) match {
+          case Some(status) => status.synchronizerId
+          case _ =>
+            throw new IllegalStateException(s"Mediator $nodeName is not ready")
+        }
+
+        val parameters =
+          getSynchronizerParametersForNode(
+            nodeName,
+            nodeConfig,
+            synchronizerId,
+          )
+        Some(nodeName -> Map(synchronizerId -> parameters))
+      case _ => None
+    }
+
+    val participantsParameters = environment.config.participantsByString.flatMap {
+      case (nodeName, nodeConfig) =>
+        val synchronizerIds = currentStatus.participantStatus.get(nodeName).toList.flatMap {
+          status => status.connectedSynchronizers.keys
+        }
+
+        Some(nodeName -> synchronizerIds.flatMap { synchronizerId =>
+          val parameters = getSynchronizerParametersForNode(
+            nodeName,
+            nodeConfig,
+            synchronizerId,
+          )
+          Some((synchronizerId -> parameters))
+        }.toMap)
+      case _ => None
+    }
+
+    val allParameters: Map[String, Map[PhysicalSynchronizerId, List[ParametersWithValidity]]] =
+      sequencersParameters ++ mediatorsParameters ++ participantsParameters
+
+    val dump =
+      CantonDump(cantonVersion, env, config, currentStatus, metricsSnapshot, traces, allParameters)
 
     val logFile =
       File(
@@ -139,4 +261,12 @@ class HealthDumpGenerator(
       outputFile.zipIn(files ++ extraFilesToZip.iterator ++ rollingLogs)
     }
   }
+}
+
+object HealthDumpGenerator {
+  private final case class ParametersWithValidity(
+      validFrom: Instant,
+      validUntil: Option[Instant],
+      parameters: ConsoleDynamicSynchronizerParameters,
+  )
 }

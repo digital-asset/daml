@@ -63,8 +63,23 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
     }
   }
 
-  it should "store contracts with a transient contract in the global divulgence" in {
-    store(fullyTransientWithChildren).flatMap(_ => succeed)
+  it should "store contracts with a transient contract in the global divulgence and do not fetch it" in {
+    for {
+      (offset, tx) <- store(fullyTransientWithChildren, contractActivenessChanged = false)
+      contractId1 = created(tx).head
+      contractId2 = created(tx).tail.loneElement
+      result1 <- contractsReader.lookupContractState(
+        contractId1,
+        offset,
+      )
+      result2 <- contractsReader.lookupContractState(
+        contractId2,
+        offset,
+      )
+    } yield {
+      result1 shouldBe empty
+      result2 shouldBe empty
+    }
   }
 
   it should "present the contract state at a specific event sequential id" in {

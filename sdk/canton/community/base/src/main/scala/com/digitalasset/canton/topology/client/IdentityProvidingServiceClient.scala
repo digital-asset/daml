@@ -649,7 +649,7 @@ trait SynchronizerUpgradeClient {
     */
   def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]]
+  ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]]
 
   /** Returns the known sequencer connection details for the successor synchronizer as published by
     * the sequencers.

@@ -114,8 +114,9 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
 
       override def onError(t: Throwable): Unit = {
         implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-        logger.warn(msg(s"Member message handler received error ${t.getMessage}.", "error"))
-        forwardToRecipient(_.receiveOnError(t), s"error ${t.getMessage}")
+        val doubleQuotedError = s"\"${t.getMessage}\""
+        logger.warn(msg(s"Member message handler received error $doubleQuotedError.", "error"))
+        forwardToRecipient(_.receiveOnError(t), s"error $doubleQuotedError")
 
         // An error on the request observer implies that this handler's response observer is already closed
         // so mark the member message handler as complete without sending a response.
@@ -182,7 +183,7 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
   }
 
   private[channel] def receiveOnError(t: Throwable): Unit = {
-    logger.warn(s"Request stream error ${t.getMessage} has terminated connection")(
+    logger.warn(s"Request stream error \"${t.getMessage}\" has terminated connection")(
       TraceContext.empty
     )
     complete(_.onError(t))

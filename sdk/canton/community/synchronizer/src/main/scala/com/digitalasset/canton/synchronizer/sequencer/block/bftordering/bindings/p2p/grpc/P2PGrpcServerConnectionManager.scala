@@ -26,7 +26,11 @@ final class P2PGrpcServerConnectionManager(
 
   private val peerSenders = mutable.Set[StreamObserver[BftOrderingServiceReceiveResponse]]()
 
-  def startServer(): Unit = maybeServerUS.foreach(_.foreach(_.server.start().discard)).discard
+  def startServer(): Unit =
+    if (!isClosing)
+      maybeServerUS.foreach(_.foreach(_.server.start().discard)).discard
+    else
+      logger.info("Not starting P2P gRPC server due to shutdown")
 
   // Called by the gRPC server when receiving a connection
   def addPeerSender(peerSender: StreamObserver[BftOrderingServiceReceiveResponse]): Unit =

@@ -791,7 +791,7 @@ class StoreBasedTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
+  ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]] =
     findTransactions(
       types = Seq(TopologyMapping.Code.SynchronizerUpgradeAnnouncement),
       filterUid = None,
@@ -800,7 +800,10 @@ class StoreBasedTopologySnapshot(
       case atMostOne @ (_ :: Nil | Nil) =>
         atMostOne
           .map(tx =>
-            SynchronizerSuccessor(tx.mapping.successorSynchronizerId, tx.mapping.upgradeTime)
+            (
+              SynchronizerSuccessor(tx.mapping.successorSynchronizerId, tx.mapping.upgradeTime),
+              tx.validFrom,
+            )
           )
           .headOption
       case _moreThanOne =>

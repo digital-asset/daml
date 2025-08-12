@@ -408,6 +408,12 @@ final case class DynamicSynchronizerParameters private (
   def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
     sequencerTopologyTimestampTolerance
 
+  /** Participants will time out confirmation requests after this period has elapsed past the
+    * observed sequencing time of the confirmation request.
+    */
+  def decisionTimeout: NonNegativeFiniteDuration =
+    confirmationResponseTimeout + mediatorReactionTimeout
+
   def automaticAssignmentEnabled: Boolean =
     assignmentExclusivityTimeout > NonNegativeFiniteDuration.Zero
 
@@ -686,9 +692,10 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         defaultSequencerAggregateSubmissionTimeout,
       preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
         defaultPreparationTimeRecordTimeTolerance,
+      confirmationResponseTimeout: NonNegativeFiniteDuration = defaultConfirmationResponseTimeout,
   ) =
     DynamicSynchronizerParameters.tryCreate(
-      confirmationResponseTimeout = defaultConfirmationResponseTimeout,
+      confirmationResponseTimeout = confirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
       assignmentExclusivityTimeout = defaultAssignmentExclusivityTimeout,
       topologyChangeDelay = topologyChangeDelay,
