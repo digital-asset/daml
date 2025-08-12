@@ -8,9 +8,9 @@
 >
 > Signatory: p
 >
-> | Field                                                                                   | Type                                                                                    | Description |
-> | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | p                                                                                       | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | Field                                                                                                               | Type                                                                                                                | Description |
+> | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------ | :---------- |
+> | p                                                                                                                   | [Party](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
 >
 > * **Choice** Archive
 >
@@ -28,9 +28,9 @@
 >
 >   Returns: ()
 >
->   | Field                                                                          | Type                                                                           | Description |
->   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
->   | i                                                                              | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
+>   | Field                                                                                                      | Type                                                                                                       | Description |
+>   | :--------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- | :---------- |
+>   | i                                                                                                          | [Int](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 
 ## Interfaces
 
@@ -54,13 +54,13 @@
 >
 >   Controller: getController this
 >
->   Returns: [Optional](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+>   Returns: [Optional](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153) [Int](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 >
->   | Field                                                                          | Type                                                                           | Description |
->   | :----------------------------------------------------------------------------- | :----------------------------------------------------------------------------- | :---------- |
->   | i                                                                              | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
+>   | Field                                                                                                      | Type                                                                                                       | Description |
+>   | :--------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------- | :---------- |
+>   | i                                                                                                          | [Int](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261) |  |
 >
-> * **Method getController :** [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
+> * **Method getController :** [Party](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
 >
 >   getController docs
 
@@ -74,12 +74,12 @@
 >
 > > (no fields)
 >
-> **instance** [HasFromAnyView](https://docs.daml.com/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108) [I](#type-damldochoogle-i-6172) [View](#type-damldochoogle-view-20961)
+> **instance** [HasFromAnyView](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/DA-Internal-Interface-AnyView.html#class-da-internal-interface-anyview-hasfromanyview-30108) [I](#type-damldochoogle-i-6172) [View](#type-damldochoogle-view-20961)
 >
-> **instance** [HasInterfaceView](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [I](#type-damldochoogle-i-6172) [View](#type-damldochoogle-view-20961)
+> **instance** [HasInterfaceView](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492) [I](#type-damldochoogle-i-6172) [View](#type-damldochoogle-view-20961)
 
 ## Functions
 
 <a name="function-damldochoogle-getcontroller-29001"></a>[getController](#function-damldochoogle-getcontroller-29001)
 
-> : [I](#type-damldochoogle-i-6172) -\> [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)
+> : [I](#type-damldochoogle-i-6172) -\> [Party](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932)

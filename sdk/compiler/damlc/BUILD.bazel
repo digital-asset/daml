@@ -354,7 +354,7 @@ genrule(
             --template=$(location :daml-base-rst-template) \\
             --index-template=$(location :daml-base-rst-index-template) \\
             --hoogle-template=$(location :daml-base-hoogle-template) \\
-            --base-url=https://docs.daml.com/daml/stdlib \\
+            --base-url=https://docs.digitalasset.com/build/3.3/reference/daml/stdlib \\
             --no-input-anchor \\
             --output-hoogle=$(location :daml-base-hoogle.txt) \\
             --output-anchor=$(location :daml-base-anchors.json) \\

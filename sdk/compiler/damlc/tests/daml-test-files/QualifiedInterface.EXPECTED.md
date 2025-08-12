@@ -6,11 +6,11 @@
 
 > Signatory: issuer, owner
 >
-> | Field                                                                                   | Type                                                                                    | Description |
-> | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- | :---------- |
-> | issuer                                                                                  | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
-> | owner                                                                                   | [Party](https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
-> | amount                                                                                  | [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
+> | Field                                                                                                               | Type                                                                                                                | Description |
+> | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------ | :---------- |
+> | issuer                                                                                                              | [Party](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | owner                                                                                                               | [Party](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932) |  |
+> | amount                                                                                                              | [Int](https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261)          |  |
 >
 > * **Choice** Archive
 >
