@@ -222,6 +222,7 @@ object TransactionGenerator {
     signatories <- Gen.listOf(nonEmptyId)
     observers <- Gen.listOf(nonEmptyId)
     interfaceViews <- Gen.listOf(interfaceViewGen)
+    acsDelta <- Arbitrary.arbBool.arbitrary
   } yield (
     Created(
       CreatedEvent(
@@ -257,6 +258,7 @@ object TransactionGenerator {
       signatories = signatories.toSet.asJava,
       observers = observers.toSet.asJava,
       createdAt = createdAtInstant,
+      acsDelta = acsDelta,
     ),
   )
 
@@ -310,6 +312,7 @@ object TransactionGenerator {
     (scalaExerciseResult, javaExerciseResult) <- Gen.sized(valueGen)
     implementedInterfaces <- Gen.listOf(identifierGen)
     (scalaInterfaces, javaInterfaces) = implementedInterfaces.unzip
+    acsDelta <- Arbitrary.arbBool.arbitrary
   } yield (
     Exercised(
       ExercisedEvent(
@@ -344,6 +347,7 @@ object TransactionGenerator {
       nodeId,
       javaExerciseResult,
       javaInterfaces.asJava,
+      acsDelta,
     ),
   )
 
