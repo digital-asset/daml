@@ -392,6 +392,9 @@ object GrpcErrorParser {
             SubmitError.CryptoError.MalformedContractId(value, message)
         }
 
+      case "INTERPRETATION_COST_ERROR" =>
+        SubmitError.CostError.BudgetExceeded(message)
+
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)

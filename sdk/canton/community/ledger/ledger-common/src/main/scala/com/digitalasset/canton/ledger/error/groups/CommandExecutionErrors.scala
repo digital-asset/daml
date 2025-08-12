@@ -1014,25 +1014,25 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       }
     }
 
-    @Explanation("Errors that occur when trying to upgrade a contract")
+    @Explanation("Cost model errors that occur during interpretation")
     object CostError extends ErrorGroup {
       @Explanation(
-        """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
+        """This error is thrown when an interpretation exceeds its allotted cost."""
       )
       @Resolution(
-        "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
+        "Either increase the allotted interpretation cost, or ensure Daml code can be evaluated using configured cost models."
       )
       object BudgetExceeded
         extends ErrorCode(
-          id = "INTERPRETATION_DEV_ERROR",
+          id = "INTERPRETATION_COST_ERROR",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
         final case class Reject(
-                                 override val cause: String,
-                                 err: LfInterpretationError.Cost.BudgetExceeded,
-                               )(implicit
-                                 loggingContext: ErrorLoggingContext
-                               ) extends DamlErrorWithDefiniteAnswer(
+            override val cause: String,
+            err: LfInterpretationError.Cost.BudgetExceeded,
+        )(implicit
+            loggingContext: ErrorLoggingContext
+        ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         )
       }
