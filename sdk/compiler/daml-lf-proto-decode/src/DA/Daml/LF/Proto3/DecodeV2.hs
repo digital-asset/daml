@@ -481,6 +481,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> mayDecode "Expr_StructUpdStruct" mbStruct decodeExpr
       <*> mayDecode "Expr_StructUpdUpdate" mbUpdate decodeExpr
   LF2.ExprSumApp (LF2.Expr_App mbFun args) -> do
+    singletonIfLfFlat_ args
     fun <- mayDecode "Expr_AppFun" mbFun decodeExpr
     foldl' ETmApp fun <$> mapM decodeExpr (V.toList args)
   LF2.ExprSumTyApp (LF2.Expr_TyApp mbFun args) -> do
@@ -817,6 +818,7 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
     -- nullIfLfFlat_ args "Type_Syn"
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynId <*> traverse decodeType (V.toList args)
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
+    nullIfLfFlat_ args "Type_Builtin"
     decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Builtin" idx)

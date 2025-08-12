@@ -575,23 +575,31 @@ encodeExpr' e = case e of
         expr_StructUpdStruct <- encodeExpr structExpr
         expr_StructUpdUpdate <- encodeExpr structUpdate
         pureExpr $ P.ExprSumStructUpd P.Expr_StructUpd{..}
-    e@ETmApp{} -> do
-        let (fun, args) = e ^. _ETmApps
+    e@(ETmApp e1 e2) -> do
+        (fun, args) <- ifSupportsFlattening
+            {-then-} (e1, [e2])
+            {-else-} (e ^. _ETmApps)
         expr_AppFun <- encodeExpr fun
         expr_AppArgs <- encodeList encodeExpr' args
         pureExpr $ P.ExprSumApp P.Expr_App{..}
-    e@ETyApp{} -> do
-        let (fun, args) = e ^. _ETyApps
+    e@(ETyApp inner t) -> do
+        (fun, args) <- ifSupportsFlattening
+            {-then-} (inner, [t])
+            {-else-} (e ^. _ETyApps)
         expr_TyAppExpr <- encodeExpr fun
         expr_TyAppTypes <- encodeList encodeType' args
         pureExpr $ P.ExprSumTyApp P.Expr_TyApp{..}
-    e@ETmLam{} -> do
-        let (params, body) = e ^. _ETmLams
+    e@(ETmLam bnd bdy) -> do
+        (params, body) <- ifSupportsFlattening
+            {-then-} ([bnd], bdy)
+            {-else-} (e ^. _ETmLams)
         expr_AbsParam <- encodeList encodeExprVarWithType params
         expr_AbsBody <- encodeExpr body
         pureExpr $ P.ExprSumAbs P.Expr_Abs{..}
-    e@ETyLam{} -> do
-        let (params, body) = e ^. _ETyLams
+    e@(ETyLam bnd bdy) -> do
+        (params, body) <- ifSupportsFlattening
+            {-then-} ([bnd], bdy)
+            {-else-} (e ^. _ETyLams)
         expr_TyAbsParam <- encodeTypeVarsWithKinds params
         expr_TyAbsBody <- encodeExpr body
         pureExpr $ P.ExprSumTyAbs P.Expr_TyAbs{..}
@@ -599,9 +607,11 @@ encodeExpr' e = case e of
         caseScrut <- encodeExpr casScrutinee
         caseAlts <- encodeList encodeCaseAlternative casAlternatives
         pureExpr $ P.ExprSumCase P.Case{..}
-    e@ELet{} -> do
-      let (lets, body) = e ^. _ELets
-      expr . P.ExprSumLet <$> encodeBlock lets body
+    e@(ELet bnd bdy) -> do
+        (lets, body) <- ifSupportsFlattening
+            {-then-} ([bnd], bdy)
+            {-else-} (e ^. _ELets)
+        expr . P.ExprSumLet <$> encodeBlock lets body
     ENil{..} -> do
       expr_NilType <- encodeType nilType
       pureExpr $ P.ExprSumNil P.Expr_Nil{..}
