@@ -226,7 +226,7 @@ object EndpointsCompanion extends NoTracing {
           Some(ledgerApiError),
         )
       case ServerError(reason) =>
-        logger.error(s"Internal server error occured, ${lc.makeString}", reason)
+        logger.error(s"Internal server error occurred, ${lc.makeString}", reason)
         mkErrorResponse(StatusCodes.InternalServerError, "HTTP JSON API Server Error")
       case Unauthorized(e) => mkErrorResponse(StatusCodes.Unauthorized, e)
       case NotFound(e) => mkErrorResponse(StatusCodes.NotFound, e)
