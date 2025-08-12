@@ -527,31 +527,34 @@ object ScriptF {
     ): Future[SExpr] = {
       def replicateParty(
           party: Party,
-          fromClient: ScriptLedgerClient,
-          toParticipant: Participant,
+          toParticipants: List[Participant],
       ): Future[Unit] = for {
-        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
-        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
+        clients <- Future.traverse(toParticipants)(toParticipant =>
+          env.clients.getParticipant(Some(toParticipant)) match {
+            case Right(client) => Future.successful(client)
+            case Left(err) => Future.failed(new RuntimeException(err))
+          }
+        )
+        participantIds = clients.map(_.getParticipantUid)
+        _ <- Future.traverse(clients)(client =>
+          client.proposePartyReplication(party, participantIds)
+        )
         _ <- Future.traverse(env.clients.participants.values)(client =>
-          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
+          client.waitUntilHostingVisible(party, participantIds)
         )
       } yield ()
 
       val mainParticipant = participants.headOption
-      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
       for {
         mainClient <- env.clients.getParticipant(mainParticipant) match {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
         party <- mainClient.allocateParty(idHint)
-        _ <- Future.traverse(additionalParticipants)(toParticipant =>
-          replicateParty(party, mainClient, toParticipant)
+        _ <- Future.traverse(env.clients.participants.values)(client =>
+          client.waitUntilHostingVisible(party, List(mainClient.getParticipantUid))
         )
+        _ <- replicateParty(party, participants)
       } yield {
         mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))

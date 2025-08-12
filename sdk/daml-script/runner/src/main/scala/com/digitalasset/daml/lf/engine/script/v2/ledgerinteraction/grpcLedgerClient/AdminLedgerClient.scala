@@ -11,7 +11,7 @@ import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
-import com.digitalasset.canton.topology.admin.v30.ForceFlag
+import com.digitalasset.canton.topology.admin.v30.{ForceFlag}
 import com.digitalasset.canton.topology.admin.{v30 => admin_topology}
 import com.digitalasset.canton.protocol.{v30 => protocol}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
@@ -277,41 +277,57 @@ class AdminLedgerClient private[grpcLedgerClient] (
         }
       }
 
-  def proposePartyReplication(partyId: String, toParticipantUid: String): Future[Unit] = {
+  def proposePartyReplication(partyId: String, toParticipantUids: Iterable[String]): Future[Unit] =
     for {
       synchronizerId <- getSynchronizerId
+      // TODO: check that party is allocated at least once somewhere
+      _ <- RetryStrategy
+        .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+          for {
+            hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+            _ <- Future {
+              val actualSet = hostingParticipants.map(_.participantUid).toSet
+              assert(
+                expextedSubset.subsetOf(actualSet),
+                s"Participant $participantUid does not yet see that ${expextedSubset -- actualSet} host $partyId",
+              )
+            }
+          } yield ()
+        }
       hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
       _ <- topologyWriteServiceStub.authorize(
         makePartyReplicationAuthorizeRequest(
-          hostingParticipants,
           partyId,
-          toParticipantUid,
+          toParticipantUids,
           synchronizerId,
         )
       )
     } yield ()
-  }
 
   def waitUntilHostingVisible(
       partyId: String,
-      onParticipantUid: String,
+      onParticipantUids: Iterable[String],
       attempts: Int = 10,
       firstWaitTime: Duration = 100.millis,
-  ): Future[Unit] = for {
-    synchronizerId <- getSynchronizerId
-    _ <- RetryStrategy
-      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
-        for {
-          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
-          _ <- Future {
-            assert(
-              hostingParticipants.exists(_.participantUid == onParticipantUid),
-              s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId",
-            )
-          }
-        } yield ()
-      }
-  } yield ()
+  ): Future[Unit] = {
+    val expextedSubset = onParticipantUids.toSet
+    for {
+      synchronizerId <- getSynchronizerId
+      _ <- RetryStrategy
+        .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+          for {
+            hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+            _ <- Future {
+              val actualSet = hostingParticipants.map(_.participantUid).toSet
+              assert(
+                expextedSubset.subsetOf(actualSet),
+                s"Participant $participantUid does not yet see that ${expextedSubset -- actualSet} host $partyId",
+              )
+            }
+          } yield ()
+        }
+    } yield ()
+  }
 
   private[this] def getSynchronizerId: Future[String] =
     synchronizerConnectivityStub
@@ -362,28 +378,29 @@ class AdminLedgerClient private[grpcLedgerClient] (
     )
 
   private[this] def makePartyReplicationAuthorizeRequest(
-      currentHostingParticipants: Seq[protocol.PartyToParticipant.HostingParticipant],
       partyId: String,
-      participantId: String,
+      participantIds: Iterable[String],
       synchronizerId: String,
   ): admin_topology.AuthorizeRequest = {
-    val newEntry = protocol.PartyToParticipant.HostingParticipant(
-      participantId,
-      protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
-      None,
+    val entries = participantIds.map(
+      protocol.PartyToParticipant.HostingParticipant(
+        _,
+        protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+        None,
+      )
     )
     admin_topology.AuthorizeRequest(
       admin_topology.AuthorizeRequest.Type.Proposal(
         admin_topology.AuthorizeRequest.Proposal(
           protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
-          0, // will be picked by the participant
+          1,
           Some(
             protocol.TopologyMapping(
               protocol.TopologyMapping.Mapping.PartyToParticipant(
                 protocol.PartyToParticipant(
                   partyId,
                   1,
-                  newEntry +: currentHostingParticipants,
+                  entries.toSeq,
                 )
               )
             )

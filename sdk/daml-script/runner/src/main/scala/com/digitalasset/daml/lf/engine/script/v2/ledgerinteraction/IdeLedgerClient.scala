@@ -1052,10 +1052,16 @@ class IdeLedgerClient(
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
+  override def proposePartyReplication(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUids: Iterable[String],
+  ): Future[Unit] =
     Future.successful(())
 
   override def getParticipantUid: String = ""

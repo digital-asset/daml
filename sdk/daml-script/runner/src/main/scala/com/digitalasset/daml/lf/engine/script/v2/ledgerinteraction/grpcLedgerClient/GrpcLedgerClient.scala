@@ -728,22 +728,28 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
+  override def proposePartyReplication(
+      party: Ref.Party,
+      toParticipantIds: Iterable[String],
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use exportParty without specifying a adminPort"
       )
     )
-    adminClient.proposePartyReplication(party, toParticipantId)
+    adminClient.proposePartyReplication(party, toParticipantIds)
   }
 
-  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] = {
+  override def waitUntilHostingVisible(
+      party: Ref.Party,
+      onParticipantUids: Iterable[String],
+  ): Future[Unit] = {
     val adminClient = oAdminClient.getOrElse(
       throw new IllegalArgumentException(
         "Attempted to use waitUntilHostingVisible without specifying a adminPort"
       )
     )
-    adminClient.waitUntilHostingVisible(party, onParticipantUid)
+    adminClient.waitUntilHostingVisible(party, onParticipantUids)
   }
 
   override def getParticipantUid: String = oAdminClient
