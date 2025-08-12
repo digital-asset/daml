@@ -599,6 +599,24 @@ object SubmitError {
       )
   }
 
+  object CostError {
+    final case class BudgetExceeded(message: String) extends SubmitError {
+      override def toDamlSubmitError(env: Env): SValue = {
+        val costErrorType = SubmitErrorConverters(env).damlScriptVariant(
+          "Daml.Script.Internal.Questions.Submit.Error.CostErrorType",
+          "BudgetExceeded",
+          0,
+        )
+
+        SubmitErrorConverters(env).damlScriptError(
+          "CostError",
+          ("costErrorType", costErrorType),
+          ("costErrorMessage", SText(message)),
+        )
+      }
+    }
+  }
+
   final case class DevError(errorType: String, message: String) extends SubmitError {
     // This code needs to be kept in sync with daml-script#Error.daml
     override def toDamlSubmitError(env: Env): SValue = {

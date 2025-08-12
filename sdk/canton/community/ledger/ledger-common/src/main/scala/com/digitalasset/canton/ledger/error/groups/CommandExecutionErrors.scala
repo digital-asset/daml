@@ -1014,6 +1014,30 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       }
     }
 
+    @Explanation("Errors that occur when trying to upgrade a contract")
+    object CostError extends ErrorGroup {
+      @Explanation(
+        """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
+      )
+      @Resolution(
+        "See the error message for details of the specific in-development feature error. If this is production, avoid using development features."
+      )
+      object BudgetExceeded
+        extends ErrorCode(
+          id = "INTERPRETATION_DEV_ERROR",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+        final case class Reject(
+                                 override val cause: String,
+                                 err: LfInterpretationError.Cost.BudgetExceeded,
+                               )(implicit
+                                 loggingContext: ErrorLoggingContext
+                               ) extends DamlErrorWithDefiniteAnswer(
+          cause = cause
+        )
+      }
+    }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )
