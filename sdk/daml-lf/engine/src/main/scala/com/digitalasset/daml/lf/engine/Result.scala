@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.digitalasset.daml.lf.language.Ast._
@@ -27,8 +28,10 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultInterruption(() => continue().map(f), abort)
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
+    case LegacyResultNeedContract(acoid, resume) =>
+      LegacyResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
+    case ResultNeedContract(coid, resume) =>
+      ResultNeedContract(coid, response => resume(response).map(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
@@ -44,8 +47,10 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultInterruption(() => continue().flatMap(f), abort)
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
-    case ResultNeedContract(acoid, resume) =>
-      ResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
+    case LegacyResultNeedContract(acoid, resume) =>
+      LegacyResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
+    case ResultNeedContract(coid, resume) =>
+      ResultNeedContract(coid, response => resume(response).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
@@ -68,7 +73,10 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultDone(x) => Right(x)
         case ResultInterruption(continue, _) => go(continue())
         case ResultError(err) => Left(err)
-        case ResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
+        case LegacyResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
+        // TODO(https://github.com/digital-asset/daml/issues/21667): implement support for ResultNeedContract
+        case ResultNeedContract(_, _) =>
+          throw new NotImplementedError("ResultNeedContract is not yet supported")
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
@@ -106,7 +114,7 @@ object ResultError {
     ResultError(Error.Validation(validationError))
 }
 
-/** Intermediate result indicating that a [[ThinContractInstance]] is required to complete the computation.
+/** Intermediate result indicating that a [[FatContractInstance]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   * <ul>
   * <li>`Some(contractInstance)`, if the caller can dereference `acoid` to `contractInstance`</li>
@@ -121,10 +129,48 @@ object ResultError {
   * reference returned as part of any contract instance MUST NOT be used to establish the contract template type
   * or result in a [[ResultNeedPackage]] callback
   */
-final case class ResultNeedContract[A](
+final case class LegacyResultNeedContract[A](
     acoid: ContractId,
     resume: Option[FatContractInstance] => Result[A],
 ) extends Result[A]
+
+/** Intermediate result indicating that a [[ResultNeedContract.Response]] is required to complete the computation.
+  * To resume the computation, the caller must invoke `resume` with the following argument:
+  *   - `ContractFound(...)`, if the caller can dereference `coid` to a fat contract instance in the contract store or
+  *     in the command's explicit disclosures.
+  *   - `NotFound`, if the caller is unable to dereference `coid`
+  *   - `UnsupportedContractIdVersion` if the caller is able to dereference `coid` but the resulting contract's id is
+  *     malformed or uses an unsupported version.
+  *
+  * In the `ContractFound` case, the caller of `resume` must provide the following information:
+  *   - `contractInstance`: The fat contract instance that has previously been associated with `coid` by the engine. The
+  *      caller must not / cannot authenticate or validate the FatContractInstance aside from extracting the hashing
+  *      scheme version from its contract ID.
+  *   - `expectedHashingMethod`: The hashing method that the engine expects the engine to use for authenticating the
+  *      contract instance.
+  *   - `idValidator`: A function that authenticates the contract given a hash of the contract instance computed by the
+  *      engine using the `expectedHashingMethod`.
+  */
+final case class ResultNeedContract[A](
+    coid: ContractId,
+    resume: Option[ResultNeedContract.Response] => Result[A],
+) extends Result[A]
+
+object ResultNeedContract {
+  sealed trait Response
+
+  object Response {
+    final case class ContractFound(
+        contractInstance: FatContractInstance,
+        expectedHashingMethod: Hash.HashingMethod,
+        idValidator: Hash => Boolean,
+    ) extends Response
+
+    final case object ContractNotFound extends Response
+
+    final case object UnsupportedContractIdVersion extends Response
+  }
+}
 
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
@@ -211,7 +257,7 @@ object Result {
       acoid: ContractId,
       resume: FatContractInstance => Result[A],
   ) =
-    ResultNeedContract(
+    LegacyResultNeedContract(
       acoid,
       {
         case None =>
@@ -254,11 +300,21 @@ object Result {
                       .map(otherResults => (okResults :+ x) :++ otherResults)
                   ),
               )
-            case ResultNeedContract(acoid, resume) =>
-              ResultNeedContract(
+            case LegacyResultNeedContract(acoid, resume) =>
+              LegacyResultNeedContract(
                 acoid,
                 coinst =>
                   resume(coinst).flatMap(x =>
+                    Result
+                      .sequence(results_)
+                      .map(otherResults => (okResults :+ x) :++ otherResults)
+                  ),
+              )
+            case ResultNeedContract(coid, resume) =>
+              ResultNeedContract(
+                coid,
+                response =>
+                  resume(response).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)

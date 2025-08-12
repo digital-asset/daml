@@ -363,7 +363,7 @@ class DAMLe(
             )
             .flatMap(optCid => EitherT(handleResultInternal(contracts, resume(optCid))))
             .value
-        case ResultNeedContract(acoid, resume) =>
+        case LegacyResultNeedContract(acoid, resume) =>
           contracts
             .lookupFatContract(acoid)
             .value
