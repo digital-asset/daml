@@ -477,12 +477,18 @@ abstract class TopologyStore[+StoreID <: TopologyStoreId](implicit
       includeRejected: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[GenericStoredTopologyTransactions]
 
+  /** Checks whether the given signed topology transaction has signatures (at this point still
+    * unvalidated) from signing keys, for which there aren't yet signatures in the store.
+    */
   def providesAdditionalSignatures(
       transaction: GenericSignedTopologyTransaction
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
     findStored(CantonTimestamp.MaxValue, transaction).map(_.forall { inStore =>
       // check whether source still could provide an additional signature
-      transaction.signatures.diff(inStore.transaction.signatures).nonEmpty &&
+      transaction.signatures
+        .map(_.authorizingLongTermKey)
+        .diff(inStore.transaction.signatures.map(_.authorizingLongTermKey))
+        .nonEmpty &&
       // but only if the transaction in the target store is a valid proposal
       inStore.transaction.isProposal &&
       inStore.validUntil.isEmpty

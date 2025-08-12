@@ -402,7 +402,7 @@ private class ForwardingTopologySnapshotClient(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
+  ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]] =
     parent.isSynchronizerUpgradeOngoing()
 
   override def sequencerConnectionSuccessors()(implicit
@@ -531,7 +531,7 @@ class CachingTopologySnapshot(
 
   private val synchronizerUpgradeCache =
     new AtomicReference[
-      Option[FutureUnlessShutdown[Option[SynchronizerSuccessor]]]
+      Option[FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]]]
     ](None)
 
   override def allKeys(owner: Member)(implicit
@@ -689,7 +689,7 @@ class CachingTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[SynchronizerSuccessor]] =
+  ): FutureUnlessShutdown[Option[(SynchronizerSuccessor, EffectiveTime)]] =
     getAndCache(synchronizerUpgradeCache, parent.isSynchronizerUpgradeOngoing())
 
   override def sequencerConnectionSuccessors()(implicit

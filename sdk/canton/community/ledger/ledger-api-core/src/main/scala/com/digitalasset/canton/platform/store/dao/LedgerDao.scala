@@ -224,6 +224,7 @@ private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
       offset: Offset,
       transaction: CommittedTransaction,
       recordTime: Timestamp,
+      contractActivenessChanged: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]

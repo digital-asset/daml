@@ -142,6 +142,9 @@ final class BftBlockOrderer(
 
   private implicit val protocolVersion: ProtocolVersion = psid.protocolVersion
 
+  private val isAuthenticationEnabled =
+    config.initialNetwork.exists(_.endpointAuthentication.enabled)
+
   private val thisNode = SequencerNodeId.toBftNodeId(sequencerId)
 
   // The initial metrics factory, which also pre-initializes histograms (as required by OpenTelemetry), is built
@@ -542,32 +545,39 @@ final class BftBlockOrderer(
     blockSubscription.subscription().map(BlockFormat.blockOrdererBlockToRawLedgerBlock(logger))
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
-    logger.debug("Starting BFT block orderer shutdown as requested")(TraceContext.empty)
-    maybeServerAuthenticatingFilter.map(_.closeAsync()).getOrElse(Seq.empty) ++
+    logger.debug("Beginning async BFT block orderer shutdown")(TraceContext.empty)
+
+    // Shutdown the P2P network client portion and module system
+    Seq[AsyncOrSyncCloseable](
+      SyncCloseable(
+        "p2pNetworkRefFactory.close()",
+        p2pNetworkRefFactory.close(),
+      ),
+      SyncCloseable("blockSubscription.close()", blockSubscription.close()),
+      SyncCloseable("epochStore.close()", epochStore.close()),
+      SyncCloseable("outputStore.close()", outputStore.close()),
+      SyncCloseable("availabilityStore.close()", availabilityStore.close()),
+      SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
+      SyncCloseable("pruningScheduler.close()", pruningScheduler.close()),
+      SyncCloseable("pruningSchedulerStore.close()", pruningSchedulerStore.close()),
+      SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
+    ) ++
+      // Shutdown the dedicated local storage if present
+      Option
+        .when(localStorage != sharedLocalStorage)(
+          SyncCloseable("dedicatedLocalStorage.close()", localStorage.close())
+        )
+        .toList ++
+      // Shutdown the P2P server + connection manager and associated executor
       Seq[AsyncOrSyncCloseable](
-        SyncCloseable(
-          "p2pNetworkRefFactory.close()",
-          p2pNetworkRefFactory.close(),
-        ),
         SyncCloseable(
           "p2pGrpcServerConnectionManager.close()",
           p2pGrpcServerConnectionManager.close(),
         ),
         SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
-        SyncCloseable("blockSubscription.close()", blockSubscription.close()),
-        SyncCloseable("epochStore.close()", epochStore.close()),
-        SyncCloseable("outputStore.close()", outputStore.close()),
-        SyncCloseable("availabilityStore.close()", availabilityStore.close()),
-        SyncCloseable("p2pEndpointsStore.close()", p2pEndpointsStore.close()),
-        SyncCloseable("pruningScheduler.close()", pruningScheduler.close()),
-        SyncCloseable("pruningSchedulerStore.close()", pruningSchedulerStore.close()),
-        SyncCloseable("shutdownPekkoActorSystem()", shutdownPekkoActorSystem()),
       ) ++
-      Seq[Option[AsyncOrSyncCloseable]](
-        Option.when(localStorage != sharedLocalStorage)(
-          SyncCloseable("dedicatedLocalStorage.close()", localStorage.close())
-        )
-      ).flatten
+      // Shutdown the reused Canton member authentication services, if authentication is enabled
+      maybeServerAuthenticatingFilter.map(_.closeAsync()).getOrElse(Seq.empty)
   }
 
   override def adminServices: Seq[ServerServiceDefinition] =
@@ -663,12 +673,22 @@ final class BftBlockOrderer(
     })
   }
 
-  private def checkConfigSecurity(): Unit =
+  private def checkConfigSecurity(): Unit = {
+    if (
+      !(isAuthenticationEnabled || config.initialNetwork
+        .map(_.peerEndpoints)
+        .forall(_.forall(_.tlsConfig.forall(_.enabled))))
+    )
+      logger.warn(
+        "Insecure setup: at least one of P2P endpoint authentication or mTLS must be set up for P2P endpoints to be verifiably associated to sequencer nodes"
+      )(TraceContext.empty)
+
     if (config.initialNetwork.forall(_.serverEndpoint.tls.isEmpty))
       logger.info(
         "TLS is not enabled for the P2P server endpoint; make sure that at least TLS termination is correctly set up " +
           "to ensure channel confidentiality and integrity"
       )(TraceContext.empty)
+  }
 
   private def awaitFuture[T](f: PekkoFutureUnlessShutdown[T], description: String)(implicit
       traceContext: TraceContext

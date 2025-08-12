@@ -514,6 +514,10 @@ messages:
         package_name: |-
           The package name of the created contract.
           Required
+        acs_delta: |-
+          Whether this event would be part of respective ACS_DELTA shaped stream,
+          and should therefore considered when tracking contract activeness on the client-side.
+          Required
         node_id: |-
           The position of this event in the originating transaction or reassignment.
           The origin has contextual meaning, please see description at messages that include a CreatedEvent.
@@ -662,6 +666,51 @@ messages:
           If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
           In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
           Optional
+  ExecuteSubmissionAndWaitRequest:
+    message:
+      comments: null
+      fieldComments:
+        party_signatures: |-
+          The party(ies) signatures that authorize the prepared submission to be executed by this node.
+          Each party can provide one or more signatures..
+          and one or more parties can sign.
+          Note that currently, only single party submissions are supported.
+        hashing_scheme_version: The hashing scheme version used when building the
+          hash
+        deduplication_duration: |-
+          Specifies the length of the deduplication period.
+          It is interpreted relative to the local clock at some point during the submission's processing.
+          Must be non-negative. Must not exceed the maximum deduplication time.
+        prepared_transaction: |-
+          the prepared transaction
+          Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+          obtained from calling `prepareSubmission`.
+        deduplication_offset: |-
+          Specifies the start of the deduplication period by a completion stream offset (exclusive).
+          Must be a valid absolute offset (positive integer).
+        submission_id: |-
+          A unique identifier to distinguish completions for different submissions with the same change ID.
+          Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+          with the same change ID.
+          Must be a valid LedgerString (as described in ``value.proto``).
+
+          Required
+        min_ledger_time: |-
+          If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+          should be scheduled to executed within the window allowed by synchronizer.
+          Optional
+        user_id: See [PrepareSubmissionRequest.user_id]
+  ExecuteSubmissionAndWaitResponse:
+    message:
+      comments: null
+      fieldComments:
+        update_id: |-
+          The id of the transaction that resulted from the submitted command.
+          Must be a valid LedgerString (as described in ``value.proto``).
+          Required
+        completion_offset: |-
+          The details of the offset field are described in ``community/ledger-api/README.md``.
+          Required
   ExecuteSubmissionRequest:
     message:
       comments: null
@@ -780,11 +829,6 @@ messages:
           If defined, the identifier uses the package-id reference format.
 
           Optional
-        node_id: |-
-          The position of this event in the originating transaction or reassignment.
-          Node IDs are not necessarily equal across participants,
-          as these may see different projections/parts of transactions.
-          Required, must be valid node ID (non-negative integer)
         consuming: |-
           If true, the target contract may no longer be exercised.
           Required
@@ -822,6 +866,15 @@ messages:
           The choice that was exercised on the target contract.
           Must be a valid NameString (as described in ``value.proto``).
           Required
+        acs_delta: |-
+          Whether this event would be part of respective ACS_DELTA shaped stream,
+          and should therefore considered when tracking contract activeness on the client-side.
+          Required
+        node_id: |-
+          The position of this event in the originating transaction or reassignment.
+          Node IDs are not necessarily equal across participants,
+          as these may see different projections/parts of transactions.
+          Required, must be valid node ID (non-negative integer)
         last_descendant_node_id: |-
           Specifies the upper boundary of the node ids of the events in the same transaction that appeared as a result of
           this ``ExercisedEvent``. This allows unambiguous identification of all the members of the subtree rooted at this
@@ -2813,6 +2866,21 @@ oneOfs:
           archived: ''
           exercised: ''
   EventFormat: {}
+  ExecuteSubmissionAndWaitRequest:
+    deduplication_period:
+      message:
+        comments: |-
+          Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
+          If omitted, the participant will assume the configured maximum deduplication time.
+        fieldComments:
+          deduplication_duration: |-
+            Specifies the length of the deduplication period.
+            It is interpreted relative to the local clock at some point during the submission's processing.
+            Must be non-negative. Must not exceed the maximum deduplication time.
+          deduplication_offset: |-
+            Specifies the start of the deduplication period by a completion stream offset (exclusive).
+            Must be a valid absolute offset (positive integer).
+  ExecuteSubmissionAndWaitResponse: {}
   ExecuteSubmissionRequest:
     deduplication_period:
       message:

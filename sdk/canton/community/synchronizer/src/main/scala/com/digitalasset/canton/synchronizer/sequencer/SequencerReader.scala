@@ -18,15 +18,14 @@ import com.digitalasset.canton.config.{
   CantonEdition,
   CustomCantonConfigValidation,
   EnterpriseCantonEdition,
-  NonNegativeFiniteDuration,
   ProcessingTimeout,
 }
 import com.digitalasset.canton.crypto.SyncCryptoError.KeyNotAvailable
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
-import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime, SynchronizerSuccessor}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator.TopologyTimestampVerificationError
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.client.{
@@ -38,10 +37,15 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, SequencedSerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.ReadState
+import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.{
+  OngoingSynchronizerUpgrade,
+  ReadState,
+}
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.synchronizer.sequencer.store.*
+import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
@@ -53,6 +57,7 @@ import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source}
 import org.apache.pekko.{Done, NotUsed}
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
 /** Configuration for the database based sequence reader.
@@ -77,7 +82,7 @@ final case class SequencerReaderConfig(
     readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize,
     checkpointInterval: config.NonNegativeFiniteDuration =
       SequencerReaderConfig.defaultCheckpointInterval,
-    pollingInterval: Option[NonNegativeFiniteDuration] = None,
+    pollingInterval: Option[config.NonNegativeFiniteDuration] = None,
     payloadBatchSize: Int = SequencerReaderConfig.defaultPayloadBatchSize,
     payloadBatchWindow: config.NonNegativeFiniteDuration =
       SequencerReaderConfig.defaultPayloadBatchWindow,
@@ -111,7 +116,7 @@ object SequencerReaderConfig {
   /** The default polling interval if [[SequencerReaderConfig.pollingInterval]] is unset despite
     * high availability being configured.
     */
-  val defaultPollingInterval = NonNegativeFiniteDuration.ofMillis(50)
+  val defaultPollingInterval = config.NonNegativeFiniteDuration.ofMillis(50)
 }
 
 class SequencerReader(
@@ -129,6 +134,26 @@ class SequencerReader(
 
   private val psid = syncCryptoApi.psid
   private val protocolVersion: ProtocolVersion = psid.protocolVersion
+
+  private val ongoingSynchronizerUpgrade: AtomicReference[Option[OngoingSynchronizerUpgrade]] =
+    new AtomicReference(None)
+
+  def updateSynchronizerSuccessor(
+      successorO: Option[SynchronizerSuccessor],
+      announcementEffectiveTime: EffectiveTime,
+  )(implicit traceContext: TraceContext): Unit = {
+    logger.info(
+      s"Updating synchronizer upgrade information, setting new successor from ${ongoingSynchronizerUpgrade
+          .get()} to $successorO"
+    )
+    successorO match {
+      case Some(successor) =>
+        ongoingSynchronizerUpgrade.set(
+          Some(OngoingSynchronizerUpgrade(successor, announcementEffectiveTime, loggerFactory))
+        )
+      case None => ongoingSynchronizerUpgrade.set(None)
+    }
+  }
 
   def read(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
@@ -728,6 +753,7 @@ class SequencerReader(
           val groupRecipients = batch.allRecipients.collect { case x: GroupRecipient =>
             x
           }
+          val synchronizerUpgradeO = ongoingSynchronizerUpgrade.get()
           for {
             topologySnapshot <- topologySnapshotO.fold(
               SyncCryptoClient
@@ -739,7 +765,6 @@ class SequencerReader(
                 )
                 .map(_.ipsSnapshot)
             )(FutureUnlessShutdown.pure)
-            successorO <- topologySnapshot.isSynchronizerUpgradeOngoing()
             resolvedGroupAddresses <- {
               groupRecipients match {
                 case x if x.isEmpty =>
@@ -757,14 +782,21 @@ class SequencerReader(
                   )
               }
             }
-            memberGroupRecipients = resolvedGroupAddresses.collect {
+            _ <- synchronizerUpgradeO.fold(FutureUnlessShutdown.unit)(
+              _.computeAndCacheTimeOffset(syncCryptoApi, timestamp)
+            )
+          } yield {
+            val memberGroupRecipients = resolvedGroupAddresses.collect {
               case (groupRecipient, groupMembers) if groupMembers.contains(member) => groupRecipient
             }.toSet
-          } yield {
+            val previousTimestampWithLSUOffset =
+              synchronizerUpgradeO.fold(previousTimestamp)(_.maybeOffsetTime(previousTimestamp))
+            val timestampWithLSUOffset =
+              synchronizerUpgradeO.fold(timestamp)(_.maybeOffsetTime(timestamp))
             val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, memberGroupRecipients)
             val deliver = Deliver.create[ClosedEnvelope](
-              previousTimestamp,
-              timestamp,
+              previousTimestampWithLSUOffset,
+              timestampWithLSUOffset,
               psid,
               messageIdO,
               filteredBatch,
@@ -773,7 +805,10 @@ class SequencerReader(
               trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
             if (
-              LogicalUpgradeTime.canProcessKnowingSuccessor(successorO, timestamp) ||
+              LogicalUpgradeTime.canProcessKnowingSuccessor(
+                synchronizerUpgradeO.map(_.successor),
+                timestamp,
+              ) ||
               TimeProof.isTimeProofDeliver(deliver)
             ) deliver
             else {
@@ -781,8 +816,8 @@ class SequencerReader(
                 "Delivering an empty event instead of the original, because it was sequenced at or after the upgrade time."
               )
               Deliver.create[ClosedEnvelope](
-                previousTimestamp,
-                timestamp,
+                previousTimestampWithLSUOffset,
+                timestampWithLSUOffset,
                 psid,
                 None,
                 emptyBatch,
@@ -895,4 +930,65 @@ object SequencerReader {
       latestTopologyClientTimestamp: Option[CantonTimestamp],
       eventTraceContext: TraceContext,
   )
+
+  private[SequencerReader] final case class OngoingSynchronizerUpgrade(
+      successor: SynchronizerSuccessor,
+      announcementEffectiveTime: EffectiveTime,
+      override val loggerFactory: NamedLoggerFactory,
+  ) extends NamedLogging {
+
+    private lazy val postUpgradeTimeOffset: AtomicReference[Option[NonNegativeFiniteDuration]] =
+      new AtomicReference(None)
+
+    def computeAndCacheTimeOffset(
+        syncCrypto: SyncCryptoClient[SyncCryptoApi],
+        currentTimestamp: CantonTimestamp,
+    )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[Unit] =
+      if (LogicalUpgradeTime.canProcessKnowingSuccessor(Some(successor), currentTimestamp)) {
+        // short-circuit before we actually need the offset
+        FutureUnlessShutdown.unit
+      } else {
+        postUpgradeTimeOffset.get() match {
+          case Some(_) => FutureUnlessShutdown.unit
+          case None =>
+            for {
+              upgradeAnnouncementEffectiveTimeTopology <- syncCrypto.snapshot(
+                announcementEffectiveTime.value
+              )
+              upgradeAnnouncementTimeParameterChanges <-
+                upgradeAnnouncementEffectiveTimeTopology.ipsSnapshot
+                  .listDynamicSynchronizerParametersChanges()
+            } yield {
+              val upgradeOffsetComputed = SequencerUtils.timeOffsetPastSynchronizerUpgrade(
+                upgradeTime = successor.upgradeTime,
+                parameterChanges = upgradeAnnouncementTimeParameterChanges,
+              )
+              logger.info(
+                s"Computed synchronizer upgrade time offset: $upgradeOffsetComputed"
+              )
+              postUpgradeTimeOffset.set(Some(upgradeOffsetComputed))
+            }
+        }
+      }
+
+    def maybeOffsetTime(
+        timestamp: CantonTimestamp
+    )(implicit elc: ErrorLoggingContext): CantonTimestamp =
+      if (LogicalUpgradeTime.canProcessKnowingSuccessor(Some(successor), timestamp)) {
+        timestamp
+      } else {
+        timestamp + postUpgradeTimeOffset
+          .get()
+          .getOrElse(
+            ErrorUtil.invalidState(
+              "postUpgradeTimeOffset is expected to be initialized at this point."
+            )
+          )
+      }
+
+    def maybeOffsetTime(timestamp: Option[CantonTimestamp])(implicit
+        elc: ErrorLoggingContext
+    ): Option[CantonTimestamp] =
+      timestamp.map(maybeOffsetTime)
+  }
 }

@@ -118,14 +118,16 @@ class SymbolicPureCrypto extends CryptoPureApi {
       scheme: SymmetricKeyScheme
   ): Either[EncryptionKeyGenerationError, SymmetricKey] = {
     val key = ByteString.copyFromUtf8(s"key-${symmetricKeyCounter.incrementAndGet()}")
-    Right(SymmetricKey(CryptoKeyFormat.Symbolic, key, scheme))
+    SymmetricKey
+      .create(CryptoKeyFormat.Symbolic, key, scheme)
+      .leftMap(EncryptionKeyGenerationError.KeyCreationError.apply)
   }
 
   override def createSymmetricKey(
       bytes: SecureRandomness,
       scheme: SymmetricKeyScheme,
   ): Either[EncryptionKeyCreationError, SymmetricKey] =
-    Right(SymmetricKey(CryptoKeyFormat.Symbolic, bytes.unwrap, scheme))
+    SymmetricKey.create(CryptoKeyFormat.Symbolic, bytes.unwrap, scheme)
 
   private def encryptWithInternal[M](
       bytes: ByteString,
@@ -313,9 +315,11 @@ class SymbolicPureCrypto extends CryptoPureApi {
         hash.unwrap,
         NonNegativeInt.tryCreate(symmetricKeyScheme.keySizeInBytes),
       )
-    val key = SymmetricKey(CryptoKeyFormat.Symbolic, keyBytes, symmetricKeyScheme)
 
-    Right(PasswordBasedEncryptionKey(key, salt))
+    SymmetricKey
+      .create(CryptoKeyFormat.Symbolic, keyBytes, symmetricKeyScheme)
+      .leftMap(PasswordBasedEncryptionError.KeyCreationError.apply)
+      .map(key => PasswordBasedEncryptionKey(key, salt))
   }
 
 }

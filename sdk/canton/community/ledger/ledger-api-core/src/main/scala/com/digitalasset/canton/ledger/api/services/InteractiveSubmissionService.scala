@@ -4,6 +4,7 @@
 package com.digitalasset.canton.ledger.api.services
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitResponse,
   ExecuteSubmissionResponse,
   PrepareSubmissionResponse,
   PreparedTransaction,
@@ -46,6 +47,10 @@ trait InteractiveSubmissionService {
   def execute(request: ExecuteRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[ExecuteSubmissionResponse]
+
+  def executeAndWait(request: ExecuteRequest)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionAndWaitResponse]
 
   def getPreferredPackages(
       packageVettingRequirements: PackageVettingRequirements,

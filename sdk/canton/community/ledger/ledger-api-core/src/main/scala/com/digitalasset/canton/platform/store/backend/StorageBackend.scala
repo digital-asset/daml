@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, NameTypeConRef}
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -39,6 +38,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, NameTypeConRef}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.annotations.VisibleForTesting
 
@@ -437,6 +437,7 @@ object EventStorageBackend {
       contractId: ContractId,
       templateId: FullIdentifier,
       witnessParties: Set[String],
+      flatEventWitnesses: Set[String],
       signatories: Set[String],
       observers: Set[String],
       createArgument: Array[Byte],
@@ -474,6 +475,7 @@ object EventStorageBackend {
       exerciseActors: Seq[String],
       exerciseLastDescendantNodeId: Int,
       witnessParties: Set[String],
+      flatEventWitnesses: Set[String],
   ) extends RawTreeEvent
 
   final case class RawActiveContract(

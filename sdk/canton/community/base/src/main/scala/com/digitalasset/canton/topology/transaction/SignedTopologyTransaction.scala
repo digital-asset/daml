@@ -12,6 +12,7 @@ import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.*
@@ -60,6 +61,14 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
     with Product
     with Serializable
     with PrettyPrinting {
+  {
+    val duplicateSigningKeys = signatures.toSeq
+      .map(_.authorizingLongTermKey)
+      .groupBy1(identity)
+      .filter(_._2.sizeIs > 1)
+      .keySet
+    require(duplicateSigningKeys.isEmpty, s"Duplicate signing keys used: $duplicateSigningKeys")
+  }
 
   def allUnvalidatedSignaturesCoveringHash: Set[TopologyTransactionSignature] =
     signatures.filter(_.coversHash(transaction.hash))
@@ -91,30 +100,30 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 
   /** Add new signatures into the existing ones. Important: this method DOES NOT check that the
     * added signatures are consistent with this transaction, and specifically does not check that
-    * multi-transaction signatures cover this transaction hash.
+    * multi-transaction signatures cover this transaction hash. New signatures from signing keys,
+    * which have already signed the transaction, are discarded.
     */
   def addSignatures(
       newSignatures: NonEmpty[Set[TopologyTransactionSignature]]
-  ): SignedTopologyTransaction[Op, M] =
+  ): SignedTopologyTransaction[Op, M] = {
+    val signingKeysOfExistingSignatures = signatures.map(_.authorizingLongTermKey)
     SignedTopologyTransaction(
       transaction,
-      signatures ++ newSignatures,
+      signatures ++ newSignatures.filter(newSig =>
+        !signingKeysOfExistingSignatures.contains(newSig.authorizingLongTermKey)
+      ),
       isProposal,
     )(representativeProtocolVersion)
+  }
 
+  /** Add new signatures into the existing ones. Important: this method DOES NOT check that the
+    * added signatures are consistent with this transaction, and specifically does not check that
+    * multi-transaction signatures cover this transaction hash.
+    */
   def addSingleSignatures(
       newSignatures: NonEmpty[Set[Signature]]
   ): SignedTopologyTransaction[Op, M] =
-    SignedTopologyTransaction(
-      transaction,
-      signatures ++ newSignatures.map(SingleTransactionSignature(transaction.hash, _)),
-      isProposal,
-    )(representativeProtocolVersion)
-
-  def addSignaturesFromTransaction(
-      signedTopologyTransaction: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]
-  ): SignedTopologyTransaction[Op, M] =
-    addSignatures(signedTopologyTransaction.signatures)
+    addSignatures(newSignatures.map(SingleTransactionSignature(transaction.hash, _)))
 
   def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransaction[Op, M]] = {
     val updatedSignatures =
@@ -224,7 +233,7 @@ object SignedTopologyTransaction
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
 
   @VisibleForTesting
-  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+  def tryCreate[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Set[TopologyTransactionSignature]],
       isProposal: Boolean,
@@ -240,7 +249,7 @@ object SignedTopologyTransaction
   )
 
   @VisibleForTesting
-  def create[Op <: TopologyChangeOp, M <: TopologyMapping](
+  def tryCreate[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
       signatures: NonEmpty[Set[Signature]],
       isProposal: Boolean,
@@ -428,10 +437,9 @@ object SignedTopologyTransaction
       many signatures for the same key, leading to high validation time and memory usage.
       As a workaround, we discard duplicate signatures.
        */
-      allSignaturesWithoutDuplicates = allSignaturesWithDuplicates
-        .groupBy1(_.authorizingLongTermKey)
-        .map { case (_, signatures) => signatures.head1 }
-        .toSet
+      allSignaturesWithoutDuplicates = TopologyTransactionSignature.distinctSignatures(
+        allSignaturesWithDuplicates
+      )
 
       rpv <- versioningTable.protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield SignedTopologyTransaction(transaction, allSignaturesWithoutDuplicates, isProposal)(rpv)
@@ -540,25 +548,21 @@ object SignedTopologyTransactions
     */
   def compact(
       txs: Seq[GenericSignedTopologyTransaction]
-  ): Seq[GenericSignedTopologyTransaction] = {
-    val byHash = txs
-      .groupBy(_.hash)
+  ): Seq[GenericSignedTopologyTransaction] =
+    txs.zipWithIndex
+      .groupBy1 { case (tx, _) => tx.hash }
+      .values
+      .toSeq
       .view
-      .mapValues(
-        _.reduceLeftOption((tx1, tx2) => tx1.addSignaturesFromTransaction(tx2))
+      .map(
+        _.reduceLeft[(GenericSignedTopologyTransaction, Int)] {
+          case ((tx1, index1), (tx2, index2)) =>
+            (tx1.addSignatures(tx2.signatures), index1.min(index2))
+        }
       )
-      .collect { case (k, Some(v)) => k -> v }
-      .toMap
-
-    val (compacted, _) =
-      txs.foldLeft((Vector.empty[GenericSignedTopologyTransaction], byHash)) {
-        case ((result, byHash), tx) =>
-          val newResult = byHash.get(tx.hash).map(result :+ _).getOrElse(result)
-          val txHashRemoved = byHash.removed(tx.hash)
-          (newResult, txHashRemoved)
-      }
-    compacted
-  }
+      .sortBy { case (_, index) => index }
+      .map { case (tx, _) => tx }
+      .toSeq
 
   def collectOfMapping[Op <: TopologyChangeOp, M <: TopologyMapping: ClassTag](
       transactions: Seq[SignedTopologyTransaction[Op, TopologyMapping]]

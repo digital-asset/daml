@@ -235,11 +235,7 @@ final class PartyReplicator(
 
   private[admin] def getAddPartyStatus(
       addPartyRequestId: AddPartyRequestId
-  )(implicit traceContext: TraceContext): Option[PartyReplicationStatus] = {
-    val maybeStatus = partyReplications.get(addPartyRequestId)
-    logger.info(s"Get party replication status: $addPartyRequestId found: $maybeStatus")
-    maybeStatus
-  }
+  ): Option[PartyReplicationStatus] = partyReplications.get(addPartyRequestId)
 
   /** Validates a channel proposal at the source participant and chooses a sequencer to participate
     * in party replication and respond accordingly by invoking the provided admin workflow callback.
@@ -687,7 +683,7 @@ final class PartyReplicator(
   private def attemptToReconnectToSequencerChannel(
       requestId: AddPartyRequestId
   )(implicit traceContext: TraceContext): Unit =
-    executeAsync(requestId, "connect to sequencer channel on behalf of party replication") {
+    executeAsync(requestId, "reconnect to sequencer channel on behalf of party replication") {
       ensureParticipantStateAndSynchronizerConnected[PartyReplicationStatus.Disconnected](
         requestId
       ) {

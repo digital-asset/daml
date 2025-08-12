@@ -13,7 +13,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.base.error.BaseAlarm
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoClient, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LogicalUpgradeTime}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -442,13 +442,35 @@ final class BlockChunkProcessor(
         protocolVersion,
         warnIfApproximate = false,
       )
+      synchronizerSuccessorO <- snapshot.ipsSnapshot
+        .isSynchronizerUpgradeOngoing()
+        .map(_.map { case (successor, _) => successor })
       allAcknowledgements = fixedTsChanges.collect { case (_, t @ Traced(Acknowledgment(_, ack))) =>
         t.map(_ => ack)
       }
       (goodTsAcks, futureAcks) = allAcknowledgements.partition { tracedSignedAck =>
+        // In this condition we allow acks of timestamps that are in the future
+        // during the synchronizer upgrade on the old synchronizer.
+        // This happens due to offsetting timestamps > the upgrade time by the decision timout in the SequencerReader.
+        // This is to prevent warnings during the upgrade from otherwise harmless (and arguably honest) acks.
+        // true only if both sub-conditions below are false
+        val allowFutureAcksAfterSynchronizerUpgrade: Boolean = !(
+          // false only for blocks after the synchronizer upgrade
+          LogicalUpgradeTime
+            .canProcessKnowingSuccessor(synchronizerSuccessorO, state.lastBlockTs)
+            ||
+              // false only for acks after the synchronizer upgrade
+              LogicalUpgradeTime
+                .canProcessKnowingSuccessor(
+                  synchronizerSuccessorO,
+                  tracedSignedAck.value.content.timestamp,
+                )
+        )
+
         // Intentionally use the previous block's last timestamp
         // such that the criterion does not depend on how the block events are chunked up.
         tracedSignedAck.value.content.timestamp <= state.lastBlockTs
+        || allowFutureAcksAfterSynchronizerUpgrade
       }
       invalidTsAcks = futureAcks.map(_.withTraceContext { implicit traceContext => signedAck =>
         val ack = signedAck.content

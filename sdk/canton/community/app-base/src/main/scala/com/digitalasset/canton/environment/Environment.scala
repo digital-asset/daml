@@ -162,7 +162,7 @@ class Environment(
   protected def createHealthDumpGenerator(
       commandRunner: GrpcAdminCommandRunner
   ): HealthDumpGenerator =
-    new HealthDumpGenerator(this, commandRunner)
+    new HealthDumpGenerator(this, commandRunner, loggerFactory)
 
   /* We can't reliably use the health administration instance of the console because:
    * 1) it's tied to the console environment, which we don't have access to yet when the environment is instantiated
