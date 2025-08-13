@@ -693,6 +693,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             val kArrow = lfKind.getArrow
             val params = kArrow.getParamsList.asScala
             assertNonEmpty(params, "params")
+            assertSingletonIfSupportsFlatArchive(params, "paramss")
             Work.bind(decodeKind(kArrow.getResult)) { base =>
               Work.sequence(params.view.map(decodeKind)) { kinds =>
                 Ret((kinds foldRight base)(KArrow))
@@ -1571,6 +1572,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw Error.Parsing(s"Unexpected empty $description")
+
+  private def assertSingletonIfSupportsFlatArchive(
+      s: collection.Seq[_],
+      description: => String,
+  ): Unit =
+    if (s.length != 1)
+      throw Error.Parsing(
+        s"Since lf flattening is supported, expected a single element for $description, but found ${s.length}"
+      )
 
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw Error.Parsing(s"Unexpected non-empty $description")

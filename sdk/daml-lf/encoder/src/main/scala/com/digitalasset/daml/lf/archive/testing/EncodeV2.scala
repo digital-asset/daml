@@ -187,7 +187,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val builder = PLF.Kind.newBuilder()
       // KArrows breaks the exhaustiveness checker.
       (k: @unchecked) match {
-        case KArrows(params, result) =>
+        case KArrows(params, result) if languageVersion < LV.Features.flatArchive =>
           expect(result == KStar)
           builder
             .setArrow(
@@ -195,6 +195,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
                 .newBuilder()
                 .accumulateLeft(params)(_ addParams encodeKind(_))
                 .setResult(kStar)
+            )
+        case KArrow(param, result) =>
+          builder
+            .setArrow(
+              PLF.Kind.Arrow
+                .newBuilder()
+                .addParams(encodeKindBuilder(param))
+                .setResult(encodeKindBuilder(result))
             )
         case KStar =>
           builder
