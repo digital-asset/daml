@@ -745,7 +745,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
           val varName = internedName(tvar.getVarInternedStr)
-          Work.sequence(tvar.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = tvar.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "tvar.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
@@ -762,7 +764,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
-          Work.sequence(tcon.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = tcon.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "tcon.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft[Type](TTyCon(decodeTypeConId(tcon.getTycon)))(TApp))
           }
         case PLF.Type.SumCase.SYN =>
@@ -775,7 +779,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val info = builtinTypeInfoMap(builtin.getBuiltin)
           assertSince(info.minVersion, builtin.getBuiltin.getValueDescriptor.getFullName)
           val baseType: Type = info.typ
-          Work.sequence(builtin.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = builtin.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "builtin.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft(baseType)(TApp))
           }
         case PLF.Type.SumCase.FORALL =>
@@ -1577,9 +1583,18 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       s: collection.Seq[_],
       description: => String,
   ): Unit =
-    if (s.length != 1)
+    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 1)
       throw Error.Parsing(
-        s"Since lf flattening is supported, expected a single element for $description, but found ${s.length}"
+        s"Since lf flattening is supported, expected a single element for $description, but found ${s.length}, version ${languageVersion}"
+      )
+
+  private def assertNullIfSupportsFlatArchive(
+      s: collection.Seq[_],
+      description: => String,
+  ): Unit =
+    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 0)
+      throw Error.Parsing(
+        s"Since lf flattening is supported, expected a null list $description, but found ${s.length}, version ${languageVersion}"
       )
 
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
