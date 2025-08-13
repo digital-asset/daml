@@ -14,12 +14,14 @@ da_haskell_library(
         "bytestring",
         "extra",
         "filepath",
+        "text",
         "utf8-string",
         "zip-archive",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//compiler/daml-lf-reader",
     ],
 )

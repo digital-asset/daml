@@ -73,7 +73,7 @@ for res in "$@"; do
     *.tar.gz)
       BASENAME=$(basename $res)
       RAWNAME=${BASENAME%%.*}
-      # unzip to a directory, as these often have internal relative symlinks to top level, which oras can't handle right now
+      # unzip to a directory, as these often have internal relative symlinks to top level, which oras (used by DPM to download artifacts) can't handle right now
       mkdir -p "$WORKDIR/$RAWNAME"
       $tar xf "$res" --strip-components=1 -C "$WORKDIR/$RAWNAME"
       ;;

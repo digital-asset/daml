@@ -1128,6 +1128,9 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           Nothing -> void $ uses_ BuildMulti $ reverse $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
           Just (rootPkgPath, _) -> void $ use_ BuildMulti rootPkgPath
 
+-- This runs damlc for a given package path.
+-- With legacy daml assistant, it simply calls out to the assistant CLI and allows it to resolve the damlc
+-- With DPM, it looks through the resolution file for the given package and calls the correct damlc-binary directly
 data DamlcRunner = DamlcRunner { runDamlc :: FilePath -> [String] -> IO ()}
 
 -- Stores a mapping from dar path to project path

@@ -7,4 +7,4 @@ spec:
   jar-commands:
     - path: binary.jar
       name: codegen
-      desc: Daml Codegen
+      desc: Daml to Java compiler

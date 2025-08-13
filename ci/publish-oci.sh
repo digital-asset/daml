@@ -74,7 +74,7 @@ function publish_artifact {
   declare -a platform_args
   cd "${STAGING_DIR}" || exit 1
   (
-    for item in ${artifact_platforms[@]}; do
+    for item in "${artifact_platforms[@]}"; do
       arch="${item##*,}"
       plat="${item%%,*}"
       ${makedir} "dist/${arch}/${artifact_name}"
@@ -92,7 +92,7 @@ function publish_artifact {
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.unifi/bin/unifi \
       repo publish-component \
-        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
+        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest "${platform_args[@]}" \
         --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
 }

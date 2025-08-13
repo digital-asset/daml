@@ -9,6 +9,7 @@ module DA.Daml.Resolution.Config
   , expandSdkPackagesDpm
   , getResolutionData
   , resolutionFileEnvVar
+  , ExpandedSdkPackages (..)
   , ResolutionData (..)
   , PackageResolutionData (..)
   , ValidPackageResolution (..)
@@ -23,7 +24,7 @@ import DA.Daml.LF.Proto3.Archive.Decode qualified as Archive
 import DA.Daml.Project.Types
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
-import Data.Either.Extra (eitherToMaybe)
+import Data.Either.Extra (eitherToMaybe, fromRight)
 import Data.Functor
 import Data.List.Extra
 import Data.Map qualified as Map
@@ -74,16 +75,16 @@ getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath
 getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
   let paths = fromMaybe [] $ Map.lookup "dars" imports
   extractedDars <- traverse (\p -> (p,) <$> extractDar p) paths
-  let extractedDarPackageId :: ExtractedDar -> LF.PackageId
-      extractedDarPackageId ed = LF.PackageId $ T.pack $ last $ linesBy (=='-') $ takeBaseName $ ZipArchive.eRelativePath $ edMain ed
-      extractedDarsWithPackageIds = (\(path, ed) -> (path, ed, extractedDarPackageId ed)) <$> extractedDars
+  let extractedDarsWithPackageIds = (\(path, ed) -> (path, ed, mainPackageIdFromPaths ed)) <$> extractedDars
 
-  dalfInfoCache <- handle @SomeException (const $ pure mempty) $  
-    Aeson.eitherDecodeFileStrict @DalfInfoCache (darInfoCachePath cachePath) >>= either fail pure
+  dalfInfoCache <- handle @IOException (const $ pure mempty) $  
+    fromRight mempty <$> Aeson.eitherDecodeFileStrict @DalfInfoCache (darInfoCachePath cachePath)
 
   currentTime <- getCurrentTime
 
-  let missingDars = filter (\(_, _, pkgId) -> Map.notMember pkgId $ getDalfInfoCacheMap dalfInfoCache) extractedDarsWithPackageIds
+  let dalfInfoCacheWithoutStale =
+        DalfInfoCache $ Map.filter ((> currentTime) . addUTCTime darInfoCacheLifetime . diTimestamp) $ getDalfInfoCacheMap dalfInfoCache
+      missingDars = filter (\(_, _, pkgId) -> Map.notMember pkgId $ getDalfInfoCacheMap dalfInfoCacheWithoutStale) extractedDarsWithPackageIds
       missingCacheEntries = DalfInfoCache $ Map.fromList $ flip mapMaybe missingDars $ \(_, ed, pkgId) -> do
         (_, package) <-
           eitherToMaybe $ Archive.decodeArchive Archive.DecodeAsDependency $ BSL.toStrict $ ZipArchive.fromEntry $ edMain ed
@@ -95,9 +96,7 @@ getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
               (LF.packageLfVersion package) 
               currentTime
           )
-      removeOldEntries :: DalfInfoCache -> DalfInfoCache
-      removeOldEntries (DalfInfoCache m) = DalfInfoCache $ Map.filter ((> currentTime) . addUTCTime darInfoCacheLifetime . diTimestamp) m
-      newCache = removeOldEntries dalfInfoCache <> missingCacheEntries
+      newCache = dalfInfoCacheWithoutStale <> missingCacheEntries
       pathEntries :: Map.Map FilePath DalfInfoCacheEntry
       pathEntries = Map.fromList $ mapMaybe (\(path, _, pkgId) -> (path,) <$> Map.lookup pkgId (getDalfInfoCacheMap newCache)) extractedDarsWithPackageIds
 
@@ -105,6 +104,7 @@ getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
 
   pure pathEntries
 
+-- Deprecated in all of 3x, remove later for 3.4
 hardcodedPackageRenames :: T.Text -> T.Text
 hardcodedPackageRenames "daml-script-lts" = "daml-script"
 hardcodedPackageRenames "daml3-script" = "daml-script"
@@ -115,9 +115,14 @@ hardcodedPackageRenames name = name
 unsupportedAsDataDep :: [T.Text]
 unsupportedAsDataDep = ["daml-script"]
 
+data ExpandedSdkPackages = ExpandedSdkPackages
+  { espRegularDeps :: [FilePath]
+  , espDataDeps :: [FilePath]
+  }
+
 -- Mimics (mostly) signature of expandSdkPackages in Options.hs
 -- Returns two lists, first is regular deps, second is data deps
-expandSdkPackagesDpm :: CachePath -> ValidPackageResolution -> LF.Version -> [FilePath] -> IO ([FilePath], [FilePath])
+expandSdkPackagesDpm :: CachePath -> ValidPackageResolution -> LF.Version -> [FilePath] -> IO ExpandedSdkPackages
 expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
   darInfos <- getDarHeaderInfos cachePath pkgResolution
   let isSdkPackage fp = takeExtension fp `notElem` [".dar", ".dalf"]
@@ -127,7 +132,7 @@ expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
     Left err -> fail $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
-      pure (purePaths <> fmap fst asDeps, fmap fst asDataDeps)
+      pure $ ExpandedSdkPackages (purePaths <> fmap fst asDeps) (fmap fst asDataDeps)
 
 -- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)
@@ -140,9 +145,9 @@ findDarInDarInfos darInfos rawName lfVersion = do
             && lfCondition name lfVersion (diLfVersion darInfo)
         ) darInfos
       availableVersions = nubOrd $ diPackageVersion <$> Map.elems candidates
-      allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
   case availableVersions of
-    [] ->
+    [] -> do
+      let allPackageNames = T.intercalate "," . nubOrd $ LF.unPackageName . diPackageName <$> Map.elems darInfos
       Left $ "Package " <> rawName <> " could not be found, available packages are:\n"
         <> allPackageNames <> "\nIf your package is shown, it may not be compatible with your LF version."
     [_] ->
