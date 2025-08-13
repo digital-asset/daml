@@ -18,15 +18,15 @@
 >
 > > : (a -\> b -\> b) -\> b -\> t a -\> b
 
-<a name="class-defaultmethods-traversablex-84604"></a>**class** ([Functor](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205) t, [FoldableX](#class-defaultmethods-foldablex-43965) t) =\> [TraversableX](#class-defaultmethods-traversablex-84604) t **where**
+<a name="class-defaultmethods-traversablex-84604"></a>**class** ([Functor](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-base-functor-31205) t, [FoldableX](#class-defaultmethods-foldablex-43965) t) =\> [TraversableX](#class-defaultmethods-traversablex-84604) t **where**
 
 > <a name="function-defaultmethods-traversex-89947"></a>[traverseX](#function-defaultmethods-traversex-89947)
 >
-> > : [Applicative](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257) m =\> (a -\> m b) -\> t a -\> m (t b)
+> > : [Applicative](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257) m =\> (a -\> m b) -\> t a -\> m (t b)
 >
 > <a name="function-defaultmethods-sequencex-92456"></a>[sequenceX](#function-defaultmethods-sequencex-92456)
 >
-> > : [Applicative](https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257) m =\> t (m a) -\> m (t a)
+> > : [Applicative](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257) m =\> t (m a) -\> m (t a)
 
 <a name="class-defaultmethods-id-10050"></a>**class** [Id](#class-defaultmethods-id-10050) a **where**
 
@@ -34,7 +34,7 @@
 >
 > > : a -\> a
 >
-> **instance** [Id](#class-defaultmethods-id-10050) [Int](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
+> **instance** [Id](#class-defaultmethods-id-10050) [Int](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261)
 
 <a name="class-defaultmethods-myshow-63060"></a>**class** [MyShow](#class-defaultmethods-myshow-63060) t **where**
 
@@ -42,12 +42,12 @@
 >
 > <a name="function-defaultmethods-myshow-32065"></a>[myShow](#function-defaultmethods-myshow-32065)
 >
-> > : t -\> [Text](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952)
+> > : t -\> [Text](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952)
 > >
 > > Doc for method.
 >
 > **default** myShow
 >
-> > : [Show](https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360) t =\> t -\> [Text](https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952)
+> > : [Show](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-show-show-65360) t =\> t -\> [Text](https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952)
 > >
 > > Doc for default.
