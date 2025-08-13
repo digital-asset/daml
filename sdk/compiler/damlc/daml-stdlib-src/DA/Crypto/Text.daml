@@ -18,6 +18,7 @@ module DA.Crypto.Text
   (keccak256
   , sha256
   , secp256k1
+  , secp256k1WithEcdsaOnly
   , HasToHex(..)
   , HasFromHex(..)
   , numericViaStringToHex
@@ -111,12 +112,16 @@ keccak256 msg | isBytesHex msg = primitive @"BEKecCak256Text" (Text.asciiToLower
 keccak256 msg = error $ "Message argument is not a hex string: " <> msg
 
 -- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
-secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
-secp256k1 sig msg pk
+secp256k1WithEcdsaOnly : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
+secp256k1WithEcdsaOnly sig msg pk
   | not (isBytesHex msg) = error $ "Message argument is not a hex string: " <> msg
   | not (isDEREncoded sig) = error $ "Signature argument is not a DER encoded hex string: " <> sig
   | not (isDEREncoded pk) = error $ "Public key argument is not a DER encoded hex string: " <> pk
   | otherwise = primitive @"BESecp256k1Bool" (Text.asciiToLower sig) (Text.asciiToLower msg) (Text.asciiToLower pk)
+
+-- | Validate the SECP256K1 signature given a SHA256 hash of a hex encoded message and a hex encoded DER formatted public key.
+secp256k1 : SignatureHex -> BytesHex -> PublicKeyHex -> Bool
+secp256k1 sig msg pk = secp256k1WithEcdsaOnly sig (sha256 msg) pk
 
 class HasToHex a where
   -- | Converts a typed data value into a hex encoded string.

@@ -1864,12 +1864,23 @@ Functions
   Runs a script for a result\. If it fails either by Daml Exceptions or ``failWithStatus``, returns the
   ``FailureStatus`` that a Canton Ledger would return\.
 
+.. _function-daml-script-internal-questions-crypto-text-secp256k1signwithecdsaonly-99207:
+
+`secp256k1signWithEcdsaOnly <function-daml-script-internal-questions-crypto-text-secp256k1signwithecdsaonly-99207_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `PrivateKeyHex <type-daml-script-internal-questions-crypto-text-privatekeyhex-82732_>`_ \-\> `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_
+
+  Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message\.
+
+  Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing\.
+
+  For example, CCTP attestation services may be mocked in daml\-script code\.
+
 .. _function-daml-script-internal-questions-crypto-text-secp256k1sign-72886:
 
 `secp256k1sign <function-daml-script-internal-questions-crypto-text-secp256k1sign-72886_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `PrivateKeyHex <type-daml-script-internal-questions-crypto-text-privatekeyhex-82732_>`_ \-\> `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_
 
-  Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message\.
+  Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a SHA256 digest of a hex encoded string message\.
 
   Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing\.
 
