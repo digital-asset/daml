@@ -153,7 +153,7 @@ final case class LegacyResultNeedContract[A](
   */
 final case class ResultNeedContract[A](
     coid: ContractId,
-    resume: Option[ResultNeedContract.Response] => Result[A],
+    resume: ResultNeedContract.Response => Result[A],
 ) extends Result[A]
 
 object ResultNeedContract {
