@@ -13,6 +13,7 @@ module DA.Daml.Resolution.Config
   , ResolutionData (..)
   , PackageResolutionData (..)
   , ValidPackageResolution (..)
+  , ResolutionError (..)
   ) where
 
 import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
@@ -25,13 +26,14 @@ import DA.Daml.Project.Types
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
 import Data.Either.Extra (eitherToMaybe, fromRight)
-import Data.Functor
+import Data.Function ((&))
 import Data.List.Extra
 import Data.Map qualified as Map
 import Data.Maybe
 import Data.Ord (comparing)
 import Data.Text qualified as T
 import Data.Time.Clock
+import Data.Typeable (Typeable)
 import Data.Yaml
 import System.Environment (lookupEnv)
 import System.FilePath
@@ -70,6 +72,13 @@ darInfoCacheLifetime = 30 * nominalDay
 
 darInfoCachePath :: CachePath -> FilePath
 darInfoCachePath p = unwrapCachePath p </> darInfoCacheKey
+
+-- For "internal" failures in resolution
+newtype ResolutionError = ResolutionError {unResolutionError :: String}
+  deriving newtype Show
+  deriving stock Typeable
+
+instance Exception ResolutionError
 
 getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath DalfInfoCacheEntry)
 getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
@@ -129,7 +138,7 @@ expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
       (sdkPackages, purePaths) = partition isSdkPackage paths
       resolvedSdkPackagesWithPaths = traverse (\fp -> findDarInDarInfos darInfos (T.pack fp) lfVersion) sdkPackages
   case resolvedSdkPackagesWithPaths of
-    Left err -> fail $ T.unpack err
+    Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
       pure $ ExpandedSdkPackages (purePaths <> fmap fst asDeps) (fmap fst asDataDeps)
@@ -158,11 +167,12 @@ findDarInDarInfos darInfos rawName lfVersion = do
       Left $ "Multiple package versions for " <> rawName <> " were found:\n" <> (T.intercalate "," $ LF.unPackageVersion <$> availableVersions)
         <> "\nYour daml installation may be broken."
 
-findPackageResolutionData :: FilePath -> ResolutionData -> Maybe ValidPackageResolution
+findPackageResolutionData :: FilePath -> ResolutionData -> Either ResolutionError ValidPackageResolution
 findPackageResolutionData path (ResolutionData packages) =
-  Map.lookup path packages <&> \case
-    ErrorPackageResolutionData errs -> error $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
-    ValidPackageResolutionData res -> res
+  Map.lookup path packages & \case
+    Just (ErrorPackageResolutionData errs) -> Left $ ResolutionError $ "Couldn't resolve package " <> path <> ":\n" <> unlines (show <$> errs)
+    Just (ValidPackageResolutionData res) -> Right res
+    Nothing -> Left $ ResolutionError $ "Failed to find DPM package resolution for " <> path <> ". This should never happen, contact support."
 
 resolutionFileEnvVar :: String
 resolutionFileEnvVar = "UNIFI_ASSISTANT_RESOLUTION_FILE"
@@ -170,8 +180,11 @@ resolutionFileEnvVar = "UNIFI_ASSISTANT_RESOLUTION_FILE"
 getResolutionData :: IO (Maybe ResolutionData)
 getResolutionData = do
   mPath <- lookupEnv resolutionFileEnvVar
-  forM mPath $ \path ->
-    either (\err -> error $ "Failed to decode " <> resolutionFileEnvVar <> " at " <> path <> "\n" <> show err) id <$> decodeFileEither path
+  forM mPath $ \path -> do
+    eResolutionData <- decodeFileEither path
+    case eResolutionData of
+      Right resolutionData -> pure resolutionData
+      Left err -> throwIO $ ResolutionError $ "Failed to decode " <> resolutionFileEnvVar <> " at " <> path <> "\n" <> show err
 
 data ResolutionData = ResolutionData
   { packages :: Map.Map FilePath PackageResolutionData

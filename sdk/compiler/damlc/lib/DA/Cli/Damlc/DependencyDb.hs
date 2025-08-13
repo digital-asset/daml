@@ -12,7 +12,7 @@ module DA.Cli.Damlc.DependencyDb
     ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Safe (tryAny)
+import Control.Exception.Safe (tryAny, throwIO)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
 import DA.Daml.Assistant.Env (getCachePath)
@@ -134,7 +134,7 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
       case optResolutionData opts of
         Just resolutionData -> do
           let rootPath = fromNormalizedFilePath projRoot
-          pkgResolution <- maybe (fail $ "No package resolution data for " <> rootPath) pure $ findPackageResolutionData rootPath resolutionData
+          pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
           cachePath <- getCachePath
           expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
         Nothing -> (`ExpandedSdkPackages` []) <$> expandSdkPackages logger (optDamlLfVersion opts) sdkPackages

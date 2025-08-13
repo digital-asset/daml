@@ -12,6 +12,7 @@ module Development.IDE.Core.IdeState.Daml
 import Control.Exception
 import qualified Data.Map as Map
 import Data.Maybe (listToMaybe)
+import Data.Either.Extra (eitherToMaybe)
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import DA.Daml.Project.Types (ProjectPath (..))
@@ -51,7 +52,7 @@ scriptServiceJarFromOptions :: Options -> Maybe FilePath
 scriptServiceJarFromOptions opts = do
   resolutionData <- optResolutionData opts
   packagePath <- unwrapProjectPath <$> optMbPackageConfigPath opts
-  validResolution <- findPackageResolutionData packagePath resolutionData
+  validResolution <- eitherToMaybe $ findPackageResolutionData packagePath resolutionData
   serviceJarList <- Map.lookup "script-service" $ imports validResolution
   listToMaybe serviceJarList
 

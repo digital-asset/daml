@@ -144,7 +144,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (ValidPackageResolution (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -518,7 +518,7 @@ runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mb
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
           when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
-            error "DPM/Unifi does not currently support running tests outside of a package, please provide a `daml.yaml`"
+            throwIO $ ResolutionError "DPM does not currently support running tests outside of a package, please provide a `daml.yaml`"
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           mPkgConfig <- case mProjectPath of
@@ -1088,11 +1088,11 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
     case optResolutionData opts of
       Just resolutionData -> pure $ \location ->
         case findPackageResolutionData location resolutionData of
-          Just validPkgResolution ->
+          Right validPkgResolution ->
             case Map.lookup "damlc-binary" $ imports validPkgResolution of
               Just [damlcLocation] -> pure damlcLocation
-              _ -> error $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
-          Nothing -> error $ "Failed to find DPM package resolution for " <> location <> ". This should never happen, contact support."
+              _ -> throwIO $ ResolutionError $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
+          Left err -> throwIO err
       Nothing -> do
         mbAssistantPath <- lookupEnv "DAML_ASSISTANT"
         case mbAssistantPath of
@@ -1454,7 +1454,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
 
       -- Can't yet support doc test as we have no default resolution, and doctest does not assume package context
       when (isJust (optResolutionData opts)) $
-        error "DPM/Unifi does not currently support doctest"
+        error "DPM does not currently support doctest"
 
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 
