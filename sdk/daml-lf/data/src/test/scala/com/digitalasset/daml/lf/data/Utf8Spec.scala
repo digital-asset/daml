@@ -183,4 +183,44 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
     }
   }
 
+  "sha256" should {
+    "correctly digest string messages" in {
+      val testCases = List(
+        ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        ("Hello World!", "7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069"),
+        ("deadbeef", "2baf1f40105d9501fe319a8ec463fdf4325a2a5df445adf3f572f626253678c9"),
+        ("d", "18ac3e7343f016890c510e93f935261169d9e3f565436429830faf0934f4f8e4"),
+        ("DeadBeef", "7028db7dd9980cabb65ffafe7b154b8979f275b171d29a1a50fe79ea1f21d77e"),
+      )
+
+      for ((msg, digest) <- testCases) {
+        Utf8.sha256(msg) shouldBe digest
+      }
+    }
+
+    "correctly digest hex encoded messages" in {
+      val testCases = List(
+        ("", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"),
+        ("deadbeef", "5f78c33274e43fa9de5659265c1d917e25c03722dcb0b8d27db8d5feaa813953"),
+      )
+
+      for ((msg, digest) <- testCases) {
+        Utf8.sha256(msg, toHexDecode = true) shouldBe digest
+      }
+    }
+
+    "fail to digest malformed hex encoded messages" in {
+      val testCases = List(
+        "Hello World!",
+        "d",
+        "DeadBeef",
+      )
+
+      for (msg <- testCases) {
+        intercept[IllegalArgumentException] {
+          Utf8.sha256(msg, toHexDecode = true)
+        }
+      }
+    }
+  }
 }

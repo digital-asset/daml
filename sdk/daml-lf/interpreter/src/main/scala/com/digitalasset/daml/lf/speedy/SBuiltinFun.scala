@@ -595,6 +595,11 @@ private[lf] object SBuiltinFun {
       SText(Utf8.sha256(getSText(args, 0)))
   }
 
+  final case object SBSHA256Hex extends SBuiltinPure(1) {
+    override private[speedy] def executePure(args: Array[SValue]): SText =
+      SText(Utf8.sha256(getSText(args, 0), toHexDecode = true))
+  }
+
   final case object SBKECCAK256Text extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: Array[SValue],

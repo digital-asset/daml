@@ -145,6 +145,7 @@ safetyStep = \case
       BEExplodeText       -> Safe 1
       BEImplodeText       -> Safe 1
       BESha256Text        -> Safe 1
+      BESha256Hex         -> Safe 1
       BEKecCak256Text     -> Safe 0
       BEEncodeHex         -> Safe 1
       BEDecodeHex         -> Safe 0
