@@ -28,8 +28,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultInterruption(() => continue().map(f), abort)
     case ResultDone(x) => ResultDone(f(x))
     case ResultError(err) => ResultError(err)
-    case LegacyResultNeedContract(acoid, resume) =>
-      LegacyResultNeedContract(acoid, mbContract => resume(mbContract).map(f))
     case ResultNeedContract(coid, resume) =>
       ResultNeedContract(coid, response => resume(response).map(f))
     case ResultNeedPackage(pkgId, resume) =>
@@ -47,8 +45,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultInterruption(() => continue().flatMap(f), abort)
     case ResultDone(x) => f(x)
     case ResultError(err) => ResultError(err)
-    case LegacyResultNeedContract(acoid, resume) =>
-      LegacyResultNeedContract(acoid, mbContract => resume(mbContract).flatMap(f))
     case ResultNeedContract(coid, resume) =>
       ResultNeedContract(coid, response => resume(response).flatMap(f))
     case ResultNeedPackage(pkgId, resume) =>
@@ -73,10 +69,8 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultDone(x) => Right(x)
         case ResultInterruption(continue, _) => go(continue())
         case ResultError(err) => Left(err)
-        case LegacyResultNeedContract(acoid, resume) => go(resume(pcs.lift(acoid)))
-        // TODO(https://github.com/digital-asset/daml/issues/21667): implement support for ResultNeedContract
-        case ResultNeedContract(_, _) =>
-          throw new NotImplementedError("ResultNeedContract is not yet supported")
+        case ResultNeedContract(acoid, resume) =>
+          go(resume(ResultNeedContract.wrapLegacyResponse(pcs.lift(acoid))))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
@@ -114,26 +108,6 @@ object ResultError {
     ResultError(Error.Validation(validationError))
 }
 
-/** Intermediate result indicating that a [[FatContractInstance]] is required to complete the computation.
-  * To resume the computation, the caller must invoke `resume` with the following argument:
-  * <ul>
-  * <li>`Some(contractInstance)`, if the caller can dereference `acoid` to `contractInstance`</li>
-  * <li>`None`, if the caller is unable to dereference `acoid`</li>
-  * </ul>
-  *
-  * The caller of `resume` has to ensure that the contract instance passed to `resume` is a contract instance that
-  * has previously been associated with `acoid` by the engine.
-  * The engine does not validate the given contract instance.
-  *
-  * The target template type for the contract is established by the calling context. Specifically the template
-  * reference returned as part of any contract instance MUST NOT be used to establish the contract template type
-  * or result in a [[ResultNeedPackage]] callback
-  */
-final case class LegacyResultNeedContract[A](
-    acoid: ContractId,
-    resume: Option[FatContractInstance] => Result[A],
-) extends Result[A]
-
 /** Intermediate result indicating that a [[ResultNeedContract.Response]] is required to complete the computation.
   * To resume the computation, the caller must invoke `resume` with the following argument:
   *   - `ContractFound(...)`, if the caller can dereference `coid` to a fat contract instance in the contract store or
@@ -169,6 +143,20 @@ object ResultNeedContract {
     final case object ContractNotFound extends Response
 
     final case object UnsupportedContractIdVersion extends Response
+  }
+
+  // TODO(https://github.com/digital-asset/daml/issues/21667): remove all usages of this method
+  def wrapLegacyResponse(mbContractInstance: Option[FatContractInstance]): Response = {
+    mbContractInstance match {
+      case Some(contractInstance) =>
+        Response.ContractFound(
+          contractInstance,
+          Hash.HashingMethod.UpgradeFriendly,
+          _ => throw new NotImplementedError("Contract authentication is not yet supported"),
+        )
+      case None =>
+        Response.ContractNotFound
+    }
   }
 }
 
@@ -256,17 +244,23 @@ object Result {
   private[lf] def needContract[A](
       acoid: ContractId,
       resume: FatContractInstance => Result[A],
-  ) =
-    LegacyResultNeedContract(
+  ) = {
+    import ResultNeedContract.Response._
+    ResultNeedContract(
       acoid,
       {
-        case None =>
+        case ContractNotFound =>
           ResultError(
             Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
           )
-        case Some(contract) => resume(contract)
+        case ContractFound(contract, _, _) => resume(contract)
+        case UnsupportedContractIdVersion =>
+          throw new NotImplementedError(
+            "UnsupportedContractIdVersion is not yet supported."
+          )
       },
     )
+  }
 
   def sequence[A](results0: FrontStack[Result[A]]): Result[ImmArray[A]] = {
     @tailrec
@@ -295,16 +289,6 @@ object Result {
                 keyOpt,
                 res =>
                   resume(res).flatMap(x =>
-                    Result
-                      .sequence(results_)
-                      .map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
-            case LegacyResultNeedContract(acoid, resume) =>
-              LegacyResultNeedContract(
-                acoid,
-                coinst =>
-                  resume(coinst).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)

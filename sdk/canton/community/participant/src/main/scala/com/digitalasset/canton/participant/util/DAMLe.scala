@@ -363,12 +363,12 @@ class DAMLe(
             )
             .flatMap(optCid => EitherT(handleResultInternal(contracts, resume(optCid))))
             .value
-        case LegacyResultNeedContract(acoid, resume) =>
+        case ResultNeedContract(acoid, resume) =>
           contracts
             .lookupFatContract(acoid)
             .value
             .flatMap { fatInstanceOpt =>
-              handleResultInternal(contracts, resume(fatInstanceOpt))
+              handleResultInternal(contracts, resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt)))
             }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>

@@ -65,7 +65,7 @@ import com.digitalasset.daml.lf.engine.{
   ResultDone,
   ResultError,
   ResultInterruption,
-  LegacyResultNeedContract,
+  ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
   ResultNeedUpgradeVerification,
@@ -338,10 +338,10 @@ class TestSubmissionService(
 
       case ResultError(err) => Future.successful(Left(err))
 
-      case LegacyResultNeedContract(acoid, resume) =>
+      case ResultNeedContract(acoid, resume) =>
         for {
           fatContractO <- contractResolver(acoid)(traceContext)
-          r <- resolve(resume(fatContractO))
+          r <- resolve(resume(ResultNeedContract.wrapLegacyResponse(fatContractO)))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>

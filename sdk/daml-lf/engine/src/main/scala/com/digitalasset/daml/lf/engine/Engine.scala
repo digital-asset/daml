@@ -74,7 +74,7 @@ object EngineLogger {
   *
   * This class does not dereference contract ids or package ids on its own.
   * Instead, when an instance of this class needs to dereference a contract id or package id,
-  * it returns a [[LegacyResultNeedContract]] or [[ResultNeedPackage]] to the caller.
+  * it returns a [[ResultNeedContract]] or [[ResultNeedPackage]] to the caller.
   * The caller can then resume the computation by calling `result.resume`.
   * The engine may or may not cache and reuse the provided contract instance or package.
   * <p>

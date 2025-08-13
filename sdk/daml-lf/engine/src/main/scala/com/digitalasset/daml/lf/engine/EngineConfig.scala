@@ -42,10 +42,9 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   *     steps needed to produce a Result.
   * @param createContractsWithContractIdVersion The contract ID version to use
   *     for local contracts
-  * @param useDefensiveContractLookup When true, the engine looks up all contracts,
-  *     including explicit disclosures, using `ResultNeedContract` instead of
-  *     `LegacyResultNeedContract`. Contracts passed to the callback are type-checked,
-  *     authenticated and upgraded by the engine.
+  * @param useDefensiveContractLookup When true, contracts passed to the ResultNeedContract
+  *      callback are type-checked, authenticated and upgraded by the engine. Explicit disclosures
+  *      are assumed to be provided via ResultNeedContract.
   *     This parameter is temporary and will be retired once all client code has migrated
   *     to the new `ResultNeedContract` question.
   */
