@@ -8,6 +8,13 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 cd "$DIR"
 
+need_cmd() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required tool: $1" >&2; exit 127; }; }
+need_cmd git
+need_cmd awk
+need_cmd sed
+need_cmd lsof
+need_cmd bazel
+
 execution_log_postfix=${1:-}${2:-}
 test_mode=${3:-main}
 
@@ -71,20 +78,23 @@ fi
 # remove possible leading comma
 tag_filter="${tag_filter#,}"
 
-# Occasionally we end up with a stale sandbox process for a hardcoded
-# port number. Not quite sure how we end up with a stale process
-# but it happens sufficiently rarely that just killing it here is
-# a cheaper solution than having to reset the node.
-# Note that lsof returns a non-zero exit code if there is no match.
-SANDBOX_PID="$(lsof -ti tcp:6865 || true)"
-if [ -n "$SANDBOX_PID" ]; then
-    echo $SANDBOX_PID | xargs kill
+# Best-effort cleanup of stale sandbox on 6865.
+# lsof exits non-zero when empty – that’s fine.
+if PIDS="$(lsof -ti tcp:6865 || true)"; then
+  if [ -n "${PIDS:-}" ]; then
+    echo "Killing stale sandbox PIDs: $PIDS"
+    # send SIGTERM then SIGKILL if needed
+    xargs -r -n1 kill -TERM <<<"$PIDS" || true
+    sleep 1
+    xargs -r -n1 kill -KILL <<<"$PIDS" || true
+  fi
 fi
 
-if [ "${1:-}" = "_m1" ]; then
-    bazel="arch -arm64 bazel"
+# Apple Silicon helper: use `arch -arm64` if host is arm64 and user passed _m1 flag.
+if [ "${1:-}" = "_m1" ] && [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
+  bazel="arch -arm64 bazel"
 else
-    bazel=bazel
+  bazel=bazel
 fi
 
 if has_regenerate_stackage_trailer; then
@@ -108,7 +118,7 @@ run_build() {
 if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
   echo "Running on Apple Silicon (arm64). Building with --keep-going and retry on fail."
 
-  max_tries=10
+  max_tries=6
   build_succeeded=false
 
   for i in $(seq 1 $max_tries); do
@@ -116,6 +126,11 @@ if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then
     if run_build -k; then
       build_succeeded=true
       break
+    fi
+    # On repeated failures, do a light clean to avoid poisoned cache.
+    if [ "$i" -eq 3 ]; then
+      echo "Soft clean after 3 failures..."
+      $bazel clean --expunge_async || true
     fi
   done
 
@@ -139,7 +154,10 @@ export POSTGRESQL_USERNAME='test'
 export POSTGRESQL_PASSWORD=''
 function start_postgresql() {
   mkdir -p "$POSTGRESQL_DATA_DIR"
-  bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE --locale=en_US.UTF-8 --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
+  # Some machines miss en_US.UTF-8; prefer it but fallback to system default.
+  LOCALE_OPT="--locale=en_US.UTF-8"
+  locale -a 2>/dev/null | grep -qi '^en_US\.utf8$' || LOCALE_OPT=""
+  bazel run -- @postgresql_dev_env//:initdb --auth=trust --encoding=UNICODE ${LOCALE_OPT} --username="$POSTGRESQL_USERNAME" "$POSTGRESQL_DATA_DIR"
   eval "echo \"$(cat ci/postgresql.conf)\"" > "$POSTGRESQL_DATA_DIR/postgresql.conf"
   bazel run -- @postgresql_dev_env//:pg_ctl -w --pgdata="$POSTGRESQL_DATA_DIR" --log="$POSTGRESQL_LOG_FILE" start || {
     if [[ -f "$POSTGRESQL_LOG_FILE" ]]; then
@@ -157,6 +175,12 @@ function stop_postgresql() {
 }
 trap stop_postgresql EXIT
 stop_postgresql # in case it's running from a previous build
+# ensure our chosen port is free before start
+if lsof -ti "tcp:${POSTGRESQL_PORT}" >/dev/null 2>&1; then
+  echo "Port ${POSTGRESQL_PORT} busy; trying to free it..."
+  xargs -r -n1 kill -TERM < <(lsof -ti "tcp:${POSTGRESQL_PORT}") || true
+  sleep 1
+fi
 start_postgresql
 
 # Run the tests.
