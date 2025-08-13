@@ -144,7 +144,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -518,7 +518,7 @@ runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mb
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
           when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
-            throwIO $ ResolutionError "DPM does not currently support running tests outside of a package, please provide a `daml.yaml`"
+            throwIO $ DPMUnsupportedError "running tests outside of a package"
           installDepsAndInitPackageDb cliOptions initPkgDb
           mbJUnitOutput <- traverse relativize mbJUnitOutput
           mPkgConfig <- case mProjectPath of
@@ -1454,7 +1454,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
 
       -- Can't yet support doc test as we have no default resolution, and doctest does not assume package context
       when (isJust (optResolutionData opts)) $
-        error "DPM does not currently support doctest"
+        throwIO $ DPMUnsupportedError "doctest"
 
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 

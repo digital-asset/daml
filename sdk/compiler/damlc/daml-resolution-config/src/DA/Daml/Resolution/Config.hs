@@ -14,6 +14,7 @@ module DA.Daml.Resolution.Config
   , PackageResolutionData (..)
   , ValidPackageResolution (..)
   , ResolutionError (..)
+  , DPMUnsupportedError (..)
   ) where
 
 import "zip-archive" Codec.Archive.Zip qualified as ZipArchive
@@ -79,6 +80,13 @@ newtype ResolutionError = ResolutionError {unResolutionError :: String}
   deriving stock Typeable
 
 instance Exception ResolutionError
+
+newtype DPMUnsupportedError = DPMUnsupportedError {unsupportedThing :: String}
+  deriving stock Typeable
+
+instance Show DPMUnsupportedError where
+  show (DPMUnsupportedError thing) = "DPM does not currently support " <> thing <> ". Support may be added in a future version."
+instance Exception DPMUnsupportedError
 
 getDarHeaderInfos :: CachePath -> ValidPackageResolution -> IO (Map.Map FilePath DalfInfoCacheEntry)
 getDarHeaderInfos cachePath (ValidPackageResolution _ imports) = do
