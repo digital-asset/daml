@@ -91,6 +91,8 @@ module BuiltinMod {
     TEXT_TO_CONTRACT_ID;
   val sha256Text: Text -> Text =
     SHA256_TEXT;
+  val sha256Hex: Text -> Text =
+    SHA256_HEX;
   val keccak256Text: Text -> Text =
     KECCAK256_TEXT;
   val secp256k1Bool: Text -> Text -> Text -> Bool =
