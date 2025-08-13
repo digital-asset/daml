@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.Monad
-import cats.data.OptionT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.{
@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
@@ -28,6 +29,7 @@ import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PhysicalSy
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, FutureUtil}
 import com.digitalasset.canton.{SequencerCounter, SynchronizerAlias}
+import org.slf4j.event.Level
 
 import scala.concurrent.ExecutionContext
 
@@ -155,8 +157,18 @@ class SequencerConnectionSuccessorListener(
 
       _ = if (automaticallyConnectToUpgradedSynchronizer)
         FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-          synchronizerHandshake.performHandshake(successorPSId),
-          s"failed to perform the synchronizer handshake with $successorPSId",
+          synchronizerHandshake
+            .performHandshake(successorPSId)
+            .value
+            .map {
+              case Left(error) =>
+                logger.error(s"Unable to perform handshake with $successorPSId: $error")
+
+              case Right(_: PhysicalSynchronizerId) =>
+                logger.info(s"Handshake with $successorPSId was successful")
+            },
+          level = Level.INFO,
+          failureMessage = s"Failed to perform the synchronizer handshake with $successorPSId",
         )
     } yield ()
     resultOT.value.void
@@ -167,5 +179,5 @@ class SequencerConnectionSuccessorListener(
 trait HandshakeWithPSId {
   def performHandshake(psid: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId]
 }

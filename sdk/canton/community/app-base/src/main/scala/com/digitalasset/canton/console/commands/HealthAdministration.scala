@@ -66,16 +66,24 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
   @Help.Summary("Wait for the node to have an identity")
   def wait_for_identity(): Unit = waitFor(has_identity())
 
-  @Help.Summary(
-    "Creates a zip file containing diagnostic information about the canton process running this node"
+  @Help.Summary("Collect Canton system information to help diagnose issues")
+  @Help.Description(
+    """Generates a comprehensive health report for the local Canton process and any connected remote nodes.
+      |
+      |The arguments are:
+      |  - outputFile: Specifies the file path to save the report. If not set, a default path is used.
+      |  - timeout: Sets a custom timeout for gathering data, useful for large reports from slow remote nodes.
+      |  - chunkSize: Adjusts the data stream chunk size from remote nodes. Use this to prevent gRPC errors related to 'max inbound message size'
+      |"""
   )
   def dump(
-      outputFile: File = CantonHealthAdministration.defaultHealthDumpName,
+      outputFile: String = CantonHealthAdministration.defaultHealthDumpName.canonicalPath,
       timeout: NonNegativeDuration = timeouts.unbounded,
       chunkSize: Option[Int] = None,
   ): String = consoleEnvironment.run {
+    val file = File(outputFile)
     val responseObserver =
-      new FileStreamObserver[v30.HealthDumpResponse](outputFile, _.chunk)
+      new FileStreamObserver[v30.HealthDumpResponse](file, _.chunk)
 
     def call: ConsoleCommandResult[Context.CancellableContext] =
       adminCommand(new StatusAdminCommands.GetHealthDump(responseObserver, chunkSize))
@@ -85,8 +93,8 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
       responseObserver.result,
       timeout,
       "Generating health dump",
-      cleanupOnError = () => outputFile.delete(),
-    ).map(_ => outputFile.pathAsString)
+      cleanupOnError = () => file.delete(),
+    ).map(_ => file.pathAsString)
   }
 
   private def runningCommand =

@@ -5,6 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.daml.jwt.JwksUrl
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandInspectionServiceGrpc.CommandInspectionServiceStub
 import com.daml.ledger.api.v2.admin.command_inspection_service.{
   CommandInspectionServiceGrpc,
@@ -168,7 +169,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig as ApiIdentityProviderConfig,
   IdentityProviderId,
-  JwksUrl,
 }
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.ErrorLoggingContext

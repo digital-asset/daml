@@ -172,38 +172,29 @@ class HealthDumpGenerator(
     val currentStatus = status()
     val sequencersParameters = environment.config.sequencersByString.flatMap {
       case (nodeName, nodeConfig) =>
-        val synchronizerId = currentStatus.sequencerStatus.get(nodeName) match {
-          case Some(status) => status.synchronizerId
-          case _ =>
-            throw new IllegalStateException(s"Sequencer $nodeName is not ready")
-        }
-
-        val parameters = getSynchronizerParametersForNode(
-          nodeName,
-          nodeConfig,
-          synchronizerId,
-        )
-
-        Some(nodeName -> Map(synchronizerId -> parameters))
-      case _ => None
-    }
-
-    val mediatorsParameters = environment.config.mediatorsByString.flatMap {
-      case (nodeName, nodeConfig) =>
-        val synchronizerId = currentStatus.mediatorStatus.get(nodeName) match {
-          case Some(status) => status.synchronizerId
-          case _ =>
-            throw new IllegalStateException(s"Mediator $nodeName is not ready")
-        }
-
-        val parameters =
-          getSynchronizerParametersForNode(
+        currentStatus.sequencerStatus.get(nodeName).flatMap { status =>
+          val synchronizerId = status.synchronizerId
+          val parameters = getSynchronizerParametersForNode(
             nodeName,
             nodeConfig,
             synchronizerId,
           )
-        Some(nodeName -> Map(synchronizerId -> parameters))
-      case _ => None
+          Some(nodeName -> Map(synchronizerId -> parameters))
+        }
+    }
+
+    val mediatorsParameters = environment.config.mediatorsByString.flatMap {
+      case (nodeName, nodeConfig) =>
+        currentStatus.mediatorStatus.get(nodeName).flatMap { status =>
+          val synchronizerId = status.synchronizerId
+          val parameters =
+            getSynchronizerParametersForNode(
+              nodeName,
+              nodeConfig,
+              synchronizerId,
+            )
+          Some(nodeName -> Map(synchronizerId -> parameters))
+        }
     }
 
     val participantsParameters = environment.config.participantsByString.flatMap {
@@ -220,7 +211,6 @@ class HealthDumpGenerator(
           )
           Some((synchronizerId -> parameters))
         }.toMap)
-      case _ => None
     }
 
     val allParameters: Map[String, Map[PhysicalSynchronizerId, List[ParametersWithValidity]]] =

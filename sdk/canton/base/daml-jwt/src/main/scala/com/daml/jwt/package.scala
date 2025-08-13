@@ -6,6 +6,9 @@ package com.daml
 import scalaz.syntax.applicative.*
 import scalaz.{Applicative, Traverse}
 
+import java.net.URI
+import scala.util.Try
+
 package jwt {
 
   final case class KeyPair[A](publicKey: A, privateKey: A)
@@ -29,6 +32,22 @@ package jwt {
           fa: DecodedJwt[A]
       )(f: A => G[B]): G[DecodedJwt[B]] =
         ^(f(fa.header), f(fa.payload))((h, p) => DecodedJwt(header = h, payload = p))
+    }
+  }
+
+  final case class JwksUrl(value: String) extends AnyVal {
+    def toURL = new URI(value).toURL
+  }
+
+  object JwksUrl {
+    def fromString(value: String): Either[String, JwksUrl] =
+      Try(new URI(value).toURL).toEither.left
+        .map(_.getMessage)
+        .map(_ => JwksUrl(value))
+
+    def assertFromString(str: String): JwksUrl = fromString(str) match {
+      case Right(value) => value
+      case Left(err) => throw new IllegalArgumentException(err)
     }
   }
 }

@@ -3,12 +3,10 @@
 
 package com.digitalasset.canton.ledger
 
+import com.daml.jwt.JwksUrl
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value as Lf
 import scalaz.{@@, Tag}
-
-import java.net.URI
-import scala.util.Try
 
 package object api {
   type Value = Lf
@@ -42,22 +40,6 @@ package api {
   sealed trait ParticipantIdTag
 
   sealed trait SubmissionIdTag
-
-  final case class JwksUrl(value: String) extends AnyVal {
-    def toURL = new URI(value).toURL
-  }
-
-  object JwksUrl {
-    def fromString(value: String): Either[String, JwksUrl] =
-      Try(new URI(value).toURL).toEither.left
-        .map(_.getMessage)
-        .map(_ => JwksUrl(value))
-
-    def assertFromString(str: String): JwksUrl = fromString(str) match {
-      case Right(value) => value
-      case Left(err) => throw new IllegalArgumentException(err)
-    }
-  }
 
   sealed trait IdentityProviderId {
     def toRequestString: String

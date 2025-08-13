@@ -41,8 +41,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   fakeIgnoringModule,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
+  BftOrderingMessage,
   BftOrderingMessageBody,
-  BftOrderingServiceReceiveRequest,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.Assertions.fail
@@ -200,7 +200,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "all nodes are authenticated" should {
         "send the message to all nodes" in {
           val sendActionSpy =
-            spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
+            spyLambda((_: P2PEndpoint, _: BftOrderingMessage) => ())
           val (context, _, module, p2pNetworkRefFactory) = setup(sendActionSpy)
 
           implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
@@ -226,7 +226,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           authenticatedEndpoints.foreach(
             verify(sendActionSpy, times(1)).apply(
               _,
-              BftOrderingServiceReceiveRequest(
+              BftOrderingMessage(
                 "",
                 Some(networkMessageBody),
                 selfNode,
@@ -241,7 +241,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       "only some nodes are authenticated" should {
         "send the message only to authenticated nodes" in {
           val sendActionSpy =
-            spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
+            spyLambda((_: P2PEndpoint, _: BftOrderingMessage) => ())
           val (context, _, module, p2pNetworkRefFactory) = setup(sendActionSpy)
 
           implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
@@ -263,7 +263,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
 
           val networkSend =
-            BftOrderingServiceReceiveRequest(
+            BftOrderingMessage(
               "",
               Some(networkMessageBody),
               selfNode,
@@ -275,7 +275,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           )
           verify(sendActionSpy, times(1)).apply(
             any[P2PEndpoint],
-            any[BftOrderingServiceReceiveRequest],
+            any[BftOrderingMessage],
           )
         }
       }
@@ -283,8 +283,8 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "is requested to multicast a network message to self" should {
       "forward it directly to the P2P network in module" in {
         val sendActionSpy =
-          spyLambda((_: P2PEndpoint, _: BftOrderingServiceReceiveRequest) => ())
-        val p2pNetworkInSpy = spy(fakeIgnoringModule[BftOrderingServiceReceiveRequest])
+          spyLambda((_: P2PEndpoint, _: BftOrderingMessage) => ())
+        val p2pNetworkInSpy = spy(fakeIgnoringModule[BftOrderingMessage])
         val (context, _, module, _) = setup(sendActionSpy, p2pNetworkInSpy)
 
         implicit val ctx: ProgrammableUnitTestContext[P2PNetworkOut.Message] = context
@@ -299,10 +299,10 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
         verify(sendActionSpy, never).apply(
           any[P2PEndpoint],
-          any[BftOrderingServiceReceiveRequest],
+          any[BftOrderingMessage],
         )
         verify(p2pNetworkInSpy, times(1)).asyncSend(
-          BftOrderingServiceReceiveRequest(
+          BftOrderingMessage(
             traceContext = "",
             Some(networkMessageBody),
             selfNode,
@@ -611,8 +611,8 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   }
 
   private def setup(
-      sendAction: (P2PEndpoint, BftOrderingServiceReceiveRequest) => Unit = (_, _) => (),
-      p2pNetworkIn: ModuleRef[BftOrderingServiceReceiveRequest] = fakeIgnoringModule,
+      sendAction: (P2PEndpoint, BftOrderingMessage) => Unit = (_, _) => (),
+      p2pNetworkIn: ModuleRef[BftOrderingMessage] = fakeIgnoringModule,
       availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
       output: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] = fakeIgnoringModule,
@@ -648,8 +648,8 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
   }
 
   private def createModule(
-      sendAction: (P2PEndpoint, BftOrderingServiceReceiveRequest) => Unit,
-      p2pNetworkIn: ModuleRef[BftOrderingServiceReceiveRequest],
+      sendAction: (P2PEndpoint, BftOrderingMessage) => Unit,
+      p2pNetworkIn: ModuleRef[BftOrderingMessage],
       mempool: ModuleRef[Mempool.Message],
       availability: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]],
       consensus: ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]],
@@ -718,8 +718,8 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private class FakeP2PNetworkRefFactory(
       p2pConnectionEventListener: P2PConnectionEventListener,
-      asyncP2PSendAction: (P2PEndpoint, BftOrderingServiceReceiveRequest) => Unit,
-  ) extends P2PNetworkRefFactory[ProgrammableUnitTestEnv, BftOrderingServiceReceiveRequest]
+      asyncP2PSendAction: (P2PEndpoint, BftOrderingMessage) => Unit,
+  ) extends P2PNetworkRefFactory[ProgrammableUnitTestEnv, BftOrderingMessage]
       with NamedLogging {
 
     override val timeouts: ProcessingTimeout = P2PNetworkOutModuleTest.this.timeouts
@@ -731,12 +731,11 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     override def createNetworkRef[ActorContextT](
         context: ProgrammableUnitTestContext[ActorContextT],
         endpoint: P2PEndpoint,
-    ): P2PNetworkRef[BftOrderingServiceReceiveRequest] = {
+    ): P2PNetworkRef[BftOrderingMessage] = {
       nodeActions.put(endpoint, p2pConnectionEventListener)
 
-      new P2PNetworkRef[BftOrderingServiceReceiveRequest]() {
-        override def asyncP2PSend(createMsg: Option[Instant] => BftOrderingServiceReceiveRequest)(
-            implicit
+      new P2PNetworkRef[BftOrderingMessage]() {
+        override def asyncP2PSend(createMsg: Option[Instant] => BftOrderingMessage)(implicit
             traceContext: TraceContext,
             metricsContext: MetricsContext,
         ): Unit =

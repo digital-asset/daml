@@ -3,13 +3,9 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.daml.jwt.JwksUrl
 import com.digitalasset.canton.ledger.api.UserRight.{CanActAs, CanReadAs, ParticipantAdmin}
-import com.digitalasset.canton.ledger.api.{
-  IdentityProviderConfig,
-  IdentityProviderId,
-  JwksUrl,
-  UserRight,
-}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, UserRight}
 import com.digitalasset.canton.platform.store.backend.localstore.UserManagementStorageBackend
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec

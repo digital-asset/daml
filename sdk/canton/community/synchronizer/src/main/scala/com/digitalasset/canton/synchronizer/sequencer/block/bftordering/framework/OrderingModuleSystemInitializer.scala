@@ -13,7 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PNetworkOut,
   Pruning,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 
 import Module.{SystemInitializationResult, SystemInitializer}
 
@@ -21,12 +21,12 @@ import Module.{SystemInitializationResult, SystemInitializer}
   */
 class OrderingModuleSystemInitializer[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
 ](moduleFactories: ModuleFactories[E, P2PNetworkRefFactoryT])
     extends SystemInitializer[
       E,
       P2PNetworkRefFactoryT,
-      BftOrderingServiceReceiveRequest,
+      BftOrderingMessage,
       Mempool.Message,
     ] {
 
@@ -36,12 +36,12 @@ class OrderingModuleSystemInitializer[
   ): SystemInitializationResult[
     E,
     P2PNetworkRefFactoryT,
-    BftOrderingServiceReceiveRequest,
+    BftOrderingMessage,
     Mempool.Message,
   ] = {
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))()
     val p2pNetworkInRef =
-      moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))()
+      moduleSystem.newModuleRef[BftOrderingMessage](ModuleName("p2p-network-in"))()
     val p2pNetworkOutRef =
       moduleSystem.newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))()
     val availabilityRef =
@@ -103,7 +103,7 @@ class OrderingModuleSystemInitializer[
 object OrderingModuleSystemInitializer {
   final case class ModuleFactories[
       E <: Env[E],
-      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
   ](
       mempool: ModuleRef[Availability.Message[E]] => Mempool[E],
       p2pNetworkIn: (
@@ -111,7 +111,7 @@ object OrderingModuleSystemInitializer {
           ModuleRef[Consensus.Message[E]],
       ) => P2PNetworkIn[E],
       p2pNetworkOut: (
-          ModuleRef[BftOrderingServiceReceiveRequest],
+          ModuleRef[BftOrderingMessage],
           ModuleRef[Mempool.Message],
           ModuleRef[Availability.Message[E]],
           ModuleRef[Consensus.Message[E]],

@@ -42,9 +42,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.authentication.ServerAuthenticatingServerInterceptor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
   P2PGrpcBftOrderingService,
-  P2PGrpcClientConnectionManager,
+  P2PGrpcConnectionManager,
   P2PGrpcNetworking,
-  P2PGrpcServerConnectionManager,
+  P2PGrpcServerManager,
   P2PGrpcStreamingServerSideReceiver,
   PekkoP2PGrpcNetworking,
 }
@@ -89,9 +89,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
 import com.digitalasset.canton.synchronizer.sequencer.{AuthenticationServices, SequencerSnapshot}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
+  BftOrderingMessage,
   BftOrderingServiceGrpc,
-  BftOrderingServiceReceiveRequest,
-  BftOrderingServiceReceiveResponse,
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
@@ -107,7 +106,7 @@ import org.apache.pekko.stream.{KillSwitch, Materializer}
 import java.security.SecureRandom
 import java.time.Instant
 import scala.concurrent.{ExecutionContext, Future, Promise}
-import scala.util.{Failure, Random, Success, Try}
+import scala.util.Random
 
 final class BftBlockOrderer(
     config: BftBlockOrdererConfig,
@@ -225,8 +224,8 @@ final class BftBlockOrderer(
       )
     }
 
-  private val p2pGrpcServerConnectionManager =
-    new P2PGrpcServerConnectionManager(
+  private val p2pGrpcServerManager =
+    new P2PGrpcServerManager(
       config.initialNetwork.map(_.serverEndpoint).map(createServer),
       timeouts,
       loggerFactory,
@@ -288,7 +287,7 @@ final class BftBlockOrderer(
 
   // Start the gRPC server only now because it needs the modules to be available before serving requests,
   //  else creating a peer receiver could end up with a `null` input module.
-  p2pGrpcServerConnectionManager.startServer()
+  p2pGrpcServerManager.startServer()
 
   private def createModuleSystem(): PekkoModuleSystem.PekkoModuleSystemInitResult[Mempool.Message] =
     PekkoModuleSystem.tryCreate(
@@ -343,7 +342,7 @@ final class BftBlockOrderer(
   private def createSystemInitializer(): SystemInitializer[
     PekkoEnv,
     PekkoP2PGrpcNetworkRefFactory,
-    BftOrderingServiceReceiveRequest,
+    BftOrderingMessage,
     Mempool.Message,
   ] = {
     val stores =
@@ -410,10 +409,11 @@ final class BftBlockOrderer(
           clock,
         )
       }
-    new P2PGrpcClientConnectionManager(
+    new P2PGrpcConnectionManager(
       thisNode,
       maybeGrpcNetworkingAuthenticationInitialState,
       p2pConnectionEventListener,
+      metrics,
       timeouts,
       loggerFactory,
     )
@@ -422,39 +422,13 @@ final class BftBlockOrderer(
   // Called by the Scala gRPC service binding when we receive a request to establish the P2P gRPC streaming channel;
   //  it either returns a new receiver for the gRPC stream or throws, which fails the stream establishment and
   //  is propagated to the peer as an error.
-  private def tryCreateServerSidePeerReceiver(
-      peerSender: StreamObserver[BftOrderingServiceReceiveResponse]
-  ): P2PGrpcStreamingServerSideReceiver = {
-    implicit val traceContext: TraceContext = TraceContext.empty
-    if (!isClosing) {
-      p2pGrpcServerConnectionManager.addPeerSender(peerSender)
-      logger.debug("Creating a peer sender for an incoming connection")
-      Try(
-        PekkoP2PGrpcNetworking.tryCreateServerSidePeerReceiver(
-          SequencerNodeId.toBftNodeId(sequencerId),
-          p2pNetworkInModuleRef,
-          peerSender,
-          p2pGrpcServerConnectionManager.cleanupPeerSender,
-          getMessageSendInstant =
-            (msg: BftOrderingServiceReceiveRequest) => msg.sentAt.map(_.asJavaInstant),
-          loggerFactory,
-          metrics,
-        )
-      ) match {
-        case Failure(exception) =>
-          logger.debug("Failed creating a peer sender for an incoming connection", exception)
-          throw exception
-        case Success(value) =>
-          logger.debug("Successfully created a peer sender for an incoming connection")
-          value
-      }
-    } else {
-      logger.debug(
-        "BFT block orderer not accepting new peer connections due to shutdown in progress"
-      )
-      throw new IllegalStateException("BFT block orderer is closed")
-    }
-  }
+  private def tryCreatePeerReceiverForIncomingConnection(
+      peerSender: StreamObserver[BftOrderingMessage]
+  ): P2PGrpcStreamingServerSideReceiver =
+    p2pNetworkRefFactory.connectionManager.tryCreateServerSidePeerReceiver(
+      p2pNetworkInModuleRef,
+      peerSender,
+    )
 
   private def createServer(
       serverConfig: ServerConfig
@@ -477,7 +451,10 @@ final class BftBlockOrderer(
           .addService(
             ServerInterceptors.intercept(
               BftOrderingServiceGrpc.bindService(
-                new P2PGrpcBftOrderingService(tryCreateServerSidePeerReceiver, loggerFactory),
+                new P2PGrpcBftOrderingService(
+                  tryCreatePeerReceiverForIncomingConnection,
+                  loggerFactory,
+                ),
                 executionContext,
               ),
               List( // Filters are applied in reverse order
@@ -572,7 +549,7 @@ final class BftBlockOrderer(
       Seq[AsyncOrSyncCloseable](
         SyncCloseable(
           "p2pGrpcServerConnectionManager.close()",
-          p2pGrpcServerConnectionManager.close(),
+          p2pGrpcServerManager.close(),
         ),
         SyncCloseable("p2pServerGrpcExecutor.shutdown()", p2pServerGrpcExecutor.shutdown()),
       ) ++

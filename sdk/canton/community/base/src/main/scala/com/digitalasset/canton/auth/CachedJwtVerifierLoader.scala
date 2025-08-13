@@ -1,22 +1,30 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.ledger.api.auth
+package com.digitalasset.canton.auth
 
-import com.auth0.jwk.UrlJwkProvider
-import com.daml.jwt.{Error as JwtError, JwtTimestampLeeway, JwtVerifier, RSA256Verifier}
+import com.auth0.jwk.{JwkException, UrlJwkProvider}
+import com.auth0.jwt.algorithms.Algorithm
+import com.daml.jwt.{
+  ECDSAVerifier,
+  Error as JwtError,
+  JwksUrl,
+  JwtException,
+  JwtTimestampLeeway,
+  JwtVerifier,
+  RSA256Verifier,
+}
+import com.digitalasset.canton.auth.CachedJwtVerifierLoader.CacheKey
 import com.digitalasset.canton.caching.ScaffeineCache
-import com.digitalasset.canton.ledger.api.JwksUrl
-import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader.CacheKey
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.github.blemale.scaffeine.Scaffeine
-import scalaz.\/
+import scalaz.{-\/, \/}
 
-import java.security.interfaces.RSAPublicKey
+import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import java.util.concurrent.TimeUnit
+import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.concurrent.{ExecutionContext, Future}
 
 /** A JWK verifier loader, where the public keys are automatically fetched from the given JWKS URL.
   * The keys are then transformed into JWK Verifier
@@ -47,10 +55,8 @@ class CachedJwtVerifierLoader(
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    metrics: LedgerApiServerMetrics,
+    metrics: Option[CacheMetrics] = None,
     override protected val loggerFactory: NamedLoggerFactory,
-)(implicit
-    executionContext: ExecutionContext
 ) extends JwtVerifierLoader
     with NamedLogging {
 
@@ -60,7 +66,7 @@ class CachedJwtVerifierLoader(
         .expireAfterWrite(cacheExpiration)
         .maximumSize(cacheMaxSize),
       loader = getVerifier,
-      metrics = Some(metrics.identityProviderConfigStore.verifierCache),
+      metrics = metrics,
     )(logger, "cache")
 
   override def loadJwtVerifier(jwksUrl: JwksUrl, keyId: Option[String]): Future[JwtVerifier] =
@@ -75,20 +81,35 @@ class CachedJwtVerifierLoader(
       Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
     )
 
-  @SuppressWarnings(
-    Array("org.wartremover.warts.Null", "org.wartremover.warts.AsInstanceOf")
-  ) // interfacing with java
   private def getVerifier(
       key: CacheKey
   ): Future[JwtVerifier] =
-    for {
-      jwk <- Future(jwkProvider(key.jwksUrl).get(key.keyId.orNull))
-      publicKey = jwk.getPublicKey.asInstanceOf[RSAPublicKey]
-      verifier <- fromDisjunction(RSA256Verifier(publicKey, jwtTimestampLeeway))
-    } yield verifier
+    fromDisjunction(getVerifierImpl(key))
+
+  @SuppressWarnings(
+    Array("org.wartremover.warts.Null")
+  )
+  private[this] def getVerifierImpl(cacheKey: CacheKey): JwtError \/ JwtVerifier =
+    try {
+      val jwk = jwkProvider(cacheKey.jwksUrl).get(cacheKey.keyId.orNull)
+      val publicKey = jwk.getPublicKey
+      publicKey match {
+        case rsa: RSAPublicKey => RSA256Verifier(rsa, jwtTimestampLeeway)
+        case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 256 =>
+          ECDSAVerifier(Algorithm.ECDSA256(ec, null), jwtTimestampLeeway)
+        case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 521 =>
+          ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway)
+        case key =>
+          -\/(JwtError(Symbol("getVerifier"), s"Unsupported public key format ${key.getFormat}"))
+      }
+    } catch {
+      case e: JwkException => -\/(JwtError(Symbol("getVerifier"), e.toString))
+      case _: Throwable =>
+        -\/(JwtError(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
+    }
 
   private def fromDisjunction[T](e: \/[JwtError, T]): Future[T] =
-    e.fold(err => Future.failed(new Exception(err.message)), Future.successful)
+    e.fold(err => Future.failed(JwtException(err)), Future.successful)
 
 }
 

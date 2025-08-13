@@ -6,7 +6,13 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.{AuthInterceptor, AuthService, Authorizer, GrpcAuthInterceptor}
+import com.digitalasset.canton.auth.{
+  AuthInterceptor,
+  AuthService,
+  Authorizer,
+  GrpcAuthInterceptor,
+  JwtVerifierLoader,
+}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
   KeepAliveServerConfig,

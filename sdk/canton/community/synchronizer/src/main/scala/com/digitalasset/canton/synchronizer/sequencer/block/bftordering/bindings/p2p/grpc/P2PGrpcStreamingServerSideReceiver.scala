@@ -8,29 +8,28 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
-  BftOrderingServiceReceiveRequest,
-  BftOrderingServiceReceiveResponse,
-}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.stub.StreamObserver
 
 import java.time.{Duration, Instant}
 
 final class P2PGrpcStreamingServerSideReceiver(
-    inputModule: ModuleRef[BftOrderingServiceReceiveRequest],
-    peerSender: StreamObserver[BftOrderingServiceReceiveResponse],
-    cleanupPeerSender: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
-    getMessageSendInstant: BftOrderingServiceReceiveRequest => Option[Instant],
+    inputModule: ModuleRef[BftOrderingMessage],
+    peerSender: StreamObserver[BftOrderingMessage],
+    cleanupPeerSender: StreamObserver[BftOrderingMessage] => Unit,
     override val loggerFactory: NamedLoggerFactory,
     metrics: BftOrderingMetrics,
 )(implicit metricsContext: MetricsContext)
-    extends StreamObserver[BftOrderingServiceReceiveRequest]
+    extends StreamObserver[BftOrderingMessage]
     with NamedLogging {
 
-  override def onNext(message: BftOrderingServiceReceiveRequest): Unit = {
-    getMessageSendInstant(message).foreach(sendInstant =>
-      updateTimer(metrics.p2p.send.grpcLatency, Duration.between(sendInstant, Instant.now))
+  override def onNext(message: BftOrderingMessage): Unit = {
+    message.sentAt.foreach(sendInstant =>
+      updateTimer(
+        metrics.p2p.send.grpcLatency,
+        Duration.between(sendInstant.asJavaInstant, Instant.now),
+      )
     )
     inputModule.asyncSendNoTrace(message)
   }

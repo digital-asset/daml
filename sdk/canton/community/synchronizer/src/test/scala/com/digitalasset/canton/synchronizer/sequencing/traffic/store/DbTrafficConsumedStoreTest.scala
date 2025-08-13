@@ -48,9 +48,10 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
   "TrafficConsumedStore" should {
     behave like trafficConsumedStore(() =>
       new DbTrafficConsumedStore(
-        storage,
-        timeouts,
-        loggerFactory,
+        storage = storage,
+        timeouts = timeouts,
+        loggerFactory = loggerFactory,
+        batchingConfig = BatchingConfig(),
       )
     )
   }

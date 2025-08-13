@@ -81,7 +81,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   BftSequencerBaseTest,
   endpointToTestBftNodeId,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.google.protobuf.ByteString
@@ -275,15 +275,15 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       store: TrieMap[BatchId, OrderingRequestBatch] => AvailabilityStore[SimulationEnv],
   ): SystemInitializer[
     SimulationEnv,
-    SimulationP2PNetworkRefFactory[BftOrderingServiceReceiveRequest],
-    BftOrderingServiceReceiveRequest,
+    SimulationP2PNetworkRefFactory[BftOrderingMessage],
+    BftOrderingMessage,
     Availability.LocalDissemination.LocalBatchCreated,
   ] = (moduleSystem, createP2PNetworkRefFactory) => {
     val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", thisNode)
 
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))()
     val p2pNetworkInRef = moduleSystem
-      .newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))()
+      .newModuleRef[BftOrderingMessage](ModuleName("p2p-network-in"))()
     val p2pNetworkOutRef = moduleSystem
       .newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))()
     val availabilityRef = moduleSystem
@@ -327,7 +327,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
     )
     val p2pNetworkOut =
       new P2PNetworkOutModule[SimulationEnv, SimulationP2PNetworkRefFactory[
-        BftOrderingServiceReceiveRequest
+        BftOrderingMessage
       ]](
         thisNode,
         new SimulationP2PEndpointsStore(
@@ -487,7 +487,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         )
 
         endpoint -> SimulationInitializer.noClient[
-          BftOrderingServiceReceiveRequest,
+          BftOrderingMessage,
           Availability.LocalDissemination.LocalBatchCreated,
           Unit,
         ](loggerFactory, timeouts)(

@@ -70,7 +70,9 @@ class DbLogicalSyncPersistentState(
     new DbActiveContractStore(
       storage,
       synchronizerIdx,
-      enableAdditionalConsistencyChecks,
+      Option.when(enableAdditionalConsistencyChecks)(
+        parameters.activationFrequencyForWarnAboutConsistencyChecks
+      ),
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
       timeouts,

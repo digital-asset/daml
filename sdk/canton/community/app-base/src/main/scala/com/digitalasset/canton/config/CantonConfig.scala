@@ -285,8 +285,6 @@ object RetentionPeriodDefaults {
   *   Start up to N nodes in parallel (default is num-threads)
   * @param nonStandardConfig
   *   don't fail config validation on non-standard configuration settings
-  * @param sessionSigningKeys
-  *   Configure the use of session signing keys in the protocol
   * @param alphaVersionSupport
   *   If true, allow synchronizer nodes to use alpha protocol versions and participant nodes to
   *   connect to such synchronizers
@@ -458,6 +456,8 @@ final case class CantonConfig(
       val participantParameters = participantConfig.parameters
       ParticipantNodeParameters(
         general = CantonNodeParameterConverter.general(this, participantConfig),
+        activationFrequencyForWarnAboutConsistencyChecks =
+          participantConfig.parameters.activationFrequencyForWarnAboutConsistencyChecks,
         adminWorkflow = participantParameters.adminWorkflow,
         maxUnzippedDarSize = participantParameters.maxUnzippedDarSize,
         stores = participantParameters.stores,

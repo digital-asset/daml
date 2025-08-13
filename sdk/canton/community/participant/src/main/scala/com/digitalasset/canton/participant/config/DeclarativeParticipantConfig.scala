@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.config
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
+import com.daml.jwt.JwksUrl
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -15,7 +16,7 @@ import com.digitalasset.canton.config.{
   ConfidentialConfigWriter,
   UniformCantonConfigValidation,
 }
-import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{

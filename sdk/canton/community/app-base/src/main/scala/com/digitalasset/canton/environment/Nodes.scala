@@ -144,7 +144,8 @@ class ManagedNodes[
       name: InstanceName
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, StartupError, Unit] =
+  ): EitherT[Future, StartupError, Unit] = {
+    logger.info(s"Starting node $name")
     EitherT
       .fromEither[Future](
         configs
@@ -152,6 +153,7 @@ class ManagedNodes[
           .toRight(ConfigurationNotFound(name): StartupError)
       )
       .flatMap(startNode(name, _).map(_ => ()))
+  }
 
   def pokeDeclarativeApis(
       newConfig: Either[Unit, Boolean]
@@ -293,6 +295,7 @@ class ManagedNodes[
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ShutdownError, Unit] = {
+    logger.info(s"Stopping node $name")
     val node = nodes.get(name)
     for {
       _ <-
