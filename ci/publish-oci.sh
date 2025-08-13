@@ -18,8 +18,8 @@ info_fail() {
   echo "$1" >> "${logs}/failed_artifacts.log"
 }
 
-if [ ! -f "${HOME}/.unifi/bin/unifi" ]; then
-  err "Unifi not found! Exit."
+if [ ! -f "${HOME}/.dpm/bin/dpm" ]; then
+  err "DPM not found! Exit."
   exit 1
 fi
 
@@ -34,8 +34,8 @@ RELEASE_TAG=$2
 # This script is called by an azure pipeline, which will always be from main.
 # To change the registry (for testing), it must be modified within this script.
 # Uncomment the relevant line on the published branch to control the registry used.
-UNIFI_ASSISTANT_REGISTRY=$3
-# UNIFI_ASSISTANT_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
+DPM_REGISTRY=$3
+# DPM_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
 # Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
 declare -a components=(damlc daml-script daml2js codegen)
@@ -90,10 +90,10 @@ function publish_artifact {
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     done
     info "Uploading ${artifact_name} to oci registry...\n"
-    "${HOME}"/.unifi/bin/unifi \
+    "${HOME}"/.dpm/bin/dpm \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest "${platform_args[@]}" \
-        --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+        --registry "${DPM_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   )
 }
 

@@ -5,8 +5,8 @@ set -euo pipefail
 TEMP_DIR="$(mktemp -d)"
 ORAS_VERSION="1.2.2"
 ORAS="oras"
-# Unifi latest url
-UNIFI_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/assistant:latest}"
+# DPM latest url
+DPM_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/dpm:latest}"
 # Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
@@ -29,10 +29,10 @@ if [ ! -x "$(command -v oras)" ]; then
   ORAS="${TEMP_DIR}/oras"
 fi
 
-# Prepare unifi install destination
-[[ ! -d "${HOME}/.unifi/bin" ]] && mkdir -pv "${HOME}/.unifi/bin"
-# Get unifi from artifacts registry
-${ORAS} pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.unifi/bin" "${UNIFI_URL}"
+# Prepare dpm install destination
+[[ ! -d "${HOME}/.dpm/bin" ]] && mkdir -pv "${HOME}/.dpm/bin"
+# Get dpm from artifacts registry
+${ORAS} pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.dpm/bin" "${DPM_URL}"
 # Set execute permission
-chmod -v +x "${HOME}/.unifi/bin/unifi"
-"${HOME}/.unifi/bin/unifi" version --assistant
+chmod -v +x "${HOME}/.dpm/bin/dpm"
+"${HOME}/.dpm/bin/dpm" version --assistant

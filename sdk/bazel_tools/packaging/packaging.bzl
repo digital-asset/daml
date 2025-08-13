@@ -101,6 +101,6 @@ package_oci_component = rule(
         "out": "%{name}.tar.gz",
     },
 )
-"""Package a set of resources into a DPM (Unifi) component. Unpacks tars (i.e. package_app) at root, includes jars directly,
+"""Package a set of resources into a DPM component. Unpacks tars (i.e. package_app) at root, includes jars directly,
   requires a component.yaml manifest, and allows tagging components as platform agnostic
 """
