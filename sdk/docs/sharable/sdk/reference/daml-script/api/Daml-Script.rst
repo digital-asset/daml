@@ -745,26 +745,6 @@ Data Types
          - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
-  .. _constr-daml-script-internal-questions-submit-error-costerror-53064:
-
-  `CostError <constr-daml-script-internal-questions-submit-error-costerror-53064_>`_
-
-    Cost Model exceptions
-
-    .. list-table::
-       :widths: 15 10 30
-       :header-rows: 1
-
-       * - Field
-         - Type
-         - Description
-       * - costErrorType
-         - CostErrorType
-         -
-       * - costErrorMessage
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
-         -
-
   .. _constr-daml-script-internal-questions-submit-error-deverror-73533:
 
   `DevError <constr-daml-script-internal-questions-submit-error-deverror-73533_>`_

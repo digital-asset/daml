@@ -335,14 +335,6 @@ cryptoErrorType :: SubmitError -> CryptoErrorType
 
 cryptoErrorMessage :: SubmitError -> Text
 
--- | Cost Model exceptions
-@url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-costerror-53064
-CostError :: CostErrorType -> Text -> SubmitError
-
-costErrorType :: SubmitError -> CostErrorType
-
-costErrorMessage :: SubmitError -> Text
-
 -- | Development feature exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-error-deverror-73533
 DevError :: DevErrorType -> Text -> SubmitError
