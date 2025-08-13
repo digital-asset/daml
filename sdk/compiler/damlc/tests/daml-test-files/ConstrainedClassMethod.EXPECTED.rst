@@ -21,4 +21,4 @@ Typeclasses
   .. _function-constrainedclassmethod-bar-5816:
 
   `bar <function-constrainedclassmethod-bar-5816_>`_
-    \: `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ t \=\> t \-\> t
+    \: `Eq <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ t \=\> t \-\> t

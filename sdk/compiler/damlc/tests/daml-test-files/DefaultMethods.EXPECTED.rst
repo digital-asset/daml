@@ -31,17 +31,17 @@ Typeclasses
 
 .. _class-defaultmethods-traversablex-84604:
 
-**class** (`Functor <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205>`_ t, `FoldableX <class-defaultmethods-foldablex-43965_>`_ t) \=\> `TraversableX <class-defaultmethods-traversablex-84604_>`_ t **where**
+**class** (`Functor <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-ghc-base-functor-31205>`_ t, `FoldableX <class-defaultmethods-foldablex-43965_>`_ t) \=\> `TraversableX <class-defaultmethods-traversablex-84604_>`_ t **where**
 
   .. _function-defaultmethods-traversex-89947:
 
   `traverseX <function-defaultmethods-traversex-89947_>`_
-    \: `Applicative <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257>`_ m \=\> (a \-\> m b) \-\> t a \-\> m (t b)
+    \: `Applicative <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257>`_ m \=\> (a \-\> m b) \-\> t a \-\> m (t b)
 
   .. _function-defaultmethods-sequencex-92456:
 
   `sequenceX <function-defaultmethods-sequencex-92456_>`_
-    \: `Applicative <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257>`_ m \=\> t (m a) \-\> m (t a)
+    \: `Applicative <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-da-internal-prelude-applicative-9257>`_ m \=\> t (m a) \-\> m (t a)
 
 .. _class-defaultmethods-id-10050:
 
@@ -52,7 +52,7 @@ Typeclasses
   `id <function-defaultmethods-id-52623_>`_
     \: a \-\> a
 
-  **instance** `Id <class-defaultmethods-id-10050_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  **instance** `Id <class-defaultmethods-id-10050_>`_ `Int <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 .. _class-defaultmethods-myshow-63060:
 
@@ -63,12 +63,12 @@ Typeclasses
   .. _function-defaultmethods-myshow-32065:
 
   `myShow <function-defaultmethods-myshow-32065_>`_
-    \: t \-\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+    \: t \-\> `Text <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
     Doc for method\.
 
   **default** myShow
 
-    \: `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ t \=\> t \-\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+    \: `Show <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ t \=\> t \-\> `Text <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
     Doc for default\.

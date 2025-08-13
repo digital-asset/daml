@@ -20,19 +20,19 @@ Templates
        - Type
        - Description
      * - issuer
-       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+       - `Party <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
      * - owner
-       - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+       - `Party <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
        -
      * - currency
-       - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+       - `Text <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
        - only 3\-letter symbols are allowed
      * - amount
-       - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
+       - `Decimal <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
        - must be positive
      * - regulators
-       - \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
+       - \[`Party <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
        - ``regulators`` may observe any use of the ``Iou``
 
   + **Choice** Archive
@@ -61,7 +61,7 @@ Templates
 
     Controller\: owner
 
-    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
+    Returns\: `ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
     .. list-table::
        :widths: 15 10 30
@@ -71,7 +71,7 @@ Templates
          - Type
          - Description
        * - otherCid
-         - `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
+         - `ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
          - Must have same owner, issuer, and currency\. The regulators may differ, and are taken from the original ``Iou``\.
 
   + .. _type-iou12-split-33517:
@@ -82,7 +82,7 @@ Templates
 
     Controller\: owner
 
-    Returns\: (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_, `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+    Returns\: (`ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_, `ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
 
     .. list-table::
        :widths: 15 10 30
@@ -92,7 +92,7 @@ Templates
          - Type
          - Description
        * - splitAmount
-         - `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
+         - `Decimal <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_
          - must be between zero and original amount
 
   + .. _type-iou12-transfer-99339:
@@ -103,7 +103,7 @@ Templates
 
     Controller\: owner
 
-    Returns\: `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
+    Returns\: `ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_
 
     .. list-table::
        :widths: 15 10 30
@@ -113,7 +113,7 @@ Templates
          - Type
          - Description
        * - newOwner
-         - `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+         - `Party <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
          -
 
 Functions
@@ -122,12 +122,12 @@ Functions
 .. _function-iou12-updateowner-56091:
 
 `updateOwner <function-iou12-updateowner-56091_>`_
-  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Party <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> `Update <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
 
 .. _function-iou12-updateamount-41005:
 
 `updateAmount <function-iou12-updateamount-41005_>`_
-  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Decimal <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_ \-\> `Update <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
+  \: `Iou <type-iou12-iou-72962_>`_ \-\> `Decimal <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-ghc-types-decimal-18135>`_ \-\> `Update <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-update-68072>`_ (`ContractId <https://docs.digitalasset.com/build/3.3/reference/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ `Iou <type-iou12-iou-72962_>`_)
 
 .. _function-iou12-main-28537:
 
