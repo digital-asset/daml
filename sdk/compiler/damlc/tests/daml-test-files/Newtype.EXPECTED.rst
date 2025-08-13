@@ -22,12 +22,12 @@ Data Types
          - Type
          - Description
        * - unNat
-         - `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+         - `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
          -
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"unNat\" `Nat <type-newtype-nat-87202_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  **instance** `GetField <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"unNat\" `Nat <type-newtype-nat-87202_>`_ `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"unNat\" `Nat <type-newtype-nat-87202_>`_ `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  **instance** `SetField <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"unNat\" `Nat <type-newtype-nat-87202_>`_ `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 Functions
 ^^^^^^^^^
@@ -35,12 +35,12 @@ Functions
 .. _function-newtype-mknat-18836:
 
 `mkNat <function-newtype-mknat-18836_>`_
-  \: `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Nat <type-newtype-nat-87202_>`_
+  \: `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Nat <type-newtype-nat-87202_>`_
 
 .. _function-newtype-unsafemknat-5876:
 
 `unsafeMkNat <function-newtype-unsafemknat-5876_>`_
-  \: `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Nat <type-newtype-nat-87202_>`_
+  \: `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `Nat <type-newtype-nat-87202_>`_
 
 .. _function-newtype-zero0-56775:
 
@@ -55,14 +55,14 @@ Functions
 .. _function-newtype-unnat1-45463:
 
 `unNat1 <function-newtype-unnat1-45463_>`_
-  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 .. _function-newtype-unnat2-74120:
 
 `unNat2 <function-newtype-unnat2-74120_>`_
-  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
 
 .. _function-newtype-unnat3-66997:
 
 `unNat3 <function-newtype-unnat3-66997_>`_
-  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_
+  \: `Nat <type-newtype-nat-87202_>`_ \-\> `Int <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_

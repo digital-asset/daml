@@ -40,10 +40,10 @@ Data Types
   `Disjunction <constr-deriving-disjunction-19371_>`_ \[`Formula <type-deriving-formula-60264_>`_ t\]
 
 
-  **instance** `Functor <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-base-functor-31205>`_ `Formula <type-deriving-formula-60264_>`_
+  **instance** `Functor <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-base-functor-31205>`_ `Formula <type-deriving-formula-60264_>`_
 
-  **instance** `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ t \=\> `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ (`Formula <type-deriving-formula-60264_>`_ t)
+  **instance** `Eq <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ t \=\> `Eq <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ (`Formula <type-deriving-formula-60264_>`_ t)
 
-  **instance** `Ord <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395>`_ t \=\> `Ord <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395>`_ (`Formula <type-deriving-formula-60264_>`_ t)
+  **instance** `Ord <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395>`_ t \=\> `Ord <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-classes-ord-6395>`_ (`Formula <type-deriving-formula-60264_>`_ t)
 
-  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ t \=\> `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ (`Formula <type-deriving-formula-60264_>`_ t)
+  **instance** `Show <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ t \=\> `Show <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ (`Formula <type-deriving-formula-60264_>`_ t)

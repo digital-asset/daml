@@ -15,9 +15,9 @@ Data Types
   `Red <constr-singleconenum-red-9210_>`_
 
 
-  **instance** `Eq <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ `Color <type-singleconenum-color-64951_>`_
+  **instance** `Eq <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-classes-eq-22713>`_ `Color <type-singleconenum-color-64951_>`_
 
-  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `Color <type-singleconenum-color-64951_>`_
+  **instance** `Show <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `Color <type-singleconenum-color-64951_>`_
 
 Functions
 ^^^^^^^^^
@@ -30,4 +30,4 @@ Functions
 .. _function-singleconenum-isred-30935:
 
 `isRed <function-singleconenum-isred-30935_>`_
-  \: `Color <type-singleconenum-color-64951_>`_ \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
+  \: `Color <type-singleconenum-color-64951_>`_ \-\> `Bool <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_
