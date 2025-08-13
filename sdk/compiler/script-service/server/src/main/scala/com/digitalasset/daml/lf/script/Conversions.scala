@@ -293,7 +293,7 @@ final class Conversions(
                 )
               case _: Cost =>
                 builder.setCostError(
-                  proto.ScriptError.CostError.newbuilder.setMessage(
+                  proto.ScriptError.CostError.newBuilder.setMessage(
                     speedy.Pretty.prettyDamlException(interpretationError).render(80)
                   )
                 )
