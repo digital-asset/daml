@@ -24,7 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializationResult,
   SystemInitializer,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import org.apache.pekko.actor.typed.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -455,7 +455,7 @@ object PekkoModuleSystem {
       initResult: SystemInitializationResult[
         PekkoEnv,
         PekkoP2PGrpcNetworkRefFactory,
-        BftOrderingServiceReceiveRequest,
+        BftOrderingMessage,
         InputMessageT,
       ],
   )
@@ -519,7 +519,7 @@ object PekkoModuleSystem {
       systemInitializer: SystemInitializer[
         PekkoEnv,
         PekkoP2PGrpcNetworkRefFactory,
-        BftOrderingServiceReceiveRequest,
+        BftOrderingMessage,
         InputMessageT,
       ],
       createP2PNetworkRefFactory: P2PConnectionEventListener => PekkoP2PGrpcNetworkRefFactory,
@@ -532,7 +532,7 @@ object PekkoModuleSystem {
       Promise[SystemInitializationResult[
         PekkoEnv,
         PekkoP2PGrpcNetworkRefFactory,
-        BftOrderingServiceReceiveRequest,
+        BftOrderingMessage,
         InputMessageT,
       ]]()
 

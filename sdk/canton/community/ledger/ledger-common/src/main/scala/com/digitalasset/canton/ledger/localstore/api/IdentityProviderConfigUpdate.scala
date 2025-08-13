@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.ledger.localstore.api
 
-import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
+import com.daml.jwt.JwksUrl
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 
 final case class IdentityProviderConfigUpdate(
     identityProviderId: IdentityProviderId.Id,

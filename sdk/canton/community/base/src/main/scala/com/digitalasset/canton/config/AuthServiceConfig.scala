@@ -11,6 +11,7 @@ import com.digitalasset.canton.auth.{
   AuthServiceJWT,
   AuthServiceWildcard,
   AuthorizedUser,
+  JwksVerifier,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation

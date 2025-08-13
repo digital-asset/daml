@@ -12,17 +12,12 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTim
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoActorContext
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
-  ModuleRef,
   P2PNetworkRef,
   P2PNetworkRefFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.abort
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
-  BftOrderingServiceReceiveRequest,
-  BftOrderingServiceReceiveResponse,
-}
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.stub.StreamObserver
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
@@ -31,7 +26,6 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior, PostStop}
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
-import scala.util.{Failure, Success, Try}
 
 private sealed trait PekkoP2PGrpcConnectionManagerActorMessage
 
@@ -41,7 +35,7 @@ private sealed trait PekkoP2PGrpcConnectionManagerActorMessage
 private final case class Initialize() extends PekkoP2PGrpcConnectionManagerActorMessage
 
 private final case class SendMessage(
-    createMessage: Option[Instant] => BftOrderingServiceReceiveRequest,
+    createMessage: Option[Instant] => BftOrderingMessage,
     metricsContext: MetricsContext,
     attemptNumber: Int,
     sendInstant: Instant = Instant.now,
@@ -57,13 +51,13 @@ final class PekkoP2PNetworkRef(
     outstandingMessages: AtomicInteger,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-) extends P2PNetworkRef[BftOrderingServiceReceiveRequest]
+) extends P2PNetworkRef[BftOrderingMessage]
     with NamedLogging {
 
   connectionManagingActorRef ! Initialize()
 
   override def asyncP2PSend(
-      createMessage: Option[Instant] => BftOrderingServiceReceiveRequest
+      createMessage: Option[Instant] => BftOrderingMessage
   )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
     outstandingMessages.incrementAndGet().discard
     synchronizeWithClosingSync("send-message") {
@@ -88,11 +82,11 @@ object PekkoP2PGrpcNetworking {
   private val MaxAttempts = 5
 
   final class PekkoP2PGrpcNetworkRefFactory(
-      clientConnectionManager: P2PGrpcClientConnectionManager,
+      val connectionManager: P2PGrpcConnectionManager,
       override val timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
       metrics: BftOrderingMetrics,
-  ) extends P2PNetworkRefFactory[PekkoModuleSystem.PekkoEnv, BftOrderingServiceReceiveRequest]
+  ) extends P2PNetworkRefFactory[PekkoModuleSystem.PekkoEnv, BftOrderingMessage]
       with NamedLogging {
 
     private implicit val traceContext: TraceContext = TraceContext.empty
@@ -100,7 +94,7 @@ object PekkoP2PGrpcNetworking {
     override def createNetworkRef[ActorContextT](
         context: PekkoActorContext[ActorContextT],
         endpoint: P2PEndpoint,
-    ): P2PNetworkRef[BftOrderingServiceReceiveRequest] = {
+    ): P2PNetworkRef[BftOrderingMessage] = {
       val security = if (endpoint.transportSecurity) "tls" else "plaintext"
       val actorName =
         s"node-${endpoint.address}-${endpoint.port}-$security-client-connection" // The actor name must be unique
@@ -111,7 +105,7 @@ object PekkoP2PGrpcNetworking {
           createGrpcP2PConnectionManagerPekkoBehavior(
             endpoint,
             actorName,
-            clientConnectionManager,
+            connectionManager,
             outstandingMessages,
             loggerFactory,
             metrics,
@@ -126,40 +120,14 @@ object PekkoP2PGrpcNetworking {
 
     override def onClosed(): Unit = {
       logger.info("Closing P2P gRPC client connection manager")
-      clientConnectionManager.close()
+      connectionManager.close()
     }
   }
-
-  def tryCreateServerSidePeerReceiver(
-      node: BftNodeId,
-      inputModule: ModuleRef[BftOrderingServiceReceiveRequest],
-      peerSender: StreamObserver[BftOrderingServiceReceiveResponse],
-      cleanupPeerSender: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
-      getMessageSendInstant: BftOrderingServiceReceiveRequest => Option[Instant],
-      loggerFactory: NamedLoggerFactory,
-      metrics: BftOrderingMetrics,
-  )(implicit metricsContext: MetricsContext): P2PGrpcStreamingServerSideReceiver =
-    Try(
-      peerSender.onNext(BftOrderingServiceReceiveResponse(node))
-    ) match {
-      case Failure(exception) =>
-        peerSender.onError(exception) // Required by the gRPC streaming API
-        throw exception // gRPC requires onError to be the last event, so it doesn't make sense to return a handler
-      case Success(_) =>
-        new P2PGrpcStreamingServerSideReceiver(
-          inputModule,
-          peerSender,
-          cleanupPeerSender,
-          getMessageSendInstant,
-          loggerFactory,
-          metrics,
-        )
-    }
 
   private def createGrpcP2PConnectionManagerPekkoBehavior(
       endpoint: P2PEndpoint,
       actorName: String,
-      clientConnectionManager: P2PGrpcClientConnectionManager,
+      clientConnectionManager: P2PGrpcConnectionManager,
       outstandingMessages: AtomicInteger,
       loggerFactory: NamedLoggerFactory,
       metrics: BftOrderingMetrics,
@@ -171,7 +139,7 @@ object PekkoP2PGrpcNetworking {
     // Reschedules an Initialize or Send if the connection is not available yet
     def scheduleMessageIfNotConnectedBehavior(
         message: PekkoP2PGrpcConnectionManagerActorMessage
-    )(whenConnected: StreamObserver[BftOrderingServiceReceiveRequest] => Unit)(implicit
+    )(whenConnected: StreamObserver[BftOrderingMessage] => Unit)(implicit
         context: ActorContext[
           PekkoP2PGrpcConnectionManagerActorMessage
         ]

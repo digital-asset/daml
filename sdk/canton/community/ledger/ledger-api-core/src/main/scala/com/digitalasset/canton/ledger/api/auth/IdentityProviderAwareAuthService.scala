@@ -13,7 +13,7 @@ import com.daml.jwt.{
   JwtVerifier,
   StandardJWTPayload,
 }
-import com.digitalasset.canton.auth.{AuthService, ClaimSet}
+import com.digitalasset.canton.auth.{AuthService, ClaimSet, JwtVerifierLoader}
 import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext

@@ -25,8 +25,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessageBody.Message
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
+  BftOrderingMessage,
   BftOrderingMessageBody,
-  BftOrderingServiceReceiveRequest,
 }
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -44,9 +44,9 @@ class P2PNetworkInModule[E <: Env[E]](
   private type OutcomeType = metrics.p2p.receive.labels.source.values.SourceValue
 
   override def receiveInternal(
-      message: BftOrderingServiceReceiveRequest
+      message: BftOrderingMessage
   )(implicit
-      context: E#ActorContextT[BftOrderingServiceReceiveRequest],
+      context: E#ActorContextT[BftOrderingMessage],
       traceContext: TraceContext,
   ): Unit = {
     val sentBy = BftNodeId(message.sentBy)

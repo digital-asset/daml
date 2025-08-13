@@ -1,11 +1,11 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.jwt
+package com.digitalasset.canton.auth
 
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.http.test.SimpleHttpServer
-import com.daml.jwt.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt, JwtSigner, KeyUtils}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}

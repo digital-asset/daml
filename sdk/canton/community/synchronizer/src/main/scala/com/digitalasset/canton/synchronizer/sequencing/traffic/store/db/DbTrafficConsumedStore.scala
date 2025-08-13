@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencing.traffic.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -13,6 +13,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficConsumed
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 
 import scala.concurrent.ExecutionContext
 
@@ -23,6 +24,7 @@ class DbTrafficConsumedStore(
     override protected val storage: DbStorage,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
+    batchingConfig: BatchingConfig,
 )(implicit executionContext: ExecutionContext)
     extends TrafficConsumedStore
     with DbStore {
@@ -147,7 +149,8 @@ class DbTrafficConsumedStore(
     // That is because the closest row contains the value which are valid at upToExclusive. So even if it's below
     // upToExclusive, we need to keep it.
     // To do that we first find the latest timestamp for all members before the pruning timestamp.
-    // Then we delete all rows below that timestamp for each member.
+    // Then we delete all rows below that timestamp for each member,
+    // using parallelized batched non-transactional DbStorage.bulkOperation.
     val lookupQuery = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         sql"""select m.member, tc.sequencing_timestamp
@@ -170,19 +173,39 @@ class DbTrafficConsumedStore(
       """delete from seq_traffic_control_consumed_journal
         |where member = ? and sequencing_timestamp < ?
         |""".stripMargin
-    val pruningQuery = for {
-      membersTimestamps <- lookupQuery.as[(Member, CantonTimestamp)]
-      deletedTotalCount <- DbStorage
-        .bulkOperation(deleteQuery, membersTimestamps, storage.profile) { pp => memberTimestamp =>
-          val (member, timestamp) = memberTimestamp
-          pp >> member
-          pp >> timestamp
+
+    val deletedTotalCountFUS = for {
+      membersTimestamps <- storage.query(
+        lookupQuery.as[(Member, CantonTimestamp)],
+        functionFullName,
+      )
+      deletedTotalCount <-
+        if (membersTimestamps.isEmpty) {
+          FutureUnlessShutdown.pure(0)
+        } else {
+          MonadUtil
+            .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInBatch)(
+              membersTimestamps
+            ) { membersTimestampsChunk =>
+              val bulkDelete = DbStorage
+                .bulkOperation(
+                  deleteQuery,
+                  membersTimestampsChunk,
+                  storage.profile,
+                  transactional = false,
+                ) { pp => memberTimestamp =>
+                  val (member, timestamp) = memberTimestamp
+                  pp >> member
+                  pp >> timestamp
+                }
+                .map(_.toSeq)
+              storage.queryAndUpdate(bulkDelete, functionFullName)
+            }
+            .map(_.sum)
         }
-        .map(_.sum)
     } yield deletedTotalCount
 
-    storage
-      .queryAndUpdate(pruningQuery, functionFullName)
+    deletedTotalCountFUS
       .tapOnShutdown {
         logger.debug(
           "DbTrafficConsumedStore is shutting down, cancelling pruning traffic consumed entries"

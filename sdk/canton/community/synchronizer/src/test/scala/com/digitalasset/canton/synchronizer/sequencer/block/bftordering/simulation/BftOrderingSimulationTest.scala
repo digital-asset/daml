@@ -61,7 +61,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.{
   BftSequencerBaseTest,
   endpointToTestBftNodeId,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -400,7 +400,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           }
 
           new BftOrderingModuleSystemInitializer[SimulationEnv, SimulationP2PNetworkRefFactory[
-            BftOrderingServiceReceiveRequest
+            BftOrderingMessage
           ]](
             thisNode,
             BftBlockOrdererConfig(
@@ -456,7 +456,7 @@ object BftOrderingSimulationTest {
 
   private type ApplyBft[F[_, _, _, _]] = F[
     BftOnboardingData,
-    BftOrderingServiceReceiveRequest,
+    BftOrderingMessage,
     Mempool.Message,
     Unit,
   ]

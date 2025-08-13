@@ -8,7 +8,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcStreamingClientSideReceiver.AuthenticationTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.abort
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
@@ -25,7 +25,7 @@ final class P2PGrpcStreamingClientSideReceiver(
     cleanupClientConnectionToServer: P2PEndpoint => Unit,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends StreamObserver[BftOrderingServiceReceiveResponse]
+    extends StreamObserver[BftOrderingMessage]
     with NamedLogging {
 
   private implicit val traceContext: TraceContext = TraceContext.empty
@@ -35,7 +35,7 @@ final class P2PGrpcStreamingClientSideReceiver(
 
   setupAuthenticationTimeout()
 
-  override def onNext(response: BftOrderingServiceReceiveResponse): Unit = {
+  override def onNext(response: BftOrderingMessage): Unit = {
     logger.trace(s"$this: Received gRPC message from '${peerEndpoint.id}': $response")
     if (!sequencerIdPromiseUS.isCompleted) {
       if (isAuthenticationEnabled) {
@@ -46,7 +46,7 @@ final class P2PGrpcStreamingClientSideReceiver(
       } else {
         logger.debug(s"Received first gRPC message from '${peerEndpoint.id}'")
         // Authentication is disabled: backfill the sequencer ID promise with the first message's sentBy
-        SequencerId.fromProtoPrimitive(response.from, "from") match {
+        SequencerId.fromProtoPrimitive(response.sentBy, "sentBy") match {
           case Left(e) =>
             val msg =
               s"$this: Received unparseable sequencer ID from '${peerEndpoint.id}': $e"

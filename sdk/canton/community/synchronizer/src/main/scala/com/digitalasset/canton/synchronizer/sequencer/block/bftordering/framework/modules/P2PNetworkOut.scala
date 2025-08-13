@@ -14,7 +14,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PNetworkRefFactory,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
 
 object P2PNetworkOut {
 
@@ -108,7 +107,7 @@ object P2PNetworkOut {
 
 trait P2PNetworkOut[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, v30.BftOrderingMessage],
 ] extends Module[E, P2PNetworkOut.Message] {
   val dependencies: P2PNetworkOutModuleDependencies[E, P2PNetworkRefFactoryT]
 }

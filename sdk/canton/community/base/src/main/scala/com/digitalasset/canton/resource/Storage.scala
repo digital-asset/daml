@@ -752,9 +752,9 @@ object DbStorage {
   /** Construct a bulk operation (e.g., insertion, deletion). The operation must not return a result
     * set!
     *
-    * The returned action will run as a single big database transaction. If the execution of the
-    * transaction results in deadlocks, you should order `values` according to some consistent
-    * order.
+    * The returned action will run as a single big database transaction, unless the respective flag
+    * is off. If the execution of the transaction results in deadlocks, you should order `values`
+    * according to some consistent order.
     *
     * The returned update counts are merely lower bounds to the number of affected rows or
     * SUCCESS_NO_INFO, because `Statement.executeBatch` reports partial execution of a batch as a
@@ -762,11 +762,15 @@ object DbStorage {
     * taken into consideration.
     *
     * This operation is idempotent if the statement is idempotent for each value.
+    *
+    * Use `transactional = false` to disable the transaction wrapping. This is useful for
+    * long-running operations that do not require transactional integrity such as pruning.
     */
   def bulkOperation[A](
       statement: String,
       values: immutable.Iterable[A],
       profile: Profile,
+      transactional: Boolean = true,
   )(
       setParams: PositionedParameters => A => Unit
   )(implicit loggingContext: ErrorLoggingContext): DBIOAction[Array[Int], NoStream, Effect.All] =
@@ -801,7 +805,7 @@ object DbStorage {
 
       import profile.DbStorageAPI.*
       profile match {
-        case _ if values.sizeCompare(1) <= 0 =>
+        case _ if values.sizeCompare(1) <= 0 || !transactional =>
           // Disable auto-commit for better performance.
           action
 
@@ -814,10 +818,11 @@ object DbStorage {
       statement: String,
       values: immutable.Iterable[A],
       profile: Profile,
+      transactional: Boolean = true,
   )(
       setParams: PositionedParameters => A => Unit
   )(implicit loggingContext: ErrorLoggingContext): DBIOAction[Unit, NoStream, Effect.All] =
-    bulkOperation(statement, values, profile)(setParams).andThen(DbAction.unit)
+    bulkOperation(statement, values, profile, transactional)(setParams).andThen(DbAction.unit)
 
   /* Helper methods to make usage of EitherT[DBIO,] possible without requiring type hints */
   def dbEitherT[A, B](value: DBIO[Either[A, B]]): EitherT[DBIO, A, B] = EitherT[DBIO, A, B](value)

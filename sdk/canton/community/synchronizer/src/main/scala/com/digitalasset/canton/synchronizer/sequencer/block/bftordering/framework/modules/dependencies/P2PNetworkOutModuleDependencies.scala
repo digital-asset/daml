@@ -16,14 +16,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PConnectionEventListener,
   P2PNetworkRefFactory,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 
 final case class P2PNetworkOutModuleDependencies[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
 ](
     createP2PNetworkRefFactory: P2PConnectionEventListener => P2PNetworkRefFactoryT,
-    p2pNetworkIn: ModuleRef[BftOrderingServiceReceiveRequest],
+    p2pNetworkIn: ModuleRef[BftOrderingMessage],
     mempool: ModuleRef[Mempool.Message],
     availability: ModuleRef[Availability.Message[E]],
     consensus: ModuleRef[Consensus.Message[E]],

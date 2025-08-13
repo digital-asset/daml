@@ -4,8 +4,9 @@
 package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
+import com.daml.jwt.JwksUrl
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.localstore.api.IdentityProviderConfigStore.{
   IdentityProviderConfigByIssuerNotFound,
   IdentityProviderConfigExists,

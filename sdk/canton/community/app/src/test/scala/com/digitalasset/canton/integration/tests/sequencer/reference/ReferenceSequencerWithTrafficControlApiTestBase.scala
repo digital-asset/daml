@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchAggregatorConfig, BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -128,7 +128,12 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
 
     val currentBalances =
       TrieMap.empty[Member, Either[TrafficPurchasedManagerError, NonNegativeLong]]
-    val trafficConsumedStore = TrafficConsumedStore(storage, timeouts, loggerFactory)
+    val trafficConsumedStore = TrafficConsumedStore(
+      storage = storage,
+      timeouts = timeouts,
+      loggerFactory = loggerFactory,
+      batchingConfig = BatchingConfig(),
+    )
 
     val topology: TestingTopology =
       TestingTopology()

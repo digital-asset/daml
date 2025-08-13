@@ -1,10 +1,20 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.jwt
+package com.digitalasset.canton.auth
 
 import com.auth0.jwk.{JwkException, UrlJwkProvider}
 import com.auth0.jwt.algorithms.Algorithm
+import com.daml.jwt.{
+  DecodedJwt,
+  ECDSAVerifier,
+  Error,
+  Jwt,
+  JwtTimestampLeeway,
+  JwtVerifier,
+  JwtVerifierBase,
+  RSA256Verifier,
+}
 import com.google.common.cache.{Cache, CacheBuilder}
 import scalaz.syntax.show.*
 import scalaz.{-\/, Show, \/}
@@ -60,6 +70,9 @@ class JwksVerifier(
     .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
     .build()
 
+  @SuppressWarnings(
+    Array("org.wartremover.warts.Null")
+  )
   private[this] def getVerifier(keyId: String): Error \/ JwtVerifier =
     try {
       val jwk = http.get(keyId)

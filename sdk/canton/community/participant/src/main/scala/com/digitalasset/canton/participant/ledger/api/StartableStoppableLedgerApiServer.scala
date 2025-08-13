@@ -18,6 +18,7 @@ import com.digitalasset.canton.auth.{
   AuthInterceptor,
   AuthService,
   AuthServiceWildcard,
+  CachedJwtVerifierLoader,
   CantonAdminTokenAuthService,
 }
 import com.digitalasset.canton.concurrent.{
@@ -30,7 +31,6 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
-import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{
@@ -220,7 +220,10 @@ class StartableStoppableLedgerApiServer(
           )
 
     val jwtVerifierLoader =
-      new CachedJwtVerifierLoader(metrics = config.metrics, loggerFactory = loggerFactory)
+      new CachedJwtVerifierLoader(
+        metrics = Some(config.metrics.identityProviderConfigStore.verifierCache),
+        loggerFactory = loggerFactory,
+      )
 
     val apiInfoService = new GrpcApiInfoService(CantonGrpcUtil.ApiName.LedgerApi)
       with BindableService {

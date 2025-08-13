@@ -11,3 +11,5 @@ object Error {
   implicit val showInstance: Show[Error] =
     Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
 }
+
+final case class JwtException(error: Error) extends RuntimeException

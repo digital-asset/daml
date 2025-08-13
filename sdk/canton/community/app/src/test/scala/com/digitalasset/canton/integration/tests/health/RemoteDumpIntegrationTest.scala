@@ -31,7 +31,6 @@ import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFact
 import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
 import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import io.circe.generic.auto.*
@@ -41,14 +40,11 @@ import monocle.macros.syntax.lens.*
 import java.nio.charset.Charset
 import scala.concurrent.duration.DurationInt
 
-class RemoteDumpIntegrationTest
+final class RemoteDumpIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with HasExecutionContext
     with StatusIntegrationTestUtil {
-
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  var synchronizerId: PhysicalSynchronizerId = _
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_Config
@@ -63,7 +59,7 @@ class RemoteDumpIntegrationTest
         // code will miss the log file, which is called "canton_test.log" in tests instead of the default "canton.log"
         Cli(logFileName = Some("log/canton_test.log")).installLogging()
 
-        synchronizerId = bootstrap.synchronizer(
+        bootstrap.synchronizer(
           "remote-health-synchronizer",
           Seq(rs(sequencer1Name)),
           Seq(rm(mediator1Name)),
@@ -77,7 +73,7 @@ class RemoteDumpIntegrationTest
         // We add a parameter change to observe it in the health dump
         Seq[InstanceReference](rs(sequencer1Name), rm(mediator1Name)).foreach { owner =>
           owner.topology.synchronizer_parameters.propose_update(
-            synchronizerId,
+            rs(sequencer1Name).physical_synchronizer_id,
             _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(2000000)),
           )
         }
@@ -117,6 +113,7 @@ class RemoteDumpIntegrationTest
       val sequencerZip = dir.glob("remote-sequencer1-*").nextOption().value
       val mediatorZip = dir.glob("remote-mediator1-*").nextOption().value
       val participant1Zip = dir.glob("remote-participant1-*").nextOption().value
+      val synchronizerId = env.rs(sequencer1Name).physical_synchronizer_id
 
       // Check that the local zip contains the correct files
       File.usingTemporaryDirectory() { localUnzip =>
@@ -246,7 +243,7 @@ class RemoteDumpIntegrationTest
 
   "get a remote health dump" in { implicit env =>
     File.usingTemporaryFile() { f =>
-      val dumpFile = File(env.health.dump(outputFile = f))
+      val dumpFile = File(env.health.dump(outputFile = f.canonicalPath))
       dumpFile.pathAsString shouldBe f.pathAsString
       verifyHealthDumpContent(dumpFile, env)
     }
@@ -254,7 +251,7 @@ class RemoteDumpIntegrationTest
 
   "stream health dump in multiple chunks" in { implicit env =>
     File.usingTemporaryFile() { f =>
-      val dumpFile = File(env.health.dump(outputFile = f, chunkSize = Option(10000)))
+      val dumpFile = File(env.health.dump(outputFile = f.canonicalPath, chunkSize = Option(10000)))
       dumpFile.size > 10000 shouldBe true // Make sure the file was actually larger than 10000 bytes
       verifyHealthDumpContent(dumpFile, env)
     }
@@ -265,7 +262,7 @@ class RemoteDumpIntegrationTest
       val p1LogFile = File(external.logFile(participant1Name))
       p1LogFile.parent.createChild(p1LogFile.name + ".1.gz")
 
-      val dumpFile = File(env.health.dump(outputFile = f, chunkSize = Option(10000)))
+      val dumpFile = File(env.health.dump(outputFile = f.canonicalPath, chunkSize = Option(10000)))
       dumpFile.size > 10000 shouldBe true // Make sure the file was actually larger than 10000 bytes
       verifyHealthDumpContent(dumpFile, env, withRollingFile = true)
     }
@@ -288,7 +285,7 @@ class RemoteDumpIntegrationTest
 
     loggerFactory.assertLoggedWarningsAndErrorsSeq(
       File.usingTemporaryFile() { f =>
-        val dumpFile = File(env.health.dump(outputFile = f))
+        val dumpFile = File(env.health.dump(outputFile = f.canonicalPath))
         dumpFile.pathAsString shouldBe f.pathAsString
         verifyHealthDumpContent(dumpFile, env)
       },
@@ -365,7 +362,7 @@ class NegativeRemoteDumpIntegrationTest
         a[CommandFailure] shouldBe thrownBy {
           // Returns as soon as the first call (future) fails (times out)
           env.health.dump(
-            outputFile = f,
+            outputFile = f.canonicalPath,
             timeout = config.NonNegativeDuration(
               dumpDelay / 100 // Timeout much lower than the artificial delay to make sure it triggers
             ),

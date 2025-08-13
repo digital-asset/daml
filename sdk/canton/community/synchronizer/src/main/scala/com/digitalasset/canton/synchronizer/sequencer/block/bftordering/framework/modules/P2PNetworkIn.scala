@@ -8,9 +8,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleRef,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 
-trait P2PNetworkIn[E <: Env[E]] extends Module[E, BftOrderingServiceReceiveRequest] {
+trait P2PNetworkIn[E <: Env[E]] extends Module[E, BftOrderingMessage] {
   def availability: ModuleRef[Availability.Message[E]]
   def consensus: ModuleRef[Consensus.Message[E]]
 }
