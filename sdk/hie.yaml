@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 cradle:
-  bios:
-    program: .hie-bios
-
+  multi:
+    - path: "."
+      config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc:damlc@ghci@bios" } } }
+    - path: "./compiler/damlc/tests"
+      config: { cradle: { bios: { shell: "./.hie-bios //compiler/damlc/tests:tests@ghci@bios"}}}

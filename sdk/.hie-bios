@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+
+bazel_target="${1:-//compiler/damlc:damlc@ghci@bios}"
+
 hie_bios_flags() {
-  bazel run //compiler/damlc:damlc@ghci@bios \
+  bazel run $bazel_target \
     | awk -v execroot="$(bazel info execution_root)" '
       BEGIN { rts_opts = false }
       {
