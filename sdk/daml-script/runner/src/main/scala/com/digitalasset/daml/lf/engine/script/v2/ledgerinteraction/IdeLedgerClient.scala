@@ -409,10 +409,6 @@ class IdeLedgerClient(
           innerError.value,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ Cost(_: Cost.BudgetExceeded) =>
-        SubmitError.CostError.BudgetExceeded(
-          Pretty.prettyDamlException(e).renderWideStream.mkString
-        )
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,

@@ -543,8 +543,6 @@ prettyScriptErrorError lvl (Just err) =  do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
     ScriptErrorErrorCryptoError ScriptError_CryptoError {..} -> do
       pure $ text $ TL.toStrict scriptError_CryptoErrorMessage
-    ScriptErrorErrorCostError ScriptError_CostError {..} -> do
-      pure $ text $ TL.toStrict scriptError_CostErrorMessage
 
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass

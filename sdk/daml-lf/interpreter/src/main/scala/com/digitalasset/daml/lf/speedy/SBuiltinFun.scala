@@ -99,7 +99,12 @@ private[speedy] sealed abstract class SBuiltinPure(arity: Int) extends SBuiltinF
       Control.Value(executePure(machine.costModel, args))
     } catch {
       case SErrorCrash(_, cause) =>
-        Control.Error(IE.Cost(IE.Cost.BudgetExceeded(cause)))
+        Control.Error(
+          IE.Dev(
+            NameOf.qualifiedNameOfCurrentFunc,
+            IE.Dev.Cost(IE.Dev.Cost.BudgetExceeded(cause)),
+          )
+        )
     }
   }
 }
