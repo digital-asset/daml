@@ -615,9 +615,18 @@ encodeExpr' e = case e of
     ENil{..} -> do
       expr_NilType <- encodeType nilType
       pureExpr $ P.ExprSumNil P.Expr_Nil{..}
-    ECons{..} -> do
+    ECons{..} -> ifSupportsFlatteningM
+      (do --full replacement of case when flattening is supported, since more complex logic
+        expr_ConsType <- encodeType consType
+        expr_ConsFront <- V.singleton <$> encodeExpr' consHead
+        expr_ConsTail <- encodeExpr consTail
+        pureExpr $ P.ExprSumCons P.Expr_Cons{..}
+      )
+      (do
         let unwind e0 as = case matching _ECons e0 of
                 Left e1 -> (e1, as)
+                --TODO[RB]: delete this type checking in the encoder?!
+                --https://github.com/digital-asset/daml/issues/21392
                 Right (typ, hd, tl)
                   | typ /= consType -> error "internal error: unexpected mismatch in cons cell type"
                   | otherwise -> unwind tl (hd:as)
@@ -626,6 +635,7 @@ encodeExpr' e = case e of
         expr_ConsFront <- encodeList encodeExpr' $ reverse cfront
         expr_ConsTail <- encodeExpr ctail
         pureExpr $ P.ExprSumCons P.Expr_Cons{..}
+      )
     EUpdate u -> expr . P.ExprSumUpdate <$> encodeUpdate u
     ENone typ -> do
         expr_OptionalNoneType <- encodeType typ

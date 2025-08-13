@@ -485,12 +485,15 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     fun <- mayDecode "Expr_AppFun" mbFun decodeExpr
     foldl' ETmApp fun <$> mapM decodeExpr (V.toList args)
   LF2.ExprSumTyApp (LF2.Expr_TyApp mbFun args) -> do
+    singletonIfLfFlat_ args
     fun <- mayDecode "Expr_TyAppFun" mbFun decodeExpr
     foldl' ETyApp fun <$> mapM decodeType (V.toList args)
   LF2.ExprSumAbs (LF2.Expr_Abs params mbBody) -> do
+    singletonIfLfFlat_ params
     body <- mayDecode "Expr_AbsBody" mbBody decodeExpr
     foldr ETmLam body <$> mapM decodeVarWithType (V.toList params)
   LF2.ExprSumTyAbs (LF2.Expr_TyAbs params mbBody) -> do
+    singletonIfLfFlat_ params
     body <- mayDecode "Expr_TyAbsBody" mbBody decodeExpr
     foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
   LF2.ExprSumCase (LF2.Case mbScrut alts) ->
@@ -503,6 +506,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumNil (LF2.Expr_Nil mbType) ->
     ENil <$> mayDecode "expr_NilType" mbType decodeType
   LF2.ExprSumCons (LF2.Expr_Cons mbType front mbTail) -> do
+    singletonIfLfFlat_ front
     ctype <- mayDecode "expr_ConsType" mbType decodeType
     ctail <- mayDecode "expr_ConsTail" mbTail decodeExpr
     foldr (ECons ctype) ctail <$> mapM decodeExpr (V.toList front)
