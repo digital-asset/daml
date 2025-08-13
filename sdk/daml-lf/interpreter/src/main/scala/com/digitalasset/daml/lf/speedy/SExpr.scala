@@ -325,7 +325,7 @@ private[lf] object SExpr {
   final case class SEScopeExercise(body: SExpr) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
       machine.asUpdateMachine(productPrefix) { machine =>
-        machine.pushKont(KCloseExercise(machine))
+        machine.pushKont(KCloseExercise)
         Control.Expression(body)
       }
     }

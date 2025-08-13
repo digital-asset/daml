@@ -387,7 +387,7 @@ private[lf] object Speedy {
               // Ideally we should embed the trace into the exception directly.
               this.ptx = ptx.rollbackTry()
               Some(Left(handler))
-            case _: KCloseExercise =>
+            case KCloseExercise =>
               unwind(ptx.abortExercises)
             case k: KCheckChoiceGuard =>
               // We must abort, because the transaction has failed in a way that is
@@ -1115,7 +1115,7 @@ private[lf] object Speedy {
             thisControl match {
               case Control.Value(value) =>
                 popTempStackToBase()
-                control = popKont().execute(value)
+                control = popKont().execute(this, value)
                 loop()
               case Control.Expression(exp) =>
                 control = exp.execute(this)
@@ -1635,15 +1635,14 @@ private[lf] object Speedy {
   private[speedy] sealed abstract class Kont[Q] {
 
     /** Execute the continuation. */
-    def execute(v: SValue): Control[Q]
+    def execute(machine: Machine[Q], v: SValue): Control[Q]
   }
 
   private[speedy] final case class KPure[Q](f: SValue => Control[Q]) extends Kont[Q] {
-    override def execute(v: SValue): Control[Q] = f(v)
+    override def execute(machine: Machine[Q], v: SValue): Control[Q] = f(v)
   }
 
   private[speedy] final case class KOverApp[Q] private (
-      machine: Machine[Q],
       savedBase: Int,
       frame: Frame,
       actuals: Actuals,
@@ -1651,7 +1650,7 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(vfun: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.enterApplication(vfun, newArgs)
@@ -1660,7 +1659,7 @@ private[lf] object Speedy {
 
   object KOverApp {
     def apply[Q](machine: Machine[Q], newArgs: Array[SExprAtomic]): KOverApp[Q] =
-      KOverApp(machine, machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
+      KOverApp(machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
@@ -1760,7 +1759,6 @@ private[lf] object Speedy {
     * directly into the environment.
     */
   private[speedy] final case class KPushTo[Q] private (
-      machine: Machine[Q],
       savedBase: Int,
       frame: Frame,
       actuals: Actuals,
@@ -1769,7 +1767,7 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(v: SValue): Control.Expression = {
+    override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       discard[Boolean](to.add(v))
@@ -1779,11 +1777,10 @@ private[lf] object Speedy {
 
   object KPushTo {
     def apply[Q](machine: Machine[Q], to: util.ArrayList[SValue], next: SExpr): KPushTo[Q] =
-      KPushTo(machine, machine.markBase(), machine.currentFrame, machine.currentActuals, to, next)
+      KPushTo(machine.markBase(), machine.currentFrame, machine.currentActuals, to, next)
   }
 
   private[speedy] final case class KFoldl[Q] private (
-      machine: Machine[Q],
       frame: Frame,
       actuals: Actuals,
       func: SValue,
@@ -1791,7 +1788,7 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(acc: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       list.pop match {
         case None =>
           Control.Value(acc)
@@ -1808,11 +1805,10 @@ private[lf] object Speedy {
 
   object KFoldl {
     def apply[Q](machine: Machine[Q], func: SValue, list: FrontStack[SValue]): KFoldl[Q] =
-      KFoldl(machine, machine.currentFrame, machine.currentActuals, func, list)
+      KFoldl(machine.currentFrame, machine.currentActuals, func, list)
   }
 
   private[speedy] final case class KFoldr[Q] private (
-      machine: Machine[Q],
       frame: Frame,
       actuals: Actuals,
       func: SValue,
@@ -1821,7 +1817,7 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(acc: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
         val currentIndex = lastIndex - 1
@@ -1842,13 +1838,12 @@ private[lf] object Speedy {
         list: ImmArray[SValue],
         lastIndex: Int,
     ): KFoldr[Q] =
-      KFoldr(machine, machine.currentFrame, machine.currentActuals, func, list, lastIndex)
+      KFoldr(machine.currentFrame, machine.currentActuals, func, list, lastIndex)
   }
 
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Map[Q] private (
-      machine: Machine[Q],
       frame: Frame,
       actuals: Actuals,
       func: SValue,
@@ -1858,7 +1853,7 @@ private[lf] object Speedy {
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(closure: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], closure: SValue): Control[Q] = {
       revClosures = closure +: revClosures
       list.pop match {
         case None =>
@@ -1882,7 +1877,6 @@ private[lf] object Speedy {
         init: SValue,
     ): KFoldr1Map[Q] =
       KFoldr1Map(
-        machine,
         machine.currentFrame,
         machine.currentActuals,
         func,
@@ -1895,14 +1889,13 @@ private[lf] object Speedy {
   // NOTE: See the explanation above the definition of `SBFoldr` on why we need
   // this continuation and what it does.
   private[speedy] final case class KFoldr1Reduce[Q] private (
-      machine: Machine[Q],
       frame: Frame,
       actuals: Actuals,
       var revClosures: FrontStack[SValue],
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
-    override def execute(acc: SValue): Control[Q] = {
+    override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       revClosures.pop match {
         case None =>
           Control.Value(acc)
@@ -1917,7 +1910,7 @@ private[lf] object Speedy {
 
   object KFoldr1Reduce {
     def apply[Q](machine: Machine[Q], revClosures: FrontStack[SValue]): KFoldr1Reduce[Q] =
-      KFoldr1Reduce(machine, machine.currentFrame, machine.currentActuals, revClosures)
+      KFoldr1Reduce(machine.currentFrame, machine.currentActuals, revClosures)
   }
 
   /** Store the evaluated value in the definition and in the 'SEVal' from which the
@@ -1932,7 +1925,7 @@ private[lf] object Speedy {
       defn: SDefinition,
   ) extends Kont[Q] {
 
-    override def execute(sv: SValue): Control.Value = {
+    override def execute(machine: Machine[Q], sv: SValue): Control.Value = {
       v.setCached(sv)
       defn.setCached(sv)
       Control.Value(sv)
@@ -1943,13 +1936,16 @@ private[lf] object Speedy {
     * (1) by 'endExercises' if this continuation is entered normally, or
     * (2) by 'abortExercises' if we unwind the stack through this continuation
     */
-  private[speedy] final case class KCloseExercise(machine: UpdateMachine)
-      extends Kont[Question.Update] {
+  private[speedy] final case object KCloseExercise extends Kont[Question.Update] {
 
-    override def execute(exerciseResult: SValue): Control[Question.Update] = {
-      machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
-      Control.Value(exerciseResult)
-    }
+    override def execute(
+        machine: Machine[Question.Update],
+        exerciseResult: SValue,
+    ): Control[Question.Update] =
+      machine.asUpdateMachine(getClass.getSimpleName) { machine =>
+        machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
+        Control.Value(exerciseResult)
+      }
   }
 
   /** KTryCatchHandler marks the kont-stack to allow unwinding when throw is executed. If
@@ -1972,11 +1968,12 @@ private[lf] object Speedy {
       machine.restoreFrameAndActuals(frame, actuals)
     }
 
-    override def execute(v: SValue): Control[Question.Update] = {
-      restore()
-      machine.ptx = machine.ptx.endTry
-      Control.Value(v)
-    }
+    override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] =
+      machine.asUpdateMachine(getClass.getSimpleName) { machine =>
+        restore()
+        machine.ptx = machine.ptx.endTry
+        Control.Value(v)
+      }
   }
 
   object KTryCatchHandler {
@@ -2004,7 +2001,7 @@ private[lf] object Speedy {
         )
       )
 
-    override def execute(v: SValue): Control.Value = {
+    override def execute(machine: Machine[Question.Update], v: SValue): Control.Value = {
       v match {
         case SValue.SBool(b) =>
           if (b)
@@ -2022,7 +2019,7 @@ private[lf] object Speedy {
     * that entering the closure can write an "open event" with that label.
     */
   private[speedy] final case class KLabelClosure[Q](label: Profile.Label) extends Kont[Q] {
-    override def execute(v: SValue): Control.Value = {
+    override def execute(machine: Machine[Q], v: SValue): Control.Value = {
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -2038,14 +2035,14 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLeaveClosure[Q](machine: Machine[Q], label: Profile.Label)
       extends Kont[Q] {
-    override def execute(v: SValue): Control.Value = {
+    override def execute(machine: Machine[Q], v: SValue): Control.Value = {
       machine.profile.addCloseEvent(label)
       Control.Value(v)
     }
   }
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
-    override def execute(v: SValue): Control.Value = {
+    override def execute(machine: Machine[Q], v: SValue): Control.Value = {
       Control.Value(v)
     }
   }
@@ -2054,7 +2051,7 @@ private[lf] object Speedy {
   // if an exception is thrown during that conversion, we need to know to not try to convert that too,
   // but instead give back the original exception with a replacement message
   private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
-    override def execute(v: SValue): Control.Value = {
+    override def execute(machine: Machine[Q], v: SValue): Control.Value = {
       Control.Value(v)
     }
   }
