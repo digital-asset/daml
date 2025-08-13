@@ -109,9 +109,13 @@ object InstrumentedGraph {
       * @param size the maximum size of the buffer.
       *             In case of a bottleneck in producer this will be mostly full,
       *             so careful estimation is needed to prevent excessive memory pressure.
+      * @param metricsContext metrics context for the counter.
+      *                        Can be used to re-use one counter with different contexts
       * @return the instrumented flow
       */
-    def buffered(counter: Counter, size: Int): Flow[In, Out, Mat] =
+    def buffered(counter: Counter, size: Int)(implicit
+        metricsContext: MetricsContext = MetricsContext.Empty
+    ): Flow[In, Out, Mat] =
       original
         // since wireTap is not guaranteed to be executed always, we need map to prevent counter skew over time.
         .map(_.tap(_ => counter.inc()))
@@ -120,7 +124,9 @@ object InstrumentedGraph {
   }
 
   implicit class BufferedSource[Out, Mat](val original: Source[Out, Mat]) extends AnyVal {
-    def buffered(counter: Counter, size: Int): Source[Out, Mat] =
+    def buffered(counter: Counter, size: Int)(implicit
+        metricsContext: MetricsContext = MetricsContext.Empty
+    ): Source[Out, Mat] =
       original.via(Flow[Out].buffered(counter, size))
   }
 }
