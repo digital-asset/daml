@@ -574,13 +574,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SHA256_HEX" - {
-      "work as expected" in {
+      "with non-hex data should fail" in {
         val testCases = Table(
-          "input" -> "output",
-          "" ->
-            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
-            "cd372fb85148700fa88095e3492d3f9f5beb43e555e5ff26d95f5a6adc36f8e6",
+          "input",
+          "DeadBeef",
           """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
             |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
             |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
@@ -589,15 +586,27 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
             |culpa qui officia deserunt mollit anim id est laborum..."""
             .replaceAll("\r", "")
-            .stripMargin ->
-            "c045064089460b634bb47e71d2457cd0e8dbc1327aaf9439c275c9796c073620",
-          "a¶‱😂" ->
-            "8f1cc14a85321115abcd2854e34f9ca004f4f199d367c3c9a84a355f287cec2e",
+            .stripMargin,
+          "a¶‱😂",
         )
+
+        forEvery(testCases) { input =>
+          eval(e"""SHA256_HEX "$input"""") shouldBe a[Left[_, _]]
+        }
+      }
+
+      "with hex encoded data should succeed" in {
+        val testCases = Table(
+          "input" -> "output",
+          "" ->
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
+            "5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456",
+        )
+
         forEvery(testCases) { (input, output) =>
           eval(e"""SHA256_HEX "$input"""") shouldBe Right(SText(output))
         }
-
       }
     }
 
