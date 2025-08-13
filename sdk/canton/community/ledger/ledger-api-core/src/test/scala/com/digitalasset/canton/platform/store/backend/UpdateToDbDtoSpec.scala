@@ -200,155 +200,40 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
 
     val updateId = Ref.TransactionId.assertFromString("UpdateId")
 
-    "handle TransactionAccepted (single create node)" in {
-      val completionInfo = someCompletionInfo
-      val transactionMeta = someTransactionMeta
-      val externalTransactionHash = someExternalTransactionHash
-      val builder = TxBuilder()
-      val contractId = builder.newCid
-      val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
-      val keyValue = Value.ValueUnit
-      val createNode = builder
-        .create(
-          id = contractId,
-          templateId = contractTemplate,
-          argument = Value.ValueUnit,
-          signatories = Set("signatory1", "signatory2", "signatory3"),
-          observers = Set("observer"),
-          key = CreateKey.KeyWithMaintainers(keyValue, Set("signatory2", "signatory3")),
+    def handleTransactionAcceptedSingleCreateNode(isAcsDelta: Boolean): Unit = {
+      s"handle TransactionAccepted (single create node, isAcsDelta = $isAcsDelta)" in {
+        val completionInfo = someCompletionInfo
+        val transactionMeta = someTransactionMeta
+        val externalTransactionHash = someExternalTransactionHash
+        val builder = TxBuilder()
+        val contractId = builder.newCid
+        val contractTemplate = Ref.Identifier.assertFromString("P:M:T")
+        val keyValue = Value.ValueUnit
+        val createNode = builder
+          .create(
+            id = contractId,
+            templateId = contractTemplate,
+            argument = Value.ValueUnit,
+            signatories = Set("signatory1", "signatory2", "signatory3"),
+            observers = Set("observer"),
+            key = CreateKey.KeyWithMaintainers(keyValue, Set("signatory2", "signatory3")),
+          )
+        val createNodeId = builder.add(createNode)
+        val transaction = builder.buildCommitted()
+        val update = state.Update.SequencedTransactionAccepted(
+          completionInfoO = Some(completionInfo),
+          transactionMeta = transactionMeta,
+          transaction = transaction,
+          updateId = updateId,
+          contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
+          synchronizerId = someSynchronizerId1,
+          recordTime = someRecordTime,
+          externalTransactionHash = Some(externalTransactionHash),
+          acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
         )
-      val createNodeId = builder.add(createNode)
-      val transaction = builder.buildCommitted()
-      val update = state.Update.SequencedTransactionAccepted(
-        completionInfoO = Some(completionInfo),
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        updateId = updateId,
-        contractAuthenticationData = Map(contractId -> someContractAuthenticationData),
-        synchronizerId = someSynchronizerId1,
-        recordTime = someRecordTime,
-        externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
-      )
-      val dtos = updateToDtos(update)
+        val dtos = updateToDtos(update)
 
-      dtos.head shouldEqual DbDto.EventCreate(
-        event_offset = someOffset.unwrap,
-        update_id = updateId,
-        ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-        command_id = Some(completionInfo.commandId),
-        workflow_id = transactionMeta.workflowId,
-        user_id = Some(completionInfo.userId),
-        submitters = Some(completionInfo.actAs.toSet),
-        node_id = createNodeId.index,
-        contract_id = createNode.coid.toBytes.toByteArray,
-        template_id = templateIdWithPackageName(createNode),
-        package_id = createNode.templateId.packageId.toString,
-        flat_event_witnesses =
-          Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
-        tree_event_witnesses =
-          Set("signatory1", "signatory2", "signatory3", "observer"), // informees
-        create_argument = emptyArray,
-        create_signatories = Set("signatory1", "signatory2", "signatory3"),
-        create_observers = Set("observer"),
-        create_key_value = Some(emptyArray),
-        create_key_maintainers = Some(Set("signatory2", "signatory3")),
-        create_key_hash = Some(
-          GlobalKey
-            .assertBuild(contractTemplate, keyValue, createNode.packageName)
-            .hash
-            .bytes
-            .toHexString
-        ),
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = compressionAlgorithmId,
-        event_sequential_id = 0,
-        authentication_data = someContractAuthenticationData.toByteArray,
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.toMicros,
-        external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-      )
-      dtos(5) shouldEqual DbDto.CommandCompletion(
-        completion_offset = someOffset.unwrap,
-        record_time = someRecordTime.toMicros,
-        publication_time = 0,
-        user_id = completionInfo.userId,
-        submitters = completionInfo.actAs.toSet,
-        command_id = completionInfo.commandId,
-        update_id = Some(updateId),
-        rejection_status_code = None,
-        rejection_status_message = None,
-        rejection_status_details = None,
-        submission_id = completionInfo.submissionId,
-        deduplication_offset = None,
-        deduplication_duration_nanos = None,
-        deduplication_duration_seconds = None,
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        message_uuid = None,
-        is_transaction = true,
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(6) shouldEqual DbDto.TransactionMeta(
-        update_id = updateId,
-        event_offset = someOffset.unwrap,
-        publication_time = 0,
-        record_time = someRecordTime.toMicros,
-        synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
-      )
-      Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory1"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory2"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "signatory3"),
-        DbDto.IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
-      )
-      dtos.size shouldEqual 7
-    }
-
-    "handle TransactionAccepted (single consuming exercise node)" in {
-      val completionInfo = someCompletionInfo
-      val transactionMeta = someTransactionMeta
-      val externalTransactionHash = someExternalTransactionHash
-      val builder = TxBuilder()
-      val exerciseNode = {
-        val createNode = builder.create(
-          id = builder.newCid,
-          templateId = "M:T",
-          argument = Value.ValueUnit,
-          signatories = List("signatory"),
-          observers = List("observer"),
-        )
-        builder.exercise(
-          contract = createNode,
-          choice = "someChoice",
-          consuming = true,
-          actingParties = Set("signatory"),
-          argument = Value.ValueUnit,
-          result = Some(Value.ValueUnit),
-          choiceObservers = Set.empty,
-          byKey = false,
-        )
-      }
-      val exerciseNodeId = builder.add(exerciseNode)
-      val transaction = builder.buildCommitted()
-      val update = state.Update.SequencedTransactionAccepted(
-        completionInfoO = Some(completionInfo),
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        updateId = updateId,
-        contractAuthenticationData = Map.empty,
-        synchronizerId = someSynchronizerId1,
-        recordTime = CantonTimestamp.ofEpochMicro(120),
-        externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos should contain theSameElementsInOrderAs List(
-        DbDto.EventExercise(
-          consuming = true,
+        dtos.head shouldEqual DbDto.EventCreate(
           event_offset = someOffset.unwrap,
           update_id = updateId,
           ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
@@ -356,40 +241,39 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           workflow_id = transactionMeta.workflowId,
           user_id = Some(completionInfo.userId),
           submitters = Some(completionInfo.actAs.toSet),
-          node_id = exerciseNodeId.index,
-          contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
-          template_id = templateIdWithPackageName(exerciseNode),
-          package_id = exerciseNode.templateId.packageId,
-          flat_event_witnesses = Set("signatory", "observer"), // stakeholders
-          tree_event_witnesses = Set("signatory", "observer"), // informees
-          create_key_value = None,
-          exercise_choice = exerciseNode.choiceId,
-          exercise_argument = emptyArray,
-          exercise_result = Some(emptyArray),
-          exercise_actors = Set("signatory"),
-          exercise_last_descendant_node_id = exerciseNodeId.index,
+          node_id = createNodeId.index,
+          contract_id = createNode.coid.toBytes.toByteArray,
+          template_id = templateIdWithPackageName(createNode),
+          package_id = createNode.templateId.packageId.toString,
+          flat_event_witnesses =
+            if (isAcsDelta) Set("signatory1", "signatory2", "signatory3", "observer")
+            else Set.empty, // stakeholders
+          tree_event_witnesses =
+            Set("signatory1", "signatory2", "signatory3", "observer"), // informees
+          create_argument = emptyArray,
+          create_signatories = Set("signatory1", "signatory2", "signatory3"),
+          create_observers = Set("observer"),
+          create_key_value = Some(emptyArray),
+          create_key_maintainers = Some(Set("signatory2", "signatory3")),
+          create_key_hash = Some(
+            GlobalKey
+              .assertBuild(contractTemplate, keyValue, createNode.packageName)
+              .hash
+              .bytes
+              .toHexString
+          ),
+          create_argument_compression = compressionAlgorithmId,
           create_key_value_compression = compressionAlgorithmId,
-          exercise_argument_compression = compressionAlgorithmId,
-          exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
+          authentication_data = someContractAuthenticationData.toByteArray,
           synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           trace_context = serializedEmptyTraceContext,
-          record_time = 120,
+          record_time = someRecordTime.toMicros,
           external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
-        ),
-        DbDto.IdFilterConsumingStakeholder(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "signatory",
-        ),
-        DbDto.IdFilterConsumingStakeholder(
-          event_sequential_id = 0,
-          template_id = templateIdWithPackageName(exerciseNode),
-          party_id = "observer",
-        ),
-        DbDto.CommandCompletion(
+        )
+        dtos(5) shouldEqual DbDto.CommandCompletion(
           completion_offset = someOffset.unwrap,
-          record_time = 120,
+          record_time = someRecordTime.toMicros,
           publication_time = 0,
           user_id = completionInfo.userId,
           submitters = completionInfo.actAs.toSet,
@@ -406,18 +290,207 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           message_uuid = None,
           is_transaction = true,
           trace_context = serializedEmptyTraceContext,
-        ),
-        DbDto.TransactionMeta(
+        )
+        dtos(6) shouldEqual DbDto.TransactionMeta(
           update_id = updateId,
           event_offset = someOffset.unwrap,
           publication_time = 0,
-          record_time = 120,
+          record_time = someRecordTime.toMicros,
           synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           event_sequential_id_first = 0,
           event_sequential_id_last = 0,
-        ),
-      )
+        )
+        Set(dtos(1), dtos(2), dtos(3), dtos(4)) should contain theSameElementsAs
+          (if (isAcsDelta)
+             Set(
+               DbDto.IdFilterCreateStakeholder(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory1",
+               ),
+               DbDto.IdFilterCreateStakeholder(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory2",
+               ),
+               DbDto.IdFilterCreateStakeholder(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory3",
+               ),
+               DbDto
+                 .IdFilterCreateStakeholder(0L, templateIdWithPackageName(createNode), "observer"),
+             )
+           else
+             Set(
+               DbDto.IdFilterCreateNonStakeholderInformee(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory1",
+               ),
+               DbDto.IdFilterCreateNonStakeholderInformee(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory2",
+               ),
+               DbDto.IdFilterCreateNonStakeholderInformee(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "signatory3",
+               ),
+               DbDto.IdFilterCreateNonStakeholderInformee(
+                 0L,
+                 templateIdWithPackageName(createNode),
+                 "observer",
+               ),
+             ))
+
+        dtos.size shouldEqual 7
+      }
     }
+
+    handleTransactionAcceptedSingleCreateNode(isAcsDelta = true)
+    handleTransactionAcceptedSingleCreateNode(isAcsDelta = false)
+
+    def handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta: Boolean): Unit = {
+      s"handle TransactionAccepted (single consuming exercise node, isAcsDelta = $isAcsDelta)" in {
+        val completionInfo = someCompletionInfo
+        val transactionMeta = someTransactionMeta
+        val externalTransactionHash = someExternalTransactionHash
+        val builder = TxBuilder()
+        val exerciseNode = {
+          val createNode = builder.create(
+            id = builder.newCid,
+            templateId = "M:T",
+            argument = Value.ValueUnit,
+            signatories = List("signatory"),
+            observers = List("observer"),
+          )
+          builder.exercise(
+            contract = createNode,
+            choice = "someChoice",
+            consuming = true,
+            actingParties = Set("signatory"),
+            argument = Value.ValueUnit,
+            result = Some(Value.ValueUnit),
+            choiceObservers = Set.empty,
+            byKey = false,
+          )
+        }
+        val exerciseNodeId = builder.add(exerciseNode)
+        val transaction = builder.buildCommitted()
+        val update = state.Update.SequencedTransactionAccepted(
+          completionInfoO = Some(completionInfo),
+          transactionMeta = transactionMeta,
+          transaction = transaction,
+          updateId = updateId,
+          contractAuthenticationData = Map.empty,
+          synchronizerId = someSynchronizerId1,
+          recordTime = CantonTimestamp.ofEpochMicro(120),
+          externalTransactionHash = Some(externalTransactionHash),
+          acsChangeFactory = TestAcsChangeFactory(contractActivenessChanged = isAcsDelta),
+        )
+        val dtos = updateToDtos(update)
+
+        dtos.head shouldEqual
+          DbDto.EventExercise(
+            consuming = true,
+            event_offset = someOffset.unwrap,
+            update_id = updateId,
+            ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
+            command_id = Some(completionInfo.commandId),
+            workflow_id = transactionMeta.workflowId,
+            user_id = Some(completionInfo.userId),
+            submitters = Some(completionInfo.actAs.toSet),
+            node_id = exerciseNodeId.index,
+            contract_id = exerciseNode.targetCoid.toBytes.toByteArray,
+            template_id = templateIdWithPackageName(exerciseNode),
+            package_id = exerciseNode.templateId.packageId,
+            flat_event_witnesses =
+              if (isAcsDelta) Set("signatory", "observer") else Set.empty, // stakeholders
+            tree_event_witnesses = Set("signatory", "observer"), // informees
+            create_key_value = None,
+            exercise_choice = exerciseNode.choiceId,
+            exercise_argument = emptyArray,
+            exercise_result = Some(emptyArray),
+            exercise_actors = Set("signatory"),
+            exercise_last_descendant_node_id = exerciseNodeId.index,
+            create_key_value_compression = compressionAlgorithmId,
+            exercise_argument_compression = compressionAlgorithmId,
+            exercise_result_compression = compressionAlgorithmId,
+            event_sequential_id = 0,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+            trace_context = serializedEmptyTraceContext,
+            record_time = 120,
+            external_transaction_hash = Some(externalTransactionHash.unwrap.toByteArray),
+          )
+        dtos(3) shouldEqual
+          DbDto.CommandCompletion(
+            completion_offset = someOffset.unwrap,
+            record_time = 120,
+            publication_time = 0,
+            user_id = completionInfo.userId,
+            submitters = completionInfo.actAs.toSet,
+            command_id = completionInfo.commandId,
+            update_id = Some(updateId),
+            rejection_status_code = None,
+            rejection_status_message = None,
+            rejection_status_details = None,
+            submission_id = completionInfo.submissionId,
+            deduplication_offset = None,
+            deduplication_duration_nanos = None,
+            deduplication_duration_seconds = None,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+            message_uuid = None,
+            is_transaction = true,
+            trace_context = serializedEmptyTraceContext,
+          )
+        dtos(4) shouldEqual
+          DbDto.TransactionMeta(
+            update_id = updateId,
+            event_offset = someOffset.unwrap,
+            publication_time = 0,
+            record_time = 120,
+            synchronizer_id = someSynchronizerId1.toProtoPrimitive,
+            event_sequential_id_first = 0,
+            event_sequential_id_last = 0,
+          )
+
+        Set(dtos(1), dtos(2)) should contain theSameElementsAs
+          (if (isAcsDelta)
+             Set(
+               DbDto.IdFilterConsumingStakeholder(
+                 event_sequential_id = 0,
+                 template_id = templateIdWithPackageName(exerciseNode),
+                 party_id = "signatory",
+               ),
+               DbDto.IdFilterConsumingStakeholder(
+                 event_sequential_id = 0,
+                 template_id = templateIdWithPackageName(exerciseNode),
+                 party_id = "observer",
+               ),
+             )
+           else
+             Set(
+               DbDto.IdFilterConsumingNonStakeholderInformee(
+                 event_sequential_id = 0,
+                 template_id = templateIdWithPackageName(exerciseNode),
+                 party_id = "signatory",
+               ),
+               DbDto.IdFilterConsumingNonStakeholderInformee(
+                 event_sequential_id = 0,
+                 template_id = templateIdWithPackageName(exerciseNode),
+                 party_id = "observer",
+               ),
+             ))
+
+        dtos.size shouldEqual 5
+
+      }
+    }
+
+    handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta = true)
+    handleTransactionAcceptedSingleConsumingExerciseNode(isAcsDelta = false)
 
     "handle TransactionAccepted (single non-consuming exercise node)" in {
       val completionInfo = someCompletionInfo
@@ -454,7 +527,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -599,7 +672,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -817,7 +890,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractAuthenticationData = Map.empty,
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -893,7 +966,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -1013,7 +1086,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -1166,7 +1239,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractAuthenticationData = Map.empty,
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -1228,7 +1301,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         synchronizerId = someSynchronizerId1,
         recordTime = someRecordTime,
         externalTransactionHash = Some(externalTransactionHash),
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
       val dtos = updateToDtos(update)
 
@@ -1365,7 +1438,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             synchronizerId = someSynchronizerId1,
             recordTime = someRecordTime,
             externalTransactionHash = Some(externalTransactionHash),
-            acsChangeFactory = TestAcsChangeFactory,
+            acsChangeFactory = TestAcsChangeFactory(),
           )
           val dtos = updateToDtos(update)
 
@@ -1471,7 +1544,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         recordTime = someRecordTime,
         synchronizerId = targetSynchronizerId.unwrap,
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
 
       val dtos = updateToDtos(update)
@@ -1581,7 +1654,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         ),
         recordTime = CantonTimestamp.ofEpochMicro(120),
         synchronizerId = sourceSynchronizerId.unwrap,
-        acsChangeFactory = TestAcsChangeFactory,
+        acsChangeFactory = TestAcsChangeFactory(),
       )
 
       val dtos = updateToDtos(update)

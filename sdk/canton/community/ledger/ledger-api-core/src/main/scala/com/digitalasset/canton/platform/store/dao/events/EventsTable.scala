@@ -63,12 +63,10 @@ object EventsTable {
         val events = entries.iterator.map(_.event).toVector
         transactionShape match {
           case AcsDelta =>
-            val nonTransient = TransactionConversion.removeTransient(events)
-            // Allows emitting AcsDelta transactions with no events for providing completion evidence for submitter-witnesses.
-            Option.when(nonTransient.nonEmpty || first.commandId.nonEmpty)(
+            Option.when(events.nonEmpty)(
               toApiTransaction(
                 first = first,
-                events = nonTransient,
+                events = events,
                 traceContext = extractTraceContext(entries),
               )
             )

@@ -30,7 +30,7 @@ Data Types
          - Type
          - Description
        * - getCommandName
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
 .. _type-daml-script-internal-questions-testing-errorclassname-49861:
@@ -51,7 +51,7 @@ Data Types
          - Type
          - Description
        * - getErrorClassName
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
 .. _type-daml-script-internal-questions-testing-errormessage-78991:
@@ -72,7 +72,7 @@ Data Types
          - Type
          - Description
        * - getErrorMessage
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
 .. _type-daml-script-internal-questions-testing-failedcmd-88074:
@@ -127,10 +127,10 @@ Data Types
          - Type
          - Description
        * - name
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
        * - version
-         - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+         - `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
 
 Functions
@@ -139,7 +139,7 @@ Functions
 .. _function-daml-script-internal-questions-testing-trycommands-17332:
 
 `tryCommands <function-daml-script-internal-questions-testing-trycommands-17332_>`_
-  \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ a)
+  \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` (`Either <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ a)
 
   Internal testing tool that allows us to catch FailedCmds in the daml language
 
@@ -153,14 +153,14 @@ Functions
 .. _function-daml-script-internal-questions-submit-error-isnotactive-40539:
 
 `isNotActive <function-daml-script-internal-questions-submit-error-isnotactive-40539_>`_
-  \: `ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199_>`_ \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+  \: `ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199_>`_ \-\> `Optional <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
 
   Exacts nonactive contract ID from ContractNotFoundAdditionalInfo
 
 .. _function-daml-script-internal-questions-packages-vetpackages-16211:
 
 `vetPackages <function-daml-script-internal-questions-packages-vetpackages-16211_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Vet a set of packages on all participants\.
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -169,7 +169,7 @@ Functions
 .. _function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324:
 
 `vetPackagesOnParticipant <function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Vet a set of packages on a single participant\.
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -178,7 +178,7 @@ Functions
 .. _function-daml-script-internal-questions-packages-unvetpackages-80050:
 
 `unvetPackages <function-daml-script-internal-questions-packages-unvetpackages-80050_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Unvet a set of packages on all participants\.
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -187,7 +187,7 @@ Functions
 .. _function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459:
 
 `unvetPackagesOnParticipant <function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
   Unvet a set of packages on a single participant\.
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -196,7 +196,7 @@ Functions
 .. _function-daml-script-internal-questions-packages-listvettedpackages-3001:
 
 `listVettedPackages <function-daml-script-internal-questions-packages-listvettedpackages-3001_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
   Lists the vetted packages on the default participant
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -205,7 +205,7 @@ Functions
 .. _function-daml-script-internal-questions-packages-listallpackages-50063:
 
 `listAllPackages <function-daml-script-internal-questions-packages-listallpackages-50063_>`_
-  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
+  \: `HasCallStack <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
   Lists all packages (vetted and unvetted) on the default participant
   Note that the Admin API port must be provided when using this with a Canton Ledger
@@ -214,7 +214,7 @@ Functions
 .. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671:
 
 `allocateReplicatedPartyOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671_>`_
-  \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
   Allocate a party with the given display name on the specified main participant using the party management service
   and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the
@@ -223,7 +223,7 @@ Functions
 .. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144:
 
 `allocateReplicatedPartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144_>`_
-  \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540>` \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+  \: `Text <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540>` \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
   Allocate a party with the given display name and id hint on the specified main participant using the party
   management service and replicates it to the specified (possibly empty) list of additional participants\. Commands
@@ -232,7 +232,7 @@ Functions
 .. _function-daml-script-internal-questions-exceptions-throwanyexception-70957:
 
 `throwAnyException <function-daml-script-internal-questions-exceptions-throwanyexception-70957_>`_
-  \: `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` t
+  \: `AnyException <https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` t
 
   Throws an ``AnyException``, note that this function discards the stacktrace
 

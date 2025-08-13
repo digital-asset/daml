@@ -183,7 +183,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       NonEmpty.mk(Set, MultiTransactionSignature(transactionHashes, namespaceSignature))
 
     val signedNamespaceDelegation = SignedTopologyTransaction
-      .create(
+      .tryCreate(
         namespaceDelegationTx,
         multiTxSignatures,
         isProposal = false,
@@ -191,7 +191,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       )
 
     val signedPartyToParticipant = SignedTopologyTransaction
-      .create(
+      .tryCreate(
         partyToParticipantTx,
         multiTxSignatures,
         isProposal = true,
@@ -199,7 +199,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       )
 
     val signedPartyToKey = SignedTopologyTransaction
-      .create(
+      .tryCreate(
         partyToKeyTx,
         multiTxSignatures,
         isProposal = false,

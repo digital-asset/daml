@@ -13,7 +13,8 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.apache.pekko.actor.ActorSystem
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel}
+import org.apache.pekko.stream.KillSwitches
+import org.apache.pekko.stream.scaladsl.{Keep, Sink, SinkQueueWithCancel, Source}
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
 
@@ -101,4 +102,62 @@ class LocalSequencerStateEventSignallerTest
       aliceSignals should have size (2) // there is a one item buffer on both the source queue and broadcast hub
     }
   }
+
+  "a slow consumer doesn't block other consumers" in { env =>
+    import env.*
+
+    val numSignals = 20
+
+    // run a producer that notifies both consumers 20 times at a certain rate
+    val notifierF =
+      PekkoUtil.runSupervised(
+        Source
+          .tick(0.seconds, 100.millis, ())
+          .take(numSignals.toLong)
+          .mapAsync(1)(_ =>
+            signaller.notifyOfLocalWrite(WriteNotification.Members(SortedSet(aliceId, bobId)))
+          )
+          .toMat(Sink.ignore)(Keep.right),
+        errorLogMessagePrefix = "notifier",
+      )
+
+    val consumerKillSwitch = KillSwitches.shared("end-of-signal")
+    // alice is a slow consumer
+    val aliceF = PekkoUtil.runSupervised(
+      signaller
+        .readSignalsForMember(alice, aliceId)
+        .throttle(1, 1.second)
+        .viaMat(consumerKillSwitch.flow)(Keep.left)
+        .toMat(Sink.seq)(Keep.right),
+      errorLogMessagePrefix = "alice consumer",
+    )
+
+    // bob consumes and never backpressures
+    val bobF =
+      PekkoUtil.runSupervised(
+        signaller
+          .readSignalsForMember(bob, bobId)
+          .viaMat(consumerKillSwitch.flow)(Keep.left)
+          .toMat(Sink.seq)(Keep.right),
+        errorLogMessagePrefix = "bob consumer",
+      )
+
+    for {
+      // wait for the producer to terminate
+      _ <- notifierF
+      // terminate the consumer flows so we can collect the results
+      _ = consumerKillSwitch.shutdown()
+      // collect all signals that bob received
+      bob <- bobF
+      // collect all signals that alice received
+      alice <- aliceF
+    } yield {
+      // bob should have received all signals, but because CI can be slow, we allow
+      // for some leeway
+      bob.size should be > (numSignals / 2)
+      // alice should have received fewer signals than bob
+      alice.size should be < bob.length
+    }
+  }
+
 }

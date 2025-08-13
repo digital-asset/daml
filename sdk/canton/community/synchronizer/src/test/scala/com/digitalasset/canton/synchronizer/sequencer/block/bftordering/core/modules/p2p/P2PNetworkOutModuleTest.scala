@@ -9,9 +9,9 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+  PeerConnectionStatus,
   PeerEndpointHealth,
   PeerEndpointHealthStatus,
-  PeerEndpointStatus,
   PeerNetworkStatus,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
@@ -540,7 +540,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
             )
           ) -> PeerNetworkStatus(
             Seq(
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._1.id,
                 PeerEndpointHealth(
                   PeerEndpointHealthStatus.Authenticated(
@@ -549,11 +549,11 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
                   None,
                 ),
               ),
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._2.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None),
               ),
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 anotherEndpoint.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.UnknownEndpoint, None),
               ),
@@ -561,7 +561,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           ),
           None -> PeerNetworkStatus(
             Seq(
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._1.id,
                 PeerEndpointHealth(
                   PeerEndpointHealthStatus.Authenticated(
@@ -570,11 +570,11 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
                   None,
                 ),
               ),
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._2.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None),
               ),
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._3.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Disconnected, None),
               ),
@@ -599,7 +599,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         status should contain(
           PeerNetworkStatus(
             Seq(
-              PeerEndpointStatus(
+              PeerConnectionStatus.PeerEndpointIdStatus(
                 otherInitialEndpointsTupled._2.id,
                 PeerEndpointHealth(PeerEndpointHealthStatus.Disconnected, None),
               )

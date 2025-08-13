@@ -29,8 +29,7 @@ if [ "$(uname)-$(uname -m)" = "Linux-x86_64" ]; then
                        //docs:sphinx-source-tree \
                        //docs:pdf-fonts-tar \
                        //docs:non-sphinx-html-docs \
-                       //docs:sphinx-source-tree-deps \
-                       //test-evidence:generate-security-test-evidence-files"
+                       //docs:sphinx-source-tree-deps"
 else
   extra_build_targets=
 fi

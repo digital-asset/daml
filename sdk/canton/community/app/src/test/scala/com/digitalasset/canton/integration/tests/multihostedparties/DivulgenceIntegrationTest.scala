@@ -166,6 +166,10 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       ) -> NonConsumed,
       aliceStakeholderCreated2P1Archived -> Consumed,
     )
+    // the number of events with acs_delta field set should match the number of ACS deltas
+    participant1.eventsWithAcsDelta(Seq.empty).size shouldBe participant1.acsDeltas(Seq.empty).size
+    participant1.acsDeltas(Seq.empty) shouldBe participant1.acsDeltas(Seq(alice, bob))
+    participant1.acsDeltas(Seq.empty) shouldBe participant1.acsDeltas(Seq(alice))
 
     // participant2 alice
     val aliceBobStakeholderCreatedP2 = participant2.acsDeltas(alice).headOption.value._1
@@ -247,6 +251,10 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       ) -> NonConsumed,
       aliceStakeholder2DivulgedArchiveP2 -> Consumed,
     )
+    // the number of events with acs_delta field set should match the number of ACS deltas
+    participant2.eventsWithAcsDelta(Seq.empty).size shouldBe participant2.acsDeltas(Seq.empty).size
+    participant2.acsDeltas(Seq.empty) shouldBe participant2.acsDeltas(Seq(alice, bob))
+    participant2.acsDeltas(Seq.empty) shouldBe participant2.acsDeltas(Seq(bob))
 
     val ledgerEndP1 = participant1.ledger_api.state.end()
 
@@ -355,10 +363,20 @@ object DivulgenceIntegrationTest {
         .map(c => OffsetCid(c.offset, c.contractId))
 
     def acsDeltas(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_ACS_DELTA, partyId)
+      updates(TRANSACTION_SHAPE_ACS_DELTA, Seq(partyId))
+
+    def acsDeltas(parties: Seq[PartyId]): Seq[(OffsetCid, EventType)] =
+      updates(TRANSACTION_SHAPE_ACS_DELTA, parties)
 
     def ledgerEffects(partyId: PartyId): Seq[(OffsetCid, EventType)] =
-      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, partyId)
+      updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId))
+
+    def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
+      updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
+        case Event.Event.Created(created) => created.acsDelta
+        case Event.Event.Exercised(ex) => ex.acsDelta
+        case _ => false
+      })
 
     def createIou(payer: PartyId, owner: PartyId): (OffsetCid, Iou.Contract) = {
       val (contract, transaction, _) = IouSyntax.createIouComplete(participant)(payer, owner)
@@ -400,10 +418,10 @@ object DivulgenceIntegrationTest {
     def archiveIou(party: PartyId, iou: Iou.Contract): Unit =
       IouSyntax.archive(participant)(iou, party)
 
-    private def updates(
+    private def updatesEvents(
         transactionShape: TransactionShape,
-        party: PartyId,
-    ): Seq[(OffsetCid, EventType)] =
+        parties: Seq[PartyId],
+    ): Seq[Event] =
       participant.ledger_api.updates
         .updates(
           updateFormat = UpdateFormat(
@@ -411,8 +429,8 @@ object DivulgenceIntegrationTest {
               TransactionFormat(
                 eventFormat = Some(
                   EventFormat(
-                    filtersByParty = Map(party.toLf -> Filters(Nil)),
-                    filtersForAnyParty = None,
+                    filtersByParty = parties.map(party => party.toLf -> Filters(Nil)).toMap,
+                    filtersForAnyParty = if (parties.isEmpty) Some(Filters(Nil)) else None,
                     verbose = false,
                   )
                 ),
@@ -429,6 +447,12 @@ object DivulgenceIntegrationTest {
           tx.events
         }
         .flatten
+
+    private def updates(
+        transactionShape: TransactionShape,
+        parties: Seq[PartyId],
+    ): Seq[(OffsetCid, EventType)] =
+      updatesEvents(transactionShape = transactionShape, parties = parties)
         .map(_.event)
         .collect {
           case Event.Event.Created(event) => OffsetCid(event.offset, event.contractId) -> Created

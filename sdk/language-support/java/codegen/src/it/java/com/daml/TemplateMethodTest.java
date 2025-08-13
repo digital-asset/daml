@@ -113,7 +113,8 @@ public class TemplateMethodTest {
           Optional.empty(),
           Collections.emptySet(),
           Collections.emptySet(),
-          Instant.ofEpochMilli(0));
+          Instant.ofEpochMilli(0),
+          false);
 
   @Test
   void contractHasCompanion() {

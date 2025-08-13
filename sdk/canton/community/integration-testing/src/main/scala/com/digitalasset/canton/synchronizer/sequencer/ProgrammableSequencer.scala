@@ -9,7 +9,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.{
   ConfigTransform,
@@ -48,6 +48,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
 }
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -438,6 +439,12 @@ class ProgrammableSequencer(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerError, CantonTimestamp] =
     baseSequencer.awaitContainingBlockLastTimestamp(timestamp)
+
+  override private[sequencer] def updateSynchronizerSuccessor(
+      successorO: Option[SynchronizerSuccessor],
+      announcementEffectiveTime: EffectiveTime,
+  )(implicit traceContext: TraceContext): Unit =
+    baseSequencer.updateSynchronizerSuccessor(successorO, announcementEffectiveTime)
 }
 
 /** Utilities for using the [[ProgrammableSequencer]] from tests */

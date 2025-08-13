@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.CommunityParticipantNodeBootstrapFact
 import com.digitalasset.canton.resource.CommunityDbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.CommunityMediatorNodeBootstrapFactory
 import com.digitalasset.canton.synchronizer.sequencer.CommunitySequencerNodeBootstrapFactory
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
 import com.digitalasset.canton.{HasExecutionContext, config}
 import io.circe.generic.auto.*
@@ -46,6 +47,9 @@ class RemoteDumpIntegrationTest
     with HasExecutionContext
     with StatusIntegrationTestUtil {
 
+  @SuppressWarnings(Array("org.wartremover.warts.Var"))
+  var synchronizerId: PhysicalSynchronizerId = _
+
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1_Config
       .addConfigTransform(
@@ -59,7 +63,7 @@ class RemoteDumpIntegrationTest
         // code will miss the log file, which is called "canton_test.log" in tests instead of the default "canton.log"
         Cli(logFileName = Some("log/canton_test.log")).installLogging()
 
-        bootstrap.synchronizer(
+        synchronizerId = bootstrap.synchronizer(
           "remote-health-synchronizer",
           Seq(rs(sequencer1Name)),
           Seq(rm(mediator1Name)),
@@ -69,6 +73,21 @@ class RemoteDumpIntegrationTest
         )
 
         nodes.remote.foreach(_.health.wait_for_initialized())
+
+        // We add a parameter change to observe it in the health dump
+        Seq[InstanceReference](rs(sequencer1Name), rm(mediator1Name)).foreach { owner =>
+          owner.topology.synchronizer_parameters.propose_update(
+            synchronizerId,
+            _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(2000000)),
+          )
+        }
+        utils.synchronize_topology()
+
+        rp(participant1Name).synchronizers.connect(
+          rs(sequencer1Name),
+          daName,
+        )
+        rp(participant1Name).health.ping(rp(participant1Name).id)
       }
 
   private val participant1Name = "participant1"
@@ -139,6 +158,37 @@ class RemoteDumpIntegrationTest
           Some(testedProtocolVersion.toString)
         )
 
+      def assertSynchronizerParameters(json: Option[Map[String, Json]], nodeName: String) = {
+        val parameters = json.valueOrFail("synchronizerParameters were empty")
+        parameters should have size 1
+        val (nodeNameFromTheDump, nodeParameters) = parameters.headOption.value
+        nodeNameFromTheDump shouldBe nodeName
+        val synchronizerKeys = nodeParameters.asObject.value.keys.toSeq
+        synchronizerKeys should have size 1
+        synchronizerKeys.headOption.value shouldBe synchronizerId.toString
+
+        val parameterChanges =
+          nodeParameters.asObject.value.apply(synchronizerId.toString).value.asArray.value
+        parameterChanges should have size 1
+
+        val confirmationRequestsMaxRateValue = parameterChanges.headOption.value.asObject.value
+          .apply("parameters")
+          .value
+          .asObject
+          .value
+          .apply("participantSynchronizerLimits")
+          .value
+          .asObject
+          .value
+          .apply("confirmationRequestsMaxRate")
+          .value
+          .asNumber
+          .value
+          .toInt
+          .value
+        confirmationRequestsMaxRateValue shouldBe 2000000
+      }
+
       // Check that the sequencer zip contains the correct files
       File.usingTemporaryDirectory() { daUnzip =>
         sequencerZip.unzipTo(daUnzip)
@@ -152,9 +202,10 @@ class RemoteDumpIntegrationTest
         sequencerJson shouldBe defined
         assertNodeVersion(sequencerJson)
         assertSynchronizerProtocolVersion(sequencerJson)
+        assertSynchronizerParameters(parsed.synchronizerParameters, sequencer1Name)
       }
 
-      // Check that the sequencer zip contains the correct files
+      // Check that the mediator zip contains the correct files
       File.usingTemporaryDirectory() { daUnzip =>
         mediatorZip.unzipTo(daUnzip)
         (daUnzip / external
@@ -167,6 +218,7 @@ class RemoteDumpIntegrationTest
         mediatorJson shouldBe defined
         assertNodeVersion(mediatorJson)
         assertSynchronizerProtocolVersion(mediatorJson)
+        assertSynchronizerParameters(parsed.synchronizerParameters, mediator1Name)
       }
 
       // Check that the participant1 zip contains the correct files
@@ -188,7 +240,7 @@ class RemoteDumpIntegrationTest
         participant1Json shouldBe defined
         assertNodeVersion(participant1Json)
         assertParticipantSupportedProtocolVersions(participant1Json)
-
+        assertSynchronizerParameters(parsed.synchronizerParameters, participant1Name)
       }
     }
 
@@ -245,7 +297,10 @@ class RemoteDumpIntegrationTest
   }
 
   // Class to parse only the status part of the dump to be able to do some validation on the content
-  case class JsonDump(status: Map[String, JsonObject])
+  case class JsonDump(
+      status: Map[String, JsonObject],
+      synchronizerParameters: Option[Map[String, Json]],
+  )
 
 }
 
@@ -280,7 +335,7 @@ class NegativeRemoteDumpIntegrationTest
         override def createHealthDumpGenerator(
             commandRunner: GrpcAdminCommandRunner
         ): HealthDumpGenerator =
-          new HealthDumpGenerator(this, commandRunner) {
+          new HealthDumpGenerator(this, commandRunner, this.loggerFactory) {
             override def generateHealthDump(
                 outputFile: File,
                 extraFilesToZip: Seq[File],

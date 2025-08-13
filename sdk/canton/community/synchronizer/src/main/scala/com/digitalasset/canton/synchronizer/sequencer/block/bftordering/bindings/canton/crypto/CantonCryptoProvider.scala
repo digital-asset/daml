@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.crypto
 
-import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
@@ -29,7 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 
 class CantonCryptoProvider(
     cryptoApi: SynchronizerSnapshotSyncCryptoApi,
@@ -59,22 +58,20 @@ class CantonCryptoProvider(
     PekkoFutureUnlessShutdown(
       "signMessage",
       () =>
-        (
-          for {
-            signature <-
-              EitherT[FutureUnlessShutdown, SyncCryptoError, Signature](
-                timeCrypto(
-                  cryptoApi
-                    .sign(
-                      hashForMessage(message, message.from, authenticatedMessageType),
-                      BftOrderingSigningKeyUsage,
-                    )
-                    .value,
-                  operationId = s"sign-$authenticatedMessageType",
-                )
-              )
-          } yield SignedMessage(message, signature)
-        ).value,
+        for {
+          hash <-
+            timeCrypto(
+              FutureUnlessShutdown.outcomeF(
+                Future(hashForMessage(message, message.from, authenticatedMessageType))
+              ),
+              operationId = s"hash-$authenticatedMessageType",
+            )
+          signature <-
+            timeCrypto(
+              cryptoApi.sign(hash, BftOrderingSigningKeyUsage).value,
+              operationId = s"sign-$authenticatedMessageType",
+            )
+        } yield signature.map(SignedMessage(message, _)),
     )
 
   override def verifySignature(

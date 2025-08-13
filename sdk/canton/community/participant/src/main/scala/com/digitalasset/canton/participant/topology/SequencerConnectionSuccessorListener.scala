@@ -88,7 +88,7 @@ class SequencerConnectionSuccessorListener(
         }.toMap
       configuredSequencerIds = configuredSequencers.keySet
 
-      synchronizerUpgradeOngoing <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      (synchronizerUpgradeOngoing, _) <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
       SynchronizerSuccessor(successorPSId, upgradeTime) = synchronizerUpgradeOngoing
 
       _ = logger.debug(

@@ -103,7 +103,7 @@ class SyncEphemeralStateFactoryImpl(
 
       recordOrderPublisher = RecordOrderPublisher(
         persistentState.psid,
-        synchronizerSuccessorO,
+        synchronizerSuccessorO.map { case (successor, _) => successor },
         initSc = startingPoints.processing.nextSequencerCounter,
         initTimestamp = startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,

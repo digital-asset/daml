@@ -1238,6 +1238,36 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     )
   }
 
+  object ExecuteSubmissionAndWaitRequest
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest,
+        JsExecuteSubmissionAndWaitRequest,
+      ] {
+    def fromJson(
+        obj: JsExecuteSubmissionAndWaitRequest
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest] =
+      ExecuteSubmissionRequest
+        .fromJson(obj.transformInto[JsExecuteSubmissionRequest])
+        .map(
+          _.transformInto[
+            lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest
+          ]
+        )
+
+    override def toJson(
+        protoRequest: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitRequest
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[JsExecuteSubmissionAndWaitRequest] =
+      for {
+        json <- ExecuteSubmissionRequest.toJson(
+          protoRequest.transformInto[ExecuteSubmissionRequest]
+        )
+      } yield json.transformInto[JsExecuteSubmissionAndWaitRequest]
+  }
+
   object AllocatePartyRequest
       extends ProtocolConverter[
         lapi.admin.party_management_service.AllocatePartyRequest,

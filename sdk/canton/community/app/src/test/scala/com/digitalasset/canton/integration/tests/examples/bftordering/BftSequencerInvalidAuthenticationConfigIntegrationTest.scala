@@ -52,6 +52,10 @@ class BftSequencerInvalidAuthenticationConfigIntegrationTest
           sequencer2.stop()
         },
         (
+          LogEntryOptionality.Required,
+          _.warningMessage should include("Insecure setup"),
+        ),
+        (
           LogEntryOptionality.Optional,
           _.warningMessage should include("Token refresh aborted due to shutdown"),
         ),

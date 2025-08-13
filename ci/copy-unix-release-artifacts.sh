@@ -73,7 +73,4 @@ if [[ "${NAME}" == "linux-intel" ]]; then
     ${copy} bazel-bin/docs/sphinx-source-tree-deps.tar.gz "${OUTPUT_DIR}/split-release/docs/sphinx-source-tree-deps-${RELEASE_TAG}.tar.gz"
     ${copy} bazel-bin/docs/pdf-fonts-tar.tar.gz "${OUTPUT_DIR}/split-release/docs/pdf-fonts-${RELEASE_TAG}.tar.gz"
     ${copy} bazel-bin/docs/non-sphinx-html-docs.tar.gz "${OUTPUT_DIR}/split-release/docs/non-sphinx-html-docs-${RELEASE_TAG}.tar.gz"
-
-    ${copy} bazel-bin/test-evidence/daml-security-test-evidence.csv "${OUTPUT_DIR}/github/daml-security-test-evidence-${RELEASE_TAG}.csv"
-    ${copy} bazel-bin/test-evidence/daml-security-test-evidence.json "${OUTPUT_DIR}/github/daml-security-test-evidence-${RELEASE_TAG}.json"
 fi

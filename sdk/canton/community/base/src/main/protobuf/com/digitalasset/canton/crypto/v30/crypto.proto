@@ -207,7 +207,7 @@ message SigningPrivateKey {
 }
 
 message SigningKeyPair {
-  SigningPublicKey public_key = 1;
+  reserved 1; // formerly public_key; now derived directly from the private key
   SigningPrivateKey private_key = 2;
 }
 
@@ -276,7 +276,7 @@ message EncryptionPrivateKey {
 }
 
 message EncryptionKeyPair {
-  EncryptionPublicKey public_key = 1;
+  reserved 1; // formerly public_key; now derived directly from the private key
   EncryptionPrivateKey private_key = 2;
 }
 

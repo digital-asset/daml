@@ -7,7 +7,6 @@ import cats.implicits.catsSyntaxSemigroup
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.api.Ref2.{FullIdentifier, IdentifierConverter, NameTypeConRef}
 import com.digitalasset.canton.ledger.api.TransactionShape.AcsDelta
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
@@ -41,7 +40,15 @@ import com.digitalasset.canton.platform.{
   TemplatePartiesFilter,
 }
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Party, QualifiedName, TypeConRef}
+import com.digitalasset.daml.lf.data.Ref.{
+  FullIdentifier,
+  Identifier,
+  IdentifierConverter,
+  NameTypeConRef,
+  Party,
+  QualifiedName,
+  TypeConRef,
+}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, Source}

@@ -100,10 +100,13 @@ final case class AcsChangeFactoryImpl(
       archivalDeactivations.contains(contractId)
 }
 
-object TestAcsChangeFactory extends AcsChangeFactory {
+final case class TestAcsChangeFactory(
+    contractActivenessChanged: Boolean = true
+) extends AcsChangeFactory {
   override def archivalCids: Set[LfContractId] = Set.empty
   override def tryAcsChange(
       reassignmentCounterForArchivals: Map[LfContractId, ReassignmentCounter]
   )(implicit loggingContext: NamedLoggingContext): AcsChange = AcsChange.empty
-  override def contractActivenessChanged(contractId: LfContractId): Boolean = true
+  override def contractActivenessChanged(contractId: LfContractId): Boolean =
+    contractActivenessChanged
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLogging}
@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
 }
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ServerServiceDefinition
 import org.apache.pekko.Done
@@ -180,6 +181,13 @@ trait Sequencer
   /** Status relating to administrative sequencer operations.
     */
   def adminStatus: SequencerAdminStatus
+
+  /** To be called by the topology processing to set/update/remove a synchronizer upgrade
+    */
+  private[sequencer] def updateSynchronizerSuccessor(
+      successorO: Option[SynchronizerSuccessor],
+      announcementEffectiveTime: EffectiveTime,
+  )(implicit traceContext: TraceContext): Unit
 }
 
 /** Sequencer pruning interface.
