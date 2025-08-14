@@ -66,9 +66,9 @@ class GrpcMediatorAdministrationService(
       traceContext: TraceContext
   ): Future[PruningScheduler] = Future.successful(pruningScheduler)
 
-  override def locatePruningTimestamp(
-      request: pruningProto.LocatePruningTimestampRequest
-  ): Future[pruningProto.LocatePruningTimestampResponse] = {
+  override def findPruningTimestamp(
+      request: pruningProto.FindPruningTimestampRequest
+  ): Future[pruningProto.FindPruningTimestampResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       nonNegativeSkip <- NonNegativeInt
@@ -85,7 +85,7 @@ class GrpcMediatorAdministrationService(
         )
 
       timestamp <- mediator.stateInspection
-        .locatePruningTimestamp(nonNegativeSkip)(
+        .findPruningTimestamp(nonNegativeSkip)(
           traceContext,
           CloseContext(pruningScheduler),
         )
@@ -93,7 +93,7 @@ class GrpcMediatorAdministrationService(
       // If we have just determined the oldest mediator response timestamp, report the metric
       _ = if (nonNegativeSkip.value == 0)
         mediator.stateInspection.reportMaxResponseAgeMetric(timestamp)
-    } yield pruningProto.LocatePruningTimestampResponse(timestamp.map(_.toProtoTimestamp))
+    } yield pruningProto.FindPruningTimestampResponse(timestamp.map(_.toProtoTimestamp))
   }
 
   private def exception(status: Status, message: String) =

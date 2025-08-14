@@ -20,7 +20,7 @@ import com.digitalasset.canton.error.{TransactionError, TransactionRoutingError}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{
-  InternalStateService,
+  InternalIndexService,
   PruningResult,
   ReassignmentCommand,
   RoutingSynchronizerState,
@@ -156,13 +156,13 @@ object ApiPackageManagementServiceSpec {
       Future.successful(state.SubmissionResult.Acknowledged)
     }
 
-    override def internalStateService: Option[InternalStateService] =
+    override def internalIndexService: Option[InternalIndexService] =
       throw new UnsupportedOperationException()
 
-    override def registerInternalStateService(internalStateService: InternalStateService): Unit =
+    override def registerInternalIndexService(internalIndexService: InternalIndexService): Unit =
       throw new UnsupportedOperationException()
 
-    override def unregisterInternalStateService(): Unit =
+    override def unregisterInternalIndexService(): Unit =
       throw new UnsupportedOperationException()
 
     override def currentHealth(): HealthStatus =

@@ -211,6 +211,7 @@ trait ParticipantStateChangeIntegrationTest
     // try to start participant3 with an invalid synchronizer id
     val conConfig = SynchronizerConnectionConfig.tryGrpcSingleConnection(
       daName,
+      sequencerAlias = sequencer1.name,
       s"http://localhost:${sequencer1.config.publicApi.port}",
       manualConnect = true,
       psid = Some(

@@ -4,8 +4,8 @@
 package com.digitalasset.canton.console.commands
 
 import com.digitalasset.canton.admin.api.client.commands.MediatorAdministrationCommands.{
+  FindPruningTimestampCommand,
   Initialize,
-  LocatePruningTimestampCommand,
   Prune,
 }
 import com.digitalasset.canton.admin.api.client.commands.{
@@ -123,11 +123,11 @@ class MediatorPruningAdministrationGroup(
       |When pruning the mediator manually via `prune_at` and with the intent to prune in batches, specify
       |a value such as 1000 to obtain a pruning timestamp that corresponds to the "end" of the batch."""
   )
-  def locate_pruning_timestamp(
+  def find_pruning_timestamp(
       index: PositiveInt = PositiveInt.tryCreate(1)
   ): Option[CantonTimestamp] =
     consoleEnvironment.run {
-      runner.adminCommand(LocatePruningTimestampCommand(index))
+      runner.adminCommand(FindPruningTimestampCommand(index))
     }
 
 }

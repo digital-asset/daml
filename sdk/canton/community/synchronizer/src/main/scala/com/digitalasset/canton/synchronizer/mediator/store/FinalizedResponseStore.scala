@@ -85,7 +85,7 @@ private[mediator] trait FinalizedResponseStore extends AutoCloseable {
   /** Locate a timestamp relative to the earliest available finalized response Useful to monitor the
     * progress of pruning and for pruning in batches.
     */
-  def locatePruningTimestamp(skip: Int)(implicit
+  def findPruningTimestamp(skip: Int)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
@@ -183,7 +183,7 @@ private[mediator] class InMemoryFinalizedResponseStore(
   ): FutureUnlessShutdown[Long] =
     FutureUnlessShutdown.pure(finalizedRequests.size.toLong)
 
-  override def locatePruningTimestamp(
+  override def findPruningTimestamp(
       skip: Int
   )(implicit
       traceContext: TraceContext,
@@ -410,7 +410,7 @@ private[mediator] class DbFinalizedResponseStore(
         )(traceContext, closeContext)
     }
 
-  override def locatePruningTimestamp(
+  override def findPruningTimestamp(
       skip: Int
   )(implicit
       traceContext: TraceContext,

@@ -257,15 +257,13 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       // signatory and observer1 are hosted on participant1
       participant1.topology.party_to_participant_mappings.are_known(
         daId,
-        Seq(signatory, observer1),
-        Seq(participant1),
+        Set(signatory -> participant1, observer1 -> participant1),
       ) shouldBe true
 
       // observer1 is not hosted on participant1
       participant1.topology.party_to_participant_mappings.are_known(
         daId,
-        Seq(observer1),
-        Seq(participant2),
+        Set(observer1 -> participant2),
       ) shouldBe false
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)

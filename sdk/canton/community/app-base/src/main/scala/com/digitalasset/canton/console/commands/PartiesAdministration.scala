@@ -28,7 +28,6 @@ import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleCommandResult,
   ConsoleEnvironment,
-  ConsoleMacros,
   FeatureFlag,
   FeatureFlagFilter,
   Help,
@@ -41,7 +40,6 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias}
 import io.grpc.Context
@@ -353,19 +351,6 @@ class ParticipantPartiesAdministrationGroup(
     }
   }
 
-  @Help.Summary("Waits for any topology changes to be observed", FeatureFlag.Preview)
-  @Help.Description(
-    "Will throw an exception if the given topology has not been observed within the given timeout."
-  )
-  def await_topology_observed[T <: ParticipantReference](
-      partyAssignment: Set[(PartyId, T)],
-      timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.bounded,
-  )(implicit env: ConsoleEnvironment): Unit =
-    check(FeatureFlag.Preview) {
-      reference.health.wait_for_initialized()
-      TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
-    }
-
   @Help.Summary("Finds a party's highest activation offset.")
   @Help.Description(
     """This command locates the highest ledger offset where a party's activation matches
@@ -662,33 +647,6 @@ class ParticipantPartiesAdministrationGroup(
         request = "exporting acs at timestamp",
         cleanupOnError = () => file.delete(),
       )
-    }
-}
-
-object TopologySynchronisation {
-
-  def awaitTopologyObserved[T <: ParticipantReference](
-      participant: ParticipantReference,
-      partyAssignment: Set[(PartyId, T)],
-      timeout: NonNegativeDuration,
-  )(implicit env: ConsoleEnvironment): Unit =
-    TraceContext.withNewTraceContext("await_topology") { _ =>
-      ConsoleMacros.utils.retry_until_true(timeout) {
-        val partiesWithId = partyAssignment.map { case (party, participantRef) =>
-          (party, participantRef.id)
-        }
-        env.sequencers.all.map(_.physical_synchronizer_id).distinct.forall { synchronizerId =>
-          !participant.synchronizers.is_connected(synchronizerId) || {
-            val timestamp = participant.testing.fetch_synchronizer_time(synchronizerId)
-            partiesWithId.subsetOf(
-              participant.parties
-                .list(asOf = Some(timestamp.toInstant))
-                .flatMap(res => res.participants.map(par => (res.party, par.participant)))
-                .toSet
-            )
-          }
-        }
-      }
     }
 }
 

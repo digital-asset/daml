@@ -5,19 +5,12 @@ package com.digitalasset.canton.store
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import org.scalactic.source.Position
-import org.scalatest.wordspec.AsyncWordSpec
-import org.scalatest.{Assertion, BeforeAndAfter}
+import org.scalatest.BeforeAndAfter
+import org.scalatest.wordspec.AnyWordSpec
 
 trait SendTrackerStoreTest extends BeforeAndAfter {
-  this: AsyncWordSpec with BaseTest =>
-
-  implicit class StringWrapperUS(s: String) {
-    def inUS(f: => FutureUnlessShutdown[Assertion])(implicit pos: Position): Unit =
-      s in f.onShutdown(fail(s"Unexpected shutdown in StringWrapperUS.inUS"))
-  }
+  this: AnyWordSpec & BaseTest =>
 
   def sendTrackerStore(mk: () => SendTrackerStore): Unit =
     "pending sends" should {
@@ -30,37 +23,37 @@ trait SendTrackerStoreTest extends BeforeAndAfter {
           CantonTimestamp.MinValue.plusSeconds(2),
         )
 
-      "be able to add, remove and list pending sends" inUS {
+      "be able to add, remove and list pending sends" in {
         val store = mk()
-        for {
-          _ <- valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
-          _ <- valueOrFail(store.savePendingSend(msgId2, ts2))("savePendingSend msgId2")
-          pendingSends1 <- store.fetchPendingSends
-          _ = pendingSends1 shouldBe Map(msgId1 -> ts1, msgId2 -> ts2)
-          _ <- store.removePendingSend(msgId2)
-          _ <- valueOrFail(store.savePendingSend(msgId3, ts3))("savePendingSend msgId3")
-          pendingSends2 <- store.fetchPendingSends
-        } yield pendingSends2 shouldBe Map(msgId1 -> ts1, msgId3 -> ts3)
+
+        valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
+        valueOrFail(store.savePendingSend(msgId2, ts2))("savePendingSend msgId2")
+        val pendingSends1 = store.fetchPendingSends
+        pendingSends1 shouldBe Map(msgId1 -> ts1, msgId2 -> ts2)
+        store.removePendingSend(msgId2)
+        valueOrFail(store.savePendingSend(msgId3, ts3))("savePendingSend msgId3")
+        val pendingSends2 = store.fetchPendingSends
+        pendingSends2 shouldBe Map(msgId1 -> ts1, msgId3 -> ts3)
       }
 
-      "fail if we try to track a send with an already tracked id" inUS {
+      "fail if we try to track a send with an already tracked id" in {
         val store = mk()
 
-        for {
-          _ <- valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
-          resultE <- store.savePendingSend(msgId1, ts2).value
-        } yield resultE.left.value shouldBe SavePendingSendError.MessageIdAlreadyTracked
+        valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
+        store
+          .savePendingSend(msgId1, ts2)
+          .left
+          .value shouldBe SavePendingSendError.MessageIdAlreadyTracked
       }
 
-      "be okay tracking a send with a tracked id that has been previously used but since removed" inUS {
+      "be okay tracking a send with a tracked id that has been previously used but since removed" in {
         val store = mk()
 
-        for {
-          _ <- valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
-          _ <- store.removePendingSend(msgId1)
-          _ <- valueOrFail(store.savePendingSend(msgId1, ts2))("savePendingSend msgId1 again")
-          pendingSends <- store.fetchPendingSends
-        } yield pendingSends shouldBe Map(msgId1 -> ts2)
+        valueOrFail(store.savePendingSend(msgId1, ts1))("savePendingSend msgId1")
+        store.removePendingSend(msgId1)
+        valueOrFail(store.savePendingSend(msgId1, ts2))("savePendingSend msgId1 again")
+
+        store.fetchPendingSends shouldBe Map(msgId1 -> ts2)
       }
     }
 }

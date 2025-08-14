@@ -117,7 +117,7 @@ final class ParticipantPruningScheduler(
               },
             )
       }
-      offsetByBatch <- pruningProcessor.locatePruningOffsetForOneIteration.leftMap(pruningError =>
+      offsetByBatch <- pruningProcessor.findPruningOffsetForOneIteration.leftMap(pruningError =>
         Error(s"Error while locating pruning offset for one iteration: ${pruningError.message}")
       )
       // If the retention offset exists, prune at the minimum of the retention offset and the maximum batch size offset

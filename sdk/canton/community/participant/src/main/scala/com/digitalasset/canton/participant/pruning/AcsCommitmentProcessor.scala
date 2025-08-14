@@ -1726,7 +1726,7 @@ class AcsCommitmentProcessor private (
             val batch = Batch.of(protocolVersion, signedCmtMsgs*)
             EitherT(
               sequencerClient
-                .sendAsync(
+                .send(
                   batch,
                   None,
                   // ACS commitments are "best effort", so no need to amplify them

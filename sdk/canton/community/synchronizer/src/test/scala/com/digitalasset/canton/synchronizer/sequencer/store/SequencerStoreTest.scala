@@ -799,7 +799,7 @@ trait SequencerStoreTest
 
         for {
           isStoreInitiallyEmpty <- store
-            .locatePruningTimestamp(NonNegativeInt.tryCreate(0))
+            .findPruningTimestamp(NonNegativeInt.tryCreate(0))
             .map(_.isEmpty)
           sequencerId <- store.registerMember(sequencerMember, ts1)
           aliceId <- store.registerMember(alice, ts1)
@@ -842,7 +842,7 @@ trait SequencerStoreTest
               .valueOrFail("prune")
           }
           recordCountsAfter <- store.countRecords
-          oldestTimestamp <- store.locatePruningTimestamp(NonNegativeInt.tryCreate(0))
+          oldestTimestamp <- store.findPruningTimestamp(NonNegativeInt.tryCreate(0))
         } yield {
           isStoreInitiallyEmpty shouldBe true
           // as pruning is "exclusive", should see the requested pruning time of ts5, and not

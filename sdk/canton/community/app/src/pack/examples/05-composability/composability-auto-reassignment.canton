@@ -45,11 +45,6 @@ participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias
 val Painter = participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
 participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
 
-// Wait until the party enabling has taken effect and has been observed at the participants
-val partyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)
-participant2.parties.await_topology_observed(partyAssignment)
-participant3.parties.await_topology_observed(partyAssignment)
-
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
 participants.all.dars.upload(darPath)

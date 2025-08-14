@@ -22,8 +22,6 @@ import com.digitalasset.canton.console.HeadlessConsole.{
 import com.digitalasset.canton.environment.*
 import com.digitalasset.canton.metrics.OnDemandMetricsReader.NoOpOnDemandMetricsReader$
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
-import com.digitalasset.canton.synchronizer.mediator.MediatorNodeBootstrap
-import com.digitalasset.canton.synchronizer.sequencer.SequencerNodeBootstrap
 import com.digitalasset.canton.telemetry.ConfiguredOpenTelemetry
 import com.digitalasset.canton.tracing.TracerProvider
 import com.digitalasset.canton.{BaseTest, ConfigStubs}
@@ -38,9 +36,9 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.io.ByteArrayOutputStream
 import java.nio.file.Paths
 
-class ConsoleTest extends AnyWordSpec with BaseTest {
+final class ConsoleTest extends AnyWordSpec with BaseTest {
 
-  lazy val DefaultConfig: CantonConfig = CantonConfig(
+  private lazy val DefaultConfig: CantonConfig = CantonConfig(
     sequencers = Map(
       InstanceName.tryCreate("s1") -> ConfigStubs.sequencer,
       InstanceName.tryCreate("s2") -> ConfigStubs.sequencer,
@@ -60,7 +58,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     ),
   )
 
-  lazy val NameClashConfig: CantonConfig = CantonConfig(
+  private lazy val NameClashConfig: CantonConfig = CantonConfig(
     participants = Map(
       // Reserved keyword
       InstanceName.tryCreate("participants") -> ConfigStubs.participant,
@@ -72,7 +70,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     ),
   )
 
-  abstract class TestEnvironment(val config: CantonConfig = DefaultConfig) {
+  private abstract class TestEnvironment(val config: CantonConfig = DefaultConfig) {
     val environment: Environment = mock[Environment]
     val participants: ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode] =
       mock[ParticipantNodes[ParticipantNodeBootstrap, ParticipantNode]]
@@ -80,8 +78,6 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     val mediators: MediatorNodes = mock[MediatorNodes]
     val participantBootstrap: ParticipantNodeBootstrap = mock[ParticipantNodeBootstrap]
     val participant: ParticipantNode = mock[ParticipantNode]
-    val sequencer: SequencerNodeBootstrap = mock[SequencerNodeBootstrap]
-    val mediator: MediatorNodeBootstrap = mock[MediatorNodeBootstrap]
     val adminTokenDispenser: CantonAdminTokenDispenser = mock[CantonAdminTokenDispenser]
     val adminToken: String = "0" * 64
 
@@ -129,7 +125,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
     )
       .thenReturn(GenericCommandError("Mocked error"))
 
-    val consoleEnvironment =
+    private val consoleEnvironment =
       new ConsoleEnvironment(
         environment,
         consoleOutput = testConsoleOutput,
@@ -239,14 +235,17 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       runOrFail("participants.local start")
       verifyStart(this, Seq("p1", "p2", "new", "p-4"))
     }
+
     "start all sequencers" in new TestEnvironment {
       runOrFail("sequencers.local start")
       verifyStart(this, Seq("s1", "s2", "s-3"))
     }
+
     "start all mediators" in new TestEnvironment {
       runOrFail("mediators.local start")
       verifyStart(this, Seq("m1", "m2", "m-3"))
     }
+
     "start all" in new TestEnvironment {
       runOrFail("nodes.local.start()")
       verifyStart(this, Seq("p1", "p2", "new", "p-4", "s1", "s2", "s-3", "m1", "m2", "m-3"))
@@ -260,6 +259,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
               |^""".stripMargin
       }
     }
+
     "return a runtime error if the code does not run successfully" in new TestEnvironment {
       val (result, _) = run("""sys.error("whoopsie")""")
 
@@ -268,6 +268,20 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
         cause.getClass shouldBe classOf[RuntimeException]
         message shouldEqual ""
       }
+    }
+
+    "indicate call site when trying to call a disabled command" in new TestEnvironment {
+      val result = loggerFactory.assertLogs(
+        {
+          val (result, _) = run("p1.clear_cache")
+          result
+        },
+        _.errorMessage should (include("The command is currently disabled.") and include(
+          "Call site: com.digitalasset.canton.console.InstanceReference.clear_cache"
+        )),
+      )
+
+      result.left.value shouldBe a[RuntimeError]
     }
 
     "participants.all.dars.upload should attempt to invoke UploadDar on all participants" in new TestEnvironment {

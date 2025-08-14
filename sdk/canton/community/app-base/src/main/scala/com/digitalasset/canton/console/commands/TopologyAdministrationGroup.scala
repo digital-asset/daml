@@ -1790,32 +1790,35 @@ class TopologyAdministrationGroup(
       * synchronizer `synchronizerId`.
       * @param synchronizerId
       *   Synchronizer on which the party should be hosted
-      * @param parties
-      *   The parties which needs to be hosted
-      * @param hostingParticipants
-      *   Expected hosting participants
+      * @param hostingRelationship
+      *   Hosting relationship that must be known. The parties which needs to be hosted
       */
     def are_known(
         synchronizerId: SynchronizerId,
-        parties: Seq[PartyId],
-        hostingParticipants: Seq[ParticipantId],
+        hostingRelationship: Set[(PartyId, ParticipantId)],
     ): Boolean = {
-      val partyToParticipants: Map[PartyId, Seq[ParticipantId]] = list(synchronizerId)
+      val foundPTP: Map[PartyId, Set[ParticipantId]] = list(synchronizerId)
         .map(_.item)
-        .map(mapping => mapping.partyId -> mapping.participants.map(p => p.participantId))
+        .map(mapping => mapping.partyId -> mapping.participants.map(p => p.participantId).toSet)
         .toMap
 
-      parties.forall { party =>
+      val expectedPTP: Map[PartyId, Set[ParticipantId]] = hostingRelationship.groupMap {
+        case (party, _) => party
+      } { case (_, participant) =>
+        participant
+      }
+
+      expectedPTP.forall { case (party, participants) =>
         val missingParticipants =
-          hostingParticipants.diff(partyToParticipants.getOrElse(party, Seq.empty))
+          participants.diff(foundPTP.getOrElse(party, Set.empty))
 
         if (missingParticipants.isEmpty)
           logger.debug(
-            s"Node knows about $party being hosted on $hostingParticipants"
+            s"Node knows about $party being hosted on $participants"
           )(TraceContext.empty)
         else
           logger.debug(
-            s"Node knows that $party is hosted on ${hostingParticipants.diff(missingParticipants)} but not on $missingParticipants"
+            s"Node knows that $party is hosted on ${participants.diff(missingParticipants)} but not on $missingParticipants"
           )(TraceContext.empty)
 
         missingParticipants.isEmpty

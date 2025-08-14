@@ -252,7 +252,7 @@ class GrpcPartyManagementService(
   ): EitherT[FutureUnlessShutdown, PartyManagementServiceError, Unit] =
     for {
       service <- EitherT.fromOption[FutureUnlessShutdown](
-        sync.internalStateService,
+        sync.internalIndexService,
         PartyManagementServiceError.InternalError.Error("Unavailable internal state service"),
       )
       _ <- EitherT

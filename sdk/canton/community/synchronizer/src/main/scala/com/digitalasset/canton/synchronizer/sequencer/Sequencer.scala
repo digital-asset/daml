@@ -220,7 +220,7 @@ trait SequencerPruning {
     * response When index > 1, returns the timestamp of the index'th oldest response which is useful
     * for pruning in batches when index == batchSize.
     */
-  def locatePruningTimestamp(index: PositiveInt)(implicit
+  def findPruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]]
 

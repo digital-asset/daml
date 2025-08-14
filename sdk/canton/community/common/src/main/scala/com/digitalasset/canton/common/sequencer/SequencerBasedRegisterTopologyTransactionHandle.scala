@@ -99,7 +99,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       "type" -> "send-topology"
     )
     logger.debug(s"Broadcasting topology transaction: ${request.transactions}")
-    sequencerClient.sendAsync(
+    sequencerClient.send(
       Batch
         .of(psid.protocolVersion, (request, Recipients.cc(TopologyBroadcastAddress.recipient))),
       maxSequencingTime = maxSequencingTime,

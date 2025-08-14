@@ -920,7 +920,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     * @return
     *   The timestamp of the (skip+1)'th event if it exists, None otherwise.
     */
-  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+  def findPruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 

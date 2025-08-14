@@ -163,10 +163,12 @@ object EitherTUtil {
       .discard
   }
 
-  /** Measure time of EitherT-based calls, inspired by upstream com.daml.metrics.Timed.future */
-  def timed[F[_], E, R](timerMetric: Timer)(
-      code: => EitherT[F, E, R]
-  )(implicit F: Thereafter[F]): EitherT[F, E, R] = {
+  /** Measure time of async thereafter calls, inspired by upstream com.daml.metrics.Timed.future.
+    * Typically, `F[T]` can be `EitherT[FutureUnlessShutdown, ?, [T]]`.
+    */
+  def timed[F[_], T](timerMetric: Timer)(
+      code: => F[T]
+  )(implicit F: ThereafterAsync[F]): F[T] = {
     val timer = timerMetric.startAsync()
     code.thereafter { _ =>
       timer.stop()

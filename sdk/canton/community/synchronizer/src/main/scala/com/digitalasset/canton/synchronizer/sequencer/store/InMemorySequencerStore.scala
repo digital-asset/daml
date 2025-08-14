@@ -354,7 +354,7 @@ class InMemorySequencerStore(
     removed.get()
   }
 
-  override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+  override def findPruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = FutureUnlessShutdown.pure {
     import scala.jdk.OptionConverters.*

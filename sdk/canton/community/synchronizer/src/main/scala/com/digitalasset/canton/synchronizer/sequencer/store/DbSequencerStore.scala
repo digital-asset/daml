@@ -1385,7 +1385,7 @@ class DbSequencerStore(
       functionFullName,
     )
 
-  override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+  override def findPruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = storage
     .querySingle(

@@ -384,26 +384,26 @@ object SequencerAdminCommands {
 
   }
 
-  final case class LocatePruningTimestampCommand(index: PositiveInt)
+  final case class FindPruningTimestampCommand(index: PositiveInt)
       extends BaseSequencerPruningAdministrationCommand[
-        pruningProto.LocatePruningTimestampRequest,
-        pruningProto.LocatePruningTimestampResponse,
+        pruningProto.FindPruningTimestampRequest,
+        pruningProto.FindPruningTimestampResponse,
         Option[CantonTimestamp],
       ] {
     override protected def createRequest()
-        : Either[String, pruningProto.LocatePruningTimestampRequest] =
+        : Either[String, pruningProto.FindPruningTimestampRequest] =
       Right(
-        pruningProto.LocatePruningTimestampRequest(index.value)
+        pruningProto.FindPruningTimestampRequest(index.value)
       )
 
     override protected def submitRequest(
         service: proto.SequencerPruningAdministrationServiceGrpc.SequencerPruningAdministrationServiceStub,
-        request: pruningProto.LocatePruningTimestampRequest,
-    ): Future[pruningProto.LocatePruningTimestampResponse] =
-      service.locatePruningTimestamp(request)
+        request: pruningProto.FindPruningTimestampRequest,
+    ): Future[pruningProto.FindPruningTimestampResponse] =
+      service.findPruningTimestamp(request)
 
     override protected def handleResponse(
-        response: pruningProto.LocatePruningTimestampResponse
+        response: pruningProto.FindPruningTimestampResponse
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
         CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))

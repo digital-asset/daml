@@ -38,8 +38,8 @@ import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Status
 import io.opentelemetry.sdk.metrics.data.MetricData
 import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
-import org.apache.pekko.stream.{Materializer, ThrottleMode}
 
 import java.nio.file.Path
 import java.time.Instant
@@ -257,7 +257,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
           case None =>
             baseSource
           case Some(sendRate) =>
-            baseSource.throttle(sendRate, per = 1.second, maximumBurst = 0, ThrottleMode.Shaping)
+            baseSource.throttle(sendRate, per = 1.second)
         }
 
       val submissionReplay =

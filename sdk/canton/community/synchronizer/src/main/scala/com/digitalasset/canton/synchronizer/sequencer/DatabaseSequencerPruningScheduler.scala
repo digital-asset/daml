@@ -53,7 +53,7 @@ private[sequencer] class DatabaseSequencerPruningScheduler(
     withUpdatePruningMetric(
       schedule,
       (for {
-        oldestEventTimestamp <- sequencer.locatePruningTimestamp(PositiveInt.one)
+        oldestEventTimestamp <- sequencer.findPruningTimestamp(PositiveInt.one)
         _ <- EitherT.fromEither[FutureUnlessShutdown](
           sequencer.reportMaxEventAgeMetric(oldestEventTimestamp)
         )
@@ -63,7 +63,7 @@ private[sequencer] class DatabaseSequencerPruningScheduler(
           index: PositiveInt,
           onLeft: PruningSupportError => Error = e => Error(e.message),
       ) = sequencer
-        .locatePruningTimestamp(index)
+        .findPruningTimestamp(index)
         .leftMap(onLeft)
 
       (for {

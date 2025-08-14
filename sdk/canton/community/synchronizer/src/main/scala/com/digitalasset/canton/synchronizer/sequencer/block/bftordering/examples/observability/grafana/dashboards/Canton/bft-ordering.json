@@ -19,7 +19,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 4,
+  "id": 6,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -76,7 +76,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 0,
         "y": 1
@@ -115,7 +115,7 @@
           "refId": "A"
         }
       ],
-      "title": "Consensus Current Epoch",
+      "title": "Current Epoch",
       "type": "stat"
     },
     {
@@ -145,8 +145,8 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 4,
+        "h": 3,
+        "w": 3,
         "x": 5,
         "y": 1
       },
@@ -184,7 +184,7 @@
           "refId": "A"
         }
       ],
-      "title": "Consensus Current Epoch Size",
+      "title": "Epoch Length",
       "type": "stat"
     },
     {
@@ -214,9 +214,9 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
-        "w": 5,
-        "x": 9,
+        "h": 3,
+        "w": 3,
+        "x": 8,
         "y": 1
       },
       "hideTimeOverride": false,
@@ -261,6 +261,98 @@
         "type": "prometheus",
         "uid": "$DS"
       },
+      "description": "Number of connected and authenticated P2P peers for the selected sequencer. It should be > 2/3 at all times.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "dark-red",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 67
+              },
+              {
+                "color": "dark-green",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 3,
+        "x": 11,
+        "y": 1
+      },
+      "hideTimeOverride": true,
+      "id": 53,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "last"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.5.12",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "daml_sequencer_bftordering_p2p_connections_connected{reporting_sequencer=\"$reporting_sequencer\"}",
+          "format": "time_series",
+          "instant": true,
+          "interval": "30s",
+          "intervalFactor": 1,
+          "legendFormat": "Connected",
+          "range": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "daml_sequencer_bftordering_p2p_connections_authenticated{reporting_sequencer=\"$reporting_sequencer\"}",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Authenticated",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "Peers",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
       "description": "Total number of blocks ordered and output to the read path. When there is no traffic, a block can be empty.",
       "fieldConfig": {
         "defaults": {
@@ -283,7 +375,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 14,
         "y": 1
@@ -314,7 +406,7 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "daml_sequencer_bftordering_global_ordered_blocks_total{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "sum(daml_sequencer_bftordering_global_ordered_blocks_total{reporting_sequencer=\"$reporting_sequencer\"})",
           "format": "time_series",
           "hide": false,
           "instant": true,
@@ -353,7 +445,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 4,
+        "h": 3,
         "w": 5,
         "x": 19,
         "y": 1
@@ -398,9 +490,8 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "$DS"
+        "uid": "prometheus"
       },
-      "description": "Block commit latency at the consensus (PBFT/ISS) level.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -436,18 +527,7 @@
               "mode": "off"
             }
           },
-          "decimals": 2,
-          "mappings": [
-            {
-              "options": {
-                "match": "null",
-                "result": {
-                  "text": "N/A"
-                }
-              },
-              "type": "special"
-            }
-          ],
+          "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -457,7 +537,7 @@
               },
               {
                 "color": "red",
-                "value": 2
+                "value": 80
               }
             ]
           },
@@ -466,13 +546,12 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 4
       },
-      "hideTimeOverride": true,
-      "id": 39,
+      "id": 87,
       "options": {
         "legend": {
           "calcs": [],
@@ -485,25 +564,20 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "10.4.0",
       "targets": [
         {
           "datasource": {
-            "uid": "$DS"
+            "type": "prometheus",
+            "uid": "prometheus"
           },
           "editorMode": "code",
-          "exemplar": false,
-          "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_consensus_commit_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
-          "format": "time_series",
-          "instant": false,
-          "interval": "30s",
-          "intervalFactor": 1,
+          "expr": "histogram_quantile($percentile, sum(rate(daml_sequencer_bftordering_global_requests_ordering_latency_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Consensus Block Latency",
+      "title": "Requests end-to-end ordering latency",
       "type": "timeseries"
     },
     {
@@ -563,19 +637,23 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 4
       },
       "hideTimeOverride": false,
       "id": 68,
       "options": {
         "legend": {
-          "calcs": [],
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "single",
@@ -591,7 +669,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "irate(daml_sequencer_bftordering_global_ordered_blocks_total{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])",
+          "expr": "sum(irate(daml_sequencer_bftordering_global_ordered_blocks_total{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))",
           "format": "time_series",
           "fullMetaSearch": false,
           "hide": false,
@@ -599,13 +677,25 @@
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{label_name}}",
+          "legendFormat": "All blocks -",
           "range": true,
           "refId": "A",
           "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "expr": "irate(daml_sequencer_bftordering_global_ordered_blocks_total{reporting_sequencer=\"$reporting_sequencer\", is_block_empty=\"true\"}[$__rate_interval])",
+          "hide": false,
+          "legendFormat": "Empty blocks -",
+          "range": true,
+          "refId": "B"
         }
       ],
-      "title": "Output Blocks",
+      "title": "Throughput - blocks/s",
       "type": "timeseries"
     },
     {
@@ -613,67 +703,111 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Percentage of votes received by the currently selected sequencer at every major PBFT stage. Should be > 2/3 at all times, else a leader change (\"view change\" in PBFT parlance) occurs automatically.",
+      "description": "Number of requests per consensus block.",
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
           "custom": {
-            "fillOpacity": 70,
-            "lineWidth": 0,
-            "spanNulls": false
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
           },
-          "decimals": 0,
+          "decimals": 2,
           "links": [],
           "mappings": [],
-          "max": 1,
           "min": 0,
           "thresholds": {
-            "mode": "percentage",
+            "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "green",
                 "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 67
-              },
-              {
-                "color": "#6ED0E0",
-                "value": 80
-              },
-              {
-                "color": "dark-green",
-                "value": 100
               }
             ]
           },
-          "unit": "short"
+          "unit": "cps"
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Height for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#447ebc",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Transactions for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef843c",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 13
+        "y": 11
       },
       "hideTimeOverride": false,
-      "id": 73,
+      "id": 49,
       "options": {
-        "alignValue": "left",
         "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "sum"
+          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
         },
-        "mergeValues": true,
-        "rowHeight": 0.9,
-        "showValue": "always",
         "tooltip": {
-          "mode": "single",
+          "mode": "multi",
           "sort": "none"
         }
       },
@@ -684,48 +818,506 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "exemplar": false,
-          "expr": "daml_sequencer_bftordering_consensus_prepare_votes_percent{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "histogram_sum(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))) / histogram_count(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "Prepare {{voting_sequencer}}",
-          "range": true,
+          "legendFormat": "{{mode}} - Requests",
           "refId": "A"
+        }
+      ],
+      "title": "Requests / Block",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Rate of requests ordered and output to the read path.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "cps"
         },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Height for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#447ebc",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Transactions for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef843c",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "hideTimeOverride": false,
+      "id": 88,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
         {
           "datasource": {
-            "type": "prometheus",
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "daml_sequencer_bftordering_consensus_commit_votes_percent{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "sum(irate(daml_sequencer_bftordering_global_ordered_requests_total{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))",
           "format": "time_series",
-          "hide": false,
-          "legendFormat": "Commit {{voting_sequencer}}",
-          "range": true,
-          "refId": "B"
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "Requests/s -",
+          "refId": "A"
         }
       ],
-      "title": "PBFT Voting Power %",
-      "transformations": [
+      "title": "Throughput - requests/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Number of batches (proofs of availability) per consensus block. Note that < 1 average batch per block likely means empty blocks are being created.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "cps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Height for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#447ebc",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Transactions for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef843c",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "hideTimeOverride": false,
+      "id": 89,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max",
+            "sum"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
         {
-          "id": "renameByRegex",
-          "options": {
-            "regex": "Prepare SEQ::(.*)::.*",
-            "renamePattern": "Prepare $1"
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "expr": "histogram_sum(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_batches{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))) / histogram_count(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_batches{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "format": "time_series",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "{{mode}} - Requests",
+          "refId": "A"
+        }
+      ],
+      "title": "Batches (PoAs) / Block",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Rate of batches (proofs of availability) ordered and output to the read path.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 2,
+          "links": [],
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "cps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Height for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#447ebc",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Total Transactions for last 3 hours"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#ef843c",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "hideTimeOverride": false,
+      "id": 90,
+      "options": {
+        "legend": {
+          "calcs": [
+            "min",
+            "max",
+            "mean"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "expr": "irate(daml_sequencer_bftordering_global_ordered_batches_total{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])",
+          "format": "time_series",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "Batches/s",
+          "refId": "A"
+        }
+      ],
+      "title": "Throughput - batches/s",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS}"
+      },
+      "description": "How many epochs a sequencer is blacklisted",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
           }
         },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "id": 86,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
         {
-          "id": "renameByRegex",
-          "options": {
-            "regex": "Commit SEQ::(.*)::.*",
-            "renamePattern": "Commit $1"
-          }
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS}"
+          },
+          "editorMode": "builder",
+          "expr": "daml_sequencer_bftordering_blacklist_sequencer{reporting_sequencer=\"$reporting_sequencer\"}",
+          "legendFormat": "{{blacklist_sequencer}}",
+          "range": true,
+          "refId": "A"
         }
       ],
-      "type": "state-timeline"
+      "title": "Blacklisted Sequencers",
+      "type": "timeseries"
     },
     {
       "datasource": {
@@ -798,10 +1390,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
-        "w": 12,
+        "h": 7,
+        "w": 6,
         "x": 12,
-        "y": 13
+        "y": 25
       },
       "hideTimeOverride": true,
       "id": 85,
@@ -836,230 +1428,6 @@
         }
       ],
       "title": "Block delay",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${DS}"
-      },
-      "description": "How many epochs a sequencer is blacklisted",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 0,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      },
-      "id": 86,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${DS}"
-          },
-          "editorMode": "builder",
-          "expr": "daml_sequencer_bftordering_blacklist_sequencer{reporting_sequencer=\"$reporting_sequencer\"}",
-          "legendFormat": "{{blacklist_sequencer}}",
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Blacklisted Sequencers",
-      "type": "timeseries"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "$DS"
-      },
-      "description": "Count of non-compliant and possibly byzantine protocol behaviors detected by the currently selected sequencer.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "decimals": 0,
-          "links": [],
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "unit": "none"
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Height for last 3 hours"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#447ebc",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Total Transactions for last 3 hours"
-            },
-            "properties": [
-              {
-                "id": "color",
-                "value": {
-                  "fixedColor": "#ef843c",
-                  "mode": "fixed"
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 0,
-        "y": 21
-      },
-      "hideTimeOverride": false,
-      "id": 74,
-      "options": {
-        "legend": {
-          "calcs": [
-            "mean",
-            "max"
-          ],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "10.1.5",
-      "targets": [
-        {
-          "datasource": {
-            "uid": "$DS"
-          },
-          "editorMode": "code",
-          "expr": "sum(irate(daml_sequencer_bftordering_security_noncompliant_behavior_total[$__rate_interval]))",
-          "format": "time_series",
-          "instant": false,
-          "interval": "",
-          "intervalFactor": 1,
-          "legendFormat": "__auto",
-          "refId": "A"
-        }
-      ],
-      "title": "Non-compliant behaviors",
       "type": "timeseries"
     },
     {
@@ -1156,10 +1524,10 @@
         ]
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 21
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 25
       },
       "hideTimeOverride": false,
       "id": 50,
@@ -1202,99 +1570,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Number of connected and authenticated P2P peers for the selected sequencer. It should be > 2/3 at all times.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "decimals": 0,
-          "mappings": [],
-          "min": 0,
-          "thresholds": {
-            "mode": "percentage",
-            "steps": [
-              {
-                "color": "dark-red",
-                "value": null
-              },
-              {
-                "color": "#EAB839",
-                "value": 67
-              },
-              {
-                "color": "dark-green",
-                "value": 100
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 30
-      },
-      "hideTimeOverride": true,
-      "id": 53,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "pluginVersion": "9.5.12",
-      "targets": [
-        {
-          "datasource": {
-            "uid": "$DS"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "daml_sequencer_bftordering_p2p_connections_connected{reporting_sequencer=\"$reporting_sequencer\"}",
-          "format": "time_series",
-          "instant": true,
-          "interval": "30s",
-          "intervalFactor": 1,
-          "legendFormat": "Connected",
-          "range": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "$DS"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "daml_sequencer_bftordering_p2p_connections_authenticated{reporting_sequencer=\"$reporting_sequencer\"}",
-          "hide": false,
-          "instant": true,
-          "legendFormat": "Authenticated",
-          "range": false,
-          "refId": "B"
-        }
-      ],
-      "title": "Peers",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "$DS"
-      },
-      "description": "Rate of requests ordered and output to the read path.",
+      "description": "Count of non-compliant and possibly byzantine protocol behaviors detected by the currently selected sequencer.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1330,7 +1606,7 @@
               "mode": "off"
             }
           },
-          "decimals": 2,
+          "decimals": 0,
           "links": [],
           "mappings": [],
           "min": 0,
@@ -1343,7 +1619,7 @@
               }
             ]
           },
-          "unit": "cps"
+          "unit": "none"
         },
         "overrides": [
           {
@@ -1379,23 +1655,22 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
-        "x": 12,
-        "y": 30
+        "x": 0,
+        "y": 32
       },
       "hideTimeOverride": false,
-      "id": 49,
+      "id": 74,
       "options": {
         "legend": {
           "calcs": [
             "mean",
-            "max",
-            "sum"
+            "max"
           ],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": true
+          "showLegend": false
         },
         "tooltip": {
           "mode": "multi",
@@ -1409,17 +1684,136 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "histogram_sum(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))) / histogram_count(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "sum(irate(daml_sequencer_bftordering_security_noncompliant_behavior_total[$__rate_interval]))",
           "format": "time_series",
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "{{mode}} - Requests",
+          "legendFormat": "__auto",
           "refId": "A"
         }
       ],
-      "title": "Output Requests",
+      "title": "Non-compliant behaviors",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Percentage of votes received by the currently selected sequencer at every major PBFT stage. Should be > 2/3 at all times, else a leader change (\"view change\" in PBFT parlance) occurs automatically.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "spanNulls": false
+          },
+          "decimals": 0,
+          "links": [],
+          "mappings": [],
+          "max": 1,
+          "min": 0,
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "#EAB839",
+                "value": 67
+              },
+              {
+                "color": "#6ED0E0",
+                "value": 80
+              },
+              {
+                "color": "dark-green",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "hideTimeOverride": false,
+      "id": 73,
+      "options": {
+        "alignValue": "left",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "mergeValues": true,
+        "rowHeight": 0.9,
+        "showValue": "always",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "daml_sequencer_bftordering_consensus_prepare_votes_percent{reporting_sequencer=\"$reporting_sequencer\"}",
+          "format": "time_series",
+          "instant": false,
+          "interval": "",
+          "intervalFactor": 1,
+          "legendFormat": "Prepare {{voting_sequencer}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "expr": "daml_sequencer_bftordering_consensus_commit_votes_percent{reporting_sequencer=\"$reporting_sequencer\"}",
+          "format": "time_series",
+          "hide": false,
+          "legendFormat": "Commit {{voting_sequencer}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "PBFT Voting Power %",
+      "transformations": [
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "Prepare SEQ::(.*)::.*",
+            "renamePattern": "Prepare $1"
+          }
+        },
+        {
+          "id": "renameByRegex",
+          "options": {
+            "regex": "Commit SEQ::(.*)::.*",
+            "renamePattern": "Commit $1"
+          }
+        }
+      ],
+      "type": "state-timeline"
     },
     {
       "collapsed": false,
@@ -1431,7 +1825,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 38
+        "y": 39
       },
       "id": 55,
       "panels": [],
@@ -1448,110 +1842,6 @@
       ],
       "title": "Sequencer overview: $reporting_sequencer",
       "type": "row"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "$DS"
-      },
-      "description": "Number of batches requested by the availability module and not yet provided.",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineInterpolation": "linear",
-            "lineWidth": 1,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": false,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "#7eb26d",
-                "value": null
-              },
-              {
-                "color": "#ef843c",
-                "value": 10
-              },
-              {
-                "color": "#e24d42",
-                "value": 20
-              }
-            ]
-          },
-          "unit": "short"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 39
-      },
-      "hideTimeOverride": true,
-      "id": 76,
-      "options": {
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": false
-        },
-        "tooltip": {
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "9.5.12",
-      "targets": [
-        {
-          "datasource": {
-            "uid": "$DS"
-          },
-          "editorMode": "code",
-          "exemplar": false,
-          "expr": "daml_sequencer_bftordering_mempool_requested_batches{reporting_sequencer=\"$reporting_sequencer\"}",
-          "format": "time_series",
-          "instant": false,
-          "interval": "30s",
-          "intervalFactor": 1,
-          "range": true,
-          "refId": "A"
-        }
-      ],
-      "title": "Outstanding batch requests",
-      "type": "timeseries"
     },
     {
       "datasource": {
@@ -1600,8 +1890,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1618,10 +1907,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 40
       },
       "hideTimeOverride": true,
       "id": 77,
@@ -1662,7 +1951,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Size of the incoming requests buffer (\"mempool\") for the selected sequencer. Its maximum size in bytes and requests count can be currently set via static configuration.",
+      "description": "Number of batches requested by the availability module and not yet provided.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1704,8 +1993,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1722,13 +2010,13 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 40
       },
       "hideTimeOverride": true,
-      "id": 78,
+      "id": 76,
       "options": {
         "legend": {
           "calcs": [],
@@ -1749,7 +2037,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "daml_sequencer_bftordering_ingress_requests_queued{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "daml_sequencer_bftordering_mempool_requested_batches{reporting_sequencer=\"$reporting_sequencer\"}",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -1758,7 +2046,7 @@
           "refId": "A"
         }
       ],
-      "title": "Mempool Size (requests)",
+      "title": "Outstanding batch requests",
       "type": "timeseries"
     },
     {
@@ -1808,8 +2096,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1826,10 +2113,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 57
+        "y": 47
       },
       "hideTimeOverride": true,
       "id": 82,
@@ -1870,7 +2157,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Number of batches requested to be proposed in consensus.",
+      "description": "Size of the incoming requests buffer (\"mempool\") for the selected sequencer. Its maximum size in bytes and requests count can be currently set via static configuration.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1912,8 +2199,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -1930,13 +2216,13 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 57
+        "y": 47
       },
       "hideTimeOverride": true,
-      "id": 79,
+      "id": 78,
       "options": {
         "legend": {
           "calcs": [],
@@ -1957,7 +2243,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "daml_sequencer_bftordering_availability_requested_batches{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "daml_sequencer_bftordering_ingress_requests_queued{reporting_sequencer=\"$reporting_sequencer\"}",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -1966,7 +2252,7 @@
           "refId": "A"
         }
       ],
-      "title": "Block proposals requested by consensus (batches)",
+      "title": "Mempool Size (requests)",
       "type": "timeseries"
     },
     {
@@ -2016,8 +2302,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -2034,10 +2319,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 66
+        "y": 54
       },
       "hideTimeOverride": true,
       "id": 83,
@@ -2078,7 +2363,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Total network ingress for the currently selected sequencer split by sender.",
+      "description": "Number of batches requested to be proposed in consensus.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2091,7 +2376,7 @@
             "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
-            "fillOpacity": 100,
+            "fillOpacity": 10,
             "gradientMode": "none",
             "hideFrom": {
               "legend": false,
@@ -2104,42 +2389,46 @@
             "scaleDistribution": {
               "type": "linear"
             },
-            "showPoints": "never",
+            "showPoints": "auto",
             "spanNulls": false,
             "stacking": {
               "group": "A",
-              "mode": "normal"
+              "mode": "none"
             },
             "thresholdsStyle": {
               "mode": "off"
             }
           },
-          "links": [],
+          "decimals": 0,
           "mappings": [],
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "#7eb26d"
               },
               {
-                "color": "red",
-                "value": 80
+                "color": "#ef843c",
+                "value": 10
+              },
+              {
+                "color": "#e24d42",
+                "value": 20
               }
             ]
           },
-          "unit": "bytes"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
+        "h": 7,
         "w": 12,
         "x": 12,
-        "y": 66
+        "y": 54
       },
-      "id": 59,
+      "hideTimeOverride": true,
+      "id": 79,
       "options": {
         "legend": {
           "calcs": [],
@@ -2152,22 +2441,24 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "10.1.5",
+      "pluginVersion": "9.5.12",
       "targets": [
         {
           "datasource": {
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "sum by(source_sequencer) (daml_sequencer_bftordering_p2p_receive_received_bytes_total{reporting_sequencer=\"$reporting_sequencer\"})",
+          "exemplar": false,
+          "expr": "daml_sequencer_bftordering_availability_requested_batches{reporting_sequencer=\"$reporting_sequencer\"}",
           "format": "time_series",
+          "instant": false,
+          "interval": "30s",
           "intervalFactor": 1,
-          "legendFormat": "{{peer_id}}",
           "range": true,
           "refId": "A"
         }
       ],
-      "title": "Total Network Input",
+      "title": "Block proposals requested by consensus (batches)",
       "type": "timeseries"
     },
     {
@@ -2217,8 +2508,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d",
-                "value": null
+                "color": "#7eb26d"
               },
               {
                 "color": "#ef843c",
@@ -2235,10 +2525,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 8,
+        "h": 7,
         "w": 12,
         "x": 0,
-        "y": 75
+        "y": 61
       },
       "hideTimeOverride": true,
       "id": 84,
@@ -2272,6 +2562,102 @@
         }
       ],
       "title": "Bytes being disseminated",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "$DS"
+      },
+      "description": "Total network ingress for the currently selected sequencer split by sender.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 100,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 6,
+        "x": 12,
+        "y": 61
+      },
+      "id": 59,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "10.1.5",
+      "targets": [
+        {
+          "datasource": {
+            "uid": "$DS"
+          },
+          "editorMode": "code",
+          "expr": "sum by(source_sequencer) (daml_sequencer_bftordering_p2p_receive_received_bytes_total{reporting_sequencer=\"$reporting_sequencer\"})",
+          "format": "time_series",
+          "intervalFactor": 1,
+          "legendFormat": "{{peer_id}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Total Network Input",
       "type": "timeseries"
     },
     {
@@ -2321,8 +2707,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
-                "value": null
+                "color": "green"
               }
             ]
           },
@@ -2331,10 +2716,10 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 9,
-        "w": 12,
-        "x": 12,
-        "y": 75
+        "h": 7,
+        "w": 6,
+        "x": 18,
+        "y": 61
       },
       "id": 58,
       "options": {
@@ -2398,8 +2783,8 @@
       {
         "current": {
           "selected": false,
-          "text": "SEQ::sequencer1::122033c7f31c5b54efbfe27f1e9a752254f7ae2b9c63066e008867dc00812a808ca4",
-          "value": "SEQ::sequencer1::122033c7f31c5b54efbfe27f1e9a752254f7ae2b9c63066e008867dc00812a808ca4"
+          "text": "SEQ::sequencer1::12201e092c1890e837b24f3d2656885c43e96ffe432ed8a4c85ea1c02e3f52c7b353",
+          "value": "SEQ::sequencer1::12201e092c1890e837b24f3d2656885c43e96ffe432ed8a4c85ea1c02e3f52c7b353"
         },
         "datasource": {
           "type": "prometheus",
@@ -2519,6 +2904,6 @@
   "timezone": "",
   "title": "BFT ordering",
   "uid": "UJyurCTWz",
-  "version": 4,
+  "version": 1,
   "weekStart": ""
 }

@@ -7,7 +7,7 @@ import com.digitalasset.canton.integration.CommunityIntegrationTest
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.composabilityConfiguration
 
-abstract class ComposabilityExampleIntegrationTest
+sealed abstract class ComposabilityExampleIntegrationTest
     extends ExampleIntegrationTest(composabilityConfiguration / "composability.conf")
     with CommunityIntegrationTest {
 

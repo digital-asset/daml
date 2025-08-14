@@ -495,7 +495,7 @@ class GrpcSequencerIntegrationTest
       val client = env.makeDefaultClient.futureValueUS.value
       val result = for {
         response <- client
-          .sendAsync(
+          .send(
             Batch
               .of(
                 testedProtocolVersion,
