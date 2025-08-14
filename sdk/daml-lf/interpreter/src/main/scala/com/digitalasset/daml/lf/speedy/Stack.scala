@@ -57,4 +57,3 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
   override def knownSize: Int = size
 
 }
-
