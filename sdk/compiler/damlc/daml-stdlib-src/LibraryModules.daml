@@ -3,7 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS -Wno-unused-imports -Wno-deprecations -Wno-x-crypto #-}
+{-# OPTIONS -Wno-unused-imports -Wno-deprecations -Wno-x-crypto-additions #-}
 
 -- | HIDE
 module LibraryModules where
@@ -13,9 +13,7 @@ import DA.Action.State
 import DA.Assert
 import DA.BigNumeric
 import DA.Bifunctor
-#ifdef DAML_CRYPTO
 import DA.Crypto.Text
-#endif
 import DA.Date
 import DA.Either
 import DA.Exception

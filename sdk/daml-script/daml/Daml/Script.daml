@@ -115,7 +115,6 @@ module Daml.Script
   , tryToEither
   , tryFailureStatus
 
-#ifdef DAML_CRYPTO
   , PrivateKeyHex
   , Secp256k1KeyPair
   , secp256k1generatekeypair
@@ -124,7 +123,6 @@ module Daml.Script
   , secp256k1signWithEcdsaOnly
 #endif
   , CryptoErrorType (..)
-#endif
 
   , -- Upgrades features
     PackageId (..)

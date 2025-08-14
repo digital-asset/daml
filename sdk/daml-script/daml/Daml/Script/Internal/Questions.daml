@@ -5,9 +5,7 @@
 
 module Daml.Script.Internal.Questions
   ( module Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CRYPTO
   , module Daml.Script.Internal.Questions.Crypto
-#endif
   , module Daml.Script.Internal.Questions.Exceptions
   , module Daml.Script.Internal.Questions.Packages
   , module Daml.Script.Internal.Questions.PartyManagement
@@ -21,9 +19,7 @@ module Daml.Script.Internal.Questions
   ) where
 
 import Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CRYPTO
 import Daml.Script.Internal.Questions.Crypto
-#endif
 import Daml.Script.Internal.Questions.Exceptions
 import Daml.Script.Internal.Questions.Packages
 import Daml.Script.Internal.Questions.PartyManagement

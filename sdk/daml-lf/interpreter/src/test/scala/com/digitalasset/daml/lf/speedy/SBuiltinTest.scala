@@ -1931,7 +1931,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "SECP256K1_BOOL and SHA256K1_WITH_ECDSA" - {
+    "SECP256K1_BOOL and SHA256K1_WITH_ECDSA_BOOL" - {
       val keyPair = support.crypto.MessageSignatureUtil.generateKeyPair
       val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
       val privateKey = keyPair.getPrivate

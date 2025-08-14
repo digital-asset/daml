@@ -3,18 +3,9 @@
 
 {-# LANGUAGE CPP #-}
 
-#ifndef DAML_CRYPTO
-
--- | HIDE
-module Daml.Script.Internal.Questions.Crypto where
-
-#else
-
 -- | HIDE
 module Daml.Script.Internal.Questions.Crypto(
   module Daml.Script.Internal.Questions.Crypto.Text
 ) where
 
 import Daml.Script.Internal.Questions.Crypto.Text
-
-#endif
