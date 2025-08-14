@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun.{
   SBImportInputContract,
   SBuildContractInfoStruct,
 }
-import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash}
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
@@ -591,7 +591,16 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
 
         forEvery(testCases) { input =>
-          eval(e"""SHA256_HEX "$input"""") shouldBe a[Left[_, _]]
+          inside(eval(e"""SHA256_HEX "$input"""")) {
+            case Left(
+                  SErrorDamlException(
+                    IE.Crypto(
+                      IE.Crypto.MalformedByteEncoding(`input`, "can not parse hex string")
+                    )
+                  )
+                ) =>
+              succeed
+          }
         }
       }
 

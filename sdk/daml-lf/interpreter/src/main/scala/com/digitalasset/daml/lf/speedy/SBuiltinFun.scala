@@ -592,7 +592,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBSHA256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: Array[SValue]): SText =
-      SText(Utf8.sha256(getSText(args, 0)))
+      SText(Utf8.sha256(Utf8.getBytes(getSText(args, 0))))
   }
 
   final case object SBSHA256Hex extends SBuiltinFun(1) {
@@ -600,15 +600,15 @@ private[lf] object SBuiltinFun {
         args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
-      try {
-        Control.Value(
-          SText(Utf8.sha256(getSText(args, 0), toHexDecode = true))
-        )
-      } catch {
-        case _: IllegalArgumentException =>
+      val hex = getSText(args, 0)
+
+      Ref.HexString.fromString(hex) match {
+        case Right(s) =>
+          Control.Value(SText(Utf8.sha256(Ref.HexString.decode(s))))
+        case Left(_) =>
           Control.Error(
             IE.Crypto(
-              IE.Crypto.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
+              IE.Crypto.MalformedByteEncoding(hex, "can not parse hex string")
             )
           )
       }

@@ -194,7 +194,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       )
 
       for ((msg, digest) <- testCases) {
-        Utf8.sha256(msg) shouldBe digest
+        Utf8.sha256(Utf8.getBytes(msg)) shouldBe digest
       }
     }
 
@@ -205,21 +205,7 @@ class Utf8Spec extends AnyWordSpec with Matchers with ScalaCheckDrivenPropertyCh
       )
 
       for ((msg, digest) <- testCases) {
-        Utf8.sha256(msg, toHexDecode = true) shouldBe digest
-      }
-    }
-
-    "fail to digest malformed hex encoded messages" in {
-      val testCases = List(
-        "Hello World!",
-        "d",
-        "DeadBeef",
-      )
-
-      for (msg <- testCases) {
-        intercept[IllegalArgumentException] {
-          Utf8.sha256(msg, toHexDecode = true)
-        }
+        Utf8.sha256(Ref.HexString.decode(Ref.HexString.assertFromString(msg))) shouldBe digest
       }
     }
   }
