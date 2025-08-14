@@ -34,7 +34,7 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   *      will be saved. Snapshots are disabled if the option is empty.
   * @param requireSuffixedGlobalContractId Since August 2018 we expect new
   *     ledgers to suffix CIDs before committing a transaction.
-  *     This option should be disable for backward compatibility in ledger
+  *     This option should be disabled for backward compatibility in ledger
   *     that do not (i.e. Sandboxes, KV, Corda).
   * @param checkAuthorization Whether to check authorization of transaction.
   *     A value of false is insecure and should be used for security testing only.
@@ -42,6 +42,11 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   *     steps needed to produce a Result.
   * @param createContractsWithContractIdVersion The contract ID version to use
   *     for local contracts
+  * @param useDefensiveContractLookup When true, contracts passed to the ResultNeedContract
+  *      callback are type-checked, authenticated and upgraded by the engine. Explicit disclosures
+  *      are assumed to be provided via ResultNeedContract.
+  *     This parameter is temporary and will be retired once all client code has migrated
+  *     to the new `ResultNeedContract` question.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -57,6 +62,7 @@ final case class EngineConfig(
     iterationsBetweenInterruptions: Long = 10000,
     createContractsWithContractIdVersion: ContractIdVersion = ContractIdVersion.V1,
     paranoid: Boolean = false,
+    useDefensiveContractLookup: Boolean = false,
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(
