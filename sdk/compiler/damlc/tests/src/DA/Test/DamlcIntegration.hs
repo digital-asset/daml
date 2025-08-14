@@ -179,7 +179,7 @@ main = withSdkVersions $ do
                        }
 
   withDamlScriptDep' (Just lfVer) (externalPackages lfVer) $ \scriptPackageData ->
-    SS.withScriptService lfVer scriptLogger scriptConf $ \scriptService -> do
+    SS.withScriptService lfVer scriptLogger scriptConf Nothing $ \scriptService -> do
       hSetEncoding stdout utf8
       setEnv "TASTY_NUM_THREADS" "1" True
       todoRef <- newIORef DList.empty

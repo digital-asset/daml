@@ -23,7 +23,7 @@ else
   makedir="mkdir -p"
 fi
 
-for item in "github" "artifactory" "split-release"; do
+for item in "github" "artifactory" "split-release" "oci/${RELEASE_TAG}/windows"; do
   ${makedir} "${OUTPUT_DIR}/${item}"
 done
 
@@ -38,11 +38,17 @@ ${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/artifacto
 echo "Copying SDK tarball EE to ${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
 ${copy} bazel-bin/release/sdk-release-tarball-ee.tar.gz "${OUTPUT_DIR}/split-release/${SDK_EE_TARBALL}"
 
-DAMLC="damlc-${RELEASE_TAG}-windows.tar.gz"
-echo "Copying damlc to ${OUTPUT_DIR}/split-release/${DAMLC}"
-${copy} bazel-bin/compiler/damlc/damlc-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAMLC}"
+# OCI uploads
+function copy_oci {
+  OCI_NAME=$1
+  OCI_PATH=$2
+  OCI_OUT_PATH="${OUTPUT_DIR}/oci/${RELEASE_TAG}/windows/${OCI_NAME}.tar.gz"
+  echo "Copying ${OCI_NAME}-oci to ${OCI_OUT_PATH}"
+  ${copy} ${OCI_PATH} ${OCI_OUT_PATH}
+}
 
-DAML2JS="daml2js-${RELEASE_TAG}-windows.tar.gz"
-echo "Copying daml2js to ${OUTPUT_DIR}/split-release/${DAML2JS}"
-${copy} bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz "${OUTPUT_DIR}/split-release/${DAML2JS}"
-
+# Copy all platforms for each, publishing script picks out platform independent
+copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
+copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
+copy_oci daml2js bazel-bin/language-support/ts/codegen/daml2js-oci.tar.gz
+copy_oci codegen bazel-bin/language-support/java/codegen/codegen-oci.tar.gz

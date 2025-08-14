@@ -54,7 +54,7 @@ test lfVersion scriptLogger = do
     -- The startup of each script service is fairly expensive so instead of launching a separate
     -- service for each test, we launch a single service that is shared across all tests on the same LF version.
     withResourceCps
-        (SS.withScriptService lfVersion scriptLogger scriptConfig)
+        (SS.withScriptService lfVersion scriptLogger scriptConfig Nothing)
         $ \getScriptService ->
             withResourceCps (withDamlScript (Just lfVersion)) $ \getScriptPackageData ->
                 ideTests lfVersion (Just getScriptService) getScriptPackageData

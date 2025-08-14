@@ -51,6 +51,7 @@ import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.Project.Types (ProjectPath)
+import DA.Daml.Resolution.Config (ResolutionData)
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
@@ -149,6 +150,7 @@ data Options = Options
   , optInlineDamlCustomWarningFlags :: WarningFlags.WarningFlags InlineDamlCustomWarnings
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
+  , optResolutionData :: Maybe ResolutionData
   }
 
 data InlineDamlCustomWarnings
@@ -337,6 +339,7 @@ defaultOptions mbVersion =
         , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags warningFlagParserInlineDamlCustom []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
+        , optResolutionData = Nothing
         }
 
 defaultUpgradeInfo :: UpgradeInfo

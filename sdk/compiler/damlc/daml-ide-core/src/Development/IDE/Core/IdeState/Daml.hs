@@ -6,11 +6,17 @@ module Development.IDE.Core.IdeState.Daml
     , withDamlIdeState
     , enabledPlugins
     , toIdeLogger
+    , scriptServiceJarFromOptions
     ) where
 
 import Control.Exception
+import qualified Data.Map as Map
+import Data.Maybe (listToMaybe)
+import Data.Either.Extra (eitherToMaybe)
 import DA.Daml.Options
 import DA.Daml.Options.Types
+import DA.Daml.Project.Types (ProjectPath (..))
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), findPackageResolutionData)
 import qualified DA.Service.Logger as Logger
 import qualified DA.Daml.LF.ScriptServiceClient as Script
 import Development.IDE.Core.Debouncer
@@ -42,6 +48,14 @@ getDamlIdeState compilerOpts autorunAllScripts mbScriptService loggerH debouncer
 enabledPlugins :: Plugin a
 enabledPlugins = Completions.plugin <> CodeAction.plugin
 
+scriptServiceJarFromOptions :: Options -> Maybe FilePath
+scriptServiceJarFromOptions opts = do
+  resolutionData <- optResolutionData opts
+  packagePath <- unwrapProjectPath <$> optMbPackageConfigPath opts
+  validResolution <- eitherToMaybe $ findPackageResolutionData packagePath resolutionData
+  serviceJarList <- Map.lookup "script-service" $ imports validResolution
+  listToMaybe serviceJarList
+
 -- Wrapper for the common case where the script service
 -- will be started automatically (if enabled)
 -- and we use the builtin VFSHandle. We always disable
@@ -55,7 +69,8 @@ withDamlIdeState ::
     -> IO a
 withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scriptServiceConfig <- Script.readScriptServiceConfig
-    Script.withScriptService' optScriptService optDamlLfVersion loggerH scriptServiceConfig $ \mbScriptService -> do
+
+    Script.withScriptService' optScriptService optDamlLfVersion loggerH scriptServiceConfig (scriptServiceJarFromOptions opts) $ \mbScriptService -> do
         vfs <- makeVFSHandle
         bracket
             (getDamlIdeState opts (StudioAutorunAllScripts True) mbScriptService loggerH noopDebouncer (DummyLspEnv eventHandler) vfs)
