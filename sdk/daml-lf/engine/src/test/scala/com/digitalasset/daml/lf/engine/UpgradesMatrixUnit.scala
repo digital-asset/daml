@@ -128,6 +128,14 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       case _ => PartialFunction.empty
     }
 
+    // TODO: It is not longer easy (or even possible) to distinguish disclosed contracts (https://github.com/digital-asset/daml/issues/21621)
+    val keyMap = disclosures.toSeq
+      .map(d => d.contractKeyWithMaintainers -> d.contractId)
+      .collect({ case (Some(key), cid) =>
+        key -> cid
+      })
+      .toMap
+
     newEngine()
       .submit(
         packageMap = cases.packageMap,
@@ -136,15 +144,14 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         submitters = submitters,
         readAs = readAs,
         cmds = ApiCommands(apiCommands, Time.Timestamp.Epoch, "test"),
-        disclosures = disclosures,
         participantId = participant,
         submissionSeed = submissionSeed,
         prefetchKeys = Seq.empty,
       )
-      .consume(
-        pcs = lookupContractById,
+      .consumeValidated(
+        pcs = lookupContractById ++ disclosures.toSeq.map(c => c.contractId -> c),
         pkgs = cases.lookupPackage,
-        keys = lookupContractByKey,
+        keys = lookupContractByKey.orElse(keyMap),
       )
   }
 

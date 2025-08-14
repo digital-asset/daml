@@ -100,6 +100,7 @@ private[speedy] object SpeedyTestLib {
         Left(err)
     }
 
+  // TODO: Remove UpgradeVerificationRequest (https://github.com/digital-asset/daml/issues/21621)
   @throws[SError.SErrorCrash]
   def runCollectRequests(
       machine: Speedy.Machine[Question.Update],
@@ -109,8 +110,6 @@ private[speedy] object SpeedyTestLib {
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, (SValue, List[UpgradeVerificationRequest])] = {
-
-    var upgradeVerificationRequests: List[UpgradeVerificationRequest] = List.empty
 
     def onQuestion(question: Question.Update): Unit = question match {
       case Question.Update.NeedTime(callback) =>
@@ -127,20 +126,6 @@ private[speedy] object SpeedyTestLib {
           case None =>
             throw UnknownContract(contractId)
         }
-      case Question.Update.NeedUpgradeVerification(
-            coid,
-            signatories,
-            observers,
-            keyOpt,
-            callback,
-          ) =>
-        upgradeVerificationRequests = UpgradeVerificationRequest(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-        ) :: upgradeVerificationRequests
-        callback(None)
 
       case Question.Update.NeedPackage(pkg, _, callback) =>
         getPkg.lift(pkg) match {
@@ -154,7 +139,7 @@ private[speedy] object SpeedyTestLib {
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)
-      case Right(fv) => Right((fv, upgradeVerificationRequests.reverse))
+      case Right(fv) => Right((fv, Nil))
     }
   }
 

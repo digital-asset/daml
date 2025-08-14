@@ -9,6 +9,7 @@ import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
+import com.digitalasset.canton.protocol.LfFatContractInst
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.PackageSyncService
@@ -39,6 +40,7 @@ import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
+  GlobalKey,
   Node,
   SubmittedTransaction,
   Transaction,
@@ -115,6 +117,10 @@ final class StoreBackedCommandInterpreter(
         commands.disclosedContracts.iterator
           .map(c => c.fatContractInstance.contractId -> c.fatContractInstance)
           .toMap,
+        commands.disclosedContracts.iterator
+          .map(c => c.fatContractInstance.contractKeyWithMaintainers -> c.fatContractInstance.contractId)
+          .collect({case (Some(k), cId)  => k.globalKey -> cId})
+          .toMap,
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
@@ -141,14 +147,13 @@ final class StoreBackedCommandInterpreter(
   )(implicit
       tc: TraceContext
   ): Either[ErrorCause.DisclosedContractsSynchronizerIdMismatch, CommandInterpretationResult] = {
-    val disclosedContractsMap =
-      commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
 
-    val processedDisclosedContractsSynchronizers = meta.disclosedEvents
-      .map { event =>
-        val disclosedContract = disclosedContractsMap(event.coid)
-        disclosedContract.fatContractInstance -> disclosedContract.synchronizerIdO
-      }
+    val usedContracts = updateTx.inputContracts
+
+    val processedDisclosedContractsSynchronizers: ImmArray[(LfFatContractInst, Option[SynchronizerId])] =
+      ImmArray.from(commands.disclosedContracts.iterator)
+        .filter(dc => usedContracts.contains(dc.fatContractInstance.contractId))
+        .map(dc => (dc.fatContractInstance, dc.synchronizerIdO))
 
     StoreBackedCommandInterpreter
       .considerDisclosedContractsSynchronizerId(
@@ -216,7 +221,6 @@ final class StoreBackedCommandInterpreter(
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
-          disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
           prefetchKeys = commands.prefetchKeys,
@@ -255,6 +259,7 @@ final class StoreBackedCommandInterpreter(
       readAs: Set[Ref.Party],
       result: Result[A],
       disclosedContracts: Map[ContractId, FatContract],
+      disclosedKeys: Map[GlobalKey, ContractId],
       interpretationTimeNanos: AtomicLong,
       ledgerEffectiveTime: Time.Timestamp,
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
@@ -275,6 +280,9 @@ final class StoreBackedCommandInterpreter(
 
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
+        case ResultNeedContract(acoid, resume) if disclosedContracts.contains(acoid) =>
+          resolveStep(resume(disclosedContracts.get(acoid).map(c => ContractAndIdValidator.preValidated(c))))
+
         case ResultNeedContract(acoid, resume) =>
           val start = System.nanoTime
           Timed
@@ -288,10 +296,13 @@ final class StoreBackedCommandInterpreter(
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(fatInstanceOpt)),
+                  trackSyncExecution(interpretationTimeNanos)(resume(fatInstanceOpt.map(c => ContractAndIdValidator.preValidated(c)))),
                 )
               )
             }
+
+        case ResultNeedKey(key, resume) if disclosedKeys.contains(key.globalKey) =>
+          resolveStep(resume(disclosedKeys.get(key.globalKey)))
 
         case ResultNeedKey(key, resume) =>
           val start = System.nanoTime
@@ -377,20 +388,6 @@ final class StoreBackedCommandInterpreter(
                 FutureUnlessShutdown.pure(Left(error))
               } else resume()
           }
-
-        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          FutureUnlessShutdown
-            .outcomeF(
-              checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
-            )
-            .flatMap { result =>
-              resolveStep(
-                Tracked.value(
-                  metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(result)),
-                )
-              )
-            }
 
         case ResultPrefetch(coids, keys, resume) =>
           // Trigger loading through the state cache and the batch aggregator.
@@ -518,9 +515,6 @@ final class StoreBackedCommandInterpreter(
       case Valid => None
       case UpgradeFailure(message) => Some(message)
       case ContractNotFound =>
-        // During submission the ResultNeedUpgradeVerification should only be called
-        // for contracts that are being upgraded. We do not support the upgrading of
-        // divulged contracts.
         Some(s"Contract with $coid was not found.")
       case MissingAuthenticationData =>
         Some(
