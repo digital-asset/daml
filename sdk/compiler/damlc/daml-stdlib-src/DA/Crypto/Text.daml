@@ -18,7 +18,9 @@ module DA.Crypto.Text
   (keccak256
   , sha256
   , secp256k1
+#ifdef DAML_CRYPTO_ADDITIONS
   , secp256k1WithEcdsaOnly
+#endif
   , HasToHex(..)
   , HasFromHex(..)
   , numericViaStringToHex
