@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import java.util
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
@@ -187,8 +186,12 @@ private[lf] object Speedy {
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
       initialEnvSize: Int = 512,
+      initialKontStackSize: Int = 128,
   )(implicit loggingContext: LoggingContext)
-      extends Machine[Question.Update](initialEnvSize = initialEnvSize) {
+      extends Machine[Question.Update](
+        initialEnvSize = initialEnvSize,
+        initialKontStackSize = initialKontStackSize,
+      ) {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ThinContractInstance]
 
@@ -786,8 +789,12 @@ private[lf] object Speedy {
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
       initialEnvSize: Int = 512,
+      initialKontStackSize: Int = 128,
   )(implicit loggingContext: LoggingContext)
-      extends Machine[Nothing](initialEnvSize = initialEnvSize) {
+      extends Machine[Nothing](
+        initialEnvSize = initialEnvSize,
+        initialKontStackSize = initialKontStackSize,
+      ) {
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -811,8 +818,8 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int)(implicit
-      val loggingContext: LoggingContext
+  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int, initialKontStackSize: Int)(
+      implicit val loggingContext: LoggingContext
   ) {
 
     val sexpr: SExpr
@@ -918,7 +925,7 @@ private[lf] object Speedy {
     /* Kont, or continuation specifies what should be done next
      * once the control has been evaluated.
      */
-    private[speedy] final var kontStack: util.ArrayList[Kont[Q]] = initialKontStack()
+    private[speedy] final val kontStack: Stack[Kont[Q]] = initialKontStack(initialKontStackSize)
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
@@ -936,8 +943,6 @@ private[lf] object Speedy {
     private[speedy] final def currentEnv: Env = env
 
     private[speedy] final def currentEnvBase: Int = envBase
-
-    private[speedy] final def currentKontStack: util.ArrayList[Kont[Q]] = kontStack
 
     final def getLastLocation: Option[Location] = lastLocation
 
@@ -962,10 +967,10 @@ private[lf] object Speedy {
 
     /* kont manipulation... */
 
-    final protected def clearKontStack(): Unit = kontStack.clear()
+    final protected def clearKontStack(): Unit = kontStack.keep(0)
 
     @inline
-    private[speedy] final def kontDepth(): Int = kontStack.size()
+    private[speedy] final def kontDepth(): Int = kontStack.size
 
     private[speedy] def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -973,7 +978,7 @@ private[lf] object Speedy {
 
     @inline
     private[speedy] final def pushKont(k: Kont[Q]): Unit = {
-      discard[Boolean](kontStack.add(k))
+      discard[Int](kontStack.push(k))
       if (enableInstrumentation) {
         track.incrPushesKont()
         track.setDepthKont(kontDepth())
@@ -981,19 +986,16 @@ private[lf] object Speedy {
     }
 
     @inline
-    private[speedy] final def popKont(): Kont[Q] = {
-      kontStack.remove(kontStack.size - 1)
-    }
+    private[speedy] final def popKont(): Kont[Q] =
+      kontStack.pop
 
     @inline
-    private[speedy] final def peekKontStackEnd(): Kont[Q] = {
-      kontStack.get(kontStack.size - 1)
-    }
+    private[speedy] final def peekKontStackEnd(): Kont[Q] =
+      kontStack(1)
 
     @inline
-    private[speedy] final def peekKontStackTop(): Kont[Q] = {
-      kontStack.get(0)
-    }
+    private[speedy] final def peekKontStackTop(): Kont[Q] =
+      kontStack(kontStack.size)
 
     /* env manipulation... */
 
@@ -1092,7 +1094,7 @@ private[lf] object Speedy {
       setControl(Control.Expression(expr))
       clearEnv()
       clearKontStack()
-      discard[Boolean](kontStack.add(KPure(Control.Complete)))
+      discard[Int](kontStack.push(KPure(Control.Complete)))
       envBase = 0
       interruptionCountDown = iterationsBetweenInterruptions
       track.reset()
@@ -1517,6 +1519,7 @@ private[lf] object Speedy {
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
         initialEnvSize: Int = 512,
+        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1527,6 +1530,7 @@ private[lf] object Speedy {
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
         initialEnvSize = initialEnvSize,
+        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1536,11 +1540,13 @@ private[lf] object Speedy {
         compiledPackages: CompiledPackages,
         expr: Expr,
         initialEnvSize: Int = 512,
+        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
         initialEnvSize = initialEnvSize,
+        initialKontStackSize = initialKontStackSize,
       )
 
     @throws[PackageNotFound]
@@ -1607,21 +1613,18 @@ private[lf] object Speedy {
   }
 
   // Environment
-  //
-  // NOTE(JM): We use ArrayList instead of ArrayBuffer as
-  // it is significantly faster.
   private[speedy] type Env = Stack[SValue]
 
   //
   // Kontinuation
   //
   // Whilst the machine is running, we ensure the kontStack is *never* empty.
-  // We do this by pushing a KPure(Control.Complete) continutaion on the initially
+  // We do this by pushing a KPure(Control.Complete) continuation on the initially
   // empty stack, which returns the final result
 
-  private[this] def initialKontStack[Q](): util.ArrayList[Kont[Q]] = {
-    val kontStack = new util.ArrayList[Kont[Q]](128)
-    discard[Boolean](kontStack.add(KPure(Control.Complete)))
+  private[this] def initialKontStack[Q](initialKontStackSize: Int): Stack[Kont[Q]] = {
+    val kontStack = new Stack[Kont[Q]](initialKontStackSize)
+    discard[Int](kontStack.push(KPure(Control.Complete)))
     kontStack
   }
 

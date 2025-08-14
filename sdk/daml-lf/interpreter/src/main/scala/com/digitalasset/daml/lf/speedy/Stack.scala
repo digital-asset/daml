@@ -1,3 +1,6 @@
+// Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.daml.lf.speedy
 
 // We force S to be an AnyRef like that we do not need a ClassTag for S
@@ -12,7 +15,7 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
 
   override def size: Int = size_
 
-  private def grow: Int = {
+  private[this] def grow: Int = {
     val capacity = this.capacity
     val oldArray = array
     array = Array.ofDim(capacity * 2)
@@ -20,6 +23,7 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
     capacity
   }
 
+  // Return the number of elements added to the underlying array
   def push(value: X): Int = {
     val increase = if (size < capacity) 0 else grow
     array(size_) = value
@@ -27,34 +31,30 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
     increase
   }
 
-//  def pop: X = {
-//    val x = array(size_ - 1)
-//    size_ -= 1
-//    array(size_ - 1) = null
-//    x.asInstanceOf[X]
-//  }
+  def pop: X = {
+    val x = array(size_ - 1)
+    size_ -= 1
+    array(size_) = null // drop the reference
+    x.asInstanceOf[X]
+  }
 
-  // keep the first n elements of the stack
+  // keep the n oldest elements of the stack
   def keep(n: Int): Unit = {
-    if (n > size_)
-      throw new IllegalArgumentException(s"Cannot keep $n elements, stack size is $size")
     var i = n
     while (i < size_) {
-      array(i) = null // drop references
+      array(i) = null // drop the references
       i += 1
     }
     size_ = n
   }
 
   // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
-  def apply(i: Int): X = {
-    assert(0 < i && i <= size_)
+  def apply(i: Int): X =
     array(size_ - i).asInstanceOf[X]
-  }
 
   override def iterator: Iterator[X] = array.iterator.take(size).asInstanceOf[Iterator[X]]
 
   override def knownSize: Int = size
 
-
 }
+
