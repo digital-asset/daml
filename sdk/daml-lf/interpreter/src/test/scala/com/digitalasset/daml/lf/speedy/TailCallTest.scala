@@ -71,13 +71,7 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
   // Evaluate an expression with optionally bounded env and kont stacks
   def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
     // create the machine
-    val machine = Speedy.Machine.fromPureExpr(pkgs, e)
-    // maybe replace the env-stack with a bounded version
-    envBound match {
-      case None => ()
-      case Some(bound) =>
-        machine.env = new BoundedArrayList[SValue](bound)
-    }
+    val machine = Speedy.Machine.fromPureExpr(pkgs, e, initialEnvSize = envBound.getOrElse(512))
     // maybe replace the kont-stack with a bounded version
     kontBound match {
       case None => ()
@@ -93,7 +87,10 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
     }
     // run the machine
     machine.run() match {
-      case SResultFinal(v) => v
+      case SResultFinal(v) =>
+        if (envBound.exists(_ < machine.env.capacity))
+          throw BoundExceeded
+        v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }

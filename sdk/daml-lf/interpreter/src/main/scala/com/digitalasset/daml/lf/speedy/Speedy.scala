@@ -186,8 +186,9 @@ private[lf] object Speedy {
       /* Commit location, if a script commit is in progress. */
       val commitLocation: Option[Location],
       val limits: interpretation.Limits,
+      initialEnvSize: Int = 512,
   )(implicit loggingContext: LoggingContext)
-      extends Machine[Question.Update] {
+      extends Machine[Question.Update](initialEnvSize = initialEnvSize) {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ThinContractInstance]
 
@@ -784,8 +785,9 @@ private[lf] object Speedy {
       override val profile: Profile,
       override val iterationsBetweenInterruptions: Long,
       override val convertLegacyExceptions: Boolean,
+      initialEnvSize: Int = 512,
   )(implicit loggingContext: LoggingContext)
-      extends Machine[Nothing] {
+      extends Machine[Nothing](initialEnvSize = initialEnvSize) {
 
     private[speedy] override def asUpdateMachine(location: String)(
         f: UpdateMachine => Control[Question.Update]
@@ -809,7 +811,9 @@ private[lf] object Speedy {
   }
 
   /** The speedy CEK machine. */
-  private[lf] sealed abstract class Machine[Q](implicit val loggingContext: LoggingContext) {
+  private[lf] sealed abstract class Machine[Q](initialEnvSize: Int)(implicit
+      val loggingContext: LoggingContext
+  ) {
 
     val sexpr: SExpr
     /* The trace log. */
@@ -905,7 +909,7 @@ private[lf] object Speedy {
     /* Actuals: to access values for a function application's arguments. */
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
-    private[speedy] final var env: Env = emptyEnv
+    private[speedy] final val env: Env = new Stack(initialEnvSize)
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
      * begun. We revert to this depth when entering a closure, or returning to the top
      * continuation on the kontStack.
@@ -938,7 +942,7 @@ private[lf] object Speedy {
     final def getLastLocation: Option[Location] = lastLocation
 
     final protected def clearEnv(): Unit = {
-      env.clear()
+      env.keep(0)
       envBase = 0
     }
 
@@ -998,9 +1002,8 @@ private[lf] object Speedy {
     // And made explicit by a specifc speedy expression node: SELocS/SELocA/SELocF
     // At runtime these different location-node execute by calling the corresponding `getEnv*` function
 
-    // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
     @inline
-    private[speedy] final def getEnvStack(i: Int): SValue = env.get(env.size - i)
+    private[speedy] final def getEnvStack(i: Int): SValue = env(i)
 
     // Variables which reside in the args array of the current frame. Indexed by absolute offset.
     @inline
@@ -1012,7 +1015,7 @@ private[lf] object Speedy {
 
     @inline
     final def pushEnv(v: SValue): Unit = {
-      discard[Boolean](env.add(v))
+      discard[Int](env.push(v))
       if (enableInstrumentation) {
         track.incrPushesEnv()
         track.setDepthEnv(env.size)
@@ -1064,7 +1067,7 @@ private[lf] object Speedy {
         )
       }
       if (count > 0) {
-        env.subList(envSizeToBeRestored, env.size).clear()
+        env.keep(envSizeToBeRestored)
       }
     }
 
@@ -1087,8 +1090,9 @@ private[lf] object Speedy {
       */
     final def setExpressionToEvaluate(expr: SExpr): Unit = {
       setControl(Control.Expression(expr))
-      kontStack = initialKontStack()
-      env = emptyEnv
+      clearEnv()
+      clearKontStack()
+      discard[Boolean](kontStack.add(KPure(Control.Complete)))
       envBase = 0
       interruptionCountDown = iterationsBetweenInterruptions
       track.reset()
@@ -1512,6 +1516,7 @@ private[lf] object Speedy {
         warningLog: WarningLog = newWarningLog,
         profile: Profile = newProfile,
         convertLegacyExceptions: Boolean = true,
+        initialEnvSize: Int = 512,
     )(implicit loggingContext: LoggingContext): PureMachine =
       new PureMachine(
         sexpr = expr,
@@ -1521,6 +1526,7 @@ private[lf] object Speedy {
         profile = profile,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         convertLegacyExceptions = convertLegacyExceptions,
+        initialEnvSize = initialEnvSize,
       )
 
     @throws[PackageNotFound]
@@ -1529,10 +1535,12 @@ private[lf] object Speedy {
     def fromPureExpr(
         compiledPackages: CompiledPackages,
         expr: Expr,
+        initialEnvSize: Int = 512,
     )(implicit loggingContext: LoggingContext): PureMachine =
       fromPureSExpr(
         compiledPackages,
         compiledPackages.compiler.unsafeCompile(expr),
+        initialEnvSize = initialEnvSize,
       )
 
     @throws[PackageNotFound]
@@ -1602,8 +1610,7 @@ private[lf] object Speedy {
   //
   // NOTE(JM): We use ArrayList instead of ArrayBuffer as
   // it is significantly faster.
-  private[speedy] type Env = util.ArrayList[SValue]
-  private[speedy] def emptyEnv: Env = new util.ArrayList[SValue](512)
+  private[speedy] type Env = Stack[SValue]
 
   //
   // Kontinuation
@@ -1762,7 +1769,7 @@ private[lf] object Speedy {
       savedBase: Int,
       frame: Frame,
       actuals: Actuals,
-      to: util.ArrayList[SValue],
+      base: Int,
       next: SExpr,
   ) extends Kont[Q]
       with SomeArrayEquals
@@ -1770,14 +1777,21 @@ private[lf] object Speedy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
-      discard[Boolean](to.add(v))
+      machine.env.keep(base)
+      discard[Int](machine.env.push(v))
       Control.Expression(next)
     }
   }
 
   object KPushTo {
-    def apply[Q](machine: Machine[Q], to: util.ArrayList[SValue], next: SExpr): KPushTo[Q] =
-      KPushTo(machine.markBase(), machine.currentFrame, machine.currentActuals, to, next)
+    def apply[Q](machine: Machine[Q], next: SExpr): KPushTo[Q] =
+      KPushTo(
+        machine.markBase(),
+        machine.currentFrame,
+        machine.currentActuals,
+        machine.env.size,
+        next,
+      )
   }
 
   private[speedy] final case class KFoldl[Q] private (
