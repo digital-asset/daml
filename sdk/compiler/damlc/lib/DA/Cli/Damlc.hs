@@ -1481,7 +1481,6 @@ execDocTest opts scriptDar (ImportSource importSource) files =
         { optImportPath = importPaths <> optImportPath opts
         , optHaddock = Haddock True
         }
-      opts <- addResolutionData opts
       withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
           docTest ideState files'
 

@@ -35,6 +35,8 @@ else
   extra_build_targets=
 fi
 
+# damlc-dist built for Gary's experiment, may be able to revert/remove
+# only built on linux
 $bazel build \
   //compiler/damlc/tests:platform-independence.dar \
   //release:sdk-release-tarball-ce \
