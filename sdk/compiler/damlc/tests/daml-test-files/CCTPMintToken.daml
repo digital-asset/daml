@@ -1,7 +1,7 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
-{-# OPTIONS_GHC -Wno-x-crypto-additions #-}
+{-# OPTIONS_GHC -Wno-x-crypto #-}
 
 module CCTPMintToken where
 

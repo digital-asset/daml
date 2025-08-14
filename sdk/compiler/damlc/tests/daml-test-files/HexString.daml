@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
-{-# OPTIONS_GHC -Wno-x-crypto-additions #-}
+{-# OPTIONS_GHC -Wno-x-crypto #-}
 
 module HexString where
 

@@ -1957,10 +1957,6 @@ isHex :: Text -> Bool
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-keccak256-57106
 keccak256 :: BytesHex -> BytesHex
 
--- | Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key.
-@url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-secp256k1withecdsaonly-56908
-secp256k1WithEcdsaOnly :: SignatureHex -> BytesHex -> PublicKeyHex -> Bool
-
 -- | Validate the SECP256K1 signature given a SHA256 hash of a hex encoded message and a hex encoded DER formatted public key.
 @url https://docs.digitalasset.com/build/3.4/reference/daml/stdlib/DA-Crypto-Text.html#function-da-crypto-text-secp256k1-38075
 secp256k1 :: SignatureHex -> BytesHex -> PublicKeyHex -> Bool
