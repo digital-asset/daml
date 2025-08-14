@@ -60,11 +60,17 @@ ptunit = pbuiltin P.BuiltinTypeUNIT
 ptint :: P.Type
 ptint = pbuiltin P.BuiltinTypeINT64
 
+ptvar :: Int32 -> P.Type
+ptvar i = pliftT $ P.TypeSumVar $ P.Type_Var i V.empty
+
 ptbool :: P.Type
 ptbool = pbuiltin P.BuiltinTypeBOOL
 
-ptarr :: P.Type -> P.Type -> P.Type
-ptarr t1 t2 = pliftT $ P.TypeSumBuiltin $ P.Type_Builtin (P.Enumerated $ Right P.BuiltinTypeARROW) (V.fromList [t1, t2])
+ptarrV :: V.Vector P.Type -> P.Type
+ptarrV xs = pliftT $ P.TypeSumBuiltin $ P.Type_Builtin (P.Enumerated $ Right P.BuiltinTypeARROW) xs
+
+ptarr :: P.Type
+ptarr = ptarrV V.empty
 
 ptinterned :: Int32 -> P.Type
 ptinterned = pliftT . P.TypeSumInternedType
@@ -98,6 +104,9 @@ ptsynid = P.TypeSynId (Just $ P.ModuleId (Just id) 0)
 
 ptsyn :: Int32 -> V.Vector P.Type -> P.Type
 ptsyn i args = pliftT $ P.TypeSumSyn $ P.Type_Syn (Just (ptsynid i)) args
+
+ptapp :: P.Type -> P.Type -> P.Type
+ptapp t1 t2 = pliftT $ P.TypeSumTapp $ P.Type_TApp (Just t1) (Just t2)
 
 -- Exprs
 liftE :: P.ExprSum -> P.Expr

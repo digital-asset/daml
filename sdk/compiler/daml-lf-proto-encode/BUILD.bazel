@@ -39,6 +39,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "containers",
+        "extra",
         "mtl",
         "lens",
         "text",

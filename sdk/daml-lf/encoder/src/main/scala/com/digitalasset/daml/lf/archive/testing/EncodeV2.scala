@@ -187,7 +187,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val builder = PLF.Kind.newBuilder()
       // KArrows breaks the exhaustiveness checker.
       (k: @unchecked) match {
-        case KArrows(params, result) =>
+        case KArrows(params, result) if languageVersion < LV.Features.flatArchive =>
           expect(result == KStar)
           builder
             .setArrow(
@@ -195,6 +195,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
                 .newBuilder()
                 .accumulateLeft(params)(_ addParams encodeKind(_))
                 .setResult(kStar)
+            )
+        case KArrow(param, result) =>
+          builder
+            .setArrow(
+              PLF.Kind.Arrow
+                .newBuilder()
+                .addParams(encodeKindBuilder(param))
+                .setResult(encodeKindBuilder(result))
             )
         case KStar =>
           builder
@@ -243,7 +251,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
       val (typ, args) =
         typ0 match {
-          case TApps(typ1, args1) => typ1 -> args1
+          case TApps(typ1, args1) if languageVersion < LV.Features.flatArchive => typ1 -> args1
           case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
@@ -268,8 +276,16 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setBuiltin(
             PLF.Type.Builtin.newBuilder().setBuiltin(proto).accumulateLeft(typs)(_ addArgs _)
           )
-        case TApp(_, _) =>
-          sys.error("unexpected error")
+        case TApp(lhs, rhs) =>
+          if (languageVersion >= LV.Features.flatArchive)
+            builder.setTapp(
+              PLF.Type.TApp
+                .newBuilder()
+                .setLhs(encodeTypeBuilder(lhs))
+                .setRhs(encodeTypeBuilder(rhs))
+            )
+          else
+            sys.error(s"unexpected TApp on lf version $languageVersion")
         case TForalls(binders, body) =>
           expect(args.isEmpty)
           builder.setForall(

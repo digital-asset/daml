@@ -34,7 +34,7 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "daml-lf-proto-test",
+    name = "test",
     srcs = [
         "test/DA/Daml/LF/Proto3/EncodeDecodeTest.hs",
     ],
