@@ -279,6 +279,7 @@ private[validation] object Typing {
       BGreater -> tComparison,
       BGreaterEq -> tComparison,
       BSECP256K1Bool -> (TText ->: TText ->: TText ->: TBool),
+      BSECP256K1WithEcdsaBool -> (TText ->: TText ->: TText ->: TBool),
       BCoerceContractId ->
         TForall(
           alpha.name -> KStar,

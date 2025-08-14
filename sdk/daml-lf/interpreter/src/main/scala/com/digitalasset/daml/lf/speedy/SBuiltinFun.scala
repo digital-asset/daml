@@ -640,6 +640,32 @@ private[lf] object SBuiltinFun {
         args: Array[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
+      val arg1 = getSText(args, 1)
+
+      Ref.HexString.fromString(arg1) match {
+        case Right(message) =>
+          val messageDigest = Utf8.sha256(Utf8.getBytes(message))
+          args.update(1, SText(messageDigest))
+          SBSECP256K1WithEcdsaBool.execute(args, machine)
+
+        case Left(_) =>
+          Control.Error(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(
+                arg1,
+                cause = "can not parse message hex string",
+              )
+            )
+          )
+      }
+    }
+  }
+
+  final case object SBSECP256K1WithEcdsaBool extends SBuiltinFun(3) {
+    private[speedy] def execute[Q](
+        args: Array[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       try {
         val result = for {
           signature <- Ref.HexString

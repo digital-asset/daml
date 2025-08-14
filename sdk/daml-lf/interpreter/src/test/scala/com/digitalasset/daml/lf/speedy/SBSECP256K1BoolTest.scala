@@ -6,7 +6,7 @@ package speedy
 
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1Bool
+import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBSECP256K1WithEcdsaBool
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -21,14 +21,14 @@ class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers {
     val actualPublicKey = MessageSignatureUtil.generateKeyPair.getPublic
     val hexEncodedPublicKey = Bytes.fromByteArray(actualPublicKey.getEncoded).toHexString
 
-    SBSECP256K1Bool.extractPublicKey(hexEncodedPublicKey) shouldBe actualPublicKey
+    SBSECP256K1WithEcdsaBool.extractPublicKey(hexEncodedPublicKey) shouldBe actualPublicKey
   }
 
   "PublicKeys fail to be built from invalid hex encoded public key strings" in {
     val invalidHexEncodedPublicKey = Ref.HexString.assertFromString("deadbeef")
 
     assertThrows[InvalidKeySpecException](
-      SBSECP256K1Bool.extractPublicKey(invalidHexEncodedPublicKey)
+      SBSECP256K1WithEcdsaBool.extractPublicKey(invalidHexEncodedPublicKey)
     )
   }
 
@@ -40,7 +40,7 @@ class SBSECP256K1BoolTest extends AnyFreeSpec with Matchers {
       Ref.HexString.encode(Bytes.fromByteArray(badFormatPublicKey.getEncoded))
 
     assertThrows[InvalidKeySpecException](
-      SBSECP256K1Bool.extractPublicKey(invalidHexEncodedPublicKey)
+      SBSECP256K1WithEcdsaBool.extractPublicKey(invalidHexEncodedPublicKey)
     )
   }
 }

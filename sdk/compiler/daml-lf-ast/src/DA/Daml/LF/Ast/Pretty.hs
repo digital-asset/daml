@@ -299,6 +299,7 @@ instance Pretty BuiltinExpr where
     BEEncodeHex -> "TEXT_TO_HEX"
     BEDecodeHex -> "HEX_TO_TEXT"
     BESecp256k1Bool -> "SECP256K1_BOOL"
+    BESecp256k1WithEcdsaBool -> "SECP256K1_WITH_ECDSA_BOOL"
     BETrace -> "TRACE"
     BETextToParty -> "TEXT_TO_PARTY"
     BETextToInt64 -> "TEXT_TO_INT64"

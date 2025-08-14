@@ -44,6 +44,8 @@ convertPrim _ "BEEqualList" ((a1 :-> a2 :-> TBool) :-> TList a3 :-> TList a4 :->
     pure $ EBuiltinFun BEEqualList `ETyApp` a1
 convertPrim _ "BESecp256k1Bool" (TText :-> TText :-> TText :-> TBool) =
     pure $ EBuiltinFun BESecp256k1Bool
+convertPrim _ "BESecp256k1WithEcdsaBool" (TText :-> TText :-> TText :-> TBool) =
+    pure $ EBuiltinFun BESecp256k1WithEcdsaBool
 
 -- Integer arithmetic
 convertPrim _ "BEAddInt64" (TInt64 :-> TInt64 :-> TInt64) =

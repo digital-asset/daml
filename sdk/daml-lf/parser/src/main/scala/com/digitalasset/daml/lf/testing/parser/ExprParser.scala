@@ -404,6 +404,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "GREATER" -> BGreater,
     "GREATER_EQ" -> BGreaterEq,
     "SECP256K1_BOOL" -> BSECP256K1Bool,
+    "SECP256K1_WITH_ECDSA_BOOL" -> BSECP256K1WithEcdsaBool,
     "COERCE_CONTRACT_ID" -> BCoerceContractId,
     "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
     "SCALE_BIGNUMERIC" -> BScaleBigNumeric,

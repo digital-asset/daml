@@ -442,6 +442,7 @@ private[lf] final class PhaseOne(
           case BGreater => SBGreater
           case BGreaterEq => SBGreaterEq
           case BSECP256K1Bool => SBSECP256K1Bool
+          case BSECP256K1WithEcdsaBool => SBSECP256K1WithEcdsaBool
 
           // TextMap
 

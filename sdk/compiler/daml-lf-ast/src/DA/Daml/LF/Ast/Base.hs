@@ -331,6 +331,7 @@ data BuiltinExpr
   | BECodePointsToText           -- :: List Int64 -> Text
 
   | BESecp256k1Bool              -- :: Text -> Text -> Text -> Bool
+  | BESecp256k1WithEcdsaBool     -- :: Text -> Text -> Text -> Bool
 
   -- BigNumeric operations
   | BEScaleBigNumeric            -- :: BigNumeric -> Int64
