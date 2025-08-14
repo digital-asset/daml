@@ -66,7 +66,7 @@ class ParticipantRepairAdministration(
       synchronizerAlias: SynchronizerAlias,
       contractIds: Seq[LfContractId],
       ignoreAlreadyPurged: Boolean = true,
-  ): Unit =
+  ): Unit = check(FeatureFlag.Repair) {
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement.PurgeContracts(
@@ -76,8 +76,9 @@ class ParticipantRepairAdministration(
         )
       )
     }
+  }
 
-  @Help.Summary("Migrate contracts from one synchronizer to another one.")
+  @Help.Summary("Migrate contracts from one synchronizer to another one.", FeatureFlag.Repair)
   @Help.Description(
     """Migrates all contracts associated with a synchronizer to a new synchronizer.
         |This method will register the new synchronizer, connect to it and then re-associate all contracts from the source
@@ -101,11 +102,13 @@ class ParticipantRepairAdministration(
       target: SynchronizerConnectionConfig,
       force: Boolean = false,
   ): Unit =
-    consoleEnvironment.run {
-      runner.adminCommand(
-        ParticipantAdminCommands.ParticipantRepairManagement
-          .MigrateSynchronizer(source, target, force = force)
-      )
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .MigrateSynchronizer(source, target, force = force)
+        )
+      }
     }
 
   @Help.Summary("Change assignation of contracts from one synchronizer to another.")

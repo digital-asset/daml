@@ -144,22 +144,12 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
     )
 
     darPaths.foreach { darPath =>
-      participants.all.foreach(p => p.dars.upload(darPath))
+      participants.all.foreach(_.dars.upload(darPath))
     }
 
     // Advance the simClock to trigger time-proof requests, if present
     val clock = environment.simClock
     clock.foreach(_.advance(java.time.Duration.ofSeconds(5)))
-
-    val partyAssignment: Set[(PartyId, ParticipantReference)] =
-      Set(alice -> P5, alice -> P2, painter -> P4, painter -> P3, bank -> P1).map {
-        case (party, participant) => (party.toPartyId(), participant)
-      }
-
-    logger.debug(s"Waiting to see topology assignments for $alice, $bank and $painter")
-    List(P1, P2, P3, P4, P5).foreach { x =>
-      x.parties.await_topology_observed(partyAssignment)
-    }
   }
 
   protected def withUniqueParties[T](

@@ -49,12 +49,6 @@ participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias
 val Painter = participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
 participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
 
-// Wait until the party enabling has taken effect and has been observed at the participants
-val initialPartyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)
-participant1.parties.await_topology_observed(initialPartyAssignment)
-participant2.parties.await_topology_observed(initialPartyAssignment)
-participant3.parties.await_topology_observed(initialPartyAssignment)
-
 // Enable the house owner on participant 5 and the painter on participant 4
 // This works here because the parties are fresh, i.e., they do not have any contracts yet.
 import com.digitalasset.canton.console.ParticipantReference
@@ -71,9 +65,11 @@ addPartyToParticipant(HouseOwner, iouId, participant2, participant5)
 addPartyToParticipant(Painter, iouId, participant3, participant4)
 
 // Wait until the party enabling has taken effect and has been observed at the participants
-val partyAssignment = Set(HouseOwner -> participant2, HouseOwner -> participant5, Painter -> participant3, Painter -> participant4)
-participant2.parties.await_topology_observed(partyAssignment)
-participant3.parties.await_topology_observed(partyAssignment)
+val partyAssignment = Set(HouseOwner -> participant2.id, HouseOwner -> participant5.id, Painter -> participant3.id, Painter -> participant4.id)
+utils.retry_until_true {
+  participant2.topology.party_to_participant_mappings.are_known(iouId, partyAssignment)
+  participant3.topology.party_to_participant_mappings.are_known(iouId, partyAssignment)
+}
 
 // upload the Daml model to all participants
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")

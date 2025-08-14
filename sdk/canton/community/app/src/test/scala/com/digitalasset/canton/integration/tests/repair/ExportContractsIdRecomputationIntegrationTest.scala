@@ -162,7 +162,7 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
 
       val result = File.temporaryFile(suffix = ".gz").map { brokenExportFile =>
         val source =
-          participant1.underlying.value.sync.internalStateService.value.activeContracts(
+          participant1.underlying.value.sync.internalIndexService.value.activeContracts(
             Set(alice.toLf),
             Offset.fromLong(aliceAddedOnP2Offset.unwrap).toOption,
           )

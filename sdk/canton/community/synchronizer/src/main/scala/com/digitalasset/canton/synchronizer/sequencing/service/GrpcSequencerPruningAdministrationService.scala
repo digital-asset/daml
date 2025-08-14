@@ -60,14 +60,15 @@ class GrpcSequencerPruningAdministrationService(
 
     result.asGrpcResponse
   }
-  override def locatePruningTimestamp(
-      request: pruningProto.LocatePruningTimestampRequest
-  ): Future[pruningProto.LocatePruningTimestampResponse] = {
+
+  override def findPruningTimestamp(
+      request: pruningProto.FindPruningTimestampRequest
+  ): Future[pruningProto.FindPruningTimestampResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     val result =
       EitherTUtil
-        .toFutureUnlessShutdown[StatusException, pruningProto.LocatePruningTimestampResponse] {
+        .toFutureUnlessShutdown[StatusException, pruningProto.FindPruningTimestampResponse] {
           for {
             index <- EitherT
               .fromEither[FutureUnlessShutdown](
@@ -76,11 +77,11 @@ class GrpcSequencerPruningAdministrationService(
                   .leftMap(e => Status.INVALID_ARGUMENT.withDescription(e.message).asException())
               )
             ts <- sequencer
-              .locatePruningTimestamp(index)
+              .findPruningTimestamp(index)
               .leftMap(e => Status.UNIMPLEMENTED.withDescription(e.message).asException())
             // If we just fetched the oldest event, take the opportunity to report the max-event-age metric
             _ = if (index.value == 1) sequencer.reportMaxEventAgeMetric(ts)
-          } yield pruningProto.LocatePruningTimestampResponse(ts.map(_.toProtoTimestamp))
+          } yield pruningProto.FindPruningTimestampResponse(ts.map(_.toProtoTimestamp))
         }
 
     result.asGrpcResponse

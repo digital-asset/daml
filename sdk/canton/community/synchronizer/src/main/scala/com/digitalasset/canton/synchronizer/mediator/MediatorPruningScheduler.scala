@@ -50,12 +50,12 @@ class MediatorPruningScheduler(
   ): FutureUnlessShutdown[JobScheduler.ScheduledRunResult] = withUpdatePruningMetric(
     schedule,
     mediator.stateInspection
-      .locatePruningTimestamp(NonNegativeInt.zero)
+      .findPruningTimestamp(NonNegativeInt.zero)
       .map(mediator.stateInspection.reportMaxResponseAgeMetric),
   ) { pruningSchedule =>
     for {
       nextBatchTimestamp <- mediator.stateInspection
-        .locatePruningTimestamp(
+        .findPruningTimestamp(
           config.maxPruningBatchSize.toNonNegative
         )
 

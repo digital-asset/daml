@@ -193,7 +193,7 @@ class TrafficPurchasedSubmissionHandler(
     synchronizerTimeTracker.requestTick(maxSequencingTime)
     for {
       _ <- sequencerClient
-        .sendAsync(
+        .send(
           batch,
           aggregationRule = Some(aggregationRule),
           maxSequencingTime = maxSequencingTime,

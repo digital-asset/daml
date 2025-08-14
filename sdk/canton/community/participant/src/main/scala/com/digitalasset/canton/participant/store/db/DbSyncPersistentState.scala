@@ -156,7 +156,7 @@ class DbPhysicalSyncPersistentState(
       loggerFactory,
     )
 
-  val sendTrackerStore: SendTrackerStore = SendTrackerStore(storage)
+  val sendTrackerStore: SendTrackerStore = SendTrackerStore()
 
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(

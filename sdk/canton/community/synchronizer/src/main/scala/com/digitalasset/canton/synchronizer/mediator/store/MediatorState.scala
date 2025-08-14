@@ -274,11 +274,11 @@ private[mediator] class MediatorState(
     *
     * If skip == 0, returns the timestamp of the oldest, unpruned finalized response.
     */
-  def locatePruningTimestamp(skip: NonNegativeInt)(implicit
+  def findPruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = for {
-    ts <- finalizedResponseStore.locatePruningTimestamp(skip.value)
+    ts <- finalizedResponseStore.findPruningTimestamp(skip.value)
     _ = if (skip.value == 0) MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, ts)
   } yield ts
 

@@ -111,7 +111,7 @@ object BftBlockOrdererConfig {
 
   val DefaultMaxRequestPayloadBytes: Int = 1 * 1024 * 1024
   val DefaultMaxMempoolQueueSize: Int = 10 * 1024
-  val DefaultMaxRequestsInBatch: Short = 16
+  val DefaultMaxRequestsInBatch: Short = 32
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16

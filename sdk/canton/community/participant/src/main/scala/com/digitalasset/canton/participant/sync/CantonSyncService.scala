@@ -167,7 +167,7 @@ class CantonSyncService(
     with Spanning
     with NamedLogging
     with HasCloseContext
-    with InternalStateServiceProviderImpl {
+    with InternalIndexServiceProviderImpl {
 
   private val connectionsManager = new SynchronizerConnectionsManager(
     participantId,

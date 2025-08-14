@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import cats.Monad
-import cats.data.EitherT
+import cats.data.{EitherT, Nested}
 import cats.implicits.catsSyntaxOptionId
 import cats.syntax.alternative.*
 import cats.syntax.either.*
@@ -83,6 +83,7 @@ import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, WithKillSwitch}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
@@ -272,7 +273,7 @@ abstract class SequencerClientImpl(
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
+  ): SendAsyncResult =
     sendAsyncInternal(
       batch,
       topologyTimestamp,
@@ -312,7 +313,7 @@ abstract class SequencerClientImpl(
       metricsContext: MetricsContext,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] = {
+  ): SendAsyncResult = {
     implicit val metricsContextImplicit =
       metricsContext.withExtraLabels("synchronizer" -> psid.toString)
     withSpan("SequencerClient.sendAsync") { implicit traceContext => span =>
@@ -363,7 +364,7 @@ abstract class SequencerClientImpl(
 
       if (replayEnabled) {
         val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
-        for {
+        val resF = for {
           costO <- EitherT.liftF(
             trafficStateController.flatTraverse(_.computeCost(batch, syncCryptoApi.ipsSnapshot))
           )
@@ -388,8 +389,13 @@ abstract class SequencerClientImpl(
                 Option.empty[TrafficReceipt],
               )
             )
-          callback(UnlessShutdown.Outcome(dummySendResult))
+
+          EitherT.pure[FutureUnlessShutdown, SendAsyncClientError](
+            callback(UnlessShutdown.Outcome(dummySendResult))
+          )
         }
+
+        Nested(resF): SendAsyncResult
       } else {
         val sendResultPromise = PromiseUnlessShutdown.supervised[SendResult](
           s"send result for message ID $messageId",
@@ -400,7 +406,7 @@ abstract class SequencerClientImpl(
           callback(result)
         }
 
-        def trackSend: EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
+        def trackSend: Either[SendAsyncClientError, Unit] =
           sendTracker
             .track(
               messageId,
@@ -425,7 +431,8 @@ abstract class SequencerClientImpl(
         // Snapshot used both for cost computation and signing the submission request
         val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
         val snapshot = syncCryptoApi.ipsSnapshot
-        for {
+
+        val resF = for {
           cost <- EitherT.liftF(
             trafficStateController.flatTraverse(_.computeCost(batch, snapshot))
           )
@@ -446,16 +453,18 @@ abstract class SequencerClientImpl(
                   s"Unregistered recipients: $unregisteredRecipients, unregistered senders: $unregisteredSenders"
                 )
             }
-          _ <- trackSend
+          _ <- EitherT.fromEither[FutureUnlessShutdown](trackSend)
           _ = recorderO.foreach(_.recordSubmission(request))
-          _ <- performSend(
+          res <- performSend(
             messageId,
             request,
-            amplify,
+            amplify = amplify,
             () => peekAtSendResult(),
             syncCryptoApi,
-          )
-        } yield ()
+          ).value
+        } yield res
+
+        Nested(resF)
       }
     }
   }
@@ -513,56 +522,68 @@ abstract class SequencerClientImpl(
   )(implicit
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    EitherTUtil
-      .timed(metrics.submissions.sends) {
-        val (linkDetailsO, patienceO) = getNextLink(Seq.empty)
+  ): SendAsyncResult = {
+    lazy val sendResult: SendAsyncResult = {
+      val (linkDetailsO, patienceO) = getNextLink(Seq.empty)
 
-        // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
-        val amplifiableRequest =
-          if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
-            val aggregationRule =
-              AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
-            logger.debug(
-              s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
-            )
-            request.updateAggregationRule(aggregationRule)
-          } else request
+      // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
+      val amplifiableRequest =
+        if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
+          val aggregationRule =
+            AggregationRule(NonEmpty(Seq, member), PositiveInt.one, protocolVersion)
+          logger.debug(
+            s"Adding aggregation rule $aggregationRule to submission request with message ID $messageId"
+          )
+          request.updateAggregationRule(aggregationRule)
+        } else request
 
-        for {
-          signedContent <- requestSigner
-            .signRequest(
-              amplifiableRequest,
-              HashPurpose.SubmissionRequestSignature,
-              Some(topologySnapshot),
-            )
-            .leftMap { err =>
-              val message = s"Error signing submission request $err"
-              logger.error(message)
-              SendAsyncClientError.RequestFailed(message)
-            }
-
-          _ <- amplifiedSend(
+      val resF = requestSigner
+        .signRequest(
+          amplifiableRequest,
+          HashPurpose.SubmissionRequestSignature,
+          Some(topologySnapshot),
+        )
+        .leftMap[SendAsyncClientError] { err =>
+          val message = s"Error signing submission request $err"
+          logger.error(message)
+          SendAsyncClientError.RequestFailed(message)
+        }
+        .map { signedContent =>
+          amplifiedSend(
             signedContent,
             linkDetailsO,
             if (amplify) patienceO else None,
             peekAtSendResult,
           )
-        } yield ()
-
-      }
-      .leftSemiflatMap { err =>
-        // increment appropriate error metrics
-        err match {
-          case SendAsyncClientError.RequestRefused(error) if error.isOverload =>
-            metrics.submissions.overloaded.inc()
-          case _ =>
         }
 
-        // cancel pending send now as we know the request will never cause a sequenced result
-        logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
-        sendTracker.cancelPendingSend(messageId).map(_ => err)
+      Nested(resF)
+    }
+
+    EitherTUtil
+      .timed(metrics.submissions.sends) {
+        sendResult
       }
+      .thereafter {
+        case scala.util.Success(UnlessShutdown.Outcome(Left(err))) =>
+          err match {
+            case SendAsyncClientError.RequestRefused(error) if error.isOverload =>
+              metrics.submissions.overloaded.inc()
+            case _ =>
+          }
+
+          // cancel pending send now as we know the request will never cause a sequenced result
+          logger.debug(s"Cancelling the pending send as the sequencer returned error: $err")
+          sendTracker.cancelPendingSend(messageId)
+
+        case scala.util.Failure(ex) =>
+          logger.info(s"Send of $messageId failed", ex)
+
+        case scala.util.Success(UnlessShutdown.Outcome(Right(_))) |
+            scala.util.Success(AbortedDueToShutdown) =>
+      }
+
+  }
 
   /** Send the `signedRequest` to the `firstSequencer` via `firstTransport`. If `firstPatienceO` is
     * defined, continue sending the request to more sequencers until the sequencer transport state
@@ -981,7 +1002,7 @@ class RichSequencerClientImpl(
     exitOnFatalErrors: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-)(implicit executionContext: ExecutionContext, tracer: Tracer)
+)(implicit override protected val executionContext: ExecutionContext, tracer: Tracer)
     extends SequencerClientImpl(
       psid,
       member,
@@ -1019,6 +1040,7 @@ class RichSequencerClientImpl(
         sequencerTransports.expectedSequencers,
         sequencerTransports.sequencerTrustThreshold,
       ),
+      updateSendTracker = sendTracker.update,
       timeouts,
       futureSupervisor,
     )
@@ -1062,7 +1084,7 @@ class RichSequencerClientImpl(
       timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
+    val throttledEventHandler = new ThrottlingApplicationEventHandler(loggerFactory).throttle(
       config.maximumInFlightEventBatches,
       nonThrottledEventHandler,
       metrics,
@@ -1409,12 +1431,10 @@ class RichSequencerClientImpl(
         val handlerEvents = javaEventList.asScala.toSeq
 
         def stopHandler(): Unit = blocking {
-          handlerIdleLock.synchronized { val _ = handlerIdle.get().success(()) }
+          handlerIdleLock.synchronized(handlerIdle.get().success(()).discard)
         }
 
-        sendTracker
-          .update(handlerEvents)
-          .flatMap(_ => processEventBatch(eventHandler, handlerEvents).value)
+        processEventBatch(eventHandler, handlerEvents).value
           .transformWith {
             case Success(UnlessShutdown.Outcome(Right(()))) =>
               handleReceivedEventsUntilEmpty(eventHandler)
@@ -1692,8 +1712,11 @@ class SequencerClientImplPekko[E: Pretty](
     exitOnTimeout: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
-)(implicit executionContext: ExecutionContext, tracer: Tracer, materializer: Materializer)
-    extends SequencerClientImpl(
+)(implicit
+    override protected val executionContext: ExecutionContext,
+    tracer: Tracer,
+    materializer: Materializer,
+) extends SequencerClientImpl(
       psid,
       member,
       sequencerTransports,
@@ -1729,7 +1752,7 @@ class SequencerClientImplPekko[E: Pretty](
       timeTracker: SynchronizerTimeTracker,
       fetchCleanTimestamp: FetchCleanTimestamp,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val throttledEventHandler = ThrottlingApplicationEventHandler.throttle(
+    val throttledEventHandler = new ThrottlingApplicationEventHandler(loggerFactory).throttle(
       config.maximumInFlightEventBatches,
       nonThrottledEventHandler,
       metrics,
@@ -1874,13 +1897,11 @@ class SequencerClientImplPekko[E: Pretty](
           .via(monotonicityChecker.flow)
           .map(_.value)
           .via(batchFlow)
-          .mapAsync(parallelism = 1) { controlOrEvent =>
-            controlOrEvent.traverse(tracedEvents =>
-              sendTracker
-                .update(tracedEvents.value)
-                .failOnShutdownToAbortException("SequencerClientImplPekko")
-                .map((_: Unit) => tracedEvents)
-            )
+          .map { controlOrEvent =>
+            controlOrEvent.map { tracedEvents =>
+              sendTracker.update(tracedEvents.value)
+              tracedEvents
+            }
           }
           .map(_.map(eventBatch => WithPromise(eventBatch)()))
 
