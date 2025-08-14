@@ -134,7 +134,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
     override def prune(requestedTimestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, PruningError, String] = ???
-    override def locatePruningTimestamp(index: PositiveInt)(implicit
+    override def findPruningTimestamp(index: PositiveInt)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]] = ???
     override def reportMaxEventAgeMetric(

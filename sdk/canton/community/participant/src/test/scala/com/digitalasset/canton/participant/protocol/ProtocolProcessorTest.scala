@@ -150,7 +150,7 @@ class ProtocolProcessorTest
   when(mockSequencerClient.psid).thenAnswer(psid)
   when(mockSequencerClient.protocolVersion).thenAnswer(psid.protocolVersion)
   when(
-    mockSequencerClient.sendAsync(
+    mockSequencerClient.send(
       any[Batch[DefaultOpenEnvelope]],
       any[Option[CantonTimestamp]],
       any[CantonTimestamp],
@@ -481,7 +481,7 @@ class ProtocolProcessorTest
       val failingSequencerClient = mock[SequencerClientSend]
       val sendError = SendAsyncClientError.RequestFailed("no thank you")
       when(
-        failingSequencerClient.sendAsync(
+        failingSequencerClient.send(
           any[Batch[DefaultOpenEnvelope]],
           any[Option[CantonTimestamp]],
           any[CantonTimestamp],

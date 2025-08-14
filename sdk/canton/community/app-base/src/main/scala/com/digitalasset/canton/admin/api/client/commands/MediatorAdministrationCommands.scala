@@ -101,25 +101,25 @@ object MediatorAdministrationCommands {
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
   }
 
-  final case class LocatePruningTimestampCommand(index: PositiveInt)
+  final case class FindPruningTimestampCommand(index: PositiveInt)
       extends BaseMediatorAdministrationCommand[
-        pruningProto.LocatePruningTimestampRequest,
-        pruningProto.LocatePruningTimestampResponse,
+        pruningProto.FindPruningTimestampRequest,
+        pruningProto.FindPruningTimestampResponse,
         Option[CantonTimestamp],
       ] {
     override protected def createRequest()
-        : Either[String, pruningProto.LocatePruningTimestampRequest] = Right(
-      pruningProto.LocatePruningTimestampRequest(index.value)
+        : Either[String, pruningProto.FindPruningTimestampRequest] = Right(
+      pruningProto.FindPruningTimestampRequest(index.value)
     )
 
     override protected def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
-        request: pruningProto.LocatePruningTimestampRequest,
-    ): Future[pruningProto.LocatePruningTimestampResponse] =
-      service.locatePruningTimestamp(request)
+        request: pruningProto.FindPruningTimestampRequest,
+    ): Future[pruningProto.FindPruningTimestampResponse] =
+      service.findPruningTimestamp(request)
 
     override protected def handleResponse(
-        response: pruningProto.LocatePruningTimestampResponse
+        response: pruningProto.FindPruningTimestampResponse
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(
         CantonTimestamp.fromProtoTimestamp(_).bimap(_.message, Some(_))

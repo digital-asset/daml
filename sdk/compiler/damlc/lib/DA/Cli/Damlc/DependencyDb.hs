@@ -12,13 +12,15 @@ module DA.Cli.Damlc.DependencyDb
     ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
-import Control.Exception.Safe (tryAny)
+import Control.Exception.Safe (tryAny, throwIO)
 import Control.Lens (toListOf)
 import Control.Monad.Extra
+import DA.Daml.Assistant.Env (getCachePath)
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.ExtractDar (ExtractedDar(..), extractDar)
-import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion, releaseVersionFromReleaseVersion)
 import DA.Daml.Helper.Ledger
+import DA.Daml.Project.Types (ReleaseVersion, sdkVersionToText, sdkVersionFromReleaseVersion, releaseVersionFromReleaseVersion)
+import DA.Daml.Resolution.Config (ExpandedSdkPackages (..), expandSdkPackagesDpm, findPackageResolutionData)
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Ast.Optics as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -127,8 +129,16 @@ installDependencies ::
    -> IO ()
 installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
-    deps <- expandSdkPackages logger (optDamlLfVersion opts) (filter (`notElem` basePackages) pDeps)
-    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps pDataDeps
+    let sdkPackages = filter (`notElem` basePackages) pDeps
+    ExpandedSdkPackages deps additionalDataDeps <-
+      case optResolutionData opts of
+        Just resolutionData -> do
+          let rootPath = fromNormalizedFilePath projRoot
+          pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
+          cachePath <- getCachePath
+          expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
+        Nothing -> (`ExpandedSdkPackages` []) <$> expandSdkPackages logger (optDamlLfVersion opts) sdkPackages
+    DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps $ pDataDeps <> additionalDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir

@@ -4,10 +4,10 @@
 package com.digitalasset.canton.ledger.localstore
 
 import cats.syntax.either.*
+import com.daml.jwt.JwksUrl
 import com.digitalasset.canton.ledger.api.{
   IdentityProviderConfig,
   IdentityProviderId,
-  JwksUrl,
   ObjectMeta,
   User,
   UserRight,

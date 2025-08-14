@@ -478,7 +478,7 @@ class PruningProcessor(
   /** Providing the next Offset for iterative pruning: computed by the current pruning Offset
     * increased by the max pruning batch size.
     */
-  def locatePruningOffsetForOneIteration(implicit
+  def findPruningOffsetForOneIteration(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Offset] =
     EitherT

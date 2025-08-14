@@ -890,10 +890,10 @@ private[sync] class SynchronizerConnectionsManager(
             new HandshakeWithPSId {
               override def performHandshake(
                   psid: PhysicalSynchronizerId
-              )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-                EitherTUtil.toFutureUnlessShutdown(
-                  connectToPSIdWithHandshake(psid).bimap(_.asGrpcError, _ => ())
-                )
+              )(implicit
+                  traceContext: TraceContext
+              ): EitherT[FutureUnlessShutdown, SyncServiceError, PhysicalSynchronizerId] =
+                connectToPSIdWithHandshake(psid)
             },
             automaticallyConnectToUpgradedSynchronizer =
               parameters.automaticallyPerformLogicalSynchronizerUpgrade,

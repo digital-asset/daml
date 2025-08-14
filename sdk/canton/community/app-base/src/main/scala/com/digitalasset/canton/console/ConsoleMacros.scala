@@ -263,13 +263,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         defaultParticipant,
       )
 
-    // TODO(i7387): add check that flag is set
     @Help.Summary(
       "Register `AutoCloseable` object to be shutdown if Canton is shut down",
       FeatureFlag.Testing,
     )
     def auto_close(closeable: AutoCloseable)(implicit environment: ConsoleEnvironment): Unit =
-      environment.environment.addUserCloseable(closeable)
+      FeatureFlagFilter.check(noTracingLogger, environment)(FeatureFlag.Testing)(
+        environment.environment.addUserCloseable(closeable)
+      )
 
     @Help.Summary("Recompute authenticated contract ids.")
     @Help.Description(
@@ -412,8 +413,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
   }
 
-  @Help.Summary("Canton development and testing utilities", FeatureFlag.Testing)
-  @Help.Group("Ledger Api Testing")
+  @Help.Summary("Canton development and testing utilities")
+  @Help.Group("Ledger Api Utils")
   object ledger_api_utils extends Helpful {
 
     private def buildIdentifier(packageId: String, module: String, template: String): IdentifierV1 =
@@ -474,7 +475,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         fields = map.map(mapToRecordField).toSeq
       )
 
-    @Help.Summary("Build create command", FeatureFlag.Testing)
+    @Help.Summary("Build create command")
     def create(
         packageId: String,
         module: String,
@@ -488,7 +489,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         )
       )
 
-    @Help.Summary("Build exercise command", FeatureFlag.Testing)
+    @Help.Summary("Build exercise command")
     def exercise(
         packageId: String,
         module: String,
@@ -506,7 +507,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         )
       )
 
-    @Help.Summary("Build exercise command from CreatedEvent", FeatureFlag.Testing)
+    @Help.Summary("Build exercise command from CreatedEvent")
     def exercise(choice: String, arguments: Map[String, Any], event: CreatedEvent): Command = {
       def getOrThrow(desc: String, opt: Option[String]): String =
         opt.getOrElse(

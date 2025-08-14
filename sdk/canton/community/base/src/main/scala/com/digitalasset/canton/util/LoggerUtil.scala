@@ -97,13 +97,13 @@ object LoggerUtil {
     ret
   }
 
-  /** Round a duration such that humans can easier graps the numbers
+  /** Round a duration such that humans can easier grasp the numbers
     *
     * Duration offers a method .toCoarsest that will figure out the coarsest time unit. However,
     * this method doesn't really do anything if we have nanoseconds as it only truncates 0.
     *
     * Therefore, this method allows to set lower digits to 0 and only keep the leading digits as
-    * nonzeros.
+    * non-zeros.
     */
   def roundDurationForHumans(duration: Duration, keep: Int = 2): Duration =
     if (duration.isFinite && duration.length != 0) {

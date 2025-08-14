@@ -34,7 +34,7 @@ service SequencerPruningAdministrationService {
   rpc GetSchedule(com.digitalasset.canton.admin.pruning.v30.GetScheduleRequest) returns (com.digitalasset.canton.admin.pruning.v30.GetScheduleResponse);
 
   // Retrieve pruning timestamp at or near the "beginning" of events.
-  rpc LocatePruningTimestamp(com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestampRequest) returns (com.digitalasset.canton.admin.pruning.v30.LocatePruningTimestampResponse);
+  rpc FindPruningTimestamp(com.digitalasset.canton.admin.pruning.v30.FindPruningTimestampRequest) returns (com.digitalasset.canton.admin.pruning.v30.FindPruningTimestampResponse);
 }
 
 message PruneRequest {

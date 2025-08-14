@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
+import com.daml.jwt.JwksUrl
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers

@@ -74,7 +74,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PConnectionEventListener,
   P2PNetworkRefFactory,
 }
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveRequest
+import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingMessage
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -85,7 +85,7 @@ import scala.util.Random
   */
 private[bftordering] class BftOrderingModuleSystemInitializer[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingServiceReceiveRequest],
+    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
 ](
     node: BftNodeId,
     config: BftBlockOrdererConfig,
@@ -107,7 +107,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
     extends SystemInitializer[
       E,
       P2PNetworkRefFactoryT,
-      BftOrderingServiceReceiveRequest,
+      BftOrderingMessage,
       Mempool.Message,
     ]
     with NamedLogging {
@@ -118,7 +118,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
   ): SystemInitializationResult[
     E,
     P2PNetworkRefFactoryT,
-    BftOrderingServiceReceiveRequest,
+    BftOrderingMessage,
     Mempool.Message,
   ] = {
     implicit val c: BftBlockOrdererConfig = config

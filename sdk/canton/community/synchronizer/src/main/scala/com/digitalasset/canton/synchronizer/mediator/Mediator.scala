@@ -233,7 +233,7 @@ private[mediator] class Mediator(
       // After pruning successfully, update the "max-event-age" metric
       // looking up the oldest event (in case prunedAt precedes any events and nothing was pruned).
       oldestEventTimestampO <- EitherT.right(
-        stateInspection.locatePruningTimestamp(NonNegativeInt.zero)
+        stateInspection.findPruningTimestamp(NonNegativeInt.zero)
       )
       _ = MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, oldestEventTimestampO)
 

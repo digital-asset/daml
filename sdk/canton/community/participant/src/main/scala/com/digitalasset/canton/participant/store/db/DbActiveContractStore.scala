@@ -46,6 +46,7 @@ import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
 
+import java.util.concurrent.atomic.AtomicLong
 import scala.Ordered.orderingToOrdered
 import scala.collection.View
 import scala.collection.immutable.SortedMap
@@ -67,7 +68,7 @@ import scala.concurrent.ExecutionContext
 class DbActiveContractStore(
     override protected val storage: DbStorage,
     protected[this] override val indexedSynchronizer: IndexedSynchronizer,
-    enableAdditionalConsistencyChecks: Boolean,
+    enableAdditionalConsistencyChecks: Option[Long],
     batchingParametersConfig: PrunableByTimeParameters,
     val indexedStringStore: IndexedStringStore,
     override protected val timeouts: ProcessingTimeout,
@@ -91,8 +92,11 @@ class DbActiveContractStore(
 
   protected[this] override val pruning_status_table = "par_active_contract_pruning"
 
-  private def checkedTUnit: CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
-    CheckedT.resultT[FutureUnlessShutdown, AcsError, AcsWarning](())
+  /** Counts how many activations have gone this contract store during the lifetime of this object,
+    * if [[enableAdditionalConsistencyChecks]] is defined, to trigger a warning every that many
+    * activations.
+    */
+  private val activationCountForConsistencyChecking: AtomicLong = new AtomicLong()
 
   /*
   Consider the scenario where a contract is created on synchronizer D1, then reassigned to D2, then to D3 and is finally archived.
@@ -157,7 +161,11 @@ class DbActiveContractStore(
         change = ChangeType.Activation,
       )
       _ <-
-        if (enableAdditionalConsistencyChecks) {
+        enableAdditionalConsistencyChecks.traverse_ { warnFrequency =>
+          observeActivationsAndWarn(
+            newActivations = contracts.size.toLong,
+            warnFrequency = warnFrequency,
+          )
           synchronizeWithClosing("additional-consistency-check") {
             activeContractsData.asSeq.parTraverse_ { tc =>
               checkActivationsDeactivationConsistency(
@@ -166,8 +174,18 @@ class DbActiveContractStore(
               )
             }
           }
-        } else checkedTUnit
+        }
     } yield ()
+  }
+
+  private def observeActivationsAndWarn(newActivations: Long, warnFrequency: Long): Unit = {
+    val activationsSeenNow = activationCountForConsistencyChecking.addAndGet(newActivations)
+    val activationsSeenPreviously = activationsSeenNow - newActivations
+    if (activationsSeenNow / warnFrequency > activationsSeenPreviously / warnFrequency) {
+      noTracingLogger.warn(
+        s"Additional consistency checking is enabled. This is very slow for large contract stores. Activations seen so far: $activationsSeenNow"
+      )
+    }
   }
 
   override def purgeOrArchiveContracts(
@@ -185,12 +203,11 @@ class DbActiveContractStore(
         contracts.map(contract => (contract, operation)).toMap,
         change = ChangeType.Deactivation,
       )
-      _ <-
-        if (enableAdditionalConsistencyChecks) {
-          synchronizeWithClosing("additional-consistency-check")(
-            contracts.parTraverse_(checkActivationsDeactivationConsistency tupled)
-          )
-        } else checkedTUnit
+      _ <- enableAdditionalConsistencyChecks.traverse_ { _ =>
+        synchronizeWithClosing("additional-consistency-check")(
+          contracts.parTraverse_(checkActivationsDeactivationConsistency tupled)
+        )
+      }
     } yield ()
   }
 
@@ -823,14 +840,14 @@ class DbActiveContractStore(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
-    if (enableAdditionalConsistencyChecks) {
+    enableAdditionalConsistencyChecks.traverse_ { _ =>
       reassignments.parTraverse_ { case ((contractId, toc), reassignment) =>
         for {
           _ <- checkReassignmentCountersShouldIncrease(contractId, toc, reassignment)
           _ <- checkActivationsDeactivationConsistency(contractId, toc)
         } yield ()
       }
-    } else CheckedT.pure(())
+    }
 
   private def checkActivationsDeactivationConsistency(
       contractId: LfContractId,
@@ -1002,13 +1019,10 @@ class DbActiveContractStore(
     }
 
     CheckedT.result(storage.queryAndUpdate(insertAll, functionFullName)).flatMap { (_: Unit) =>
-      if (enableAdditionalConsistencyChecks) {
+      enableAdditionalConsistencyChecks.traverse_ { _ =>
         // Check all contracts whether they have been inserted or are already there
-        NonEmpty
-          .from(contractChanges.keySet.toSeq)
-          .map(checkIdempotence)
-          .getOrElse(CheckedT.pure(()))
-      } else CheckedT.pure(())
+        NonEmpty.from(contractChanges.keySet.toSeq).traverse_(checkIdempotence)
+      }
     }
   }
 

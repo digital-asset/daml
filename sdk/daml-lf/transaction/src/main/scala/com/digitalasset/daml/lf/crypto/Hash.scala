@@ -48,6 +48,26 @@ final class Hash private (val bytes: Bytes) {
 
 object Hash {
 
+  /** An enumeration representing the different ways of hashing a value. */
+  sealed trait HashingMethod
+  object HashingMethod {
+
+    /** The hashing method used for hashing values in versions <=3.2 of Canton. Hashes untyped values in an
+      * upgrade-incompatible way.
+      */
+    object Legacy extends HashingMethod
+
+    /** The upgrade-friendly method for hashing values introduced in Canton 3.3. Hashes untyped values in an
+      * upgrade-friendly way.
+      */
+    object UpgradeFriendly extends HashingMethod
+
+    /** The upgrade-friendly method for hashing values introduced in Canton 3.3. Hashes typed values in normal form
+      * (i.e. no trailing Nones).
+      */
+    object TypedNormalForm extends HashingMethod
+  }
+
   val underlyingHashLength = 32
 
   sealed abstract class HashingError(val msg: String) extends Exception with NoStackTrace

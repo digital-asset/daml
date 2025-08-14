@@ -1,13 +1,42 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(":util.bzl", "damlc_compile_test")
 load("//rules_daml:daml.bzl", "daml_compile", "daml_compile_with_dalf", "generate_and_track_dar_hash_file")
 load("@build_environment//:configuration.bzl", "ghc_version", "sdk_version")
 load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_default_or_latest", "mangle_for_damlc")
 load("//compiler/damlc:util.bzl", "ghc_pkg")
+
+# A REPL with all tests, used as bios for HLS
+da_haskell_repl(
+    name = "tests@ghci",
+    testonly = True,
+    deps = [
+        ":daml-desugar",
+        ":daml-doc",
+        ":daml-doctest",
+        ":daml-doctest-integration",
+        ":daml-lf-reader",
+        ":daml-renamer",
+        ":damlc-cliparser",
+        ":damlc-lint",
+        ":damlc-test",
+        ":data-dependencies",
+        ":incremental",
+        ":incremental-package-db",
+        ":integration-v21",
+        ":integration-v2dev",
+        ":multi-package",
+        ":package-manager",
+        ":packaging",
+        ":script-service",
+        ":shake",
+        ":unstable-types",
+        ":upgrades",
+    ],
+)
 
 # Tests for the lax CLI parser + damlc CLI parser
 da_haskell_test(
@@ -716,7 +745,7 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
         "@damlc_legacy",
-        "//compiler/damlc/tests:generate-simple-dalf",
+        ":generate-simple-dalf",
         "//daml-script/daml:daml-script-2.dev.dar",
         # Feel free to update this to 0.13.55 once that is frozen.
         ":dars/old-proj-0.13.55-snapshot.20200309.3401.0.6f8c3ad8-1.8.dar",

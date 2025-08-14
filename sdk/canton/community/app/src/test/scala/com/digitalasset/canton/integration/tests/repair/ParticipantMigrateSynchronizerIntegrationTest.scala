@@ -619,7 +619,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     )
 
     val source =
-      participant1.underlying.value.sync.internalStateService.value.activeContracts(
+      participant1.underlying.value.sync.internalIndexService.value.activeContracts(
         Set(alice.toLf),
         Offset.fromLong(aliceAddedOnP3Offset.unwrap).toOption,
       )

@@ -40,7 +40,13 @@ private[output] object OutputModuleMetrics {
       metrics.output.blockDelay,
       Duration.between(orderedBlockBftTime.toInstant, orderingCompletionInstant),
     )(outputMc)
-    metrics.global.blocksOrdered.mark(1L)
+    metrics.global.blocksOrdered.mark(1L)(
+      mc.withExtraLabels(
+        metrics.global.labels.IsBlockEmpty -> orderedBlockData.batches.isEmpty.toString
+      )
+    )
+    metrics.global.batchesOrdered.mark(orderedBlockData.batches.size.toLong)
+    metrics.global.requestsOrdered.mark(orderedBlockData.requestsView.size.toLong)
     orderedBlockData.batches.foreach { batch =>
       batch._2.requests.foreach { request =>
         request.value.orderingStartInstant.foreach { i =>

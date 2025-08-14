@@ -10,6 +10,7 @@ import com.digitalasset.canton.console.CommandErrors.ConsoleTimeout
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.environment.{CantonNode, CantonNodeBootstrap}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
+import com.typesafe.scalalogging.Logger
 
 import scala.annotation.tailrec
 
@@ -104,17 +105,43 @@ trait FeatureFlagFilter extends NamedLogging {
 
   protected def cantonConfig: CantonConfig = consoleEnvironment.environment.config
 
-  private def checkEnabled[T](flag: Boolean, config: String, command: => T): T =
+  protected def check[T](flag: FeatureFlag)(command: => T): T =
+    FeatureFlagFilter.checkEnabled(noTracingLogger)(
+      consoleEnvironment.featureSet.contains(flag),
+      flag.configName,
+      command,
+    )
+}
+
+object FeatureFlagFilter {
+  private def checkEnabled[T](logger: Logger)(flag: Boolean, config: String, command: => T): T =
     if (flag) {
       command
     } else {
-      noTracingLogger.error(
-        s"The command is currently disabled. You need to enable it explicitly by setting `canton.features.$config = yes` in your Canton configuration file (`.conf`)"
-      )
+      val hintO = Thread
+        .currentThread()
+        .getStackTrace
+        // java.base/java.lang.Thread.getStackTrace
+        .drop(1)
+        // method in this class
+        .dropWhile { element =>
+          element.toString.contains(
+            "com.digitalasset.canton.console.FeatureFlagFilter"
+          ) || element.toString.contains(".check(")
+        }
+        .headOption
+
+      val hint = hintO.fold("")(hint => s"\nCall site: $hint")
+
+      logger.error(s"""The command is currently disabled.
+          |You need to enable it explicitly by setting `canton.features.$config = yes` in your Canton configuration file (`.conf`).$hint
+          |""".stripMargin)
+
       throw new CommandFailure()
     }
 
-  protected def check[T](flag: FeatureFlag)(command: => T): T =
-    checkEnabled(consoleEnvironment.featureSet.contains(flag), flag.configName, command)
-
+  private[canton] def check[T](logger: Logger, consoleEnvironment: ConsoleEnvironment)(
+      flag: FeatureFlag
+  )(command: => T): T =
+    checkEnabled(logger)(consoleEnvironment.featureSet.contains(flag), flag.configName, command)
 }

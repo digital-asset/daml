@@ -30,6 +30,7 @@ da_haskell_library(
         "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-package-config",
+        "//compiler/damlc/daml-resolution-config",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

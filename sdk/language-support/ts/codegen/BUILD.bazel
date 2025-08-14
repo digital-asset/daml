@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 
 da_haskell_binary(
     name = "daml2js",
@@ -41,5 +41,15 @@ da_haskell_binary(
 package_app(
     name = "daml2js-dist",
     binary = ":daml2js",
+    visibility = ["//visibility:public"],
+)
+
+package_oci_component(
+    name = "daml2js-oci",
+    component_manifest = ":component.yaml",
+    resources = [
+        ":daml2js-dist",
+    ],
+    tags = ["no-cache"],
     visibility = ["//visibility:public"],
 )

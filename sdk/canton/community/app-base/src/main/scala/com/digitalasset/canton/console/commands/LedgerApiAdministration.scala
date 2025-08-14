@@ -6,7 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
-import com.daml.jwt.{AuthServiceJWTCodec, Jwt, JwtDecoder, StandardJWTPayload}
+import com.daml.jwt.{AuthServiceJWTCodec, JwksUrl, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v2.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v2.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v2.admin.party_management_service.PartyDetails as ProtoPartyDetails
@@ -82,7 +82,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.{IdentityProviderConfig, IdentityProviderId}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
@@ -140,15 +140,15 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
   protected def defaultLimit: PositiveInt =
     consoleEnvironment.environment.config.parameters.console.defaultLimit
 
-  @Help.Summary("Group of commands that access the ledger-api V2", FeatureFlag.Testing)
+  @Help.Summary("Group of commands that access the ledger-api")
   @Help.Group("Ledger Api")
   object ledger_api extends Helpful {
 
-    @Help.Summary("Read from update stream", FeatureFlag.Testing)
+    @Help.Summary("Read from update stream")
     @Help.Group("Updates")
     object updates extends Helpful {
 
-      @Help.Summary("Get updates", FeatureFlag.Testing)
+      @Help.Summary("Get updates")
       @Help.Description(
         """This function connects to the update stream for the given parties and collects updates
           |until either `completeAfter` updates have been received or `timeout` has elapsed.
@@ -166,7 +166,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
-      ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
+      ): Seq[UpdateWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
@@ -189,9 +189,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer,
           timeout,
         )
-      })
+      }
 
-      @Help.Summary("Get transactions", FeatureFlag.Testing)
+      @Help.Summary("Get transactions")
       @Help.Description(
         """This function connects to the update stream for the given parties and collects updates
           |until either `completeAfter` transactions have been received or `timeout` has elapsed.
@@ -212,7 +212,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
           transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-      ): Seq[TransactionWrapper] = check(FeatureFlag.Testing)({
+      ): Seq[TransactionWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
@@ -250,9 +250,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer,
           timeout,
         ).collect { case tx: TransactionWrapper => tx }
-      })
+      }
 
-      @Help.Summary("Get reassignments", FeatureFlag.Testing)
+      @Help.Summary("Get reassignments")
       @Help.Description(
         """This function connects to the update stream for the given parties and template ids and collects reassignment
           |events (assigned and unassigned) until either `completeAfter` updates have been received or `timeout` has
@@ -275,7 +275,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
-      ): Seq[ReassignmentWrapper] = check(FeatureFlag.Testing)({
+      ): Seq[ReassignmentWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
@@ -335,9 +335,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer,
           timeout,
         ).collect { case reassignment: ReassignmentWrapper => reassignment }
-      })
+      }
 
-      @Help.Summary("Get topology transactions", FeatureFlag.Testing)
+      @Help.Summary("Get topology transactions")
       @Help.Description(
         """This function connects to the update stream for the given parties and collects topology transaction
           |events until either `completeAfter` updates have been received or `timeout` has elapsed.
@@ -356,7 +356,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
-      ): Seq[TopologyTransactionWrapper] = check(FeatureFlag.Testing)({
+      ): Seq[TopologyTransactionWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
           case Some(synchronizerId) =>
@@ -398,9 +398,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer,
           timeout,
         ).collect { case wrapper: TopologyTransactionWrapper => wrapper }
-      })
+      }
 
-      @Help.Summary("Get updates", FeatureFlag.Testing)
+      @Help.Summary("Get updates")
       @Help.Description(
         """This function connects to the update stream for the given transaction format and collects updates
           |until either `completeAfter` transactions have been received or `timeout` has elapsed.
@@ -418,7 +418,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           endOffsetInclusive: Option[Long] = None,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
-      ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
+      ): Seq[UpdateWrapper] = {
         val observer = new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilter)
         mkResult(
           subscribe_updates(
@@ -435,9 +435,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           observer,
           timeout,
         )
-      })
+      }
 
-      @Help.Summary("Subscribe to the update stream", FeatureFlag.Testing)
+      @Help.Summary("Subscribe to the update stream")
       @Help.Description("""This function connects to the update stream and passes updates to `observer` until the stream
           |is completed.
           |The updates as described in the update format will be returned.
@@ -454,20 +454,18 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
       ): AutoCloseable =
-        check(FeatureFlag.Testing)(
-          consoleEnvironment.run {
-            ledgerApiCommand(
-              LedgerApiCommands.UpdateService.SubscribeUpdates(
-                observer = observer,
-                beginExclusive = beginOffsetExclusive,
-                endInclusive = endOffsetInclusive,
-                updateFormat = updateFormat,
-              )
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.UpdateService.SubscribeUpdates(
+              observer = observer,
+              beginExclusive = beginOffsetExclusive,
+              endInclusive = endOffsetInclusive,
+              updateFormat = updateFormat,
             )
-          }
-        )
+          )
+        }
 
-      @Help.Summary("Starts measuring throughput at the update service", FeatureFlag.Testing)
+      @Help.Summary("Starts measuring throughput at the update service")
       @Help.Description(
         """This function will subscribe on behalf of `parties` to the update stream and
           |notify various metrics:
@@ -482,100 +480,98 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           parties: Set[PartyId],
           metricName: String,
           onUpdate: UpdateWrapper => Unit = _ => (),
-      )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable =
-        check(FeatureFlag.Testing) {
+      )(implicit consoleEnvironment: ConsoleEnvironment): AutoCloseable = {
+        val observer: StreamObserver[UpdateWrapper] = new StreamObserver[UpdateWrapper] {
 
-          val observer: StreamObserver[UpdateWrapper] = new StreamObserver[UpdateWrapper] {
+          implicit val metricsContext: MetricsContext =
+            MetricsContext("measurement" -> metricName)
 
-            implicit val metricsContext: MetricsContext =
-              MetricsContext("measurement" -> metricName)
+          private val consoleMetrics = consoleEnvironment.environment.metricsRegistry
+            .forParticipant(name)
+            .consoleThroughput
 
-            val consoleMetrics = consoleEnvironment.environment.metricsRegistry
-              .forParticipant(name)
-              .consoleThroughput
-
-            override def onNext(tx: UpdateWrapper): Unit = {
-              val (s, serializedSize) = tx match {
-                case TransactionWrapper(transaction) =>
-                  Transaction
-                    .fromProto(ApiTransaction.toJavaProto(transaction))
-                    .getRootNodeIds
-                    .size
-                    .toLong -> transaction.serializedSize
-                case reassignmentWrapper: ReassignmentWrapper =>
-                  1L -> reassignmentWrapper.reassignment.serializedSize
-                case topologyTransaction: TopologyTransactionWrapper =>
-                  throw new RuntimeException(
-                    s"Unexpectedly received a topology transaction: $topologyTransaction."
-                  )
-              }
-              consoleMetrics.metric.mark(s)
-              consoleMetrics.nodeCount.update(s)
-              consoleMetrics.transactionSize.update(serializedSize)
-              onUpdate(tx)
-            }
-
-            override def onError(t: Throwable): Unit = t match {
-              case t: StatusRuntimeException =>
-                val err = GrpcError("start_measuring", name, t)
-                err match {
-                  case gaveUp: GrpcError.GrpcClientGaveUp if gaveUp.isClientCancellation =>
-                    logger.info(s"Client cancelled measuring throughput (metric: $metricName).")
-                  case _ =>
-                    logger.warn(
-                      s"An error occurred while measuring throughput (metric: $metricName). Stop measuring. $err"
-                    )
-                }
-              case _: Throwable =>
-                logger.warn(
-                  s"An exception occurred while measuring throughput (metric: $metricName). Stop measuring.",
-                  t,
+          override def onNext(tx: UpdateWrapper): Unit = {
+            val (s, serializedSize) = tx match {
+              case TransactionWrapper(transaction) =>
+                Transaction
+                  .fromProto(ApiTransaction.toJavaProto(transaction))
+                  .getRootNodeIds
+                  .size
+                  .toLong -> transaction.serializedSize
+              case reassignmentWrapper: ReassignmentWrapper =>
+                1L -> reassignmentWrapper.reassignment.serializedSize
+              case topologyTransaction: TopologyTransactionWrapper =>
+                throw new RuntimeException(
+                  s"Unexpectedly received a topology transaction: $topologyTransaction."
                 )
             }
-
-            override def onCompleted(): Unit =
-              logger.info(s"Stop measuring throughput (metric: $metricName).")
+            consoleMetrics.metric.mark(s)
+            consoleMetrics.nodeCount.update(s)
+            consoleMetrics.transactionSize.update(serializedSize)
+            onUpdate(tx)
           }
 
-          val eventFormat = EventFormat(
-            filtersByParty = parties.map(_.toLf -> Filters(Nil)).toMap,
-            filtersForAnyParty = None,
-            verbose = false,
-          )
-          val updateFormat = UpdateFormat(
-            includeTransactions = Some(
-              TransactionFormatProto(
-                eventFormat = Some(eventFormat),
-                transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+          override def onError(t: Throwable): Unit = t match {
+            case t: StatusRuntimeException =>
+              val err = GrpcError("start_measuring", name, t)
+              err match {
+                case gaveUp: GrpcError.GrpcClientGaveUp if gaveUp.isClientCancellation =>
+                  logger.info(s"Client cancelled measuring throughput (metric: $metricName).")
+                case _ =>
+                  logger.warn(
+                    s"An error occurred while measuring throughput (metric: $metricName). Stop measuring. $err"
+                  )
+              }
+            case _: Throwable =>
+              logger.warn(
+                s"An exception occurred while measuring throughput (metric: $metricName). Stop measuring.",
+                t,
               )
-            ),
-            includeReassignments = Some(eventFormat),
-            includeTopologyEvents = None,
-          )
+          }
 
-          logger.info(s"Start measuring throughput (metric: $metricName).")
-          subscribe_updates(
-            observer = observer,
-            updateFormat = updateFormat,
-            beginOffsetExclusive = state.end(),
-          )
+          override def onCompleted(): Unit =
+            logger.info(s"Stop measuring throughput (metric: $metricName).")
         }
 
-      @Help.Summary("Get an update by its ID", FeatureFlag.Testing)
+        val eventFormat = EventFormat(
+          filtersByParty = parties.map(_.toLf -> Filters(Nil)).toMap,
+          filtersForAnyParty = None,
+          verbose = false,
+        )
+        val updateFormat = UpdateFormat(
+          includeTransactions = Some(
+            TransactionFormatProto(
+              eventFormat = Some(eventFormat),
+              transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
+            )
+          ),
+          includeReassignments = Some(eventFormat),
+          includeTopologyEvents = None,
+        )
+
+        logger.info(s"Start measuring throughput (metric: $metricName).")
+        subscribe_updates(
+          observer = observer,
+          updateFormat = updateFormat,
+          beginOffsetExclusive = state.end(),
+        )
+      }
+
+      @Help.Summary("Get an update by its ID")
       @Help.Description(
         """Get an update by its ID. Returns None if the update is not (yet) known at the participant or all the events
           |of the update are filtered due to the update format or if the update has been pruned via `pruning.prune`."""
       )
       def update_by_id(id: String, updateFormat: UpdateFormat): Option[UpdateWrapper] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.UpdateService.GetUpdateById(id, updateFormat)(
               consoleEnvironment.environment.executionContext
             )
           )
-        })
+        }
 
-      @Help.Summary("Get an update by its offset", FeatureFlag.Testing)
+      @Help.Summary("Get an update by its offset")
       @Help.Description(
         """Get an update by its offset. Returns None if the update is not (yet) known at the participant or all the
           |events of the update are filtered due to the update format or if the update has been pruned via
@@ -585,17 +581,16 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           offset: Long,
           updateFormat: UpdateFormat,
       ): Option[UpdateWrapper] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.UpdateService.GetUpdateByOffset(offset, updateFormat)(
               consoleEnvironment.environment.executionContext
             )
           )
-        })
-
+        }
     }
 
-    @Help.Summary("Interactive submission", FeatureFlag.Testing)
+    @Help.Summary("Interactive submission")
     @Help.Group("Interactive Submission")
     object interactive_submission extends Helpful {
 
@@ -786,7 +781,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         }
     }
 
-    @Help.Summary("Submit commands", FeatureFlag.Testing)
+    @Help.Summary("Submit commands")
     @Help.Group("Command Submission")
     object commands extends Helpful {
 
@@ -842,7 +837,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
       }
 
-      @Help.Summary("Submit command asynchronously", FeatureFlag.Testing)
+      @Help.Summary("Submit command asynchronously")
       @Help.Description(
         """Provides access to the command submission service of the Ledger API.
           |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
@@ -860,28 +855,26 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           disclosedContracts: Seq[DisclosedContract] = Seq.empty,
           userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
-      ): Unit = check(FeatureFlag.Testing) {
-        consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandSubmissionService.Submit(
-              actAs.map(_.toLf),
-              readAs.map(_.toLf),
-              commands,
-              workflowId,
-              commandId,
-              deduplicationPeriod,
-              submissionId,
-              minLedgerTimeAbs,
-              disclosedContracts,
-              synchronizerId,
-              userId,
-              userPackageSelectionPreference,
-            )
+      ): Unit = consoleEnvironment.run {
+        ledgerApiCommand(
+          LedgerApiCommands.CommandSubmissionService.Submit(
+            actAs.map(_.toLf),
+            readAs.map(_.toLf),
+            commands,
+            workflowId,
+            commandId,
+            deduplicationPeriod,
+            submissionId,
+            minLedgerTimeAbs,
+            disclosedContracts,
+            synchronizerId,
+            userId,
+            userPackageSelectionPreference,
           )
-        }
+        )
       }
 
-      @Help.Summary("Investigate successful and failed commands", FeatureFlag.Testing)
+      @Help.Summary("Investigate successful and failed commands")
       @Help.Description(
         """Find the status of commands. Note that only recent commands which are kept in memory will be returned."""
       )
@@ -901,7 +894,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         }
       }
 
-      @Help.Summary("Investigate failed commands", FeatureFlag.Testing)
+      @Help.Summary("Investigate failed commands")
       @Help.Description(
         """Same as status(..., state = CommandState.Failed)."""
       )
@@ -912,8 +905,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       }
 
       @Help.Summary(
-        "Submit assign command and wait for the resulting reassignment, returning the reassignment or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit assign command and wait for the resulting reassignment, returning the reassignment or failing otherwise"
       )
       @Help.Description(
         """Submits an assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
@@ -946,8 +938,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         ).assignedWrapper
 
       @Help.Summary(
-        "Submit assign command and wait for the resulting reassignment, returning the reassignment or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit assign command and wait for the resulting reassignment, returning the reassignment or failing otherwise"
       )
       @Help.Description(
         """Submits an assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
@@ -987,8 +978,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       }
 
       @Help.Summary(
-        "Submit unassign command and wait for the resulting reassignment, returning the reassignment or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit unassign command and wait for the resulting reassignment, returning the reassignment or failing otherwise"
       )
       @Help.Description(
         """Submits an unassignment command on behalf of `submitter` party, waits for the resulting unassignment to commit, and returns the reassignment.
@@ -1020,8 +1010,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         ).unassignedWrapper
 
       @Help.Summary(
-        "Submit unassign command and wait for the resulting reassignment, returning the reassignment or failing otherwise",
-        FeatureFlag.Testing,
+        "Submit unassign command and wait for the resulting reassignment, returning the reassignment or failing otherwise"
       )
       @Help.Description(
         """Submits an unassignment command on behalf of `submitter` party, waits for the resulting unassignment to commit, and returns the reassignment.
@@ -1059,10 +1048,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         optionallyAwait(result, result.updateId, source.toProtoPrimitive, timeout)
       }
 
-      @Help.Summary(
-        "Combines `submit_unassign` and `submit_assign` in a single macro",
-        FeatureFlag.Testing,
-      )
+      @Help.Summary("Combines `submit_unassign` and `submit_assign` in a single macro")
       @Help.Description(
         """See `submit_unassign` and `submit_assign` for the parameters."""
       )
@@ -1099,7 +1085,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         (unassigned, assigned)
       }
 
-      @Help.Summary("Submit assign command asynchronously", FeatureFlag.Testing)
+      @Help.Summary("Submit assign command asynchronously")
       @Help.Description(
         """Provides access to the command submission service of the Ledger API.
           |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
@@ -1113,7 +1099,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userId: String = userId,
           commandId: String = UUID.randomUUID().toString,
           submissionId: String = UUID.randomUUID().toString,
-      ): Unit = check(FeatureFlag.Testing) {
+      ): Unit =
         consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.CommandSubmissionService.SubmitAssignCommand(
@@ -1128,9 +1114,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             )
           )
         }
-      }
 
-      @Help.Summary("Submit unassign command asynchronously", FeatureFlag.Testing)
+      @Help.Summary("Submit unassign command asynchronously")
       @Help.Description(
         """Provides access to the command submission service of the Ledger API.
           |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
@@ -1144,7 +1129,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userId: String = userId,
           commandId: String = UUID.randomUUID().toString,
           submissionId: String = UUID.randomUUID().toString,
-      ): Unit = check(FeatureFlag.Testing) {
+      ): Unit =
         consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.CommandSubmissionService.SubmitUnassignCommand(
@@ -1159,20 +1144,19 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             )
           )
         }
-      }
     }
 
-    @Help.Summary("Collection of Ledger API state endpoints", FeatureFlag.Testing)
+    @Help.Summary("Collection of Ledger API state endpoints")
     @Help.Group("State")
     object state extends Helpful {
 
-      @Help.Summary("Read the current ledger end offset", FeatureFlag.Testing)
+      @Help.Summary("Read the current ledger end offset")
       def end(): Long =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.StateService.LedgerEnd()
           )
-        })
+        }
 
       @Help.Summary("Read the current connected synchronizers for a party", FeatureFlag.Testing)
       def connected_synchronizers(partyId: PartyId): GetConnectedSynchronizersResponse =
@@ -1212,7 +1196,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         status(commandId, CommandState.COMMAND_STATE_FAILED, limit)
       }
 
-      @Help.Summary("Read active contracts", FeatureFlag.Testing)
+      @Help.Summary("Read active contracts")
       @Help.Group("Active Contracts")
       object acs extends Helpful {
         @Help.Summary("List the set of active contract entries of a given party")
@@ -1460,8 +1444,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           }
 
         @Help.Summary(
-          "Wait until the party sees the given contract in the active contract service",
-          FeatureFlag.Testing,
+          "Wait until the party sees the given contract in the active contract service"
         )
         @Help.Description(
           "Will throw an exception if the contract is not found to be active within the given timeout"
@@ -1470,12 +1453,11 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             party: PartyId,
             contractId: LfContractId,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-        ): Unit = check(FeatureFlag.Testing) {
+        ): Unit =
           ConsoleMacros.utils.retry_until_true(timeout) {
             of_party(party, verbose = false)
               .exists(_.contractId == contractId.coid)
           }
-        }
 
         @Help.Summary("Generic search for contracts")
         @Help.Description(
@@ -1497,12 +1479,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       }
     }
 
-    @Help.Summary("Manage parties through the Ledger API", FeatureFlag.Testing)
+    @Help.Summary("Manage parties through the Ledger API")
     @Help.Group("Party Management")
     object parties extends Helpful {
 
       // TODO(i26846): document the userId parameter here and in the parties.rst documentation.
-      @Help.Summary("Allocate a new party", FeatureFlag.Testing)
+      @Help.Summary("Allocate a new party")
       @Help.Description(
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
@@ -1519,7 +1501,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           synchronizerId: Option[SynchronizerId] = None,
           userId: String = "",
       ): PartyDetails = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.AllocateParty(
               partyIdHint = party,
@@ -1529,23 +1511,25 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userId = userId,
             )
           )
-        })
+        }
+
         PartyDetails.fromProtoPartyDetails(proto)
       }
 
-      @Help.Summary("List parties known by the Ledger API server", FeatureFlag.Testing)
+      @Help.Summary("List parties known by the Ledger API server")
       @Help.Description(
         """Lists parties known by the Ledger API server.
            identityProviderId: identity provider id"""
       )
       def list(identityProviderId: String = ""): Seq[PartyDetails] = {
-        val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val proto = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.ListKnownParties(
               identityProviderId = identityProviderId
             )
           )
-        })
+        }
+
         proto.map(PartyDetails.fromProtoPartyDetails)
       }
 
@@ -1570,7 +1554,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           original = srcDetails.annotations,
           modified = modifiedDetails.annotations,
         )
-        val rawUpdatedDetails = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val rawUpdatedDetails = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.Update(
               party = party,
@@ -1579,11 +1563,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
+
         PartyDetails.fromProtoPartyDetails(rawUpdatedDetails)
       }
 
-      @Help.Summary("Update party's identity provider id", FeatureFlag.Testing)
+      @Help.Summary("Update party's identity provider id")
       @Help.Description(
         """Updates party's identity provider id.
           party: party to be updated
@@ -1595,16 +1580,15 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           party: PartyId,
           sourceIdentityProviderId: String,
           targetIdentityProviderId: String,
-      ): Unit =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.PartyManagementService.UpdateIdp(
-              party = party,
-              sourceIdentityProviderId = sourceIdentityProviderId,
-              targetIdentityProviderId = targetIdentityProviderId,
-            )
+      ): Unit = consoleEnvironment.run {
+        ledgerApiCommand(
+          LedgerApiCommands.PartyManagementService.UpdateIdp(
+            party = party,
+            sourceIdentityProviderId = sourceIdentityProviderId,
+            targetIdentityProviderId = targetIdentityProviderId,
           )
-        })
+        )
+      }
 
       private def verifyOnlyModifiableFieldsWhereModified(
           srcDetails: PartyDetails,
@@ -1617,22 +1601,21 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       }
 
       private def get(party: PartyId, identityProviderId: String = ""): ProtoPartyDetails =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.GetParty(
               party = party,
               identityProviderId = identityProviderId,
             )
           )
-        })
-
+        }
     }
 
-    @Help.Summary("Manage packages", FeatureFlag.Testing)
+    @Help.Summary("Manage packages")
     @Help.Group("Package Management")
     object packages extends Helpful {
 
-      @Help.Summary("Upload packages from Dar file", FeatureFlag.Testing)
+      @Help.Summary("Upload packages from Dar file")
       @Help.Description("""Uploading the Dar can be done either through the ledger Api server or through the Canton admin Api.
           |The Ledger Api is the portable method across ledgers. The Canton admin Api is more powerful as it allows for
           |controlling Canton specific behaviour.
@@ -1640,35 +1623,33 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           |Additionally, Dars uploaded using the ledger Api will be vetted, but the system will not wait
           |for the Dars to be successfully registered with all connected synchronizers. As such, if a Dar is uploaded and then
           |used immediately thereafter, a command might bounce due to missing package vettings.""")
-      def upload_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
+      def upload_dar(darPath: String): Unit =
         consoleEnvironment.run {
           ledgerApiCommand(LedgerApiCommands.PackageManagementService.UploadDarFile(darPath))
         }
-      }
 
-      @Help.Summary("List Daml Packages", FeatureFlag.Testing)
+      @Help.Summary("List Daml Packages")
       def list(limit: PositiveInt = defaultLimit): Seq[PackageDetails] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(LedgerApiCommands.PackageManagementService.ListKnownPackages(limit))
-        })
+        }
 
-      @Help.Summary("Validate a DAR against the current participants' state", FeatureFlag.Testing)
+      @Help.Summary("Validate a DAR against the current participants' state")
       @Help.Description(
         """Performs the same DAR and Daml package validation checks that the upload call performs,
          but with no effects on the target participants: the DAR is not persisted or vetted."""
       )
-      def validate_dar(darPath: String): Unit = check(FeatureFlag.Testing) {
+      def validate_dar(darPath: String): Unit =
         consoleEnvironment.run {
           ledgerApiCommand(LedgerApiCommands.PackageManagementService.ValidateDarFile(darPath))
         }
-      }
     }
 
-    @Help.Summary("Monitor progress of commands", FeatureFlag.Testing)
+    @Help.Summary("Monitor progress of commands")
     @Help.Group("Command Completions")
     object completions extends Helpful {
 
-      @Help.Summary("Lists command completions following the specified offset", FeatureFlag.Testing)
+      @Help.Summary("Lists command completions following the specified offset")
       @Help.Description(
         """If the participant has been pruned via `pruning.prune` and if `beginOffset` is lower than
           |the pruning offset, this command fails with a `NOT_FOUND` error.
@@ -1681,20 +1662,19 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userId: String = userId,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           filter: Completion => Boolean = _ => true,
-      ): Seq[Completion] =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.CommandCompletionService.CompletionRequest(
-              partyId.toLf,
-              beginOffsetExclusive,
-              atLeastNumCompletions,
-              timeout.asJavaApproximation,
-              userId,
-            )(filter, consoleEnvironment.environment.scheduler)
-          )
-        })
+      ): Seq[Completion] = consoleEnvironment.run {
+        ledgerApiCommand(
+          LedgerApiCommands.CommandCompletionService.CompletionRequest(
+            partyId.toLf,
+            beginOffsetExclusive,
+            atLeastNumCompletions,
+            timeout.asJavaApproximation,
+            userId,
+          )(filter, consoleEnvironment.environment.scheduler)
+        )
+      }
 
-      @Help.Summary("Subscribe to the command completion stream", FeatureFlag.Testing)
+      @Help.Summary("Subscribe to the command completion stream")
       @Help.Description(
         """This function connects to the command completion stream and passes command completions to `observer` until
           |the stream is completed.
@@ -1709,24 +1689,22 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           beginOffsetExclusive: Long = 0L,
           userId: String = userId,
       ): AutoCloseable =
-        check(FeatureFlag.Testing)(
-          consoleEnvironment.run {
-            ledgerApiCommand(
-              LedgerApiCommands.CommandCompletionService.Subscribe(
-                observer,
-                parties.map(_.toLf),
-                beginOffsetExclusive,
-                userId,
-              )
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.CommandCompletionService.Subscribe(
+              observer,
+              parties.map(_.toLf),
+              beginOffsetExclusive,
+              userId,
             )
-          }
-        )
+          )
+        }
     }
 
-    @Help.Summary("Identity Provider Configuration Management", FeatureFlag.Testing)
+    @Help.Summary("Identity Provider Configuration Management")
     @Help.Group("Ledger Api Identity Provider Configuration Management")
     object identity_provider_config extends Helpful {
-      @Help.Summary("Create a new identity provider configuration", FeatureFlag.Testing)
+      @Help.Summary("Create a new identity provider configuration")
       @Help.Description(
         """Create an identity provider configuration. The request will fail if the maximum allowed number of separate configurations is reached."""
       )
@@ -1737,7 +1715,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           issuer: String,
           audience: Option[String],
       ): IdentityProviderConfig = {
-        val config = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val config = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Create(
               identityProviderId =
@@ -1748,11 +1726,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               audience = audience,
             )
           )
-        })
+        }
+
         IdentityProviderConfigClient.fromProtoConfig(config)
       }
 
-      @Help.Summary("Update an identity provider", FeatureFlag.Testing)
+      @Help.Summary("Update an identity provider")
       @Help.Description("""Update identity provider""")
       def update(
           identityProviderId: String,
@@ -1762,7 +1741,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           audience: Option[String],
           updateMask: FieldMask,
       ): IdentityProviderConfig = {
-        val config = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val config = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Update(
               IdentityProviderConfig(
@@ -1775,51 +1754,52 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               updateMask,
             )
           )
-        })
+        }
+
         IdentityProviderConfigClient.fromProtoConfig(config)
       }
 
-      @Help.Summary("Delete an identity provider configuration", FeatureFlag.Testing)
+      @Help.Summary("Delete an identity provider configuration")
       @Help.Description("""Delete an existing identity provider configuration""")
       def delete(identityProviderId: String): Unit =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Delete(
               IdentityProviderId.Id(Ref.LedgerString.assertFromString(identityProviderId))
             )
           )
-        })
+        }
 
-      @Help.Summary("Get an identity provider configuration", FeatureFlag.Testing)
+      @Help.Summary("Get an identity provider configuration")
       @Help.Description("""Get identity provider configuration by id""")
       def get(identityProviderId: String): IdentityProviderConfig = {
-        val config = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val config = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.Get(
               IdentityProviderId.Id(Ref.LedgerString.assertFromString(identityProviderId))
             )
           )
-        })
+        }
         IdentityProviderConfigClient.fromProtoConfig(config)
       }
 
-      @Help.Summary("List identity provider configurations", FeatureFlag.Testing)
+      @Help.Summary("List identity provider configurations")
       @Help.Description("""List all existing identity provider configurations""")
       def list(): Seq[IdentityProviderConfig] = {
-        val configs = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val configs = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.IdentityProviderConfigs.List()
           )
-        })
+        }
         configs.map(IdentityProviderConfigClient.fromProtoConfig)
       }
     }
 
-    @Help.Summary("Manage Ledger Api Users", FeatureFlag.Testing)
+    @Help.Summary("Manage Ledger Api Users")
     @Help.Group("Ledger Api Users")
     object users extends Helpful {
 
-      @Help.Summary("Create a user with the given id", FeatureFlag.Testing)
+      @Help.Summary("Create a user with the given id")
       @Help.Description(
         """Users are used to dynamically managing the rights given to Daml users.
           |They allow us to link a stable local identifier (of an application) with a set of parties.
@@ -1847,7 +1827,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           identityProviderId: String = "",
           readAsAnyParty: Boolean = false,
       ): User = {
-        val lapiUser = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val lapiUser = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.Create(
               id = id,
@@ -1862,11 +1842,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               readAsAnyParty = readAsAnyParty,
             )
           )
-        })
+        }
+
         User.fromLapiUser(lapiUser)
       }
 
-      @Help.Summary("Update a user", FeatureFlag.Testing)
+      @Help.Summary("Update a user")
       @Help.Description(
         """Currently you can update the annotations, active status and primary party.
           |You cannot update other user attributes.
@@ -1889,7 +1870,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         verifyOnlyModifiableFieldsWhereModified(srcUser, modifiedUser)
         val annotationsUpdate =
           makeAnnotationsUpdate(original = srcUser.annotations, modified = modifiedUser.annotations)
-        val rawUpdatedUser = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val rawUpdatedUser = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.Update(
               id = id,
@@ -1900,11 +1881,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
+
         User.fromLapiUser(rawUpdatedUser)
       }
 
-      @Help.Summary("Get the user data of the user with the given id", FeatureFlag.Testing)
+      @Help.Summary("Get the user data of the user with the given id")
       @Help.Description(
         """Fetch the data associated with the given user id failing if there is no such user.
           |You will get the user's primary party, active status and annotations.
@@ -1919,21 +1901,21 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         )
       )
 
-      @Help.Summary("Delete a user", FeatureFlag.Testing)
+      @Help.Summary("Delete a user")
       @Help.Description("""Delete a user by id.
          id: user id
          identityProviderId: identity provider id""")
       def delete(id: String, identityProviderId: String = ""): Unit =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.Delete(
               id = id,
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
 
-      @Help.Summary("List users", FeatureFlag.Testing)
+      @Help.Summary("List users")
       @Help.Description("""List users of this participant node
           filterUser: filter results using the given filter string
           pageToken: used for pagination (the result contains a page token if there are further pages)
@@ -1945,7 +1927,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           pageSize: Int = 100,
           identityProviderId: String = "",
       ): UsersPage = {
-        val page: ListLedgerApiUsersResult = check(FeatureFlag.Testing)(consoleEnvironment.run {
+        val page: ListLedgerApiUsersResult = consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.List(
               filterUser = filterUser,
@@ -1954,14 +1936,15 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
+
         UsersPage(
           users = page.users.map(User.fromLapiUser),
           nextPageToken = page.nextPageToken,
         )
       }
 
-      @Help.Summary("Update user's identity provider id", FeatureFlag.Testing)
+      @Help.Summary("Update user's identity provider id")
       @Help.Description(
         """Updates user's identity provider id.
           id: the id used to identify the given user
@@ -1974,7 +1957,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           sourceIdentityProviderId: String,
           targetIdentityProviderId: String,
       ): Unit =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.UpdateIdp(
               id = id,
@@ -1982,7 +1965,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               targetIdentityProviderId = targetIdentityProviderId,
             )
           )
-        })
+        }
 
       private def verifyOnlyModifiableFieldsWhereModified(
           srcUser: User,
@@ -1999,20 +1982,20 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       }
 
       private def doGet(id: String, identityProviderId: String): LedgerApiUser =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.Users.Get(
               id = id,
               identityProviderId = identityProviderId,
             )
           )
-        })
+        }
 
-      @Help.Summary("Manage Ledger Api User Rights", FeatureFlag.Testing)
+      @Help.Summary("Manage Ledger Api User Rights")
       @Help.Group("Ledger Api User Rights")
       object rights extends Helpful {
 
-        @Help.Summary("Grant new rights to a user", FeatureFlag.Testing)
+        @Help.Summary("Grant new rights to a user")
         @Help.Description("""Users are used to dynamically managing the rights given to Daml applications.
           |This function is used to grant new rights to an existing user.
           id: the id used to identify the given user
@@ -2032,7 +2015,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
         ): UserRights =
-          check(FeatureFlag.Testing)(consoleEnvironment.run {
+          consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiCommands.Users.Rights.Grant(
                 id = id,
@@ -2051,9 +2034,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 )
               )
             )
-          })
+          }
 
-        @Help.Summary("Revoke user rights", FeatureFlag.Testing)
+        @Help.Summary("Revoke user rights")
         @Help.Description("""Use to revoke specific rights from a user.
           id: the id used to identify the given user
           actAs: the set of parties this user should not be allowed to act as
@@ -2072,7 +2055,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             identityProviderId: String = "",
             readAsAnyParty: Boolean = false,
         ): UserRights =
-          check(FeatureFlag.Testing)(consoleEnvironment.run {
+          consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiCommands.Users.Rights.Revoke(
                 id = id,
@@ -2091,38 +2074,34 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 )
               )
             )
-          })
+          }
 
-        @Help.Summary("List rights of a user", FeatureFlag.Testing)
+        @Help.Summary("List rights of a user")
         @Help.Description("""Lists the rights of a user, or the rights of the current user.
             id: user id
             identityProviderId: identity provider id""")
         def list(id: String, identityProviderId: String = ""): UserRights =
-          check(FeatureFlag.Testing)(consoleEnvironment.run {
+          consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiCommands.Users.Rights.List(
                 id = id,
                 identityProviderId = identityProviderId,
               )
             )
-          })
-
+          }
       }
-
     }
 
-    @Help.Summary("Interact with the time service", FeatureFlag.Testing)
+    @Help.Summary("Interact with the time service")
     @Help.Group("Time")
     object time {
-      @Help.Summary("Get the participants time", FeatureFlag.Testing)
+      @Help.Summary("Get the participants time")
       @Help.Description("""Returns the current timestamp of the participant which is either the
                          system clock or the static time""")
       def get(): CantonTimestamp =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.Time.Get
-          )
-        })
+        consoleEnvironment.run {
+          ledgerApiCommand(LedgerApiCommands.Time.Get)
+        }
 
       @Help.Summary("Set the participants time", FeatureFlag.Testing)
       @Help.Description(
@@ -2132,32 +2111,31 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(LedgerApiCommands.Time.Set(currentTime, nextTime))
         })
-
     }
 
-    @Help.Summary("Query event details", FeatureFlag.Testing)
+    @Help.Summary("Query event details")
     @Help.Group("EventQuery")
     object event_query extends Helpful {
 
-      @Help.Summary("Get events by contract Id", FeatureFlag.Testing)
+      @Help.Summary("Get events by contract Id")
       @Help.Description("""Return events associated with the given contract Id""")
       def by_contract_id(
           contractId: String,
           requestingParties: Seq[PartyId],
       ): GetEventsByContractIdResponse =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
+        consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.QueryService
               .GetEventsByContractId(contractId, requestingParties.map(_.toLf))
           )
-        })
+        }
     }
 
-    @Help.Summary("Group of commands that utilize java bindings", FeatureFlag.Testing)
+    @Help.Summary("Group of commands that utilize java bindings")
     @Help.Group("Ledger Api (Java bindings)")
     object javaapi extends Helpful {
 
-      @Help.Summary("Interactive submission", FeatureFlag.Testing)
+      @Help.Summary("Interactive submission")
       @Help.Group("Interactive Submission")
       object interactive_submission extends Helpful {
 
@@ -2199,13 +2177,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           }
       }
 
-      @Help.Summary("Submit commands (Java bindings)", FeatureFlag.Testing)
+      @Help.Summary("Submit commands (Java bindings)")
       @Help.Group("Command Submission (Java bindings)")
       object commands extends Helpful {
 
         @Help.Summary(
-          "Submit java codegen command and wait for the resulting transaction, returning the transaction or failing otherwise",
-          FeatureFlag.Testing,
+          "Submit java codegen command and wait for the resulting transaction, returning the transaction or failing otherwise"
         )
         @Help.Description(
           """Submits a command on behalf of the `actAs` parties, waits for the resulting transaction to commit, and returns the "flattened" transaction.
@@ -2233,7 +2210,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-        ): Transaction = check(FeatureFlag.Testing) {
+        ): Transaction = {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
               LedgerApiCommands.CommandService.SubmitAndWaitTransaction(
@@ -2253,6 +2230,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               )
             )
           }
+
           javab.data.Transaction.fromProto(
             ApiTransaction.toJavaProto(
               optionallyAwait(tx, tx.updateId, tx.synchronizerId, optTimeout)
@@ -2260,7 +2238,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           )
         }
 
-        @Help.Summary("Submit java codegen command asynchronously", FeatureFlag.Testing)
+        @Help.Summary("Submit java codegen command asynchronously")
         @Help.Description(
           """Provides access to the command submission service of the Ledger API.
             |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
@@ -2293,8 +2271,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           )
 
         @Help.Summary(
-          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
-          FeatureFlag.Testing,
+          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise"
         )
         @Help.Description(
           """Submits an unassignment command on behalf of `submitter` party, waits for the resulting unassignment to commit, and returns the reassignment.
@@ -2330,8 +2307,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             .pipe(Reassignment.fromProto)
 
         @Help.Summary(
-          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
-          FeatureFlag.Testing,
+          "Submit assign command and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise"
         )
         @Help.Description(
           """Submits a assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
@@ -2367,13 +2343,12 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             .pipe(Reassignment.fromProto)
       }
 
-      @Help.Summary("Read from update stream (Java bindings)", FeatureFlag.Testing)
+      @Help.Summary("Read from update stream (Java bindings)")
       @Help.Group("Updates (Java bindings)")
       object updates extends Helpful {
 
         @Help.Summary(
-          "Get updates in the format expected by the Java bindings",
-          FeatureFlag.Testing,
+          "Get updates in the format expected by the Java bindings"
         )
         @Help.Description(
           """This function connects to the update stream for the given parties and collects updates
@@ -2392,7 +2367,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
             synchronizerFilter: Option[SynchronizerId] = None,
-        ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)({
+        ): Seq[GetUpdatesResponse] =
           ledger_api.updates
             .updates(
               updateFormat,
@@ -2423,11 +2398,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                   .pipe(new GetUpdatesResponse(_))
             }
 
-        })
-
         @Help.Summary(
-          "Get transactions in the format expected by the Java bindings",
-          FeatureFlag.Testing,
+          "Get transactions in the format expected by the Java bindings"
         )
         @Help.Description(
           """This function connects to the update stream for the given parties and collects updates
@@ -2449,8 +2421,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             resultFilter: UpdateWrapper => Boolean = _ => true,
             synchronizerFilter: Option[SynchronizerId] = None,
             transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
-        ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)({
-
+        ): Seq[GetUpdatesResponse] =
           ledger_api.updates
             .transactions(
               partyIds,
@@ -2469,11 +2440,9 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 .pipe(javab.data.Transaction.fromProto)
                 .pipe(new GetUpdatesResponse(_))
             }
-        })
 
         @Help.Summary(
-          "Get transactions in the format expected by the Java bindings",
-          FeatureFlag.Testing,
+          "Get transactions in the format expected by the Java bindings"
         )
         @Help.Description(
           """This function connects to the update stream for the given transaction format and collects updates
@@ -2492,7 +2461,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             endOffsetInclusive: Option[Long] = None,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
             resultFilter: UpdateWrapper => Boolean = _ => true,
-        ): Seq[GetUpdatesResponse] = check(FeatureFlag.Testing)(
+        ): Seq[GetUpdatesResponse] =
           ledger_api.updates
             .transactions_with_tx_format(
               TransactionFormatProto.fromJavaProto(transactionFormat.toProto),
@@ -2521,20 +2490,18 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                   .pipe(TopologyTransaction.fromProto)
                   .pipe(new GetUpdatesResponse(_))
             }
-        )
       }
 
-      @Help.Summary("Collection of Ledger API state endpoints (Java bindings)", FeatureFlag.Testing)
+      @Help.Summary("Collection of Ledger API state endpoints (Java bindings)")
       @Help.Group("State (Java bindings)")
       object state extends Helpful {
 
-        @Help.Summary("Read active contracts (Java bindings)", FeatureFlag.Testing)
+        @Help.Summary("Read active contracts (Java bindings)")
         @Help.Group("Active Contracts (Java bindings)")
         object acs extends Helpful {
 
           @Help.Summary(
-            "Wait until a contract becomes available and return the Java codegen contract",
-            FeatureFlag.Testing,
+            "Wait until a contract becomes available and return the Java codegen contract"
           )
           @Help.Description(
             """This function can be used for contracts with a code-generated Java model.
@@ -2551,7 +2518,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               predicate: TC => Boolean = (_: TC) => true,
               synchronizerFilter: Option[SynchronizerId] = None,
               timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-          ): TC = check(FeatureFlag.Testing)({
+          ): TC = {
             val result = new AtomicReference[Option[TC]](None)
             ConsoleMacros.utils.retry_until_true(timeout) {
               val tmp = filter(companion)(partyId, predicate, synchronizerFilter)
@@ -2565,11 +2532,10 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                   s"Failed to find contract of type ${companion.TEMPLATE_ID} after $timeout"
                 )
             }
-          })
+          }
 
           @Help.Summary(
-            "Filter the ACS for contracts of a particular Java code-generated template",
-            FeatureFlag.Testing,
+            "Filter the ACS for contracts of a particular Java code-generated template"
           )
           @Help.Description(
             """To use this function, ensure a code-generated Java model for the target template exists.
@@ -2584,7 +2550,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
               synchronizerFilter: Option[SynchronizerId] = None,
-          ): Seq[TC] = check(FeatureFlag.Testing) {
+          ): Seq[TC] = {
             val templateId = TemplateId.fromJavaIdentifier(templateCompanion.TEMPLATE_ID)
 
             def synchronizerPredicate(entry: WrappedContractEntry) =
@@ -2608,11 +2574,11 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         }
       }
 
-      @Help.Summary("Query event details", FeatureFlag.Testing)
+      @Help.Summary("Query event details")
       @Help.Group("EventQuery")
       object event_query extends Helpful {
 
-        @Help.Summary("Get events in java codegen by contract Id", FeatureFlag.Testing)
+        @Help.Summary("Get events in java codegen by contract Id")
         @Help.Description("""Return events associated with the given contract Id""")
         def by_contract_id(
             contractId: String,

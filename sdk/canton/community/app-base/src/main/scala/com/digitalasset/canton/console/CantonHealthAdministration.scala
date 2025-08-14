@@ -111,23 +111,25 @@ class CantonHealthAdministration(protected val consoleEnv: ConsoleEnvironment)
       statusMap(consoleEnv.participants),
     )
 
-  @Help.Summary("Generate and write a health dump of Canton's state for a bug report")
+  @Help.Summary("Collect Canton system information to help diagnose issues")
   @Help.Description(
-    "Gathers information about the current Canton process and/or remote nodes if using the console" +
-      " with a remote config. The outputFile argument can be used to write the health dump to a specific path." +
-      " The timeout argument can be increased when retrieving large health dumps from remote nodes." +
-      " The chunkSize argument controls the size of the byte chunks streamed back from remote nodes. This can be used" +
-      " if encountering errors due to gRPC max inbound message size being too low."
+    """Generates a comprehensive health report for the local Canton process and any connected remote nodes.
+      |
+      |The arguments are:
+      |  - outputFile: Specifies the file path to save the report. If not set, a default path is used.
+      |  - timeout: Sets a custom timeout for gathering data, useful for large reports from slow remote nodes.
+      |  - chunkSize: Adjusts the data stream chunk size from remote nodes. Use this to prevent gRPC errors related to 'max inbound message size'
+      |"""
   )
   def dump(
-      outputFile: File = CantonHealthAdministration.defaultHealthDumpName,
+      outputFile: String = CantonHealthAdministration.defaultHealthDumpName.canonicalPath,
       timeout: NonNegativeDuration = consoleEnv.commandTimeouts.ledgerCommand,
       chunkSize: Option[Int] = None,
   ): String = {
     val remoteDumps = consoleEnv.nodes.remote.toList.parTraverse { n =>
       Future {
         n.health.dump(
-          File.newTemporaryFile(s"remote-${n.name}-"),
+          File.newTemporaryFile(s"remote-${n.name}-").name,
           timeout,
           chunkSize,
         )
@@ -138,7 +140,7 @@ class CantonHealthAdministration(protected val consoleEnv: ConsoleEnvironment)
     def getLocalDump(nodes: NonEmptyList[InstanceReference]): Future[String] =
       Future {
         nodes.head.health.dump(
-          File.newTemporaryFile(s"local-"),
+          File.newTemporaryFile(s"local-").name,
           timeout,
           chunkSize,
         )
@@ -162,7 +164,7 @@ class CantonHealthAdministration(protected val consoleEnv: ConsoleEnvironment)
 
     consoleEnv.run {
       val zippedHealthDump = List(remoteDumps, localDump).flatSequence.map { allDumps =>
-        outputFile.zipIn(allDumps.map(File(_)).iterator).pathAsString
+        File(outputFile).zipIn(allDumps.map(File(_)).iterator).pathAsString
       }
       Try(Await.result(zippedHealthDump, timeout.duration)) match {
         case Success(result) => CommandSuccessful(result)

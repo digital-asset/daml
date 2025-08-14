@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc
 
 import cats.data.OptionT
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -17,8 +18,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.canton.topology.SequencerNodeId
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcClientConnectionManager.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   AuthenticationInitialState,
   P2PEndpoint,
@@ -28,13 +29,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   AddEndpointHeaderClientInterceptor,
   AuthenticateServerClientInterceptor,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.P2PConnectionEventListener
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  ModuleRef,
+  P2PConnectionEventListener,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.utils.Miscellaneous.mutex
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.{
+  BftOrderingMessage,
   BftOrderingMessageBody,
   BftOrderingServiceGrpc,
-  BftOrderingServiceReceiveRequest,
   ConnectionOpened,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -54,16 +58,19 @@ import scala.jdk.CollectionConverters.*
 import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
-class P2PGrpcClientConnectionManager(
+class P2PGrpcConnectionManager(
     thisNode: BftNodeId,
     // None if authentication is disabled
     authenticationInitialState: Option[AuthenticationInitialState],
     p2pConnectionEventListener: P2PConnectionEventListener,
+    metrics: BftOrderingMetrics,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable { self =>
+
+  import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionManager.*
 
   import TraceContext.Implicits.Empty.emptyTraceContext
 
@@ -74,14 +81,15 @@ class P2PGrpcClientConnectionManager(
   private val connectWorkers =
     mutable.Map[P2PEndpoint, (ManagedChannel, FutureUnlessShutdown[Unit])]()
   private val peerSenders =
-    mutable.Map[P2PEndpoint, StreamObserver[BftOrderingServiceReceiveRequest]]()
+    mutable.Map[P2PEndpoint, StreamObserver[BftOrderingMessage]]()
+  private val serverPeerSenders = mutable.Set[StreamObserver[BftOrderingMessage]]()
   private val channels = mutable.Map[P2PEndpoint, ManagedChannel]()
   private val grpcSequencerClientAuths = mutable.Map[P2PEndpoint, GrpcSequencerClientAuth]()
 
   // Called by the client network manager when establishing a connection to an endpoint
   def getPeerSenderOrStartConnection(
       peerEndpoint: P2PEndpoint
-  ): Option[StreamObserver[BftOrderingServiceReceiveRequest]] =
+  ): Option[StreamObserver[BftOrderingMessage]] =
     if (!isClosing) {
       mutex(this)(peerSenders.get(peerEndpoint)).orElse {
         ensureConnectWorker(peerEndpoint)
@@ -128,6 +136,8 @@ class P2PGrpcClientConnectionManager(
     mutex(this)(channels.values.toSeq).foreach(_.shutdown().discard)
     logger.debug("Shutting down connection executor")
     connectExecutor.shutdown()
+    logger.debug("Cleaning up server peer senders")
+    serverPeerSenders.foreach(cleanupServerPeerSender)
     logger.debug("Closed P2P networking (client role)")
   }
 
@@ -194,7 +204,7 @@ class P2PGrpcClientConnectionManager(
   private def addPeerEndpoint(
       peerEndpoint: P2PEndpoint,
       sequencerId: SequencerId,
-      peerSender: StreamObserver[BftOrderingServiceReceiveRequest],
+      peerSender: StreamObserver[BftOrderingMessage],
   ): Unit = {
     p2pConnectionEventListener.onConnect(peerEndpoint.id)
     // These streams are unidirectional: two of them (one per direction) are needed for a full-duplex P2P link.
@@ -306,7 +316,7 @@ class P2PGrpcClientConnectionManager(
       attemptNumber: Int = 1,
   ): OptionT[
     FutureUnlessShutdown,
-    (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+    (SequencerId, StreamObserver[BftOrderingMessage]),
   ] =
     synchronizeWithClosing("p2p-create-peer-sender") {
       def retry(
@@ -316,7 +326,7 @@ class P2PGrpcClientConnectionManager(
           attemptNumber: Int,
       ): OptionT[
         FutureUnlessShutdown,
-        (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+        (SequencerId, StreamObserver[BftOrderingMessage]),
       ] = {
         def log(msg: => String, exc: Throwable): Unit =
           if (attemptNumber <= MaxConnectionAttemptsBeforeWarning)
@@ -352,7 +362,7 @@ class P2PGrpcClientConnectionManager(
               OptionT
                 .none[
                   FutureUnlessShutdown,
-                  (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
+                  (SequencerId, StreamObserver[BftOrderingMessage]),
                 ]
             }
         } yield result
@@ -394,9 +404,9 @@ class P2PGrpcClientConnectionManager(
 
   private def createConnectionOpener(
       thisNode: BftNodeId
-  ): BftOrderingServiceReceiveRequest = {
+  ): BftOrderingMessage = {
     val networkSendInstant = Instant.now()
-    BftOrderingServiceReceiveRequest(
+    BftOrderingMessage(
       "",
       Some(
         BftOrderingMessageBody(
@@ -434,9 +444,53 @@ class P2PGrpcClientConnectionManager(
   // Must be called from within a mutex(this) block
   private def signalConnectWorkerToStop(peerEndpoint: P2PEndpoint): Unit =
     connectWorkers.remove(peerEndpoint).discard
+
+  def tryCreateServerSidePeerReceiver(
+      inputModule: ModuleRef[BftOrderingMessage],
+      peerSender: StreamObserver[BftOrderingMessage],
+  )(implicit metricsContext: MetricsContext): P2PGrpcStreamingServerSideReceiver =
+    if (!isClosing) {
+      addServerPeerSender(peerSender)
+      logger.debug("Creating a peer sender for an incoming connection")
+      Try(peerSender.onNext(createConnectionOpener(thisNode))) match {
+        case Failure(exception) =>
+          logger.debug("Failed creating a peer sender for an incoming connection", exception)
+          peerSender.onError(exception) // Required by the gRPC streaming API
+          throw exception
+        case Success(value) =>
+          logger.debug("Successfully created a peer sender for an incoming connection")
+          new P2PGrpcStreamingServerSideReceiver(
+            inputModule,
+            peerSender,
+            cleanupServerPeerSender,
+            loggerFactory,
+            metrics,
+          )
+      }
+    } else {
+      logger.debug(
+        "BFT block orderer not accepting new peer connections due to shutdown in progress"
+      )
+      throw new IllegalStateException("BFT block orderer is closed")
+    }
+
+  // Called by the gRPC server when receiving a connection
+  private def addServerPeerSender(peerSender: StreamObserver[BftOrderingMessage]): Unit =
+    mutex(this) {
+      serverPeerSenders.add(peerSender).discard
+    }
+
+  // Called by the gRPC server endpoint when receiving an error or a completion from a client
+  private def cleanupServerPeerSender(peerSender: StreamObserver[BftOrderingMessage]): Unit = {
+    logger.debug("Completing and removing client endpoint")
+    completeGrpcStreamObserver(peerSender)
+    mutex(this) {
+      serverPeerSenders.remove(peerSender).discard
+    }
+  }
 }
 
-private[bftordering] object P2PGrpcClientConnectionManager {
+private[bftordering] object P2PGrpcConnectionManager {
 
   // The maximum number of connection attempts before we log a warning.
   //  Together with the retry delays, it limits the maximum time spent trying to connect to a peer before

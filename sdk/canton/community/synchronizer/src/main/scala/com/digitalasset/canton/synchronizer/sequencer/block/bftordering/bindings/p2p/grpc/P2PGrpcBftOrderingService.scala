@@ -9,16 +9,16 @@ import io.grpc.stub.StreamObserver
 
 class P2PGrpcBftOrderingService(
     tryCreateServerSidePeerReceiver: StreamObserver[
-      BftOrderingServiceReceiveResponse
+      BftOrderingMessage
     ] => StreamObserver[
-      BftOrderingServiceReceiveRequest
+      BftOrderingMessage
     ],
     override val loggerFactory: NamedLoggerFactory,
 ) extends BftOrderingServiceGrpc.BftOrderingService
     with NamedLogging {
 
   override def receive(
-      peerSender: StreamObserver[BftOrderingServiceReceiveResponse]
-  ): StreamObserver[BftOrderingServiceReceiveRequest] =
+      peerSender: StreamObserver[BftOrderingMessage]
+  ): StreamObserver[BftOrderingMessage] =
     tryCreateServerSidePeerReceiver(peerSender)
 }

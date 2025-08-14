@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting
 
 final case class ParticipantNodeParameters(
     general: CantonNodeParameters.General,
+    activationFrequencyForWarnAboutConsistencyChecks: Long,
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
@@ -61,6 +62,7 @@ object ParticipantNodeParameters {
       watchdog = None,
       startupMemoryCheckConfig = StartupMemoryCheckConfig(ReportingLevel.Warn),
     ),
+    activationFrequencyForWarnAboutConsistencyChecks = 1000L,
     adminWorkflow = AdminWorkflowConfig(
       bongTestMaxLevel = NonNegativeInt.tryCreate(10)
     ),

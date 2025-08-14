@@ -6,6 +6,7 @@ module DA.Daml.Compiler.ExtractDar
   , extractDar
   , getEntry
   , edDeps
+  , mainPackageIdFromPaths
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -13,7 +14,9 @@ import Control.Monad.Extra
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BSUTF8
 import Data.List.Extra
+import qualified Data.Text as T
 import System.FilePath
+import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Reader
 
 data ExtractedDar = ExtractedDar
@@ -27,6 +30,10 @@ data ExtractedDar = ExtractedDar
 edDeps :: ExtractedDar -> [ZipArchive.Entry]
 edDeps ExtractedDar {edDalfs, edMain} =
   filter (\edDalf -> ZipArchive.eRelativePath edDalf /= ZipArchive.eRelativePath edMain) edDalfs
+
+-- | Derives the main packages id from its path within the Dar, which will always be <package-name>-<package-version>-<package-id>.dalf
+mainPackageIdFromPaths :: ExtractedDar -> LF.PackageId
+mainPackageIdFromPaths ed = LF.PackageId $ T.pack $ last $ linesBy (=='-') $ takeBaseName $ ZipArchive.eRelativePath $ edMain ed
 
 -- | Extract a dar archive
 extractDar :: FilePath -> IO ExtractedDar

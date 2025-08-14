@@ -70,7 +70,9 @@ class DbLogicalSyncPersistentState(
     new DbActiveContractStore(
       storage,
       synchronizerIdx,
-      enableAdditionalConsistencyChecks,
+      Option.when(enableAdditionalConsistencyChecks)(
+        parameters.activationFrequencyForWarnAboutConsistencyChecks
+      ),
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
       timeouts,
@@ -154,7 +156,7 @@ class DbPhysicalSyncPersistentState(
       loggerFactory,
     )
 
-  val sendTrackerStore: SendTrackerStore = SendTrackerStore(storage)
+  val sendTrackerStore: SendTrackerStore = SendTrackerStore()
 
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(

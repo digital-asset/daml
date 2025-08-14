@@ -4,7 +4,7 @@
 package com.digitalasset.canton.console
 
 import com.digitalasset.canton.admin.api.client.commands.*
-import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
+import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.FindPruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantSynchronizerPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
   MediatorStatus,
@@ -106,8 +106,10 @@ trait InstanceReference
   @Help.Description(
     "Some commands cache values on the client side. Use this command to explicitly clear the caches of these values."
   )
-  def clear_cache(): Unit =
-    topology.clearCache()
+  def clear_cache(): Unit = check(FeatureFlag.Testing)(topology.clearCache())
+
+  // Allow use from stop command
+  protected[canton] def clear_cache_internal(): Unit = topology.clearCache()
 
   type Status <: NodeStatus.Status
 
@@ -335,7 +337,7 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
     try {
       stopInstance().toResult(_.message)
     } finally {
-      ErrorUtil.withThrowableLogging(clear_cache())
+      ErrorUtil.withThrowableLogging(clear_cache_internal())
     }
 
   protected def migrateInstanceDb(): Either[StartupError, ?] = nodes.migrateDatabase(name)
@@ -538,7 +540,7 @@ abstract class ParticipantReference(
   @Help.Group("Testing")
   def testing: ParticipantTestingGroup
 
-  @Help.Summary("Commands to pruning the archive of the ledger", FeatureFlag.Preview)
+  @Help.Summary("Commands to pruning the archive of the ledger")
   @Help.Group("Ledger Pruning")
   def pruning: ParticipantPruningAdministrationGroup = pruning_
 
@@ -1168,15 +1170,12 @@ abstract class SequencerReference(
         |When pruning the sequencer manually via `prune_at` and with the intent to prune in batches, specify
         |a value such as 1000 to obtain a pruning timestamp that corresponds to the "end" of the batch."""
     )
-    def locate_pruning_timestamp(
+    def find_pruning_timestamp(
         index: PositiveInt = PositiveInt.tryCreate(1)
     ): Option[CantonTimestamp] =
-      check(FeatureFlag.Preview) {
-        this.consoleEnvironment.run {
-          runner.adminCommand(LocatePruningTimestampCommand(index))
-        }
+      this.consoleEnvironment.run {
+        runner.adminCommand(FindPruningTimestampCommand(index))
       }
-
   }
 
   @Help.Summary("Methods used for repairing the node")
@@ -1253,7 +1252,7 @@ abstract class SequencerReference(
         runner.adminCommand(SequencerBftAdminCommands.SetPerformanceMetricsEnabled(false))
       }
 
-    @Help.Summary("Commands to prune the sequencer's BFT Orderer", FeatureFlag.Preview)
+    @Help.Summary("Commands to prune the sequencer's BFT Orderer")
     @Help.Group("BFT Orderer Pruning")
     def pruning: SequencerBftPruningAdministrationGroup = pruning_
 

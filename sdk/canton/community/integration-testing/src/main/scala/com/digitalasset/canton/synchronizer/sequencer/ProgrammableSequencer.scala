@@ -217,10 +217,10 @@ class ProgrammableSequencer(
   ): EitherT[FutureUnlessShutdown, PruningError, String] =
     baseSequencer.prune(timestamp)
 
-  override def locatePruningTimestamp(index: PositiveInt)(implicit
+  override def findPruningTimestamp(index: PositiveInt)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PruningSupportError, Option[CantonTimestamp]] =
-    baseSequencer.locatePruningTimestamp(index)
+    baseSequencer.findPruningTimestamp(index)
 
   override def reportMaxEventAgeMetric(
       oldestEventTimestamp: Option[CantonTimestamp]

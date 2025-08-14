@@ -21,7 +21,7 @@ import monocle.macros.syntax.lens.*
 import scala.concurrent.duration.*
 
 /** Trivial test which can be used as a first end to end test */
-trait SimplestPingIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
+sealed trait SimplestPingIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1

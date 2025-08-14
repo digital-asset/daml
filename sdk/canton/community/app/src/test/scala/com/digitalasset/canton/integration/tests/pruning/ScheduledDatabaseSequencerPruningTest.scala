@@ -111,7 +111,7 @@ private[pruning] trait CanMeasureDatabaseSequencerPruning {
       val timestamps = for { _ <- 1 to secondsToRunTest } yield {
         Threading.sleep(1000)
         val ts = sequencer.pruning
-          .locate_pruning_timestamp()
+          .find_pruning_timestamp()
           .getOrElse(CantonTimestamp.Epoch)
           .tap(timestamp =>
             // Log intermediate timestamps for debugging

@@ -403,6 +403,7 @@ class BftOrderingMetrics private[metrics] (
 
     object labels {
       val ReportingSequencer: String = "reporting-sequencer"
+      val IsBlockEmpty: String = "is-block-empty" // true or false
     }
 
     private val prefix = histograms.global.prefix
@@ -412,6 +413,24 @@ class BftOrderingMetrics private[metrics] (
         prefix :+ "ordered-blocks",
         summary = "Blocks ordered",
         description = "Measures the total blocks ordered.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    val batchesOrdered: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ "ordered-batches",
+        summary = "Batches ordered",
+        description = "Measures the total batches ordered.",
+        qualification = MetricQualification.Traffic,
+      )
+    )
+
+    val requestsOrdered: Meter = openTelemetryMetricsFactory.meter(
+      MetricInfo(
+        prefix :+ "ordered-requests",
+        summary = "Requests ordered",
+        description = "Measures the total requests ordered.",
         qualification = MetricQualification.Traffic,
       )
     )

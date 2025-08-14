@@ -342,6 +342,11 @@ object TestingTimeServiceConfig {
   *   Whether the participant automatically performs a handshake with the upgraded synchronizer
   *   after receiving enough sequencer connections, and whether the participants automatically
   *   connects to the synchronizer after the upgrade time.
+  * @param activationFrequencyForWarnAboutConsistencyChecks
+  *   controls how often warning messages about
+  *   [[com.digitalasset.canton.config.CantonParameters.enableAdditionalConsistencyChecks]] being
+  *   enabled are logged, measured in the number of contract activations during a single connection
+  *   to a synchronizer. Used only for database storage.
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -375,6 +380,7 @@ final case class ParticipantNodeParameterConfig(
     unsafeOnlinePartyReplication: Option[UnsafeOnlinePartyReplicationConfig] = None,
     // TODO(#25344): check whether this should be removed
     automaticallyPerformLogicalSynchronizerUpgrade: Boolean = true,
+    activationFrequencyForWarnAboutConsistencyChecks: Long = 1000,
 ) extends LocalNodeParametersConfig
     with UniformCantonConfigValidation
 

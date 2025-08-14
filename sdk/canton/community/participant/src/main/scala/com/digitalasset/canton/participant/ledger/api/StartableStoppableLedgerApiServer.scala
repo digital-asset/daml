@@ -8,6 +8,7 @@ import com.daml.executors.InstrumentedExecutors
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.ledger.api.v2.experimental_features.ExperimentalCommandInspectionService
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.version_service.OffsetCheckpointFeature
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.logging.entries.LoggingEntries
@@ -18,6 +19,7 @@ import com.digitalasset.canton.auth.{
   AuthInterceptor,
   AuthService,
   AuthServiceWildcard,
+  CachedJwtVerifierLoader,
   CantonAdminTokenAuthService,
 }
 import com.digitalasset.canton.concurrent.{
@@ -30,20 +32,22 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
-import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{
   CumulativeFilter,
   EventFormat,
   IdentityProviderId,
+  ParticipantAuthorizationFormat,
+  TopologyFormat,
+  UpdateFormat,
   User,
   UserRight,
 }
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.ledger.participant.state.metrics.TimedSyncService
-import com.digitalasset.canton.ledger.participant.state.{InternalStateService, PackageSyncService}
+import com.digitalasset.canton.ledger.participant.state.{InternalIndexService, PackageSyncService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.LifeCycle.FastCloseableChannel
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -171,7 +175,7 @@ class StartableStoppableLedgerApiServer(
       ledgerApiResource.get match {
         case Some(ledgerApiServerToStop) =>
           logger.info("Stopping ledger API server")
-          config.syncService.unregisterInternalStateService()
+          config.syncService.unregisterInternalIndexService()
           FutureUtil.logOnFailure(
             ledgerApiServerToStop.release().map { _ =>
               logger.info("Successfully stopped ledger API server")
@@ -220,7 +224,10 @@ class StartableStoppableLedgerApiServer(
           )
 
     val jwtVerifierLoader =
-      new CachedJwtVerifierLoader(metrics = config.metrics, loggerFactory = loggerFactory)
+      new CachedJwtVerifierLoader(
+        metrics = Some(config.metrics.identityProviderConfigStore.verifierCache),
+        loggerFactory = loggerFactory,
+      )
 
     val apiInfoService = new GrpcApiInfoService(CantonGrpcUtil.ApiName.LedgerApi)
       with BindableService {
@@ -302,7 +309,7 @@ class StartableStoppableLedgerApiServer(
               loggingContext
             ),
       )
-      _ = timedSyncService.registerInternalStateService(new InternalStateService {
+      _ = timedSyncService.registerInternalIndexService(new InternalIndexService {
         override def activeContracts(
             partyIds: Set[LfPartyId],
             validAt: Option[Offset],
@@ -316,6 +323,30 @@ class StartableStoppableLedgerApiServer(
             ),
             activeAt = validAt,
           )(new LoggingContextWithTrace(LoggingEntries.empty, traceContext))
+
+        override def topologyTransactions(
+            partyId: LfPartyId,
+            fromExclusive: Offset,
+        )(implicit traceContext: TraceContext): Source[TopologyTransaction, NotUsed] =
+          indexService
+            .updates(
+              begin = Some(fromExclusive),
+              endAt = None,
+              updateFormat = UpdateFormat(
+                includeTransactions = None,
+                includeReassignments = None,
+                includeTopologyEvents = Some(
+                  TopologyFormat(
+                    participantAuthorizationFormat = Some(
+                      ParticipantAuthorizationFormat(
+                        parties = Some(Set(partyId))
+                      )
+                    )
+                  )
+                ),
+              ),
+            )
+            .mapConcat(_.update.topologyTransaction)
       })
       userManagementStore = getUserManagementStore(dbSupport, loggerFactory)
       partyRecordStore = new PersistentPartyRecordStore(

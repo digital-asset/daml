@@ -171,7 +171,7 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
           .value
           .sequencerClient
         val callback = SendCallback.future
-        val sendAsync = client.sendAsync(
+        val sendAsync = client.send(
           batch,
           topologyTimestamp = Some(ts.minusSeconds(5)),
           maxSequencingTime = maxTs,

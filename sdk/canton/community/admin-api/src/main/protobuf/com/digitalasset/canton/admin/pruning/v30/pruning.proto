@@ -57,12 +57,12 @@ message SetRetentionRequest {
 }
 message SetRetentionResponse {}
 
-message LocatePruningTimestampRequest {
+message FindPruningTimestampRequest {
   // the index to look up the offset for, needs to be 1 or larger
   // i.e. 1 for returning the first timestamp, 2 for the second timestamp etc
   int32 index = 1;
 }
-message LocatePruningTimestampResponse {
+message FindPruningTimestampResponse {
   // optional, not set if less than `index` events exist
   google.protobuf.Timestamp timestamp = 1;
 }

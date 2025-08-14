@@ -14,27 +14,14 @@ import "scalapb/scalapb.proto";
 //  implementation, which uses signed integers because the JVM doesn't support unsigned integers.
 
 service BftOrderingService {
-  // For simplicity and to avoid the usage of mTLS, which is not well supported by all network
-  // infrastructure, each BFT ordering node (client endpoint) opens its own P2P connection to every
-  // other server endpoint, performs server authentication and then pushes messages to it.
-  //
-  // Note that the Java gRPC implementation seems to implement unidirectional streams as
-  // bidirectional ones, which seems to require anyway at least one server-sent message before
-  // completion (according to https://github.com/grpc/grpc-java/issues/6568).
-  // Using a unidirectional stream and sending an empty response from the server results
-  // in Netty reference-counted buffer leaks.
-  rpc Receive(stream BftOrderingServiceReceiveRequest) returns (stream BftOrderingServiceReceiveResponse);
+  rpc Receive(stream BftOrderingMessage) returns (stream BftOrderingMessage);
 }
 
-message BftOrderingServiceReceiveRequest {
+message BftOrderingMessage {
   string trace_context = 1;
   BftOrderingMessageBody body = 2;
   string sent_by = 3;
   google.protobuf.Timestamp sent_at = 4;
-}
-
-message BftOrderingServiceReceiveResponse {
-  string from = 1;
 }
 
 message BftOrderingMessageBody {

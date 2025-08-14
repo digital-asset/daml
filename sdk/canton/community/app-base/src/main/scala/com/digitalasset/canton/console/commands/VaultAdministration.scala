@@ -367,7 +367,7 @@ class SecretKeyAdministration(
       }
     }
 
-  @Help.Summary("Download key pair and save it to a file")
+  @Help.Summary("Download key pair and save it to a file", FeatureFlag.Preview)
   @Help.Description(
     """Download the key pair with the private and public key in its binary representation and store it in a file.
       |fingerprint: The identifier of the key pair to download
@@ -614,7 +614,7 @@ class LocalSecretKeyAdministration(
       run(cmd, "exporting key pair")
     }
 
-  @Help.Summary("Download key pair and save it to a file")
+  @Help.Summary("Download key pair and save it to a file", FeatureFlag.Preview)
   override def download_to(
       fingerprint: Fingerprint,
       outputFile: String,

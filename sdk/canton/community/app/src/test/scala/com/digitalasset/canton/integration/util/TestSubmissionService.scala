@@ -341,7 +341,7 @@ class TestSubmissionService(
       case ResultNeedContract(acoid, resume) =>
         for {
           fatContractO <- contractResolver(acoid)(traceContext)
-          r <- resolve(resume(fatContractO))
+          r <- resolve(resume(ResultNeedContract.wrapLegacyResponse(fatContractO)))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>

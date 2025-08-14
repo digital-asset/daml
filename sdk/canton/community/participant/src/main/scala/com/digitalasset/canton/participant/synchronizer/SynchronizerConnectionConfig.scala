@@ -274,6 +274,7 @@ object SynchronizerConnectionConfig
 
   def tryGrpcSingleConnection(
       synchronizerAlias: SynchronizerAlias,
+      sequencerAlias: SequencerAlias,
       connection: String,
       manualConnect: Boolean = false,
       psid: Option[PhysicalSynchronizerId] = None,
@@ -286,7 +287,7 @@ object SynchronizerConnectionConfig
   ): SynchronizerConnectionConfig = {
     val sequencerConnection =
       SequencerConnections.single(
-        GrpcSequencerConnection.tryCreate(connection, certificates, SequencerAlias.Default)
+        GrpcSequencerConnection.tryCreate(connection, certificates, sequencerAlias)
       )
 
     SynchronizerConnectionConfig(

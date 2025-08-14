@@ -130,6 +130,7 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               optMbPackageVersion,
                               optPackageDbs,
                               optPackageImports,
+                              optResolutionData,
                               optScriptService,
                               optSkipScriptValidation,
                               optThreads,
@@ -143,6 +144,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -153,8 +155,10 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                projectConfigName,
                                withExpectProjectRoot,
                                withProjectRoot,
-                               damlAssistantIsSet)
+                               damlAssistantIsSet,
+                               projectPathEnvVar)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
+import qualified DA.Daml.Assistant.Env as AssistantEnv
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -176,7 +180,7 @@ import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
 import Data.List.Extra (elemIndices, nubOrd, nubSort)
 import qualified Data.Map.Strict as Map
-import Data.Maybe (catMaybes, fromMaybe, listToMaybe, mapMaybe)
+import Data.Maybe (catMaybes, fromMaybe, isJust, isNothing, listToMaybe, mapMaybe)
 import qualified Data.Text.Extended as T
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text.Lazy.IO as TL
@@ -189,7 +193,8 @@ import Development.IDE.Core.Debouncer (newAsyncDebouncer, noopDebouncer)
 import Development.IDE.Core.IdeState.Daml (getDamlIdeState,
                                            enabledPlugins,
                                            withDamlIdeState,
-                                           toIdeLogger)
+                                           toIdeLogger,
+                                           scriptServiceJarFromOptions)
 import Development.IDE.Core.Rules (transitiveModuleDeps)
 import Development.IDE.Core.Rules.Daml (getDlintIdeas, getSpanInfo)
 import Development.IDE.Core.Shake (Config(..),
@@ -248,7 +253,8 @@ import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
-import System.Environment
+import System.Environment hiding (setEnv)
+import System.Environment.Blank (setEnv)
 import System.Exit
 import System.FilePath
 import System.IO.Extra
@@ -495,9 +501,11 @@ runTestsInProjectOrFiles projectOpts mbInFiles allTests (LoadCoverageOnly True) 
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
 runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
-        withPackageConfig (ProjectPath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
+          cliOptions <- addResolutionData cliOptions
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ ProjectPath pPath }
+          installDepsAndInitPackageDb cliOptions initPkgDb
+          mbJUnitOutput <- traverse relativize mbJUnitOutput
+          withPackageConfig (ProjectPath pPath) $ \pkgConfig@PackageConfigFields{..} -> do
             -- TODO: We set up one script service context per file that
             -- we pass to execTest and script contexts are quite expensive.
             -- Therefore we keep the behavior of only passing the root file
@@ -506,13 +514,18 @@ runTestsInProjectOrFiles projectOpts Nothing allTests _ coverage color mbJUnitOu
             execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 runTestsInProjectOrFiles projectOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just projectOpts) effect
   where effect = withProjectRoot (projectRoot projectOpts) (projectCheck projectOpts) $ \mProjectPath relativize -> do
-        installDepsAndInitPackageDb cliOptions initPkgDb
-        mbJUnitOutput <- traverse relativize mbJUnitOutput
-        mPkgConfig <- case mProjectPath of
+          cliOptions <- addResolutionData cliOptions
+          cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
+          -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
+          when (isJust (optResolutionData cliOptions) && isNothing mProjectPath) $
+            throwIO $ DPMUnsupportedError "running tests outside of a package"
+          installDepsAndInitPackageDb cliOptions initPkgDb
+          mbJUnitOutput <- traverse relativize mbJUnitOutput
+          mPkgConfig <- case mProjectPath of
             Just projectPath -> withMaybeConfig (withPackageConfig (ProjectPath projectPath)) pure
             Nothing -> pure Nothing
-        inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
-        execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
+          inFiles' <- mapM (fmap toNormalizedFilePath' . relativize) inFiles
+          execTest inFiles' allTests coverage color mbJUnitOutput mPkgConfig cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
@@ -679,6 +692,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
           mPkgConfig <- withMaybeConfig (withPackageConfig pkgPath) pure
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
           options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
+          options <- addResolutionData options
           options <- pure options
               { optScriptService = enableScriptService
               , optEnableOfInterestRule = True
@@ -698,7 +712,7 @@ execIde telemetry (Debug debug) enableScriptService autorunAllScripts options =
           installDepsAndInitPackageDb options (InitPkgDb True)
           scriptServiceConfig <- readScriptServiceConfig
           withLogger $ \loggerH ->
-              withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig $ \mbScriptService -> do
+              withScriptService' enableScriptService (optDamlLfVersion options) loggerH scriptServiceConfig (scriptServiceJarFromOptions options) $ \mbScriptService -> do
                   sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
                   Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
                   debouncer <- newAsyncDebouncer
@@ -827,6 +841,7 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
             projRoot <- getCurrentDirectory
+            opts <- addResolutionData opts
             withPackageConfig defaultProjectPath $
               setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
 
@@ -857,7 +872,10 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
   Command Build (Just projectOpts) $ evalContT $ do
     -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
     execPath <- liftIO getCurrentDirectory
+
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
+
+    opts <- liftIO $ addResolutionData opts
 
     let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
         buildSingle pkgPath pkgConfig = void $ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
@@ -1060,17 +1078,33 @@ multiPackageBuildEffect
   -> IO ()
 multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache = do
   vfs <- makeVFSHandle
-  loggerH <- getLogger opts "multi-package build"
-  assistantPath <- getEnv "DAML_ASSISTANT"
-  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
-  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+  loggerH <- getLogger opts "multi-package build"  
 
   buildableDataDepsMapping <- fmap Map.fromList $ for (mpPackagePaths multiPackageConfig) $ \path -> do
     darPath <- darPathFromDamlYaml path
     pure (darPath, path)
 
-  let assistantRunner = AssistantRunner $ \location args ->
-        withCreateProcess ((proc assistantPath args) {cwd = Just location, env = Just assistantEnv}) $ \_ _ _ p -> do
+  getDamlcPath <-
+    case optResolutionData opts of
+      Just resolutionData -> pure $ \location ->
+        case findPackageResolutionData location resolutionData of
+          Right validPkgResolution ->
+            case Map.lookup "damlc-binary" $ imports validPkgResolution of
+              Just [damlcLocation] -> pure damlcLocation
+              _ -> throwIO $ ResolutionError $ "Damlc could not be found in DPM resolution for " <> location <> ". You SDK install for this package is invalid."
+          Left err -> throwIO err
+      Nothing -> do
+        mbAssistantPath <- lookupEnv "DAML_ASSISTANT"
+        case mbAssistantPath of
+          Just assistantPath -> pure $ const $ pure assistantPath
+          Nothing -> error "Couldn't find DPM or Daml Assistant. Please run damlc via one of these package managers."
+
+  -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
+  damlcEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+
+  let damlcRunner = DamlcRunner $ \location args -> do
+        damlcPath <- getDamlcPath location
+        withCreateProcess ((proc damlcPath args) {cwd = Just location, env = Just damlcEnv}) $ \_ _ _ p -> do
           exitCode <- waitForProcess p
           when (exitCode /= ExitSuccess) $ error $ "Failed to build package at " <> location <> "."
 
@@ -1081,7 +1115,7 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
           mPkgId
       mRootPkgData = (toNormalizedFilePath' $ unwrapProjectPath pkgPath,) <$> mRootPkgBuilder
-      rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
+      rule = buildMultiRule damlcRunner buildableDataDeps noCache mRootPkgData
 
   -- Set up a near empty shake environment, with just the buildMulti rule
   bracket
@@ -1094,7 +1128,10 @@ multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mb
           Nothing -> void $ uses_ BuildMulti $ reverse $ toNormalizedFilePath' <$> mpPackagePaths multiPackageConfig
           Just (rootPkgPath, _) -> void $ use_ BuildMulti rootPkgPath
 
-data AssistantRunner = AssistantRunner { runAssistant :: FilePath -> [String] -> IO ()}
+-- This runs damlc for a given package path.
+-- With legacy daml assistant, it simply calls out to the assistant CLI and allows it to resolve the damlc
+-- With DPM, it looks through the resolution file for the given package and calls the correct damlc-binary directly
+data DamlcRunner = DamlcRunner { runDamlc :: FilePath -> [String] -> IO ()}
 
 -- Stores a mapping from dar path to project path
 data BuildableDataDeps = BuildableDataDeps { getDataDepSource :: FilePath -> Maybe FilePath }
@@ -1214,12 +1251,12 @@ damlMultiBuildVersion :: UnresolvedReleaseVersion
 damlMultiBuildVersion = either throw id $ parseUnresolvedVersion "2.8.0-snapshot.20231018.0"
 
 buildMultiRule
-  :: AssistantRunner
+  :: DamlcRunner
   -> BuildableDataDeps
   -> MultiPackageNoCache
   -> Maybe (NormalizedFilePath, IO LF.PackageId)
   -> Rules ()
-buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) mRootPackage =
+buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRootPackage =
   defineEarlyCutoffWithDefaultRunChanged $ \BuildMulti path -> do
     logger <- actionLogger
 
@@ -1265,7 +1302,7 @@ buildMultiRule assistantRunner buildableDataDeps (MultiPackageNoCache noCache) m
             IDELogger.logInfo logger $ T.pack $ "Building " <> filePath
 
             -- Call build via daml assistant so it selects the correct SDK version.
-            runAssistant assistantRunner filePath $
+            runDamlc damlcRunner filePath $
               ["build"] <> (["--enable-multi-package=no" | bmSdkVersion >= damlMultiBuildVersion || isHeadVersion bmSdkVersion])
 
             darPath <- deriveDarPath filePath bmName bmVersion bmOutput
@@ -1413,6 +1450,12 @@ execDocTest opts scriptDar (ImportSource importSource) files =
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
+      opts <- addResolutionData opts
+
+      -- Can't yet support doc test as we have no default resolution, and doctest does not assume package context
+      when (isJust (optResolutionData opts)) $
+        throwIO $ DPMUnsupportedError "doctest"
+
       setupPackageDb "." opts releaseVersion [scriptDar] [] mempty
 
       opts <- pure opts
@@ -1685,6 +1728,9 @@ main = do
     -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
+    -- Dpm does not provide DAML_PROJECT var as legacy assistant did, inject it pre-emptively
+    injectDamlProjectForDpm
+
     numProcessors <- getNumProcessors
     cliArgs <- getArgs
 
@@ -1717,3 +1763,18 @@ cmdUseDamlYamlArgs = \case
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =
     withProjectRoot projectRoot projectCheck (const act)
+
+addResolutionData :: Options -> IO Options
+addResolutionData opts@Options{optResolutionData = Nothing} = do
+  resolutionData <- getResolutionData
+  pure $ opts {optResolutionData = resolutionData}
+-- No need to reparse if its already available
+addResolutionData opts = pure opts
+
+-- If DPM detected, this injects the DAML_PROJECT env var by finding the daml.yaml
+injectDamlProjectForDpm :: IO ()
+injectDamlProjectForDpm = do
+  mResolutionVar <- lookupEnv resolutionFileEnvVar
+  forM_ mResolutionVar $ const $ do
+    mPackagePath <- fmap unwrapProjectPath <$> AssistantEnv.getProjectPath (LookForProjectPath True)
+    forM_ mPackagePath $ \path -> setEnv projectPathEnvVar path False

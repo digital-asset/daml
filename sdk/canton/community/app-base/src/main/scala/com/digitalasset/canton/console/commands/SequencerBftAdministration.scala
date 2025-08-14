@@ -8,11 +8,11 @@ import com.digitalasset.canton.admin.api.client.commands.{
   PruningSchedulerCommands,
   SequencerBftPruningAdminCommands,
 }
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.PositiveDurationSeconds
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   ConsoleEnvironment,
-  FeatureFlag,
   FeatureFlagFilter,
   Help,
   Helpful,
@@ -84,22 +84,20 @@ class SequencerBftPruningAdministrationGroup(
   )
   def set_bft_schedule(
       cron: String,
-      maxDuration: PositiveDurationSeconds,
-      retention: PositiveDurationSeconds,
+      maxDuration: config.PositiveDurationSeconds,
+      retention: config.PositiveDurationSeconds,
       minBlocksToKeep: Int = BftOrdererPruningSchedule.DefaultMinNumberOfBlocksToKeep,
   ): Unit =
-    check(FeatureFlag.Preview) {
-      consoleEnvironment.run(
-        runner.adminCommand(
-          SequencerBftPruningAdminCommands.SetBftSchedule(
-            cron,
-            maxDuration,
-            retention,
-            minBlocksToKeep,
-          )
+    consoleEnvironment.run(
+      runner.adminCommand(
+        SequencerBftPruningAdminCommands.SetBftSchedule(
+          cron,
+          maxDuration,
+          retention,
+          minBlocksToKeep,
         )
       )
-    }
+    )
 
   @Help.Summary("Inspect the automatic, bft-orderer-specific pruning schedule.")
   @Help.Description(
@@ -114,19 +112,16 @@ class SequencerBftPruningAdministrationGroup(
     )
 
   @Help.Summary(
-    "Set min-blocks-to-keep paramater of automatic pruning schedule for the bft orderer"
+    "Set min-blocks-to-keep parameter of automatic pruning schedule for the bft orderer"
   )
   def set_min_blocks_to_keep(
       minBlocksToKeep: Int
-  ): Unit =
-    check(FeatureFlag.Preview) {
-      consoleEnvironment.run(
-        runner.adminCommand(
-          SequencerBftPruningAdminCommands.SetMinBlocksToKeep(
-            minBlocksToKeep
-          )
-        )
+  ): Unit = consoleEnvironment.run(
+    runner.adminCommand(
+      SequencerBftPruningAdminCommands.SetMinBlocksToKeep(
+        minBlocksToKeep
       )
-    }
+    )
+  )
 
 }
