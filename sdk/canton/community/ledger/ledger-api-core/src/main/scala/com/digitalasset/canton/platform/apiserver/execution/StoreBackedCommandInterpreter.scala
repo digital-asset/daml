@@ -275,10 +275,6 @@ final class StoreBackedCommandInterpreter(
 
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
-        // TODO(https://github.com/digital-asset/daml/issues/21667): add support for ResultNeedContract
-        case ResultNeedContract(_, _) =>
-          throw new NotImplementedError("ResultNeedContract is not yet supported")
-
         case ResultNeedContract(acoid, resume) =>
           val start = System.nanoTime
           Timed
