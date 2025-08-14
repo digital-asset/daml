@@ -513,6 +513,7 @@ object Ast {
   final case object BTextToContractId extends BuiltinFunction // : forall a. Text -> ContractId a
 
   final case object BSHA256Text extends BuiltinFunction // : Text -> Text
+  final case object BSHA256Hex extends BuiltinFunction // : Text -> Text
 
   final case object BKECCAK256Text extends BuiltinFunction // : Text -> Text
   final case object BDecodeHex extends BuiltinFunction // : Text -> Text

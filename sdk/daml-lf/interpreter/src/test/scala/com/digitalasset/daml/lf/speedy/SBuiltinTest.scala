@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun.{
   SBImportInputContract,
   SBuildContractInfoStruct,
 }
-import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash}
+import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorCrash, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo, Machine}
@@ -570,6 +570,52 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           eval(e"""SHA256_TEXT "$input"""") shouldBe Right(SText(output))
         }
 
+      }
+    }
+
+    "SHA256_HEX" - {
+      "with non-hex data should fail" in {
+        val testCases = Table(
+          "input",
+          "DeadBeef",
+          """Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+            |eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad
+            |minim veniam, quis nostrud exercitation ullamco laboris nisi ut
+            |aliquip ex ea commodo consequat. Duis aute irure dolor in
+            |reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla
+            |pariatur. Excepteur sint occaecat cupidatat non proident, sunt in
+            |culpa qui officia deserunt mollit anim id est laborum..."""
+            .replaceAll("\r", "")
+            .stripMargin,
+          "a¶‱😂",
+        )
+
+        forEvery(testCases) { input =>
+          inside(eval(e"""SHA256_HEX "$input"""")) {
+            case Left(
+                  SErrorDamlException(
+                    IE.Crypto(
+                      IE.Crypto.MalformedByteEncoding(`input`, "can not parse hex string")
+                    )
+                  )
+                ) =>
+              succeed
+          }
+        }
+      }
+
+      "with hex encoded data should succeed" in {
+        val testCases = Table(
+          "input" -> "output",
+          "" ->
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855" ->
+            "5df6e0e2761359d30a8275058e299fcc0381534545f55cf43e41983f5d4c9456",
+        )
+
+        forEvery(testCases) { (input, output) =>
+          eval(e"""SHA256_HEX "$input"""") shouldBe Right(SText(output))
+        }
       }
     }
 

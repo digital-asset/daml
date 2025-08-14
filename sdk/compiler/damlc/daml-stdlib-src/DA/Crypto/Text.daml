@@ -16,6 +16,9 @@ module DA.Crypto.Text
 module DA.Crypto.Text
   {-# WARNING in "x-crypto" ["DA.Crypto.Text is an alpha feature. It can change without notice.", "use -Wno-crypto-text-is-alpha in build-options to disable this warning"] #-}
   (keccak256
+#ifdef DAML_CRYPTO_ADDITIONS
+  , sha256
+#endif
   , secp256k1
   , HasToHex(..)
   , HasFromHex(..)
@@ -96,6 +99,14 @@ isBytesHex hex = Text.length hex % 2 == 0 && isHex hex
 -- TODO: https://github.com/DACH-NY/canton-network-utilities/issues/2922: fully parse DER hex encoded formats
 isDEREncoded : Text -> Bool
 isDEREncoded msg = isBytesHex msg && Text.substring 0 2 msg == "30" && Text.length msg == 2 * (2 + (hexByteToInt (Text.substring 2 2 msg)))
+
+#ifdef DAML_CRYPTO_ADDITIONS
+-- | Computes the SHA256 hash of the decoded UTF8 bytes of the `Text`, and returns it in its hex-encoded
+-- form. The hex encoding uses lowercase letters.
+sha256 : BytesHex -> BytesHex
+sha256 msg | isBytesHex msg = primitive @"BESha256Hex" (Text.asciiToLower msg)
+sha256 msg = error $ "Message argument is not a hex string: " <> msg
+#endif
 
 -- | Computes the KECCAK256 hash of the UTF8 bytes of the `Text`, and returns it in its hex-encoded
 -- form. The hex encoding uses lowercase letters.
