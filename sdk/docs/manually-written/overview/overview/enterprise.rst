@@ -1,5 +1,5 @@
 Enterprise Suite for Canton
-***************************
+###########################
 
 Digital Asset offers an enterprise distribution of Canton as well as complementary
 application modules and services geared towards helping institutions bring robust
