@@ -37,14 +37,9 @@ object Utf8 {
   def getBytes(s: String): Bytes =
     Bytes.fromByteString(ByteString.copyFromUtf8(s))
 
-  def sha256(s: String, toHexDecode: Boolean = false): String = {
+  def sha256(bytes: Bytes): String = {
     val digest = MessageDigestPrototype.Sha256.newDigest
-    val bytes = if (toHexDecode) {
-      Ref.HexString.decode(Ref.HexString.assertFromString(s)).toByteBuffer
-    } else {
-      getBytes(s).toByteBuffer
-    }
-    digest.update(bytes)
+    digest.update(bytes.toByteBuffer)
     BaseEncoding.base16().lowerCase().encode(digest.digest())
   }
 
