@@ -278,6 +278,8 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
+                  case Dev.Cost(Dev.Cost.BudgetExceeded(cause)) =>
+                    builder.setCrash(cause)
                 }
               case _: Upgrade =>
                 builder.setUpgradeError(

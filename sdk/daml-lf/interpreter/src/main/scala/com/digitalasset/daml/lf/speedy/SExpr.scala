@@ -229,7 +229,7 @@ private[lf] object SExpr {
         actuals(i) = arg.lookupValue(machine)
         i += 1
       }
-      val v = builtin.executePure(actuals)
+      val v = builtin.executePure(machine.costModel, actuals)
       machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
       Control.Expression(body)
     }
