@@ -21,21 +21,21 @@ import Module.{SystemInitializationResult, SystemInitializer}
   */
 class OrderingModuleSystemInitializer[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
-](moduleFactories: ModuleFactories[E, P2PNetworkRefFactoryT])
+    P2PNetworkManagerT <: P2PNetworkManager[E, BftOrderingMessage],
+](moduleFactories: ModuleFactories[E, P2PNetworkManagerT])
     extends SystemInitializer[
       E,
-      P2PNetworkRefFactoryT,
+      P2PNetworkManagerT,
       BftOrderingMessage,
       Mempool.Message,
     ] {
 
   override def initialize(
       moduleSystem: ModuleSystem[E],
-      createP2PNetworkRefFactory: P2PConnectionEventListener => P2PNetworkRefFactoryT,
+      createP2PNetworkManager: P2PConnectionEventListener => P2PNetworkManagerT,
   ): SystemInitializationResult[
     E,
-    P2PNetworkRefFactoryT,
+    P2PNetworkManagerT,
     BftOrderingMessage,
     Mempool.Message,
   ] = {
@@ -52,7 +52,7 @@ class OrderingModuleSystemInitializer[
 
     val mempool = moduleFactories.mempool(availabilityRef)
     val p2pNetworkIn = moduleFactories.p2pNetworkIn(availabilityRef, consensusRef)
-    val (p2pNetworkOut, p2pNetworkRefFactory) = moduleFactories.p2pNetworkOut(
+    val (p2pNetworkOut, p2pNetworkManager) = moduleFactories.p2pNetworkOut(
       p2pNetworkInRef,
       mempoolRef,
       availabilityRef,
@@ -95,7 +95,7 @@ class OrderingModuleSystemInitializer[
       consensusRef,
       outputRef,
       pruningRef,
-      p2pNetworkRefFactory,
+      p2pNetworkManager,
     )
   }
 }
@@ -103,7 +103,7 @@ class OrderingModuleSystemInitializer[
 object OrderingModuleSystemInitializer {
   final case class ModuleFactories[
       E <: Env[E],
-      P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, BftOrderingMessage],
+      P2PNetworkManagerT <: P2PNetworkManager[E, BftOrderingMessage],
   ](
       mempool: ModuleRef[Availability.Message[E]] => Mempool[E],
       p2pNetworkIn: (
@@ -118,8 +118,8 @@ object OrderingModuleSystemInitializer {
           ModuleRef[Output.Message[E]],
           ModuleRef[Pruning.Message],
       ) => (
-          P2PNetworkOut[E, P2PNetworkRefFactoryT],
-          P2PNetworkRefFactoryT,
+          P2PNetworkOut[E, P2PNetworkManagerT],
+          P2PNetworkManagerT,
       ),
       availability: (
           ModuleRef[Mempool.Message],

@@ -76,8 +76,8 @@ class NodeCollector extends Collector[NodeCollector.Event] {
       to: BftNodeId,
       endpoint: PlainTextP2PEndpoint,
       p2pConnectionEventListener: P2PConnectionEventListener,
-  ): Unit =
-    add(NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener))
+  )(implicit traceContext: TraceContext): Unit =
+    add(NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener, traceContext))
 
   override def addCancelTick(tickId: Int): Unit =
     add(NodeCollector.CancelTick(tickId))
@@ -103,6 +103,7 @@ object NodeCollector {
       to: BftNodeId,
       endpoint: PlainTextP2PEndpoint,
       p2pConnectionEventListener: P2PConnectionEventListener,
+      traceContext: TraceContext,
   ) extends Event
   final case class CancelTick(tickId: Int) extends Event
 }

@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SimulationEnv,
   SimulationInitializer,
   SimulationModuleSystem,
-  SimulationP2PNetworkRefFactory,
+  SimulationP2PNetworkManager,
   TraceContextGenerator,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.RunningFuture
@@ -103,7 +103,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private val currentHistory: mutable.ArrayBuffer[Command] = mutable.ArrayBuffer.empty[Command]
 
-  private val logger = loggerFactory.getLogger(getClass)
+  private val logger = loggerFactory.getTracedLogger(getClass)
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def nextThingTodo(): ScheduledCommand = {
@@ -130,8 +130,9 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         local.scheduleFuture(node, to, clock.now, future, errorMessage, traceContext)
       case NodeCollector.CancelTick(tickCounter) =>
         agenda.removeInternalTick(node, tickCounter)
-      case NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener) =>
-        network.scheduleEstablishConnection(node, to, endpoint, p2pConnectionEventListener)
+      case NodeCollector.OpenConnection(to, endpoint, p2pConnectionEventListener, traceContext) =>
+        network
+          .scheduleEstablishConnection(node, to, endpoint, p2pConnectionEventListener, traceContext)
     }
 
   private def runClientCollector(node: BftNodeId, collector: ClientCollector): Unit =
@@ -175,12 +176,12 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         machine.allReactors.addOne(to -> Reactor(module))
         if (ready)
           module.ready(context.self)
-        logger.info(s"$node has set a behavior for module $to (ready=$ready)")
+        logger.info(s"$node has set a behavior for module $to (ready=$ready)")(TraceContext.empty)
 
       case ModuleControl.Stop(onStop) =>
         onStop()
         val _ = machine.allReactors.remove(to)
-        logger.info(s"$node has stopped module $to")
+        logger.info(s"$node has stopped module $to")(TraceContext.empty)
 
       case ModuleControl.NoOp() =>
     }
@@ -256,7 +257,9 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
     }
   }
 
-  private def addEndpoint(endpoint: P2PEndpoint, to: BftNodeId): Unit = {
+  private def addEndpoint(endpoint: P2PEndpoint, to: BftNodeId)(implicit
+      traceContext: TraceContext
+  ): Unit = {
     logger.debug(s"immediately executing addEndpoint for $to -> $endpoint")
     executeEvent(
       to,
@@ -323,7 +326,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       network.tick()
       val _ = currentHistory.addOne(whatToDo.command)
 
-      logger.trace(s"Simulation will run ${whatToDo.command}")
+      logger.trace(s"Simulation will run ${whatToDo.command}")(TraceContext.empty)
 
       whatToDo.command match {
         case InternalEvent(machineName, to, _, msg) =>
@@ -337,7 +340,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         case InternalTick(machineName, to, _, msg) =>
           executeEvent(machineName, ModuleAddress.ViaName(to), msg)
         case RunFuture(machine, to, toRun, fun, traceContext) =>
-          logger.trace(s"Future ${toRun.name} for $machine:$to completed")
+          logger.trace(s"Future ${toRun.name} for $machine:$to completed")(TraceContext.empty)
           executeFuture(machine, to, toRun, fun, traceContext)
           verifier.aFutureHappened(machine)
         case ReceiveNetworkMessage(machineName, msg) =>
@@ -348,7 +351,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             ModuleControl.Send(msg, TraceContext.empty, MetricsContext.Empty),
           )
         case ClientTick(machine, _, msg, traceContext) =>
-          logger.trace(s"Client for $machine ticks")
+          logger.trace(s"Client for $machine ticks")(TraceContext.empty)
           executeClientTick(machine, msg, traceContext)
         case StartMachine(endpoint) =>
           val node = startMachine(endpoint)
@@ -357,18 +360,19 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         case PrepareOnboarding(node) =>
           addCommands(onboardingManager.prepareOnboardingFor(clock.now, node))
         case AddEndpoint(endpoint, to) =>
-          addEndpoint(endpoint, to)
-        case EstablishConnection(from, to, endpoint, p2pConnectionEventListener) =>
+          addEndpoint(endpoint, to)(TraceContext.empty)
+        case EstablishConnection(from, to, endpoint, p2pConnectionEventListener, traceContext) =>
+          implicit val tc: TraceContext = traceContext
           logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
-          p2pConnectionEventListener.onConnect(endpoint.id)
-          p2pConnectionEventListener.onSequencerId(endpoint.id, to)
+          p2pConnectionEventListener.onConnect(endpoint.id)(traceContext)
+          p2pConnectionEventListener.onSequencerId(endpoint.id, to)(traceContext)
           val machine = tryGetMachine(from)
           runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
         case CrashNode(node) =>
-          logger.info(s"Crashing '$node'")
+          logger.info(s"Crashing '$node'")(TraceContext.empty)
           crashNode(node)
         case RestartNode(node) =>
-          logger.info(s"Restarting '$node'")
+          logger.info(s"Restarting '$node'")(TraceContext.empty)
           restartNode(node)
         case MakeSystemHealthy =>
           local.makeHealthy()
@@ -380,7 +384,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         case ResumeLivenessChecks =>
           verifier.resumeCheckingLiveness(clock.now)
         case Quit(reason) =>
-          logger.debug(s"Stopping simulation because: $reason")
+          logger.debug(s"Stopping simulation because: $reason")(TraceContext.empty)
           continueToRun = false
       }
 
@@ -447,7 +451,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     init: SimulationInitializer[OnboardingDataT, SystemNetworkMessageT, ?, ?],
     onboardingManager: OnboardingManager[OnboardingDataT],
     loggerFactory: NamedLoggerFactory,
-    simulationP2PNetworkRefFactory: SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
+    simulationP2PNetworkManager: SimulationP2PNetworkManager[SystemNetworkMessageT],
 ) {
   private val logger = loggerFactory.getLogger(getClass)
   private var crashed = false
@@ -464,7 +468,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     logger.info("Initializing modules again to simulate restart")
     val _ = init
       .systemInitializerFactory(onboardingManager.provide(ProvideForRestart, node))
-      .initialize(system, _ => simulationP2PNetworkRefFactory)
+      .initialize(system, _ => simulationP2PNetworkManager)
     crashed = false
   }
 

@@ -11,7 +11,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   Module,
-  P2PNetworkRefFactory,
+  P2PNetworkManager,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 
@@ -23,15 +23,16 @@ object P2PNetworkOut {
 
   sealed trait Internal extends Message
   object Internal {
-    final case class Connect(endpoint: P2PEndpoint) extends Internal
-    final case class Disconnect(endpointId: P2PEndpoint.Id) extends Internal
+    final case class Connect(p2pEndpoint: P2PEndpoint) extends Internal
+    final case class Disconnect(p2pEndpointId: P2PEndpoint.Id) extends Internal
   }
 
   sealed trait Network extends Message
   object Network {
-    final case class Connected(endpointId: P2PEndpoint.Id) extends Network
-    final case class Disconnected(endpointId: P2PEndpoint.Id) extends Network
-    final case class Authenticated(endpointId: P2PEndpoint.Id, node: BftNodeId) extends Network
+    final case class Connected(p2pEndpointId: P2PEndpoint.Id) extends Network
+    final case class Disconnected(p2pEndpointId: P2PEndpoint.Id) extends Network
+    final case class Authenticated(bftNodeId: BftNodeId, p2pEndpointId: P2PEndpoint.Id)
+        extends Network
   }
 
   sealed trait Admin extends Message
@@ -95,19 +96,19 @@ object P2PNetworkOut {
 
   final case class Multicast(
       message: BftOrderingNetworkMessage,
-      to: Set[BftNodeId],
+      destinationBftNodeIds: Set[BftNodeId],
   ) extends Message
 
   def send(
       message: BftOrderingNetworkMessage,
-      to: BftNodeId,
+      destinationBftNodeId: BftNodeId,
   ): Multicast =
-    Multicast(message, Set(to))
+    Multicast(message, Set(destinationBftNodeId))
 }
 
 trait P2PNetworkOut[
     E <: Env[E],
-    P2PNetworkRefFactoryT <: P2PNetworkRefFactory[E, v30.BftOrderingMessage],
+    P2PNetworkManagerT <: P2PNetworkManager[E, v30.BftOrderingMessage],
 ] extends Module[E, P2PNetworkOut.Message] {
-  val dependencies: P2PNetworkOutModuleDependencies[E, P2PNetworkRefFactoryT]
+  val dependencies: P2PNetworkOutModuleDependencies[E, P2PNetworkManagerT]
 }

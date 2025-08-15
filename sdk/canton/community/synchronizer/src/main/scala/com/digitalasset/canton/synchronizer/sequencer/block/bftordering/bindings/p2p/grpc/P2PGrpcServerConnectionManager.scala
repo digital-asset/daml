@@ -25,22 +25,22 @@ final class P2PGrpcServerManager(
       logger.info("Not starting P2P gRPC server due to shutdown")
 
   private def shutdownGrpcServers(): Unit =
-    maybeServerUS.foreach(_.foreach { serverHandle =>
-      logger.info(s"Shutting down gRPC server")
-      shutdownGrpcServer(serverHandle)
+    maybeServerUS.foreach(_.foreach { closeableServer =>
+      logger.info(s"Shutting down P2P gRPC server")
+      shutdownGrpcServer(closeableServer)
     })
 
   private def shutdownGrpcServer(server: LifeCycle.CloseableServer): Unit = {
     // https://github.com/grpc/grpc-java/issues/8770
     val serverPort = server.server.getPort
-    logger.debug(s"Terminating gRPC server on port $serverPort")
+    logger.debug(s"Terminating P2P gRPC server on port $serverPort")
     server.close()
-    logger.info(s"Successfully terminated the gRPC server on port $serverPort")
+    logger.info(s"Successfully terminated the P2P gRPC server on port $serverPort")
   }
 
   override def onClosed(): Unit = {
-    logger.debug("Closing P2P networking (server role)")
+    logger.debug("Closing P2P gRPC server manager")
     shutdownGrpcServers()
-    logger.debug("Closed P2P networking (server role)")
+    logger.debug("Closed P2P gRPC server manager")
   }
 }

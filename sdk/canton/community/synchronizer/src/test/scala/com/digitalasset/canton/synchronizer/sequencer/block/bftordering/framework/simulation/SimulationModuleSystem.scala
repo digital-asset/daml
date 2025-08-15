@@ -33,8 +33,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
   ModuleSystem,
   P2PConnectionEventListener,
+  P2PNetworkManager,
   P2PNetworkRef,
-  P2PNetworkRefFactory,
   PureFun,
 }
 import com.digitalasset.canton.time.SimClock
@@ -75,18 +75,18 @@ object SimulationModuleSystem {
       collector.addNetworkEvent(node, createMessage(None))
   }
 
-  final case class SimulationP2PNetworkRefFactory[P2PMessageT](
+  final case class SimulationP2PNetworkManager[P2PMessageT](
       collector: NodeCollector,
       p2pConnectionEventListener: P2PConnectionEventListener,
       timeouts: ProcessingTimeout,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends P2PNetworkRefFactory[SimulationEnv, P2PMessageT]
+  ) extends P2PNetworkManager[SimulationEnv, P2PMessageT]
       with NamedLogging {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
         endpoint: P2PEndpoint,
-    ): P2PNetworkRef[P2PMessageT] = {
+    )(implicit traceContext: TraceContext): P2PNetworkRef[P2PMessageT] = {
       val node = endpointToTestBftNodeId(endpoint)
       endpoint match {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
@@ -389,7 +389,7 @@ object SimulationModuleSystem {
   ](
       systemInitializerFactory: OnboardingDataT => SystemInitializer[
         SimulationEnv,
-        SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
+        SimulationP2PNetworkManager[SystemNetworkMessageT],
         SystemNetworkMessageT,
         SystemInputMessageT,
       ],
@@ -411,7 +411,7 @@ object SimulationModuleSystem {
     )(
         systemInitializer: SystemInitializer[
           SimulationEnv,
-          SimulationP2PNetworkRefFactory[SystemNetworkMessageT],
+          SimulationP2PNetworkManager[SystemNetworkMessageT],
           SystemNetworkMessageT,
           SystemInputMessageT,
         ]
@@ -541,7 +541,7 @@ object SimulationModuleSystem {
           .initialize(
             system,
             p2pConnectionEventListener =>
-              SimulationP2PNetworkRefFactory[SystemNetworkMessageT](
+              SimulationP2PNetworkManager[SystemNetworkMessageT](
                 collector,
                 p2pConnectionEventListener,
                 timeouts,
@@ -572,7 +572,7 @@ object SimulationModuleSystem {
           simulationInitializer,
           onboardingManager,
           loggerFactory,
-          resultFromInit.p2pNetworkRefFactory,
+          resultFromInit.p2pNetworkManager,
         )
       }
     }
