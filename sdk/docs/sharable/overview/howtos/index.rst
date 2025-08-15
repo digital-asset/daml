@@ -3,7 +3,7 @@ How to Engage with the Network
 
 .. wip::
    Explain the different ways to be engaged in the network:
-   - Using the Network through Unifi applications (as a service)
+   - Using the Network through DPM applications (as a service)
    - Building applications on the network (using the SDK)
    - Running a infrastructure of the network (using the participant and synchronizer)
    Merely point to the respective sections in the documentation for more details.
