@@ -211,7 +211,7 @@ private[lf] object SExpr {
   /** A let-expression with a single RHS */
   final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
-      machine.pushKont(KPushTo(machine, machine.currentEnv, body))
+      machine.pushKont(KPushTo(machine, body))
       Control.Expression(rhs)
     }
   }

@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import java.util
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.speedy.SResult.SResultFinal
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -71,29 +70,22 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
   // Evaluate an expression with optionally bounded env and kont stacks
   def runExpr(e: Ast.Expr, envBound: Option[Int], kontBound: Option[Int]): SValue = {
     // create the machine
-    val machine = Speedy.Machine.fromPureExpr(pkgs, e)
-    // maybe replace the env-stack with a bounded version
-    envBound match {
-      case None => ()
-      case Some(bound) =>
-        machine.env = new BoundedArrayList[SValue](bound)
-    }
+    val machine = Speedy.Machine.fromPureExpr(
+      pkgs,
+      e,
+      initialEnvSize = envBound.getOrElse(512),
+      initialKontStackSize = kontBound.getOrElse(128),
+    )
     // maybe replace the kont-stack with a bounded version
-    kontBound match {
-      case None => ()
-      case Some(bound) =>
-        val onlyKont: Speedy.Kont[Nothing] =
-          if (machine.kontDepth() != 1) {
-            crash(s"setBoundedKontStack, unexpected size of kont-stack: ${machine.kontDepth()}")
-          } else {
-            machine.peekKontStackTop()
-          }
-        machine.kontStack = new BoundedArrayList[Speedy.Kont[Nothing]](bound)
-        machine.pushKont(onlyKont)
-    }
     // run the machine
     machine.run() match {
-      case SResultFinal(v) => v
+      case SResultFinal(v) =>
+        if (
+          envBound
+            .exists(_ < machine.env.capacity) || kontBound.exists(_ < machine.kontStack.capacity)
+        )
+          throw BoundExceeded
+        v
       case res => crash(s"runExpr, unexpected result $res")
     }
   }
@@ -142,16 +134,6 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private case object BoundExceeded extends RuntimeException
-
-  private class BoundedArrayList[T](bound: Int) extends util.ArrayList[T](bound) {
-
-    override def add(x: T): Boolean = {
-      if (size >= bound) {
-        throw BoundExceeded
-      }
-      super.add(x)
-    }
-  }
 
   def crash[A](reason: String): A = throw new RuntimeException(reason)
 
