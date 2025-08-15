@@ -461,6 +461,7 @@ encodeBuiltinExpr = \case
     BEEncodeHex -> builtin P.BuiltinFunctionTEXT_TO_HEX
     BEDecodeHex -> builtin P.BuiltinFunctionHEX_TO_TEXT
     BESecp256k1Bool -> builtin P.BuiltinFunctionSECP256K1_BOOL
+    BESecp256k1WithEcdsaBool -> builtin P.BuiltinFunctionSECP256K1_WITH_ECDSA_BOOL
 
     BEError -> builtin P.BuiltinFunctionERROR
     BEAnyExceptionMessage -> builtin P.BuiltinFunctionANY_EXCEPTION_MESSAGE

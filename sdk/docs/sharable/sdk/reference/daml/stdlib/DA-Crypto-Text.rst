@@ -98,7 +98,7 @@ Functions
 `secp256k1 <function-da-crypto-text-secp256k1-38075_>`_
   \: `SignatureHex <type-da-crypto-text-signaturehex-12945_>`_ \-\> `BytesHex <type-da-crypto-text-byteshex-47880_>`_ \-\> `PublicKeyHex <type-da-crypto-text-publickeyhex-51359_>`_ \-\> :ref:`Bool <type-ghc-types-bool-66265>`
 
-  Validate the SECP256K1 signature given a hex encoded message and a hex encoded DER formatted public key\.
+  Validate the SECP256K1 signature given a SHA256 hash of a hex encoded message and a hex encoded DER formatted public key\.
 
 .. _function-da-crypto-text-numericviastringtohex-44461:
 

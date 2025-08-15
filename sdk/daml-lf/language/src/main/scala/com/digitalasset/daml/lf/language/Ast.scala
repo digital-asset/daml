@@ -541,6 +541,8 @@ object Ast {
   final case object BGreaterEq extends BuiltinFunction // ∀a. a -> a -> Bool
 
   final case object BSECP256K1Bool extends BuiltinFunction // : Text -> Text -> Text -> Bool
+  final case object BSECP256K1WithEcdsaBool
+      extends BuiltinFunction // : Text -> Text -> Text -> Bool
 
   final case object BCoerceContractId
       extends BuiltinFunction // : ∀a b. ContractId a -> ContractId b

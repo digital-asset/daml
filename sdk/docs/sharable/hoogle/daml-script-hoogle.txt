@@ -991,6 +991,14 @@ tryFailureStatus :: Script a -> Script (Either FailureStatus a)
 --   Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
 --   
 --   For example, CCTP attestation services may be mocked in daml-script code.
+@url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-crypto-text-secp256k1signwithecdsaonly-99207
+secp256k1signWithEcdsaOnly :: (HasCallStack) => PrivateKeyHex -> BytesHex -> Script BytesHex
+
+-- | Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a SHA256 digest of a hex encoded string message.
+--   
+--   Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
+--   
+--   For example, CCTP attestation services may be mocked in daml-script code.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-crypto-text-secp256k1sign-72886
 secp256k1sign :: (HasCallStack) => PrivateKeyHex -> BytesHex -> Script BytesHex
 

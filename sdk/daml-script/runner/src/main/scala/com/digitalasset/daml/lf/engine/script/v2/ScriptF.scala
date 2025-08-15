@@ -9,7 +9,7 @@ package v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, Utf8}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -663,6 +663,26 @@ object ScriptF {
       val keySpec =
         new PKCS8EncodedKeySpec(HexString.decode(HexString.assertFromString(pk)).toByteArray)
       val privateKey = KeyFactory.getInstance("EC").generatePrivate(keySpec)
+      val message = HexString.decode(HexString.assertFromString(msg))
+      val messageDigest = HexString.assertFromString(Utf8.sha256(message))
+
+      SEValue(SText(MessageSignatureUtil.sign(messageDigest, privateKey, deterministicRandomSrc)))
+    }
+  }
+
+  final case class Secp256k1WithEcdsaSign(pk: String, msg: String) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future {
+      // By using a deterministic PRNG and setting the seed to a fixed value each time we sign a message, we ensure
+      // that secp256k1 signing uses a deterministic source of randomness and so behaves deterministically.
+      val deterministicRandomSrc: SecureRandom = SecureRandom.getInstance("SHA1PRNG")
+      deterministicRandomSrc.setSeed(1)
+      val keySpec =
+        new PKCS8EncodedKeySpec(HexString.decode(HexString.assertFromString(pk)).toByteArray)
+      val privateKey = KeyFactory.getInstance("EC").generatePrivate(keySpec)
       val message = HexString.assertFromString(msg)
 
       SEValue(SText(MessageSignatureUtil.sign(message, privateKey, deterministicRandomSrc)))
@@ -1155,6 +1175,16 @@ object ScriptF {
       case _ => Left(s"Expected Secp256k1Sign payload but got $v")
     }
 
+  private def parseSecp256k1WithEcdsaSign(v: SValue): Either[String, Secp256k1WithEcdsaSign] =
+    v match {
+      case SRecord(_, _, Array(pk, msg)) =>
+        for {
+          pk <- toText(pk)
+          msg <- toText(msg)
+        } yield Secp256k1WithEcdsaSign(pk, msg)
+      case _ => Left(s"Expected Secp256k1WithEcdsaSign payload but got $v")
+    }
+
   private def parseSleep(v: SValue): Either[String, Sleep] =
     v match {
       case SRecord(_, _, Array(SRecord(_, _, Array(SInt64(micros))))) =>
@@ -1336,6 +1366,7 @@ object ScriptF {
       case ("SetTime", 1) => parseSetTime(v)
       case ("Sleep", 1) => parseSleep(v)
       case ("Secp256k1Sign", 1) => parseSecp256k1Sign(v)
+      case ("Secp256k1WithEcdsaSign", 1) => parseSecp256k1WithEcdsaSign(v)
       case ("Secp256k1GenerateKeyPair", 1) => parseEmpty(Secp256k1GenerateKeyPair())(v)
       case ("Catch", 1) => parseCatch(v)
       case ("Throw", 1) => parseThrow(v)

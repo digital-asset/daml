@@ -1931,41 +1931,59 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "SECP256K1_BOOL" - {
+    "SECP256K1_BOOL and SHA256K1_WITH_ECDSA_BOOL" - {
       val keyPair = support.crypto.MessageSignatureUtil.generateKeyPair
+      val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
+      val privateKey = keyPair.getPrivate
+      val message = Ref.HexString.assertFromString("deadbeef")
+      val messageDigest = Ref.HexString.assertFromString(Utf8.sha256(Bytes.fromHexString(message)))
+      val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
+      val signatureDigest = support.crypto.MessageSignatureUtil.sign(messageDigest, privateKey)
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
-
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
+          eval(
+            e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$message" "$publicKey""""
+          ) shouldBe Right(
+            SBool(true)
+          )
+          eval(e"""SECP256K1_BOOL "$signatureDigest" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
           )
         }
 
         "fail to verify unsigned messages" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
-          eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
+          eval(
+            e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$invalidMessage" "$publicKey""""
+          ) shouldBe Right(
+            SBool(false)
+          )
+          eval(
+            e"""SECP256K1_BOOL "$signatureDigest" "$invalidMessage" "$publicKey""""
+          ) shouldBe Right(
             SBool(false)
           )
         }
 
         "throws with non-hex encoded messages" in {
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = "DeadBeef"
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
+          inside(
+            eval(e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$invalidMessage" "$publicKey"""")
+          ) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason))
+                  )
+                ) =>
+              value should be(invalidMessage)
+              reason should startWith(
+                "can not parse message hex string"
+              )
+          }
+          inside(eval(e"""SECP256K1_BOOL "$signatureDigest" "$invalidMessage" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
                     IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason))
@@ -1987,11 +2005,15 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
                 support.crypto.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded
               )
               .toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
-          eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
+          eval(
+            e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$message" "$incorrectPublicKey""""
+          ) shouldBe Right(
+            SBool(false)
+          )
+          eval(
+            e"""SECP256K1_BOOL "$signatureDigest" "$message" "$incorrectPublicKey""""
+          ) shouldBe Right(
             SBool(false)
           )
         }
@@ -2002,11 +2024,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidPublicKey = Bytes
             .fromByteArray(invalidKeyPairGen.generateKeyPair().getPublic.getEncoded)
             .toHexString
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+          inside(
+            eval(e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$message" "$invalidPublicKey"""")
+          ) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Crypto(IE.Crypto.MalformedKey(`invalidPublicKey`, reason))
+                  )
+                ) =>
+              reason should startWith("java.security.InvalidKeyException")
+          }
+          inside(eval(e"""SECP256K1_BOOL "$signatureDigest" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
                     IE.Crypto(IE.Crypto.MalformedKey(`invalidPublicKey`, reason))
@@ -2018,11 +2047,19 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
         "throws with non-hex encoded public key" in {
           val invalidPublicKey = keyPair.getPublic
-          val privateKey = keyPair.getPrivate
-          val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
-          inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
+          inside(
+            eval(e"""SECP256K1_WITH_ECDSA_BOOL "$signature" "$message" "$invalidPublicKey"""")
+          ) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason))
+                  )
+                ) =>
+              value should be(s"$invalidPublicKey")
+              reason should be("can not parse DER encoded public key hex string")
+          }
+          inside(eval(e"""SECP256K1_BOOL "$signatureDigest" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
                     IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason))
@@ -2045,10 +2082,18 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidKeyPairGen = KeyPairGenerator.getInstance("RSA")
           invalidKeyPairGen.initialize(1024)
           val invalidPrivateKey = invalidKeyPairGen.generateKeyPair().getPrivate
-          val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-          val message = Ref.HexString.assertFromString("deadbeef")
           val invalidSignature = rsaSign(message, invalidPrivateKey)
 
+          inside(
+            eval(e"""SECP256K1_WITH_ECDSA_BOOL "$invalidSignature" "$message" "$publicKey"""")
+          ) {
+            case Left(
+                  SError.SErrorDamlException(
+                    IE.Crypto(IE.Crypto.MalformedSignature(`invalidSignature`, reason))
+                  )
+                ) =>
+              reason should be("error decoding signature bytes.")
+          }
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
@@ -2061,9 +2106,17 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
         "throws with non-hex encoded signature" in {
           for (invalidSignature <- List("DeadBeef", "non-hex encoded")) {
-            val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
-            val message = Ref.HexString.assertFromString("deadbeef")
-
+            inside(
+              eval(e"""SECP256K1_WITH_ECDSA_BOOL "$invalidSignature" "$message" "$publicKey"""")
+            ) {
+              case Left(
+                    SError.SErrorDamlException(
+                      IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason))
+                    )
+                  ) =>
+                value should be(invalidSignature)
+                reason should be("can not parse signature hex string")
+            }
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
               case Left(
                     SError.SErrorDamlException(
