@@ -4,26 +4,26 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.data.Ref.{Location, Party}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.ledger.FailedAuthorization
+import com.digitalasset.daml.lf.ledger.FailedAuthorization._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Versioned,
 }
-import com.digitalasset.daml.lf.ledger.FailedAuthorization
-import com.digitalasset.daml.lf.ledger.FailedAuthorization._
-import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ValueParty, ValueRecord}
-import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -345,21 +345,19 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private val testTxVersion: TransactionVersion = languageVersion
 
-  private[this] def buildContract(observer: Party): Versioned[Value.ThinContractInstance] =
-    Versioned(
+  private[this] def buildContract(observer: Party): FatContractInstance =
+    FatContractInstance.fromThinInstance(
       testTxVersion,
-      Value.ThinContractInstance(
-        packageName = pkg.pkgName,
-        template = T,
-        arg = Value.ValueRecord(
-          None,
-          ImmArray(
-            None -> Value.ValueParty(alice),
-            None -> Value.ValueParty(observer),
-            None -> Value.ValueTrue,
-            None -> keyValue,
-            None -> emptyNestedValue,
-          ),
+      packageName = pkg.pkgName,
+      template = T,
+      arg = Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueParty(alice),
+          None -> Value.ValueParty(observer),
+          None -> Value.ValueTrue,
+          None -> keyValue,
+          None -> emptyNestedValue,
         ),
       ),
     )
@@ -385,33 +383,29 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val visibleContract = buildContract(bob)
 
-  private[this] val helper = Versioned(
+  private[this] val helper = FatContractInstance.fromThinInstance(
     testTxVersion,
-    Value.ThinContractInstance(
-      packageName = pkg.pkgName,
-      template = Helper,
-      arg = ValueRecord(
-        None,
-        ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
-      ),
+    packageName = pkg.pkgName,
+    template = Helper,
+    arg = ValueRecord(
+      None,
+      ImmArray(None -> ValueParty(alice), None -> ValueParty(charlie)),
     ),
   )
 
-  private[this] val iface_contract = Versioned(
+  private[this] val iface_contract = FatContractInstance.fromThinInstance(
     testTxVersion,
-    Value.ThinContractInstance(
-      packageName = pkg.pkgName,
-      template = Human,
-      arg = Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueParty(bob),
-          None -> Value.ValueParty(alice),
-          None -> Value.ValueTrue,
-          None -> keyValue,
-          None -> emptyNestedValue,
-        ),
+    packageName = pkg.pkgName,
+    template = Human,
+    arg = Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> Value.ValueParty(alice),
+        None -> Value.ValueParty(bob),
+        None -> Value.ValueParty(alice),
+        None -> Value.ValueTrue,
+        None -> keyValue,
+        None -> emptyNestedValue,
       ),
     ),
   )
@@ -424,13 +418,11 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.pkgName) -> cId
   )
 
-  private[this] val dummyContract = Versioned(
+  private[this] val dummyContract = FatContractInstance.fromThinInstance(
     testTxVersion,
-    Value.ThinContractInstance(
-      packageName = pkg.pkgName,
-      template = Dummy,
-      arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
-    ),
+    packageName = pkg.pkgName,
+    template = Dummy,
+    arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
   )
   private[this] val getWronglyTypedContract = Map(cId -> dummyContract)
 
@@ -444,8 +436,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       readAs: Set[Party] = Set.empty,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = packageNameMap,
       disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Try[Either[SError, SValue]], Seq[String]) = {
     val se = pkgs.compiler.unsafeCompile(e)

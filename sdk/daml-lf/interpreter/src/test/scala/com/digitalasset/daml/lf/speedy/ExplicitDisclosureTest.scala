@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.SEValue
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.freespec.AnyFreeSpec
@@ -36,7 +36,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         ledgerParty should not be disclosureParty
         ledgerParty should not be maintainerParty
         disclosureParty should not be maintainerParty
-        getOwner(ledgerCaveContract.unversioned.arg) shouldBe Some(ledgerParty)
+        getOwner(ledgerCaveContract.createArg) shouldBe Some(ledgerParty)
         inside(disclosedCaveContract) { case (`contractId`, contract) =>
           getOwner(contract.arg) shouldBe Some(disclosureParty)
         }
@@ -360,7 +360,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =
@@ -382,8 +382,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       disclosedContract: (Value.ContractId, ContractInfo),
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =
@@ -406,7 +405,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       action: String,
       committers: Set[Party],
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =
@@ -435,8 +434,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       action: String,
       committers: Set[Party],
       disclosures: Iterable[(Value.ContractId, ContractInfo)],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =

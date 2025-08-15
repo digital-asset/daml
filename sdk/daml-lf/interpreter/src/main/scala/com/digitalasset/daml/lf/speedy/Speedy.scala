@@ -20,10 +20,11 @@ import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, 
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
+  FatContractInstance,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -35,6 +36,7 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.{nowarn, tailrec}
 import scala.util.control.NonFatal
@@ -245,13 +247,18 @@ private[lf] object Speedy {
     final private[speedy] def needContract(
         location: => String,
         contractId: V.ContractId,
-        continue: V.ThinContractInstance => Control[Question.Update],
+        continue: (
+            FatContractInstance,
+            Hash.HashingMethod,
+            Hash => Boolean,
+        ) => Control[Question.Update],
     ): Control.Question[Question.Update] =
       Control.Question(
         Question.Update.NeedContract(
           contractId,
           committers,
-          x => safelyContinue(location, "NeedContract", continue(x)),
+          (coinst, hashMethod, authenticator) =>
+            safelyContinue(location, "NeedContract", continue(coinst, hashMethod, authenticator)),
         )
       )
 
@@ -348,9 +355,10 @@ private[lf] object Speedy {
               needContract(
                 NameOf.qualifiedNameOfCurrentFunc,
                 coid,
-                { res =>
-                  contractsCache = contractsCache.updated(coid, res)
-                  f(res)
+                { (fcoinst, _, _) =>
+                  val coinst = fcoinst.toThinInstance
+                  contractsCache = contractsCache.updated(coid, coinst)
+                  f(coinst)
                 },
               )
           }
