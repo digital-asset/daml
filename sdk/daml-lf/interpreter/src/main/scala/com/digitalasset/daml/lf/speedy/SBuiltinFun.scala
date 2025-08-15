@@ -644,7 +644,7 @@ private[lf] object SBuiltinFun {
 
       Ref.HexString.fromString(arg1) match {
         case Right(message) =>
-          val messageDigest = Utf8.sha256(Utf8.getBytes(message))
+          val messageDigest = Utf8.sha256(Ref.HexString.decode(message))
           args.update(1, SText(messageDigest))
           SBSECP256K1WithEcdsaBool.execute(args, machine)
 

@@ -432,6 +432,7 @@ damlFileTestTree version getService outdir registerTODO input
     ignoreVersion version = \case
       Ignore -> True
       SinceLF versionBounds -> not (versionBounds `containsVersion` version)
+      UntilLF versionBounds -> not (versionBounds `extendsVersion` version)
       SupportsFeature featureName -> not (version `satisfies` versionReqForFeaturePartial featureName)
       DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       _ -> False
@@ -442,6 +443,12 @@ containsVersion bounds (Version major minor) =
   case major `MS.lookup` bounds of
     Nothing -> False
     Just minorMinBound -> minor >= minorMinBound
+
+extendsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
+extendsVersion bounds (Version major minor) =
+  case major `MS.lookup` bounds of
+    Nothing -> False
+    Just minorMinBound -> minor <= minorMinBound
 
 runJqQuery :: (String -> IO ()) -> Maybe FilePath -> String -> Bool -> IO (Maybe String)
 runJqQuery log mJsonFile q isStream = do
@@ -530,6 +537,10 @@ data Ann
       -- ^ Only run this test if the target Daml-LF version can depend on the
       -- given Daml-LF version with the same major version as the target LF
       -- version.
+    | UntilLF (MS.Map LF.MajorVersion LF.MinorVersion)
+      -- ^ Only run this test if the target Daml-LF version can depend on the
+      -- given Daml-LF version with the same major version as the target LF
+      -- version.
     | SupportsFeature T.Text
       -- ^ Only run this test if the given feature is supported by the target Daml-LF version
     | DoesNotSupportFeature T.Text
@@ -553,6 +564,7 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ parseMaybeVersions x
+            ("UNTIL-LF", x) -> Just $ UntilLF $ parseMaybeVersions x
             ("SUPPORTS-LF-FEATURE", x) -> Just $ SupportsFeature $ T.pack $ trim x
             ("DOES-NOT-SUPPORT-LF-FEATURE", x) -> Just $ DoesNotSupportFeature $ T.pack $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))

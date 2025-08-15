@@ -1936,7 +1936,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
       val privateKey = keyPair.getPrivate
       val message = Ref.HexString.assertFromString("deadbeef")
-      val messageDigest = Ref.HexString.assertFromString(Utf8.sha256(Utf8.getBytes("deadbeef")))
+      val messageDigest = Ref.HexString.assertFromString(Utf8.sha256(Bytes.fromHexString(message)))
       val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
       val signatureDigest = support.crypto.MessageSignatureUtil.sign(messageDigest, privateKey)
 
