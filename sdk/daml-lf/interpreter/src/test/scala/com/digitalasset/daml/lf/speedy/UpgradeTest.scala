@@ -413,13 +413,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     val contractInfo: Speedy.ContractInfo =
-      // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
         version = VDev,
         packageName = pkgName,
         templateId = templateId,
         value = contractSValue,
-        signatories = Set.empty,
+        signatories = Set(alice),
         observers = Set.empty,
         keyOpt = None,
       )

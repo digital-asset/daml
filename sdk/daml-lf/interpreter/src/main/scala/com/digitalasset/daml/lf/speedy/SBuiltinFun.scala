@@ -2498,17 +2498,17 @@ private[lf] object SBuiltinFun {
           )(f(Some(templateArg), _))
         }
       case None =>
-        machine.lookupContract(coid)(coinst =>
+        machine.lookupContract(coid)((coinst, _, _) =>
           machine.ensurePackageIsLoaded(
             NameOf.qualifiedNameOfCurrentFunc,
-            coinst.template.packageId,
-            language.Reference.Template(coinst.template.toRef),
+            coinst.templateId.packageId,
+            language.Reference.Template(coinst.templateId.toRef),
           ) { () =>
-            importValue(machine, coinst.template, coinst.arg) { templateArg =>
+            importValue(machine, coinst.templateId, coinst.createArg) { templateArg =>
               getContractInfo(
                 machine,
                 coid,
-                coinst.template,
+                coinst.templateId,
                 templateArg,
                 allowCatchingContractInfoErrors = false,
               )(f(None, _))
