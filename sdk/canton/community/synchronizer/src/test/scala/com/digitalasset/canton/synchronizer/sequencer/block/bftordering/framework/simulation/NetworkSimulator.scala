@@ -8,6 +8,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.P2PConnectionEventListener
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.jdk.DurationConverters.ScalaDurationOps
 import scala.util.Random
@@ -159,10 +160,11 @@ class NetworkSimulator(
       to: BftNodeId,
       endpoint: PlainTextP2PEndpoint,
       p2pConnectionEventListener: P2PConnectionEventListener,
+      traceContext: TraceContext,
   ): Unit = {
     val delay = settings.establishConnectionDelay.generateRandomDuration(random)
     agenda.addOne(
-      EstablishConnection(from, to, endpoint, p2pConnectionEventListener),
+      EstablishConnection(from, to, endpoint, p2pConnectionEventListener, traceContext),
       delay,
     )
   }

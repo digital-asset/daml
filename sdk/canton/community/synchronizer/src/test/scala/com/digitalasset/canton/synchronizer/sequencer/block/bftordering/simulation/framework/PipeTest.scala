@@ -35,7 +35,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleName,
   P2PConnectionEventListener,
-  P2PNetworkRefFactory,
+  P2PNetworkManager,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.framework.PipeTest.{
   Reporter,
@@ -118,8 +118,8 @@ object PipeTest {
 
   def mkNode[
       E <: Env[E],
-      P2PNetworkRefFactoryT
-        <: P2PNetworkRefFactory[
+      P2PNetworkManagerT
+        <: P2PNetworkManager[
           E,
           String,
         ],
@@ -128,12 +128,12 @@ object PipeTest {
       reporter: Reporter,
       loggerFactory: NamedLoggerFactory,
       timeouts: ProcessingTimeout,
-  ): SystemInitializer[E, P2PNetworkRefFactoryT, String, String] =
-    (system, createP2PNetworkRefFactory) => {
-      val p2pNetworkRefFactory = createP2PNetworkRefFactory(P2PConnectionEventListener.NoOp)
+  ): SystemInitializer[E, P2PNetworkManagerT, String, String] =
+    (system, createP2PNetworkManager) => {
+      val inputModuleRef = system.newModuleRef[String](ModuleName("module"))()
+      val p2pNetworkManager = createP2PNetworkManager(P2PConnectionEventListener.NoOp)
       val module = new PipeNode[E](pipeStore, reporter, loggerFactory, timeouts)
-      val ref = system.newModuleRef[String](ModuleName("module"))()
-      system.setModule(ref, module)
+      system.setModule(inputModuleRef, module)
       val p2PAdminModuleRef =
         system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
       val consensusAdminModuleRef =
@@ -142,15 +142,15 @@ object PipeTest {
         system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
       val pruningModuleRef =
         system.newModuleRef[Pruning.Message](ModuleName("pruningModule"))()
-      ref.asyncSendNoTrace("init")
+      inputModuleRef.asyncSendNoTrace("init")
       SystemInitializationResult(
-        ref,
-        ref,
+        inputModuleRef,
+        inputModuleRef,
         p2PAdminModuleRef,
         consensusAdminModuleRef,
         outputModuleRef,
         pruningModuleRef,
-        p2pNetworkRefFactory,
+        p2pNetworkManager,
       )
     }
 }

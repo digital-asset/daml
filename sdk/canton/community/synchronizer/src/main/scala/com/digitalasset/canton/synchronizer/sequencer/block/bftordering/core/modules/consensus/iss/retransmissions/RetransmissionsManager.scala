@@ -339,7 +339,7 @@ class RetransmissionsManager[E <: Env[E]](
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(
           Consensus.RetransmissionsMessage.RetransmissionResponse(thisNode, commitCertificates)
         ),
-        to = receiver,
+        destinationBftNodeId = receiver,
       )
     )
 

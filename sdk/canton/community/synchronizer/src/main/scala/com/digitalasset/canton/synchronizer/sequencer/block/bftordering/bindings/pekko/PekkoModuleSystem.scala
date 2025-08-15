@@ -10,7 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkRefFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.{
@@ -454,7 +454,7 @@ object PekkoModuleSystem {
       actorSystem: ActorSystem[ModuleControl[PekkoEnv, Unit]],
       initResult: SystemInitializationResult[
         PekkoEnv,
-        PekkoP2PGrpcNetworkRefFactory,
+        PekkoP2PGrpcNetworkManager,
         BftOrderingMessage,
         InputMessageT,
       ],
@@ -518,11 +518,11 @@ object PekkoModuleSystem {
       name: String,
       systemInitializer: SystemInitializer[
         PekkoEnv,
-        PekkoP2PGrpcNetworkRefFactory,
+        PekkoP2PGrpcNetworkManager,
         BftOrderingMessage,
         InputMessageT,
       ],
-      createP2PNetworkRefFactory: P2PConnectionEventListener => PekkoP2PGrpcNetworkRefFactory,
+      createP2PNetworkManager: P2PConnectionEventListener => PekkoP2PGrpcNetworkManager,
       metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -531,7 +531,7 @@ object PekkoModuleSystem {
     val resultPromise =
       Promise[SystemInitializationResult[
         PekkoEnv,
-        PekkoP2PGrpcNetworkRefFactory,
+        PekkoP2PGrpcNetworkManager,
         BftOrderingMessage,
         InputMessageT,
       ]]()
@@ -544,7 +544,7 @@ object PekkoModuleSystem {
               val logger = loggerFactory.getLogger(getClass)
               val moduleSystem = new PekkoModuleSystem(actorContext, metrics, loggerFactory)
               resultPromise.success(
-                systemInitializer.initialize(moduleSystem, createP2PNetworkRefFactory)
+                systemInitializer.initialize(moduleSystem, createP2PNetworkManager)
               )
               Behaviors.receiveSignal { case (_, Terminated(actorRef)) =>
                 logger.debug(

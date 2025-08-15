@@ -86,6 +86,7 @@ final case class EstablishConnection(
     to: BftNodeId,
     endpoint: PlainTextP2PEndpoint,
     p2pConnectionEventListener: P2PConnectionEventListener,
+    traceContext: TraceContext,
 ) extends Command
 final case class CrashNode(node: BftNodeId) extends Command
 final case class RestartNode(node: BftNodeId) extends Command

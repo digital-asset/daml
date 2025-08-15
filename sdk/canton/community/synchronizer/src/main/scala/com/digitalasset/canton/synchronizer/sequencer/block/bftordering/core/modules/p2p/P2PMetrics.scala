@@ -14,19 +14,19 @@ private[p2p] object P2PMetrics {
 
   def emitConnectedCount(
       metrics: BftOrderingMetrics,
-      known: KnownEndpointsAndNodes,
+      connected: Int,
   )(implicit
       mc: MetricsContext
   ): Unit =
-    metrics.p2p.connections.connected.updateValue(known.connectedCount)
+    metrics.p2p.connections.connected.updateValue(connected)
 
   def emitAuthenticatedCount(
       metrics: BftOrderingMetrics,
-      known: KnownEndpointsAndNodes,
+      authenticated: Int,
   )(implicit
       mc: MetricsContext
   ): Unit =
-    metrics.p2p.connections.authenticated.updateValue(known.authenticatedCount)
+    metrics.p2p.connections.authenticated.updateValue(authenticated)
 
   def emitSendStats(
       metrics: BftOrderingMetrics,
@@ -108,14 +108,14 @@ private[p2p] object P2PMetrics {
   def emitIdentityEquivocation(
       metrics: BftOrderingMetrics,
       fromEndpointId: P2PEndpoint.Id,
-      from: BftNodeId,
+      claimedBftNodeId: BftNodeId,
   )(implicit
       mc: MetricsContext
   ): Unit =
     metrics.security.noncompliant.behavior.mark()(
       mc.withExtraLabels(
         metrics.security.noncompliant.labels.Endpoint -> fromEndpointId.url,
-        metrics.security.noncompliant.labels.Sequencer -> from,
+        metrics.security.noncompliant.labels.Sequencer -> claimedBftNodeId,
         metrics.security.noncompliant.labels.violationType.Key -> metrics.security.noncompliant.labels.violationType.values.AuthIdentityEquivocation,
       )
     )

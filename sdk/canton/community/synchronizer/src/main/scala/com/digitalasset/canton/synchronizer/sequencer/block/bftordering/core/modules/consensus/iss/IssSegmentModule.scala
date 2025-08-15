@@ -283,7 +283,7 @@ class IssSegmentModule[E <: Env[E]](
           p2pNetworkOut.asyncSend(
             P2PNetworkOut.send(
               P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(msg),
-              to = from,
+              destinationBftNodeId = from,
             )
           )
         }
@@ -294,7 +294,7 @@ class IssSegmentModule[E <: Env[E]](
                 Consensus.RetransmissionsMessage
                   .RetransmissionResponse(epoch.currentMembership.myId, toRetransmit.commitCerts)
               ),
-              to = from,
+              destinationBftNodeId = from,
             )
           )
         }
@@ -537,7 +537,7 @@ class IssSegmentModule[E <: Env[E]](
           p2pNetworkOut.asyncSend(
             P2PNetworkOut.Multicast(
               P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(pbftMessage),
-              to = nodes,
+              destinationBftNodeIds = nodes,
             )
           )
         }
