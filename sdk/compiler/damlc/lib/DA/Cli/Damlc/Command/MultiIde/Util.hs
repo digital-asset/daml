@@ -269,7 +269,6 @@ packageSummaryFromDamlYaml path = do
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
 
-    -- TODO: we maybe dont need this for unifi? parsing rules should be the same though
     unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "project" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
       $ parseUnresolvedVersion releaseVersion
     

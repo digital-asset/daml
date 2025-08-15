@@ -51,7 +51,7 @@ import System.FilePath (takeDirectory)
 import System.Process
 
 -- Check if an SDK is installed, transform the subIDE data to disable it if needed
--- If using DPM, returns the damlc location
+-- If using DPM, returns the resolution and damlc location
 ensureIdeSdkInstalled :: MultiIdeState -> PackageSummary -> PackageHome -> SubIdeData -> IO (SubIdeData, Maybe (ValidPackageResolution, FilePath))
 ensureIdeSdkInstalled miState packageSummary home ideData = do
   mResolutionData <- tryReadMVar (misResolutionData miState)
@@ -77,9 +77,11 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
     if shouldDisable
       then pure $ Left (LSP.DsError, "Failed to load information from multi-package.yaml, check this file for diagnostics")
       else
+        -- First try main packages, then orphan packages
         Map.lookup home (mainPackages resolutionData) <|> Map.lookup home (orphanPackages resolutionData) & \case
           Just res -> pure $ handleResolution res
           Nothing -> do
+            -- When no package found, attempt to add as an orphan package
             ePackageResolution <- addOrphanResolution miState home
             pure $ do
               resolution <- mapLeft (LSP.DsError,) ePackageResolution
@@ -188,6 +190,9 @@ releaseVersionFromLspId :: LSP.LspId 'LSP.WindowShowMessageRequest -> Maybe Unre
 releaseVersionFromLspId (LSP.IdString lspIdStr) = T.stripSuffix "-sdk-install-request" lspIdStr >>= eitherToMaybe . parseUnresolvedVersion
 releaseVersionFromLspId _ = Nothing
 
+-- When running `dpm resolve` in a package that sits under a multi-package.yaml, but isn't listed in it
+-- dpm will generate a resolution for the multi-package, and won't include the single package we care about
+-- we combat this by running dpm in `/tmp` and providing the multi-package or single package path via environment variables
 data DpmResolveMode = DpmResolveMultiPackage | DpmResolveSinglePackage PackageHome
   deriving Show
 
@@ -205,15 +210,15 @@ callDpmResolve miState dpmResolveMode = do
       { cwd = Just $ takeDirectory $ unPackageHome $ misDefaultPackagePath miState
       , env = Just $ dpmResolveModeEnvVar miState dpmResolveMode : currentEnv
       }) ""
-  logDebug miState $ if exit == ExitSuccess then "Successful" else "Failed"
   case exit of
     ExitSuccess -> do
       let result = Map.mapKeys PackageHome $ packages
             $ fromRight (error "Couldn't decode resolution data, something went wrong")
             $ Y.decodeEither' @ResolutionData $ BSC.pack resolutionStr
-      logDebug miState $ show result
+      logDebug miState $ "Successful: " <> show result
       pure $ Right result
     ExitFailure _ ->
+      logDebug miState $ "Failed: " <> err
       pure $ Left err
 
 -- Adds resolution data for "orphan packages", i.e. packages not in the multi-package
@@ -224,6 +229,7 @@ addOrphanResolution miState home = do
   eMainPackages <- callDpmResolve miState $ DpmResolveSinglePackage home
   case eMainPackages of
     Right mainPackages -> do
+      -- DpmResolveMode introduced to ensure the below error case can never happen
       let !packageResolution = fromMaybe (error "Package resolution didn't include main package, something went wrong") $ Map.lookup home mainPackages
       modifyMVar_ (misResolutionData miState) $ \resolutionData -> pure $ resolutionData {orphanPackages = Map.insert home packageResolution $ orphanPackages resolutionData}
       pure $ Right packageResolution
@@ -236,6 +242,7 @@ updateResolutionFileForChanged :: MultiIdeState -> Maybe PackageHome -> IO [Pack
 updateResolutionFileForChanged miState mHome = do
   mResolutionData <- tryReadMVar (misResolutionData miState)
   case mResolutionData of
+    -- No resolution file means we're using legacy assistant, nothing to do here
     Nothing -> pure []
     Just resolutionData -> do
       logDebug miState "Running project DPM resolution"
@@ -243,6 +250,10 @@ updateResolutionFileForChanged miState mHome = do
       case eNewMainPackages of
         Right newMainPackages -> do
           ides <- atomically $ readTMVar $ misSubIdesVar miState
+          -- New and removed packages should be restarted
+          --   we don't simply shutdown removed packages as removed here simply means dropped from the resolution file
+          --   this is most likely due to it being removed from the multi-package.yaml, but still existing on disk
+          -- Changed packages are only restart if their resolution paths have changed, or if they are using local components
           let newPackages = Map.keys $ newMainPackages Map.\\ mainPackages resolutionData
               removedPackages = Map.keys $ mainPackages resolutionData Map.\\ newMainPackages
               ideShouldRestart :: PackageHome -> (PackageResolutionData, PackageResolutionData) -> Bool
@@ -251,7 +262,7 @@ updateResolutionFileForChanged miState mHome = do
           void $ swapMVar (misResolutionData miState) $ resolutionData {mainPackages = newMainPackages}
           recoveredPackages <- reportResolutionError miState Nothing
 
-          -- For package changes outside the multi-package scope, update that specific package and report failures on the package, rather than the project
+          -- For package changes outside the multi-package scope, update that specific package and report failures on the package, rather than as a global error
           forM_ mHome $ \home -> when (Map.notMember home newMainPackages) $ do
             res <- addOrphanResolution miState home
             case res of
@@ -266,11 +277,6 @@ updateResolutionFileForChanged miState mHome = do
         Left err -> do
           void $ reportResolutionError miState $ Just err
           pure []
-
--- Need function to update the resolution globally
---   should be able to decide if a package has changed, give back the list of packages
---   should report any packages that have local paths, determine from the daml.yaml in the package summary maybe?
--- need function to add to orphaned resolutions
 
 -- Handle the Client -> Coordinator response to the "Would you like to install ..." message
 handleSdkInstallPromptResponse :: MultiIdeState -> LSP.LspId 'LSP.WindowShowMessageRequest -> Either LSP.ResponseError (Maybe LSP.MessageActionItem) -> IO ()

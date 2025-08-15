@@ -232,6 +232,8 @@ type UnsafeAddNewSubIdeAndSend = SubIdes -> PackageHome -> Maybe LSP.FromClientM
 
 type GlobalErrorsVar = MVar GlobalErrors
 
+-- Handles errors that prevent environments from starting
+-- See ClientCommunication.hs for more details
 data GlobalErrors = GlobalErrors
   { geUpdatePackageError :: Maybe String
   , geResolutionError :: Maybe String
@@ -318,6 +320,7 @@ instance FromJSON DamlSdkInstallCancelNotification where
 damlSdkInstallCancelMethod :: T.Text
 damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
 
+-- Alternate form of ResolutionData that uses Multi-Ide newtypes, and separates main from orphan package resolutions
 data MultiIdeResolutionData = MultiIdeResolutionData
   { mainPackages :: Map.Map PackageHome PackageResolutionData
   , orphanPackages :: Map.Map PackageHome PackageResolutionData

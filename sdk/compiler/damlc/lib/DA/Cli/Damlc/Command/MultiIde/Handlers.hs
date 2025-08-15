@@ -259,6 +259,8 @@ clientMessageHandler miState unblock bs = do
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
             atomically $ sourceFileHomeHandleDamlYamlChanged miState home
             allowIdeSdkInstall miState home
+            -- Changes to daml.yaml or multi-package.yaml retrigger a RPM resolution, which can result in 
+            -- packages disabled by global errors from being restarted
             idesToRestart <-
               case changeType of
                 LSP.FcDeleted -> do

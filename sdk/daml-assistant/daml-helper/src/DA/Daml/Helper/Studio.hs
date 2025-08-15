@@ -35,7 +35,8 @@ runDamlStudio replaceExt remainingArguments = do
     bundledExtensionVsix <-
       case mSdkPath of
         Just sdkPath -> pure $ sdkPath </> "studio/daml-bundled.vsix"
-        Nothing -> do
+        Nothing ->
+          -- If no sdk path is found, we're running in DPM, extension can be found in damlc resources
           locateResource Resource
             -- //compiler/daml-extension:vsix
             { resourcesPath = "daml-bundled.vsix"

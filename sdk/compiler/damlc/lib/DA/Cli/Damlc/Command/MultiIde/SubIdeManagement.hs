@@ -223,9 +223,6 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
 -- Returns process handle and optional filepath temp resolution file for removal
 runSubProc :: MultiIdeState -> PackageHome -> Maybe (ValidPackageResolution, FilePath) -> IO (Process Handle Handle Handle, Maybe FilePath)
 runSubProc miState home mPackageResolution = do
-  -- extract damlc-binary from package resolution, error on failure with comment saying its caught elsewhere
-  -- add ToJSON to ValidPackageResolution, write it to temp, set the var, pass forward
-  -- Need to remove some variables so the sub-assistant will pick them up from the working dir/daml.yaml
   assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar] . fst) <$> getEnvironment
 
   (assistantPath, mResolutionPath, assistantEnv') <-
@@ -234,6 +231,7 @@ runSubProc miState home mPackageResolution = do
       Just (resolution, damlcPath) -> do
         -- We need to propagate the correct resolution data to new instances. We cannot point to the same file as multi-ide was started with
         -- as we handle orphan packages outside the multi-package.yaml
+        -- Instead we generate a resolution file containing only the home package and pass this on
         (resolutionFilePath, _) <- newTempFile
         Y.encodeFile resolutionFilePath $ ResolutionData $ Map.singleton (unPackageHome home) $ ValidPackageResolutionData resolution
         let assistantEnvWithResolution = (resolutionFileEnvVar, resolutionFilePath) : assistantEnv

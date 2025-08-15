@@ -26,6 +26,11 @@ sendClient miState = atomically . sendClientSTM miState
 sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClientFirst miState = atomically . unGetTChan (misToClientChan miState) . Aeson.encode
 
+-- Global errors prevent new environments from being spun up
+-- They include failures in package data gathers (reading multi-package.yaml, iterating dars for unit-ids, etc.)
+-- and DPM component resolution (i.e. bad sdk-versions or component overrides)
+-- When an enrivonment is prevented from starting, it is tracked in the global error data
+-- such that it can be restarted once the issues are resolved.
 reportGlobalErrorChange :: MultiIdeState -> (GlobalErrors -> GlobalErrors) -> IO [PackageHome]
 reportGlobalErrorChange miState f = modifyMVar (misGlobalErrors miState) $ \ge ->
   let newGe = f ge
@@ -45,7 +50,7 @@ reportGlobalErrorChange miState f = modifyMVar (misGlobalErrors miState) $ \ge -
         sendClient miState $ fullFileDiagnostic LSP.DsError (show newGe) multiPackagePath
         pure (newGe, [])
 
--- Returns if the package was added, thus should be disabled
+-- Returns if the package was added and thus should be disabled
 addPackageHomeIfErrored :: MultiIdeState -> PackageHome -> IO Bool
 addPackageHomeIfErrored miState home = do
   modifyMVar (misGlobalErrors miState) $ \ge -> pure $
