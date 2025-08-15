@@ -127,6 +127,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Incomplete/Experimental: Enable multi-package IDE Gradle integration."
+                },
+                "daml.useDPMWhenAvailable": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Use the new DPM assistant over the legacy Daml Assistant if it is installed."
                 }
             }
         },

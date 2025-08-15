@@ -19,6 +19,7 @@ import Control.Exception (SomeException, displayException)
 import Control.Monad (void)
 import Control.Monad.STM
 import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion, unresolvedReleaseVersionToString, parseUnresolvedVersion)
+import DA.Daml.Resolution.Config (PackageResolutionData (..), ResolutionData (..), getResolutionData)
 import Data.Aeson
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as BSL
@@ -107,6 +108,9 @@ data SubIdeInstance = SubIdeInstance
   , ideUnitId :: UnitId
     -- ^ Unit ID of the package this SubIde handles
     -- Of the form "daml-script-0.0.1"
+  , ideMResolutionPath :: Maybe FilePath
+    -- ^ When using DPM, a resolution file is created for each process
+    -- this points to the file so it can be removed in cleanup
   }
 
 instance Eq SubIdeInstance where
@@ -140,10 +144,12 @@ data SubIdeData = SubIdeData
     -- Thus we store this flag, rather than omitting from subIdes
   , ideDataFailures :: [(UTCTime, T.Text)]
   , ideDataDisabled :: IdeDataDisabled
+  , ideDataUsingLocalComponents :: Bool
+    -- ^ See psUsingLocalComponents
   }
 
 defaultSubIdeData :: PackageHome -> SubIdeData
-defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty False False [] IdeDataNotDisabled
+defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty False False [] IdeDataNotDisabled False
 
 lookupSubIde :: PackageHome -> SubIdes -> SubIdeData
 lookupSubIde home ides = fromMaybe (defaultSubIdeData home) $ Map.lookup home ides
@@ -224,6 +230,23 @@ type SubIdeMessageHandler = IO () -> SubIdeInstance -> B.ByteString -> IO ()
 -- Used to extract the unsafeAddNewSubIdeAndSend function to resolve dependency cycles
 type UnsafeAddNewSubIdeAndSend = SubIdes -> PackageHome -> Maybe LSP.FromClientMessage -> IO SubIdes
 
+type GlobalErrorsVar = MVar GlobalErrors
+
+data GlobalErrors = GlobalErrors
+  { geUpdatePackageError :: Maybe String
+  , geResolutionError :: Maybe String
+  , gePendingHomes :: Set.Set PackageHome
+  }
+
+instance Show GlobalErrors where
+  show (GlobalErrors pkgError resError _) = maybe "" renderPkgError pkgError <> maybe "" renderResError resError
+    where
+      renderPkgError err = "Failed to read multi-package.yaml or DARs:\n  " <> err <> "\n"
+      renderResError err = "Failed to resolve SDK versions via DPM:\n  " <> err <> "\n"
+
+emptyGlobalErrors :: GlobalErrors
+emptyGlobalErrors = GlobalErrors Nothing Nothing Set.empty
+
 data SdkInstallData = SdkInstallData
   { sidVersion :: UnresolvedReleaseVersion
   , sidPendingHomes :: Set.Set PackageHome
@@ -295,6 +318,16 @@ instance FromJSON DamlSdkInstallCancelNotification where
 damlSdkInstallCancelMethod :: T.Text
 damlSdkInstallCancelMethod = "daml/sdkInstallCancel"
 
+data MultiIdeResolutionData = MultiIdeResolutionData
+  { mainPackages :: Map.Map PackageHome PackageResolutionData
+  , orphanPackages :: Map.Map PackageHome PackageResolutionData
+  }
+  deriving (Show, Eq)
+type MultiIdeResolutionDataVar = MVar MultiIdeResolutionData
+
+toMultiIdeResolutionData :: ResolutionData -> MultiIdeResolutionData
+toMultiIdeResolutionData (ResolutionData mapping) = MultiIdeResolutionData (Map.mapKeys PackageHome mapping) mempty
+
 data MultiIdeState = MultiIdeState
   { misFromClientMethodTrackerVar :: MethodTrackerVar 'LSP.FromClient
     -- ^ The client will track its own IDs to ensure they're unique, so no worries about collisions
@@ -314,6 +347,8 @@ data MultiIdeState = MultiIdeState
   , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
   , misSdkInstallDatasVar :: SdkInstallDatasVar
   , misIdentifier :: Maybe T.Text
+  , misResolutionData :: MultiIdeResolutionDataVar
+  , misGlobalErrors :: GlobalErrorsVar
   }
 
 logError :: MultiIdeState -> String -> IO ()
@@ -348,6 +383,9 @@ newMultiIdeState misMultiPackageHome misDefaultPackagePath logThreshold misIdent
   misSourceFileHomesVar <- newTMVarIO @SourceFileHomes mempty
   misLogger <- Logger.newStderrLogger logThreshold "Multi-IDE"
   misSdkInstallDatasVar <- newTMVarIO @SdkInstallDatas mempty
+  mResolutionData <- getResolutionData
+  misResolutionData <- maybe newEmptyMVar (newMVar . toMultiIdeResolutionData) mResolutionData
+  misGlobalErrors <- newMVar emptyGlobalErrors
   let miState =
         MultiIdeState 
           { misSubIdeMessageHandler = subIdeMessageHandler miState
@@ -428,4 +466,7 @@ data PackageSummary = PackageSummary
   { psUnitId :: UnitId
   , psDeps :: [DarFile]
   , psReleaseVersion :: UnresolvedReleaseVersion
+  , -- DPM supports local path components, which can change without the path to the component changing.
+    -- In this case, we always reboot this environment, and remember this information in the package summary.
+    psUsingLocalComponents :: Bool
   }

@@ -6,9 +6,13 @@ module DA.Daml.Helper.Studio
     , ReplaceExtension(..)
     ) where
 
+import Control.Exception
 import Control.Monad.Extra
+import DA.Bazel.Runfiles
+import DA.Daml.Resolution.Config (resolutionFileEnvVar)
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import Data.Char (toLower)
+import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
 import Data.Maybe
 import System.Directory.Extra
@@ -25,11 +29,23 @@ import DA.Daml.Project.Consts
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do
-    sdkPath <- getSdkPath
+    mSdkPath <- eitherToMaybe <$> try @IOException getSdkPath
     InstalledExtensions {..} <- getInstalledExtensions
 
-    let bundledExtensionVsix = sdkPath </> "studio/daml-bundled.vsix"
-        removeOldBundledExtension = whenJust oldBundled removePathForcibly
+    bundledExtensionVsix <-
+      case mSdkPath of
+        Just sdkPath -> pure $ sdkPath </> "studio/daml-bundled.vsix"
+        Nothing -> do
+          locateResource Resource
+            -- //compiler/daml-extension:vsix
+            { resourcesPath = "daml-bundled.vsix"
+              -- In a packaged application, this is stored directly underneath the
+              -- resources directory because it's the target's only output.
+              -- See @bazel_tools/packaging/packaging.bzl@.
+            , runfilesPathPrefix = mainWorkspace </> "compiler"
+            }
+
+    let removeOldBundledExtension = whenJust oldBundled removePathForcibly
         uninstall name = do
             (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name]
             when (exitCode /= ExitSuccess) $ do
@@ -105,7 +121,8 @@ data ReplaceExtension
 runVsCodeCommand :: [String] -> IO (ExitCode, String, String)
 runVsCodeCommand args = do
     originalEnv <- getEnvironment
-    let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
+    let envVarsToRemove = resolutionFileEnvVar : damlEnvVars
+        strippedEnv = filter ((`notElem` envVarsToRemove) . fst) originalEnv
             -- ^ Strip Daml environment variables before calling VSCode, to
             -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
         commandEnv = addVsCodeToPath strippedEnv
