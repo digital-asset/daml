@@ -592,8 +592,8 @@ class Engine(val config: EngineConfig) {
             case Question.Update.NeedContract(coid, _, callback) =>
               Result.needContract(
                 coid,
-                { coinst =>
-                  callback(coinst.toThinInstance)
+                { (coinst, hashMethod, authenticator) =>
+                  callback(coinst, hashMethod, authenticator)
                   interpretLoop(machine, time, submissionInfo)
                 },
               )

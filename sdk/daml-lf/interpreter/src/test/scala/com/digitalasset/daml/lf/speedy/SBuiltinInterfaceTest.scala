@@ -5,25 +5,24 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ThinContractInstance
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
 import scala.util.{Failure, Success, Try}
 
@@ -145,11 +144,14 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
     val Ast.TTyCon(tplId) = t"Mod:T" (implemParserParams(contractVersion))
     val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
-    val contracts = Map[Value.ContractId, Value.VersionedThinContractInstance](
-      cid -> Versioned(
-        TransactionVersion.StableVersions.max,
-        ThinContractInstance(implemPkgName, tplId, tplPayload),
-      )
+    val contracts = Map[Value.ContractId, FatContractInstance](
+      cid ->
+        FatContractInstance.fromThinInstance(
+          TransactionVersion.StableVersions.max,
+          implemPkgName,
+          tplId,
+          tplPayload,
+        )
     )
 
     evalApp(
@@ -289,10 +291,12 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test"))
   val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
   val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
-  val contracts = Map[Value.ContractId, Value.VersionedThinContractInstance](
-    cid -> Versioned(
+  val contracts = Map[Value.ContractId, FatContractInstance](
+    cid -> FatContractInstance.fromThinInstance(
       TransactionVersion.StableVersions.max,
-      ThinContractInstance(implemPkgName, tplV1Id, tplV1Payload),
+      implemPkgName,
+      tplV1Id,
+      tplV1Payload,
     )
   )
 
@@ -405,9 +409,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> Versioned(
+              cid -> FatContractInstance.fromThinInstance(
                 TransactionVersion.StableVersions.max,
-                ThinContractInstance(basePkg.pkgName, tplId, tplPayload),
+                basePkg.pkgName,
+                tplId,
+                tplPayload,
               )
             ),
             getPkg = PartialFunction.empty,
@@ -432,9 +438,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> Versioned(
+              cid -> FatContractInstance.fromThinInstance(
                 TransactionVersion.StableVersions.max,
-                ThinContractInstance(basePkg.pkgName, tplId, tplPayload),
+                basePkg.pkgName,
+                tplId,
+                tplPayload,
               )
             ),
             getPkg = PartialFunction.empty,
@@ -456,13 +464,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> Versioned(
+              cid -> FatContractInstance.fromThinInstance(
                 TransactionVersion.StableVersions.max,
-                ThinContractInstance(
-                  packageName = basePkg.pkgName,
-                  template = iouId,
-                  arg = iouPayload,
-                ),
+                packageName = basePkg.pkgName,
+                template = iouId,
+                arg = iouPayload,
               )
             ),
             getPkg = PartialFunction.empty,
@@ -479,9 +485,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> Versioned(
+              cid -> FatContractInstance.fromThinInstance(
                 TransactionVersion.StableVersions.max,
-                ThinContractInstance(extraPkg.pkgName, extraIouId, iouPayload),
+                extraPkg.pkgName,
+                extraIouId,
+                iouPayload,
               )
             ),
             getPkg = PartialFunction.empty,
@@ -498,9 +506,11 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             Array(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> Versioned(
+              cid -> FatContractInstance.fromThinInstance(
                 TransactionVersion.StableVersions.max,
-                ThinContractInstance(extraPkg.pkgName, extraIouId, iouPayload),
+                extraPkg.pkgName,
+                extraIouId,
+                iouPayload,
               )
             ),
             getPkg = { case `extraPkgId` =>
@@ -677,8 +687,7 @@ object EvalHelpers {
       args: Array[SValue],
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       compiledPackages: PureCompiledPackages,
       committers: Set[Ref.Party],
@@ -697,7 +706,7 @@ object EvalHelpers {
       e: SExpr,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       compiledPackages: PureCompiledPackages,
       committers: Set[Ref.Party],

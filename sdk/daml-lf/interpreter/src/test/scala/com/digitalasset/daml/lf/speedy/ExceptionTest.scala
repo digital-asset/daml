@@ -19,9 +19,9 @@ import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -79,7 +79,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       expr: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -97,7 +97,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages: PureCompiledPackages,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -1324,13 +1324,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 Set(alice),
                 templateDefsPkgName,
               )
-              val globalContract = Versioned(
+              val globalContract = FatContractInstance.fromThinInstance(
                 version = TransactionVersion.StableVersions.max,
-                Value.ThinContractInstance(
-                  packageName = templateDefsV1Pkg.pkgName,
-                  template = templateId,
-                  arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                ),
+                packageName = templateDefsV1Pkg.pkgName,
+                template = templateId,
+                arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
               )
               val disclosedContract = Speedy.ContractInfo(
                 version = TransactionVersion.StableVersions.max,

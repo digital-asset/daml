@@ -1776,13 +1776,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> Versioned(
+              contractId -> FatContractInstance.fromThinInstance(
                 version = txVersion,
-                Value.ThinContractInstance(
-                  packageName = pkg.pkgName,
-                  template = templateId,
-                  arg = disclosedContract.argument.toUnnormalizedValue,
-                ),
+                packageName = pkg.pkgName,
+                template = templateId,
+                arg = disclosedContract.argument.toUnnormalizedValue,
               )
             ),
           )
@@ -1829,13 +1827,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> Versioned(
+              contractId -> FatContractInstance.fromThinInstance(
                 version = txVersion,
-                Value.ThinContractInstance(
-                  template = templateId,
-                  arg = disclosedContract.argument.toUnnormalizedValue,
-                  packageName = pkg.pkgName,
-                ),
+                template = templateId,
+                arg = disclosedContract.argument.toUnnormalizedValue,
+                packageName = pkg.pkgName,
               )
             ),
           )
@@ -1859,13 +1855,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           e"Mod:exerciseFailingPreconditionAndCatchError",
           Array(SContractId(cid)),
           getContract = Map(
-            cid -> Versioned(
+            cid -> FatContractInstance.fromThinInstance(
               version = txVersion,
-              Value.ThinContractInstance(
-                packageName = pkg.pkgName,
-                template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,
-                arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-              ),
+              packageName = pkg.pkgName,
+              template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,
+              arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
             )
           ),
         )
@@ -2355,19 +2349,19 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def evalAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
+      getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
 
   def evalOnLedger(
       e: Expr,
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
+      getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[ContractId, FatContractInstance],
   ): Either[
     SError,
     (
@@ -2379,21 +2373,21 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalUpdateOnLedger(
       e: Expr,
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
+      getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalUpdateAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
+      getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
       .map(_._1)
 
   def evalUpdateOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[ContractId, FatContractInstance],
   ): Either[
     SError,
     (

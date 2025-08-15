@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
@@ -14,10 +15,9 @@ import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -382,7 +382,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
+      .runCollectRequests(
+        machine,
+        getContract = Map(
+          theCid -> FatContractInstance
+            .fromThinInstance(VDev, contract.packageName, contract.template, contract.arg)
+        ),
+      )
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
         (sv, v, uvs)

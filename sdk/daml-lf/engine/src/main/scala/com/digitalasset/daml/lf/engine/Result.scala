@@ -243,17 +243,18 @@ object Result {
 
   private[lf] def needContract[A](
       acoid: ContractId,
-      resume: FatContractInstance => Result[A],
+      resume: (FatContractInstance, Hash.HashingMethod, Hash => Boolean) => Result[A],
   ) = {
     import ResultNeedContract.Response._
     ResultNeedContract(
       acoid,
       {
+        case ContractFound(contractInstance, expectedHashingMethod, authenticator) =>
+          resume(contractInstance, expectedHashingMethod, authenticator)
         case ContractNotFound =>
           ResultError(
             Error.Interpretation.DamlException(interpretation.Error.ContractNotFound(acoid))
           )
-        case ContractFound(contract, _, _) => resume(contract)
         case UnsupportedContractIdVersion =>
           throw new NotImplementedError(
             "UnsupportedContractIdVersion is not yet supported."

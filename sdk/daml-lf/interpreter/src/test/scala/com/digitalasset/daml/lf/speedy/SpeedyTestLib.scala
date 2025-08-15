@@ -15,10 +15,12 @@ import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.logging.LoggingContext
-import transaction.{GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
+import transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, SubmittedTransaction}
 import value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.stablepackages.StablePackages
+
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
 
@@ -42,8 +44,7 @@ private[speedy] object SpeedyTestLib {
   def run(
       machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SValue] = {
@@ -57,8 +58,7 @@ private[speedy] object SpeedyTestLib {
   def buildTransaction(
       machine: Speedy.UpdateMachine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
@@ -80,8 +80,7 @@ private[speedy] object SpeedyTestLib {
   def buildTransactionCollectRequests(
       machine: Speedy.UpdateMachine,
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[
@@ -104,8 +103,7 @@ private[speedy] object SpeedyTestLib {
   def runCollectRequests(
       machine: Speedy.Machine[Question.Update],
       getPkg: PartialFunction[PackageId, CompiledPackages] = PartialFunction.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, (SValue, List[UpgradeVerificationRequest])] = {
@@ -122,8 +120,12 @@ private[speedy] object SpeedyTestLib {
         }
       case Question.Update.NeedContract(contractId, _, callback) =>
         getContract.lift(contractId) match {
-          case Some(value) =>
-            callback(value.unversioned)
+          case Some(coinst) =>
+            callback(
+              coinst,
+              Hash.HashingMethod.TypedNormalForm,
+              _ => true, // we assume authentication always succeeds in speedy tests for now
+            )
           case None =>
             throw UnknownContract(contractId)
         }

@@ -4,11 +4,11 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 object Question {
@@ -23,10 +23,7 @@ object Question {
     final case class NeedContract(
         contractId: ContractId,
         committers: Set[Party],
-        // Callback
-        // returns the next expression to evaluate.
-        // In case of failure the call back does not throw but returns a SErrorDamlException
-        callback: Value.ThinContractInstance => Unit,
+        callback: (FatContractInstance, Hash.HashingMethod, Hash => Boolean) => Unit,
     ) extends Update
 
     /** Contract info for upgraded contract needs verification by ledger */
