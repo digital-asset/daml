@@ -4,10 +4,11 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.speedy.SValue._
 import data.{FrontStack, Ref}
 
-abstract class CostModel {
+abstract class CostModel(maximumCost: CostModel.Cost) {
 
   import CostModel._
 
@@ -89,13 +90,22 @@ abstract class CostModel {
   val BTypeRepTyConName = NotDefined
   val BFailWithStatus = NotDefined
 
-  def update(cost: Cost): Unit
+  private[this] var totalCost: Cost = 0
 
-  def undefined(cost: NotDefined.type): Unit
+  private[speedy] final def update(cost: Cost): Unit = {
+    if (totalCost + cost <= maximumCost) {
+      totalCost += cost
+    } else {
+      throw SErrorCrash(
+        getClass.getCanonicalName,
+        s"Current interpretation has used $totalCost, so an operation with cost $cost will exceed maximum budgeted cost of $maximumCost",
+      )
+    }
+  }
 
-  def costAware(cost: CostAware.type): Unit
+  private[speedy] final def undefined(cost: NotDefined.type): Unit = {}
 
-  def getCost: Cost
+  private[speedy] final def costAware(cost: CostAware.type): Unit = {}
 }
 
 object CostModel {
@@ -142,7 +152,7 @@ object CostModel {
     override def cost(x: Y, y: Y, z: Z): Cost = c
   }
 
-  object EmptyModel extends CostModel {
+  object EmptyModel extends CostModel(0) {
     override val AddNumeric: CostFunction2[Numeric, Numeric] = ConstantCost2(0)
     override val SubNumeric: CostFunction2[Numeric, Numeric] = ConstantCost2(0)
     override val MulNumeric: CostFunction3[Numeric, Numeric, Numeric] = ConstantCost3(0)
@@ -195,15 +205,5 @@ object CostModel {
     override val BGreater: CostFunction2[Value, Value] = ConstantCost2(0)
     override val BGreaterEq: CostFunction2[Value, Value] = ConstantCost2(0)
     override val BCoerceContractId: CostFunction1[ContractId] = ConstantCost1(0)
-
-    override def update(cost: Cost): Unit = {}
-
-    override def undefined(cost: NotDefined.type): Unit = {}
-
-    override def costAware(cost: CostAware.type): Unit = {}
-
-    override def getCost: Cost = {
-      0
-    }
   }
 }
