@@ -25,6 +25,7 @@ import DA.Cli.Damlc.Command.MultiIde.SubIdeCommunication
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.SdkInstall
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), PackageResolutionData (..), ResolutionData (..), resolutionFileEnvVar)
 import Data.Foldable (traverse_)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, isJust)
@@ -32,6 +33,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Extended as TE
 import qualified Data.Text.IO as T
+import qualified Data.Yaml as Y
 import qualified Language.LSP.Types as LSP
 import System.Environment (getEnv, getEnvironment)
 import System.IO.Extra
@@ -81,9 +83,9 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
   ePackageSummary <- packageSummaryFromDamlYaml home
   let unCheckedIdeData = lookupSubIde home ides
 
-  ideData <- case ePackageSummary of 
-    Right packageSummary -> ensureIdeSdkInstalled miState (psReleaseVersion packageSummary) home unCheckedIdeData
-    Left _ -> pure unCheckedIdeData
+  (ideData, mPackageResolution) <- case ePackageSummary of 
+    Right packageSummary -> ensureIdeSdkInstalled miState packageSummary home unCheckedIdeData
+    Left _ -> pure (unCheckedIdeData, Nothing)
 
   let disableIdeWithError :: T.Text -> IO SubIdes
       disableIdeWithError err = do
@@ -127,7 +129,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
     (Nothing, Right packageSummary) -> do
       logInfo miState $ "Creating new SubIde for " <> unPackageHome home
 
-      subIdeProcess <- runSubProc miState home
+      (subIdeProcess, mResolutionPath) <- runSubProc miState home mPackageResolution
       let inHandle = getStdin subIdeProcess
           outHandle = getStdout subIdeProcess
           errHandle = getStderr subIdeProcess
@@ -181,6 +183,7 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
               , ideHome = home
               , ideMessageIdPrefix = T.pack $ show pid
               , ideUnitId = psUnitId packageSummary
+              , ideMResolutionPath = mResolutionPath
               }
           ideData' = ideData {ideDataMain = Just ide}
           !initParams = fromMaybe (error "Attempted to create a SubIde before initialization!") mInitParams
@@ -217,19 +220,32 @@ unsafeAddNewSubIdeAndSend miState ides home mMsg = do
 
       pure $ Map.insert home ideData' ides
 
-runSubProc :: MultiIdeState -> PackageHome -> IO (Process Handle Handle Handle)
-runSubProc miState home = do
-  assistantPath <- getEnv "DAML_ASSISTANT"
-  -- Need to remove some variables so the sub-assistant will pick them up from the working dir/daml.yaml
-  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
+-- Returns process handle and optional filepath temp resolution file for removal
+runSubProc :: MultiIdeState -> PackageHome -> Maybe (ValidPackageResolution, FilePath) -> IO (Process Handle Handle Handle, Maybe FilePath)
+runSubProc miState home mPackageResolution = do
+  assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK", resolutionFileEnvVar] . fst) <$> getEnvironment
 
-  startProcess $
-    proc assistantPath ("ide" : misSubIdeArgs miState) &
-      setStdin createPipeNoClose &
-      setStdout createPipeNoClose &
-      setStderr createPipeNoClose &
-      setWorkingDir (unPackageHome home) &
-      setEnv assistantEnv
+  (assistantPath, mResolutionPath, assistantEnv') <-
+    case mPackageResolution of
+      Nothing -> (,Nothing, assistantEnv) <$> getEnv "DAML_ASSISTANT"
+      Just (resolution, damlcPath) -> do
+        -- We need to propagate the correct resolution data to new instances. We cannot point to the same file as multi-ide was started with
+        -- as we handle orphan packages outside the multi-package.yaml
+        -- Instead we generate a resolution file containing only the home package and pass this on
+        (resolutionFilePath, _) <- newTempFile
+        Y.encodeFile resolutionFilePath $ ResolutionData $ Map.singleton (unPackageHome home) $ ValidPackageResolutionData resolution
+        let assistantEnvWithResolution = (resolutionFileEnvVar, resolutionFilePath) : assistantEnv
+        pure (damlcPath, Just resolutionFilePath, assistantEnvWithResolution)
+
+  handle <- 
+    startProcess $
+      proc assistantPath ("ide" : misSubIdeArgs miState) &
+        setStdin createPipeNoClose &
+        setStdout createPipeNoClose &
+        setStderr createPipeNoClose &
+        setWorkingDir (unPackageHome home) &
+        setEnv assistantEnv'
+  pure (handle, mResolutionPath)
   where
     createPipeNoClose :: StreamSpec streamType Handle
     createPipeNoClose = mkPipeStreamSpec $ \_ h -> pure (h, pure ())
