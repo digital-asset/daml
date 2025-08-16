@@ -158,7 +158,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
     )
   }
 
-  private[client] val observer = new StreamObserver[R] {
+  private[sequencing] val observer = new StreamObserver[R] {
     override def onNext(value: R): Unit = {
       // we take the unusual step of immediately trying to deserialize the trace-context
       // so it is available here for logging
@@ -220,7 +220,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
         case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
           if (cancelledByClient.get()) {
             logger.info(
-              "GRPC subscription successfully closed due to client shutdown.",
+              "gRPC subscription successfully closed due to client shutdown.",
               s.getStatus.getCause,
             )
             complete(SubscriptionCloseReason.Closed)

@@ -163,7 +163,7 @@ object SequencerClientFactory {
           for {
             connections <- EitherT.fromEither[FutureUnlessShutdown](
               NonEmpty
-                .from(connectionPool.getOneConnectionPerSequencer())
+                .from(connectionPool.getOneConnectionPerSequencer("get-traffic-state"))
                 .toRight(
                   s"No connection available to retrieve traffic state from synchronizer for $member"
                 )

@@ -7,7 +7,7 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CryptoConfig, CryptoProviderScheme, CryptoSchemeConfig}
 
-final case class CryptoSchemes(
+final case class CryptoSchemes private (
     signingKeySpecs: CryptoScheme[SigningKeySpec],
     signingAlgoSpecs: CryptoScheme[SigningAlgorithmSpec],
     encryptionKeySpecs: CryptoScheme[EncryptionKeySpec],

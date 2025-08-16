@@ -25,8 +25,13 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncC
 import com.digitalasset.canton.sequencing.client.transports.{
   GrpcClientTransportHelpers,
   GrpcSequencerClientAuth,
+  GrpcSubscriptionErrorRetryPolicy,
 }
-import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerSubscription}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SequencerSubscription,
+  SubscriptionErrorRetryPolicy,
+}
 import com.digitalasset.canton.sequencing.protocol.SendAsyncError.SendAsyncErrorGrpc
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -249,11 +254,15 @@ class GrpcSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E] = stub.subscribe(request, handler, timeout)
+  ): Either[String, SequencerSubscription[E]] =
+    stub.subscribe(request, handler, timeout).leftMap(_.toString)
 
   override protected def pretty: Pretty[GrpcSequencerConnectionX] =
     prettyOfClass(
       param("name", _.name.singleQuoted),
       param("underlying", _.underlying),
     )
+
+  override val subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
+    new GrpcSubscriptionErrorRetryPolicy(loggerFactory)
 }

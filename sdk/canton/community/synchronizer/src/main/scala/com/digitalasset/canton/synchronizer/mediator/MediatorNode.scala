@@ -585,7 +585,6 @@ class MediatorNodeBootstrap(
           )
           .leftMap(error => error.toString)
       )
-
     } yield connectionPool
 
     val mediatorRuntimeET = for {

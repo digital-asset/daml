@@ -28,6 +28,7 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceInconsistentConnectivity,
   SyncServiceSynchronizerDisabledUs,
+  SyncServiceSynchronizerDisconnect,
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
@@ -168,7 +169,8 @@ trait ParticipantStateChangeIntegrationTest
         _.message should (include(MemberAccessDisabled(participant1.id).reason) or
           include(SyncServiceSynchronizerDisabledUs.id) or
           include("Aborted fetching token due to my node shutdown") or
-          include("Token refresh aborted due to shutdown"))
+          include("Token refresh aborted due to shutdown") or
+          include(SyncServiceSynchronizerDisconnect.id))
       },
     )
   }

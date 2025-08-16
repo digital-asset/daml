@@ -53,7 +53,6 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
@@ -133,7 +132,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     override protected[this] def logger: TracedLogger = self.logger
   })
 
-  // TODO(i25218): adjust when the new connection pool is stable
+  // TODO(i26481): adjust when the new connection pool is stable
   val useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
@@ -293,19 +292,6 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   private val expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]] =
     NonEmpty.mk(Set, SequencerAlias.Default -> sequencerId).toMap
 
-  private val poolConfig = SequencerConnectionXPoolConfig(
-    connections = NonEmpty(
-      Seq,
-      ConnectionXConfig(
-        name = SequencerAlias.Default.toString,
-        endpoint = Endpoint("localhost", serverPort),
-        transportSecurity = false,
-        customTrustCertificates = None,
-        tracePropagation = TracingConfig.Propagation.Disabled,
-      ),
-    ),
-    trustThreshold = PositiveInt.one,
-  )
   val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
     clientProtocolVersions = NonEmpty(Seq, BaseTest.testedProtocolVersion),
     minimumProtocolVersion = None,
@@ -351,6 +337,12 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
         includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
         release = ReleaseVersion.current,
       ),
+    )
+
+    val poolConfig = SequencerConnectionXPoolConfig.fromSequencerConnections(
+      connections,
+      TracingConfig(TracingConfig.Propagation.Disabled),
+      expectedPSIdO = None,
     )
 
     for {
@@ -569,7 +561,9 @@ class GrpcSequencerIntegrationTest
       )
       sequencedEventStore.store(Seq(dummyEvent))(traceContext, closeContext).futureValueUS
 
-      env.loggerFactory.assertLogs(SuppressionRule.Level(Level.INFO))(
+      env.loggerFactory.assertLogs(
+        SuppressionRule.Level(Level.INFO) && SuppressionRule.forLogger[SequencerClientFactory]
+      )(
         makeClient(
           SequencerConnections
             .many(
@@ -581,7 +575,6 @@ class GrpcSequencerIntegrationTest
           expectedSequencers = NonEmpty
             .mk(Set, SequencerAlias.Default -> sequencerId, sequencerAlias2 -> sequencerId2)
             .toMap,
-          useNewConnectionPool = false, // Assertions become more complicated otherwise
         ).futureValueUS,
         assertions = _.infoMessage should include(
           "Cannot reach threshold for Retrieving traffic state from synchronizer"

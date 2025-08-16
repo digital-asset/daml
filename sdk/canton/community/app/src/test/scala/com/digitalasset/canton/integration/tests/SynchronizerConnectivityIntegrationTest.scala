@@ -58,10 +58,6 @@ sealed trait SynchronizerConnectivityIntegrationTest
         x.focus(_.parameters.timeouts.processing.sequencerInfo)
           .replace(NonNegativeDuration.tryFromDuration(2.seconds))
       )
-      .addConfigTransform(
-        // TODO(i26481): Enable new connection pool
-        ConfigTransforms.disableConnectionPool
-      )
       .withSetup { env =>
         import env.*
         // Starting conditions of the test:

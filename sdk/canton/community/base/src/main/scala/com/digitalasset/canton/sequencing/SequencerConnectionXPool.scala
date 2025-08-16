@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{
@@ -24,7 +25,6 @@ import com.digitalasset.canton.util.MonadUtil
 import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.stream.Materializer
 
-import java.time.Duration
 import scala.concurrent.ExecutionContextExecutor
 
 /** Pool of sequencer connections.
@@ -110,18 +110,27 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
     *     returned for that sequencer ID is chosen via round-robin
     */
   def getConnections(
+      requester: String,
       nb: PositiveInt,
       exclusions: Set[SequencerId],
   )(implicit traceContext: TraceContext): Set[SequencerConnectionX]
 
   /** Obtain a single connection for each different sequencer ID present in the pool.
     */
-  def getOneConnectionPerSequencer()(implicit
+  def getOneConnectionPerSequencer(requester: String)(implicit
       traceContext: TraceContext
   ): Map[SequencerId, SequencerConnectionX]
 
   /** Obtain all the connections present in the pool. */
   def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX]
+
+  /** Determine whether the connection pool can still reach the given threshold, ignoring the
+    * `ignored` connections.
+    */
+  def isThresholdStillReachable(
+      threshold: PositiveInt,
+      ignored: Set[ConnectionXConfig] = Set.empty,
+  ): Boolean
 
   @VisibleForTesting
   def contents: Map[SequencerId, Set[SequencerConnectionX]]
@@ -148,7 +157,8 @@ object SequencerConnectionXPool {
   final case class SequencerConnectionXPoolConfig(
       connections: NonEmpty[Seq[ConnectionXConfig]],
       trustThreshold: PositiveInt,
-      restartConnectionDelay: Duration = Duration.ofMillis(500),
+      restartConnectionDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMillis(500),
       expectedPSIdO: Option[PhysicalSynchronizerId] = None,
   ) {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
@@ -203,7 +213,7 @@ object SequencerConnectionXPool {
 
     /** Create a sequencer connection pool configuration from the existing format.
       *
-      * TODO(i25218): remove when no longer needed
+      * TODO(i27260): remove when no longer needed
       */
     def fromSequencerConnections(
         sequencerConnections: SequencerConnections,
@@ -289,7 +299,7 @@ trait SequencerConnectionXPoolFactory {
       materializer: Materializer,
   ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool]
 
-  // TODO(i25218): remove when no longer needed
+  // TODO(i27260): remove when no longer needed
   def createFromOldConfig(
       sequencerConnections: SequencerConnections,
       expectedPSIdO: Option[PhysicalSynchronizerId],

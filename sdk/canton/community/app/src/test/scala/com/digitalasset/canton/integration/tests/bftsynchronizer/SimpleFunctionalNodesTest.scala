@@ -41,10 +41,6 @@ trait SimpleFunctionalNodesTest
           topologyTransactionRegistrationTimeout
         )*
       )
-      .addConfigTransforms(
-        // TODO(i26481): Enable new connection pool
-        ConfigTransforms.disableConnectionPool
-      )
 
   "Connect participant-x" in { implicit env =>
     import env.*
@@ -56,6 +52,7 @@ trait SimpleFunctionalNodesTest
 
   "Temporarily stop sequencer and participant re-send topology after restart" in { implicit env =>
     import env.*
+    val usingPool = participant1.config.sequencerClient.useNewConnectionPool
     loggerFactory.assertLogsUnorderedOptional(
       {
 
@@ -96,7 +93,16 @@ trait SimpleFunctionalNodesTest
       },
       (
         LogEntryOptionality.OptionalMany,
-        _.warningMessage should include("Request failed for sequencer. Is the server running?"),
+        _.warningMessage should include(
+          if (usingPool) "Request failed for server-sequencer1-0. Is the server running?"
+          else "Request failed for sequencer. Is the server running?"
+        ),
+      ),
+      (
+        LogEntryOptionality.OptionalMany,
+        _.warningMessage should include(
+          "Failed broadcasting topology transactions: RequestFailed(No connection available)."
+        ),
       ),
       (
         LogEntryOptionality.Required,

@@ -13,7 +13,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceS
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{Crypto, Fingerprint, SynchronizerCrypto}
-import com.digitalasset.canton.lifecycle.LifeCycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -27,6 +27,10 @@ import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConn
 import com.digitalasset.canton.sequencing.SequencerSubscriptionPool.SequencerSubscriptionPoolConfig
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
+import com.digitalasset.canton.sequencing.client.{
+  SequencedEventValidator,
+  SequencerClientSubscriptionError,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{
   Member,
@@ -43,7 +47,7 @@ import com.digitalasset.canton.version.{
   ProtocolVersionCompatibility,
   ReleaseVersion,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerAlias}
 import io.grpc.stub.StreamObserver
 import io.grpc.{CallOptions, Channel, Status}
 import org.apache.pekko.actor.ActorSystem
@@ -52,7 +56,7 @@ import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, blocking}
 import scala.util.Random
 
 trait ConnectionPoolTestHelpers {
@@ -191,12 +195,19 @@ trait ConnectionPoolTestHelpers {
   )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V = {
     val config = mkSubscriptionPoolConfig(trustThreshold, livenessMargin)
 
-    val subscriptionPool = SequencerSubscriptionPoolFactory.create(
-      initialConfig = config,
-      pool = connectionPool,
+    val subscriptionPoolFactory = new SequencerSubscriptionPoolFactoryImpl(
+      sequencerSubscriptionFactory = new TestSequencerSubscriptionXFactory(timeouts, loggerFactory),
+      subscriptionHandlerFactory = TestSubscriptionHandlerXFactory,
       clock = wallClock,
       timeouts = timeouts,
       loggerFactory = loggerFactory,
+    )
+    val subscriptionPool = subscriptionPoolFactory.create(
+      initialConfig = config,
+      connectionPool = connectionPool,
+      member = testMember,
+      initialSubscriptionEventO = None,
+      mock[SequencerAggregator],
     )
 
     val listener = new TestHealthListener(subscriptionPool.health)
@@ -211,16 +222,18 @@ trait ConnectionPoolTestHelpers {
       attributesForConnection: Int => ConnectionAttributes,
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       livenessMargin: NonNegativeInt,
-  )(f: (SequencerConnectionXPool, SequencerSubscriptionPool, TestHealthListener) => V): V =
+  )(f: (SequencerSubscriptionPool, TestHealthListener) => V): V =
     withConnectionPool(
       nbConnections,
       trustThreshold,
       attributesForConnection,
       expectedSynchronizerIdO,
     ) { case (connectionPool, _createdConnections, _connectionPoolListener) =>
+      connectionPool.start().futureValueUS.valueOrFail("initialization")
+
       withSubscriptionPool(trustThreshold, livenessMargin, connectionPool) {
         (subscriptionPool, subscriptionPoolListener) =>
-          f(connectionPool, subscriptionPool, subscriptionPoolListener)
+          f(subscriptionPool, subscriptionPoolListener)
       }
     }
 
@@ -305,6 +318,39 @@ private object ConnectionPoolTestHelpers {
       s"test-sequencer-$index",
       Namespace(Fingerprint.tryFromString("namespace")),
     )
+
+  private class TestSequencerSubscriptionXFactory(
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  ) extends SequencerSubscriptionXFactory {
+    override def create(
+        connection: SequencerConnectionX,
+        member: Member,
+        preSubscriptionEventO: Option[ProcessingSerializedEvent],
+        subscriptionHandlerFactory: SubscriptionHandlerXFactory,
+    )(implicit
+        traceContext: TraceContext,
+        ec: ExecutionContext,
+    ): SequencerSubscriptionX[SequencerClientSubscriptionError] =
+      new SequencerSubscriptionX(
+        connection,
+        member,
+        None,
+        _ => FutureUnlessShutdown.pure(Right(())),
+        timeouts,
+        loggerFactory,
+      )
+  }
+
+  private object TestSubscriptionHandlerXFactory extends SubscriptionHandlerXFactory {
+    override def create(
+        eventValidator: SequencedEventValidator,
+        initialPriorEvent: Option[ProcessingSerializedEvent],
+        sequencerAlias: SequencerAlias,
+        sequencerId: SequencerId,
+        loggerFactory: NamedLoggerFactory,
+    )(implicit ec: ExecutionContext): SubscriptionHandlerX = ???
+  }
 
   private class TestSequencerConnectionXPoolFactory(
       attributesForConnection: Int => ConnectionAttributes,
@@ -504,7 +550,7 @@ private object ConnectionPoolTestHelpers {
       override def subscribe(
           request: SequencerService.SubscriptionRequest,
           responseObserver: StreamObserver[SequencerService.SubscriptionResponse],
-      ): Unit = ???
+      ): Unit = ()
 
       override def acknowledgeSigned(
           request: SequencerService.AcknowledgeSignedRequest
@@ -599,8 +645,12 @@ private object ConnectionPoolTestHelpers {
       case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
     }
 
-    override def createUserStub(connection: ConnectionX, clientAuth: GrpcSequencerClientAuth)(
-        implicit
+    override def createUserStub(
+        connection: ConnectionX,
+        clientAuth: GrpcSequencerClientAuth,
+        timeouts: ProcessingTimeout,
+        protocolVersion: ProtocolVersion,
+    )(implicit
         ec: ExecutionContextExecutor,
         esf: ExecutionSequencerFactory,
         materializer: Materializer,
@@ -610,7 +660,9 @@ private object ConnectionPoolTestHelpers {
           new GrpcUserSequencerConnectionXStub(
             grpcConnection,
             channel => clientAuth(testResponses.sequencerSvcFactory(channel)),
+            timeouts,
             loggerFactory,
+            protocolVersion,
           )
 
         case _ => throw new IllegalStateException(s"Connection type not supported: $connection")

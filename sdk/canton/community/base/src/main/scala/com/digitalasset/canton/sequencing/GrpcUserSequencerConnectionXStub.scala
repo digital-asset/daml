@@ -7,7 +7,8 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxEither
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
@@ -15,10 +16,15 @@ import com.digitalasset.canton.sequencer.api.v30.{
   AcknowledgeSignedRequest,
   AcknowledgeSignedResponse,
   SendAsyncRequest,
+  SubscriptionResponse,
 }
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXError
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
+import com.digitalasset.canton.sequencing.client.transports.{
+  ConsumesCancellableGrpcStreamObserver,
+  GrpcSequencerSubscription,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   GetTrafficStateForMemberRequest,
@@ -32,6 +38,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
+import io.grpc.Context.CancellableContext
 import io.grpc.{Channel, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -45,7 +53,9 @@ import scala.util.{Failure, Success}
 class GrpcUserSequencerConnectionXStub(
     connection: GrpcConnectionX,
     sequencerSvcFactory: Channel => SequencerServiceStub,
+    timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
+    protocolVersion: ProtocolVersion,
 )(implicit
     ec: ExecutionContextExecutor,
     esf: ExecutionSequencerFactory,
@@ -200,11 +210,32 @@ class GrpcUserSequencerConnectionXStub(
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield result
 
-  def subscribe[E](
+  override def subscribe[E](
       request: SubscriptionRequest,
       handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E] = ???
+  ): Either[SequencerConnectionXStubError, SequencerSubscription[E]] = {
+    val loggerWithConnection = loggerFactory.append("connection", connection.name)
+
+    def mkSubscription(
+        context: CancellableContext,
+        hasRunOnClosing: HasRunOnClosing,
+    ): ConsumesCancellableGrpcStreamObserver[E, SubscriptionResponse] =
+      GrpcSequencerSubscription.fromSubscriptionResponse(
+        context,
+        handler,
+        hasRunOnClosing,
+        timeouts,
+        loggerWithConnection,
+      )(protocolVersion)
+
+    connection
+      .serverStreamingRequest(
+        stubFactory = sequencerSvcFactory,
+        observerFactory = mkSubscription,
+      )(getObserver = _.observer)(_.subscribe(request.toProtoV30, _))
+      .leftMap[SequencerConnectionXStubError](SequencerConnectionXStubError.ConnectionError.apply)
+  }
 }

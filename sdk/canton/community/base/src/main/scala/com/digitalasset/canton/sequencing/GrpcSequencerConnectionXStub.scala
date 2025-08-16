@@ -8,6 +8,7 @@ import cats.implicits.catsSyntaxEither
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
@@ -168,7 +169,12 @@ class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
     case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
   }
 
-  override def createUserStub(connection: ConnectionX, clientAuth: GrpcSequencerClientAuth)(implicit
+  def createUserStub(
+      connection: ConnectionX,
+      clientAuth: GrpcSequencerClientAuth,
+      timeouts: ProcessingTimeout,
+      protocolVersion: ProtocolVersion,
+  )(implicit
       ec: ExecutionContextExecutor,
       esf: ExecutionSequencerFactory,
       materializer: Materializer,
@@ -178,7 +184,9 @@ class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
         new GrpcUserSequencerConnectionXStub(
           grpcConnection,
           channel => clientAuth(SequencerServiceGrpc.stub(channel)),
+          timeouts,
           loggerFactory,
+          protocolVersion,
         )
 
       case _ => throw new IllegalStateException(s"Connection type not supported: $connection")

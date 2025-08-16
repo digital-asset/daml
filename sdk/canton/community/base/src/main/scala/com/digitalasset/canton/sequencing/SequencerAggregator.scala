@@ -23,6 +23,7 @@ import com.digitalasset.canton.sequencing.SequencerAggregator.{
   MessageAggregationConfig,
   SequencerAggregatorError,
 }
+import com.digitalasset.canton.sequencing.SequencerSubscriptionPoolImpl.SubscriptionStartProvider
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.topology.SequencerId
@@ -46,8 +47,16 @@ class SequencerAggregator(
     updateSendTracker: Seq[SequencedEventWithTraceContext[?]] => Unit,
     override val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
-) extends NamedLogging
+    useNewConnectionPool: Boolean,
+) extends SubscriptionStartProvider
+    with NamedLogging
     with FlagCloseable {
+
+  private val postAggregationHandlerRef = new AtomicReference[Option[PostAggregationHandler]](None)
+  def setPostAggregationHandler(postAggregationHandler: PostAggregationHandler): Unit =
+    postAggregationHandlerRef
+      .getAndSet(Some(postAggregationHandler))
+      .foreach(_ => throw new IllegalStateException("Post aggregation handler already set"))
 
   private val configRef: AtomicReference[MessageAggregationConfig] =
     new AtomicReference[MessageAggregationConfig](initialConfig)
@@ -69,6 +78,11 @@ class SequencerAggregator(
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var cursor: Option[CantonTimestamp] = None
+
+  private val latestAggregatedEventRef = new AtomicReference[Option[SequencedSerializedEvent]](None)
+
+  override def getLatestProcessedEventO: Option[SequencedSerializedEvent] =
+    latestAggregatedEventRef.get
 
   def eventQueue: BlockingQueue[SequencedSerializedEvent] = receivedEvents
 
@@ -114,16 +128,24 @@ class SequencerAggregator(
 
     updateSendTracker(Seq(event))
 
+    latestAggregatedEventRef.set(Some(event))
     if (!receivedEvents.offer(event)) {
-      logger.debug(
+      logger.info(
         s"Event inbox is full. Blocking sequenced event with timestamp ${event.timestamp}."
       )
       blocking {
         receivedEvents.put(event)
       }
-      logger.debug(
+      logger.info(
         s"Unblocked sequenced event with timestamp ${event.timestamp}."
       )
+    }
+
+    if (useNewConnectionPool) {
+      logger.debug("Signalling the application handler")
+      postAggregationHandlerRef.get
+        .getOrElse(ErrorUtil.invalidState("Missing post aggregation handler"))
+        .signalHandler()
     }
   }
 
@@ -140,7 +162,9 @@ class SequencerAggregator(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Either[SequencerAggregatorError, Boolean]] =
-    if (!expectedSequencers.contains(sequencerId)) {
+    // The reason why this was checked here is unclear. The SequencedEventValidator already checks that
+    // events come from valid sequencers by verifying the signature using up-to-date topology state.
+    if (!useNewConnectionPool && !expectedSequencers.contains(sequencerId)) {
       FutureUnlessShutdown(
         ErrorUtil.internalErrorAsync(
           new IllegalArgumentException(s"Unexpected sequencerId: $sequencerId")
@@ -176,15 +200,18 @@ class SequencerAggregator(
       nextMinimumTimestamp: CantonTimestamp,
       nextData: SequencerMessageData,
   ): Unit = {
-    val expectedMessages = nextData.eventBySequencer.view.filterKeys { sequencerId =>
-      expectedSequencers.contains(sequencerId)
-    }
+    val expectedMessages =
+      if (useNewConnectionPool) nextData.eventBySequencer
+      else
+        nextData.eventBySequencer.view.filterKeys { sequencerId =>
+          expectedSequencers.contains(sequencerId)
+        }.toMap
 
     if (expectedMessages.sizeCompare(sequencerTrustThreshold.unwrap) >= 0) {
       cursor = Some(nextMinimumTimestamp)
       sequenceData.remove(nextMinimumTimestamp).discard
 
-      val nonEmptyMessages = NonEmptyUtil.fromUnsafe(expectedMessages.toMap)
+      val nonEmptyMessages = NonEmptyUtil.fromUnsafe(expectedMessages)
       val messagesToCombine = nonEmptyMessages.map { case (_, event) => event }.toList
       val (sequencerIdToNotify, _) = nonEmptyMessages.head1
 

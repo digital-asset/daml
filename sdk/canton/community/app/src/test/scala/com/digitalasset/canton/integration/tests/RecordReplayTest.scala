@@ -14,6 +14,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
+  ConfigTransforms,
   EnvironmentDefinition,
   HasCycleUtils,
   SharedEnvironment,
@@ -54,7 +55,10 @@ final class RecordReplayIntegrationTest
   private val SendReplayParallelism = 10
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P1_S1M1.addConfigTransform(
+      // TODO(i26481): Enable new connection pool (test uses replay subscriptions)
+      ConfigTransforms.disableConnectionPool
+    )
 
   "replaying events and submission requests is functionally working" in { implicit env =>
     import env.*

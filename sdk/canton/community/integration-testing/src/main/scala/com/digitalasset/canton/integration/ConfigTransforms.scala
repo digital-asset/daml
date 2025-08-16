@@ -127,7 +127,7 @@ object ConfigTransforms {
       _.focus(_.monitoring.logging.api.warnBeyondLoad).replace(Some(10000)),
       // disable exit on fatal error in tests
       ConfigTransforms.setExitOnFatalFailures(false),
-      // TODO(i25218): adjust when the new connection pool is stable
+      // TODO(i26481): adjust when the new connection pool is stable
       ConfigTransforms.setConnectionPool(testedProtocolVersion >= ProtocolVersion.dev),
     )
 

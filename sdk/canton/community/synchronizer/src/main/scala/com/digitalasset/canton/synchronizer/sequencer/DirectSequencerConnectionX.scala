@@ -16,7 +16,11 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   SequencerConnectionXHealth,
 }
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
-import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerSubscription}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SequencerSubscription,
+  SubscriptionErrorRetryPolicy,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   GetTrafficStateForMemberRequest,
@@ -117,11 +121,14 @@ class DirectSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E] = ???
+  ): Either[String, SequencerSubscription[E]] = ???
 
   override protected def pretty: Pretty[DirectSequencerConnectionX] =
     prettyOfClass(param("name", _.name.singleQuoted))
 
   override def attributes: ConnectionAttributes =
     ConnectionAttributes(synchronizerId, sequencerId, staticParameters)
+
+  override def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy =
+    SubscriptionErrorRetryPolicy.never
 }

@@ -339,6 +339,8 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         import env.*
         // participant3 now talks to the newly onboarded sequencer
 
+        val usingPool = participant1.config.sequencerClient.useNewConnectionPool
+
         val logAssertions: Seq[LogEntry => scalatest.Assertion] =
           Seq {
             // Sequencer logs the tombstone on the read side, together with the event counter, timestamp at which it cannot sign and the member
@@ -372,20 +374,25 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
             },
             // The participant's resilient sequencer subscription warns that it is giving up the sequencer-client-side
             // subscription due to the tombstone error.
-            logEntry => {
-              logEntry.loggerName should include("ResilientSequencerSubscription")
-              logEntry.warningMessage should (include(
-                "Closing resilient sequencer subscription due to error"
-              ) and include("FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"))
-            },
+            logEntry =>
+              if (usingPool) {
+                logEntry.loggerName should include("SequencerSubscriptionX")
+                logEntry.warningMessage should (include(
+                  "Permanently closing sequencer subscription due to error"
+                ) and include("FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"))
+
+              } else {
+                logEntry.loggerName should include("ResilientSequencerSubscription")
+                logEntry.warningMessage should (include(
+                  "Closing resilient sequencer subscription due to error"
+                ) and include("FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"))
+              },
             // The participant's sync service errors that the participant has lost access to the sequencer's
             // corresponding synchronizer.
             logEntry => {
               logEntry.loggerName should include("SynchronizerConnectionsManager")
               logEntry.errorMessage should (include(
                 "SYNC_SERVICE_SYNCHRONIZER_DISCONNECTED"
-              ) and include(
-                "FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"
               ))
             },
           )
