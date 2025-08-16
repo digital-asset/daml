@@ -336,7 +336,12 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
           loggerFactory = loggerFactory,
         )
 
-        val authenticatedStub = stubFactory.createUserStub(connection, clientAuth)
+        val authenticatedStub = stubFactory.createUserStub(
+          connection,
+          clientAuth,
+          timeouts,
+          checked(tryAttributes).staticParameters.protocolVersion,
+        )
         val userConnection = new GrpcSequencerConnectionX(
           this,
           name = s"sequencer-${connection.name}",
