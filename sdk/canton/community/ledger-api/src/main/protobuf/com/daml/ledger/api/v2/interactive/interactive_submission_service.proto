@@ -9,6 +9,8 @@ import "com/daml/ledger/api/v2/commands.proto";
 import "com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto";
 import "com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto";
 import "com/daml/ledger/api/v2/package_reference.proto";
+import "com/daml/ledger/api/v2/transaction.proto";
+import "com/daml/ledger/api/v2/transaction_filter.proto";
 import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
@@ -35,6 +37,10 @@ service InteractiveSubmissionService {
   // IMPORTANT: Relying on the response from this endpoint requires trusting the Participant Node to be honest.
   // A malicious node could make a successfully committed request appeared failed and vice versa
   rpc ExecuteSubmissionAndWait(ExecuteSubmissionAndWaitRequest) returns (ExecuteSubmissionAndWaitResponse);
+  // Similar to ExecuteSubmissionAndWait but additionally returns the transaction
+  // IMPORTANT: Relying on the response from this endpoint requires trusting the Participant Node to be honest.
+  // A malicious node could make a successfully committed request appear as failed and vice versa
+  rpc ExecuteSubmissionAndWaitForTransaction(ExecuteSubmissionAndWaitForTransactionRequest) returns (ExecuteSubmissionAndWaitForTransactionResponse);
 
   // A preferred package is the highest-versioned package for a provided package-name
   // that is vetted by all the participants hosting the provided parties.
@@ -74,6 +80,7 @@ message PrepareSubmissionRequest {
   // Must be a valid UserIdString (as described in ``value.proto``).
   // Required unless authentication is used with a user token.
   // In that case, the token's user-id will be used for the request's user_id.
+  // Optional
   string user_id = 1;
 
   // Uniquely identifies the command.
@@ -85,6 +92,8 @@ message PrepareSubmissionRequest {
   string command_id = 2;
 
   // Individual elements of this atomic command. Must be non-empty.
+  // Limitation: Only single command transaction are currently supported by the API.
+  // The field is marked as repeated in preparation for future support of multiple commands.
   // Required
   repeated Command commands = 3;
 
@@ -120,10 +129,12 @@ message PrepareSubmissionRequest {
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
+  // Optional
   repeated string package_id_selection_preference = 9;
 
   // When true, the response will contain additional details on how the transaction was encoded and hashed
   // This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
+  // Optional, default to false
   bool verbose_hashing = 10;
 
   // Fetches the contract keys into the caches to speed up the command processing.
@@ -209,13 +220,18 @@ enum SignatureFormat {
 
 // Signatures provided by a single party
 message SinglePartySignatures {
-  string party = 1; // Submitting party
-  repeated Signature signatures = 2; // Signatures
+  // Submitting party
+  // Required
+  string party = 1;
+  // Signatures
+  // Required
+  repeated Signature signatures = 2;
 }
 
 // Additional signatures provided by the submitting parties
 message PartySignatures {
   // Additional signatures provided by all individual parties
+  // Required
   repeated SinglePartySignatures signatures = 1;
 }
 
@@ -223,16 +239,19 @@ message ExecuteSubmissionRequest {
   // the prepared transaction
   // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
   // obtained from calling `prepareSubmission`.
+  // Required
   PreparedTransaction prepared_transaction = 1;
 
   // The party(ies) signatures that authorize the prepared submission to be executed by this node.
   // Each party can provide one or more signatures..
   // and one or more parties can sign.
   // Note that currently, only single party submissions are supported.
+  // Required
   PartySignatures party_signatures = 2;
 
   // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
   // If omitted, the participant will assume the configured maximum deduplication time.
+  // Optional
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
@@ -253,31 +272,38 @@ message ExecuteSubmissionRequest {
   string submission_id = 5;
 
   // See [PrepareSubmissionRequest.user_id]
+  // Optional
   string user_id = 6;
 
   // The hashing scheme version used when building the hash
+  // Required
   HashingSchemeVersion hashing_scheme_version = 7;
 
   // If set will influence the chosen ledger effective time but will not result in a submission delay so any override
   // should be scheduled to executed within the window allowed by synchronizer.
-  MinLedgerTime min_ledger_time = 8; // Optional
+  // Optional
+  MinLedgerTime min_ledger_time = 8;
 }
+
 message ExecuteSubmissionResponse {}
 
 message ExecuteSubmissionAndWaitRequest {
   // the prepared transaction
   // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
   // obtained from calling `prepareSubmission`.
+  // Required
   PreparedTransaction prepared_transaction = 1;
 
   // The party(ies) signatures that authorize the prepared submission to be executed by this node.
   // Each party can provide one or more signatures..
   // and one or more parties can sign.
   // Note that currently, only single party submissions are supported.
+  // Required
   PartySignatures party_signatures = 2;
 
   // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
   // If omitted, the participant will assume the configured maximum deduplication time.
+  // Optional
   oneof deduplication_period {
     // Specifies the length of the deduplication period.
     // It is interpreted relative to the local clock at some point during the submission's processing.
@@ -298,14 +324,17 @@ message ExecuteSubmissionAndWaitRequest {
   string submission_id = 5;
 
   // See [PrepareSubmissionRequest.user_id]
+  // Optional
   string user_id = 6;
 
   // The hashing scheme version used when building the hash
+  // Required
   HashingSchemeVersion hashing_scheme_version = 7;
 
   // If set will influence the chosen ledger effective time but will not result in a submission delay so any override
   // should be scheduled to executed within the window allowed by synchronizer.
-  MinLedgerTime min_ledger_time = 8; // Optional
+  // Optional
+  MinLedgerTime min_ledger_time = 8;
 }
 
 message ExecuteSubmissionAndWaitResponse {
@@ -317,6 +346,71 @@ message ExecuteSubmissionAndWaitResponse {
   // The details of the offset field are described in ``community/ledger-api/README.md``.
   // Required
   int64 completion_offset = 2;
+}
+
+message ExecuteSubmissionAndWaitForTransactionRequest {
+  // the prepared transaction
+  // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+  // obtained from calling `prepareSubmission`.
+  // Required
+  PreparedTransaction prepared_transaction = 1;
+
+  // The party(ies) signatures that authorize the prepared submission to be executed by this node.
+  // Each party can provide one or more signatures..
+  // and one or more parties can sign.
+  // Note that currently, only single party submissions are supported.
+  // Required
+  PartySignatures party_signatures = 2;
+
+  // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
+  // If omitted, the participant will assume the configured maximum deduplication time.
+  // Optional
+  oneof deduplication_period {
+    // Specifies the length of the deduplication period.
+    // It is interpreted relative to the local clock at some point during the submission's processing.
+    // Must be non-negative. Must not exceed the maximum deduplication time.
+    google.protobuf.Duration deduplication_duration = 3;
+
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
+    // Must be a valid absolute offset (positive integer).
+    int64 deduplication_offset = 4;
+  }
+
+  // A unique identifier to distinguish completions for different submissions with the same change ID.
+  // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+  // with the same change ID.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  //
+  // Required
+  string submission_id = 5;
+
+  // See [PrepareSubmissionRequest.user_id]
+  // Optional
+  string user_id = 6;
+
+  // The hashing scheme version used when building the hash
+  // Required
+  HashingSchemeVersion hashing_scheme_version = 7;
+
+  // If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+  // should be scheduled to executed within the window allowed by synchronizer.
+  // Optional
+  MinLedgerTime min_ledger_time = 8;
+
+  // If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+  // TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+  // filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+  // When the ``transaction_shape`` TRANSACTION_SHAPE_ACS_DELTA shape is used (explicitly or is defaulted to as explained above),
+  // events will only be returned if the submitting party is hosted on this node.
+  // Optional
+  TransactionFormat transaction_format = 9;
+}
+
+message ExecuteSubmissionAndWaitForTransactionResponse {
+  // The transaction that resulted from the submitted command.
+  // The transaction might contain no events (request conditions result in filtering out all of them).
+  // Required
+  Transaction transaction = 1;
 }
 
 message MinLedgerTime {

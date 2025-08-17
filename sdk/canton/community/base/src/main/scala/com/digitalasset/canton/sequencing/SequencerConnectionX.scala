@@ -12,7 +12,10 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   SequencerConnectionXHealth,
 }
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
-import com.digitalasset.canton.sequencing.client.SequencerSubscription
+import com.digitalasset.canton.sequencing.client.{
+  SequencerSubscription,
+  SubscriptionErrorRetryPolicy,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   GetTrafficStateForMemberRequest,
@@ -74,5 +77,10 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E]
+  ): Either[String, SequencerSubscription[E]]
+
+  /** Determine which errors will cause the sequencer client to not try to reestablish a
+    * subscription
+    */
+  def subscriptionRetryPolicy: SubscriptionErrorRetryPolicy
 }

@@ -898,6 +898,18 @@ class OpenapiTypesTest extends AnyWordSpec with Matchers {
         ](
           openapi.JsExecuteSubmissionAndWaitRequest.fromJson
         ),
+        Mapping[
+          json.JsExecuteSubmissionAndWaitForTransactionRequest,
+          openapi.JsExecuteSubmissionAndWaitForTransactionRequest,
+        ](
+          openapi.JsExecuteSubmissionAndWaitForTransactionRequest.fromJson
+        ),
+        Mapping[
+          json.JsExecuteSubmissionAndWaitForTransactionResponse,
+          openapi.JsExecuteSubmissionAndWaitForTransactionResponse,
+        ](
+          openapi.JsExecuteSubmissionAndWaitForTransactionResponse.fromJson
+        ),
       )
     }
   }

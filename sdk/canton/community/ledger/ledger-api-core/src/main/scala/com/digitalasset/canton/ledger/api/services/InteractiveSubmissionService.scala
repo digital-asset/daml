@@ -4,11 +4,13 @@
 package com.digitalasset.canton.ledger.api.services
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitResponse,
   ExecuteSubmissionResponse,
   PrepareSubmissionResponse,
   PreparedTransaction,
 }
+import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
 import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
@@ -51,6 +53,13 @@ trait InteractiveSubmissionService {
   def executeAndWait(request: ExecuteRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[ExecuteSubmissionAndWaitResponse]
+
+  def executeAndWaitForTransaction(
+      request: ExecuteRequest,
+      transactionFormat: Option[TransactionFormat],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionAndWaitForTransactionResponse]
 
   def getPreferredPackages(
       packageVettingRequirements: PackageVettingRequirements,

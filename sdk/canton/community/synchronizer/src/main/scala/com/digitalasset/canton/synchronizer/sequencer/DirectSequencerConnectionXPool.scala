@@ -75,11 +75,11 @@ class DirectSequencerConnectionXPool(
 
   override def nbConnections: NonNegativeInt = NonNegativeInt.one
 
-  override def getConnections(nb: PositiveInt, exclusions: Set[SequencerId])(implicit
-      traceContext: TraceContext
+  override def getConnections(requester: String, nb: PositiveInt, exclusions: Set[SequencerId])(
+      implicit traceContext: TraceContext
   ): Set[SequencerConnectionX] = Set(directConnection)
 
-  override def getOneConnectionPerSequencer()(implicit
+  override def getOneConnectionPerSequencer(requester: String)(implicit
       traceContext: TraceContext
   ): Map[SequencerId, SequencerConnectionX] = Map(sequencerId -> directConnection)
 
@@ -89,6 +89,11 @@ class DirectSequencerConnectionXPool(
   override val contents: Map[SequencerId, Set[SequencerConnectionX]] = Map(
     sequencerId -> Set(directConnection)
   )
+
+  override def isThresholdStillReachable(
+      threshold: PositiveInt,
+      ignored: Set[ConnectionXConfig],
+  ): Boolean = true
 }
 
 object DirectSequencerConnectionXPool {

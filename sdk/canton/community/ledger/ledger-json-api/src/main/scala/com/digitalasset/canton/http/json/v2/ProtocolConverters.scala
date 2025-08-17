@@ -1268,6 +1268,73 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       } yield json.transformInto[JsExecuteSubmissionAndWaitRequest]
   }
 
+  object ExecuteSubmissionAndWaitForTransactionRequest
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest,
+        JsExecuteSubmissionAndWaitForTransactionRequest,
+      ] {
+    def fromJson(
+        obj: JsExecuteSubmissionAndWaitForTransactionRequest
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[
+      lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest
+    ] =
+      ExecuteSubmissionRequest
+        .fromJson(obj.transformInto[JsExecuteSubmissionRequest])
+        .map(
+          _.into[
+            lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest
+          ]
+            .withFieldConst(_.transactionFormat, obj.transactionFormat)
+            .transform
+        )
+
+    override def toJson(
+        protoRequest: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionRequest
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[JsExecuteSubmissionAndWaitForTransactionRequest] =
+      for {
+        json <- ExecuteSubmissionRequest.toJson(
+          protoRequest.transformInto[ExecuteSubmissionRequest]
+        )
+      } yield json
+        .into[JsExecuteSubmissionAndWaitForTransactionRequest]
+        .withFieldConst(_.transactionFormat, protoRequest.transactionFormat)
+        .transform
+  }
+
+  object ExecuteSubmissionAndWaitForTransactionResponse
+      extends ProtocolConverter[
+        lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionResponse,
+        JsExecuteSubmissionAndWaitForTransactionResponse,
+      ] {
+
+    def toJson(
+        response: lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionResponse
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[JsExecuteSubmissionAndWaitForTransactionResponse] =
+      for {
+        transaction <- Transaction
+          .toJson(response.getTransaction)
+      } yield JsExecuteSubmissionAndWaitForTransactionResponse(transaction)
+
+    def fromJson(
+        jsResponse: JsExecuteSubmissionAndWaitForTransactionResponse
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[
+      lapi.interactive.interactive_submission_service.ExecuteSubmissionAndWaitForTransactionResponse
+    ] =
+      for {
+        transaction <- Transaction
+          .fromJson(jsResponse.transaction)
+      } yield lapi.interactive.interactive_submission_service
+        .ExecuteSubmissionAndWaitForTransactionResponse(Some(transaction))
+  }
+
   object AllocatePartyRequest
       extends ProtocolConverter[
         lapi.admin.party_management_service.AllocatePartyRequest,

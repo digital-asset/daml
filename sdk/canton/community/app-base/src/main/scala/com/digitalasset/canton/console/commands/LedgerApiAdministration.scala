@@ -707,6 +707,41 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           )
         }
 
+      @Help.Summary(
+        "Execute a prepared submission and return the resulting transaction"
+      )
+      @Help.Description(
+        """
+          Similar to executeAndWait, but returns the resulting transaction.
+          IMPORTANT: this command assumes that the executing participant is trusted to return a valid command completion.
+          A dishonest executing participant could incorrectly respond that the command failed even though it succeeded.
+          """
+      )
+      def executeAndWaitForTransaction(
+          preparedTransaction: PreparedTransaction,
+          transactionSignatures: Map[PartyId, Seq[Signature]],
+          submissionId: String,
+          hashingSchemeVersion: HashingSchemeVersion,
+          transactionFormat: Option[TransactionFormatProto],
+          userId: String = userId,
+          deduplicationPeriod: Option[DeduplicationPeriod] = None,
+          minLedgerTimeAbs: Option[Instant] = None,
+      ): ApiTransaction =
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.InteractiveSubmissionService.ExecuteAndWaitForTransactionCommand(
+              preparedTransaction,
+              transactionSignatures,
+              submissionId = submissionId,
+              userId = userId,
+              deduplicationPeriod = deduplicationPeriod,
+              minLedgerTimeAbs = minLedgerTimeAbs,
+              hashingSchemeVersion = hashingSchemeVersion,
+              transactionFormat = transactionFormat,
+            )
+          )
+        }.getTransaction
+
       @Help.Summary("Get the preferred package version for constructing a command submission")
       @Help.Description(
         """A preferred package is the highest-versioned package for a provided package-name

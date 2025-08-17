@@ -7,7 +7,12 @@ import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as proto
-import com.daml.ledger.api.v2.interactive.interactive_submission_service.ExecuteSubmissionAndWaitResponse
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitForTransactionResponse,
+  ExecuteSubmissionAndWaitResponse,
+}
+import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
+import com.daml.ledger.api.v2.update_service.GetUpdateResponse
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
@@ -40,7 +45,11 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl.validateRequestTimeout
+import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl
+import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl.{
+  UpdateServices,
+  validateRequestTimeout,
+}
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.ExternalTransactionProcessor
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
@@ -70,6 +79,7 @@ import scala.util.{Failure, Success, Try}
 private[apiserver] object InteractiveSubmissionServiceImpl {
 
   def createApiService(
+      updateServices: UpdateServices,
       submissionSyncService: state.SyncService,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
@@ -86,6 +96,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): InteractiveSubmissionService & AutoCloseable = new InteractiveSubmissionServiceImpl(
+    updateServices,
     submissionSyncService,
     seedService,
     commandExecutor,
@@ -103,6 +114,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
 }
 
 private[apiserver] final class InteractiveSubmissionServiceImpl private[services] (
+    updateServices: UpdateServices,
     syncService: state.SyncService,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
@@ -330,9 +342,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         vettingValidAt = vettingValidAt,
       )
 
-  override def executeAndWait(executionRequest: ExecuteRequest)(implicit
+  private def executeAndWaitInternal(executionRequest: ExecuteRequest)(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[ExecuteSubmissionAndWaitResponse] = {
+  ): EitherT[FutureUnlessShutdown, InteractiveSubmissionExecuteError.Reject, CompletionResponse] = {
     val commandIdLogging =
       executionRequest.preparedTransaction.metadata
         .flatMap(_.submitterInfo.map(_.commandId))
@@ -348,7 +360,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       )
       // Capture deadline before thread switching in Future for-comprehension
       val deadlineO = Option(Context.current().getDeadline)
-      val result = for {
+      for {
         executionResult <- externalTransactionProcessor.processExecute(executionRequest)
         commandId = executionResult.commandInterpretationResult.submitterInfo.commandId
         submissionId = executionRequest.submissionId
@@ -377,9 +389,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
               submit = childContext => {
                 LoggingContextWithTrace.withNewLoggingContext(
                   loggingContext.entries.contents.toList*
-                )(childLoggingContextWithTrance =>
+                )(childLoggingContextWithTrace =>
                   FutureUnlessShutdown.outcomeF(
-                    submitIfNotOverloaded(executionResult)(childLoggingContextWithTrance)
+                    submitIfNotOverloaded(executionResult)(childLoggingContextWithTrace)
                       .transform(handleSubmissionResult)
                   )
                 )(childContext)
@@ -387,12 +399,46 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             )(errorLoggingContext, loggingContext.traceContext)
           )
           .mapK(FutureUnlessShutdown.outcomeK)
-      } yield proto.ExecuteSubmissionAndWaitResponse(
-        completion.completion.updateId,
-        completion.completion.offset,
-      )
-
-      result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(FutureUnlessShutdown.fromTry)
+      } yield completion
     }
+  }
+
+  override def executeAndWait(executionRequest: ExecuteRequest)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionAndWaitResponse] =
+    executeAndWaitInternal(executionRequest)
+      .map { completion =>
+        proto.ExecuteSubmissionAndWaitResponse(
+          completion.completion.updateId,
+          completion.completion.offset,
+        )
+      }
+      .value
+      .map(_.leftMap(_.asGrpcError).toTry)
+      .flatMap(FutureUnlessShutdown.fromTry)
+
+  override def executeAndWaitForTransaction(
+      executionRequest: ExecuteRequest,
+      transactionFormat: Option[TransactionFormat],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): FutureUnlessShutdown[ExecuteSubmissionAndWaitForTransactionResponse] = {
+    val result = for {
+      completionResponse <- executeAndWaitInternal(executionRequest)
+      transaction <- EitherT
+        .liftF[Future, InteractiveSubmissionExecuteError.Reject, GetUpdateResponse](
+          CommandServiceImpl.fetchTransactionFromCompletion(
+            resp = completionResponse,
+            transactionFormat = transactionFormat,
+            updateServices = updateServices,
+            logger = logger,
+          )
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+    } yield proto.ExecuteSubmissionAndWaitForTransactionResponse(
+      Some(transaction.getTransaction)
+    )
+
+    result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(FutureUnlessShutdown.fromTry)
   }
 }

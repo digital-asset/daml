@@ -5,6 +5,8 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionService
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitForTransactionRequest,
+  ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
   ExecuteSubmissionAndWaitResponse,
   ExecuteSubmissionRequest,
@@ -99,6 +101,26 @@ final class InteractiveSubmissionServiceAuthorization(
         actAs = actAs.toSet[String],
         readAs = Set.empty[String],
         userIdL = Lens.unit[ExecuteSubmissionAndWaitRequest].userId,
+      )*
+    )(request)
+  }
+
+  override def executeSubmissionAndWaitForTransaction(
+      request: ExecuteSubmissionAndWaitForTransactionRequest
+  ): Future[ExecuteSubmissionAndWaitForTransactionResponse] = {
+    val actAsO = for {
+      preparedTx <- request.preparedTransaction
+      metadata <- preparedTx.metadata
+      submitterInfo <- metadata.submitterInfo
+    } yield submitterInfo.actAs
+
+    val actAs = actAsO.getOrElse(Seq.empty)
+
+    authorizer.rpc(service.executeSubmissionAndWaitForTransaction)(
+      RequiredClaims.submissionClaims(
+        actAs = actAs.toSet[String],
+        readAs = Set.empty[String],
+        userIdL = Lens.unit[ExecuteSubmissionAndWaitForTransactionRequest].userId,
       )*
     )(request)
   }

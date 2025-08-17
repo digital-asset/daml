@@ -56,7 +56,9 @@ object SubscriptionCloseReason {
   * close is called while the handler is running closeReason should not be completed until the
   * handler has completed.
   */
-trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedLogging {
+trait InternallyCompletedSequencerSubscription[HandlerError]
+    extends FlagCloseableAsync
+    with NamedLogging {
 
   protected val closeReasonPromise: Promise[SubscriptionCloseReason[HandlerError]] =
     Promise[SubscriptionCloseReason[HandlerError]]()
@@ -66,11 +68,6 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
     * an unexpected reason at runtime the completion should be failed.
     */
   val closeReason: Future[SubscriptionCloseReason[HandlerError]] = closeReasonPromise.future
-
-  /** Completes the subscription with the given reason and closes it. */
-  private[canton] def complete(reason: SubscriptionCloseReason[HandlerError])(implicit
-      traceContext: TraceContext
-  ): Unit
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
@@ -85,6 +82,17 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
   // a stalled stream
   override def onCloseFailure(e: Throwable): Unit =
     logger.warn("Failed to close sequencer subscription", e)(TraceContext.empty)
+}
+
+/** A subscription to a sequencer that can also be completed externally.
+  */
+trait SequencerSubscription[HandlerError]
+    extends InternallyCompletedSequencerSubscription[HandlerError] {
+
+  /** Completes the subscription with the given reason and closes it. */
+  private[canton] def complete(reason: SubscriptionCloseReason[HandlerError])(implicit
+      traceContext: TraceContext
+  ): Unit
 }
 
 object SequencerSubscriptionError extends SequencerSubscriptionErrorGroup {

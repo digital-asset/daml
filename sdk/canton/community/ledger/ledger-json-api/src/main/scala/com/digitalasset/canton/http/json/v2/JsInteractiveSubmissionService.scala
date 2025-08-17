@@ -11,12 +11,14 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   MinLedgerTime,
 }
 import com.daml.ledger.api.v2.package_reference
+import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
 import com.digitalasset.canton.auth.AuthInterceptor
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
+  JsTransaction,
   stringDecoderForEnum,
   stringEncoderForEnum,
 }
@@ -68,6 +70,10 @@ class JsInteractiveSubmissionService(
       executeAndWait,
     ),
     withServerLogic(
+      JsInteractiveSubmissionService.executeAndWaitForTransactionEndpoint,
+      executeAndWaitForTransaction,
+    ),
+    withServerLogic(
       JsInteractiveSubmissionService.preferredPackageVersionEndpoint,
       preferredPackageVersion,
     ),
@@ -113,6 +119,22 @@ class JsInteractiveSubmissionService(
         .executeSubmissionAndWait(grpcReq)
         .resultToRight
     } yield grpcResp
+  }
+  def executeAndWaitForTransaction(
+      callerContext: CallerContext
+  ): TracedInput[JsExecuteSubmissionAndWaitForTransactionRequest] => Future[
+    Either[JsCantonError, JsExecuteSubmissionAndWaitForTransactionResponse]
+  ] = req => {
+    implicit val token: Option[String] = callerContext.token()
+    implicit val tc: TraceContext = req.traceContext
+    for {
+      grpcReq <- protocolConverters.ExecuteSubmissionAndWaitForTransactionRequest.fromJson(req.in)
+      grpcResp <- interactiveSubmissionServiceClient(token)
+        .executeSubmissionAndWaitForTransaction(grpcReq)
+      jsonResp <- protocolConverters.ExecuteSubmissionAndWaitForTransactionResponse
+        .toJson(grpcResp)
+        .resultToRight
+    } yield jsonResp
   }
 
   private def preferredPackageVersion(
@@ -190,8 +212,25 @@ final case class JsExecuteSubmissionAndWaitRequest(
     minLedgerTime: Option[MinLedgerTime] = None,
 )
 
+final case class JsExecuteSubmissionAndWaitForTransactionRequest(
+    preparedTransaction: Option[protobuf.ByteString],
+    partySignatures: Option[interactive_submission_service.PartySignatures],
+    deduplicationPeriod: interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod,
+    submissionId: String,
+    userId: String = "",
+    hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
+    minLedgerTime: Option[MinLedgerTime] = None,
+    transactionFormat: Option[TransactionFormat] = None,
+)
+
+final case class JsExecuteSubmissionAndWaitForTransactionResponse(
+    transaction: JsTransaction
+)
+
 object JsInteractiveSubmissionService extends DocumentationEndpoints {
+  import JsSchema.JsServicesCommonCodecs.*
   import JsInteractiveSubmissionServiceCodecs.*
+
   private lazy val interactiveSubmission =
     v2Endpoint.in(sttp.tapir.stringToPath("interactive-submission"))
   private lazy val preferredPackageVersion =
@@ -241,6 +280,18 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
     .out(jsonBody[interactive_submission_service.ExecuteSubmissionAndWaitResponse])
     .description("Execute a signed transaction and wait for its completion")
 
+  val executeAndWaitForTransactionEndpoint: Endpoint[
+    CallerContext,
+    JsExecuteSubmissionAndWaitForTransactionRequest,
+    (StatusCode, JsCantonError),
+    JsExecuteSubmissionAndWaitForTransactionResponse,
+    Any,
+  ] = interactiveSubmission.post
+    .in(stringToPath("executeAndWaitForTransaction"))
+    .in(jsonBody[JsExecuteSubmissionAndWaitForTransactionRequest])
+    .out(jsonBody[JsExecuteSubmissionAndWaitForTransactionResponse])
+    .description("Execute a signed transaction and wait for the transaction response")
+
   val preferredPackageVersionEndpoint =
     preferredPackageVersion.get
       .in(sttp.tapir.query[List[String]](partiesQueryParam))
@@ -265,15 +316,16 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
       prepareEndpoint,
       executeEndpoint,
       executeAndWaitEndpoint,
+      executeAndWaitForTransactionEndpoint,
       preferredPackageVersionEndpoint,
       preferredPackagesEndpoint,
     )
 }
 
 object JsInteractiveSubmissionServiceCodecs {
+  import JsSchema.JsServicesCommonCodecs.*
   import JsCommandServiceCodecs.*
   import JsSchema.config
-  import JsSchema.JsServicesCommonCodecs.*
 
   implicit val timeRW: Codec[interactive_submission_service.MinLedgerTime.Time] =
     deriveConfiguredCodec // ADT
@@ -307,6 +359,10 @@ object JsInteractiveSubmissionServiceCodecs {
   implicit val executeSubmissionAndWaitResponseRW
       : Codec[interactive_submission_service.ExecuteSubmissionAndWaitResponse] =
     deriveRelaxedCodec
+
+  implicit val executeSubmissionAndWaitForTransactionResponseRW
+      : Codec[JsExecuteSubmissionAndWaitForTransactionResponse] =
+    deriveConfiguredCodec
 
   implicit val esrDeduplicationDurationRW: Codec[
     interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationDuration
@@ -348,6 +404,10 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveConfiguredCodec
 
   implicit val jsExecuteSubmissionAndWaitRequestRW: Codec[JsExecuteSubmissionAndWaitRequest] =
+    deriveConfiguredCodec
+
+  implicit val jsExecuteSubmissionAndWaitForTransactionRequestRW
+      : Codec[JsExecuteSubmissionAndWaitForTransactionRequest] =
     deriveConfiguredCodec
 
   implicit val packageReference: Codec[package_reference.PackageReference] =

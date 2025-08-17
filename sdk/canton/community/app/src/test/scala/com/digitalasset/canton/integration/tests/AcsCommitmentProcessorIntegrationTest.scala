@@ -30,7 +30,10 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
   CommitmentsMismatch,
   NoSharedContracts,
 }
-import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSynchronizerDisabledUs
+import com.digitalasset.canton.participant.sync.SyncServiceError.{
+  SyncServiceSynchronizerDisabledUs,
+  SyncServiceSynchronizerDisconnect,
+}
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
 import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, SubmissionRequest}
@@ -649,7 +652,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           // because the sequencer may cut the participant's connection before delivering the topology broadcast
           or include regex ("Waiting for transaction .* to be observed")
           or include("Unknown recipients: PAR::participant1")
-          or include("(Eligible) Senders are unknown: PAR::participant1"))
+          or include("(Eligible) Senders are unknown: PAR::participant1")
+          or include("UNAVAILABLE/Channel shutdownNow invoked"))
       },
     )
   }
@@ -689,7 +693,11 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           synchronizerId = initializedSynchronizers(acmeName).synchronizerId,
           change = TopologyChangeOp.Remove,
         )
+        val clock = env.environment.simClock.value
         eventually() {
+          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
+          clock.advance(JDuration.ofSeconds(1))
+
           participant2.synchronizers.is_connected(
             initializedSynchronizers(acmeName).synchronizerId
           ) shouldBe false
@@ -746,7 +754,9 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           // is processed by the sequencer after the participant is disabled
           include(
             "Health-check service responded NOT_SERVING for"
-          ))
+          )
+          // Added due to pool not propagating the "disabled us" error
+          or include(SyncServiceSynchronizerDisconnect.id))
       },
     )
   }
