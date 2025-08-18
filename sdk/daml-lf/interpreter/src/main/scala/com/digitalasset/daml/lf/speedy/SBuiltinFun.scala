@@ -645,8 +645,7 @@ private[lf] object SBuiltinFun {
       Ref.HexString.fromString(arg1) match {
         case Right(message) =>
           val messageDigest = Utf8.sha256(Ref.HexString.decode(message))
-          args.update(1, SText(messageDigest))
-          SBSECP256K1WithEcdsaBool.execute(args, machine)
+          SBSECP256K1WithEcdsaBool.execute(args.updated(1, SText(messageDigest)), machine)
 
         case Left(_) =>
           Control.Error(
@@ -663,7 +662,7 @@ private[lf] object SBuiltinFun {
 
   final case object SBSECP256K1WithEcdsaBool extends SBuiltinFun(3) {
     private[speedy] def execute[Q](
-        args: Array[SValue],
+        args: ArraySeq[SValue],
         machine: Machine[Q],
     ): Control[Q] = {
       try {

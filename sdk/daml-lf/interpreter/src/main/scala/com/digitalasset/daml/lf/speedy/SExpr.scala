@@ -127,14 +127,8 @@ private[lf] object SExpr {
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
-      val arity = builtin.arity
-      val actuals = buildArraySeq[SValue](arity) { actuals =>
-        var i = 0
-        while (i < arity) {
-          actuals(i) = args(i).lookupValue(machine)
-          i += 1
-        }
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       builtin.execute(actuals, machine)
     }
   }
@@ -159,13 +153,7 @@ private[lf] object SExpr {
       with SomeArrayEquals {
 
     override def execute[Q](machine: Machine[Q]): Control.Value = {
-      val sValues = buildArraySeq[SValue](fvs.length) { sValues =>
-        var i = 0
-        while (i < fvs.length) {
-          sValues(i) = fvs(i).lookupValue(machine)
-          i += 1
-        }
-      }
+      val sValues = fvs.map(_.lookupValue(machine))
       val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArraySeq.empty, arity)
       Control.Value(pap)
     }
@@ -222,14 +210,8 @@ private[lf] object SExpr {
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
-      val arity = builtin.arity
-      val actuals = buildArraySeq[SValue](arity) { actuals =>
-        var i = 0
-        while (i < arity) {
-          actuals(i) = args(i).lookupValue(machine)
-          i += 1
-        }
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       val v = builtin.executePure(actuals)
       machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
       Control.Expression(body)
@@ -244,14 +226,8 @@ private[lf] object SExpr {
   ) extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
-      val arity = builtin.arity
-      val actuals = buildArraySeq[SValue](arity) { actuals =>
-        var i = 0
-        while (i < arity) {
-          actuals(i) = args(i).lookupValue(machine)
-          i += 1
-        }
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       builtin.compute(actuals) match {
         case Some(value) =>
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated

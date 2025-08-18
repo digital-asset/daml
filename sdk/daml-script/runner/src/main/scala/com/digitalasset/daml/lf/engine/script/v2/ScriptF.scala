@@ -1178,7 +1178,7 @@ object ScriptF {
 
   private def parseSecp256k1WithEcdsaSign(v: SValue): Either[String, Secp256k1WithEcdsaSign] =
     v match {
-      case SRecord(_, _, Array(pk, msg)) =>
+      case SRecord(_, _, ArraySeq(pk, msg)) =>
         for {
           pk <- toText(pk)
           msg <- toText(msg)
