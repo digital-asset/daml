@@ -47,7 +47,7 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
 
   // keep the n oldest elements of the stack
   def keep(n: Int): Unit = {
-    if (n <= 0 || size < n)
+    if (n < 0 || size < n)
       throw new IllegalArgumentException(s"Invalid stack index: $n, size: $size")
     var i = n
     while (i < size) {
