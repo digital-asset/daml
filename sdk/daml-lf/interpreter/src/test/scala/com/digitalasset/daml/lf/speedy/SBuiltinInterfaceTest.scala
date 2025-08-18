@@ -148,10 +148,11 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val contracts = Map[Value.ContractId, FatContractInstance](
       cid ->
         FatContractInstance.fromThinInstance(
-          TransactionVersion.StableVersions.max,
-          implemPkgName,
-          tplId,
-          tplPayload,
+          version = TransactionVersion.StableVersions.max,
+          packageName = implemPkgName,
+          template = tplId,
+          arg = tplPayload,
+          signatories = List(alice),
         )
     )
 
