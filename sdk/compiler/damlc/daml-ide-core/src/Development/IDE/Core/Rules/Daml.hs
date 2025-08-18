@@ -433,7 +433,8 @@ generateSerializedDalfRule options =
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps
+                                    --TODO[RB]: what kind of package is this??
+                                    let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps Set.empty
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -783,7 +784,9 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     dalfs <- usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    pure $ buildPackage meta lfVersion dalfs
+    --TODO: we are not inside action and have multiple files, so IDK how to
+    --obtain the deps here?
+    pure $ buildPackage meta lfVersion dalfs Set.empty
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -832,29 +835,46 @@ writeDalfFile dalfFile mod = do
                 Proto.toLazyByteString $
                     encodeSinglePackageModule lfVersion mod
 
+-- this is a lot of qualification, which to import?
+convertUnitId :: Map.Map GHC.UnitId LF.DalfPackage -> GHC.InstalledUnitId -> LF.PackageId
+convertUnitId pkgMap id =
+  --TODO: should we handle the case where lookup fails?
+  let LF.DalfPackage { dalfPackageId } = fromJust (Map.lookup (DefiniteUnitId (DefUnitId id)) pkgMap)
+  in dalfPackageId
+
+-- this is a lot of qualification, which to import?
+depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
+depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
+
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
 generateRawPackageRule :: Options -> Rules ()
 generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
+        PackageMap pkgMap <- use_ GeneratePackageMap file
+        deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        let ids = depsToIds pkgMap deps
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs
+        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs ids
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
 generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
+        PackageMap pkgMap <- use_ GeneratePackageMap file
+        deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        let ids = depsToIds pkgMap deps
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs ids)
 
 contextForModule :: NormalizedFilePath -> Action SS.Context
 contextForModule modFile = do

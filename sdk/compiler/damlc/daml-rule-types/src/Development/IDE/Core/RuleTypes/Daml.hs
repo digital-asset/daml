@@ -51,8 +51,9 @@ newtype WhnfPackage = WhnfPackage { getWhnfPackage :: LF.Package }
     deriving Show
 
 instance NFData WhnfPackage where
-    rnf (WhnfPackage (LF.Package ver modules metadata)) =
-        modules `seq` rnf ver `seq` rnf metadata
+    rnf (WhnfPackage (LF.Package ver modules metadata imports)) =
+--TODO[RB]: to reviewer: blindly extended this (but if its blind, why isn't it generic?!)
+        modules `seq` rnf ver `seq` rnf metadata `seq` rnf imports
 
 type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
