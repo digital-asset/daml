@@ -3,7 +3,14 @@
 
 package com.digitalasset.daml.lf.speedy
 
-// We force S to be an AnyRef like that we do not need a ClassTag for S
+// Adhoc data structure back by an array to implement speedy stacks.
+// It has been tailored for this usage and are not design to be a general-purpose stack.
+// In particular:
+//  - it is 1-indexed, i.e. the top of the stack is at index 1.
+//  - push returns the number of elements added to the underlying array, everytime it grows.
+//  - it implements an operation `keep` to keep the oldest n elements of the stack, dropping the rest.
+//
+// We force `X` to be an AnyRef to avoid the need a ClassTag.
 private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[X] {
 
   assert(0 < initialCapacity)
@@ -32,16 +39,18 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
   }
 
   def pop: X = {
-    val x = array(size_ - 1)
     size_ -= 1
-    array(size_) = null // drop the reference
+    val x = array(size)
+    array(size) = null // drop the reference
     x.asInstanceOf[X]
   }
 
   // keep the n oldest elements of the stack
   def keep(n: Int): Unit = {
+    if (n <= 0 || size < n)
+      throw new IllegalArgumentException(s"Invalid stack index: $n, size: $size")
     var i = n
-    while (i < size_) {
+    while (i < size) {
       array(i) = null // drop the references
       i += 1
     }
@@ -49,8 +58,11 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
   }
 
   // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
-  def apply(i: Int): X =
+  def apply(i: Int): X = {
+    if (i <= 0 || size < i)
+      throw new IllegalArgumentException(s"Invalid stack index: $i, size: $size")
     array(size_ - i).asInstanceOf[X]
+  }
 
   override def iterator: Iterator[X] = array.iterator.take(size).asInstanceOf[Iterator[X]]
 
