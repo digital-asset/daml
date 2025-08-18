@@ -987,13 +987,11 @@ private[lf] object SBuiltinFun {
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val values2 = buildArraySeq[SValue](record.values.size) { values2 =>
-        discard[Int](record.values.copyToArray(values2))
-        (updateFields.iterator zip args.iterator.drop(1)).foreach { case (updateField, arg) =>
-          values2(updateField) = arg
-        }
+      val values2 = record.values.toArray
+      (updateFields.iterator zip args.iterator.drop(1)).foreach { case (updateField, arg) =>
+        values2(updateField) = arg
       }
-      record.copy(values = values2)
+      record.copy(values = ArraySeq.unsafeWrapArray(values2))
     }
   }
 
@@ -1010,14 +1008,13 @@ private[lf] object SBuiltinFun {
       extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
     override private[speedy] def executePure(args: ArraySeq[SValue]): SStruct = {
-      val sortedFields = buildArraySeq[SValue](inputFieldsOrder.size) { sortedFields =>
-        var j = 0
-        inputFieldsOrder.values.foreach { i =>
-          sortedFields(j) = args(i)
-          j += 1
-        }
+      val sortedFields = new Array[SValue](inputFieldsOrder.size)
+      var j = 0
+      inputFieldsOrder.values.foreach { i =>
+        sortedFields(j) = args(i)
+        j += 1
       }
-      SStruct(fieldNames, sortedFields)
+      SStruct(fieldNames, ArraySeq.unsafeWrapArray(sortedFields))
     }
   }
 

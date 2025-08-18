@@ -1208,18 +1208,18 @@ private[lf] object Speedy {
           val newArgsLimit = Math.min(missing, newArgs.length)
           val othersLength = newArgs.length - missing
 
-          val actuals = buildArraySeq[SValue](actualsSoFar.size + newArgsLimit) { actuals =>
-            discard[Int](actualsSoFar.copyToArray(actuals, 0, actualsSoFar.size))
-
-            // Evaluate the arguments
+          val actuals: ArraySeq[SValue] = {
+            val array = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
+            discard[Int](actualsSoFar.copyToArray(array))
             // Evaluate the arguments
             var i = 0
             var j = actualsSoFar.size
             while (i < newArgsLimit) {
-              actuals(j) = newArgs(i).lookupValue(this)
+              array(j) = newArgs(i).lookupValue(this)
               i += 1
               j += 1
             }
+            ArraySeq.unsafeWrapArray(array)
           }
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
