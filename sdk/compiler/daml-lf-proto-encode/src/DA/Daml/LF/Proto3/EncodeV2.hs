@@ -971,16 +971,19 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
+
 -- each script module is wrapped in a proto package
 encodeSinglePackageModule :: Version -> Module -> P.Package
 encodeSinglePackageModule version mod =
-    encodePackage (Package version (NM.insert mod NM.empty) metadata)
+    encodePackage (Package version (NM.insert mod NM.empty) metadata imports)
   where
     metadata = PackageMetadata
       { packageName = PackageName "single-module-package"
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }
+    --TODO[RB]: is this where we import the modules?
+    imports = S.empty
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do
@@ -1037,8 +1040,14 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
+encodeImports :: S.Set PackageId -> V.Vector TL.Text
+encodeImports = V.fromList . S.toList . S.map toTlText
+  where
+    toTlText :: PackageId -> TL.Text
+    toTlText = TL.fromStrict . unPackageId
+
 encodePackage :: Package -> P.Package
-encodePackage (Package version mods metadata) =
+encodePackage (Package version mods metadata imports) =
     let env = initEncodeEnv version
         ( (packageModules, packageMetadata),
           EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
@@ -1049,6 +1058,7 @@ encodePackage (Package version mods metadata) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
+        packageImportedPackages = encodeImports imports
     in
     P.Package{..}
 

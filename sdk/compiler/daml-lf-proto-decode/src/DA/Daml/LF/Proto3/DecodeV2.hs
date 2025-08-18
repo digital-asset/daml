@@ -138,6 +138,8 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
+decodeImports :: V.Vector TL.Text -> PackageIds
+decodeImports = S.fromList . V.toList . V.map (PackageId . TL.toStrict)
 
 decodeInternedDottedName :: LF2.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF2.InternedDottedName ids) = do
@@ -145,7 +147,16 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: LF.Version -> LF.SelfOrImportedPackageId -> LF2.Package -> Either Error Package
-decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV internedKindsV internedExprsV)
+decodePackage version selfPackageRef (LF2.Package
+                                      mods
+                                      internedStringsV
+                                      internedDottedNamesV
+                                      mMetadata
+                                      internedTypesV
+                                      internedKindsV
+                                      internedExprsV
+                                      importedPackagesP
+                                     )
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
   | Just metadata <- mMetadata = do
@@ -167,7 +178,7 @@ decodePackage version selfPackageRef (LF2.Package mods internedStringsV interned
           runDecode env3{internedExprs = prefix} $ decodeExpr (internedExprsV V.! i)
       let env4 = env3{internedExprs}
       runDecode env4 $ do
-        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata
+        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (decodeImports importedPackagesP)
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =
