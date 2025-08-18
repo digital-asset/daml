@@ -160,13 +160,16 @@ object FatContractInstance {
   // TOTO https://github.com/DACH-NY/canton/issues/24843
   //  drop when canton produce proper FatContract
   private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
-  private[this] val DummyParties = TreeSet(Ref.Party.assertFromString("DummyParty"))
+  private[this] val DummyParties = List(Ref.Party.assertFromString("DummyParty"))
 
   def fromThinInstance(
       version: TransactionVersion,
       packageName: Ref.PackageName,
       template: Ref.Identifier,
       arg: Value,
+      signatories: Iterable[Ref.Party] = DummyParties,
+      observers: Iterable[Ref.Party] = List.empty,
+      contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers] = None,
   ): FatContractInstance =
     FatContractInstanceImpl(
       version = version,
@@ -174,9 +177,9 @@ object FatContractInstance {
       packageName = packageName,
       templateId = template,
       createArg = arg,
-      signatories = DummyParties,
-      stakeholders = DummyParties,
-      contractKeyWithMaintainers = None,
+      signatories = TreeSet.from(signatories),
+      stakeholders = TreeSet.from(observers ++ signatories),
+      contractKeyWithMaintainers = contractKeyWithMaintainers,
       createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
       authenticationData = Bytes.Empty,
     )
