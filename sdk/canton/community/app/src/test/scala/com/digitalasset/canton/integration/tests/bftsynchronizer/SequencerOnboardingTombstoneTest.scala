@@ -136,6 +136,8 @@ trait SequencerOnboardingTombstoneTest
         sequencer2.sequencerConnection.withAlias(SequencerAlias.tryCreate("seq2x")),
       )
 
+      val usingPool = participant1.config.sequencerClient.useNewConnectionPool
+
       loggerFactory.assertLogsUnorderedOptional(
         {
 
@@ -189,13 +191,30 @@ trait SequencerOnboardingTombstoneTest
         ),
         (
           LogEntryOptionality.Required,
+          (entry: LogEntry) =>
+            if (usingPool) {
+              entry.loggerName should include("SequencerSubscriptionX")
+              entry.warningMessage should (include(
+                "Permanently closing sequencer subscription due to error"
+              ) and include(
+                "FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"
+              ))
+            } else {
+              entry.loggerName should include("ResilientSequencerSubscription")
+              entry.warningMessage should (include(
+                "Closing resilient sequencer subscription due to error"
+              ) and include(
+                "FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"
+              ))
+            },
+        ),
+        (
+          LogEntryOptionality.OptionalMany,
           (entry: LogEntry) => {
-            entry.loggerName should include("ResilientSequencerSubscription")
-            entry.warningMessage should (include(
-              "Closing resilient sequencer subscription due to error"
-            ) and include(
-              "FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"
-            ))
+            entry.loggerName should include("GrpcConnectionX")
+            entry.warningMessage should include(
+              "Request failed for server-seq2x-0"
+            )
           },
         ),
         (
@@ -204,8 +223,6 @@ trait SequencerOnboardingTombstoneTest
             entry.loggerName should include("SynchronizerConnectionsManager")
             entry.errorMessage should (include(
               "SYNC_SERVICE_SYNCHRONIZER_DISCONNECTED"
-            ) and include(
-              "FAILED_PRECONDITION/SEQUENCER_TOMBSTONE_ENCOUNTERED"
             ))
           },
         ),

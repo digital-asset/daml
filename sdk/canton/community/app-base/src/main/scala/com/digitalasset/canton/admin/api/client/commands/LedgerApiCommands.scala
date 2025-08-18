@@ -79,6 +79,8 @@ import com.daml.ledger.api.v2.event_query_service.{
 }
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitForTransactionRequest,
+  ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
   ExecuteSubmissionAndWaitResponse,
   ExecuteSubmissionRequest,
@@ -1607,6 +1609,52 @@ object LedgerApiCommands {
       override protected def handleResponse(
           response: ExecuteSubmissionAndWaitResponse
       ): Either[String, ExecuteSubmissionAndWaitResponse] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+    }
+
+    final case class ExecuteAndWaitForTransactionCommand(
+        preparedTransaction: PreparedTransaction,
+        transactionSignatures: Map[PartyId, Seq[Signature]],
+        submissionId: String,
+        userId: String,
+        minLedgerTimeAbs: Option[Instant],
+        deduplicationPeriod: Option[DeduplicationPeriod],
+        hashingSchemeVersion: HashingSchemeVersion,
+        transactionFormat: Option[TransactionFormat],
+    ) extends BaseCommand[
+          ExecuteSubmissionAndWaitForTransactionRequest,
+          ExecuteSubmissionAndWaitForTransactionResponse,
+          ExecuteSubmissionAndWaitForTransactionResponse,
+        ] {
+
+      override protected def createRequest()
+          : Either[String, ExecuteSubmissionAndWaitForTransactionRequest] =
+        ExecuteCommand(
+          preparedTransaction = preparedTransaction,
+          transactionSignatures = transactionSignatures,
+          submissionId = submissionId,
+          userId = userId,
+          deduplicationPeriod = deduplicationPeriod,
+          hashingSchemeVersion = hashingSchemeVersion,
+          minLedgerTimeAbs = minLedgerTimeAbs,
+        ).createRequestInternal()
+          .map(
+            _.into[ExecuteSubmissionAndWaitForTransactionRequest]
+              .withFieldConst(_.transactionFormat, transactionFormat)
+              .transform
+          )
+
+      override protected def submitRequest(
+          service: InteractiveSubmissionServiceStub,
+          request: ExecuteSubmissionAndWaitForTransactionRequest,
+      ): Future[ExecuteSubmissionAndWaitForTransactionResponse] =
+        service.executeSubmissionAndWaitForTransaction(request)
+
+      override protected def handleResponse(
+          response: ExecuteSubmissionAndWaitForTransactionResponse
+      ): Either[String, ExecuteSubmissionAndWaitForTransactionResponse] =
         Right(response)
 
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout

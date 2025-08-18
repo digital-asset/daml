@@ -350,6 +350,10 @@ object ApiServices {
         telemetry = telemetry,
         loggerFactory = loggerFactory,
       )
+      val updateServices = new CommandServiceImpl.UpdateServices(
+        getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
+        getUpdateById = ledgerApiUpdateService.getUpdateById,
+      )
       val apiCommandService = CommandServiceImpl.createApiService(
         commandsValidator = commandsValidator,
         transactionSubmissionTracker = transactionSubmissionTracker,
@@ -358,10 +362,7 @@ object ApiServices {
         submit = apiSubmissionService.submitWithTraceContext,
         submitReassignment = apiSubmissionService.submitReassignmentWithTraceContext,
         defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-        updateServices = new CommandServiceImpl.UpdateServices(
-          getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
-          getUpdateById = ledgerApiUpdateService.getUpdateById,
-        ),
+        updateServices = updateServices,
         timeProvider = timeProvider,
         maxDeduplicationDuration = maxDeduplicationDuration,
         telemetry = telemetry,
@@ -371,6 +372,7 @@ object ApiServices {
       val apiInteractiveSubmissionService = {
         val interactiveSubmissionService =
           InteractiveSubmissionServiceImpl.createApiService(
+            updateServices,
             syncService,
             seedService,
             commandExecutor,

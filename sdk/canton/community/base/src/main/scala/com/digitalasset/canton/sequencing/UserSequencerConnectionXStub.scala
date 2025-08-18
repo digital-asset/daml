@@ -73,5 +73,5 @@ trait UserSequencerConnectionXStub extends NamedLogging {
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): SequencerSubscription[E]
+  ): Either[SequencerConnectionXStubError, SequencerSubscription[E]]
 }

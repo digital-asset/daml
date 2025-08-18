@@ -288,7 +288,9 @@ final class StoreBackedCommandInterpreter(
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt))),
+                  trackSyncExecution(interpretationTimeNanos)(
+                    resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt))
+                  ),
                 )
               )
             }

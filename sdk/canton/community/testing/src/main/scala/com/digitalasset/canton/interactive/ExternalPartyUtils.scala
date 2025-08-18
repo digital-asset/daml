@@ -86,8 +86,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
 
   def generateExternalPartyOnboardingTransactions(
       name: String,
-      confirming: ParticipantId,
-      extraConfirming: Seq[ParticipantId] = Seq.empty,
+      confirming: Seq[ParticipantId] = Seq.empty,
       observing: Seq[ParticipantId] = Seq.empty,
       confirmationThreshold: PositiveInt = PositiveInt.one,
       numberOfKeys: PositiveInt = PositiveInt.one,
@@ -113,8 +112,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
         testedProtocolVersion,
       )
 
-    val allConfirming = NonEmpty.mk(Seq, confirming, extraConfirming*)
-    val confirmingHostingParticipants = allConfirming.forgetNE.map { cp =>
+    val confirmingHostingParticipants = confirming.map { cp =>
       HostingParticipant(
         cp,
         ParticipantPermission.Confirmation,

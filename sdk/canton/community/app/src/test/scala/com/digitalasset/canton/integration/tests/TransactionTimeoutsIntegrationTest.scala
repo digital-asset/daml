@@ -48,11 +48,7 @@ abstract class TransactionTimeoutsIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
-      .addConfigTransforms(
-        ConfigTransforms.useStaticTime,
-        // TODO(i26481): Enable new connection pool
-        ConfigTransforms.disableConnectionPool,
-      )
+      .addConfigTransforms(ConfigTransforms.useStaticTime)
       .withSetup { implicit env =>
         import env.*
 
@@ -121,12 +117,16 @@ abstract class TransactionTimeoutsIntegrationTest
         }
     })
 
+    val usingPool = participant1.config.sequencerClient.useNewConnectionPool
     val completion = loggerFactory.assertLoggedWarningsAndErrorsSeq(
       attemptCreateAndWait(sequencer),
       LogEntry.assertLogSeq(
         Seq(
           (
-            _.errorMessage should (include("Request failed for sequencer") and
+            _.errorMessage should (include(
+              if (usingPool) "Request failed for server-sequencer1-0"
+              else "Request failed for sequencer"
+            ) and
               include("Message rejected by send policy.")),
             "Mediator send attempts",
           ),

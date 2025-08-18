@@ -372,8 +372,8 @@ trait TrafficControlTest
         sequencer1.health.wait_for_running()
       },
       LogEntry.assertLogSeq(
-        Seq.empty,
-        Seq(
+        mustContainWithClue = Seq.empty,
+        mayContain = Seq(
           _.warningMessage should include(LostSequencerSubscription.id),
           // We may get some failed gRPC calls to the sequencer while it's down (e.g auth token refresh)
           _.warningMessage should include("Connection refused"),
@@ -388,7 +388,11 @@ trait TrafficControlTest
     trafficStateBeforeRestart.trafficStates should
       contain theSameElementsAs trafficStateAfterRestart.trafficStates
 
+    val clock = env.environment.simClock.value
     eventually() {
+      // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
+      clock.advance(Duration.ofSeconds(1))
+
       participant1.health.status.trySuccess.connectedSynchronizers
         .get(daId) should contain(SubmissionReady(true))
       participant1.health.ping(participant1.id)

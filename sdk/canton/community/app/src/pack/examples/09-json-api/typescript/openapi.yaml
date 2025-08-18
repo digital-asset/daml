@@ -1691,6 +1691,38 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/interactive-submission/executeAndWaitForTransaction:
+    post:
+      description: Execute a signed transaction and wait for the transaction response
+      operationId: postV2Interactive-submissionExecuteandwaitfortransaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsExecuteSubmissionAndWaitForTransactionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsExecuteSubmissionAndWaitForTransactionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/interactive-submission/preferred-package-version:
     get:
       description: Get the preferred package version for constructing a command submission
@@ -3989,6 +4021,70 @@ components:
     JsEmpty:
       title: JsEmpty
       type: object
+    JsExecuteSubmissionAndWaitForTransactionRequest:
+      title: JsExecuteSubmissionAndWaitForTransactionRequest
+      type: object
+      required:
+      - deduplicationPeriod
+      - submissionId
+      - userId
+      - hashingSchemeVersion
+      properties:
+        preparedTransaction:
+          description: |-
+            the prepared transaction
+            Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+            obtained from calling `prepareSubmission`.
+          type: string
+        partySignatures:
+          $ref: '#/components/schemas/PartySignatures'
+          description: |-
+            The party(ies) signatures that authorize the prepared submission to be executed by this node.
+            Each party can provide one or more signatures..
+            and one or more parties can sign.
+            Note that currently, only single party submissions are supported.
+        deduplicationPeriod:
+          $ref: '#/components/schemas/DeduplicationPeriod2'
+        submissionId:
+          description: |-
+            A unique identifier to distinguish completions for different submissions with the same change ID.
+            Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+            with the same change ID.
+            Must be a valid LedgerString (as described in ``value.proto``).
+
+            Required
+          type: string
+        userId:
+          description: See [PrepareSubmissionRequest.user_id]
+          type: string
+        hashingSchemeVersion:
+          description: The hashing scheme version used when building the hash
+          type: string
+        minLedgerTime:
+          $ref: '#/components/schemas/MinLedgerTime'
+          description: |-
+            If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+            should be scheduled to executed within the window allowed by synchronizer.
+            Optional
+        transactionFormat:
+          $ref: '#/components/schemas/TransactionFormat'
+          description: |-
+            If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+            TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+            filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+            Optional
+    JsExecuteSubmissionAndWaitForTransactionResponse:
+      title: JsExecuteSubmissionAndWaitForTransactionResponse
+      type: object
+      required:
+      - transaction
+      properties:
+        transaction:
+          $ref: '#/components/schemas/JsTransaction'
+          description: |-
+            The transaction that resulted from the submitted command.
+            The transaction might contain no events (request conditions result in filtering out all of them).
+            Required
     JsExecuteSubmissionAndWaitRequest:
       title: JsExecuteSubmissionAndWaitRequest
       type: object

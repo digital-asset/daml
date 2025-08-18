@@ -5,6 +5,8 @@ package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionService as InteractiveSubmissionServiceGrpc
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
+  ExecuteSubmissionAndWaitForTransactionRequest,
+  ExecuteSubmissionAndWaitForTransactionResponse,
   ExecuteSubmissionAndWaitRequest,
   ExecuteSubmissionAndWaitResponse,
   ExecuteSubmissionRequest,
@@ -24,7 +26,10 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.PrepareRequest
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
+  ExecuteRequest,
+  PrepareRequest,
+}
 import com.digitalasset.canton.ledger.api.validation.{
   CommandsValidator,
   GetPreferredPackagesRequestValidator,
@@ -236,12 +241,10 @@ class ApiInteractiveSubmissionService(
   override def bindService(): ServerServiceDefinition =
     InteractiveSubmissionServiceGrpc.bindService(this, executionContext)
 
-  override def executeSubmissionAndWait(
-      executeAndWaitRequest: ExecuteSubmissionAndWaitRequest
-  ): Future[ExecuteSubmissionAndWaitResponse] = {
-    // Convert the ExecuteSubmissionAndWaitRequest request into an ExecuteSubmissionRequest
-    // They are duplicated for better UX on the API but their fields are identical
-    val request = executeAndWaitRequest.transformInto[ExecuteSubmissionRequest]
+  private def executeAndWaitInternal[A](
+      request: ExecuteSubmissionRequest,
+      execute: (ExecuteRequest, LoggingContextWithTrace) => FutureUnlessShutdown[A],
+  ) = {
     val submitterInfo = request.preparedTransaction.flatMap(_.metadata.flatMap(_.submitterInfo))
     implicit val traceContext: TraceContext = getExecuteRequestTraceContext(
       request.userId,
@@ -268,8 +271,35 @@ class ApiInteractiveSubmissionService(
       )(errorLogger)
       .fold(
         t => FutureUnlessShutdown.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
-        interactiveSubmissionService.executeAndWait(_),
+        execute(_, loggingContextWithTrace),
       )
       .asGrpcResponse
   }
+
+  override def executeSubmissionAndWait(
+      request: ExecuteSubmissionAndWaitRequest
+  ): Future[ExecuteSubmissionAndWaitResponse] =
+    executeAndWaitInternal(
+      // Convert the ExecuteSubmissionAndWaitRequest request into an ExecuteSubmissionRequest
+      // They are duplicated for better UX on the API but their fields are identical
+      request.transformInto[ExecuteSubmissionRequest],
+      (executeRequest, loggingContext) =>
+        interactiveSubmissionService.executeAndWait(executeRequest)(loggingContext),
+    )
+
+  override def executeSubmissionAndWaitForTransaction(
+      request: ExecuteSubmissionAndWaitForTransactionRequest
+  ): Future[ExecuteSubmissionAndWaitForTransactionResponse] =
+    executeAndWaitInternal(
+      request.transformInto[ExecuteSubmissionRequest],
+      (executeRequest, loggingContext) =>
+        interactiveSubmissionService.executeAndWaitForTransaction(
+          executeRequest,
+          ApiCommandService.generateTransactionFormatIfEmpty(
+            executeRequest.preparedTransaction.metadata.toList
+              .flatMap(_.submitterInfo)
+              .flatMap(_.actAs)
+          )(request.transactionFormat),
+        )(loggingContext),
+    )
 }

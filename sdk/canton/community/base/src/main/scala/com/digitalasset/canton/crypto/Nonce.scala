@@ -7,10 +7,8 @@ import com.digitalasset.canton.ProtoDeserializationError.CryptoDeserializationEr
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, HasCryptographicEvidence}
-import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializationException}
 import com.digitalasset.canton.util.HexString
 import com.google.protobuf.ByteString
-import slick.jdbc.{GetResult, SetParameter}
 
 final case class Nonce private (private val bytes: ByteString) extends HasCryptographicEvidence {
   def toProtoPrimitive: ByteString = bytes
@@ -22,25 +20,11 @@ final case class Nonce private (private val bytes: ByteString) extends HasCrypto
 
 object Nonce {
 
-  /** As of now, the database schemas can only handle nonces up to a length of 150 bytes. Thus the
-    * length of a [[Nonce]] should never exceed that.
+  /** [[Nonce]] length is 20 bytes (160 bits), providing enough randomness to make collisions and
+    * predictions practically impossible. This ensures nonces stay unique and fresh, preventing
+    * replay attacks.
     */
   val length: Int = 20
-
-  implicit val setNonceParameter: SetParameter[Nonce] =
-    (nonce, pp) => pp >> nonce.toLengthLimitedHexString
-
-  implicit val getNonceResult: GetResult[Nonce] = GetResult { r =>
-    val hexString = r.nextString()
-    if (hexString.length > String300.maxLength.unwrap)
-      throw new DbDeserializationException(
-        s"Base16-encoded authentication token of length ${hexString.length} exceeds allowed limit of ${String300.maxLength}."
-      )
-    HexString
-      .parseToByteString(r.nextString())
-      .map(new Nonce(_))
-      .getOrElse(throw new DbSerializationException(s"Could not deserialize nonce from db"))
-  }
 
   def generate(randomOps: RandomOps): Nonce = new Nonce(randomOps.generateRandomByteString(length))
 
