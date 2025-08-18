@@ -10,9 +10,7 @@ import org.scalatest.matchers.should.Matchers
 
 import java.nio.file.{Files, FileSystems, Path}
 
-class ExtractSnapshotChoices
-  extends AsyncWordSpec
-    with Matchers {
+class ExtractSnapshotChoices extends AsyncWordSpec with Matchers {
 
   if (
     Seq("DAR_FILE", "SCRIPT_NAME", "SNAPSHOT_DIR")
@@ -41,7 +39,10 @@ class ExtractSnapshotChoices
     val choiceNames = TransactionSnapshot.getAllChoiceNames(snapshotFile)
 
     noException should be thrownBy {
-      Files.writeString(snapshotDir.resolve(s"${snapshotFile.getFileName}.choices"), choiceNames.mkString("\n"))
+      Files.writeString(
+        snapshotDir.resolve(s"${snapshotFile.getFileName}.choices"),
+        choiceNames.mkString("\n"),
+      )
     }
   }
 }

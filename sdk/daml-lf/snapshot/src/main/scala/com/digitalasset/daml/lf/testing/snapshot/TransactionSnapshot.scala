@@ -147,7 +147,7 @@ private[snapshot] object TransactionSnapshot {
             updateWithChoicesFromTx(tx)
 
           case EntryCase.ARCHIVES =>
-            // No work to do
+          // No work to do
 
           case EntryCase.ENTRY_NOT_SET =>
             sys.error("Decoding Error: Unexpected EntryCase.ENTRY_NOT_SET")
