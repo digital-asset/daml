@@ -32,6 +32,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.security.{KeyPairGenerator, PrivateKey}
+import scala.collection.immutable.ArraySeq
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
@@ -809,11 +810,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "works as expected" in {
         evalApp(
           e"EQUAL @(ContractId Mod:T)",
-          Array(SContractId(absoluteCidV1), SContractId(absoluteCidV1)),
+          ArraySeq(SContractId(absoluteCidV1), SContractId(absoluteCidV1)),
         ) shouldBe Right(SBool(true))
         evalApp(
           e"EQUAL @(ContractId Mod:T)",
-          Array(SContractId(absoluteCidV1), SContractId(localCidV1)),
+          ArraySeq(SContractId(absoluteCidV1), SContractId(localCidV1)),
         ) shouldBe Right(SBool(false))
       }
     }
@@ -822,10 +823,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "should parse absolute contract ID" in {
         val absoluteCidV1AsHex = absoluteCidV1.toBytes.toHexString
         val absoluteCidV2AsHex = absoluteCidV2.toBytes.toHexString
-        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(absoluteCidV1AsHex))) shouldBe Right(
+        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV1AsHex))) shouldBe Right(
           SContractId(absoluteCidV1)
         )
-        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(absoluteCidV2AsHex))) shouldBe Right(
+        evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(absoluteCidV2AsHex))) shouldBe Right(
           SContractId(absoluteCidV2)
         )
       }
@@ -833,7 +834,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "should fail to parse relative contract id" in {
         val relativeCidV2AsHex = relativeCidV2.toBytes.toHexString
         inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(relativeCidV2AsHex)))
+          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(relativeCidV2AsHex)))
         } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
           error shouldBe IE.Crypto.MalformedContractId(relativeCidV2AsHex)
         }
@@ -843,12 +844,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val localCidV1AsHex = localCidV1.toBytes.toHexString
         val localCidV2AsHex = localCidV2.toBytes.toHexString
         inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV1AsHex)))
+          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV1AsHex)))
         } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
           error shouldBe IE.Crypto.MalformedContractId(localCidV1AsHex)
         }
         inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV2AsHex)))
+          evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(localCidV2AsHex)))
         } { case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
           error shouldBe IE.Crypto.MalformedContractId(localCidV2AsHex)
         }
@@ -859,15 +860,15 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val tooShortHexString = "0" * 64
         val tooLongHexString = "0" * 256
 
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(invalidHexString)))) {
+        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(invalidHexString)))) {
           case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
             error shouldBe IE.Crypto.MalformedContractId(invalidHexString)
         }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooShortHexString)))) {
+        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooShortHexString)))) {
           case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
             error shouldBe IE.Crypto.MalformedContractId(tooShortHexString)
         }
-        inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooLongHexString)))) {
+        inside(evalApp(e"TEXT_TO_CONTRACT_ID", ArraySeq(SText(tooLongHexString)))) {
           case Left(SError.SErrorDamlException(IE.Crypto(error))) =>
             error shouldBe IE.Crypto.MalformedContractId(tooLongHexString)
         }
@@ -1352,14 +1353,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "PARTY_TO_QUOTED_TEXT single quotes" in {
         evalApp(
           e"PARTY_TO_QUOTED_TEXT",
-          Array(SParty(Ref.Party.assertFromString("alice"))),
+          ArraySeq(SParty(Ref.Party.assertFromString("alice"))),
         ) shouldBe Right(SText("'alice'"))
       }
 
       "PARTY_TO_TEXT does not single quote" in {
         evalApp(
           e"PARTY_TO_TEXT",
-          Array(SParty(Ref.Party.assertFromString("alice"))),
+          ArraySeq(SParty(Ref.Party.assertFromString("alice"))),
         ) shouldBe Right(SText("alice"))
       }
 
@@ -1435,12 +1436,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "returns None on-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
-          evalAppOnLedger(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(None))
+          evalAppOnLedger(e"$f", ArraySeq(SContractId(cid))) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
           val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
-          evalApp(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(Some(SText(cid.coid))))
+          evalApp(e"$f", ArraySeq(SContractId(cid))) shouldBe Right(
+            SOptional(Some(SText(cid.coid)))
+          )
         }
       }
 
@@ -1633,7 +1636,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       forAll(cases) { (builtin, args, name) =>
-        inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).toArray))) {
+        inside(eval(SEAppAtomicSaturatedBuiltin(builtin, args.map(SEValue(_)).to(ArraySeq)))) {
           case Left(
                 SError.SErrorDamlException(
                   IE.FailureStatus(
@@ -1662,7 +1665,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCrash" - {
     "throws an exception" in {
-      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), Array(SUnit)))) {
+      inside(eval(SEApp(SEBuiltinFun(SBCrash("test message")), ArraySeq(SUnit)))) {
         case Left(SErrorCrash(_, message)) =>
           message should endWith("test message")
       }
@@ -1772,7 +1775,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               contractInfoSExpr,
               SEAppAtomic(
                 SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
-                Array(SELocS(1)),
+                ArraySeq(SELocS(1)),
               ),
             ),
             getContract = Map(
@@ -1823,7 +1826,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               contractInfoSExpr,
               SEAppAtomic(
                 SEBuiltinFun(SBImportInputContract(disclosedContract.contract, templateId)),
-                Array(SELocS(1)),
+                ArraySeq(SELocS(1)),
               ),
             ),
             getContract = Map(
@@ -1853,7 +1856,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
         evalUpdateAppOnLedger(
           e"Mod:exerciseFailingPreconditionAndCatchError",
-          Array(SContractId(cid)),
+          ArraySeq(SContractId(cid)),
           getContract = Map(
             cid -> FatContractInstance.fromThinInstance(
               version = txVersion,
@@ -2336,7 +2339,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalApp(
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
   ): Either[SError, SValue] =
     eval(SEApp(compiledPackages.compiler.unsafeCompile(e), args))
 
@@ -2348,7 +2351,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalAppOnLedger(
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
@@ -2369,7 +2372,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Map[ContractId, ContractInfo],
         Map[GlobalKey, ContractId],
     ),
-  ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))), getContract)
+  ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(ArraySeq(SELocS(1)), 1, SELocF(0))), getContract)
 
   def evalUpdateOnLedger(
       e: Expr,
@@ -2379,7 +2382,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalUpdateAppOnLedger(
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       getContract: PartialFunction[ContractId, FatContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
@@ -2417,7 +2420,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   val entryFields = Struct.assertFromNameSeq(List(keyFieldName, valueFieldName))
 
-  def mapEntry(k: String, v: SValue) = SStruct(entryFields, Array(SText(k), v))
+  def mapEntry(k: String, v: SValue) = SStruct(entryFields, ArraySeq(SText(k), v))
 
   def lit2string(x: SValue): String =
     x match {
@@ -2434,7 +2437,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     Struct.assertFromNameSeq(
       Seq(Ref.Name.assertFromString("key"), Ref.Name.assertFromString("maintainers"))
     ),
-    Array(
+    ArraySeq(
       key,
       SValue.SList(FrontStack(SValue.SParty(maintainer))),
     ),
@@ -2453,22 +2456,22 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Ref.Name.assertFromString("label"),
         Ref.Name.assertFromString("maintainers"),
       ),
-      Array(
+      ArraySeq(
         SValue.SText("test-key"),
         SValue.SList(FrontStack(SValue.SParty(maintainer))),
       ),
     )
     val fields = if (withKey) ImmArray("i", "u", "name", "k") else ImmArray("i", "u", "name")
-    val svalues: Array[SValue] =
+    val svalues: ArraySeq[SValue] =
       if (withKey) {
-        Array(
+        ArraySeq(
           SValue.SParty(owner),
           SValue.SParty(maintainer),
           SValue.SText("x"),
           SValue.SParty(maintainer),
         )
       } else {
-        Array(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
+        ArraySeq(SValue.SParty(owner), SValue.SParty(maintainer), SValue.SText("y"))
       }
     val sarg = SValue.SRecord(
       templateId,

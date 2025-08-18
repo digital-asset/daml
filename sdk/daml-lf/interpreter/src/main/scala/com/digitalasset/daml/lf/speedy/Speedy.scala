@@ -38,6 +38,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.{nowarn, tailrec}
+import scala.collection.immutable.ArraySeq
 import scala.util.control.NonFatal
 
 private[lf] object Speedy {
@@ -106,9 +107,9 @@ private[lf] object Speedy {
    continuation to reset the envBase (calling restoreBase) when it is executed.
    */
 
-  private type Frame = Array[SValue]
+  private type Frame = ArraySeq[SValue]
 
-  private type Actuals = Array[SValue]
+  private type Actuals = ArraySeq[SValue]
 
   sealed abstract class LedgerMode extends Product with Serializable
 
@@ -898,7 +899,7 @@ private[lf] object Speedy {
               // status exists. Instead we directly pull out its message field and build a failure status immediately using that.
               case (
                     valueArithmeticError.tyCon,
-                    SAnyException(SRecord(_, _, Array(SText(message)))),
+                    SAnyException(SRecord(_, _, ArraySeq(SText(message)))),
                   ) =>
                 buildFailureStatus(exceptionId, message)
               case _ =>
@@ -1199,39 +1200,34 @@ private[lf] object Speedy {
     // TODO: share common code with executeApplication
     private[speedy] final def enterApplication(
         vfun: SValue,
-        newArgs: Array[SExprAtomic],
+        newArgs: ArraySeq[SExprAtomic],
     ): Control[Q] = {
       vfun match {
         case SValue.SPAP(prim, actualsSoFar, arity) =>
           val missing = arity - actualsSoFar.size
           val newArgsLimit = Math.min(missing, newArgs.length)
-
-          val actuals = Array.ofDim[SValue](actualsSoFar.size + newArgsLimit)
-          Array.copy(actualsSoFar, 0, actuals, 0, actualsSoFar.size)
-
           val othersLength = newArgs.length - missing
 
-          // Evaluate the arguments
-          // Evaluate the arguments
-          var i = 0
-          var j = actualsSoFar.size
-          while (i < newArgsLimit) {
-            actuals(j) = newArgs(i).lookupValue(this)
-            i += 1
-            j += 1
-          }
+          val actuals = buildArraySeq[SValue](actualsSoFar.size + newArgsLimit) { actuals =>
+            discard[Int](actualsSoFar.copyToArray(actuals, 0, actualsSoFar.size))
 
+            // Evaluate the arguments
+            // Evaluate the arguments
+            var i = 0
+            var j = actualsSoFar.size
+            while (i < newArgsLimit) {
+              actuals(j) = newArgs(i).lookupValue(this)
+              i += 1
+              j += 1
+            }
+          }
           // Not enough arguments. Return a PAP.
           if (othersLength < 0) {
-            val pap = SValue.SPAP(prim, actuals, arity)
-            Control.Value(pap)
-
+            Control.Value(SValue.SPAP(prim, actuals, arity))
           } else {
             // Too many arguments: Push a continuation to re-apply the over-applied args.
             if (othersLength > 0) {
-              val others = new Array[SExprAtomic](othersLength)
-              System.arraycopy(newArgs, missing, others, 0, othersLength)
-              this.pushKont(KOverApp(this, others))
+              this.pushKont(KOverApp(this, newArgs.slice(missing, newArgs.length)))
             }
             // Now the correct number of arguments is ensured. What kind of prim do we have?
             prim match {
@@ -1358,7 +1354,7 @@ private[lf] object Speedy {
                     }
                   }.toList
 
-                val values: Array[SValue] = {
+                val values: ArraySeq[SValue] = {
                   if (numT > numS) {
                     // UPGRADE
 
@@ -1375,7 +1371,7 @@ private[lf] object Speedy {
                   } else {
                     values0
                   }
-                }.to(Array)
+                }.to(ArraySeq)
 
                 SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
 
@@ -1504,7 +1500,7 @@ private[lf] object Speedy {
         compiledPackages = compiledPackages,
         preparationTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
-        expr = SEApp(updateSE, Array(SValue.SToken)),
+        expr = SEApp(updateSE, ArraySeq(SValue.SToken)),
         committers = committers,
         readAs = readAs,
         packageResolution = packageResolution,
@@ -1664,7 +1660,7 @@ private[lf] object Speedy {
       savedBase: Int,
       frame: Frame,
       actuals: Actuals,
-      newArgs: Array[SExprAtomic],
+      newArgs: ArraySeq[SExprAtomic],
   ) extends Kont[Q]
       with SomeArrayEquals
       with NoCopy {
@@ -1676,14 +1672,14 @@ private[lf] object Speedy {
   }
 
   object KOverApp {
-    def apply[Q](machine: Machine[Q], newArgs: Array[SExprAtomic]): KOverApp[Q] =
+    def apply[Q](machine: Machine[Q], newArgs: ArraySeq[SExprAtomic]): KOverApp[Q] =
       KOverApp(machine.markBase(), machine.currentFrame, machine.currentActuals, newArgs)
   }
 
   /** The scrutinee of a match has been evaluated, now match the alternatives against it. */
   private[speedy] def executeMatchAlts(
       machine: Machine[_],
-      alts: Array[SCaseAlt],
+      alts: ArraySeq[SCaseAlt],
       v: SValue,
   ): Control[Nothing] = {
     val altOpt = v match {
@@ -1823,7 +1819,7 @@ private[lf] object Speedy {
           // remainder of the list to avoid allocating a new continuation.
           list = rest
           machine.pushKont(this)
-          machine.enterApplication(func, Array(SEValue(acc), SEValue(item)))
+          machine.enterApplication(func, ArraySeq(SEValue(acc), SEValue(item)))
       }
     }
   }
@@ -1849,7 +1845,7 @@ private[lf] object Speedy {
         val item = list(currentIndex)
         lastIndex = currentIndex
         machine.pushKont(this) // NOTE: We've updated `lastIndex`.
-        machine.enterApplication(func, Array(SEValue(item), SEValue(acc)))
+        machine.enterApplication(func, ArraySeq(SEValue(item), SEValue(acc)))
       } else {
         Control.Value(acc)
       }
@@ -1888,7 +1884,7 @@ private[lf] object Speedy {
           machine.restoreFrameAndActuals(frame, actuals)
           list = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
-          machine.enterApplication(func, Array(SEValue(item)))
+          machine.enterApplication(func, ArraySeq(SEValue(item)))
       }
     }
   }
@@ -1928,7 +1924,7 @@ private[lf] object Speedy {
           machine.restoreFrameAndActuals(frame, actuals)
           revClosures = rest
           machine.pushKont(this) // NOTE: We've updated `revClosures`.
-          machine.enterApplication(closure, Array(SEValue(acc)))
+          machine.enterApplication(closure, ArraySeq(SEValue(acc)))
       }
     }
   }

@@ -23,6 +23,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
+
 class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
@@ -374,7 +376,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   def go(e: Expr, contract: ThinContractInstance): Either[SError, Success] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
-    val args: Array[SValue] = Array(SContractId(theCid))
+    val args = ArraySeq[SValue](SContractId(theCid))
     val sexprToEval: SExpr = SEApp(se, args)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
@@ -403,7 +405,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   ): Either[SError, Success] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
-    val args = Array[SValue](SContractId(theCid))
+    val args = ArraySeq[SValue](SContractId(theCid))
     val sexprToEval = SEApp(se, args)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
@@ -466,7 +468,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         SValue.SRecord(
           i"'-pkg3-':M:T",
           ImmArray(n"sig", n"obs", n"aNumber", n"optSig"),
-          Array(
+          ArraySeq(
             SValue.SParty(alice),
             SValue.SParty(bob),
             SValue.SInt64(100),
@@ -756,7 +758,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"obs",
           n"aNumber",
         )
-        def values: Array[SValue] = Array(
+        def values = ArraySeq[SValue](
           SValue.SParty(alice), // And it needs to be a party
           SValue.SParty(bob),
           SValue.SInt64(100),
@@ -778,7 +780,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"aNumber",
           n"extraField",
         )
-        def values: Array[SValue] = Array(
+        def values = ArraySeq[SValue](
           SValue.SParty(alice),
           SValue.SParty(bob),
           SValue.SInt64(100),

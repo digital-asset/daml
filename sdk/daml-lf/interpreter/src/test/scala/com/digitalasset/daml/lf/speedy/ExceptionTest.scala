@@ -29,6 +29,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
+
 class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
 // TEST_EVIDENCE: Integrity: Exceptions, throw/catch.
@@ -54,7 +56,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
   private def applyToParty(pkgs: CompiledPackages, e: Expr, p: Party): SExpr = {
     val se = pkgs.compiler.unsafeCompile(e)
-    SEApp(se, Array(SParty(p)))
+    SEApp(se, ArraySeq(SParty(p)))
   }
 
   private val alice = Party.assertFromString("Alice")
@@ -78,7 +80,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages: PureCompiledPackages,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       expr: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
@@ -1313,7 +1315,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                   Ref.Name.assertFromString("label"),
                   Ref.Name.assertFromString("maintainers"),
                 ),
-                Array(
+                ArraySeq(
                   SValue.SText("test-key"),
                   SValue.SList(FrontStack(SValue.SParty(alice))),
                 ),
@@ -1337,7 +1339,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 SValue.SRecord(
                   templateId,
                   ImmArray(Ref.Name.assertFromString("p")),
-                  Array(SValue.SParty(alice)),
+                  ArraySeq(SValue.SParty(alice)),
                 ),
                 Set(alice),
                 Set.empty,
@@ -1353,7 +1355,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                       e"Mod:${prefix}${origin.testMethodSuffix}$templateName" (
                         metadataTestsParserParams
                       ),
-                      Array(argProvider(cid, key)),
+                      ArraySeq(argProvider(cid, key)),
                       getContract = origin match {
                         case Global => Map(cid -> globalContract)
                         case Disclosure => Map.empty

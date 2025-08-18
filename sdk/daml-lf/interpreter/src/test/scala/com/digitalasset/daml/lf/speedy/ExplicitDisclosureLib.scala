@@ -22,6 +22,8 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.matchers.{MatchResult, Matcher}
 
+import scala.collection.immutable.ArraySeq
+
 /** Shared test data and functions for testing explicit disclosure.
   */
 private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersion) {
@@ -106,7 +108,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     SValue.SStruct(
       fieldNames =
         Struct.assertFromNameSeq(Seq("globalKey", "maintainers").map(Ref.Name.assertFromString)),
-      values = Array(
+      values = ArraySeq(
         buildContractSKey(maintainerParty),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
       ),
@@ -151,7 +153,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       value = SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("owner"), Ref.Name.assertFromString("key_maintainer")),
-        Array(SValue.SParty(owner), SValue.SParty(maintainer)),
+        ArraySeq(SValue.SParty(owner), SValue.SParty(maintainer)),
       ),
       signatories = Set(owner, maintainer),
       observers = Set.empty,
@@ -171,7 +173,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       value = SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("owner")),
-        Array(SValue.SParty(owner)),
+        ArraySeq(SValue.SParty(owner)),
       ),
       signatories = Set(owner),
       observers = Set.empty,
@@ -199,7 +201,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     SValue.SRecord(
       keyType,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
-      Array(
+      ArraySeq(
         SValue.SText(label),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
@@ -248,7 +250,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
     val contract = SValue.SRecord(
       templateId,
       ImmArray("label", "maintainers").map(Ref.Name.assertFromString),
-      Array(
+      ArraySeq(
         SValue.SText(label),
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainer)))),
       ),
@@ -296,12 +298,12 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   }
 
   def runUpdateSExpr(sexpr: SExpr.SExpr): SExpr.SExpr = {
-    SEMakeClo(Array(), 1, sexpr)
+    SEMakeClo(ArraySeq.empty, 1, sexpr)
   }
 
   def evaluateSExprWithSetup(
       setupExpr: Ast.Expr,
-      setupArgs: Array[SValue],
+      setupArgs: ArraySeq[SValue],
   )(
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
@@ -336,7 +338,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       case Left(SError.SErrorDamlException(error)) =>
         throw new Exception(s"$error")
     }
-    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), Array(SToken)))
+    machine.setExpressionToEvaluate(SExpr.SEApp(runUpdateSExpr(sexpr), ArraySeq(SToken)))
 
     val result = SpeedyTestLib.run(
       machine = machine,

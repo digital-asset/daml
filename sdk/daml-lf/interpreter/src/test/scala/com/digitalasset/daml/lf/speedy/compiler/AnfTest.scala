@@ -16,6 +16,8 @@ import com.digitalasset.daml.lf.speedy.compiler.Anf.flattenToAnf
 import com.digitalasset.daml.lf.speedy.Pretty.SExpr._
 import com.digitalasset.daml.lf.data.Ref._
 
+import scala.collection.immutable.ArraySeq
+
 class AnfTest extends AnyWordSpec with Matchers {
 
   "identity: [\\x. x]" should {
@@ -134,7 +136,7 @@ class AnfTest extends AnyWordSpec with Matchers {
 
   "error applied to 1 arg" should {
     val original = slam(1, source.SEApp(source.SEBuiltin(SBUserError), List(sarg0)))
-    val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBUserError, Array(arg0)))
+    val expected = lam(1, target.SEAppAtomicSaturatedBuiltin(SBUserError, ArraySeq(arg0)))
     "be transformed to ANF as expected" in {
       testTransform(original, expected)
     }
@@ -202,9 +204,10 @@ class AnfTest extends AnyWordSpec with Matchers {
   }
 
   // expression builders
-  private def lam(n: Int, body: target.SExpr): target.SExpr = target.SEMakeClo(Array(), n, body)
+  private def lam(n: Int, body: target.SExpr): target.SExpr =
+    target.SEMakeClo(ArraySeq.empty, n, body)
   private def clo1(fv: target.SELoc, n: Int, body: target.SExpr): target.SExpr =
-    target.SEMakeClo(Array(fv), n, body)
+    target.SEMakeClo(ArraySeq(fv), n, body)
 
   // anf builders
   private def let1(rhs: target.SExpr, body: target.SExpr): target.SExpr =
@@ -216,7 +219,7 @@ class AnfTest extends AnyWordSpec with Matchers {
       arg2: target.SExprAtomic,
       body: target.SExpr,
   ): target.SExpr =
-    target.SELet1Builtin(op, Array(arg1, arg2), body)
+    target.SELet1Builtin(op, ArraySeq(arg1, arg2), body)
 
   private def let1b2(
       op: SBuiltinArithmetic,
@@ -224,20 +227,20 @@ class AnfTest extends AnyWordSpec with Matchers {
       arg2: target.SExprAtomic,
       body: target.SExpr,
   ): target.SExpr =
-    target.SELet1BuiltinArithmetic(op, Array(arg1, arg2), body)
+    target.SELet1BuiltinArithmetic(op, ArraySeq(arg1, arg2), body)
 
   private def appa(func: target.SExprAtomic, args: target.SExprAtomic*): target.SExpr =
-    target.SEAppAtomicGeneral(func, args.toArray)
+    target.SEAppAtomicGeneral(func, args.to(ArraySeq))
 
   private def binopa(
       op: SBuiltinArithmetic,
       x: target.SExprAtomic,
       y: target.SExprAtomic,
   ): target.SExpr =
-    target.SEAppAtomicSaturatedBuiltin(op, Array(x, y))
+    target.SEAppAtomicSaturatedBuiltin(op, ArraySeq(x, y))
 
   private def itea(i: target.SExprAtomic, th: target.SExpr, e: target.SExpr): target.SExpr =
-    target.SECaseAtomic(i, Array(target.SCaseAlt(patTrue, th), target.SCaseAlt(patFalse, e)))
+    target.SECaseAtomic(i, ArraySeq(target.SCaseAlt(patTrue, th), target.SCaseAlt(patFalse, e)))
 
   // true/false case-patterns
   private def patTrue: target.SCasePat =

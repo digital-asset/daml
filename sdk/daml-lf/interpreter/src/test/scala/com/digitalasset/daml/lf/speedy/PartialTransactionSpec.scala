@@ -12,6 +12,8 @@ import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.immutable.ArraySeq
+
 class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val txVersion = TransactionVersion.maxVersion
@@ -46,7 +48,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       version = txVersion,
       packageName = pkgName,
       templateId = templateId,
-      value = SValue.SRecord(templateId, ImmArray(), Array.empty),
+      value = SValue.SRecord(templateId, ImmArray.empty, ArraySeq.empty),
       signatories = Set(party),
       observers = Set.empty,
       keyOpt = None,

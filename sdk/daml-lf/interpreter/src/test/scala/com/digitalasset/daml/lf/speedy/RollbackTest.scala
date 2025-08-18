@@ -20,6 +20,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
+
 class RollbackTestV2 extends RollbackTest(LanguageMajorVersion.V2)
 
 class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
@@ -40,7 +42,7 @@ class RollbackTest(majorLanguageVersion: LanguageMajorVersion)
       pkgs1: PureCompiledPackages
   )(e: Expr, party: Party): SubmittedTransaction = {
     val se = pkgs1.compiler.unsafeCompile(e)
-    val example = SEApp(se, Array(SParty(party)))
+    val example = SEApp(se, ArraySeq(SParty(party)))
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs1, transactionSeed, example, Set(party))
     SpeedyTestLib
       .buildTransaction(machine)

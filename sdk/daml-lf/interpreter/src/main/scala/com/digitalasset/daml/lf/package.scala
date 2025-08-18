@@ -3,9 +3,19 @@
 
 package com.digitalasset.daml.lf
 
+import scala.collection.immutable.ArraySeq
+
 package object speedy {
 
   val Compiler = compiler.Compiler
   type Compiler = compiler.Compiler
+
+  private[speedy] def buildArraySeq[X <: AnyRef](size: Int)(
+      init: Array[AnyRef] => Unit
+  ): ArraySeq[X] = {
+    val array = new Array[AnyRef](size)
+    init(array)
+    ArraySeq.unsafeWrapArray(array).asInstanceOf[ArraySeq[X]]
+  }
 
 }

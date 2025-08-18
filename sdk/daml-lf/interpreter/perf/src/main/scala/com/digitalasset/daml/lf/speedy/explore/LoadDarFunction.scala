@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
 
 import java.io.File
+import scala.collection.immutable.ArraySeq
 
 object LoadDarFunction extends App {
 
@@ -37,7 +38,7 @@ object LoadDarFunction extends App {
           Identifier(packages.main._1, QualifiedName.assertFromString(s"${base}:${funcName}"))
         val func = SEVal(LfDefRef(ref))
         val arg = SInt64(argValue)
-        SEApp(func, Array(arg))
+        SEApp(func, ArraySeq(arg))
       }
       val machine = Machine.fromPureSExpr(compiledPackages, expr)
 

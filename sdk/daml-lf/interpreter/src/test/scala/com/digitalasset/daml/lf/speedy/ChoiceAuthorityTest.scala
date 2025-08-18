@@ -19,6 +19,8 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers._
 
+import scala.collection.immutable.ArraySeq
+
 class ChoiceAuthorityTestV2 extends ChoiceAuthorityTest(LanguageMajorVersion.V2)
 
 class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
@@ -87,7 +89,7 @@ class ChoiceAuthorityTest(majorLanguageVersion: LanguageMajorVersion)
     val committers = Set(theSig, theCon)
     val example = SEApp(
       pkgs.compiler.unsafeCompile(e"M:call"),
-      Array(
+      ArraySeq(
         SParty(theSig),
         SParty(theCon),
         makeSetPartyValue(theAut),

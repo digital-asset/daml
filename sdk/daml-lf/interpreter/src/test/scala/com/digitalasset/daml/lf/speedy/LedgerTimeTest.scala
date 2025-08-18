@@ -16,6 +16,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success, Try}
 
@@ -198,7 +199,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
       .fromUpdateSExpr(
         pkgs,
         seed,
-        SEApp(builtinSExpr, Array(SValue.STimestamp(time))),
+        SEApp(builtinSExpr, ArraySeq(SValue.STimestamp(time))),
         Set.empty,
         traceLog = traceLog,
       )

@@ -43,6 +43,7 @@ import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
@@ -393,7 +394,7 @@ class Engine(val config: EngineConfig) {
       compiledPackages = compiledPackages,
       preparationTime = preparationTime,
       initialSeeding = seeding,
-      expr = SEApp(sexpr, Array(SValue.SToken)),
+      expr = SEApp(sexpr, ArraySeq(SValue.SToken)),
       committers = submitters,
       readAs = readAs,
       authorizationChecker = config.authorizationChecker,

@@ -36,6 +36,7 @@ import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
 private[lf] object IdeLedgerRunner {
@@ -310,7 +311,7 @@ private[lf] object IdeLedgerRunner {
       compiledPackages = compiledPackages,
       preparationTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
-      expr = SEApp(commands, Array(SValue.SToken)),
+      expr = SEApp(commands, ArraySeq(SValue.SToken)),
       committers = committers,
       readAs = readAs,
       traceLog = traceLog,

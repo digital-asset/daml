@@ -39,6 +39,8 @@ import scala.annotation.tailrec
 import scala.util.control.TailCalls._
 import scalaz.{@@, Tag}
 
+import scala.collection.immutable.ArraySeq
+
 private[compiler] object Anf {
 
   /** Entry point for the ANF transformation phase. */
@@ -278,14 +280,14 @@ private[compiler] object Anf {
       case source.SEMakeClo(fvs0, arity, body) =>
         val fvs = fvs0.map((loc) => makeRelativeL(depth)(makeAbsoluteL(env, loc)))
         flattenExp(DepthA(0), initEnv, body).flatMap { body =>
-          transform(depth, target.SEMakeClo(fvs.toArray, arity, body))
+          transform(depth, target.SEMakeClo(fvs.to(ArraySeq), arity, body))
         }
 
       case source.SECase(scrut, alts0) =>
         atomizeExp(depth, env, scrut) { (depth, scrut) =>
           val scrut1 = makeRelativeA(depth)(scrut)
           flattenAlts(depth, env, alts0).flatMap { alts =>
-            transform(depth, target.SECaseAtomic(scrut1, alts.toArray))
+            transform(depth, target.SECaseAtomic(scrut1, alts.to(ArraySeq)))
           }
         }
 
@@ -379,7 +381,7 @@ private[compiler] object Anf {
       atomizeExp(depth, env, func) { (depth, func) =>
         val func1 = makeRelativeA(depth)(func)
         val args1 = rargs.reverse.map(makeRelativeA(depth))
-        transform(depth, target.SEAppAtomic(func1, args1.toArray))
+        transform(depth, target.SEAppAtomic(func1, args1.to(ArraySeq)))
       }
     }
   }
