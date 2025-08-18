@@ -295,10 +295,11 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
   val contracts = Map[Value.ContractId, FatContractInstance](
     cid -> FatContractInstance.fromThinInstance(
-      TransactionVersion.StableVersions.max,
-      implemPkgName,
-      tplV1Id,
-      tplV1Payload,
+      version = TransactionVersion.StableVersions.max,
+      packageName = implemPkgName,
+      template = tplV1Id,
+      arg = tplV1Payload,
+      signatories = List(alice),
     )
   )
 
