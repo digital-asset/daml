@@ -368,7 +368,10 @@ class DAMLe(
             .lookupFatContract(acoid)
             .value
             .flatMap { fatInstanceOpt =>
-              handleResultInternal(contracts, resume(fatInstanceOpt))
+              handleResultInternal(
+                contracts,
+                resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt)),
+              )
             }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
