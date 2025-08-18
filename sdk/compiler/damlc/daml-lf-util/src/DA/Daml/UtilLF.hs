@@ -80,9 +80,9 @@ synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
 synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
 
 -- | Fails if there are any duplicate module names
-buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Package
-buildPackage meta version mods =
-    Package version (NM.fromList mods) meta
+buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> PackageIds -> Package
+buildPackage meta version mods imports =
+    Package version (NM.fromList mods) meta imports
 
 instance Outputable Expr where
     ppr = text . renderPretty
