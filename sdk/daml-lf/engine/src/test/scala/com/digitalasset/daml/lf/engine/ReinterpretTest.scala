@@ -54,12 +54,13 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       toContractId("ReinterpretTests:MySimple:1") ->
         FatContractInstance.fromThinInstance(
           version = langVersion,
-          miniTestsPkg.pkgName,
-          TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
-          ValueRecord(
+          packageName = miniTestsPkg.pkgName,
+          template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
+          arg = ValueRecord(
             Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),
           ),
+          signatories = List(party),
         )
     )
 
