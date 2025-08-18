@@ -217,7 +217,7 @@ callDpmResolve miState dpmResolveMode = do
             $ Y.decodeEither' @ResolutionData $ BSC.pack resolutionStr
       logDebug miState $ "Successful: " <> show result
       pure $ Right result
-    ExitFailure _ ->
+    ExitFailure _ -> do
       logDebug miState $ "Failed: " <> err
       pure $ Left err
 
