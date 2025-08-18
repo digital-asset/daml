@@ -79,9 +79,12 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
     val globalContract: FatContractInstance =
       FatContractInstance.fromThinInstance(
         version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
+        packageName = cases.templateDefsPkgName,
         template = testHelper.v1TplId,
         arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
+        signatories = immutable.Set(setupData.alice),
+        observers = immutable.Set.empty,
+        contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
       )
 
     val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
