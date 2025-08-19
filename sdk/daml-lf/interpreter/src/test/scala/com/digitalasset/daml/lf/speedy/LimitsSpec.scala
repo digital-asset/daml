@@ -542,7 +542,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val aCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("a contract ID"))
   private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
 
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       TransactionVersion.StableVersions.max,
       pkg.pkgName,
       T,

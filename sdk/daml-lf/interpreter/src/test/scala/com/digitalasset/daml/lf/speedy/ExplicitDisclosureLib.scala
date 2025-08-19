@@ -231,7 +231,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         )
     }
 
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       TransactionVersion.minVersion,
       packageName = packageName,
       template = templateId,

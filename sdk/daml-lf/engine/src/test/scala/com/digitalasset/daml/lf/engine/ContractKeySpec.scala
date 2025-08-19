@@ -90,7 +90,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       version = langVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
@@ -106,7 +106,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
@@ -116,7 +116,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ),
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
@@ -294,7 +294,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
-      val keyedInst = FatContractInstance.fromThinInstance(
+      val keyedInst = FatContractInstance.withDummyDefaults(
         version = langVersion,
         packageName = multiKeysPkg.pkgName,
         template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),

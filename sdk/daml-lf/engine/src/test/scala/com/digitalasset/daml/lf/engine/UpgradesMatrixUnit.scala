@@ -69,7 +69,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       contractOrigin: UpgradesMatrixCases.ContractOrigin,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = cases.langVersion,
         packageName = cases.clientPkg.pkgName,
         template = testHelper.clientTplId,
@@ -77,7 +77,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       )
 
     val globalContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = cases.langVersion,
         packageName = cases.templateDefsPkgName,
         template = testHelper.v1TplId,

@@ -397,7 +397,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         machine,
         getContract = Map(
           theCid -> FatContractInstance
-            .fromThinInstance(
+            .withDummyDefaults(
               VDev,
               packageName,
               template,

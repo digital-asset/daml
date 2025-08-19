@@ -75,14 +75,14 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = LanguageMajorVersion.V2.minStableVersion,
           packageName = interfacesPkg.pkgName,
           template = idT1,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
         ),
       cid2 ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = LanguageMajorVersion.V2.minStableVersion,
           interfacesPkg.pkgName,
           idT2,

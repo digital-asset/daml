@@ -1779,7 +1779,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> FatContractInstance.fromThinInstance(
+              contractId -> FatContractInstance.withDummyDefaults(
                 version = txVersion,
                 packageName = pkg.pkgName,
                 template = templateId,
@@ -1830,7 +1830,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> FatContractInstance.fromThinInstance(
+              contractId -> FatContractInstance.withDummyDefaults(
                 version = txVersion,
                 template = templateId,
                 arg = disclosedContract.argument.toUnnormalizedValue,
@@ -1858,7 +1858,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           e"Mod:exerciseFailingPreconditionAndCatchError",
           ArraySeq(SContractId(cid)),
           getContract = Map(
-            cid -> FatContractInstance.fromThinInstance(
+            cid -> FatContractInstance.withDummyDefaults(
               version = txVersion,
               packageName = pkg.pkgName,
               template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,

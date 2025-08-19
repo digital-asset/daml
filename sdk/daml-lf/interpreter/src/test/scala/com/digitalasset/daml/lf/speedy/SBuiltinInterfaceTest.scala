@@ -147,7 +147,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
     val contracts = Map[Value.ContractId, FatContractInstance](
       cid ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = TransactionVersion.StableVersions.max,
           packageName = implemPkgName,
           template = tplId,
@@ -294,7 +294,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
   val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
   val contracts = Map[Value.ContractId, FatContractInstance](
-    cid -> FatContractInstance.fromThinInstance(
+    cid -> FatContractInstance.withDummyDefaults(
       version = TransactionVersion.StableVersions.max,
       packageName = implemPkgName,
       template = tplV1Id,
@@ -412,7 +412,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> FatContractInstance.withDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 basePkg.pkgName,
                 tplId,
@@ -441,7 +441,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> FatContractInstance.withDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 basePkg.pkgName,
                 tplId,
@@ -467,7 +467,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> FatContractInstance.withDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = iouId,
@@ -488,7 +488,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> FatContractInstance.withDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 extraPkg.pkgName,
                 extraIouId,
@@ -509,7 +509,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> FatContractInstance.withDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 extraPkg.pkgName,
                 extraIouId,
