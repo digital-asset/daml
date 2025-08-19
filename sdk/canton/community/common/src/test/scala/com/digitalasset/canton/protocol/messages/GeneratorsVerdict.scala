@@ -15,10 +15,8 @@ final case class GeneratorsVerdict(
 ) {
   import generatorsLocalVerdict.*
 
-  // TODO(#14515) Check that the generator is exhaustive
   implicit val mediatorRejectArb: Arbitrary[Verdict.MediatorReject] =
     Arbitrary(
-      // TODO(#14515): do we want randomness here?
       Gen.const {
         val status = com.google.rpc.status.Status(com.google.rpc.Code.CANCELLED_VALUE)
         Verdict.MediatorReject.tryCreate(status, isMalformed = false, protocolVersion)

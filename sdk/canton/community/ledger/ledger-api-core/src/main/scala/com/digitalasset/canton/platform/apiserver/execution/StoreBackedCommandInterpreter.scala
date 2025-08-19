@@ -36,14 +36,7 @@ import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{
-  GlobalKeyWithMaintainers,
-  Node,
-  SubmittedTransaction,
-  Transaction,
-  Versioned,
-}
+import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, Transaction, Versioned}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -83,8 +76,6 @@ final class StoreBackedCommandInterpreter(
 ) extends CommandInterpreter
     with NamedLogging {
   private[this] val packageLoader = new DeduplicatingPackageLoader()
-  // By unused here we mean that the TX version is not used by the verification
-  private val unusedTxVersion = LanguageVersion.StableVersions(LanguageVersion.Major.V2).max
 
   override def interpret(
       commands: ApiCommands,
@@ -380,19 +371,10 @@ final class StoreBackedCommandInterpreter(
               } else resume()
           }
 
-        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          FutureUnlessShutdown
-            .outcomeF(
-              checkContractUpgradable(coid, signatories, observers, keyOpt, disclosedContracts)
-            )
-            .flatMap { result =>
-              resolveStep(
-                Tracked.value(
-                  metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(result)),
-                )
-              )
-            }
+        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
+          throw new UnsupportedOperationException(
+            s"This callback is no longer used and will be removed in a future release [$unexpected]"
+          )
 
         case ResultPrefetch(coids, keys, resume) =>
           // Trigger loading through the state cache and the batch aggregator.
@@ -454,96 +436,6 @@ final class StoreBackedCommandInterpreter(
     val result = computation
     atomicNano.addAndGet(System.nanoTime() - start)
     result
-  }
-
-  private def checkContractUpgradable(
-      coid: ContractId,
-      signatories: Set[Ref.Party],
-      observers: Set[Ref.Party],
-      keyWithMaintainers: Option[GlobalKeyWithMaintainers],
-      disclosedContracts: Map[ContractId, FatContract],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[String]] = {
-
-    val stakeholders = signatories ++ observers
-    val maybeKeyWithMaintainers = keyWithMaintainers.map(Versioned(unusedTxVersion, _))
-    ContractMetadata.create(
-      signatories = signatories,
-      stakeholders = stakeholders,
-      maybeKeyWithMaintainersVersioned = maybeKeyWithMaintainers,
-    ) match {
-      case Right(recomputedContractMetadata) =>
-        checkContractUpgradable(coid, recomputedContractMetadata, disclosedContracts)
-      case Left(message) =>
-        val enriched =
-          s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $message"
-        logger.info(enriched)
-        Future.successful(Some(enriched))
-    }
-
-  }
-
-  private def checkContractUpgradable(
-      coid: ContractId,
-      recomputedContractMetadata: ContractMetadata,
-      disclosedContracts: Map[ContractId, FatContract],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[Option[String]] = {
-
-    import UpgradeVerificationResult.*
-
-    type Result = EitherT[Future, UpgradeVerificationResult, UpgradeVerificationContractData]
-
-    def validateContractAuthentication(
-        data: UpgradeVerificationContractData
-    ): Future[UpgradeVerificationResult] =
-      Future.successful(data.validate.fold(s => UpgradeFailure(s), _ => Valid))
-
-    def lookupActiveContractVerificationData(): Result =
-      EitherT(
-        contractStore
-          .lookupContractState(coid)
-          .map {
-            case active: ContractState.Active =>
-              assert(coid == active.contractInstance.contractId)
-              Right(
-                UpgradeVerificationContractData
-                  .fromActiveContract(active, recomputedContractMetadata)
-              )
-            case ContractState.Archived | ContractState.NotFound => Left(ContractNotFound)
-          }
-      )
-
-    val handleVerificationResult: UpgradeVerificationResult => Option[String] = {
-      case Valid => None
-      case UpgradeFailure(message) => Some(message)
-      case ContractNotFound =>
-        // During submission the ResultNeedUpgradeVerification should only be called
-        // for contracts that are being upgraded. We do not support the upgrading of
-        // divulged contracts.
-        Some(s"Contract with $coid was not found.")
-      case MissingAuthenticationData =>
-        Some(
-          s"Contract with $coid is missing the authentication data and cannot be upgraded. This can happen for contracts created with older Canton versions"
-        )
-    }
-
-    disclosedContracts
-      .get(coid)
-      .map { disclosedContract =>
-        EitherT.rightT[Future, UpgradeVerificationResult](
-          UpgradeVerificationContractData.fromDisclosedContract(
-            disclosedContract,
-            recomputedContractMetadata,
-          )
-        )
-      }
-      .getOrElse(lookupActiveContractVerificationData())
-      .semiflatMap(validateContractAuthentication)
-      .merge
-      .map(handleVerificationResult)
   }
 
   private case class UpgradeVerificationContractData(

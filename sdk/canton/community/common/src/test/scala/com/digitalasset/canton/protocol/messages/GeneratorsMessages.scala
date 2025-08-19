@@ -16,6 +16,7 @@ import com.digitalasset.canton.data.{
   CantonTimestampSecond,
   FullInformeeTree,
   GeneratorsData,
+  GeneratorsTrafficData,
   UnassignmentViewTree,
   ViewPosition,
   ViewType,
@@ -43,6 +44,7 @@ final class GeneratorsMessages(
     generatorsVerdict: GeneratorsVerdict,
     generatorsTopology: GeneratorsTopology,
     generatorTransactions: GeneratorsTransaction,
+    generatorsTrafficData: GeneratorsTrafficData,
 ) {
   import com.digitalasset.canton.Generators.*
   import generatorsLf.*
@@ -83,8 +85,6 @@ final class GeneratorsMessages(
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
       verdict <- verdictArb.arbitrary
-
-      // TODO(#14515) Also generate instance that makes pv above cover all the values
     } yield ConfirmationResultMessage.create(
       psid,
       viewType,
@@ -130,14 +130,19 @@ final class GeneratorsMessages(
     } yield confirmationResponses
   )
 
-  // TODO(#14515) Check that the generator is exhaustive
-  implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] = Arbitrary(
-    Gen.oneOf[SignedProtocolMessageContent](
-      Arbitrary.arbitrary[AcsCommitment],
-      Arbitrary.arbitrary[ConfirmationResponses],
-      Arbitrary.arbitrary[ConfirmationResultMessage],
+  implicit val signedProtocolMessageContentArb: Arbitrary[SignedProtocolMessageContent] =
+    arbitraryForAllSubclasses(classOf[SignedProtocolMessageContent])(
+      GeneratorForClass(Arbitrary.arbitrary[AcsCommitment], classOf[AcsCommitment]),
+      GeneratorForClass(Arbitrary.arbitrary[ConfirmationResponses], classOf[ConfirmationResponses]),
+      GeneratorForClass(
+        generatorsTrafficData.setTrafficPurchasedArb.arbitrary,
+        classOf[SetTrafficPurchasedMessage],
+      ),
+      GeneratorForClass(
+        Arbitrary.arbitrary[ConfirmationResultMessage],
+        classOf[ConfirmationResultMessage],
+      ),
     )
-  )
 
   implicit val typedSignedProtocolMessageContent
       : Arbitrary[TypedSignedProtocolMessageContent[SignedProtocolMessageContent]] = Arbitrary(for {
@@ -247,25 +252,35 @@ final class GeneratorsMessages(
     } yield TopologyTransactionsBroadcast(psid, transactions)
   )
 
-  // TODO(#14515) Check that the generator is exhaustive
   implicit val unsignedProtocolMessageArb: Arbitrary[UnsignedProtocolMessage] =
-    Arbitrary(
-      Gen.oneOf[UnsignedProtocolMessage](
+    arbitraryForAllSubclasses(classOf[UnsignedProtocolMessage])(
+      GeneratorForClass(
         rootHashMessageArb.arbitrary,
-        informeeMessageArb.arbitrary,
-        encryptedViewMessage.arbitrary,
-        assignmentMediatorMessageArb.arbitrary,
+        classOf[RootHashMessage[RootHashMessagePayload]],
+      ),
+      GeneratorForClass(informeeMessageArb.arbitrary, classOf[InformeeMessage]),
+      GeneratorForClass(encryptedViewMessage.arbitrary, classOf[EncryptedViewMessage[ViewType]]),
+      GeneratorForClass(assignmentMediatorMessageArb.arbitrary, classOf[AssignmentMediatorMessage]),
+      GeneratorForClass(
         unassignmentMediatorMessageArb.arbitrary,
+        classOf[UnassignmentMediatorMessage],
+      ),
+      GeneratorForClass(
         topologyTransactionsBroadcast.arbitrary,
-      )
+        classOf[TopologyTransactionsBroadcast],
+      ),
     )
 
-  // TODO(#14515) Check that the generator is exhaustive
   implicit val protocolMessageArb: Arbitrary[ProtocolMessage] =
-    Arbitrary(unsignedProtocolMessageArb.arbitrary)
+    arbitraryForAllSubclasses(classOf[ProtocolMessage])(
+      GeneratorForClass(unsignedProtocolMessageArb.arbitrary, classOf[UnsignedProtocolMessage]),
+      GeneratorForClass(
+        signedProtocolMessageArb.arbitrary,
+        classOf[SignedProtocolMessage[SignedProtocolMessageContent]],
+      ),
+    )
 
-  // TODO(#14515) Check that the generator is exhaustive
   implicit val envelopeContentArb: Arbitrary[EnvelopeContent] = Arbitrary(for {
-    protocolMessage <- protocolMessageArb.arbitrary
-  } yield EnvelopeContent.tryCreate(protocolMessage, protocolVersion))
+    unsignedProtocolMessage <- unsignedProtocolMessageArb.arbitrary
+  } yield EnvelopeContent(unsignedProtocolMessage, protocolVersion))
 }

@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
@@ -266,6 +267,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
   private def availabilityOnlySystemInitializer(
       thisNode: BftNodeId,
+      p2pGrpcConnectionState: P2PGrpcConnectionState,
       config: BftBlockOrdererConfig,
       random: Random,
       simulationModel: SimulationModel,
@@ -315,7 +317,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         loggerFactory,
         timeouts,
       )
-    val p2PNetworkOutDependencies = P2PNetworkOutModuleDependencies(
+    val p2pNetworkOutDependencies = P2PNetworkOutModuleDependencies(
       createP2PNetworkManager,
       p2pNetworkInRef,
       mempoolRef,
@@ -329,6 +331,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         BftOrderingMessage
       ]](
         thisNode,
+        new P2PNetworkOutModule.State(p2pGrpcConnectionState),
         new SimulationP2PEndpointsStore(
           config.initialNetwork
             .map(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
@@ -336,7 +339,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             .toSet
         ),
         metrics,
-        p2PNetworkOutDependencies,
+        p2pNetworkOutDependencies,
         loggerFactory,
         timeouts,
       )
@@ -487,6 +490,9 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
         val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", bftNodeId)
 
+        val p2pGrpcConnectionState =
+          new P2PGrpcConnectionState(loggerFactoryWithSequencerId)
+
         endpoint -> SimulationInitializer.noClient[
           BftOrderingMessage,
           Availability.LocalDissemination.LocalBatchCreated,
@@ -494,6 +500,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         ](loggerFactory, timeouts)(
           availabilityOnlySystemInitializer(
             bftNodeId,
+            p2pGrpcConnectionState,
             configs(n),
             new Random(n),
             simulationModels(n),

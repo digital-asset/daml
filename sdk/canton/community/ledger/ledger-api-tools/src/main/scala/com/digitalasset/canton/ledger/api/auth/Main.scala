@@ -13,7 +13,6 @@ import com.daml.jwt.{
   StandardJWTTokenFormat,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import scalaz.syntax.show.*
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -124,7 +123,7 @@ object Main {
         val jwtHeader = s"""{"alg": "RS256", "typ": "JWT", "kid": "$keyId"}"""
         val signed: Jwt = JwtSigner.RSA256
           .sign(DecodedJwt(jwtHeader, jwtPayload), signingKey)
-          .valueOr(e => handleGenerateTokensError("Error signing JWT token")(e.shows))
+          .fold(e => handleGenerateTokensError("Error signing JWT token")(e.prettyPrint), identity)
 
         def changeExtension(file: File, extension: String): File = {
           val filename = file.getName

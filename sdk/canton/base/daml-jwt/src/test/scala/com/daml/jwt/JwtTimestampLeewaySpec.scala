@@ -10,8 +10,6 @@ import org.scalactic.source
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.syntax.show.*
-import scalaz.{Show, \/}
 
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
@@ -355,9 +353,9 @@ object JwtTimestampLeewaySpec extends TableDrivenPropertyChecks {
   def fiveSecondsLaterFrom(date: Date): Date =
     Date.from(date.toInstant.plus(5, ChronoUnit.SECONDS))
 
-  private implicit final class AssertRight[E, A](private val ea: E \/ A) extends AnyVal {
-    def assertRight(implicit E: Show[E], pos: source.Position) =
-      ea.valueOr(e => org.scalatest.Assertions.fail(e.shows))
+  private implicit final class AssertRight[A](private val ea: Either[Error, A]) extends AnyVal {
+    def assertRight(implicit pos: source.Position) =
+      ea.fold(e => org.scalatest.Assertions.fail(e.prettyPrint), identity)
   }
 
 }

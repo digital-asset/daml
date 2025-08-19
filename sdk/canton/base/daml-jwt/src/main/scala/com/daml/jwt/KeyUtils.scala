@@ -3,9 +3,6 @@
 
 package com.daml.jwt
 
-import scalaz.Show
-import scalaz.syntax.show.*
-
 import java.io.{File, FileInputStream}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -16,13 +13,6 @@ import java.security.spec.PKCS8EncodedKeySpec
 import scala.util.{Try, Using}
 
 object KeyUtils {
-  final case class Error(what: Symbol, message: String)
-
-  object Error {
-    implicit val showInstance: Show[Error] =
-      Show.shows(e => s"KeyUtils.Error: ${e.what}, ${e.message}")
-  }
-
   private val mimeCharSet = StandardCharsets.ISO_8859_1
 
   /** Reads an RSA public key from a X509 encoded file. These usually have the .crt file extension.
@@ -65,8 +55,8 @@ object KeyUtils {
       // Base64-decode the PEM container content
       decoded <- Base64
         .decode(pemContent)
-        .leftMap(e => new RuntimeException(e.shows))
-        .toEither
+        .left
+        .map(e => new RuntimeException(e.prettyPrint))
         .toTry
 
       // Interpret the container content as PKCS#8

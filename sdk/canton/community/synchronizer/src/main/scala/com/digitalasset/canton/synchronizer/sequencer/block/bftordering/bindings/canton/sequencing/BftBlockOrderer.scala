@@ -43,6 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
   P2PGrpcBftOrderingService,
   P2PGrpcConnectionManager,
+  P2PGrpcConnectionState,
   P2PGrpcNetworking,
   P2PGrpcServerManager,
   P2PGrpcStreamingServerSideReceiver,
@@ -63,6 +64,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.PekkoBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PNetworkOutModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.P2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.BftOrdererPruningScheduler
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.BftOrdererPruningSchedulerStore
@@ -249,7 +251,9 @@ final class BftBlockOrderer(
     }
   }
 
-  private val p2pEndpointsStore = setupP2pEndpointsStore(localStorage)
+  private val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+
+  private val p2pEndpointsStore = setupP2PEndpointsStore(localStorage)
   private val availabilityStore = AvailabilityStore(localStorage, timeouts, loggerFactory)
   private val epochStore = EpochStore(localStorage, timeouts, loggerFactory)
   private val outputStore = OutputMetadataStore(localStorage, timeouts, loggerFactory)
@@ -307,7 +311,7 @@ final class BftBlockOrderer(
       abort = sys.error
     )
 
-  private def setupP2pEndpointsStore(storage: Storage): P2PEndpointsStore[PekkoEnv] = {
+  private def setupP2PEndpointsStore(storage: Storage): P2PEndpointsStore[PekkoEnv] = {
     val store = P2PEndpointsStore(storage, timeouts, loggerFactory)
     config.initialNetwork.foreach { network =>
       implicit val traceContext: TraceContext = TraceContext.empty
@@ -365,6 +369,7 @@ final class BftBlockOrderer(
       orderingTopologyProvider,
       blockSubscription,
       sequencerSnapshotAdditionalInfo,
+      new P2PNetworkOutModule.State(p2pGrpcConnectionState),
       clock,
       new Random(new SecureRandom()),
       metrics,
@@ -411,6 +416,7 @@ final class BftBlockOrderer(
       }
     new P2PGrpcConnectionManager(
       thisNode,
+      p2pGrpcConnectionState,
       maybeGrpcNetworkingAuthenticationInitialState,
       p2pConnectionEventListener,
       metrics,

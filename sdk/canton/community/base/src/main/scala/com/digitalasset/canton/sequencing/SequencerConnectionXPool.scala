@@ -228,7 +228,7 @@ object SequencerConnectionXPool {
                 transportSecurity,
                 customTrustCertificates,
                 sequencerAlias,
-                _sequencerIdO, // TODO(i25560): handle this in ConnectionXConfig
+                expectedSequencerIdO,
               ),
             ) =>
           // In the current format, sequencers can have several connections if they are HA.
@@ -243,6 +243,7 @@ object SequencerConnectionXPool {
               endpoint = ep,
               transportSecurity = transportSecurity,
               customTrustCertificates = customTrustCertificates,
+              expectedSequencerIdO = expectedSequencerIdO,
               tracePropagation = tracingConfig.propagation,
             )
           }

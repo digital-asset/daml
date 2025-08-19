@@ -141,7 +141,7 @@ final case class MemberRecipient(member: Member) extends Recipient {
   override def toLengthLimitedString: String300 = member.toLengthLimitedString
 }
 
-case object SequencersOfSynchronizer extends GroupRecipient {
+final case object SequencersOfSynchronizer extends GroupRecipient {
 
   override def isAuthorized(
       snapshot: TopologySnapshot
@@ -199,7 +199,7 @@ object MediatorGroupRecipient {
 /** All known members of the synchronizer, i.e., the return value of
   * [[com.digitalasset.canton.topology.client.MembersTopologySnapshotClient#allMembers]].
   */
-case object AllMembersOfSynchronizer extends GroupRecipient {
+final case object AllMembersOfSynchronizer extends GroupRecipient {
 
   override def isAuthorized(snapshot: TopologySnapshot)(implicit
       traceContext: TraceContext,

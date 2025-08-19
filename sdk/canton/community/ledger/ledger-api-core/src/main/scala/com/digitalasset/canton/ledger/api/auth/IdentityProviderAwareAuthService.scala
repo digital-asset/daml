@@ -96,7 +96,7 @@ class IdentityProviderAwareAuthService(
     }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
-    toFuture(verifier.verify(com.daml.jwt.Jwt(token)).toEither)
+    toFuture(verifier.verify(com.daml.jwt.Jwt(token)))
 
   private def toFuture[T](e: Either[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(new Exception(err.message)), Future.successful)

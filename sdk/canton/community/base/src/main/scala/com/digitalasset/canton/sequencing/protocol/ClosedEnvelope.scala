@@ -24,6 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
   ProtocolMessage,
   SignedProtocolMessage,
   TypedSignedProtocolMessageContent,
+  UnsignedProtocolMessage,
 }
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -194,9 +195,9 @@ object ClosedEnvelope extends VersioningCompanion[ClosedEnvelope] {
           signatures,
           protocolVersion,
         )
-      case _ =>
+      case unsignedProtocolMessage: UnsignedProtocolMessage =>
         ClosedEnvelope.create(
-          EnvelopeContent.tryCreate(protocolMessage, protocolVersion).toByteString,
+          EnvelopeContent(unsignedProtocolMessage, protocolVersion).toByteString,
           recipients,
           Seq.empty,
           protocolVersion,

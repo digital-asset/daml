@@ -38,7 +38,7 @@ object JwtTokenUtilities {
     val jwtHeader = s"""{"alg": "HS256", "typ": "JWT"}"""
     val signed: Jwt = JwtSigner.HMAC256
       .sign(DecodedJwt(jwtHeader, jwtPayload), secret)
-      .valueOr(err => throw new RuntimeException(err.message))
+      .fold(err => throw new RuntimeException(err.message), identity)
     signed.value
   }
 

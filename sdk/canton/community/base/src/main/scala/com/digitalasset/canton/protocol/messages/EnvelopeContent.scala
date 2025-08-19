@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.HashOps
@@ -34,24 +33,11 @@ object EnvelopeContent extends VersioningCompanionContextPVValidation2[EnvelopeC
     )
   )
 
-  def create(
-      message: ProtocolMessage,
-      protocolVersion: ProtocolVersion,
-  ): Either[String, EnvelopeContent] = {
-    val representativeProtocolVersion = protocolVersionRepresentativeFor(protocolVersion)
-    message match {
-      case messageV4: UnsignedProtocolMessage =>
-        Right(EnvelopeContent(messageV4)(representativeProtocolVersion))
-      case _ =>
-        Left(s"Cannot use message $message in protocol version $protocolVersion")
-    }
-  }
-
-  def tryCreate(
-      message: ProtocolMessage,
+  def apply(
+      message: UnsignedProtocolMessage,
       protocolVersion: ProtocolVersion,
   ): EnvelopeContent =
-    create(message, protocolVersion).valueOr(err => throw new IllegalArgumentException(err))
+    EnvelopeContent(message)(protocolVersionRepresentativeFor(protocolVersion))
 
   private def fromProtoV30(
       context: (HashOps, ProtocolVersion),

@@ -102,6 +102,7 @@ object DirectSequencerConnectionXPool {
     endpoint = Endpoint("dummy-endpoint-direct-connection", Port.tryCreate(0)),
     transportSecurity = false,
     customTrustCertificates = None,
+    expectedSequencerIdO = None,
     tracePropagation = TracingConfig.Propagation.Disabled,
   )
 

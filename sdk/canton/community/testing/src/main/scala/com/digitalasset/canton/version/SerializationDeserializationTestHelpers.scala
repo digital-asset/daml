@@ -165,8 +165,8 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     result
   }
 
-  protected def findBaseVersionionCompanionSubClasses(packageName: String): Seq[Class[?]] =
-    findSubClassesOf(classOf[BaseVersioningCompanion[_, _, _, _]], packageName)
+  protected def findBaseVersionionCompanionSubClasses(): Seq[Class[?]] =
+    findSubClassesOf(classOf[BaseVersioningCompanion[_, _, _, _]])
 }
 
 object SerializationDeserializationTestHelpers {
@@ -175,9 +175,9 @@ object SerializationDeserializationTestHelpers {
       untilExclusive: ProtocolVersion,
   )
 
-  /* Find all subclasses of `parent` in package `packageName` */
-  def findSubClassesOf[T](parent: Class[T], packageName: String): Seq[Class[_ <: T]] = {
-    val reflections = new Reflections(packageName)
+  /* Find all subclasses of `parent` com.digitalasset.canton */
+  def findSubClassesOf[T](parent: Class[T]): Seq[Class[_ <: T]] = {
+    val reflections = new Reflections("com.digitalasset.canton")
 
     val classes: Seq[Class[_ <: T]] =
       reflections.getSubTypesOf(parent).asScala.toSeq

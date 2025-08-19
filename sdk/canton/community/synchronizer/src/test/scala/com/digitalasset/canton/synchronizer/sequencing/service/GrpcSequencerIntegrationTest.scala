@@ -75,6 +75,7 @@ import com.digitalasset.canton.topology.store.TopologyStateForInitializationServ
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.{EitherTUtil, PekkoUtil}
 import com.digitalasset.canton.version.{
+  IgnoreInSerializationTestExhaustivenessCheck,
   ProtocolVersion,
   ProtocolVersionCompatibility,
   ReleaseVersion,
@@ -588,7 +589,9 @@ class GrpcSequencerIntegrationTest
     }
   }
 
-  private case object MockProtocolMessage extends UnsignedProtocolMessage {
+  private case object MockProtocolMessage
+      extends UnsignedProtocolMessage
+      with IgnoreInSerializationTestExhaustivenessCheck {
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       ???
 

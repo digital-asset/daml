@@ -11,6 +11,7 @@ import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLoggi
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
@@ -22,6 +23,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.EpochChecker
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.P2PNetworkOutModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.p2p.data.memory.SimulationP2PEndpointsStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.data.memory.SimulationBftOrdererPruningSchedulerStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
@@ -383,6 +385,8 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         loggerFactory,
       )
 
+    val p2pGrpcConnectionState = new P2PGrpcConnectionState(loggerFactory)
+
     SimulationInitializer(
       {
         case BftOnboardingData(
@@ -412,6 +416,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             orderingTopologyProvider,
             new SimulationBlockSubscription(thisBftNodeId, sendQueue),
             sequencerSnapshotAdditionalInfo,
+            new P2PNetworkOutModule.State(p2pGrpcConnectionState),
             clock,
             availabilityRandom,
             noopMetrics,
