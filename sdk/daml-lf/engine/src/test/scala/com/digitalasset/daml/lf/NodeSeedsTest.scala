@@ -48,7 +48,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     "001000000000000000000000000000000000000000000000000000000000000000"
   )
   val requestContract =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       version = transaction.TransactionVersion.VDev,
       packageName = mainPkg.pkgName,
       template = requestTmplId,
@@ -64,7 +64,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   val roleCid: Value.ContractId = Value.ContractId.V1.assertFromString(
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
-  val roleContract = FatContractInstance.fromThinInstance(
+  val roleContract = FatContractInstance.withDummyDefaults(
     version = transaction.TransactionVersion.VDev,
     packageName = mainPkg.pkgName,
     template = roleTmplId,

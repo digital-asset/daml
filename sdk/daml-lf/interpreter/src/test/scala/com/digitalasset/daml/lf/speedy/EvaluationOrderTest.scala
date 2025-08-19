@@ -346,7 +346,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private val testTxVersion: TransactionVersion = languageVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       testTxVersion,
       packageName = pkg.pkgName,
       template = T,
@@ -383,7 +383,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val visibleContract = buildContract(bob)
 
-  private[this] val helper = FatContractInstance.fromThinInstance(
+  private[this] val helper = FatContractInstance.withDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Helper,
@@ -393,7 +393,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private[this] val iface_contract = FatContractInstance.fromThinInstance(
+  private[this] val iface_contract = FatContractInstance.withDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Human,
@@ -418,7 +418,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.pkgName) -> cId
   )
 
-  private[this] val dummyContract = FatContractInstance.fromThinInstance(
+  private[this] val dummyContract = FatContractInstance.withDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Dummy,

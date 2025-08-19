@@ -52,7 +52,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   private val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = langVersion,
           packageName = miniTestsPkg.pkgName,
           template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),

@@ -1427,7 +1427,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         signatories: Iterable[Party],
         observers: Iterable[Party],
     ) =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
@@ -1575,7 +1575,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
     val fetchedContract =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
@@ -1624,7 +1624,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
@@ -1969,7 +1969,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
-      val fetcherInst = FatContractInstance.fromThinInstance(
+      val fetcherInst = FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
@@ -2037,7 +2037,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
-    val fetcherInst = FatContractInstance.fromThinInstance(
+    val fetcherInst = FatContractInstance.withDummyDefaults(
       version = defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = fetcherId,
@@ -2216,7 +2216,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2366,7 +2366,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2444,7 +2444,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2678,7 +2678,7 @@ class EngineTestHelpers(
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
@@ -2706,7 +2706,7 @@ class EngineTestHelpers(
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
@@ -2718,7 +2718,7 @@ class EngineTestHelpers(
           observers = List.empty,
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),

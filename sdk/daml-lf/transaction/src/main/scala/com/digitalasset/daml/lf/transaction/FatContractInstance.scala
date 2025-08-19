@@ -162,7 +162,11 @@ object FatContractInstance {
   private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
   private[this] val DummyParties = List(Ref.Party.assertFromString("DummyParty"))
 
-  def fromThinInstance(
+  /** Creates a FatContractInstance with dummy contract ID, signatories, observers, creation time and authentication
+    * data. The signatories and observers may be overridden with non-dummy values if necessary. For testing purposes
+    * only.
+    */
+  def withDummyDefaults(
       version: TransactionVersion,
       packageName: Ref.PackageName,
       template: Ref.Identifier,

@@ -1325,7 +1325,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 Set(alice),
                 templateDefsPkgName,
               )
-              val globalContract = FatContractInstance.fromThinInstance(
+              val globalContract = FatContractInstance.withDummyDefaults(
                 version = TransactionVersion.StableVersions.max,
                 packageName = templateDefsV1Pkg.pkgName,
                 template = templateId,

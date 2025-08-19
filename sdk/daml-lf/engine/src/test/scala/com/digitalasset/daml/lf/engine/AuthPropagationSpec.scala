@@ -76,7 +76,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private def t1InstanceFor(party: Party): FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       version = TransactionVersion.VDev,
       packageName = pkg.pkgName,
       template = "T1",
@@ -87,7 +87,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
   private def x1InstanceFor(party: Party): FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       TransactionVersion.VDev,
       pkg.pkgName,
       "X1",
