@@ -34,10 +34,6 @@ Table of built-in primitive types
      - fixed point decimal numbers
      - ``1.0``
      - ``Numeric n`` values are rational numbers with ``38`` total digits. The scale parameter ``n`` controls the number of digits after the decimal point, so for example, ``Numeric 10`` values have 28 digits before the decimal point and 10 digits after it, and ``Numeric 20`` values have 18 digits before the decimal point and 20 digits after it. The value of ``n`` must be between ``0`` and ``37`` inclusive.
-   * - ``BigNumeric``
-     - large fixed point decimal numbers
-     - ``1.0``
-     - ``BigNumeric`` values are rational numbers with up to ``2^16`` decimal digits. They can have up to ``2^15`` digits before the decimal point, and up to ``2^15`` digits after the decimal point.
    * - ``Text``
      - strings
      - ``"hello"``
