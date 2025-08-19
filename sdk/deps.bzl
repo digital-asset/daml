@@ -304,27 +304,27 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.59.5",
-            urls = ["https://github.com/grpc/grpc/archive/v1.59.5.tar.gz"],
-            sha256 = "ad295f118a84d87096fe3eb416ef446d75d44c988eadccebc650656eb9383b3d",
+            strip_prefix = "grpc-1.60.2",
+            urls = ["https://github.com/grpc/grpc/archive/v1.60.2.tar.gz"],
+            sha256 = "8e91230f428e83d062a958e95950599e07fe60b7f13aec288215bf9423936290",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "a1fa6ffa97c09d1efe0344e4352a6dbc51cebaafbdf20bcb6405147a0158c406",
-            strip_prefix = "protobuf-3.24.4",
+            sha256 = "5a5d91be7a47b15cecebdc24188e5cfd0a2fc0af03ae93fa239e842c4a5128d0",
+            strip_prefix = "protobuf-25.8",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.24.4.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.8.tar.gz",
             ],
         )
 
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.60.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.60.0.tar.gz"],
-            sha256 = "02c9a7f9400d4e29c7e55667851083a9f695935081787079a834da312129bf97",
+            strip_prefix = "grpc-java-1.60.2",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.60.2.tar.gz"],
+            sha256 = "4baf80f35488739d99515d71b8e72bd17a476c214a84106edc66b259fe8ac22c",
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
