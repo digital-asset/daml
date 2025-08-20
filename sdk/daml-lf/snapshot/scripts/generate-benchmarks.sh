@@ -27,19 +27,23 @@ for ((i=0;i<$SIZE;++i)); do
   for ((j=0;j<$SCRIPTS_SIZE;++j)); do
     SCRIPT_NAME=$(cat "$SNAPSHOT_CONFIG" | jq -r ".[$i].scripts[$j]")
     SCRIPT_FUNC=$(echo "$SCRIPT_NAME" | cut -d ":" -f 2)
-    ENTRIES_FILE=$(ls "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC"/snapshot-participant0*.bin)
-    CHOICES_FILE=$(ls "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC"/snapshot-participant0*.bin.choices)
-    for CHOICE in $(cat "$CHOICES_FILE"); do
-      MODULE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 2)
-      TEMPLATE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 3)
-      CHOICE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 4)
-      bazel run --sandbox_debug //daml-lf/snapshot:replay-benchmark -- \
-        -p entriesFile="$ENTRIES_FILE" \
-        -p choiceName="$MODULE_NAME:$TEMPLATE_NAME:$CHOICE_NAME" \
-        -p darFile="$REPO/$DAR_DIR/$DAR_NAME" \
-        -rff "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC/jmh-result-$CHOICE_NAME.json" \
-        -rf json || true
-    done
+    if [ -f "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC"/snapshot-participant0*.bin ]; then
+      ENTRIES_FILE=$(ls "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC"/snapshot-participant0*.bin)
+      CHOICES_FILE=$(ls "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC"/snapshot-participant0*.bin.choices)
+      for CHOICE in $(cat "$CHOICES_FILE"); do
+        MODULE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 2)
+        TEMPLATE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 3)
+        CHOICE_NAME=$(echo "${CHOICE}" | cut -d ":" -f 4)
+        bazel run --sandbox_debug //daml-lf/snapshot:replay-benchmark -- \
+          -p entriesFile="$ENTRIES_FILE" \
+          -p choiceName="$MODULE_NAME:$TEMPLATE_NAME:$CHOICE_NAME" \
+          -p darFile="$REPO/$DAR_DIR/$DAR_NAME" \
+          -rff "$SNAPSHOT_DIR/$DAR_NAME/$SCRIPT_FUNC/jmh-result-$CHOICE_NAME.json" \
+          -rf json || true
+      done
+    else
+      echo "Skipping benchmarking for $DAR_NAME/$SCRIPT_FUNC as no snapshot data has been saved"
+    fi
   done
 done
 
