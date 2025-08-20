@@ -6,7 +6,7 @@ jobs:
   condition: eq(variables['Build.SourceBranchName'], 'main')
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true

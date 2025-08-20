@@ -9,7 +9,7 @@ jobs:
   displayName: 'Get git SHA'
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -35,7 +35,7 @@ jobs:
   displayName: 'Verify docs synchronized'
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -56,7 +56,7 @@ jobs:
 - job: validate_docs_sphinx_build
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -91,10 +91,10 @@ jobs:
   strategy:
     matrix:
       intel:
-        assignment: default
+        assignment: default-new
         name: linux-intel
       arm:
-        assignment: arm
+        assignment: arm-new
         name: linux-arm
   pool:
     name: 'ubuntu_20_04'
@@ -148,7 +148,7 @@ jobs:
   parameters:
     job_name: macOS
     name: macos
-    assignment: default
+    assignment: default-new
     test_mode: ${{parameters.test_mode}}
 
 - template: macOS.yml
@@ -178,7 +178,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: 'windows-pool'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -223,7 +223,7 @@ jobs:
     - macOS
   pool:
     name: 'ubuntu_20_04'
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - checkout: self
       clean: true
@@ -279,7 +279,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -297,7 +297,7 @@ jobs:
   timeoutInMinutes: 240
   pool:
     name: ubuntu_20_04
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: report-start.yml
     - checkout: self
@@ -322,7 +322,7 @@ jobs:
     - check_for_release
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
 
 - job: collect_build_data
   displayName: 'Collect Build Data'
@@ -333,7 +333,7 @@ jobs:
     failed_result: $[ dependencies.collect_build_data_failed.result ]
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - bash: "exit 1"
       # Since 'collect_build_data_failed' only runs when 'failed()', if it was

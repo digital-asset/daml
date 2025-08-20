@@ -11,7 +11,7 @@ jobs:
     fork_sha: $[ dependencies.git_sha.outputs['out.fork_point'] ]
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: bash-lib.yml
       parameters:
