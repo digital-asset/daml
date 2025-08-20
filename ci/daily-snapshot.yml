@@ -16,7 +16,7 @@ jobs:
 - job: check_for_release
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default
+    demands: assignment -equals default-new
   steps:
     - template: bash-lib.yml
       parameters:
