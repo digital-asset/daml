@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state.SyncService
-import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
+import com.digitalasset.canton.ledger.participant.state.index.ContractStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
@@ -33,7 +33,6 @@ import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, L
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
@@ -45,12 +44,9 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
-import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
-import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.Future
 
 class StoreBackedCommandInterpreterSpec
     extends AsyncWordSpec
@@ -261,202 +257,6 @@ class StoreBackedCommandInterpreterSpec
           case Left(InterpretationTimeExceeded(`let`, `tolerance`, _)) => succeed
           case _ => fail()
         }
-    }
-  }
-
-  "Upgrade Verification" should {
-    val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
-    val stakeholderContract = ContractState.Active(
-      FatContract.fromCreateNode(
-        LfNode.Create(
-          coid = stakeholderContractId,
-          packageName = packageName,
-          templateId = identifier,
-          arg = Value.ValueTrue,
-          signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
-          stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
-          keyOpt = None,
-          version = LfTransactionVersion.StableVersions.max,
-        ),
-        createTime = CreationTime.CreatedAt(Timestamp.now()),
-        authenticationData = Bytes.Empty,
-      )
-    )
-
-    val divulgedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "00")
-
-    val archivedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "01")
-
-    def doTest(
-        contractId: Option[LfContractId],
-        expected: Option[Option[String]],
-        authenticationResult: Either[String, Unit] = Either.unit,
-        stakeholderContractAuthenticationData: Array[Byte] = salt.toByteArray,
-    ): Future[Assertion] = {
-      val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
-      val mockEngine = mock[Engine]
-
-      val engineResult = contractId match {
-        case None =>
-          resultDone
-        case Some(coid) =>
-          val signatory = Ref.Party.assertFromString("signatory")
-          ResultNeedUpgradeVerification[(SubmittedTransaction, Transaction.Metadata)](
-            coid = coid,
-            signatories = Set(signatory),
-            observers = Set(Ref.Party.assertFromString("observer")),
-            keyOpt = Some(
-              KeyWithMaintainers
-                .assertBuild(
-                  identifier,
-                  someContractKey(signatory, "some key"),
-                  Set(signatory),
-                  packageName,
-                )
-            ),
-            resume = verdict => {
-              ref.set(Some(verdict))
-              resultDone
-            },
-          )
-      }
-
-      when(
-        mockEngine.submit(
-          packageMap = any[Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]],
-          packagePreference = any[Set[Ref.PackageId]],
-          submitters = any[Set[Ref.Party]],
-          readAs = any[Set[Ref.Party]],
-          cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
-          disclosures = any[ImmArray[FatContract]],
-          participantId = any[ParticipantId],
-          submissionSeed = any[Hash],
-          prefetchKeys = any[Seq[ApiContractKey]],
-          engineLogger = any[Option[EngineLogger]],
-        )(any[LoggingContext])
-      ).thenReturn(engineResult)
-
-      val commands = Commands(
-        workflowId = None,
-        userId = Ref.UserId.assertFromString("userId"),
-        commandId = CommandId(Ref.CommandId.assertFromString("commandId")),
-        submissionId = None,
-        actAs = Set.empty,
-        readAs = Set.empty,
-        submittedAt = Time.Timestamp.Epoch,
-        deduplicationPeriod = DeduplicationPeriod.DeduplicationDuration(Duration.ZERO),
-        commands = LfCommands(
-          commands = ImmArray.Empty,
-          ledgerEffectiveTime = Time.Timestamp.Epoch,
-          commandsReference = "",
-        ),
-        disclosedContracts = ImmArray.from(Seq(disclosedContract)),
-        synchronizerId = None,
-        prefetchKeys = Seq.empty,
-      )
-      val submissionSeed = Hash.hashPrivateKey("a key")
-
-      val store = mock[ContractStore]
-      when(
-        store.lookupContractState(any[LfContractId])(any[LoggingContextWithTrace])
-      ).thenReturn(Future.successful(ContractState.NotFound))
-      when(
-        store.lookupContractState(same(stakeholderContractId))(
-          any[LoggingContextWithTrace]
-        )
-      ).thenReturn(
-        Future.successful(
-          ContractState.Active(
-            FatContract.fromCreateNode(
-              stakeholderContract.contractInstance.toCreateNode,
-              createTime = stakeholderContract.contractInstance.createdAt,
-              authenticationData = Bytes.fromByteArray(stakeholderContractAuthenticationData),
-            )
-          )
-        )
-      )
-      when(
-        store.lookupContractState(same(archivedContractId))(
-          any[LoggingContextWithTrace]
-        )
-      ).thenReturn(Future.successful(ContractState.Archived))
-
-      val sut = new StoreBackedCommandInterpreter(
-        mockEngine,
-        Ref.ParticipantId.assertFromString("anId"),
-        mock[SyncService],
-        store,
-        metrics = LedgerApiServerMetrics.ForTesting,
-        authenticateFatContractInstance = _ => authenticationResult,
-        EngineLoggingConfig(),
-        prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
-        loggerFactory = loggerFactory,
-        dynParamGetter = new TestDynamicSynchronizerParameterGetter(NonNegativeFiniteDuration.Zero),
-        TimeProvider.UTC,
-      )
-
-      val commandsWithDisclosedContracts = commands
-      sut
-        .interpret(
-          commands = commandsWithDisclosedContracts,
-          submissionSeed = submissionSeed,
-        )(LoggingContextWithTrace(loggerFactory), executionContext)
-        .map(_ => ref.get() shouldBe expected)
-    }
-
-    "work with non-upgraded contracts" in {
-      doTest(None, None)
-    }
-
-    "allow valid stakeholder contracts" in {
-      doTest(Some(stakeholderContractId), Some(None))
-    }
-
-    "allow valid disclosed contracts" in {
-      doTest(Some(disclosedContractId), Some(None))
-    }
-
-    "disallow divulged contracts" in {
-      doTest(
-        Some(divulgedContractId),
-        Some(
-          Some(
-            s"Contract with $divulgedContractId was not found."
-          )
-        ),
-      )
-    }
-
-    "disallow archived contracts" in {
-      doTest(
-        Some(archivedContractId),
-        Some(
-          Some(
-            s"Contract with $archivedContractId was not found."
-          )
-        ),
-      )
-    }
-
-    "disallow unauthorized disclosed contracts" in {
-      val expected =
-        s"Upgrading contract with ContractId(${disclosedContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: {unexpectedSig} vs {signatory}', 'observers mismatch: {unexpectedObs} vs {observer}', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))', 'key maintainers mismatch: {unexpectedSig} vs {signatory}']"
-      doTest(
-        Some(disclosedContractId),
-        Some(Some(expected)),
-        authenticationResult = Left("Not authorized"),
-      )
-    }
-
-    "disallow unauthorized stakeholder contracts" in {
-      val errorMessage = "Not authorized"
-      val expected =
-        s"Upgrading contract with ContractId(${stakeholderContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: {unexpectedSig} vs {signatory}', 'observers mismatch: {} vs {observer}', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))', 'key maintainers mismatch: {} vs {signatory}']"
-      doTest(
-        Some(stakeholderContractId),
-        Some(Some(expected)),
-        authenticationResult = Left(errorMessage),
-      )
     }
   }
 

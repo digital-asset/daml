@@ -14,7 +14,12 @@
   <if condition='isDefined("LOG_FORMAT_JSON")'>
     <then>
       <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder"/>
+        <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder">
+          <fieldNames>
+            <version>[ignore]</version>
+            <levelValue>[ignore]</levelValue>
+          </fieldNames>
+        </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
           <level>${LOG_LEVEL_STDOUT:-WARN}</level>
         </filter>
@@ -60,7 +65,12 @@
             <append>${LOG_FILE_APPEND:-true}</append>
             <!-- Allow for disabling flush on each log-line (faster, but may miss logs when crashing) -->
             <immediateFlush>${LOG_IMMEDIATE_FLUSH:-true}</immediateFlush>
-            <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder"/>
+            <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder">
+              <fieldNames>
+                <version>[ignore]</version>
+                <levelValue>[ignore]</levelValue>
+              </fieldNames>
+            </encoder>
             <filter class="${log_last_errors_filter}" />
           </appender>
         </then>
@@ -95,7 +105,12 @@
                   <!-- keep max 12 archived log files -->
                   <maxHistory>${LOG_FILE_HISTORY:-12}</maxHistory>
                 </rollingPolicy>
-                <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder"/>
+                <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder">
+                  <fieldNames>
+                    <version>[ignore]</version>
+                    <levelValue>[ignore]</levelValue>
+                  </fieldNames>
+                </encoder>
                 <filter class="${log_last_errors_filter}" />
               </appender>
             </then>
@@ -139,7 +154,12 @@
                 <append>${KMS_LOG_FILE_APPEND:-true}</append>
                 <!-- Allow for disabling flush on each log-line (faster, but may miss logs when crashing) -->
                 <immediateFlush>${KMS_LOG_IMMEDIATE_FLUSH:-true}</immediateFlush>
-                <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder"/>
+                <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder">
+                  <fieldNames>
+                    <version>[ignore]</version>
+                    <levelValue>[ignore]</levelValue>
+                  </fieldNames>
+                </encoder>
               </appender>
             </then>
             <else>
@@ -172,7 +192,12 @@
                       <!-- keep all archived log files by default -->
                       <maxHistory>${KMS_LOG_FILE_HISTORY:-0}</maxHistory>
                     </rollingPolicy>
-                    <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder"/>
+                    <encoder class="com.digitalasset.canton.logging.CantonJsonEncoder">
+                      <fieldNames>
+                        <version>[ignore]</version>
+                        <levelValue>[ignore]</levelValue>
+                      </fieldNames>
+                    </encoder>
                   </appender>
                 </then>
                 <else>

@@ -8,8 +8,13 @@ import com.digitalasset.canton.config.CantonRequireTypes.{
   AbstractLengthLimitedString,
   LengthLimitedStringCompanion,
 }
+import com.digitalasset.canton.version.IgnoreInSerializationTestExhaustivenessCheck
 import com.google.protobuf.ByteString
+import org.reflections.Reflections
 import org.scalacheck.{Arbitrary, Gen}
+
+import scala.collection.concurrent.TrieMap
+import scala.jdk.CollectionConverters.*
 
 object Generators {
   private val containerMaxSize: Int = 4
@@ -64,4 +69,91 @@ object Generators {
   def boundedMapGen[K, V](implicit arb: Arbitrary[(K, V)]): Gen[Map[K, V]] =
     Gen.mapOfN(containerMaxSize, arb.arbitrary)
 
+  sealed trait GeneratorForClass {
+    type Typ <: AnyRef
+    def gen: Gen[Typ]
+    def clazz: Class[Typ]
+  }
+  object GeneratorForClass {
+    def apply[T <: AnyRef](generator: Gen[T], claz: Class[T]): GeneratorForClass { type Typ = T } =
+      new GeneratorForClass {
+        override type Typ = T
+        override def gen: Gen[Typ] = generator
+        override def clazz: Class[Typ] = claz
+      }
+  }
+
+  def arbitraryForAllSubclasses[T](clazz: Class[T])(
+      g0: GeneratorForClass { type Typ <: T },
+      moreGens: GeneratorForClass { type Typ <: T }*
+  ): Arbitrary[T] = {
+    val availableGenerators = (g0 +: moreGens).map(_.clazz)
+
+    val coveredClasses =
+      availableGenerators.flatMap { gen =>
+        /*
+        We consider that a generator for a sub-class `C` is exhaustive for all its sub-classes.
+        This has to be ensured another way.
+         */
+        val coveredSubClasses = findSubClassesOf(gen).map(_.getName)
+
+        gen.getName +: coveredSubClasses // a generator for C covers C
+      }.toSet
+
+    val foundSubClasses = findSubClassesOf(clazz)
+      .map(_.getName)
+      .toSet
+
+    val foundLeavesSubClasses = findSubClassesOf(clazz)
+      .filter { clazz =>
+        findSubClassesOf(clazz).isEmpty // leaves only
+      }
+      .map(_.getName)
+      .toSet
+
+    val missingGeneratorsForSubclasses = foundLeavesSubClasses -- coveredClasses -- ignoredClasses
+    require(
+      missingGeneratorsForSubclasses.isEmpty,
+      s"No generators for subclasses $missingGeneratorsForSubclasses of ${clazz.getName}",
+    )
+    val redundantGenerators = coveredClasses -- foundSubClasses
+
+    require(
+      redundantGenerators.isEmpty,
+      s"Reflection did not find the subclasses $redundantGenerators of ${clazz.getName}",
+    )
+
+    val allGen = NonEmpty.from(moreGens) match {
+      case None => g0.gen
+      case Some(moreGensNE) =>
+        Gen.oneOf[T](
+          g0.gen,
+          moreGensNE.head1.gen,
+          moreGensNE.tail1.map(_.gen) *,
+        )
+    }
+    // Returns an Arbitrary instead of a Gen so that the exhaustiveness check is forced upon creation
+    // rather than first usage of the Arbitrary's arbitrary.
+    Arbitrary(allGen)
+  }
+
+  lazy val reflections = new Reflections("com.digitalasset.canton")
+  private lazy val ignoredClasses: Set[String] =
+    findSubClassesOf(classOf[IgnoreInSerializationTestExhaustivenessCheck]).map(_.getName).toSet
+
+  private val subClassesCache: TrieMap[String, Seq[Class[?]]] = TrieMap.empty
+
+  /* Find all subclasses of `parent` */
+  private def findSubClassesOf[T](parent: Class[T]): Seq[Class[?]] =
+    subClassesCache.getOrElseUpdate(
+      parent.getName, {
+        val classes: Seq[Class[_ <: T]] =
+          reflections.getSubTypesOf(parent).asScala.toSeq
+
+        // Exclude anonymous companion objects as they should only appear in tests
+        def isAnonymous(c: Class[_]): Boolean = c.isAnonymousClass
+
+        classes.filterNot(isAnonymous)
+      },
+    )
 }

@@ -19,7 +19,6 @@ import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.CacheMetrics
 import com.github.blemale.scaffeine.Scaffeine
-import scalaz.{-\/, \/}
 
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import java.util.concurrent.TimeUnit
@@ -89,7 +88,7 @@ class CachedJwtVerifierLoader(
   @SuppressWarnings(
     Array("org.wartremover.warts.Null")
   )
-  private[this] def getVerifierImpl(cacheKey: CacheKey): JwtError \/ JwtVerifier =
+  private[this] def getVerifierImpl(cacheKey: CacheKey): Either[JwtError, JwtVerifier] =
     try {
       val jwk = jwkProvider(cacheKey.jwksUrl).get(cacheKey.keyId.orNull)
       val publicKey = jwk.getPublicKey
@@ -100,15 +99,15 @@ class CachedJwtVerifierLoader(
         case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 521 =>
           ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway)
         case key =>
-          -\/(JwtError(Symbol("getVerifier"), s"Unsupported public key format ${key.getFormat}"))
+          Left(JwtError(Symbol("getVerifier"), s"Unsupported public key format ${key.getFormat}"))
       }
     } catch {
-      case e: JwkException => -\/(JwtError(Symbol("getVerifier"), e.toString))
+      case e: JwkException => Left(JwtError(Symbol("getVerifier"), e.toString))
       case _: Throwable =>
-        -\/(JwtError(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
+        Left(JwtError(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
     }
 
-  private def fromDisjunction[T](e: \/[JwtError, T]): Future[T] =
+  private def fromDisjunction[T](e: Either[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(JwtException(err)), Future.successful)
 
 }

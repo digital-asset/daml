@@ -8,6 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcConnectionState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
@@ -268,13 +269,15 @@ class PingPongSimulationTest extends AnyFlatSpec with BaseTest {
       pingerEndpoint -> SimulationInitializer[Unit, String, String, Unit](
         (_: Unit) => TestSystem.mkPinger(pongerEndpoint, recorder, loggerFactory, timeouts),
         TestSystem.pingerClient(loggerFactory, timeouts),
+        new P2PGrpcConnectionState(loggerFactory),
       ),
       pongerEndpoint -> SimulationInitializer
         .noClient[String, String, Unit](
           loggerFactory,
           timeouts,
         )(
-          TestSystem.mkPonger(pingerEndpoint, recorder, loggerFactory, timeouts)
+          TestSystem.mkPonger(pingerEndpoint, recorder, loggerFactory, timeouts),
+          new P2PGrpcConnectionState(loggerFactory),
         ),
     )
     val simulation =

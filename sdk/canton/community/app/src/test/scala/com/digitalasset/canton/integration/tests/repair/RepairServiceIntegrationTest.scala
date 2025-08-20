@@ -25,6 +25,7 @@ import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
@@ -758,7 +759,12 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             import env.*
 
             val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
-            val unicumGenerator = new UnicumGenerator(pureCrypto)
+            val authenticatedContractIdVersion = AuthenticatedContractIdVersionV11
+            val creationTime = CreationTime.CreatedAt(environment.clock.now.toLf)
+            val contractIdSuffixer =
+              new ContractIdSuffixer(pureCrypto, authenticatedContractIdVersion)
+            val contractIdAbsolutizer =
+              new ContractIdAbsolutizer(pureCrypto, ContractIdAbsolutizationDataV1)
 
             // We can't create the contract with Canton, so we have to hand-craft it.
             val module = "BasicKeys"
@@ -772,7 +778,10 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
                 Ref.QualifiedName.assertFromString(s"$module:$template"),
               )
             val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
-            val key = Value.ValueUnit
+            val keyWithMaintainers = ExampleTransactionFactory.globalKeyWithMaintainers(
+              LfGlobalKey.build(lfNoMaintainerTemplateId, Value.ValueUnit, lfPackageName).value,
+              Set.empty,
+            )
 
             val contractInst = LfThinContractInst(
               template = lfNoMaintainerTemplateId,
@@ -783,69 +792,46 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
               ),
             )
 
-            val rawContract = SerializableRawContractInstance
-              .create(contractInst)
-              .valueOr(err => fail(err.toString))
-
-            val ledgerCreateTime = environment.clock.now
-
-            val contractMetadata = ContractMetadata.tryCreate(
-              Set(alice.toLf),
-              Set(alice.toLf),
-              Some(
-                ExampleTransactionFactory
-                  .globalKeyWithMaintainers(
-                    LfGlobalKey
-                      .build(lfNoMaintainerTemplateId, key, lfPackageName)
-                      .value,
-                    Set.empty,
-                  )
-              ),
-            )
-
-            val authenticatedContractIdVersion = AuthenticatedContractIdVersionV11
-
-            val creationTime = CreationTime.CreatedAt(ledgerCreateTime.toLf)
-            val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
+            val contractSalt = ContractSalt.create(pureCrypto)(
+              transactionUuid = new UUID(1L, 1L),
               psid = daId,
               mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
-              transactionUuid = new UUID(1L, 1L),
-              viewPosition = ViewPosition(List.empty),
               viewParticipantDataSalt = TestSalt.generateSalt(1),
               createIndex = 0,
-              ledgerCreateTime = creationTime,
-              metadata = contractMetadata,
-              suffixedContractInstance = contractInst.unversioned,
-              authenticatedContractIdVersion,
+              viewPosition = ViewPosition(List.empty),
             )
-            val authenticationData =
-              ContractAuthenticationDataV1(contractSalt.unwrap)(authenticatedContractIdVersion)
-
-            lazy val contractId = authenticatedContractIdVersion.fromDiscriminator(
-              ExampleTransactionFactory.lfHash(1337),
-              unicum,
+            val unsuffixedContractId = LfContractId.V1(ExampleTransactionFactory.lfHash(1337))
+            val unsuffixedCreateNode = LfNodeCreate(
+              coid = unsuffixedContractId,
+              contract = contractInst,
+              signatories = Set(alice.toLf),
+              stakeholders = Set(alice.toLf),
+              key = Some(keyWithMaintainers.unversioned),
             )
-
-            val createNode = new SerializableContract(
-              contractId,
-              rawContract,
-              contractMetadata,
-              creationTime,
+            val ContractIdSuffixer.RelativeSuffixResult(
+              suffixedCreateNode,
+              _,
+              _,
               authenticationData,
-            ).toLf
-            val contractInstance = LfFatContractInst.fromCreateNode(
-              createNode,
+            ) = contractIdSuffixer
+              .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreateNode)
+              .valueOr(err => fail(s"Failed to generate contract suffix: $err"))
+
+            val suffixedContractInstance = LfFatContractInst.fromCreateNode(
+              suffixedCreateNode,
               creationTime,
               authenticationData.toLfBytes,
             )
-
+            val absolutizedContractInstance =
+              contractIdAbsolutizer.absolutizeFci(suffixedContractInstance).value
             loggerFactory.assertThrowsAndLogs[CommandFailure](
-              participant1.repair
-                .add(
-                  daId,
-                  testedProtocolVersion,
-                  Seq(RepairContract(daId, contractInstance, ReassignmentCounter.Genesis)),
+              participant1.repair.add(
+                daId,
+                testedProtocolVersion,
+                Seq(
+                  RepairContract(daId, absolutizedContractInstance, ReassignmentCounter.Genesis)
                 ),
+              ),
               _.commandFailureMessage should (
                 include("InvalidIndependentOfSystemState") and include(
                   "has key without maintainers"

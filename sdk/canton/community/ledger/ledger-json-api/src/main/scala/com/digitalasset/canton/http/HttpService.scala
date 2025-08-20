@@ -223,7 +223,10 @@ object HttpService extends NoTracing {
   //              and inline.
   // Decode JWT without any validation
   private val decodeJwt: EndpointsCompanion.ValidateJwt =
-    jwt => JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.shows))
+    jwt =>
+      \/.fromEither(
+        JwtDecoder.decode(jwt).leftMap(e => EndpointsCompanion.Unauthorized(e.prettyPrint))
+      )
 
   private[http] def createPortFile(
       file: Path,

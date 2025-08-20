@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.GeneratorsConfig
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -24,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.protocol.GeneratorsProtocol
 import com.digitalasset.canton.topology.{GeneratorsTopology, PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.version.{ProtocolVersion, SerializationDeserializationTestHelpers}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{GeneratorsLf, LedgerUserId, LfPartyId, ReassignmentCounter}
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -34,8 +33,6 @@ final class GeneratorsParticipant(
     generatorsProtocol: GeneratorsProtocol,
     version: ProtocolVersion,
 ) {
-
-  import GeneratorsParticipant.*
 
   import GeneratorsConfig.*
   import com.digitalasset.canton.Generators.*
@@ -152,55 +149,4 @@ final class GeneratorsParticipant(
     } yield PartyReplicationTargetParticipantMessage.apply(instruction, version)
   )
 
-}
-
-object GeneratorsParticipant {
-  sealed trait GeneratorForClass {
-    type Typ <: AnyRef
-    def gen: Gen[Typ]
-    def clazz: Class[Typ]
-  }
-  object GeneratorForClass {
-    def apply[T <: AnyRef](generator: Gen[T], claz: Class[T]): GeneratorForClass { type Typ = T } =
-      new GeneratorForClass {
-        override type Typ = T
-        override def gen: Gen[Typ] = generator
-        override def clazz: Class[Typ] = claz
-      }
-  }
-
-  def arbitraryForAllSubclasses[T](clazz: Class[T])(
-      g0: GeneratorForClass { type Typ <: T },
-      moreGens: GeneratorForClass { type Typ <: T }*
-  ): Arbitrary[T] = {
-    val availableGenerators = (g0 +: moreGens).map(_.clazz.getName).toSet
-
-    val foundSubclasses = SerializationDeserializationTestHelpers
-      .findSubClassesOf(clazz, "com.digitalasset.canton")
-      .map(_.getName)
-      .toSet
-    val missingGeneratorsForSubclasses = foundSubclasses -- availableGenerators
-    require(
-      missingGeneratorsForSubclasses.isEmpty,
-      s"No generators for subclasses $missingGeneratorsForSubclasses of ${clazz.getName}",
-    )
-    val redundantGenerators = availableGenerators -- foundSubclasses
-    require(
-      redundantGenerators.isEmpty,
-      s"Reflection did not find the subclasses $redundantGenerators of ${clazz.getName}",
-    )
-
-    val allGen = NonEmpty.from(moreGens) match {
-      case None => g0.gen
-      case Some(moreGensNE) =>
-        Gen.oneOf[T](
-          g0.gen,
-          moreGensNE.head1.gen,
-          moreGensNE.tail1.map(_.gen) *,
-        )
-    }
-    // Returns an Arbitrary instead of a Gen so that the exhaustiveness check is forced upon creation
-    // rather than first usage of the Arbitrary's arbitrary.
-    Arbitrary(allGen)
-  }
 }

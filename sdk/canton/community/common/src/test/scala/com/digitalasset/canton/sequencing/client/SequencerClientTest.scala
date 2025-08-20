@@ -25,11 +25,7 @@ import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, Un
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
 import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.{CommonMockMetrics, TrafficConsumptionMetrics}
-import com.digitalasset.canton.protocol.messages.{
-  DefaultOpenEnvelope,
-  ProtocolMessage,
-  UnsignedProtocolMessage,
-}
+import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, UnsignedProtocolMessage}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParametersLookup,
   SynchronizerParametersLookup,
@@ -93,7 +89,11 @@ import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, Topo
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
+import com.digitalasset.canton.version.{
+  IgnoreInSerializationTestExhaustivenessCheck,
+  ProtocolVersion,
+  RepresentativeProtocolVersion,
+}
 import io.grpc.Status
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
@@ -1758,7 +1758,9 @@ final class SequencerClientTest
   }
 
   private object TestProtocolMessage
-  private class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
+  private class TestProtocolMessage()
+      extends UnsignedProtocolMessage
+      with IgnoreInSerializationTestExhaustivenessCheck {
     override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =

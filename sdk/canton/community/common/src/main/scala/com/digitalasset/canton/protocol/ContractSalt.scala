@@ -31,13 +31,15 @@ object ContractSalt {
     *   The UUID of the transaction that creates the contract.
     * @param psid
     *   The synchronizer on which the contract is created.
-    * @param mediatorId
+    * @param mediator
     *   The mediator that handles the transaction that creates the contract
-    * @param actionSalt
-    *   The action salt of the view whose core contains the contract creation. This is used to blind
-    *   the hash. It therefore must contain good randomness.
+    * @param viewParticipantDataSalt
+    *   The [[com.digitalasset.canton.data.ViewParticipantData]]'s salt of the view whose core
+    *   contains the contract creation. This is used to blind the hash. It therefore must contain
+    *   good randomness.
     * @param createIndex
-    *   The index of the create node in the view.
+    *   The index of the create node in the view (starting at 0). Only create nodes and only nodes
+    *   that belong to the core of the view with salt `viewParticipantDataSalt` have an index.
     * @param viewPosition
     *   The position of the view whose core creates the contract
     */
@@ -45,7 +47,7 @@ object ContractSalt {
       transactionUuid: UUID,
       psid: PhysicalSynchronizerId,
       mediator: MediatorGroupRecipient,
-      actionSalt: Salt,
+      viewParticipantDataSalt: Salt,
       createIndex: Int,
       viewPosition: ViewPosition,
   ): ContractSalt = {
@@ -56,7 +58,7 @@ object ContractSalt {
       .concat(DeterministicEncoding.encodeString(psid.toProtoPrimitive))
       .concat(DeterministicEncoding.encodeString(mediator.toProtoPrimitive))
 
-    val salt = Salt.tryDeriveSalt(actionSalt, bytestring, hmacOps)
+    val salt = Salt.tryDeriveSalt(viewParticipantDataSalt, bytestring, hmacOps)
 
     ContractSalt(salt)
   }

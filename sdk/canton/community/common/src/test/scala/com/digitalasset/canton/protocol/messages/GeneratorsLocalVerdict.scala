@@ -36,7 +36,6 @@ final case class GeneratorsLocalVerdict(
   import com.digitalasset.canton.Generators.*
   import generatorsLf.*
 
-  // TODO(#14515) Check that the generator is exhaustive
   private def localVerdictRejectGen: Gen[LocalReject] = {
     val resources = List("resource1", "resource2")
     val details = "details"
@@ -57,7 +56,6 @@ final case class GeneratorsLocalVerdict(
       .map(_.toLocalReject(protocolVersion))
   }
 
-  // TODO(#14515) Check that the generator is exhaustive
   private def localVerdictMalformedGen: Gen[LocalReject] = {
     val resources = List("resource1", "resource2")
     val details = "details"
@@ -75,7 +73,6 @@ final case class GeneratorsLocalVerdict(
       .map(_.toLocalReject(protocolVersion))
   }
 
-  // TODO(#14515) Check that the generator is exhaustive
   private def localRejectGen: Gen[LocalReject] =
     Gen.oneOf(localVerdictRejectGen, localVerdictMalformedGen)
 

@@ -151,10 +151,11 @@ object GeneratorsCrypto {
     format = CryptoKeyFormat.Symbolic
   } yield EncryptionPublicKey.create(format, key, keySpec).value)
 
-  // TODO(#14515) Check that the generator is exhaustive
-  implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(
-    Gen.oneOf(Arbitrary.arbitrary[SigningPublicKey], Arbitrary.arbitrary[EncryptionPublicKey])
-  )
+  implicit val publicKeyArb: Arbitrary[PublicKey] =
+    arbitraryForAllSubclasses(classOf[PublicKey])(
+      GeneratorForClass(Arbitrary.arbitrary[SigningPublicKey], classOf[SigningPublicKey]),
+      GeneratorForClass(Arbitrary.arbitrary[EncryptionPublicKey], classOf[EncryptionPublicKey]),
+    )
 
   // Test key intended for signing an unassignment result message.
   lazy val testSigningKey: SigningPublicKey =

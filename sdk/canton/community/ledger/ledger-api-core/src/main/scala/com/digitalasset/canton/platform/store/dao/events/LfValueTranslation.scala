@@ -38,7 +38,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.{FullIdentifier, Identifier, Party}
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine as LfEngine
-import com.digitalasset.daml.lf.engine.{Engine, Enricher}
+import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.VersionedValue
@@ -86,8 +86,11 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
-  private val enricherO = engineO.map(engine =>
-    new Enricher(engine, requireContractIdSuffix = engine.config.requireSuffixedGlobalContractId)
+  private val enricherO: Option[LfEnricher] = engineO.map(engine =>
+    LfEnricher(
+      engine = engine,
+      requireContractIdSuffix = engine.config.requireSuffixedGlobalContractId,
+    )
   )
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
@@ -186,7 +189,7 @@ final class LfValueTranslation(
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
   ): Future[FatContractInstance] =
-    consumeEnricherResult(enricher.enrichContract(contract))
+    consumeEnricherResult(enricher.enrichContractInstance(contract))
 
   def toApiValue(
       value: LfValue,
@@ -216,7 +219,7 @@ final class LfValueTranslation(
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
-  def enricher: Enricher =
+  def enricher: LfEnricher =
     enricherO.getOrElse(
       sys.error(
         "LfValueTranslation used to deserialize values in verbose mode without an Engine"
@@ -441,7 +444,11 @@ final class LfValueTranslation(
       eventProjectionProperties.render(witnesses, templateId.toNameTypeConRef)
     val verbose = eventProjectionProperties.verbose
     def asyncContractArguments =
-      enrichAsync(verbose, value.unversioned, enricher.enrichContract(templateId.toIdentifier, _))
+      enrichAsync(
+        verbose,
+        value.unversioned,
+        enricher.enrichContractValue(templateId.toIdentifier, _),
+      )
         .map(toContractArgumentApi(verbose))
     @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
     def asyncContractKey = condFuture(key.isDefined)(

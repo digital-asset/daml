@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.either.*
-import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.crypto.{CryptoPureApi, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.lfHash
@@ -281,14 +281,17 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
 
 class WithContractAuthenticator(protected val contractIdVersion: CantonContractIdV1Version)
     extends BaseTest {
-  protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
-  protected lazy val contractAuthenticator = new ContractAuthenticatorImpl(
-    unicumGenerator
-  )
+  protected lazy val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
+  protected lazy val contractIdSuffixer: ContractIdSuffixer =
+    new ContractIdSuffixer(pureCrypto, contractIdVersion)
+  protected lazy val unicumGenerator = new UnicumGenerator(pureCrypto)
+  protected lazy val contractAuthenticator =
+    new ContractAuthenticatorImpl(unicumGenerator)
 
   protected lazy val contractInstance: LfThinContractInst =
     ExampleTransactionFactory.contractInstance()
   protected lazy val ledgerTime: CantonTimestamp = CantonTimestamp.MinValue
+  protected lazy val creationTime: CreationTime.CreatedAt = CreationTime.CreatedAt(ledgerTime.toLf)
   protected lazy val alice: IdString.Party = LfPartyId.assertFromString("alice")
   protected lazy val signatories: Set[LfPartyId] =
     Set(ExampleTransactionFactory.signatory, alice)
@@ -298,46 +301,43 @@ class WithContractAuthenticator(protected val contractIdVersion: CantonContractI
     ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = maintainers)
   protected lazy val contractMetadata: ContractMetadata =
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
-  protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
+  protected lazy val contractSalt: ContractSalt = ContractSalt.create(pureCrypto)(
+    transactionUuid = new UUID(1L, 1L),
     psid = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")).toPhysical,
     mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
-    transactionUuid = new UUID(1L, 1L),
-    viewPosition = ViewPosition(List.empty),
     viewParticipantDataSalt = TestSalt.generateSalt(1),
     createIndex = 0,
-    ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
-    metadata = contractMetadata,
-    suffixedContractInstance = contractInstance.unversioned,
-    cantonContractIdVersion = contractIdVersion,
+    viewPosition = ViewPosition(List.empty),
   )
-  protected lazy val authenticationData =
-    ContractAuthenticationDataV1(contractSalt.unwrap)(contractIdVersion)
-
-  protected lazy val contractId = contractIdVersion.fromDiscriminator(
-    ExampleTransactionFactory.lfHash(1337),
-    unicum,
-  )
-
-  lazy val fatContractInstance = LfFatContractInst.fromCreateNode(
-    LfNodeCreate(
-      coid = contractId,
+  protected lazy val ContractIdSuffixer.RelativeSuffixResult(
+    suffixedNode,
+    _,
+    relativeSuffix,
+    authenticationData,
+  ) = {
+    val unsuffixedCreate = LfNodeCreate(
+      coid = LfContractId.V1(ExampleTransactionFactory.lfHash(1337)),
       contract = contractInstance,
-      signatories = contractMetadata.signatories,
-      stakeholders = contractMetadata.stakeholders,
-      key = contractMetadata.maybeKeyWithMaintainers,
-    ),
-    CreationTime.CreatedAt(ledgerTime.toLf),
+      signatories = signatories,
+      stakeholders = signatories ++ observers,
+      key = Some(contractKey.unversioned),
+    )
+    contractIdSuffixer
+      .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreate)
+      .valueOrFail("Cannot create contract suffix")
+  }
+  protected lazy val contractId = suffixedNode.coid
+
+  lazy val fatContractInstance: LfFatContractInst = LfFatContractInst.fromCreateNode(
+    suffixedNode,
+    creationTime,
     authenticationData.toLfBytes,
   )
 
   lazy val contract: SerializableContract =
-    SerializableContract(
-      contractId = contractId,
-      contractInstance = contractInstance,
-      metadata = contractMetadata,
-      ledgerTime = ledgerTime,
-      authenticationData = authenticationData,
-    ).valueOrFail("Failed creating serializable contract instance")
+    SerializableContract
+      .fromLfFatContractInst(fatContractInstance)
+      .valueOrFail("Failed creating serializable contract instance")
 
   protected def testFailedAuthentication(
       changeContract: LfFatContractInst => LfFatContractInst,
@@ -367,7 +367,7 @@ class WithContractAuthenticator(protected val contractIdVersion: CantonContractI
         cantonContractIdVersion = contractIdVersion,
       )
       .valueOrFail("Failed unicum computation")
-    val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)
+    val actualSuffix = relativeSuffix.toBytes
     val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
     contractAuthenticator.authenticate(changeContract(fatContractInstance)) shouldBe Left(
       s"Mismatching contract id suffixes. Expected: $expectedSuffix vs actual: $actualSuffix"

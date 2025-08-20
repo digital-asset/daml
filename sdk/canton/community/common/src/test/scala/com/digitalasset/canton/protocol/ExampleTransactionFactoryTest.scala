@@ -92,7 +92,7 @@ class ExampleTransactionFactoryTest extends AnyWordSpec with BaseTest with HasEx
         example.reinterpretedSubtransactions.zipWithIndex.foreach {
           case ((_, (reinterpretedTx, metadata, _keyResolver), _), i) =>
             s"subtransaction $i" in {
-              WellFormedTransaction.normalizeAndAssert(
+              WellFormedTransaction.checkOrThrow(
                 reinterpretedTx,
                 metadata,
                 WithoutSuffixes,

@@ -3,19 +3,11 @@
 
 package com.digitalasset.canton.crypto
 
-import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
-import com.digitalasset.canton.serialization.CryptoParseAndValidationError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.db.DbSerializationException
+import com.digitalasset.canton.util.EitherUtil
 import com.google.protobuf.ByteString
-import slick.jdbc.{GetResult, SetParameter}
-
-import java.security.{InvalidKeyException, NoSuchAlgorithmException}
-import javax.crypto.Mac
-import javax.crypto.spec.SecretKeySpec
 
 sealed abstract class HmacAlgorithm(val name: String, val hashAlgorithm: HashAlgorithm)
     extends PrettyPrinting {
@@ -56,122 +48,72 @@ final case class Hmac private (private val hmac: ByteString, private val algorit
     s"HMAC size ${hmac.size()} must match HMAC's hash algorithm length ${algorithm.hashAlgorithm.length}",
   )
 
-  def toProtoV30: v30.Hmac =
-    v30.Hmac(algorithm = algorithm.toProtoEnum, hmac = hmac)
-
   override protected def pretty: Pretty[Hmac] = {
     implicit val ps: Pretty[String] = PrettyInstances.prettyString
     PrettyUtil.prettyInfix[Hmac](_.algorithm.name, ":", _.hmac)
   }
 
   /** Access to the raw HMAC, should NOT be used for serialization. */
-  def unwrap: ByteString = hmac
+  private[crypto] def unwrap: ByteString = hmac
 }
 
 object Hmac {
-
-  import HmacError.*
 
   private[crypto] def create(
       hmac: ByteString,
       algorithm: HmacAlgorithm,
   ): Either[HmacError, Hmac] =
-    Either.cond(
-      hmac.size() == algorithm.hashAlgorithm.length,
-      new Hmac(hmac, algorithm),
-      InvalidHmacLength(hmac.size(), algorithm.hashAlgorithm.length),
-    )
-
-  def fromProtoV30(hmacP: v30.Hmac): ParsingResult[Hmac] =
     for {
-      hmacAlgorithm <- HmacAlgorithm.fromProtoEnum("algorithm", hmacP.algorithm)
-      hmac <- Hmac
-        .create(hmacP.hmac, hmacAlgorithm)
-        .leftMap(err =>
-          ProtoDeserializationError.CryptoDeserializationError(
-            CryptoParseAndValidationError(s"Failed to deserialize HMAC: $err")
-          )
-        )
-    } yield hmac
-
-  /** Computes the HMAC of the given message using an explicit secret. See
-    * [[https://en.wikipedia.org/wiki/HMAC]]
-    */
-  def compute(
-      secret: HmacSecret,
-      message: ByteString,
-      algorithm: HmacAlgorithm,
-  ): Either[HmacError, Hmac] =
-    for {
-      mac <- Either
-        .catchOnly[NoSuchAlgorithmException](Mac.getInstance(algorithm.name))
-        .leftMap(ex => UnknownHmacAlgorithm(algorithm, ex))
-      key = new SecretKeySpec(secret.unwrap.toByteArray, algorithm.name)
-      _ <- Either.catchOnly[InvalidKeyException](mac.init(key)).leftMap(ex => InvalidHmacSecret(ex))
-      hmacBytes <- Either
-        .catchOnly[IllegalStateException](mac.doFinal(message.toByteArray))
-        .leftMap(ex => FailedToComputeHmac(ex))
-      hmac = new Hmac(ByteString.copyFrom(hmacBytes), algorithm)
-    } yield hmac
-}
-
-final case class HmacSecret private (private val secret: ByteString) extends PrettyPrinting {
-
-  require(!secret.isEmpty, "HMAC secret cannot be empty")
-
-  private[crypto] def unwrap: ByteString = secret
-
-  // intentionally removing the value from toString to avoid printing secret in logs
-  override protected def pretty: Pretty[HmacSecret] =
-    prettyOfString(secret => s"HmacSecret(length: ${secret.length})")
-
-  val length: Int = secret.size()
-}
-
-object HmacSecret {
-
-  implicit val setHmacSecretParameter: SetParameter[HmacSecret] = (v, pp) => {
-    import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
-    pp.>>(v.secret)
-  }
-
-  implicit val getHmacSecretResult: GetResult[HmacSecret] = GetResult { r =>
-    import com.digitalasset.canton.resource.DbStorage.Implicits.getResultByteString
-    HmacSecret
-      .create(r.<<)
-      .valueOr(err =>
-        throw new DbSerializationException(s"Failed to deserialize HMAC secret: $err")
+      _ <- EitherUtil.condUnit(
+        hmac.size() == algorithm.hashAlgorithm.length,
+        HmacError.InvalidHmacLength(hmac.size(), algorithm.hashAlgorithm.length.toInt),
       )
-  }
+    } yield Hmac(hmac, algorithm)
 
-  /** Recommended length for HMAC secret keys is 128 bits */
-  val defaultLength = 16
-
-  private[crypto] def create(bytes: ByteString): Either[HmacError, HmacSecret] =
-    Either.cond(!bytes.isEmpty, new HmacSecret(bytes), HmacError.EmptyHmacSecret)
-
-  /** Generates a new random HMAC secret key. A minimum secret key length of 128 bits is enforced.
-    *
-    * NOTE: The length of the HMAC secret should not exceed the internal _block_ size of the hash
-    * function, e.g., 512 bits for SHA256.
-    */
-  def generate(randomOps: RandomOps, length: Int = defaultLength): HmacSecret = {
-    require(length >= defaultLength, s"Specified HMAC secret key length $length too small.")
-    new HmacSecret(randomOps.generateRandomByteString(length))
-  }
 }
 
 /** pure HMAC operations that do not require access to external keys. */
 trait HmacOps {
 
+  /** Minimum length for HMAC secret keys is 128 bits */
+  private[crypto] def minimumSecretKeyLengthInBytes = 16
+
   def defaultHmacAlgorithm: HmacAlgorithm = HmacAlgorithm.HmacSha256
 
-  def hmacWithSecret(
-      secret: HmacSecret,
+  /** Computes the HMAC of the given message using an explicit secret. See
+    * [[https://en.wikipedia.org/wiki/HMAC]].
+    *
+    * A minimum secret key length of 128 bits is enforced. NOTE: The length of the HMAC secret
+    * should not exceed the internal _block_ size of the hash function, e.g., 512 bits for SHA256.
+    */
+  private[crypto] def computeHmacWithSecret(
+      secret: ByteString,
       message: ByteString,
       algorithm: HmacAlgorithm = defaultHmacAlgorithm,
-  ): Either[HmacError, Hmac] =
-    Hmac.compute(secret, message, algorithm)
+  ): Either[HmacError, Hmac] = {
+
+    // The length of the HMAC secret should not exceed the internal _block_ size of the hash
+    // function, e.g., 512 bits for SHA256.
+    val maximumSecretKeyLengthInBytes = algorithm.hashAlgorithm.internalBlockSizeInBytes
+    val secretKeyLength = secret.size()
+    for {
+      _ <- EitherUtil.condUnit(
+        secretKeyLength >= minimumSecretKeyLengthInBytes && secretKeyLength <= maximumSecretKeyLengthInBytes,
+        HmacError.InvalidHmacKeyLength(
+          secretKeyLength,
+          minimumSecretKeyLengthInBytes,
+          maximumSecretKeyLengthInBytes,
+        ),
+      )
+      hmac <- computeHmacWithSecretInternal(secret, message, algorithm)
+    } yield hmac
+  }
+
+  private[crypto] def computeHmacWithSecretInternal(
+      secret: ByteString,
+      message: ByteString,
+      algorithm: HmacAlgorithm = defaultHmacAlgorithm,
+  ): Either[HmacError, Hmac]
 
 }
 
@@ -185,9 +127,25 @@ object HmacError {
       param("cause", _.cause),
     )
   }
-  case object EmptyHmacSecret extends HmacError {
-    override protected def pretty: Pretty[EmptyHmacSecret.type] =
-      prettyOfObject[EmptyHmacSecret.type]
+  final case class InvalidHmacLength(
+      length: Int,
+      expectedLength: Int,
+  ) extends HmacError {
+    override protected def pretty: Pretty[InvalidHmacLength] = prettyOfClass(
+      param("length", _.length),
+      param("expectedLength", _.expectedLength),
+    )
+  }
+  final case class InvalidHmacKeyLength(
+      length: Int,
+      minimumLength: Int,
+      maximumLength: Int,
+  ) extends HmacError {
+    override protected def pretty: Pretty[InvalidHmacKeyLength] = prettyOfClass(
+      param("length", _.length),
+      param("minimumLength", _.minimumLength),
+      param("maximumLength", _.maximumLength),
+    )
   }
   final case class InvalidHmacSecret(cause: Exception) extends HmacError {
     override protected def pretty: Pretty[InvalidHmacSecret] = prettyOfClass(unnamedParam(_.cause))
@@ -196,18 +154,5 @@ object HmacError {
     override protected def pretty: Pretty[FailedToComputeHmac] = prettyOfClass(
       unnamedParam(_.cause)
     )
-  }
-  final case class InvalidHmacLength(inputLength: Int, expectedLength: Long) extends HmacError {
-    override protected def pretty: Pretty[InvalidHmacLength] = prettyOfClass(
-      param("inputLength", _.inputLength),
-      param("expectedLength", _.expectedLength),
-    )
-  }
-  case object MissingHmacSecret extends HmacError {
-    override protected def pretty: Pretty[MissingHmacSecret.type] =
-      prettyOfObject[MissingHmacSecret.type]
-  }
-  final case class HmacPrivateStoreError(error: CryptoPrivateStoreError) extends HmacError {
-    override protected def pretty: Pretty[HmacPrivateStoreError] = prettyOfParam(_.error)
   }
 }

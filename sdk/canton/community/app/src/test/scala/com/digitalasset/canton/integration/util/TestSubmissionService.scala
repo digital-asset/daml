@@ -341,7 +341,7 @@ class TestSubmissionService(
       case ResultNeedContract(acoid, resume) =>
         for {
           fatContractO <- contractResolver(acoid)(traceContext)
-          r <- resolve(resume(fatContractO))
+          r <- resolve(resume(ResultNeedContract.wrapLegacyResponse(fatContractO)))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>
@@ -362,8 +362,10 @@ class TestSubmissionService(
       case ResultInterruption(continue, _) =>
         resolve(iterateOverInterrupts(continue))
 
-      case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
-        resolve(resume(None))
+      case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
+        throw new UnsupportedOperationException(
+          s"This callback is no longer used and will be removed in a future release [$unexpected]"
+        )
 
       case ResultPrefetch(_, _, resume) => resolve(resume())
     }

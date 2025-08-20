@@ -4,7 +4,6 @@
 package com.digitalasset.canton.console
 
 import better.files.File
-import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import ch.qos.logback.classic.Level
@@ -35,7 +34,6 @@ import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
-import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{
@@ -65,8 +63,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
-import com.digitalasset.daml.lf.transaction.CreationTime
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
 import io.circe.Encoder
@@ -76,7 +72,6 @@ import io.circe.syntax.*
 import java.io.File as JFile
 import java.time.Instant
 import scala.annotation.unused
-import scala.collection.mutable
 import scala.concurrent.duration.*
 import scala.sys.process.ProcessLogger
 
@@ -271,101 +266,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       FeatureFlagFilter.check(noTracingLogger, environment)(FeatureFlag.Testing)(
         environment.environment.addUserCloseable(closeable)
       )
-
-    @Help.Summary("Recompute authenticated contract ids.")
-    @Help.Description(
-      """The `utils.recompute_contract_ids` regenerates "contract ids" of multiple contracts after their contents have
-        |changed. Starting from protocol version 4, Canton uses the so called authenticated contract ids which depend
-        |on the details of the associated contracts. When aspects of a contract such as the parties involved change as
-        |part of repair or export/import procedure, the corresponding contract id must be recomputed."""
-    )
-    def recompute_contract_ids(
-        participant: LocalParticipantReference,
-        acs: Seq[SerializableContract],
-    ): (Seq[SerializableContract], Map[LfContractId, LfContractId]) = {
-      val contractIdMappings = mutable.Map.empty[LfContractId, LfContractId]
-      // We assume ACS events are in order
-      val remappedCIds = acs.map { contract =>
-        // Update the referenced contract ids
-        val contractInstanceWithUpdatedContractIdReferences =
-          SerializableRawContractInstance
-            .create(contract.rawContractInstance.contractInstance.map(_.mapCid(contractIdMappings)))
-            .valueOr(err =>
-              throw new RuntimeException(
-                s"Could not create serializable raw contract instance: $err"
-              )
-            )
-
-        val LfContractId.V1(discriminator, _) = contract.contractId match {
-          case cid: LfContractId.V1 => cid
-          case _ => sys.error("ContractId V2 are not supported")
-        }
-        val pureCrypto = participant.underlying
-          .map(_.cryptoPureApi)
-          .getOrElse(sys.error("where is my crypto?"))
-
-        // Compute the new contract id
-        val newContractId =
-          generate_contract_id(
-            cryptoPureApi = pureCrypto,
-            rawContract = contractInstanceWithUpdatedContractIdReferences,
-            createdAt = CantonTimestamp(contract.ledgerCreateTime.time),
-            discriminator = discriminator,
-            authenticationData = contract.authenticationData,
-            metadata = contract.metadata,
-          )
-
-        // Update the contract id mappings with the current contract's id
-        contractIdMappings += contract.contractId -> newContractId
-
-        // Update the contract with the new contract id and recomputed instance
-        contract
-          .copy(
-            contractId = newContractId,
-            rawContractInstance = contractInstanceWithUpdatedContractIdReferences,
-          )
-      }
-
-      remappedCIds -> Map.from(contractIdMappings)
-    }
-
-    @Help.Summary("Generate authenticated contract id.")
-    @Help.Description(
-      """The `utils.generate_contract_id` generates "contract id" of a contract. Starting from protocol version 4,
-        |Canton uses the so called authenticated contract ids which depend on the details of the associated contracts.
-        |When aspects of a contract such as the parties involved change as part of repair or export/import procedure,
-        |the corresponding contract id must be recomputed. This function can be used as a tool to generate an id for
-        |an arbitrary contract content"""
-    )
-    def generate_contract_id(
-        cryptoPureApi: CryptoPureApi,
-        rawContract: SerializableRawContractInstance,
-        createdAt: CantonTimestamp,
-        discriminator: LfHash,
-        authenticationData: ContractAuthenticationData,
-        metadata: ContractMetadata,
-    ): ContractId.V1 = {
-      val unicumGenerator = new UnicumGenerator(cryptoPureApi)
-      val cantonContractIdVersion = AuthenticatedContractIdVersionV11
-      val salt = authenticationData match {
-        case ContractAuthenticationDataV1(salt) => salt
-        case ContractAuthenticationDataV2() =>
-          // TODO(#23971) implement this
-          throw new IllegalArgumentException(
-            "Cannot generate a contract ID with authentication data V2"
-          )
-      }
-      val unicum = unicumGenerator
-        .recomputeUnicum(
-          salt,
-          CreationTime.CreatedAt(createdAt.toLf),
-          metadata,
-          rawContract.contractInstance.unversioned,
-          cantonContractIdVersion,
-        )
-        .valueOr(err => throw new RuntimeException(err))
-      cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
-    }
 
     @Help.Summary("Writes several Protobuf messages to a file.")
     def write_to_file(data: Seq[scalapb.GeneratedMessage], fileName: String): Unit =

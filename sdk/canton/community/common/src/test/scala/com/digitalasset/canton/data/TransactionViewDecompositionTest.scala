@@ -217,7 +217,7 @@ class TransactionViewDecompositionTest
       tx: LfVersionedTransaction
   ): WellFormedTransaction[WithoutSuffixes] =
     WellFormedTransaction
-      .normalizeAndCheck(
+      .check(
         tx,
         TransactionMetadata(
           CantonTimestamp.Epoch,

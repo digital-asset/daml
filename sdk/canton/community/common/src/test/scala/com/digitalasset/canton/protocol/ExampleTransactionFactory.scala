@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
@@ -102,34 +103,47 @@ object ExampleTransactionFactory {
       instance: LfThinContractInst = ExampleTransactionFactory.contractInstance(),
       ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
   ): ContractInstance = {
-    val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
     val contractIdVersion =
       CantonContractIdVersion.maximumSupportedVersion(BaseTest.testedProtocolVersion).value match {
         case v1: CantonContractIdV1Version => v1
         case other =>
           throw new IllegalArgumentException(s"Unsupported contract ID version: $other")
       }
-    val createdAt = CreationTime.CreatedAt(ledgerTime.toLf)
-
-    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
+    val crypto = new SymbolicPureCrypto()
+    val contractIdSuffixer = new ContractIdSuffixer(crypto, contractIdVersion)
+    val contractSalt = ContractSalt.create(crypto)(
+      transactionUuid = new UUID(1L, 1L),
       psid = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")).toPhysical,
       mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
-      transactionUuid = new UUID(1L, 1L),
-      viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = createdAt,
-      metadata = metadata,
-      suffixedContractInstance = instance.unversioned,
-      cantonContractIdVersion = contractIdVersion,
+      viewPosition = ViewPosition(List.empty),
+    )
+    val createdAt = CreationTime.CreatedAt(ledgerTime.toLf)
+    val unsuffixedContractId = LfContractId.V1(ExampleTransactionFactory.lfHash(1337))
+    val unsuffixedCreateNode = LfNodeCreate(
+      coid = unsuffixedContractId,
+      packageName = instance.unversioned.packageName,
+      templateId = instance.unversioned.template,
+      arg = instance.unversioned.arg,
+      signatories = metadata.signatories,
+      stakeholders = metadata.stakeholders,
+      keyOpt = metadata.maybeKeyWithMaintainers,
+      version = instance.version,
     )
 
-    val contractId = contractIdVersion.fromDiscriminator(
-      ExampleTransactionFactory.lfHash(1337),
-      unicum,
+    val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
+      contractIdSuffixer
+        .relativeSuffixForLocalContract(contractSalt, createdAt, unsuffixedCreateNode)
+        .valueOr(err =>
+          throw new IllegalArgumentException(s"Failed to compute suffix for contract: $err")
+        )
+    val fci = FatContractInstance.fromCreateNode(
+      suffixedCreateNode,
+      createdAt,
+      authenticationData.toLfBytes,
     )
-
-    asContractInstance(contractId, instance, metadata, createdAt, contractSalt.unwrap)
+    ContractInstance.create(fci).value
   }
 
   val veryDeepValue: Value = {
@@ -351,22 +365,27 @@ object ExampleTransactionFactory {
       .create(contractInstance)
       .fold(err => throw new IllegalArgumentException(err.toString), Predef.identity)
 
+  private def asAuthenticationData(
+      salt: Salt,
+      version: CantonContractIdVersion,
+  ): ContractAuthenticationData =
+    version match {
+      case v1: CantonContractIdV1Version => ContractAuthenticationDataV1(salt)(v1)
+      case _ => throw new IllegalArgumentException(s"Unsupported contract ID version $version")
+    }
+
   def asContractInstance[Time <: CreationTime](
       contractId: LfContractId,
       contractInstance: LfThinContractInst = this.contractInstance(),
       metadata: ContractMetadata =
         ContractMetadata.tryCreate(Set(this.signatory), Set(this.signatory), None),
       ledgerTime: Time = CreationTime.CreatedAt(LfTimestamp.Epoch),
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+  )(
+      authenticationData: ContractAuthenticationData = asAuthenticationData(
+        TestSalt.generateSalt(random.nextInt()),
+        CantonContractIdVersion.extractCantonContractIdVersion(contractId).value,
+      )
   ): GenContractInstance { type InstCreatedAtTime <: Time } = {
-    val contractIdVersion = CantonContractIdVersion
-      .extractCantonContractIdVersion(contractId)
-      .value
-    val contractIdV1Version = contractIdVersion match {
-      case v1: CantonContractIdV1Version => v1
-      case v2: CantonContractIdV2Version =>
-        throw new IllegalArgumentException(s"Unsupported contract ID version $v2")
-    }
     val createNode = LfNodeCreate(
       coid = contractId,
       packageName = contractInstance.unversioned.packageName,
@@ -380,17 +399,17 @@ object ExampleTransactionFactory {
     val fci = FatContractInstance.fromCreateNode(
       createNode,
       ledgerTime,
-      ContractAuthenticationDataV1(salt)(contractIdV1Version).toLfBytes,
+      authenticationData.toLfBytes,
     )
     ContractInstance.create(fci).value
   }
 
-  private def instanceFromCreate(node: LfNodeCreate, salt: Salt): NewContractInstance =
-    asContractInstance(
-      node.coid,
-      node.versionedCoinst,
-      metadataFromCreate(node),
-      salt = salt,
+  private def instanceFromCreate(
+      node: LfNodeCreate,
+      authenticationData: ContractAuthenticationData,
+  ): NewContractInstance =
+    asContractInstance(node.coid, node.versionedCoinst, metadataFromCreate(node))(
+      authenticationData
     )
 
   // Parties and participants
@@ -574,32 +593,11 @@ class ExampleTransactionFactory(
   def discriminator(nodeSeed: LfHash, stakeholders: Set[LfPartyId]): LfHash =
     LfHash.deriveContractDiscriminator(nodeSeed, preparationTime.toLf, stakeholders)
 
+  val contractIdSuffixer = new ContractIdSuffixer(
+    cryptoOps,
+    cantonContractIdVersion,
+  )
   val unicumGenerator = new UnicumGenerator(cryptoOps)
-
-  def saltAndUnicum(
-      viewPosition: ViewPosition,
-      viewIndex: Int,
-      createIndex: Int,
-      suffixedContractInstance: LfThinContractInst,
-      metadata: ContractMetadata,
-  ): (Salt, Unicum) = {
-    val viewParticipantDataSalt = participantDataSalt(viewIndex)
-    val (contractSalt, unicum) = unicumGenerator
-      .generateSaltAndUnicum(
-        psid,
-        mediatorGroup,
-        transactionUuid,
-        viewPosition,
-        viewParticipantDataSalt,
-        createIndex,
-        CreationTime.CreatedAt(ledgerTime.toLf),
-        metadata,
-        suffixedContractInstance.unversioned,
-        cantonContractIdVersion,
-      )
-
-    contractSalt.unwrap -> unicum
-  }
 
   def fromDiscriminator(
       viewPosition: ViewPosition,
@@ -610,21 +608,40 @@ class ExampleTransactionFactory(
       signatories: Set[LfPartyId] = Set.empty,
       observers: Set[LfPartyId] = Set.empty,
       maybeKeyWithMaintainers: Option[protocol.LfGlobalKeyWithMaintainers] = None,
-  ): (Salt, LfContractId) = {
+  ): (ContractAuthenticationData, LfContractId) = {
     val metadata = ContractMetadata.tryCreate(
       signatories,
       signatories ++ observers,
       maybeKeyWithMaintainers.map(LfVersioned(transactionVersion, _)),
     )
-    val (salt, unicum) =
-      saltAndUnicum(
-        viewPosition,
-        viewIndex,
-        createIndex,
-        suffixedContractInstance,
-        metadata,
-      )
-    salt -> cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
+    val viewParticipantDataSalt = participantDataSalt(viewIndex)
+    val contractSalt = ContractSalt.create(cryptoOps)(
+      transactionUuid,
+      psid,
+      mediatorGroup,
+      viewParticipantDataSalt,
+      createIndex,
+      viewPosition,
+    )
+    val unsuffixedCreateNode = createNode(
+      LfContractId.V1(discriminator),
+      suffixedContractInstance,
+      metadata.signatories,
+      metadata.stakeholders,
+      metadata.maybeKeyWithMaintainers,
+    )
+    val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
+      contractIdSuffixer
+        .relativeSuffixForLocalContract(
+          contractSalt,
+          CreationTime.CreatedAt(ledgerTime.toLf),
+          unsuffixedCreateNode,
+        )
+        .valueOr(err =>
+          throw new IllegalArgumentException(s"Cannot compute suffix for contract: $err")
+        )
+
+    authenticationData -> suffixedCreateNode.coid
   }
 
   def rootViewPosition(index: Int, total: Int): ViewPosition =
@@ -968,7 +985,7 @@ class ExampleTransactionFactory(
 
     def contractId: LfContractId
 
-    def salt: Salt
+    def authenticationData: ContractAuthenticationData
 
     def nodeId: LfNodeId
 
@@ -985,12 +1002,7 @@ class ExampleTransactionFactory(
     def created: Seq[NewContractInstance] = node match {
       case n: LfNodeCreate =>
         Seq(
-          asContractInstance(
-            n.coid,
-            contractInstance,
-            metadataFromCreate(n),
-            salt = salt,
-          )
+          asContractInstance(n.coid, contractInstance, metadataFromCreate(n))(authenticationData)
         )
       case _ => Seq.empty
     }
@@ -998,20 +1010,14 @@ class ExampleTransactionFactory(
     def used: Seq[ContractInstance] = node match {
       case n: LfNodeExercises =>
         Seq(
-          asContractInstance(
-            n.targetCoid,
-            contractInstance,
-            metadataFromExercise(n),
-            salt = salt,
+          asContractInstance(n.targetCoid, contractInstance, metadataFromExercise(n))(
+            authenticationData
           )
         )
       case n: LfNodeFetch =>
         Seq(
-          asContractInstance(
-            n.coid,
-            contractInstance,
-            metadataFromFetch(n),
-            salt = salt,
+          asContractInstance(n.coid, contractInstance, metadataFromFetch(n))(
+            authenticationData
           )
         )
       case _ => Seq.empty
@@ -1112,7 +1118,7 @@ class ExampleTransactionFactory(
 
     val lfContractId: LfContractId = LfContractId.V1(discriminator, Bytes.Empty)
 
-    val (salt, contractId) =
+    val (authenticationData, contractId) =
       fromDiscriminator(
         viewPosition,
         viewIndex,
@@ -1169,7 +1175,8 @@ class ExampleTransactionFactory(
       contractId: LfContractId = suffixedId(-1, 0),
       fetchedContractInstance: LfThinContractInst = contractInstance(),
       version: LfLanguageVersion = transactionVersion,
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+      authenticationData: ContractAuthenticationData =
+        asAuthenticationData(TestSalt.generateSalt(random.nextInt()), cantonContractIdVersion),
   ) extends SingleNode(None) {
     override def created: Seq[NewContractInstance] = Seq.empty
 
@@ -1210,7 +1217,8 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfThinContractInst = contractInstance(),
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+      authenticationData: ContractAuthenticationData =
+        asAuthenticationData(TestSalt.generateSalt(random.nextInt()), cantonContractIdVersion),
   ) extends SingleNode(Some(seed)) {
     override def toString: String = "single exercise"
 
@@ -1248,7 +1256,8 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfThinContractInst = contractInstance(),
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+      authenticationData: ContractAuthenticationData =
+        asAuthenticationData(TestSalt.generateSalt(random.nextInt()), cantonContractIdVersion),
   ) extends SingleNode(Some(seed)) {
     override def toString: String = "single exercise"
 
@@ -1276,7 +1285,8 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       contractInstance: LfThinContractInst = ExampleTransactionFactory.contractInstance(),
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+      authenticationData: ContractAuthenticationData =
+        asAuthenticationData(TestSalt.generateSalt(random.nextInt()), cantonContractIdVersion),
       consuming: Boolean = true,
   ) extends SingleNode(Some(seed)) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
@@ -1295,7 +1305,8 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       inputContractInstance: LfThinContractInst = contractInstance(),
-      salt: Salt = TestSalt.generateSalt(random.nextInt()),
+      authenticationData: ContractAuthenticationData =
+        asAuthenticationData(TestSalt.generateSalt(random.nextInt()), cantonContractIdVersion),
   ) extends SingleNode(Some(seed)) {
 
     override val contractInstance: LfThinContractInst = inputContractInstance
@@ -1351,7 +1362,7 @@ class ExampleTransactionFactory(
         fetchedContractInstance = create0.contractInstance,
         version =
           LfLanguageVersion.v2_dev, // ensure we test merging transactions with different versions
-        salt = create0.salt,
+        authenticationData = create0.authenticationData,
       )
     private val exercise4: SingleExercise =
       SingleExercise(deriveNodeSeed(4), LfNodeId(4), suffixedId(-1, 4), suffixedId(-1, 4))
@@ -1361,7 +1372,7 @@ class ExampleTransactionFactory(
       lfContractId = create1.lfContractId,
       contractId = create1.contractId,
       inputContractInstance = create1.contractInstance,
-      salt = create1.salt,
+      authenticationData = create1.authenticationData,
     )
 
     private val examples: List[SingleNode] =
@@ -1635,7 +1646,7 @@ class ExampleTransactionFactory(
     }
 
     // Nodes with translated contract ids
-    val (salt0Id, create0Id): (Salt, LfContractId) =
+    val (authenticationData0Id, create0Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 2),
         0,
@@ -1652,7 +1663,7 @@ class ExampleTransactionFactory(
     val exercise1: LfNodeExercises = genExercise1(exercise1Id)
     val exercise1Instance: LfThinContractInst = contractInstance()
 
-    val (salt10Id, create10Id): (Salt, LfContractId) =
+    val (authenticationData10Id, create10Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
         1,
@@ -1665,7 +1676,7 @@ class ExampleTransactionFactory(
 
     val fetch11: LfNodeFetch = lfFetch11
 
-    val (salt12Id, create12Id): (Salt, LfContractId) =
+    val (authenticationData12Id, create12Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: rootViewPosition(1, 2),
         2,
@@ -1686,7 +1697,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, authenticationData0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -1699,7 +1710,7 @@ class ExampleTransactionFactory(
         2,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create12, salt12Id)),
+        Seq(instanceFromCreate(create12, authenticationData12Id)),
         Map.empty,
         Some(create12seed),
         isRoot = false,
@@ -1718,9 +1729,9 @@ class ExampleTransactionFactory(
             exercise1Instance,
             metadataFromExercise(exercise1),
             CreationTime.CreatedAt(ledgerTime.toLf),
-          )
+          )()
         ),
-        Seq(instanceFromCreate(create10, salt10Id)),
+        Seq(instanceFromCreate(create10, authenticationData10Id)),
         Map.empty,
         Some(deriveNodeSeed(1)),
         isRoot = true,
@@ -2026,7 +2037,7 @@ class ExampleTransactionFactory(
     }
 
     // Nodes with translated contract ids
-    val (salt0Id, create0Id): (Salt, LfContractId) =
+    val (authenticationData0Id, create0Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 2),
         0,
@@ -2042,7 +2053,7 @@ class ExampleTransactionFactory(
     val exercise1: LfNodeExercises = genExercise1(exercise1Id)
     val exercise1Instance: LfThinContractInst = contractInstance()
 
-    val (salt10Id, create10Id): (Salt, LfContractId) =
+    val (authenticationData10Id, create10Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
         1,
@@ -2055,7 +2066,7 @@ class ExampleTransactionFactory(
 
     val fetch11: LfNodeFetch = lfFetch11
 
-    val (salt12Id, create12Id): (Salt, LfContractId) =
+    val (authenticationData12Id, create12Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
         1,
@@ -2066,7 +2077,7 @@ class ExampleTransactionFactory(
       )
     val create12: LfNodeCreate = genCreate1x(create12Id, create12Inst)
 
-    val (salt130Id, create130Id): (Salt, LfContractId) =
+    val (authenticationData130Id, create130Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 2) +: rootViewPosition(1, 2),
         2,
@@ -2082,7 +2093,7 @@ class ExampleTransactionFactory(
     val exercise131: LfNodeExercises = genExercise131(exercise131Id)
     val exercise131Instance: LfThinContractInst = contractInstance()
 
-    val (salt1310Id, create1310Id): (Salt, LfContractId) =
+    val (authenticationData1310Id, create1310Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(1, 2) +: rootViewPosition(1, 2),
         4,
@@ -2101,7 +2112,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, authenticationData0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2113,7 +2124,7 @@ class ExampleTransactionFactory(
         2,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create130, salt130Id)),
+        Seq(instanceFromCreate(create130, authenticationData130Id)),
         Map.empty,
         Some(create130seed),
         isRoot = false,
@@ -2125,7 +2136,7 @@ class ExampleTransactionFactory(
         4,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create1310, salt1310Id)),
+        Seq(instanceFromCreate(create1310, authenticationData1310Id)),
         Map.empty,
         Some(create1310seed),
         isRoot = false,
@@ -2143,7 +2154,7 @@ class ExampleTransactionFactory(
             contractInstance = exercise131Instance,
             metadata = metadataFromExercise(exercise131),
             ledgerTime = CreationTime.CreatedAt(ledgerTime.toLf),
-          )
+          )()
         ),
         Seq.empty,
         Map.empty,
@@ -2164,11 +2175,11 @@ class ExampleTransactionFactory(
             exercise1Instance,
             metadataFromExercise(exercise1),
             CreationTime.CreatedAt(ledgerTime.toLf),
-          )
+          )()
         ),
         Seq(
-          instanceFromCreate(create10, salt10Id),
-          instanceFromCreate(create12, salt12Id),
+          instanceFromCreate(create10, authenticationData10Id),
+          instanceFromCreate(create12, authenticationData12Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -2546,7 +2557,7 @@ class ExampleTransactionFactory(
       Seq(v0, v1, v2)
     }
 
-    val (salt0Id, create0Id): (Salt, LfContractId) =
+    val (authenticationData0Id, create0Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 3),
         0,
@@ -2566,7 +2577,7 @@ class ExampleTransactionFactory(
     val exercise10: LfNodeExercises = genExercise1X(exercise10Id, 3)
     val exercise10Instance: LfThinContractInst = contractInstance()
 
-    val (salt100Id, create100Id): (Salt, LfContractId) =
+    val (authenticationData100Id, create100Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(0, 2) +: rootViewPosition(1, 3),
         3,
@@ -2579,7 +2590,7 @@ class ExampleTransactionFactory(
     val create100: LfNodeCreate = genCreate3X(create100Id, create100Inst)
 
     val create11Inst: LfThinContractInst = genCreate11Inst(create100Id)
-    val (salt11Id, create11Id): (Salt, LfContractId) =
+    val (authenticationData11Id, create11Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 3),
         1,
@@ -2595,7 +2606,7 @@ class ExampleTransactionFactory(
     val exercise12Instance: LfThinContractInst = contractInstance()
 
     val create120Inst: LfThinContractInst = genCreate120Inst(create100Id)
-    val (salt120Id, create120Id): (Salt, LfContractId) =
+    val (authenticationData120Id, create120Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: subViewIndex(1, 2) +: rootViewPosition(1, 3),
         5,
@@ -2608,7 +2619,7 @@ class ExampleTransactionFactory(
     val create120: LfNodeCreate = genCreate3X(create120Id, create120Inst)
 
     val create13Inst: LfThinContractInst = genCreate13Inst(create120Id)
-    val (salt13Id, create13Id): (Salt, LfContractId) =
+    val (authenticationData13Id, create13Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 3),
         1,
@@ -2619,7 +2630,7 @@ class ExampleTransactionFactory(
       )
     val create13: LfNodeCreate = genCreateXX(create13Id, create13Inst)
 
-    val (salt2Id, create2Id): (Salt, LfContractId) =
+    val (authenticationData2Id, create2Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(2, 3),
         6,
@@ -2637,7 +2648,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, authenticationData0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -2650,7 +2661,7 @@ class ExampleTransactionFactory(
         3,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create100, salt100Id)),
+        Seq(instanceFromCreate(create100, authenticationData100Id)),
         Map.empty,
         Some(create100seed),
         isRoot = false,
@@ -2667,7 +2678,7 @@ class ExampleTransactionFactory(
           exercise10Instance,
           metadataFromExercise(exercise10),
           CreationTime.CreatedAt(ledgerTime.toLf),
-        )
+        )()
       ),
       Seq.empty,
       Map.empty,
@@ -2683,7 +2694,7 @@ class ExampleTransactionFactory(
         5,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create120, salt120Id)),
+        Seq(instanceFromCreate(create120, authenticationData120Id)),
         Map.empty,
         Some(create120seed),
         isRoot = false,
@@ -2701,7 +2712,7 @@ class ExampleTransactionFactory(
             exercise12Instance,
             metadataFromExercise(exercise12),
             CreationTime.CreatedAt(ledgerTime.toLf),
-          )
+          )()
         ),
         Seq.empty,
         Map.empty,
@@ -2722,11 +2733,11 @@ class ExampleTransactionFactory(
             exercise1Instance,
             metadataFromExercise(exercise1),
             CreationTime.CreatedAt(ledgerTime.toLf),
-          )
+          )()
         ),
         Seq(
-          instanceFromCreate(create11, salt11Id),
-          instanceFromCreate(create13, salt13Id),
+          instanceFromCreate(create11, authenticationData11Id),
+          instanceFromCreate(create13, authenticationData13Id),
         ),
         Map.empty,
         Some(deriveNodeSeed(1)),
@@ -2742,7 +2753,7 @@ class ExampleTransactionFactory(
         6,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create2, salt2Id)),
+        Seq(instanceFromCreate(create2, authenticationData2Id)),
         Map.empty,
         Some(create2seed),
         isRoot = true,
@@ -3074,7 +3085,7 @@ class ExampleTransactionFactory(
       Seq(v0, v1)
     }
 
-    val (salt0Id, create0Id): (Salt, LfContractId) =
+    val (authenticationData0Id, create0Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(0, 2),
         0,
@@ -3088,7 +3099,7 @@ class ExampleTransactionFactory(
 
     val exercise1: LfNodeExercises = genExercise(create0Id, List(2, 3, 5, 6))
 
-    val (salt10Id, create10Id): (Salt, LfContractId) =
+    val (authenticationData10Id, create10Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         rootViewPosition(1, 2),
         1,
@@ -3102,7 +3113,7 @@ class ExampleTransactionFactory(
 
     val exercise11: LfNodeExercises = genExerciseN(create10Id, 4)
 
-    val (salt110Id, create110Id): (Salt, LfContractId) =
+    val (authenticationData110Id, create110Id): (ContractAuthenticationData, LfContractId) =
       fromDiscriminator(
         subViewIndex(0, 1) +: rootViewPosition(1, 2),
         2,
@@ -3123,7 +3134,7 @@ class ExampleTransactionFactory(
         0,
         Set.empty,
         Seq.empty,
-        Seq(instanceFromCreate(create0, salt0Id)),
+        Seq(instanceFromCreate(create0, authenticationData0Id)),
         Map.empty,
         Some(create0seed),
         isRoot = true,
@@ -3139,10 +3150,9 @@ class ExampleTransactionFactory(
           create10Id,
           create10Inst,
           ContractMetadata.tryCreate(create10.signatories, create10.stakeholders, None),
-          salt = salt10Id,
-        )
+        )(authenticationData10Id)
       ),
-      Seq(instanceFromCreate(create110, salt110Id)),
+      Seq(instanceFromCreate(create110, authenticationData110Id)),
       Map.empty,
       Some(deriveNodeSeed(1, 1)),
       isRoot = false,
@@ -3158,10 +3168,9 @@ class ExampleTransactionFactory(
           create0Id,
           create0Inst,
           ContractMetadata.tryCreate(create0.signatories, create0.stakeholders, None),
-          salt = salt0Id,
-        )
+        )(authenticationData0Id)
       ),
-      Seq(instanceFromCreate(create10, salt10Id)),
+      Seq(instanceFromCreate(create10, authenticationData10Id)),
       Map.empty,
       Some(deriveNodeSeed(1)),
       isRoot = true,

@@ -1,4 +1,4 @@
-sdk-version: 3.4.0-snapshot.20250812.14080.0.vf2d5f78b
+sdk-version: 3.4.0-snapshot.20250818.14100.0.v4e7b99ea
 build-options: 
 - --enable-interfaces=yes
 name: upgrade-iface-tests

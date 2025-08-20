@@ -637,6 +637,19 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           fromP2ToP3Only.get() shouldBe 1
           fromP3ToP2Only.get() shouldBe 1
         }
+
+        // When sequencer1 processes the removal of participant1's trust certificate, it will close participant1's
+        // subscription. participant1 will try to reconnect, but as sequencer1 answers with `CLIENT_AUTHENTICATION_REJECTED`,
+        // participant1 will eventually disconnect from this synchronizer.
+        // Wait for this disconnection to happen.
+        eventually() {
+          // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
+          simClock.advance(JDuration.ofSeconds(1))
+
+          participant1.synchronizers.is_connected(
+            initializedSynchronizers(daName).synchronizerId
+          ) shouldBe false
+        }
       },
       forEvery(_) { entry =>
         entry.message should (include(
@@ -693,10 +706,9 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           synchronizerId = initializedSynchronizers(acmeName).synchronizerId,
           change = TopologyChangeOp.Remove,
         )
-        val clock = env.environment.simClock.value
         eventually() {
           // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-          clock.advance(JDuration.ofSeconds(1))
+          simClock.advance(JDuration.ofSeconds(1))
 
           participant2.synchronizers.is_connected(
             initializedSynchronizers(acmeName).synchronizerId

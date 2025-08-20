@@ -402,7 +402,7 @@ final class AssignmentProcessingStepsTest
         contractInstance = ExampleTransactionFactory.contractInstance(),
         ledgerTime = CreationTime.CreatedAt(CantonTimestamp.Epoch.toLf),
         metadata = ContractMetadata.tryCreate(Set(party3), Set(party3), None),
-      )
+      )()
 
       val unassignmentData2 = ReassignmentStoreTest.mkUnassignmentDataForSynchronizer(
         sourceMediator,

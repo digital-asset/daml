@@ -33,7 +33,7 @@ import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Versioned}
+import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -381,16 +381,11 @@ class DAMLe(
             case Left(abort) => FutureUnlessShutdown.pure(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
-        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-          val unusedTxVersion = LfLanguageVersion.StableVersions(LfLanguageVersion.Major.V2).max
-          val metadata = ContractMetadata.tryCreate(
-            signatories = signatories,
-            stakeholders = signatories ++ observers,
-            maybeKeyWithMaintainersVersioned = keyOpt.map(k => Versioned(unusedTxVersion, k)),
+        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
+          throw new UnsupportedOperationException(
+            s"This callback is no longer used and will be removed in a future release [$unexpected]"
           )
-          contracts.verifyMetadata(coid, metadata).value.flatMap { verification =>
-            handleResultInternal(contracts, resume(verification))
-          }
+
         case ResultPrefetch(_, _, resume) =>
           // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
           handleResultInternal(contracts, resume())

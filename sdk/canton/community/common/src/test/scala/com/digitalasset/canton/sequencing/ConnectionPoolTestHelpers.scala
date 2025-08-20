@@ -106,6 +106,7 @@ trait ConnectionPoolTestHelpers {
   protected def mkDummyConnectionConfig(
       index: Int,
       endpointIndexO: Option[Int] = None,
+      expectedSequencerIdO: Option[SequencerId] = None,
   ): ConnectionXConfig = {
     val endpoint = Endpoint(s"does-not-exist-${endpointIndexO.getOrElse(index)}", Port.tryCreate(0))
     ConnectionXConfig(
@@ -113,15 +114,17 @@ trait ConnectionPoolTestHelpers {
       endpoint = endpoint,
       transportSecurity = false,
       customTrustCertificates = None,
+      expectedSequencerIdO = expectedSequencerIdO,
       tracePropagation = TracingConfig.Propagation.Disabled,
     )
   }
 
   protected def withConnection[V](
-      testResponses: TestResponses
+      testResponses: TestResponses,
+      expectedSequencerIdO: Option[SequencerId] = None,
   )(f: (InternalSequencerConnectionX, TestHealthListener) => V): V = {
     val stubFactory = new TestSequencerConnectionXStubFactory(testResponses, loggerFactory)
-    val config = mkDummyConnectionConfig(0)
+    val config = mkDummyConnectionConfig(0, expectedSequencerIdO = expectedSequencerIdO)
 
     val connection = new GrpcInternalSequencerConnectionX(
       config,

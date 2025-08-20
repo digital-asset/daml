@@ -465,7 +465,8 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
   def restart(node: BftNodeId): Unit = {
     require(isCrashed)
     val system = new SimulationModuleSystem(nodeCollector, loggerFactory)
-    logger.info("Initializing modules again to simulate restart")
+    logger.info("Clearing connection state and initializing modules again to simulate restart")
+    init.p2pGrpcConnectionState.clear()
     val _ = init
       .systemInitializerFactory(onboardingManager.provide(ProvideForRestart, node))
       .initialize(system, _ => simulationP2PNetworkManager)

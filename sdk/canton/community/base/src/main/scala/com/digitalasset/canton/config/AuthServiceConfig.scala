@@ -58,10 +58,12 @@ object AuthServiceConfig {
       override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]): JwtVerifier =
-      HMAC256Verifier(secret.unwrap, jwtTimestampLeeway).valueOr(err =>
-        throw new IllegalArgumentException(
-          s"Failed to create HMAC256 verifier (secret: $secret): $err"
-        )
+      HMAC256Verifier(secret.unwrap, jwtTimestampLeeway).fold(
+        err =>
+          throw new IllegalArgumentException(
+            s"Failed to create HMAC256 verifier (secret: $secret): $err"
+          ),
+        identity,
       )
 
     override def create(
@@ -93,7 +95,10 @@ object AuthServiceConfig {
   ) extends AuthServiceConfig {
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = RSA256Verifier
       .fromCrtFile(certificate, jwtTimestampLeeway)
-      .valueOr(err => throw new IllegalArgumentException(s"Failed to create RSA256 verifier: $err"))
+      .fold(
+        err => throw new IllegalArgumentException(s"Failed to create RSA256 verifier: $err"),
+        identity,
+      )
 
     override def create(
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
@@ -125,8 +130,9 @@ object AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA256(_, null), jwtTimestampLeeway)
-      .valueOr(err =>
-        throw new IllegalArgumentException(s"Failed to create ECDSA256 verifier: $err")
+      .fold(
+        err => throw new IllegalArgumentException(s"Failed to create ECDSA256 verifier: $err"),
+        identity,
       )
 
     override def create(
@@ -159,8 +165,9 @@ object AuthServiceConfig {
     @SuppressWarnings(Array("org.wartremover.warts.Null"))
     private def verifier(jwtTimestampLeeway: Option[JwtTimestampLeeway]) = ECDSAVerifier
       .fromCrtFile(certificate, Algorithm.ECDSA512(_, null), jwtTimestampLeeway)
-      .valueOr(err =>
-        throw new IllegalArgumentException(s"Failed to create ECDSA512 verifier: $err")
+      .fold(
+        err => throw new IllegalArgumentException(s"Failed to create ECDSA512 verifier: $err"),
+        identity,
       )
 
     override def create(

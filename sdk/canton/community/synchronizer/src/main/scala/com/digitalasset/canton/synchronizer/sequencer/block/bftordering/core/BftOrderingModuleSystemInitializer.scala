@@ -95,6 +95,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
     orderingTopologyProvider: OrderingTopologyProvider[E],
     blockSubscription: BlockSubscription,
     sequencerSnapshotAdditionalInfo: Option[SequencerSnapshotAdditionalInfo],
+    p2pNetworkOutModuleState: P2PNetworkOutModule.State,
     clock: Clock,
     random: Random,
     metrics: BftOrderingMetrics,
@@ -213,6 +214,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
           )
           val p2PNetworkOutModule = new P2PNetworkOutModule(
             bootstrapTopologyInfo.thisNode,
+            p2pNetworkOutModuleState,
             stores.p2pEndpointsStore,
             metrics,
             dependencies,

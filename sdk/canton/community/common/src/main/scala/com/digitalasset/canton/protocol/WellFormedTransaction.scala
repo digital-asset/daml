@@ -10,7 +10,7 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.ActionDescription
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
-import com.digitalasset.canton.protocol.WellFormedTransaction.State
+import com.digitalasset.canton.protocol.WellFormedTransaction.Stage
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, LfTransactionUtil, MonadUtil}
@@ -27,16 +27,16 @@ import scala.collection.mutable
   *   - All node Ids are non-negative.
   *   - The type parameter `S` determines whether all create nodes have suffixed IDs or none.
   *   - Create nodes have unique contract ids of shape
-  *     `com.digitalasset.daml.lf.value.Value.ContractId.V1`.
+  *     `com.digitalasset.daml.lf.value.Value.ContractId`.
   *   - The contract id of a create node is not referenced before the node.
-  *   - The contract id of a rolled back create node is not referenced outside its rollback scope.
-  *   - The discriminators of create nodes without suffixed contract ids are unique among all
-  *     discriminators that appear in the transaction.
+  *   - The contract id of a rolled back create node is not referenced outside its rollback scope in
+  *     an active-contracts position.
+  *   - The unsuffixed local contract IDs of create nodes are unique among all local prefixes that
+  *     appear in the transaction.
   *   - Every action node has at least one signatory.
   *   - Every signatory is also a stakeholder.
   *   - Fetch actors are defined.
   *   - All created contract instances and choice arguments in the transaction can be serialized.
-  *   - All nodes in the transaction have the `optLocation` field set to `None`.
   *   - [[metadata]] contains seeds exactly for those node IDs from `tx` that should have a seed
   *     (creates and exercises).
   *   - Keys of transaction nodes don't contain contract IDs.
@@ -44,14 +44,13 @@ import scala.collection.mutable
   *   - ByKey nodes have a key.
   *   - All parties referenced by the transaction can be converted to
   *     [[com.digitalasset.canton.topology.PartyId]]
-  *   - The transaction has the `optUsedPackages` set to [[scala.None$]]
   *   - Every rollback node has at least one child and no rollback node appears at the root unless
   *     the transaction has been merged by Canton.
   */
-final case class WellFormedTransaction[+S <: State] private (
+final case class WellFormedTransaction[+S <: Stage] private (
     private val tx: LfVersionedTransaction,
     metadata: TransactionMetadata,
-)(state: S) {
+)(stage: S) {
   def unwrap: LfVersionedTransaction = tx
 
   def withoutVersion: LfTransaction = tx.transaction
@@ -81,47 +80,66 @@ final case class WellFormedTransaction[+S <: State] private (
       val adjustedMetadata = metadata.copy(
         seeds = metadata.seeds.map { case (nodeId, seed) => adjustNodeId(nodeId) -> seed }
       )
-      new WellFormedTransaction(adjustedTx, adjustedMetadata)(state)
+      new WellFormedTransaction(adjustedTx, adjustedMetadata)(stage)
     }
   }
 }
 
 object WellFormedTransaction {
 
-  /** Determines whether the IDs of created contracts in a transaction are suffixed */
-  sealed trait State extends Product with Serializable {
+  /** Determines whether the IDs of created contracts in a transaction are suffixed and whether the
+    * suffix must be absolute, and whether the transactions have been merged.
+    */
+  sealed trait Stage extends Product with Serializable {
     def withSuffixes: Boolean
+    def onlyAbsoluteSuffixes: Boolean
     def merged: Boolean
   }
 
   /** All IDs of created contracts must have empty suffixes. */
-  case object WithoutSuffixes extends State {
+  case object WithoutSuffixes extends Stage {
     override def withSuffixes: Boolean = false
+    override def onlyAbsoluteSuffixes: Boolean = false
     override def merged: Boolean = false
   }
   type WithoutSuffixes = WithoutSuffixes.type
 
-  /** All IDs of created contracts must have non-empty suffixes, but transaction not yet merged. */
-  case object WithSuffixes extends State {
+  /** All IDs of created contracts must have non-empty suffixes, possibly relative. The transaction
+    * not yet merged.
+    */
+  case object WithSuffixes extends Stage {
     override def withSuffixes: Boolean = true
+    override def onlyAbsoluteSuffixes: Boolean = false
     override def merged: Boolean = false
   }
   type WithSuffixes = WithSuffixes.type
 
-  /** All IDs of created contracts must have non-empty suffixes and transaction has been "merged".
+  /** All IDs of created contracts must have non-empty absolute suffixes. The transaction not yet
+    * merged.
     */
-  case object WithSuffixesAndMerged extends State {
+  case object WithAbsoluteSuffixes extends Stage {
     override def withSuffixes: Boolean = true
+    override def onlyAbsoluteSuffixes: Boolean = true
+    override def merged: Boolean = false
+  }
+  type WithAbsoluteSuffixes = WithAbsoluteSuffixes.type
+
+  /** All IDs of created contracts must have non-empty absolute suffixes and transaction has been
+    * "merged".
+    */
+  case object WithSuffixesAndMerged extends Stage {
+    override def withSuffixes: Boolean = true
+    override def onlyAbsoluteSuffixes: Boolean = true
     override def merged: Boolean = true
   }
   type WithSuffixesAndMerged = WithSuffixesAndMerged.type
 
   /** Creates a [[WellFormedTransaction]] if possible or an error message otherwise.
     */
-  private def check[S <: State](
+  def check[S <: Stage](
       tx: LfVersionedTransaction,
       metadata: TransactionMetadata,
-      state: S,
+      stage: S,
   ): Either[String, WellFormedTransaction[S]] = {
 
     val result = for {
@@ -129,18 +147,18 @@ object WellFormedTransaction {
       _ <- checkNonNegativeNodeIds(tx)
       _ <- checkSeeds(tx, metadata.seeds)
       _ <- checkByKeyNodes(tx)
-      _ <- checkCreatedContracts(tx, state)
+      _ <- checkCreatedContracts(tx, stage)
       _ <- checkFetchActors(tx)
       _ <- checkSignatoriesAndStakeholders(tx)
       _ <- checkNoContractIdsInKeysAndNonemptyMaintainers(tx)
       _ <- checkPartyNames(tx)
       _ <- checkSerialization(tx)
-      _ <- checkRollbackNodes(tx, state)
+      _ <- checkRollbackNodes(tx, stage)
     } yield tx
 
     result.toEitherMergeNonaborts.bimap(
       _.toList.sorted.mkString(", "),
-      new WellFormedTransaction(_, metadata)(state),
+      new WellFormedTransaction(_, metadata)(stage),
     )
   }
 
@@ -212,80 +230,85 @@ object WellFormedTransaction {
 
   private def checkCreatedContracts(
       tx: LfVersionedTransaction,
-      state: State,
+      stage: Stage,
   ): Checked[Nothing, String, Unit] = {
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var rbContext = RollbackContext.empty
     val referenced = mutable.Map.empty[LfContractId, LfNodeId]
     val created = mutable.Map.empty[LfContractId, (LfNodeId, RollbackScope)]
-    val createdBareDiscriminators = mutable.Map.empty[LfHash, LfNodeId]
-    val referencedDiscriminators =
-      mutable.Map.empty[LfHash, LfNodeId] // used only if create nodes have no suffixes
+    val createdBareLocals = mutable.Map.empty[LocalContractId, LfNodeId]
+
+    // used only in stages without suffixes
+    // TODO(#23971) Decide whether this check still makes sense as it's stricter than what Daml Engine enforces nowadays.
+    val referencedLocalContracts = mutable.Map.empty[LocalContractId, LfNodeId]
+
     val suffixViolations = mutable.ListBuffer.newBuilder[LfNodeId]
+    val absoluteSuffixViolatons = mutable.ListBuffer.newBuilder[LfContractId]
 
-    def addReference(nodeId: LfNodeId, byLfValue: Boolean = false)(
+    // Check that references to a locally created contract are within the rollback scope of the creation.
+    // Must only be checked for inputs to a node because reference inside an LF value can happen,
+    // e.g., if the contract ID escapes its rollback scope via exceptions.
+    def checkRollbackVisibility(nodeId: LfNodeId)(
         refId: LfContractId
-    ): Checked[Nothing, String, Unit] = {
-      // Check that references to contract id created by this transaction are visible in rollback scope.
-      val rbCheck =
-        if (
-          !byLfValue // byLfValue references can happen, e.g. if a daml exception is made to carry a contract id of a rolled-back create
-          && created.contains(refId)
-        ) {
-          val referenceRbScope = rbContext.rollbackScope
-          val (_nodeId, createdScope) = created(refId)
-          Checked.fromEitherNonabort(())(
-            Either.cond(
-              referenceRbScope.startsWith(createdScope),
-              (),
-              s"Contract $refId created in rollback scope ${createdScope
-                  .mkString(".")} referenced outside of visible rollback scope ${referenceRbScope.mkString(".")}",
-            )
+    ): Checked[Nothing, String, Unit] =
+      created.get(refId).traverse_ { case (createNodeId, createdScope) =>
+        val referenceRbScope = rbContext.rollbackScope
+        Checked.fromEitherNonabort(())(
+          Either.cond(
+            referenceRbScope.startsWith(createdScope),
+            (),
+            s"Contract $refId created node with $createNodeId in rollback scope ${createdScope
+                .mkString(".")} referenced outside in rollback scope ${referenceRbScope.mkString(".")} of node $nodeId",
           )
-        } else Checked.unit
-
-      referenced += (refId -> nodeId)
-
-      val suffixCheck = refId match {
-        case cidV1: LfContractId.V1 =>
-          val discriminator = cidV1.discriminator
-          if (!state.withSuffixes)
-            referencedDiscriminators += (discriminator -> nodeId)
-          if (cidV1.suffix.nonEmpty) {
-            Checked.fromEitherNonabort(())(
-              createdBareDiscriminators
-                .get(discriminator)
-                .toLeft(())
-                .leftMap(createNodeId =>
-                  s"Contract discriminator ${discriminator.toHexString} created in $createNodeId is not fresh due to contract Id ${cidV1.coid} in $nodeId"
-                )
-            )
-          } else Checked.unit
-        case _ => Checked.unit
+        )
       }
 
-      rbCheck.product(suffixCheck).void
+    def addReference(nodeId: LfNodeId)(
+        refId: LfContractId
+    ): Checked[Nothing, String, Unit] = {
+      referenced += (refId -> nodeId)
+
+      val localPrefix = LocalContractId.extractFromContractId(refId)
+      if (!stage.withSuffixes)
+        referencedLocalContracts += (localPrefix -> nodeId)
+      if (stage.onlyAbsoluteSuffixes && !refId.isAbsolute)
+        absoluteSuffixViolatons += refId
+      if (!refId.isLocal) {
+        Checked.fromEitherNonabort(())(
+          createdBareLocals
+            .get(localPrefix)
+            .toLeft(())
+            .leftMap(createNodeId =>
+              s"Local contract Id $localPrefix created in $createNodeId is not fresh due to contract Id ${refId.coid} in $nodeId"
+            )
+        )
+      } else Checked.unit
     }
 
     def addReferencesByLfValue(
         nodeId: LfNodeId,
         refIds: LazyList[LfContractId],
     ): Checked[Nothing, String, Unit] =
-      refIds.traverse_(addReference(nodeId, byLfValue = true))
+      refIds.traverse_(addReference(nodeId))
 
     LfTransactionUtil
       .foldExecutionOrderM(tx.transaction, ()) { (nodeId, nodeExercise, _) =>
-        val argRefs = LfTransactionUtil.referencedContractIds(nodeExercise.chosenValue)
-        addReference(nodeId)(nodeExercise.targetCoid).flatMap(_ =>
-          addReferencesByLfValue(nodeId, argRefs.to(LazyList))
-        )
+        val argRefs = nodeExercise.chosenValue.cids
+        checkRollbackVisibility(nodeId)(nodeExercise.targetCoid)
+          .product(addReference(nodeId)(nodeExercise.targetCoid))
+          .product(addReferencesByLfValue(nodeId, argRefs.to(LazyList)))
+          .void
       } {
         case (nodeId, nf: LfNodeFetch, _) =>
-          addReference(nodeId)(nf.coid)
+          checkRollbackVisibility(nodeId)(nf.coid)
+            .product(addReference(nodeId)(nf.coid))
+            .void
         case (nodeId, lookup: LfNodeLookupByKey, _) =>
-          lookup.result.traverse_(addReference(nodeId))
+          lookup.result.traverse_ { cid =>
+            checkRollbackVisibility(nodeId)(cid).product(addReference(nodeId)(cid).void)
+          }
         case (nodeId, nc: LfNodeCreate, _) =>
-          val argRefs = LfTransactionUtil.referencedContractIds(nc.arg)
+          val argRefs = nc.arg.cids
           for {
             _ <- addReferencesByLfValue(nodeId, argRefs.to(LazyList))
             _ <- referenced.get(nc.coid).traverse_ { otherNodeId =>
@@ -295,37 +318,26 @@ object WellFormedTransaction {
             }
             _ <- created.put(nc.coid, (nodeId, rbContext.rollbackScope)).traverse_ {
               case (otherNodeId, _otherRbScope) =>
-                Checked
-                  .continue(
-                    s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId"
-                  )
-            }
-            _ <- nc.coid match {
-              case cidV1: LfContractId.V1 =>
-                val discriminator = cidV1.discriminator
-                if (cidV1.suffix.isEmpty == state.withSuffixes)
-                  suffixViolations += nodeId
-                if (cidV1.suffix.isEmpty && !state.withSuffixes) {
-                  createdBareDiscriminators += (discriminator -> nodeId)
-                  referencedDiscriminators
-                    .get(discriminator)
-                    .traverse_ { otherNodeId =>
-                      Checked.continue(
-                        s"Contract discriminator ${discriminator.toHexString} created in $nodeId is not fresh due to $otherNodeId"
-                      )
-                    }
-                } else Checked.result(())
-              case _ =>
                 Checked.continue(
-                  s"Created contract id ${nc.coid.coid} in $nodeId is not of version V1"
+                  s"Contract id ${nc.coid.coid} is created in nodes $otherNodeId and $nodeId"
                 )
             }
+            _ = if (nc.coid.isLocal == stage.withSuffixes) suffixViolations += nodeId else ()
+            _ <-
+              if (nc.coid.isLocal && !stage.withSuffixes) {
+                val localContractId = LocalContractId.extractFromContractId(nc.coid)
+                createdBareLocals += (localContractId -> nodeId)
+                referencedLocalContracts
+                  .get(localContractId)
+                  .traverse_ { otherNodeId =>
+                    Checked.continue(
+                      s"Local contract Id $localContractId created in $nodeId is not fresh due to $otherNodeId"
+                    )
+                  }
+              } else Checked.result(())
           } yield ()
       } { (nodeId, ne, _) =>
-        val resultRefs =
-          ne.exerciseResult
-            .map(value => LfTransactionUtil.referencedContractIds(value))
-            .getOrElse(Set.empty)
+        val resultRefs = ne.exerciseResult.map(_.cids).getOrElse(Set.empty)
         addReferencesByLfValue(nodeId, resultRefs.to(LazyList))
       } { (_, _, _) =>
         rbContext = rbContext.enterRollback
@@ -334,20 +346,30 @@ object WellFormedTransaction {
         rbContext = rbContext.exitRollback
         Checked.unit
       }
-      .product {
+      .flatMap { _ =>
         val suffixProblems = suffixViolations.result()
         Checked.fromEitherNonabort(())(
           Either.cond(
             suffixProblems.isEmpty,
             (),
-            if (state.withSuffixes)
+            if (stage.withSuffixes)
               s"Created contracts of nodes lack suffixes: ${suffixProblems.map(_.index).mkString(", ")}"
             else
               s"Created contracts have suffixes in nodes ${suffixProblems.map(_.index).mkString(", ")}",
           )
         )
       }
-      .void
+      .flatMap { _ =>
+        val absoluteSuffixProblems = absoluteSuffixViolatons.result()
+        Checked.fromEitherNonabort(())(
+          Either.cond(
+            absoluteSuffixProblems.isEmpty,
+            (),
+            s"Contract IDs without absolute suffixes: ${absoluteSuffixProblems.mkString(", ")}",
+          )
+        )
+      }
+
   }
 
   private def checkNoContractIdsInKeysAndNonemptyMaintainers(
@@ -460,7 +482,7 @@ object WellFormedTransaction {
 
   private def checkRollbackNodes(
       tx: LfVersionedTransaction,
-      state: State,
+      stage: Stage,
   ): Checked[Nothing, String, Unit] =
     for {
       // check that root nodes of "unmerged transactions" never include rollback node (should have been peeled off by DAMLe.reinterpret)
@@ -468,7 +490,7 @@ object WellFormedTransaction {
       // rollback nodes described by the ViewParticipantData.rollbackContext and "duplicate" rollback nodes reintroduced
       // by DAMLe.reinterpret.
       _ <-
-        if (state.merged) Checked.unit
+        if (stage.merged) Checked.unit
         else
           Checked.fromEitherNonabort(())(
             Either.cond(
@@ -485,20 +507,6 @@ object WellFormedTransaction {
           Checked.continue(s"Rollback node $nodeId does not have children")
         }
     } yield ()
-
-  /** Creates a [[WellFormedTransaction]], with the fields `optLocation` set to [[scala.None$]]
-    * (because these fields are not preserved on serialization/deserialization).
-    *
-    * @return
-    *   A well-formed transaction, or an error message if the transaction is not well-formed after
-    *   the `optLocation` have been removed.
-    */
-  def normalizeAndCheck[S <: State](
-      lfTransaction: LfVersionedTransaction,
-      metadata: TransactionMetadata,
-      state: S,
-  ): Either[String, WellFormedTransaction[S]] =
-    check(lfTransaction, metadata, state)
 
   sealed trait InvalidInput
   object InvalidInput extends {
@@ -519,20 +527,18 @@ object WellFormedTransaction {
       )
     } yield ()
 
-  /** Creates a [[WellFormedTransaction]], with the fields `optLocation` set to [[scala.None$]]
-    * (because these fields are not preserved on serialization/deserialization).
+  /** Creates a [[WellFormedTransaction]]
     *
     * @throws java.lang.IllegalArgumentException
-    *   if the given transaction is malformed after the `optLocation` have been removed.
+    *   if the given transaction is malformed
     */
-  def normalizeAndAssert[S <: State](
+  def checkOrThrow[S <: Stage](
       lfTransaction: LfVersionedTransaction,
       metadata: TransactionMetadata,
       state: S,
   ): WellFormedTransaction[S] =
-    normalizeAndCheck(lfTransaction, metadata, state)
-      .leftMap(err => throw new IllegalArgumentException(err))
-      .merge
+    check(lfTransaction, metadata, state)
+      .valueOr(err => throw new IllegalArgumentException(err))
 
   /** Merges a list of well-formed transactions into one, adjusting node IDs as necessary. All
     * transactions must have the same version.
@@ -549,7 +555,7 @@ object WellFormedTransaction {
     */
   def merge(
       transactionsWithRollbackScope: NonEmpty[
-        Seq[WithRollbackScope[WellFormedTransaction[WithSuffixes]]]
+        Seq[WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]]]
       ]
   ): Either[String, WellFormedTransaction[WithSuffixesAndMerged]] = {
     val mergedNodes = HashMap.newBuilder[LfNodeId, LfNode]
@@ -577,7 +583,7 @@ object WellFormedTransaction {
       version = protocol.maxTransactionVersion(versions)
       _ <- MonadUtil
         .foldLeftM[Either[String, *], (Int, List[(RollbackSibling, LfNodeId)]), WithRollbackScope[
-          WellFormedTransaction[WithSuffixes]
+          WellFormedTransaction[WithAbsoluteSuffixes]
         ]](
           (0, List.empty), // start after node-id 0 with empty rollback scope
           transactionsWithRollbackScope.toList,
@@ -649,7 +655,7 @@ object WellFormedTransaction {
       )
       mergedMetadata = TransactionMetadata(ledgerTime, preparationTime, mergedSeeds.result())
       // TODO(M98) With tighter conditions on freshness of contract IDs, we shouldn't need this check.
-      result <- normalizeAndCheck(wrappedTx, mergedMetadata, WithSuffixesAndMerged)
+      result <- check(wrappedTx, mergedMetadata, WithSuffixesAndMerged)
     } yield result
   }
 }

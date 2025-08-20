@@ -60,6 +60,7 @@ import scala.util.{Failure, Success, Try}
 
 private[bftordering] final class P2PGrpcConnectionManager(
     thisNode: BftNodeId,
+    p2pGrpcConnectionState: P2PGrpcConnectionState, // Owns it and closes it
     // None if authentication is disabled
     authenticationInitialState: Option[AuthenticationInitialState],
     p2pConnectionEventListener: P2PConnectionEventListener,
@@ -78,27 +79,24 @@ private[bftordering] final class P2PGrpcConnectionManager(
   private val connectExecutionContext = ExecutionContext.fromExecutor(connectExecutor)
   private val connectWorkers =
     mutable.Map[P2PEndpoint.Id, (ManagedChannel, FutureUnlessShutdown[Unit])]()
-  private val peerSenders =
-    mutable.Map[P2PEndpoint.Id, StreamObserver[BftOrderingMessage]]()
-  private val serverPeerSenders = mutable.Set[StreamObserver[BftOrderingMessage]]()
   private val channels = mutable.Map[P2PEndpoint.Id, ManagedChannel]()
   private val grpcSequencerClientAuths = mutable.Map[P2PEndpoint.Id, GrpcSequencerClientAuth]()
 
-  // Called by the client network manager when establishing a connection to an endpoint
+  // Called by the connection-managing actor when establishing a connection to an endpoint
   def getPeerSenderOrStartConnection(
       p2pEndpoint: P2PEndpoint
   )(implicit traceContext: TraceContext): Option[StreamObserver[BftOrderingMessage]] = {
     val p2pEndpointId = p2pEndpoint.id
     if (!isClosing) {
-      mutex(this)(peerSenders.get(p2pEndpointId)) match {
+      p2pGrpcConnectionState.getClientPeerSender(p2pEndpointId) match {
         case found @ Some(_) =>
           // A sender may be present due to an incoming connection, so we need to stop trying to connect
           logger.debug(s"Found existing sender for $p2pEndpointId")
-          signalConnectWorkerToStop(p2pEndpointId)
+          mutex(this)(signalConnectWorkerToStop(p2pEndpointId))
           found
         case _ =>
           logger.debug(s"No sender found for $p2pEndpointId")
-          ensureConnectWorker(p2pEndpoint)
+          mutex(this)(ensureConnectWorker(p2pEndpoint))
           None
       }
     } else {
@@ -115,14 +113,14 @@ private[bftordering] final class P2PGrpcConnectionManager(
   // - close().
   def closeConnection(p2pEndpointId: P2PEndpoint.Id)(implicit traceContext: TraceContext): Unit = {
     logger.info(s"Closing connection to $p2pEndpointId")
+    p2pGrpcConnectionState.removeClientPeerSender(p2pEndpointId).foreach { peerSender =>
+      logger.debug(
+        s"Sender $peerSender to $p2pEndpointId found, notifying disconnection and closing it"
+      )
+      p2pConnectionEventListener.onDisconnect(p2pEndpointId)
+      completeGrpcStreamObserver(peerSender)
+    }
     mutex(this) {
-      peerSenders.remove(p2pEndpointId).foreach { peerSender =>
-        logger.debug(
-          s"Sender $peerSender to $p2pEndpointId found, notifying disconnection and closing it"
-        )
-        p2pConnectionEventListener.onDisconnect(p2pEndpointId)
-        completeGrpcStreamObserver(peerSender)
-      }
       signalConnectWorkerToStop(p2pEndpointId)
       logger.debug(s"Closing gRPC sequencer client auth to $p2pEndpointId")
       grpcSequencerClientAuths.remove(p2pEndpointId).foreach(_.close())
@@ -141,18 +139,25 @@ private[bftordering] final class P2PGrpcConnectionManager(
       .await(
         "bft-ordering-grpc-networking-state-client-close",
         logFailing = Some(Level.WARN),
-      )(Future.sequence(mutex(this)(peerSenders.keys.toSeq).map { peerEndpoint =>
-        Future(closeConnection(peerEndpoint))
-      }))
+      )(
+        asyncCloseClientConnectionState
+      )
       .discard
     logger.debug("Shutting down gRPC channels")
     mutex(this)(channels.values.toSeq).foreach(_.shutdown().discard)
     logger.debug("Shutting down connection executor")
     connectExecutor.shutdown()
     logger.debug("Cleaning up server peer senders")
-    serverPeerSenders.foreach(cleanupServerPeerSender)
+    p2pGrpcConnectionState.cleanupServerPeerSenders(cleanupServerPeerSender)
     logger.debug("Closed P2P networking (client role)")
   }
+
+  private def asyncCloseClientConnectionState(implicit traceContext: TraceContext) =
+    Future.sequence(
+      p2pGrpcConnectionState.knownP2PEndpointIds.map(p2pEndpointId =>
+        Future(closeConnection(p2pEndpointId))
+      )
+    )
 
   private def ensureConnectWorker(
       p2pEndpoint: P2PEndpoint
@@ -232,9 +237,8 @@ private[bftordering] final class P2PGrpcConnectionManager(
     //  by all network infrastructure, but we still want to be able to authenticate both ends with TLS.
     //  TLS support is however only about transport security; message-level authentication relies on
     //  signatures with keys registered in the Canton topology, that are unrelated to the TLS certificates.
-    mutex(this) {
-      peerSenders.put(p2pEndpointId, peerSender).discard
-    }
+
+    p2pGrpcConnectionState.setClientPeerSender(p2pEndpointId, peerSender).discard
     p2pConnectionEventListener.onConnect(p2pEndpointId)
     p2pConnectionEventListener.onSequencerId(
       p2pEndpointId,
@@ -510,7 +514,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
   // Called by the gRPC server when receiving a connection
   private def addServerPeerSender(peerSender: StreamObserver[BftOrderingMessage]): Unit =
     mutex(this) {
-      serverPeerSenders.add(peerSender).discard
+      p2pGrpcConnectionState.addServerPeerSender(peerSender).discard
     }
 
   // Called by the gRPC server endpoint when receiving an error or a completion from a client
@@ -519,9 +523,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
   )(implicit traceContext: TraceContext): Unit = {
     logger.debug(s"Completing and removing peer sender $peerSender")
     completeGrpcStreamObserver(peerSender)
-    mutex(this) {
-      serverPeerSenders.remove(peerSender).discard
-    }
+    p2pGrpcConnectionState.removeServerPeerSender(peerSender).discard
   }
 }
 

@@ -181,7 +181,7 @@ class SequencedEventTestFixture(
     }
     val envelope = ClosedEnvelope.create(
       serializedOverride.getOrElse(
-        EnvelopeContent.tryCreate(message, testedProtocolVersion).toByteString
+        EnvelopeContent(message, testedProtocolVersion).toByteString
       ),
       Recipients.cc(subscriberId),
       Seq.empty,

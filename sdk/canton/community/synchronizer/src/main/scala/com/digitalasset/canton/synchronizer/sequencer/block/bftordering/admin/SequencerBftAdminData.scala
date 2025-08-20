@@ -147,19 +147,21 @@ object SequencerBftAdminData {
   }
   object PeerConnectionStatus {
 
-    final case class PeerEndpointIdStatus(
+    final case class PeerEndpointStatus(
         p2pEndpointId: P2PEndpoint.Id,
+        isOutgoingConnection: Boolean,
         health: PeerEndpointHealth,
     ) extends PeerConnectionStatus {
 
-      override val pretty: Pretty[PeerEndpointIdStatus] =
+      override val pretty: Pretty[PeerEndpointStatus] =
         prettyOfClass(param("p2pEndpointId", _.p2pEndpointId), param("health", _.health))
 
       def toProto: ProtoPeerConnectionStatus =
         ProtoPeerConnectionStatus(
-          ProtoPeerConnectionStatus.Status.PeerEndpointIdStatus(
+          ProtoPeerConnectionStatus.Status.PeerEndpointStatus(
             ProtoPeerEndpointStatus(
               Some(endpointIdToProto(p2pEndpointId)),
+              isOutgoingConnection,
               Some(
                 ProtoPeerEndpointHealth(
                   health.status match {
@@ -237,8 +239,8 @@ object SequencerBftAdminData {
       response.statuses
         .map(_.status)
         .map {
-          case ProtoPeerConnectionStatus.Status.PeerEndpointIdStatus(
-                ProtoPeerEndpointStatus(endpointId, health)
+          case ProtoPeerConnectionStatus.Status.PeerEndpointStatus(
+                ProtoPeerEndpointStatus(endpointId, isOutgoingConnection, health)
               ) =>
             for {
               protoEndpointId <- endpointId.toRight("Endpoint ID is missing")
@@ -272,8 +274,9 @@ object SequencerBftAdminData {
                 case _ =>
                   Left("Health status is empty")
               }
-            } yield PeerConnectionStatus.PeerEndpointIdStatus(
+            } yield PeerConnectionStatus.PeerEndpointStatus(
               endpointId,
+              isOutgoingConnection,
               PeerEndpointHealth(healthStatus, healthDescription),
             )
           case ProtoPeerConnectionStatus.Status.PeerIncomingConnection(authenticated) =>

@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
@@ -181,7 +180,7 @@ final class TopologyPackageMapBuilder(
       synchronizerId -> partiesParticipants.view.map { case (party, hostingParticipants) =>
         val vettingStateIntersection = hostingParticipants.view
           .map(participantId =>
-            canton.checked(participantVettingState(synchronizerId)(participantId))
+            participantVettingState(synchronizerId).getOrElse(participantId, Set.empty)
           )
           // We only care about packages vetted on all hosting participants
           // Otherwise, a transaction using them will be rejected

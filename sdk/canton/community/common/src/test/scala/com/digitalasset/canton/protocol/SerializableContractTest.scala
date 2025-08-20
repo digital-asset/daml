@@ -59,7 +59,8 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             ExampleTransactionFactory.contractInstance(Seq(contractId)),
             metadata,
             CreationTime.CreatedAt(CantonTimestamp.now().toLf),
-            someContractSalt,
+          )(
+            ContractAuthenticationDataV1(someContractSalt)(AuthenticatedContractIdVersionV11)
           )
           val sci = SerializableContract.fromLfFatContractInst(ci.inst).value
           SerializableContract.fromProtoVersioned(

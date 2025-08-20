@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
@@ -209,6 +210,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )
   val packageResolver: PackageResolver = _ => _ => FutureUnlessShutdown.pure(Some(genPackage))
 
+  val pureCrypto = new SymbolicPureCrypto()
+
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
     new ModelConformanceChecker(
       reinterpretCommand,
@@ -217,6 +220,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       submittingParticipant,
       DummyContractAuthenticator,
       packageResolver,
+      pureCrypto,
       loggerFactory,
     )
 

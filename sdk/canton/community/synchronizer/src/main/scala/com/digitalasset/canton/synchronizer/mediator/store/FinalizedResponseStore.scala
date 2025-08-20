@@ -245,7 +245,7 @@ private[mediator] class DbFinalizedResponseStore(
     )
   implicit val setParameterMediatorConfirmationRequest: SetParameter[MediatorConfirmationRequest] =
     (r: MediatorConfirmationRequest, pp: PositionedParameters) =>
-      pp >> EnvelopeContent.tryCreate(r, protocolVersion).toByteArray
+      pp >> EnvelopeContent(r, protocolVersion).toByteArray
 
   override def store(
       finalizedResponse: FinalizedResponse
