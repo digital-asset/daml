@@ -97,7 +97,6 @@ da_scala_library(
     srcs = glob(["base/daml-jwt/src/main/scala/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     scala_deps = [
-        "@maven//:org_scalaz_scalaz_core",
     ],
     tags = ["maven_coordinates=com.daml:jwt:__VERSION__"],
     visibility = ["//visibility:public"],
@@ -123,7 +122,6 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatest_scalatest_flatspec",
         "@maven//:org_scalactic_scalactic",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -144,7 +142,6 @@ da_scala_test(
         "@maven//:org_scalatest_scalatest_matchers_core",
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [
         ":base_daml-jwt",
