@@ -289,7 +289,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
 
       // TODO(#23902): Might be good to have the crypto handshake part of connection validation as well
 
-      info <- stub
+      synchronizerAndSequencerIds <- stub
         .getSynchronizerAndSequencerIds(
           retryPolicy = retryPolicy(retryOnUnavailable = true),
           logPolicy = CantonGrpcUtil.SilentLogPolicy,
@@ -297,6 +297,16 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         .leftMap[SequencerConnectionXInternalError](
           SequencerConnectionXInternalError.StubError.apply
         )
+      (synchronizerId, sequencerId) = synchronizerAndSequencerIds
+      _ <- EitherT.cond[FutureUnlessShutdown](
+        config.expectedSequencerIdO.forall(_ == sequencerId),
+        (),
+        SequencerConnectionXInternalError.ValidationError(
+          s"Connection is not on expected sequencer:" +
+            s" expected ${config.expectedSequencerIdO}, got $sequencerId"
+        ),
+      )
+
       params <- stub
         .getStaticSynchronizerParameters(
           retryPolicy = retryPolicy(retryOnUnavailable = true),
@@ -305,10 +315,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
         .leftMap[SequencerConnectionXInternalError](
           SequencerConnectionXInternalError.StubError.apply
         )
-    } yield {
-      val (synchronizerId, sequencerId) = info
-      ConnectionAttributes(synchronizerId, sequencerId, params)
-    }
+    } yield ConnectionAttributes(synchronizerId, sequencerId, params)
 
     resultET.fold(handleFailedValidation, handleSuccessfulValidation)
   }

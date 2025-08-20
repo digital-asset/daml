@@ -298,6 +298,21 @@ class SymbolicPureCrypto extends CryptoPureApi {
       random
   }
 
+  private[crypto] def computeHmacWithSecretInternal(
+      secret: ByteString,
+      message: ByteString,
+      algorithm: HmacAlgorithm = defaultHmacAlgorithm,
+  ): Either[HmacError, Hmac] = {
+    // We just hash the secret and message, then truncate/pad to desired length
+    val combined = secret.concat(message)
+    val hash = TestHash.build.addWithoutLengthPrefix(combined).finish()
+    val hmacBytes = ByteStringUtil.padOrTruncate(
+      hash.unwrap,
+      NonNegativeInt.tryCreate(algorithm.hashAlgorithm.length.toInt),
+    )
+    Hmac.create(hmacBytes, algorithm)
+  }
+
   override def deriveSymmetricKey(
       password: String,
       symmetricKeyScheme: SymmetricKeyScheme,

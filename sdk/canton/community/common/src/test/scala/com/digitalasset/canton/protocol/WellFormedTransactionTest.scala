@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol
 
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.WellFormedTransaction.{State, WithSuffixes, WithoutSuffixes}
+import com.digitalasset.canton.protocol.WellFormedTransaction.{Stage, WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPackageName, LfPartyId}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.value.Value
@@ -49,7 +49,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
   private def nid(i: Int): String = """NodeId\(""" + i.toString + """.*\)"""
 
   val malformedExamples
-      : TableFor4[String, (LfVersionedTransaction, TransactionMetadata), State, String] =
+      : TableFor4[String, (LfVersionedTransaction, TransactionMetadata), Stage, String] =
     Table(
       ("Description", "Transaction and seeds", "Suffixing", "Expected Error Message"),
       (
@@ -155,7 +155,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           ),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0000000000000000000000000000000000000000000000000000000000000000 created in ${nid(0)} is not fresh due to ${nid(0)}",
+        s"Local contract Id 000000000000000000000000000000000000000000000000000000000000000000 created in ${nid(0)} is not fresh due to ${nid(0)}",
       ),
       (
         "Unsuffixed discriminator is used earlier with suffix",
@@ -165,7 +165,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           createNode(unsuffixedId(0)),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0000000000000000000000000000000000000000000000000000000000000000 created in ${nid(1)} is not fresh due to ${nid(0)}",
+        s"Local contract Id 000000000000000000000000000000000000000000000000000000000000000000 created in ${nid(1)} is not fresh due to ${nid(0)}",
       ),
       (
         "Unsuffixed discriminator is used with suffix in later node",
@@ -176,7 +176,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           fetchNode(suffixedId(1, -1)),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
+        s"Local contract Id 000001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
             0
           )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(2)}",
       ),
@@ -194,7 +194,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           ),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
+        s"Local contract Id 000001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
             0
           )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(1)}",
       ),
@@ -302,7 +302,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
     )
 
   // Well-formed transactions are mostly covered by ExampleTransactionFactoryTest. So we test only a special cases here.
-  val wellformedExamples: TableFor3[String, (LfVersionedTransaction, TransactionMetadata), State] =
+  val wellformedExamples: TableFor3[String, (LfVersionedTransaction, TransactionMetadata), Stage] =
     Table(
       ("Description", "Transaction and seeds", "Suffixing"),
       (
@@ -323,11 +323,11 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
         description must {
           "be reported as malformed" in {
             WellFormedTransaction
-              .normalizeAndCheck(transaction, metadata, state)
+              .check(transaction, metadata, state)
               .left
               .value should fullyMatch regex expectedError
             an[IllegalArgumentException] must be thrownBy
-              WellFormedTransaction.normalizeAndAssert(transaction, metadata, WithoutSuffixes)
+              WellFormedTransaction.checkOrThrow(transaction, metadata, WithoutSuffixes)
           }
         }
     }
@@ -336,7 +336,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
       description must {
         "be accepted as well-formed" in {
           WellFormedTransaction
-            .normalizeAndCheck(transaction, metadata, state)
+            .check(transaction, metadata, state)
             .value shouldBe a[WellFormedTransaction[_]]
         }
       }

@@ -21,7 +21,10 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 }
 import com.digitalasset.canton.participant.store.ContractLookup
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
+import com.digitalasset.canton.protocol.WellFormedTransaction.{
+  WithAbsoluteSuffixes,
+  WithoutSuffixes,
+}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -75,10 +78,11 @@ trait TransactionTreeFactory {
       contractOfId: ContractInstanceOfId,
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
+      absolutizer: ContractIdAbsolutizer,
   )(implicit traceContext: TraceContext): EitherT[
     FutureUnlessShutdown,
     TransactionTreeConversionError,
-    (TransactionView, WellFormedTransaction[WithSuffixes]),
+    (TransactionView, WellFormedTransaction[WithAbsoluteSuffixes]),
   ]
 
   /** Extracts the salts for the view from a transaction view tree. The salts appear in the same

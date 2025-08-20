@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol
 
+import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -179,7 +180,11 @@ final class GeneratorsProtocol(
     Arbitrary(SerializableRawContractInstance.create(contractInstance).value)
   }
 
-  private lazy val unicumGenerator: UnicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
+  private def contractIdVersion: CantonContractIdV1Version = AuthenticatedContractIdVersionV11
+
+  private lazy val symbolicCrypto: CryptoPureApi = new SymbolicPureCrypto()
+  private lazy val contractIdSuffixer: ContractIdSuffixer =
+    new ContractIdSuffixer(symbolicCrypto, contractIdVersion)
 
   {
     // If this pattern match is not exhaustive anymore, update the method below
@@ -191,9 +196,7 @@ final class GeneratorsProtocol(
   }
   def serializableContractArb(
       metadata: ContractMetadata
-  ): Arbitrary[SerializableContract] = {
-    val contractIdVersion = AuthenticatedContractIdVersionV11
-
+  ): Arbitrary[SerializableContract] =
     Arbitrary(
       for {
         rawContractInstance <- Arbitrary.arbitrary[SerializableRawContractInstance]
@@ -205,35 +208,41 @@ final class GeneratorsProtocol(
         saltIndex <- Gen.choose(Int.MinValue, Int.MaxValue)
         transactionUUID <- Gen.uuid
 
-        (computedSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-          psid = psid,
-          mediator = mediatorGroup,
-          transactionUuid = transactionUUID,
-          viewPosition = ViewPosition(List.empty),
-          viewParticipantDataSalt = TestSalt.generateSalt(saltIndex),
-          createIndex = 0,
-          ledgerCreateTime = ledgerCreateTime,
-          metadata = metadata,
-          suffixedContractInstance = rawContractInstance.contractInstance.unversioned,
-          cantonContractIdVersion = contractIdVersion,
-        )
-
         index <- Gen.posNum[Int]
         contractIdDiscriminator = ExampleTransactionFactory.lfHash(index)
 
-        contractId = contractIdVersion.fromDiscriminator(
-          contractIdDiscriminator,
-          unicum,
+        salt = ContractSalt.create(symbolicCrypto)(
+          transactionUUID,
+          psid,
+          mediatorGroup,
+          TestSalt.generateSalt(saltIndex),
+          createIndex = 0,
+          ViewPosition(List.empty),
         )
+        unsuffixedContractId = LfContractId.V1(contractIdDiscriminator)
+        unsuffixedCreateNode = LfNodeCreate(
+          unsuffixedContractId,
+          rawContractInstance.contractInstance,
+          metadata.signatories,
+          metadata.stakeholders,
+          metadata.maybeKeyWithMaintainers,
+        )
+        ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
+          contractIdSuffixer
+            .relativeSuffixForLocalContract(
+              salt,
+              ledgerCreateTime,
+              unsuffixedCreateNode,
+            )
+            .valueOr(err => throw new IllegalArgumentException(s"Failed to suffix contract: $err"))
       } yield SerializableContract(
-        contractId,
+        suffixedCreateNode.coid,
         rawContractInstance,
         metadata,
         ledgerCreateTime,
-        authenticationData = ContractAuthenticationDataV1(computedSalt.unwrap)(contractIdVersion),
+        authenticationData,
       )
     )
-  }
 
   def serializableContractArb(
       canHaveEmptyKey: Boolean

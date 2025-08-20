@@ -99,6 +99,7 @@ class TransactionProcessor(
           ContractAuthenticator(crypto.pureCrypto),
           participantId,
           packageResolver,
+          crypto.pureCrypto,
           loggerFactory,
         ),
         staticSynchronizerParameters,

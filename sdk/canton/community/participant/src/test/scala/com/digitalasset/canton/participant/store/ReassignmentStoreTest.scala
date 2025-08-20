@@ -1382,7 +1382,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       contractInstance = contractInstance(),
       ledgerTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
       metadata = ContractMetadata.tryCreate(Set(signatory), Set(signatory), None),
-    )
+    )()
 
   val coidAbs1 = suffixedId(1, 0)
   val coidAbs2 = suffixedId(2, 0)
@@ -1390,7 +1390,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     contractId = coidAbs1,
     contractInstance = contractInstance(),
     ledgerTime = CreationTime.CreatedAt(LfTimestamp.Epoch),
-  )
+  )()
 
   val synchronizer1 = SynchronizerId(
     UniqueIdentifier.tryCreate("synchronizer1", "SYNCHRONIZER1")

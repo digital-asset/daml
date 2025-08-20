@@ -22,7 +22,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.syntax.foldable.*
-import scalaz.syntax.show.*
 import scalaz.syntax.tag.*
 import scalaz.{NonEmptyList, \/-}
 import spray.json.*
@@ -130,7 +129,10 @@ object CommandServiceTest extends BaseTest {
         ),
         "secret",
       )
-      .fold(e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.shows}"), identity)
+      .fold(
+        e => throw new IllegalArgumentException(s"cannot sign a JWT: ${e.prettyPrint}"),
+        identity,
+      )
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))

@@ -81,12 +81,13 @@ message PeerEndpointHealth {
 
 message PeerEndpointStatus {
   PeerEndpointId endpoint_id = 1;
-  PeerEndpointHealth health = 2;
+  bool is_outgoing_connection = 2;
+  PeerEndpointHealth health = 3;
 }
 
 message PeerConnectionStatus {
   oneof status {
-    PeerEndpointStatus peer_endpoint_id_status = 1;
+    PeerEndpointStatus peer_endpoint_status = 1;
     Authenticated peer_incoming_connection = 2;
   }
 }

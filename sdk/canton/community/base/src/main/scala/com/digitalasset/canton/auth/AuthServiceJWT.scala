@@ -128,7 +128,6 @@ abstract class AuthServiceJWTBase(
       token <- JwtFromBearerHeader(header)
       decoded <- verifier
         .verify(com.daml.jwt.Jwt(token))
-        .toEither
         .left
         .map(e => Error(Symbol("parseJWTPayload"), "Could not verify JWT token: " + e.message))
       parsed <- parsePayload(decoded.payload)

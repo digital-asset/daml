@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
+import cats.syntax.either.*
 import com.daml.ledger.api.v2 as proto
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
@@ -48,13 +49,14 @@ import com.digitalasset.canton.ledger.api.validation.{StricterValueValidator, Va
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config, protocol}
+import com.digitalasset.canton.{BaseTest, ReassignmentCounter, config}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import org.scalatest.Assertion
 
 import java.util.UUID
@@ -164,7 +166,10 @@ class ActiveContractsIntegrationTest
     val cantonContractIdVersion = AuthenticatedContractIdVersionV11
 
     val pureCrypto = participant1.underlying.map(_.cryptoPureApi).value
-    val unicumGenerator = new UnicumGenerator(pureCrypto)
+    val contractIdSuffixer = new ContractIdSuffixer(pureCrypto, cantonContractIdVersion)
+    val ledgerCreateTime = CreationTime.CreatedAt(env.environment.clock.now.toLf)
+    val contractIdAbsolutizer =
+      new ContractIdAbsolutizer(pureCrypto, ContractIdAbsolutizationDataV1)
 
     val createIou = new Iou(
       signatory.toProtoPrimitive,
@@ -179,63 +184,36 @@ class ActiveContractsIntegrationTest
     val lfTemplate = ValueValidator
       .validateIdentifier(Identifier.fromJavaProto(Iou.TEMPLATE_ID_WITH_PACKAGE_ID.toProto))
       .getOrElse(throw new IllegalStateException)
-
-    val signatories = Set(signatory.toLf)
-    val observers = Set(observer.toLf)
-
-    val contractMetadata =
-      ContractMetadata.tryCreate(signatories, signatories ++ observers, None)
-
     val packageName = Ref.PackageName.assertFromString("CantonExamples")
 
-    val contractInst = LfThinContractInst(
-      packageName = packageName,
-      template = lfTemplate,
-      arg = Versioned(protocol.DummyTransactionVersion, lfArguments),
-    )
-
-    val ledgerCreateTime = env.environment.clock.now
-    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      psid = psid,
-      mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
-      transactionUuid = new UUID(1L, 1L),
-      viewPosition = ViewPosition(List.empty),
-      viewParticipantDataSalt = TestSalt.generateSalt(1),
-      createIndex = 0,
-      ledgerCreateTime = CreationTime.CreatedAt(ledgerCreateTime.toLf),
-      metadata = contractMetadata,
-      suffixedContractInstance = contractInst.unversioned,
-      cantonContractIdVersion,
-    )
-    val authenticationData =
-      ContractAuthenticationDataV1(contractSalt.unwrap)(cantonContractIdVersion)
-
-    lazy val contractId = cantonContractIdVersion.fromDiscriminator(
-      ExampleTransactionFactory.lfHash(1337),
-      unicum,
-    )
-
-    val createNode = TestNodeBuilder.create(
-      id = contractId,
+    val unsuffixedContractId = LfContractId.V1(ExampleTransactionFactory.lfHash(1337))
+    val unsuffixedCreateNode = TestNodeBuilder.create(
+      id = unsuffixedContractId,
       templateId = lfTemplate,
       argument = lfArguments,
-      signatories = signatories,
-      observers = observers,
+      signatories = Set(signatory.toLf),
+      observers = Set(observer.toLf),
       packageName = packageName,
     )
 
-    val repairContract = RepairContract(
-      psid,
-      contract = LfFatContractInst.fromCreateNode(
-        createNode,
-        CreationTime.CreatedAt(ledgerCreateTime.toLf),
-        authenticationData.toLfBytes,
-      ),
-      ReassignmentCounter(0),
+    val contractSalt = ContractSalt.create(pureCrypto)(
+      transactionUuid = new UUID(1L, 1L),
+      psid = psid,
+      mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
+      viewParticipantDataSalt = TestSalt.generateSalt(1),
+      createIndex = 0,
+      viewPosition = ViewPosition(List.empty),
     )
+    val ContractIdSuffixer.RelativeSuffixResult(suffixedCreateNode, _, _, authenticationData) =
+      contractIdSuffixer
+        .relativeSuffixForLocalContract(contractSalt, ledgerCreateTime, unsuffixedCreateNode)
+        .valueOr(err => fail("Failed to create contract suffix: " + err))
+    val suffixedFci = LfFatContractInst
+      .fromCreateNode(suffixedCreateNode, ledgerCreateTime, authenticationData.toLfBytes)
+    val absolutizedFci = contractIdAbsolutizer.absolutizeFci(suffixedFci).value
+    val repairContract = RepairContract(psid, absolutizedFci, ReassignmentCounter(0))
 
-    val startOffset =
-      participant1.ledger_api.state.end()
+    val startOffset = participant1.ledger_api.state.end()
     participant1.synchronizers.disconnect_all()
 
     participant1.repair.add(

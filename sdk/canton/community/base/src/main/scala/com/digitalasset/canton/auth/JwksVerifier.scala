@@ -14,10 +14,9 @@ import com.daml.jwt.{
   JwtVerifier,
   JwtVerifierBase,
   RSA256Verifier,
+  WithExecuteUnsafe,
 }
 import com.google.common.cache.{Cache, CacheBuilder}
-import scalaz.syntax.show.*
-import scalaz.{-\/, Show, \/}
 
 import java.net.{URI, URL}
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
@@ -55,7 +54,8 @@ class JwksVerifier(
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-) extends JwtVerifierBase {
+) extends JwtVerifierBase
+    with WithExecuteUnsafe {
 
   private[this] val http =
     new UrlJwkProvider(
@@ -73,7 +73,7 @@ class JwksVerifier(
   @SuppressWarnings(
     Array("org.wartremover.warts.Null")
   )
-  private[this] def getVerifier(keyId: String): Error \/ JwtVerifier =
+  private[this] def getVerifier(keyId: String): Either[Error, JwtVerifier] =
     try {
       val jwk = http.get(keyId)
       val publicKey = jwk.getPublicKey
@@ -84,29 +84,39 @@ class JwksVerifier(
         case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 521 =>
           ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway)
         case key =>
-          -\/(Error(Symbol("getVerifier"), s"Unsupported public key format ${key.getFormat}"))
+          Left(
+            Error(
+              Symbol("JwksVerifier.getVerifier"),
+              s"Unsupported public key format ${key.getFormat}",
+            )
+          )
       }
     } catch {
-      case e: JwkException => -\/(Error(Symbol("getVerifier"), s"Couldn't get jwk from http: $e"))
+      case e: JwkException =>
+        Left(Error(Symbol("JwksVerifier.getVerifier"), s"Couldn't get jwk from http: $e"))
       case _: Throwable =>
-        -\/(Error(Symbol("getVerifier"), s"Unknown error while getting jwk from http"))
+        Left(
+          Error(Symbol("JwksVerifier.getVerifier"), s"Unknown error while getting jwk from http")
+        )
     }
 
   /** Looks up the verifier for the given keyId from the local cache. On a cache miss, creates a new
     * verifier by fetching the public key from the JWKS URL.
     */
-  private[this] def getCachedVerifier(keyId: String): Error \/ JwtVerifier =
+  private[this] def getCachedVerifier(keyId: String): Either[Error, JwtVerifier] =
     if (keyId == null)
-      -\/(Error(Symbol("getCachedVerifier"), "No Key ID found"))
+      Left(Error(Symbol("JwksVerifier.getCachedVerifier"), "No Key ID found"))
     else
-      \/.attempt(
-        cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.shows), x => x))
-      )(e => Error(Symbol("getCachedVerifier"), e.getMessage))
+      executeUnsafe(
+        cache.get(keyId, () => getVerifier(keyId).fold(e => sys.error(e.prettyPrint), x => x)),
+        Symbol("JwksVerifier.getCachedVerifier"),
+      )
 
-  def verify(jwt: Jwt): Error \/ DecodedJwt[String] =
+  def verify(jwt: Jwt): Either[Error, DecodedJwt[String]] =
     for {
-      keyId <- \/.attempt(com.auth0.jwt.JWT.decode(jwt.value).getKeyId)(e =>
-        Error(Symbol("verify"), e.getMessage)
+      keyId <- executeUnsafe(
+        com.auth0.jwt.JWT.decode(jwt.value).getKeyId,
+        Symbol("JwksVerifier.verify"),
       )
       verifier <- getCachedVerifier(keyId)
       decoded <- verifier.verify(jwt)
@@ -116,11 +126,4 @@ class JwksVerifier(
 object JwksVerifier {
   def apply(url: String, jwtTimestampLeeway: Option[JwtTimestampLeeway] = None) =
     new JwksVerifier(new URI(url).toURL, jwtTimestampLeeway = jwtTimestampLeeway)
-
-  final case class Error(what: Symbol, message: String)
-
-  object Error {
-    implicit val showInstance: Show[Error] =
-      Show.shows(e => s"JwksVerifier.Error: ${e.what}, ${e.message}")
-  }
 }

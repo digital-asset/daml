@@ -9,10 +9,13 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.P2PGrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.p2p.grpc.{
+  P2PGrpcConnectionState,
+  P2PGrpcNetworking,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
@@ -398,6 +401,7 @@ object SimulationModuleSystem {
         ClientMessageT,
         SystemInputMessageT,
       ],
+      p2pGrpcConnectionState: P2PGrpcConnectionState,
       initializeImmediately: Boolean = true,
   )
 
@@ -414,7 +418,8 @@ object SimulationModuleSystem {
           SimulationP2PNetworkManager[SystemNetworkMessageT],
           SystemNetworkMessageT,
           SystemInputMessageT,
-        ]
+        ],
+        p2pGrpcConnectionState: P2PGrpcConnectionState,
     ): SimulationInitializer[
       Unit,
       SystemNetworkMessageT,
@@ -424,6 +429,7 @@ object SimulationModuleSystem {
       SimulationInitializer(
         _ => systemInitializer,
         EmptyClient.initializer(loggerFactory, timeouts),
+        p2pGrpcConnectionState,
       )
   }
 

@@ -45,7 +45,7 @@ build --loading_phase_threads="HOST_CPUS*.5"
 fetch --loading_phase_threads="HOST_CPUS*.5"
 query --loading_phase_threads="HOST_CPUS*.5"
 sync --loading_phase_threads="HOST_CPUS*.5"
-build --local_cpu_resources="HOST_CPUS*.5"
+build --local_resources=cpu="HOST_CPUS*.5"
 
 # Enable sandboxing and caching for exclusive tests
 build --incompatible_exclusive_test_sandboxed

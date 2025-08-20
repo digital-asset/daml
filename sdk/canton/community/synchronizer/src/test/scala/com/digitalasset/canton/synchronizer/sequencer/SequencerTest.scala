@@ -15,11 +15,7 @@ import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.protocol.messages.{
-  EnvelopeContent,
-  ProtocolMessage,
-  UnsignedProtocolMessage,
-}
+import com.digitalasset.canton.protocol.messages.{EnvelopeContent, UnsignedProtocolMessage}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.sequencing.SequencedSerializedEvent
@@ -31,7 +27,10 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{InMemorySequencerSt
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
-import com.digitalasset.canton.version.RepresentativeProtocolVersion
+import com.digitalasset.canton.version.{
+  IgnoreInSerializationTestExhaustivenessCheck,
+  RepresentativeProtocolVersion,
+}
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
@@ -190,7 +189,9 @@ class SequencerTest
     }
   }
 
-  class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
+  class TestProtocolMessage()
+      extends UnsignedProtocolMessage
+      with IgnoreInSerializationTestExhaustivenessCheck {
     override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
@@ -261,11 +262,11 @@ class SequencerTest
 
         bobDeliverEvent.messageIdO shouldBe None
         bobDeliverEvent.batch.envelopes.map(_.bytes) should contain only
-          EnvelopeContent.tryCreate(message1, testedProtocolVersion).toByteString
+          EnvelopeContent(message1, testedProtocolVersion).toByteString
 
         caroleDeliverEvent.messageIdO shouldBe None
         caroleDeliverEvent.batch.envelopes.map(_.bytes) should contain only
-          EnvelopeContent.tryCreate(message2, testedProtocolVersion).toByteString
+          EnvelopeContent(message2, testedProtocolVersion).toByteString
       }
     }
   }

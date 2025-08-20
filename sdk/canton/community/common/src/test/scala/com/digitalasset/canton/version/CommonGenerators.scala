@@ -32,6 +32,10 @@ final class CommonGenerators(protocolVersion: ProtocolVersion) {
     )
   lazy val localVerdict = GeneratorsLocalVerdict(protocolVersion, lf)
   lazy val verdict = GeneratorsVerdict(protocolVersion, localVerdict)
+  lazy val trafficData = new GeneratorsTrafficData(
+    protocolVersion,
+    topology,
+  )
   lazy val generatorsMessages = new GeneratorsMessages(
     protocolVersion,
     data,
@@ -41,14 +45,12 @@ final class CommonGenerators(protocolVersion: ProtocolVersion) {
     verdict,
     topology,
     transaction,
+    trafficData,
   )
   lazy val generatorsProtocolSeq = new GeneratorsProtocolSequencing(
     protocolVersion,
     generatorsMessages,
     topology,
   )
-  lazy val trafficData = new GeneratorsTrafficData(
-    protocolVersion,
-    topology,
-  )
+
 }

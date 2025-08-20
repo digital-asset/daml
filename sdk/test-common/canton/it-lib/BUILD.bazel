@@ -21,7 +21,6 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:org_scalactic_scalactic",
         "@maven//:org_scalatest_scalatest_core",
-        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],

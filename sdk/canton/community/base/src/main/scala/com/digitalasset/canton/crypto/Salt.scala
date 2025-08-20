@@ -100,17 +100,15 @@ object Salt {
       seed: ByteString,
       bytes: ByteString,
       hmacOps: HmacOps,
-  ): Either[SaltError, Salt] =
+  ): Either[SaltError, Salt] = {
+    val saltAlgorithm = SaltAlgorithm.Hmac(hmacOps.defaultHmacAlgorithm)
     for {
-      pseudoSecret <- HmacSecret
-        .create(seed)
-        .leftMap(SaltError.HmacGenerationError.apply)
-      saltAlgorithm = SaltAlgorithm.Hmac(hmacOps.defaultHmacAlgorithm)
       hmac <- hmacOps
-        .hmacWithSecret(pseudoSecret, bytes, saltAlgorithm.hmacAlgorithm)
+        .computeHmacWithSecret(seed, bytes, saltAlgorithm.hmacAlgorithm)
         .leftMap(SaltError.HmacGenerationError.apply)
       salt <- create(hmac.unwrap, saltAlgorithm)
     } yield salt
+  }
 
   /** Derives a salt from a `seed` salt and an `index`. */
   def deriveSalt(seed: SaltSeed, index: Int, hmacOps: HmacOps): Either[SaltError, Salt] =

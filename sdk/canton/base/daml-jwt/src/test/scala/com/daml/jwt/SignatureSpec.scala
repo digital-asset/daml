@@ -7,15 +7,12 @@ import com.auth0.jwt.algorithms.Algorithm
 import org.scalactic.source
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.syntax.show.*
-import scalaz.{Show, \/}
 
 import java.security.KeyPair
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
 
 class SignatureSpec extends AnyWordSpec with Matchers {
-
   import SignatureSpec.*
 
   "Jwt" when {
@@ -51,7 +48,8 @@ class SignatureSpec extends AnyWordSpec with Matchers {
           verifier
             .verify(signedJwt)
             .swap
-            .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
+            .left
+            .map(jwt => fail(s"JWT $jwt was unexpectedly verified"))
         }
 
         success.isRight shouldBe true
@@ -100,7 +98,8 @@ class SignatureSpec extends AnyWordSpec with Matchers {
         verifier
           .verify(signedJwt)
           .swap
-          .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
+          .left
+          .map(jwt => fail(s"JWT $jwt was unexpectedly verified"))
       }
     }
 
@@ -148,7 +147,8 @@ class SignatureSpec extends AnyWordSpec with Matchers {
           verifier
             .verify(signedJwt)
             .swap
-            .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
+            .left
+            .map(jwt => fail(s"JWT $jwt was unexpectedly verified"))
         }
 
         success.isRight shouldBe true
@@ -198,7 +198,8 @@ class SignatureSpec extends AnyWordSpec with Matchers {
           verifier
             .verify(signedJwt)
             .swap
-            .leftMap(jwt => fail(s"JWT $jwt was unexpectedly verified"))
+            .left
+            .map(jwt => fail(s"JWT $jwt was unexpectedly verified"))
         }
 
         success.isRight shouldBe true
@@ -210,9 +211,9 @@ class SignatureSpec extends AnyWordSpec with Matchers {
 
 object SignatureSpec {
 
-  private implicit final class AssertRight[E, A](private val ea: E \/ A) extends AnyVal {
-    def assertRight(implicit E: Show[E], pos: source.Position) =
-      ea.valueOr(e => org.scalatest.Assertions.fail(e.shows))
+  private implicit final class AssertRight[A](private val ea: Either[Error, A]) extends AnyVal {
+    def assertRight(implicit pos: source.Position) =
+      ea.fold(e => org.scalatest.Assertions.fail(e.prettyPrint), identity)
   }
 
 }

@@ -120,6 +120,13 @@ final class SynchronizerCryptoPureApi(
 
   override protected[crypto] def defaultPbkdfScheme: PbkdfScheme = pureCrypto.defaultPbkdfScheme
 
+  override private[crypto] def computeHmacWithSecretInternal(
+      secret: ByteString,
+      message: ByteString,
+      algorithm: HmacAlgorithm,
+  ): Either[HmacError, Hmac] =
+    pureCrypto.computeHmacWithSecret(secret, message, algorithm)
+
   override def deriveSymmetricKey(
       password: String,
       symmetricKeyScheme: SymmetricKeyScheme,

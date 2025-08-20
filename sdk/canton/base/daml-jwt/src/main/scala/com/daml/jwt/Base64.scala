@@ -3,16 +3,7 @@
 
 package com.daml.jwt
 
-import scalaz.{Show, \/}
-
-private object Base64 {
-
-  final case class Error(what: Symbol, message: String)
-
-  object Error {
-    implicit val showInstance: Show[Error] =
-      Show.shows(e => s"Base64.Error: ${e.what}, ${e.message}")
-  }
+private object Base64 extends WithExecuteUnsafe {
 
   private val defaultEncoder = java.util.Base64.getUrlEncoder
 
@@ -20,19 +11,18 @@ private object Base64 {
 
   private val defaultDecoder = java.util.Base64.getUrlDecoder
 
-  def encode(bs: Array[Byte]): Error \/ Array[Byte] =
+  def encode(bs: Array[Byte]): Either[Error, Array[Byte]] =
     encode(defaultEncoder, bs)
 
-  def encodeWithoutPadding(bs: Array[Byte]): Error \/ Array[Byte] =
+  def encodeWithoutPadding(bs: Array[Byte]): Either[Error, Array[Byte]] =
     encode(encoderWithoutPadding, bs)
 
-  private def encode(encoder: java.util.Base64.Encoder, bs: Array[Byte]): Error \/ Array[Byte] =
-    \/.attempt(encoder.encode(bs))(e =>
-      Error(Symbol("encode"), "Cannot base64 encode a string. Cause: " + e.getMessage)
-    )
+  private def encode(
+      encoder: java.util.Base64.Encoder,
+      bs: Array[Byte],
+  ): Either[Error, Array[Byte]] =
+    executeUnsafe(encoder.encode(bs), Symbol("Base64.encode"))
 
-  def decode(base64str: String): Error \/ String =
-    \/.attempt(new String(defaultDecoder.decode(base64str)))(e =>
-      Error(Symbol("decode"), "Cannot base64 decode a string. Cause: " + e.getMessage)
-    )
+  def decode(base64str: String): Either[Error, String] =
+    executeUnsafe(new String(defaultDecoder.decode(base64str)), Symbol("Base64.decode"))
 }

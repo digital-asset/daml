@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
-import com.digitalasset.canton.protocol.WellFormedTransaction.WithSuffixes
+import com.digitalasset.canton.protocol.WellFormedTransaction.WithAbsoluteSuffixes
 import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.{
@@ -274,11 +274,11 @@ class WellFormedTransactionMergeTest
   private def inputTransaction(
       rbScope: RollbackScope,
       txTrees: TxTree*
-  ): WithRollbackScope[WellFormedTransaction[WithSuffixes]] =
+  ): WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]] =
     transactionHelper(txTrees*)(lfTx =>
       WithRollbackScope(
         rbScope,
-        WellFormedTransaction.normalizeAndAssert(
+        WellFormedTransaction.checkOrThrow(
           lfTx,
           TransactionMetadata(
             CantonTimestamp.Epoch,
@@ -287,7 +287,7 @@ class WellFormedTransactionMergeTest
               case (nid, node) if LfTransactionUtil.nodeHasSeed(node) => nid -> hasher()
             },
           ),
-          WithSuffixes,
+          WithAbsoluteSuffixes,
         ),
       )
     )
@@ -297,7 +297,7 @@ class WellFormedTransactionMergeTest
   )
 
   private def merge(
-      transactions: WithRollbackScope[WellFormedTransaction[WithSuffixes]]*
+      transactions: WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]]*
   ) =
     valueOrFail(
       WellFormedTransaction.merge(

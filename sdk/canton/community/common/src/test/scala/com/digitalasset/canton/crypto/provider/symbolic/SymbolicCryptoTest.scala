@@ -5,6 +5,8 @@ package com.digitalasset.canton.crypto.provider.symbolic
 
 import com.digitalasset.canton.crypto.{
   EncryptionTest,
+  HmacAlgorithm,
+  HmacTest,
   PasswordBasedEncryptionTest,
   PrivateKeySerializationTest,
   RandomTest,
@@ -17,6 +19,7 @@ class SymbolicCryptoTest
     extends AsyncWordSpec
     with SigningTest
     with EncryptionTest
+    with HmacTest
     with PrivateKeySerializationTest
     with PasswordBasedEncryptionTest
     with RandomTest {
@@ -42,6 +45,10 @@ class SymbolicCryptoTest
       SymbolicCryptoProvider.supportedEncryptionSpecs.algorithms.forgetNE,
       SymbolicCryptoProvider.supportedSymmetricKeySchemes,
       symbolicCrypto(),
+    )
+    behave like hmacProvider(
+      Set(HmacAlgorithm.HmacSha256),
+      symbolicCrypto().map(_.pureCrypto),
     )
     behave like privateKeySerializerProvider(
       SymbolicCryptoProvider.supportedSigningSpecs.keys.forgetNE,

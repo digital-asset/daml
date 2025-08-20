@@ -31,7 +31,7 @@ trait ExampleTransaction {
     *   if [[versionedUnsuffixedTransaction]] is malformed
     */
   def wellFormedUnsuffixedTransaction: WellFormedTransaction[WithoutSuffixes] =
-    WellFormedTransaction.normalizeAndAssert(
+    WellFormedTransaction.checkOrThrow(
       versionedUnsuffixedTransaction,
       metadata,
       WithoutSuffixes,
@@ -92,7 +92,7 @@ trait ExampleTransaction {
     *   if [[versionedSuffixedTransaction]] is malformed
     */
   def wellFormedSuffixedTransaction: WellFormedTransaction[WithSuffixes] =
-    WellFormedTransaction.normalizeAndAssert(versionedSuffixedTransaction, metadata, WithSuffixes)
+    WellFormedTransaction.checkOrThrow(versionedSuffixedTransaction, metadata, WithSuffixes)
 
   /** Yields brief description of this example, which must be suitable for naming test cases.as part
     * of usable to identify

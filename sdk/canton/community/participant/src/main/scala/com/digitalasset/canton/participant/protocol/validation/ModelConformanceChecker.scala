@@ -9,7 +9,7 @@ import cats.syntax.alternative.*
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{Hash, InteractiveSubmission}
+import com.digitalasset.canton.crypto.{Hash, HashOps, HmacOps, InteractiveSubmission}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewParticipantData.RootAction
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -23,17 +23,14 @@ import com.digitalasset.canton.participant.protocol.EngineController.{
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.TransactionTreeConversionError
-import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.{
-  ConflictingNameBindings,
-  PackageNotFound,
-  *,
-}
+import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
 import com.digitalasset.canton.participant.store.ExtendedContractLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.*
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.ContractIdAbsolutizer.ContractIdAbsolutizationDataV1
 import com.digitalasset.canton.protocol.WellFormedTransaction.{
-  WithSuffixes,
+  WithAbsoluteSuffixes,
   WithSuffixesAndMerged,
   WithoutSuffixes,
 }
@@ -68,6 +65,7 @@ class ModelConformanceChecker(
     val participantId: ParticipantId,
     val serializableContractAuthenticator: ContractAuthenticator,
     val packageResolver: PackageResolver,
+    val hashOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -107,7 +105,7 @@ class ModelConformanceChecker(
     ): FutureUnlessShutdown[
       (
           Seq[Error],
-          Seq[(TransactionView, WithRollbackScope[WellFormedTransaction[WithSuffixes]])],
+          Seq[(TransactionView, WithRollbackScope[WellFormedTransaction[WithAbsoluteSuffixes]])],
       )
     ] = views
       .parTraverse { case (view, viewPos, submittingParticipantO) =>
@@ -306,7 +304,7 @@ class ModelConformanceChecker(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, WithRollbackScope[
-    WellFormedTransaction[WithSuffixes]
+    WellFormedTransaction[WithAbsoluteSuffixes]
   ]] = {
     val submittingParticipantO = submitterMetadataO.map(_.submittingParticipant)
     val viewParticipantData = view.viewParticipantData.tryUnwrap
@@ -349,11 +347,12 @@ class ModelConformanceChecker(
       // which by the view equality check is the same as the `resolverFromView`.
       wfTx <- EitherT.fromEither[FutureUnlessShutdown](
         WellFormedTransaction
-          .normalizeAndCheck(lfTx, metadata, WithoutSuffixes)
+          .check(lfTx, metadata, WithoutSuffixes)
           .leftMap[Error](err => TransactionNotWellFormed(err, view.viewHash))
       )
 
       salts = transactionTreeFactory.saltsFromView(view)
+      absolutizer = new ContractIdAbsolutizer(hashOps, ContractIdAbsolutizationDataV1)
 
       reconstructedViewAndTx <- checked(
         transactionTreeFactory.tryReconstruct(
@@ -368,6 +367,7 @@ class ModelConformanceChecker(
           contractOfId =
             TransactionTreeFactory.contractInstanceLookup(contractLookupAndVerification),
           keyResolver = resolverFromReinterpretation,
+          absolutizer = absolutizer,
         )
       ).leftMap(err => TransactionTreeError(err, view.viewHash))
 
@@ -419,6 +419,7 @@ object ModelConformanceChecker {
       serializableContractAuthenticator: ContractAuthenticator,
       participantId: ParticipantId,
       packageResolver: PackageResolver,
+      hashOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): ModelConformanceChecker =
     new ModelConformanceChecker(
@@ -428,6 +429,7 @@ object ModelConformanceChecker {
       participantId,
       serializableContractAuthenticator,
       packageResolver,
+      hashOps,
       loggerFactory,
     )
 

@@ -7,7 +7,6 @@ import cats.{Monad, Order}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.nowarn
 
@@ -41,9 +40,6 @@ object LfTransactionUtil {
     case n: LfNodeLookupByKey => n.result
   }
 
-  /** All contract IDs referenced with a Daml `com.digitalasset.daml.lf.value.Value` */
-  def referencedContractIds(value: Value): Set[LfContractId] = value.cids
-
   /** Whether or not a node has a random seed */
   def nodeHasSeed(node: LfNode): Boolean = node match {
     case _: LfNodeCreate => true
@@ -54,8 +50,7 @@ object LfTransactionUtil {
   }
 
   private[this] def suffixForDiscriminator(
-      unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdV1Version,
+      suffixOfCreatedContract: LocalContractId => Option[RelativeContractIdSuffix]
   )(discriminator: LfHash): Bytes =
     /* If we can't find the discriminator we leave it unchanged,
      * because this could refer to an input contract of the transaction.
@@ -63,32 +58,32 @@ object LfTransactionUtil {
      * i.e., we suffix a discriminator either everywhere in the transaction or nowhere
      * even though the map from discriminators to unicum is built up in post-order of the nodes.
      */
-    unicumOfDiscriminator(discriminator).fold(Bytes.Empty)(_.toContractIdSuffix(cantonContractId))
+    suffixOfCreatedContract(LocalContractId.V1(discriminator))
+      .fold(Bytes.Empty)(_.toBytes)
+
+  private[this] def suffixForLocalPrefix(
+      suffixOfCreatedContract: LocalContractId => Option[RelativeContractIdSuffix]
+  )(localPrefix: Bytes): Bytes =
+    suffixOfCreatedContract(LocalContractId.V2(localPrefix))
+      .fold(Bytes.Empty)(_.toBytes)
 
   def suffixContractInst(
-      unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdV1Version,
+      suffixOfCreatedContract: LocalContractId => Option[RelativeContractIdSuffix]
   )(contractInst: LfThinContractInst): Either[String, LfThinContractInst] =
     contractInst.unversioned
       .suffixCid(
-        suffixForDiscriminator(unicumOfDiscriminator, cantonContractId),
-        unsupportedContractIDV2,
+        suffixForDiscriminator(suffixOfCreatedContract),
+        suffixForLocalPrefix(suffixOfCreatedContract),
       )
-      .map(unversionedContractInst => // traverse being added in daml-lf
-        contractInst.map(_ => unversionedContractInst)
-      )
+      .map(unversionedContractInst => contractInst.map(_ => unversionedContractInst))
 
   def suffixNode(
-      unicumOfDiscriminator: LfHash => Option[Unicum],
-      cantonContractId: CantonContractIdV1Version,
+      suffixOfCreatedContract: LocalContractId => Option[RelativeContractIdSuffix]
   )(node: LfActionNode): Either[String, LfActionNode] =
     node.suffixCid(
-      suffixForDiscriminator(unicumOfDiscriminator, cantonContractId),
-      unsupportedContractIDV2,
+      suffixForDiscriminator(suffixOfCreatedContract),
+      suffixForLocalPrefix(suffixOfCreatedContract),
     )
-
-  private def unsupportedContractIDV2(local: Bytes): Bytes =
-    throw new IllegalArgumentException(s"Unexpected contract ID V2: ${local.toHexString}")
 
   /** Monadic visit to all nodes of the transaction in execution order. Exercise nodes are visited
     * twice: when execution reaches them and when execution leaves their body. Crashes on malformed

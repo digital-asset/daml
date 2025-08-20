@@ -28,7 +28,10 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
+import com.digitalasset.canton.protocol.WellFormedTransaction.{
+  WithAbsoluteSuffixes,
+  WithoutSuffixes,
+}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.protocol.{
@@ -176,10 +179,11 @@ class TransactionConfirmationRequestFactoryTest
           contractOfId: ContractInstanceOfId,
           _rbContext: RollbackContext,
           _keyResolver: LfKeyResolver,
+          _absolutizer: ContractIdAbsolutizer,
       )(implicit traceContext: TraceContext): EitherT[
         FutureUnlessShutdown,
         TransactionTreeConversionError,
-        (TransactionView, WellFormedTransaction[WithSuffixes]),
+        (TransactionView, WellFormedTransaction[WithAbsoluteSuffixes]),
       ] = ???
 
       override def saltsFromView(view: TransactionView): Iterable[Salt] = ???

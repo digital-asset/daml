@@ -545,7 +545,7 @@ class CantonSyncService(
         //                      is already sanity checked wrt Canton TX normalization rules
         wfTransaction <- EitherT.fromEither[FutureUnlessShutdown](
           WellFormedTransaction
-            .normalizeAndCheck(transaction, metadata, WithoutSuffixes)
+            .check(transaction, metadata, WithoutSuffixes)
             .leftMap(RoutingInternalError.IllformedTransaction.apply)
         )
         submitted <- transactionRoutingProcessor.submitTransaction(

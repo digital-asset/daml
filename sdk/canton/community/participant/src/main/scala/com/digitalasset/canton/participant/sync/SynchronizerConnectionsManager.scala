@@ -403,7 +403,7 @@ private[sync] class SynchronizerConnectionsManager(
       )
 
       _ = logger.info(
-        s"Reconnecting to synchronizers ${configs.map(_.unwrap)}. Already connected: $connectedSynchronizers"
+        s"Reconnecting to synchronizers ${configs.map(_.unwrap)}. Already connected: ${connectedSynchronizers.psids}"
       )
       // step connect
       connected <- go(List(), configs.toList)
@@ -1354,6 +1354,7 @@ object SynchronizerConnectionsManager {
     override def isConnectedToAny: Boolean = connected.nonEmpty
 
     def lsids: Set[SynchronizerId] = lsidToPSId.keySet().asScala.toSet
+    def psids: Set[PhysicalSynchronizerId] = lsidToPSId.values().asScala.toSet
     def snapshot: Map[PhysicalSynchronizerId, ConnectedSynchronizer] = connected.toMap
 
     def tryAdd(connectedSynchronizer: ConnectedSynchronizer): Unit = {

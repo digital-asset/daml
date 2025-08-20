@@ -46,9 +46,13 @@ object DynamicValue {
     * We do not preserver recordId from gRPC versbose records, we do not consider them practically
     * useful
     */
-
   final case class Record(fields: IterableOnce[(Option[String], DynamicValue)]) extends Adt {
     override def inner: Any = fields
+    def normalized(): Record =
+      Record(fields.iterator.toSeq.reverse.dropWhile {
+        case (_, Optional(None)) => true
+        case _ => false
+      }.reverse)
   }
 
   implicit class RecordExtension(value: DynamicValue) {

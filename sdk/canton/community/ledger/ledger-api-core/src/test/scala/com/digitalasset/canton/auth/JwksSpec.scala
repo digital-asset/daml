@@ -5,14 +5,12 @@ package com.digitalasset.canton.auth
 
 import com.auth0.jwt.algorithms.Algorithm
 import com.daml.http.test.SimpleHttpServer
-import com.daml.jwt.{DecodedJwt, Jwt, JwtSigner, KeyUtils}
+import com.daml.jwt.{DecodedJwt, Error, Jwt, JwtSigner, KeyUtils}
 import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.Authenticity
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import scalaz.\/
-import scalaz.syntax.show.*
 
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
@@ -34,19 +32,20 @@ trait JwksSpec extends AnyFlatSpec with Matchers { self: JwksSpecKeys =>
       "Successfully verify against provided correct key by JWKS server"
     ) in {
     val token = generateToken("test-key-1", privateKey1)
-      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+      .fold(e => fail("Failed to generate signed token: " + e.prettyPrint), x => x)
     val result = verifier.verify(token)
 
     assert(
       result.isRight,
-      s"The correctly signed token should successfully verify, but the result was ${result.leftMap(e => e.shows)}",
+      s"The correctly signed token should successfully verify, but the result was ${result.left
+          .map(e => e.prettyPrint)}",
     )
   }
 
   it should "raise an error by verifying a token with an unknown key id" taggedAs securityAsset
     .setAttack(attack(threat = "Present an unknown key-id")) in {
     val token = generateToken("test-key-unknown", privateKey1)
-      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+      .fold(e => fail("Failed to generate signed token: " + e.prettyPrint), x => x)
     val result = verifier.verify(token)
 
     assert(result.isLeft, s"The token with an unknown key ID should not successfully verify")
@@ -57,7 +56,7 @@ trait JwksSpec extends AnyFlatSpec with Matchers { self: JwksSpecKeys =>
       attack(threat = "Present a known key-id, but not the one used for the token encryption")
     ) in {
     val token = generateToken("test-key-1", privateKey2)
-      .fold(e => fail("Failed to generate signed token: " + e.shows), x => x)
+      .fold(e => fail("Failed to generate signed token: " + e.prettyPrint), x => x)
     val result = verifier.verify(token)
 
     assert(
@@ -74,7 +73,10 @@ trait JwksSpecKeys {
 
   protected def kpg: KeyPairGenerator
   protected def jwks: String
-  protected def generateToken(keyId: String, privateKey: PrivateKeyType): JwtSigner.Error \/ Jwt
+  protected def generateToken(
+      keyId: String,
+      privateKey: PrivateKeyType,
+  ): Either[Error, Jwt]
 
   // Generate some RSA key pairs
   private val keyPair1 = kpg.generateKeyPair()
@@ -108,7 +110,10 @@ class JwksSpecRSA extends JwksSpec with JwksSpecKeys {
     )
   )
 
-  override def generateToken(keyId: String, privateKey: PrivateKeyType): JwtSigner.Error \/ Jwt = {
+  override def generateToken(
+      keyId: String,
+      privateKey: PrivateKeyType,
+  ): Either[Error, Jwt] = {
     val jwtPayload = s"""{"test": "JwksSpec"}"""
     val jwtHeader = s"""{"alg": "RS256", "typ": "JWT", "kid": "$keyId"}"""
     JwtSigner.RSA256.sign(DecodedJwt(jwtHeader, jwtPayload), privateKey)
@@ -133,7 +138,10 @@ class JwksSpecES256 extends JwksSpec with JwksSpecKeys {
     )
   )
 
-  protected def generateToken(keyId: String, privateKey: PrivateKeyType): JwtSigner.Error \/ Jwt = {
+  protected def generateToken(
+      keyId: String,
+      privateKey: PrivateKeyType,
+  ): Either[Error, Jwt] = {
     val jwtPayload = s"""{"test": "JwksSpec"}"""
     val jwtHeader = s"""{"alg": "ES256", "typ": "JWT", "kid": "$keyId"}"""
     JwtSigner.ECDSA.sign(DecodedJwt(jwtHeader, jwtPayload), privateKey, Algorithm.ECDSA256(null, _))
@@ -158,7 +166,10 @@ class JwksSpecES512 extends JwksSpec with JwksSpecKeys {
     )
   )
 
-  protected def generateToken(keyId: String, privateKey: PrivateKeyType): JwtSigner.Error \/ Jwt = {
+  protected def generateToken(
+      keyId: String,
+      privateKey: PrivateKeyType,
+  ): Either[Error, Jwt] = {
     val jwtPayload = s"""{"test": "JwksSpec"}"""
     val jwtHeader = s"""{"alg": "ES512", "typ": "JWT", "kid": "$keyId"}"""
     JwtSigner.ECDSA.sign(DecodedJwt(jwtHeader, jwtPayload), privateKey, Algorithm.ECDSA512(null, _))

@@ -3,13 +3,9 @@
 
 package com.daml.jwt
 
-import scalaz.Show
-
-final case class Error(what: Symbol, message: String)
-
-object Error {
-  implicit val showInstance: Show[Error] =
-    Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
+final case class Error(what: Symbol, message: String) {
+  def prettyPrint: String = s"Error: $what, $message"
+  def within(another: Symbol): Error = Error(what = another, message = s"($prettyPrint)")
 }
 
 final case class JwtException(error: Error) extends RuntimeException

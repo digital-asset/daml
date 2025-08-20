@@ -23,7 +23,10 @@ import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFa
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.RollbackContext.RollbackScope
-import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
+import com.digitalasset.canton.protocol.WellFormedTransaction.{
+  WithAbsoluteSuffixes,
+  WithoutSuffixes,
+}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -73,8 +76,10 @@ class TransactionTreeFactoryImpl(
     with NamedLogging {
 
   private val protocolVersion = synchronizerId.protocolVersion
-  private val unicumGenerator = new UnicumGenerator(cryptoOps)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
+  private val contractIdSuffixer: ContractIdSuffixer =
+    // TODO(#23971): Make this dependent on the protocol version when introducing V2 contract IDs
+    new ContractIdSuffixer(cryptoOps, cantonContractIdVersion)
   private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
 
   override def createTransactionTree(
@@ -511,55 +516,47 @@ class TransactionTreeFactoryImpl(
 
     val cantonContractInst = checked(
       LfTransactionUtil
-        .suffixContractInst(state.unicumOfCreatedContract, cantonContractIdVersion)(
-          createNode.versionedCoinst
-        )
-        .fold(
-          cid =>
-            throw new IllegalStateException(
-              s"Invalid contract id $cid found in contract instance of create node"
-            ),
-          Predef.identity,
+        .suffixContractInst(state.suffixOfCreatedContract)(createNode.versionedCoinst)
+        .valueOr(cid =>
+          throw new IllegalStateException(
+            s"Invalid contract id $cid found in contract instance of create node"
+          )
         )
     ).unversioned
+    val createNodeWithSuffixedArg = createNode.copy(arg = cantonContractInst.arg)
 
-    val discriminator = createNode.coid match {
-      case LfContractId.V1(discriminator, suffix) if suffix.isEmpty =>
-        discriminator
-      case _: LfContractId =>
-        throw new IllegalStateException(
-          s"Invalid contract id for created contract ${createNode.coid}"
-        )
-    }
-    val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
-    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
+    // TODO(#23971) Generalize this for Contract ID V2
+    val contractSalt = ContractSalt.create(cryptoOps)(
+      state.transactionUUID,
       synchronizerId,
       state.mediator,
-      state.transactionUUID,
-      viewPosition,
       viewParticipantDataSalt,
       createIndex,
-      CreationTime.CreatedAt(state.ledgerTime.toLf),
-      contractMetadata,
-      cantonContractInst,
-      cantonContractIdVersion,
+      viewPosition,
     )
+    val creationTime =
+      // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
+      CreationTime.CreatedAt(state.ledgerTime.toLf)
+    val ContractIdSuffixer.RelativeSuffixResult(
+      suffixedCreateNode,
+      localContractId,
+      relativeSuffix,
+      authenticationData,
+    ) = contractIdSuffixer
+      .relativeSuffixForLocalContract(
+        contractSalt,
+        creationTime,
+        createNodeWithSuffixedArg,
+      )
+      .valueOr(err => throw new IllegalArgumentException(s"Failed to compute contract ID: $err"))
 
-    val suffixedContractId = cantonContractIdVersion.fromDiscriminator(discriminator, unicum)
-
-    val suffixedCreateNode =
-      createNode.copy(coid = suffixedContractId, arg = cantonContractInst.arg)
+    state.setSuffixFor(localContractId, relativeSuffix)
 
     val inst = LfFatContractInst.fromCreateNode(
       create = suffixedCreateNode,
-      // TODO(#23971): Specialize this to `CreationTime.Now` once all locally created contracts use contract ID V2.
-      createTime = CreationTime.CreatedAt(state.ledgerTime.toLf),
-      authenticationData =
-        ContractAuthenticationDataV1(contractSalt.unwrap)(cantonContractIdVersion).toLfBytes,
+      createTime = creationTime,
+      authenticationData = authenticationData.toLfBytes,
     )
-
-    state.setUnicumFor(discriminator, unicum)
-
     val createdInfo = ContractInstance
       .create(inst)
       .valueOr(err =>
@@ -568,8 +565,7 @@ class TransactionTreeFactoryImpl(
         )
       )
 
-    state.setCreatedContractInfo(suffixedContractId, createdInfo)
-
+    state.setCreatedContractInfo(suffixedCreateNode.coid, createdInfo)
     state.addSuffixedNode(nodeId, suffixedCreateNode)
     suffixedCreateNode
   }
@@ -579,11 +575,8 @@ class TransactionTreeFactoryImpl(
   )(idAndNode: (LfNodeId, LfActionNode)): LfActionNode = {
     val (nodeId, node) = idAndNode
     val suffixedNode = LfTransactionUtil
-      .suffixNode(state.unicumOfCreatedContract, cantonContractIdVersion)(node)
-      .fold(
-        cid => throw new IllegalArgumentException(s"Invalid contract id $cid found"),
-        Predef.identity,
-      )
+      .suffixNode(state.suffixOfCreatedContract)(node)
+      .valueOr(cid => throw new IllegalArgumentException(s"Invalid contract id $cid found"))
     state.addSuffixedNode(nodeId, suffixedNode)
     suffixedNode
   }
@@ -839,18 +832,17 @@ class TransactionTreeFactoryImpl(
       contractOfId: ContractInstanceOfId,
       rbContext: RollbackContext,
       keyResolver: LfKeyResolver,
+      absolutizer: ContractIdAbsolutizer,
   )(implicit traceContext: TraceContext): EitherT[
     FutureUnlessShutdown,
     TransactionTreeConversionError,
-    (TransactionView, WellFormedTransaction[WithSuffixes]),
+    (TransactionView, WellFormedTransaction[WithAbsoluteSuffixes]),
   ] = {
     /* We ship the root node of the view with suffixed contract IDs.
      * If this is a create node, reinterpretation will allocate an unsuffixed contract id instead of the one given in the node.
      * If this is an exercise node, the exercise result may contain unsuffixed contract ids created in the body of the exercise.
      * Accordingly, the reinterpreted transaction must first be suffixed before we can compare it against
      * the shipped views.
-     * Ideally we'd ship only the inputs needed to reconstruct the transaction rather than computed data
-     * such as exercise results and created contract IDs.
      */
 
     ErrorUtil.requireArgument(
@@ -879,8 +871,7 @@ class TransactionTreeFactoryImpl(
       decomposition = checked(decompositions.head)
       view <- createView(decomposition, rootPosition, state, contractOfId)
         .mapK(FutureUnlessShutdown.outcomeK)
-    } yield {
-      val suffixedNodes = state.suffixedNodes() transform {
+      suffixedNodes = state.suffixedNodes() transform {
         // Recover the children
         case (nodeId, ne: LfNodeExercises) =>
           checked(subaction.unwrap.nodes(nodeId)) match {
@@ -895,16 +886,25 @@ class TransactionTreeFactoryImpl(
       }
 
       // keep around the rollback nodes (not suffixed as they don't have a contract id), so that we don't orphan suffixed nodes.
-      val rollbackNodes = subaction.unwrap.nodes.collect { case tuple @ (_, _: LfNodeRollback) =>
+      rollbackNodes = subaction.unwrap.nodes.collect { case tuple @ (_, _: LfNodeRollback) =>
         tuple
       }
 
-      val suffixedTx = LfVersionedTransaction(
+      suffixedTx = LfVersionedTransaction(
         subaction.unwrap.version,
         suffixedNodes ++ rollbackNodes,
         subaction.unwrap.roots,
       )
-      view -> checked(WellFormedTransaction.normalizeAndAssert(suffixedTx, metadata, WithSuffixes))
+      absolutizedTx <- EitherT
+        .fromEither[FutureUnlessShutdown](absolutizer.absolutizeTransaction(suffixedTx))
+        .leftMap(
+          // TODO(#23971) Introduce appropriate error handling
+          err => throw new IllegalArgumentException(s"Failed to absolutize transaction: $err")
+        )
+    } yield {
+      view -> checked(
+        WellFormedTransaction.checkOrThrow(absolutizedTx, metadata, WithAbsoluteSuffixes)
+      )
     }
   }
 
@@ -987,18 +987,18 @@ object TransactionTreeFactoryImpl {
     def addSuffixedNode(nodeId: LfNodeId, suffixedNode: LfActionNode): Unit =
       suffixedNodesBuilder += nodeId -> suffixedNode
 
-    private val unicumOfCreatedContractMap: mutable.Map[LfHash, Unicum] = mutable.Map.empty
+    private val suffixOfCreatedContractMap: mutable.Map[LocalContractId, RelativeContractIdSuffix] =
+      mutable.Map.empty
 
-    def unicumOfCreatedContract: LfHash => Option[Unicum] = unicumOfCreatedContractMap.get
+    def suffixOfCreatedContract: LocalContractId => Option[RelativeContractIdSuffix] =
+      suffixOfCreatedContractMap.get
 
-    def setUnicumFor(discriminator: LfHash, unicum: Unicum)(implicit
+    def setSuffixFor(prefix: LocalContractId, suffix: RelativeContractIdSuffix)(implicit
         loggingContext: ErrorLoggingContext
     ): Unit =
-      unicumOfCreatedContractMap.put(discriminator, unicum).foreach { _ =>
+      suffixOfCreatedContractMap.put(prefix, suffix).foreach { _ =>
         ErrorUtil.internalError(
-          new IllegalStateException(
-            s"Two contracts have the same discriminator: $discriminator"
-          )
+          new IllegalStateException(s"Two contracts have the same prefix: $prefix")
         )
       }
 

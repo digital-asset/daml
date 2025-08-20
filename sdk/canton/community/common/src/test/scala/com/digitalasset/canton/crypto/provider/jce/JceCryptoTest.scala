@@ -22,6 +22,7 @@ class JceCryptoTest
     extends AsyncWordSpec
     with SigningTest
     with EncryptionTest
+    with HmacTest
     with PrivateKeySerializationTest
     with PasswordBasedEncryptionTest
     with RandomTest
@@ -129,6 +130,11 @@ class JceCryptoTest
           }
       }
     }
+
+    behave like hmacProvider(
+      Set(HmacAlgorithm.HmacSha256),
+      jceCrypto().map(_.pureCrypto),
+    )
 
     behave like randomnessProvider(jceCrypto().map(_.pureCrypto))
 

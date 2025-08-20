@@ -3,32 +3,77 @@
 
 package com.digitalasset.canton.crypto
 
-import cats.syntax.either.*
-import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
-import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.wordspec.AsyncWordSpec
 
-class HmacTest extends AnyWordSpec with BaseTest {
+import java.security.SecureRandom
 
-  private lazy val longString = PseudoRandom.randomAlphaNumericString(256)
-  private lazy val crypto = new SymbolicPureCrypto
+trait HmacTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with FailOnShutdown {
 
-  forAll(HmacAlgorithm.algorithms) { algorithm =>
-    s"HMAC ${algorithm.name}" should {
+  def hmacProvider(
+      supportedHmacAlgorithms: Set[HmacAlgorithm],
+      newCrypto: => FutureUnlessShutdown[HmacOps],
+  ): Unit =
+    forAll(supportedHmacAlgorithms) { algorithm =>
+      s"HMAC ${algorithm.name}" should {
 
-      "serializing and deserializing via protobuf" in {
-        val secret = HmacSecret.generate(crypto)
-        val hmac =
-          Hmac
-            .compute(secret, ByteString.copyFromUtf8(longString), algorithm)
-            .valueOr(err => fail(err.toString))
-        val hmacP = hmac.toProtoV30
-        Hmac.fromProtoV30(hmacP).value shouldBe (hmac)
+        "compute HMAC from a message with an explicit secret" in {
+          for {
+            crypto <- newCrypto
+            // fixed 16-byte keys
+            secret = ByteString.copyFromUtf8("0123456789ABCDEF")
+            secretOther = ByteString.copyFromUtf8("1123456789ABCDEF")
+            message = "test message"
+            hmac_1 =
+              crypto
+                .computeHmacWithSecret(secret, ByteString.copyFromUtf8(message), algorithm)
+                .valueOrFail("failed to compute hmac")
+            hmac_2 =
+              crypto
+                .computeHmacWithSecret(secret, ByteString.copyFromUtf8(message), algorithm)
+                .valueOrFail("failed to compute hmac")
+            hmac_Other =
+              crypto
+                .computeHmacWithSecret(secretOther, ByteString.copyFromUtf8(message), algorithm)
+                .valueOrFail("failed to compute hmac")
+          } yield {
+            hmac_1.unwrap.size() shouldBe algorithm.hashAlgorithm.length.toInt
+            hmac_1 shouldBe hmac_2
+            hmac_1 should not be hmac_Other
+          }
+        }
+
+        "fail HMAC computation if secret key length is invalid" in {
+          for {
+            crypto <- newCrypto
+            random = new SecureRandom()
+
+            smallSecretBytes = new Array[Byte](crypto.minimumSecretKeyLengthInBytes - 1)
+            bigSecretBytes = new Array[Byte](algorithm.hashAlgorithm.internalBlockSizeInBytes + 1)
+            _ = random.nextBytes(smallSecretBytes)
+            _ = random.nextBytes(bigSecretBytes)
+            message = "test message"
+            hmacSmall =
+              crypto.computeHmacWithSecret(
+                ByteString.copyFrom(smallSecretBytes),
+                ByteString.copyFromUtf8(message),
+                algorithm,
+              )
+            hmacBig =
+              crypto.computeHmacWithSecret(
+                ByteString.copyFrom(bigSecretBytes),
+                ByteString.copyFromUtf8(message),
+                algorithm,
+              )
+          } yield {
+            hmacSmall.left.value shouldBe a[HmacError.InvalidHmacKeyLength]
+            hmacBig.left.value shouldBe a[HmacError.InvalidHmacKeyLength]
+          }
+
+        }
+
       }
-
     }
-
-  }
-
 }

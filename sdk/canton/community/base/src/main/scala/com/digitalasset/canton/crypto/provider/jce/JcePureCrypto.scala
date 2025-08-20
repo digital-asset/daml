@@ -13,6 +13,11 @@ import com.digitalasset.canton.config.{
   SessionEncryptionKeyCacheConfig,
 }
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.HmacError.{
+  FailedToComputeHmac,
+  InvalidHmacSecret,
+  UnknownHmacAlgorithm,
+}
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
 import com.digitalasset.canton.crypto.{SignatureCheckError, *}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -42,13 +47,16 @@ import org.bouncycastle.jce.spec.IESParameterSpec
 import java.security.interfaces.*
 import java.security.{
   GeneralSecurityException,
+  InvalidKeyException,
+  NoSuchAlgorithmException,
   PrivateKey as JPrivateKey,
   PublicKey as JPublicKey,
   SecureRandom,
   Security,
   Signature as JSignature,
 }
-import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
+import javax.crypto.{Cipher, Mac}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
@@ -952,6 +960,25 @@ class JcePureCrypto(
 
   override protected[crypto] def generateRandomBytes(length: Int): Array[Byte] =
     JceSecureRandom.generateRandomBytes(length)
+
+  private[crypto] def computeHmacWithSecretInternal(
+      secret: ByteString,
+      message: ByteString,
+      algorithm: HmacAlgorithm,
+  ): Either[HmacError, Hmac] =
+    for {
+      mac <- Either
+        .catchOnly[NoSuchAlgorithmException](
+          Mac.getInstance(algorithm.name, JceSecurityProvider.bouncyCastleProvider)
+        )
+        .leftMap(ex => UnknownHmacAlgorithm(algorithm, ex))
+      key = new SecretKeySpec(secret.toByteArray, algorithm.name)
+      _ <- Either.catchOnly[InvalidKeyException](mac.init(key)).leftMap(ex => InvalidHmacSecret(ex))
+      hmacBytes <- Either
+        .catchOnly[IllegalStateException](mac.doFinal(message.toByteArray))
+        .leftMap(ex => FailedToComputeHmac(ex))
+      hmac <- Hmac.create(ByteString.copyFrom(hmacBytes), algorithm)
+    } yield hmac
 
   override def deriveSymmetricKey(
       password: String,
