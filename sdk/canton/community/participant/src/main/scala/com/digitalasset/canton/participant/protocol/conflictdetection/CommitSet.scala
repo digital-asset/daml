@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.{
   ReassignmentId,
   RequestId,
 }
-import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
@@ -71,7 +71,7 @@ object CommitSet {
     )
   }
   final case class UnassignmentCommit(
-      targetSynchronizerId: Target[PhysicalSynchronizerId],
+      targetSynchronizerId: Target[SynchronizerId],
       stakeholders: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {

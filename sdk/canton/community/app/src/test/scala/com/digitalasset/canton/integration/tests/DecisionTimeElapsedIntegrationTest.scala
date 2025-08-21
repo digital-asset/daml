@@ -17,7 +17,6 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.participant.admin.workflows.java.canton.internal.ping.Ping
-import com.digitalasset.canton.protocol.LocalRejectError
 import com.digitalasset.canton.sequencing.protocol.SubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -96,15 +95,6 @@ trait DecisionTimeElapsedIntegrationTest
       // the decision time will be used for the max sequencing time, so the result message won't be sequenced in this test
       // the mediator will see that its send timed out and log a warning
       _.warningMessage should (include("Sequencing result message timed out.")),
-      // the participants will see this as well and emit a timeout error (so 2 of such should be expected)
-      _.shouldBeCantonError(
-        LocalRejectError.TimeRejects.LocalTimeout,
-        _ should startWith("Rejected transaction due to a participant determined timeout"),
-      ),
-      _.shouldBeCantonError(
-        LocalRejectError.TimeRejects.LocalTimeout,
-        _ should startWith("Rejected transaction due to a participant determined timeout"),
-      ),
       // finally, the command failed in the console
       _.commandFailureMessage should include(
         "Rejected transaction due to a participant determined timeout"

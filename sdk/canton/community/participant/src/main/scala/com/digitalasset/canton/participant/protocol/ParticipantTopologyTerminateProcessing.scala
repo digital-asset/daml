@@ -286,7 +286,7 @@ class ParticipantTopologyTerminateProcessing(
       traceContext: TraceContext
   ): Option[EventInfo] =
     TopologyTransactionDiff(
-      synchronizerId = psid,
+      psid = psid,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
       localParticipantId = participantId,

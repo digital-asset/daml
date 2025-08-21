@@ -182,8 +182,7 @@ private[tests] final case class QuickSequencerReconnection(
 }
 
 class ExternalReferenceSequencerIntegrationTest
-    extends ExternalSequencerIntegrationTest("reference")
-    with SequencerRestartTest {
+    extends ExternalSequencerIntegrationTest("reference") {
 
   override protected lazy val sequencerPlugin
       : UseCommunityReferenceBlockSequencer[DbConfig.Postgres] =
@@ -191,8 +190,7 @@ class ExternalReferenceSequencerIntegrationTest
 }
 
 class ExternalBftOrderingSequencerIntegrationTest
-    extends ExternalSequencerIntegrationTest(BftSequencerFactory.ShortName)
-    with SequencerRestartTest {
+    extends ExternalSequencerIntegrationTest(BftSequencerFactory.ShortName) {
 
   override protected lazy val sequencerPlugin: UseBftSequencer =
     new UseBftSequencer(loggerFactory)

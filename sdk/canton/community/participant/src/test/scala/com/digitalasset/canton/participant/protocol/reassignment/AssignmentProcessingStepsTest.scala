@@ -788,6 +788,7 @@ final class AssignmentProcessingStepsTest
           participantSignatureVerificationResult = None,
           contractAuthenticationResultF = EitherT.rightT(()),
           submitterCheckResult = None,
+          reassignmentIdResult = None,
         ),
         reassigningParticipantValidationResult =
           ReassigningParticipantValidationResult(errors = Seq.empty),
@@ -946,6 +947,7 @@ final class AssignmentProcessingStepsTest
       targetMediator: MediatorGroupRecipient = targetMediator,
       uuid: UUID = new UUID(4L, 5L),
       reassigningParticipants: Set[ParticipantId] = Set.empty,
+      unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
 
@@ -970,6 +972,7 @@ final class AssignmentProcessingStepsTest
         uuid,
         Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
+        unassignmentTs,
       )
     )("Failed to create FullAssignmentTree")
   }
@@ -995,6 +998,7 @@ final class AssignmentProcessingStepsTest
         uuid,
         Target(testedProtocolVersion),
         reassigningParticipants = unassignmentData.reassigningParticipants,
+        unassignmentData.unassignmentTs,
       )
     )("Failed to create FullAssignmentTree")
   }

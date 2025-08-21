@@ -31,7 +31,7 @@ class P2PGrpcConnectionState(override val loggerFactory: NamedLoggerFactory)
   private val p2pEndpointIdToNodeId = mutable.Map.empty[P2PEndpoint.Id, BftNodeId]
   private val nodeIdToP2PEndpointId = mutable.Map.empty[BftNodeId, P2PEndpoint.Id]
 
-  def getClientPeerSender(
+  def getPeerSender(
       p2pEndpointId: P2PEndpoint.Id
   ): Option[StreamObserver[BftOrderingMessage]] =
     mutex(this)(clientPeerSenders.get(p2pEndpointId))
@@ -104,7 +104,7 @@ class P2PGrpcConnectionState(override val loggerFactory: NamedLoggerFactory)
     nodeIdToP2PEndpointId.addOne(node -> p2pEndpointId)
   }
 
-  override def getP2PEndpoints: Seq[P2PEndpoint] =
+  override def connections: Seq[P2PEndpoint] =
     p2pEndpointIdToNetworkRef.values.map(_._1).toSeq
 
   override def authenticatedCount: Int =

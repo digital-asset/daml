@@ -25,6 +25,8 @@ import org.apache.pekko.http.scaladsl.model.{HttpHeader, StatusCodes, Uri}
 import org.scalatest.Assertion
 import spray.json.JsonParser
 
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 import scala.concurrent.Future
 
@@ -44,7 +46,7 @@ class JsonUserApiTest
     issuer = None,
     participantId = None,
     userId = "",
-    exp = None,
+    exp = Some(Instant.now().plus(2, ChronoUnit.MINUTES)),
     format = StandardJWTTokenFormat.Scope,
     audiences = List.empty,
     scope = Some(defaultScope),

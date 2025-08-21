@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.Generators.nonEmptyListGen
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.{Arbitrary, Gen}
 
@@ -28,7 +29,7 @@ final case class GeneratorsVerdict(
   )
 
   private implicit val participantRejectArb: Arbitrary[Verdict.ParticipantReject] = Arbitrary(
-    nonEmptyListGen[(Set[LfPartyId], LocalReject)](
+    nonEmptyListGen[(Set[LfPartyId], ParticipantId, LocalReject)](
       participantRejectReasonArb
     ).map { reasons =>
       Verdict.ParticipantReject(reasons)(Verdict.protocolVersionRepresentativeFor(protocolVersion))

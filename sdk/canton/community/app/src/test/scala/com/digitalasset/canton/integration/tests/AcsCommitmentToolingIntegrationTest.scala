@@ -743,7 +743,7 @@ trait AcsCommitmentToolingIntegrationTest
         participant1.commitments
           .received(
             daName,
-            period.toInclusive.toInstant,
+            period.toInclusive.toInstant.minusMillis(1),
             period.toInclusive.toInstant,
             Some(participant2),
           )

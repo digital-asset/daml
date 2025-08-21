@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.{
   ContractDeserializationError,
@@ -12,6 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError.{
 }
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.data.ReassignmentRef.ReassignmentIdRef
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -151,6 +153,7 @@ final case class AssignmentCommonData private (
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassigningParticipants: Set[ParticipantId],
+    val unassignmentTs: CantonTimestamp,
 )(
     hashOps: HashOps,
     override val deserializedFrom: Option[ByteString],
@@ -177,6 +180,7 @@ final case class AssignmentCommonData private (
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
       reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
+      unassignmentTs = Some(unassignmentTs.toProtoTimestamp),
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -215,6 +219,7 @@ object AssignmentCommonData
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassigningParticipants: Set[ParticipantId],
+      unassignmentTs: CantonTimestamp,
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
     sourceSynchronizerId = sourcePSId,
@@ -224,6 +229,7 @@ object AssignmentCommonData
     uuid = uuid,
     submitterMetadata = submitterMetadata,
     reassigningParticipants = reassigningParticipants,
+    unassignmentTs = unassignmentTs,
   )(hashOps, None)
 
   private[this] def fromProtoV30(
@@ -236,6 +242,7 @@ object AssignmentCommonData
       saltP,
       sourceSynchronizerP,
       targetSynchronizerP,
+      unassignmentTsP,
       stakeholdersP,
       uuidP,
       targetMediatorGroupP,
@@ -270,6 +277,11 @@ object AssignmentCommonData
           .fromProtoPrimitive(uid, "reassigning_participant_uids")
           .map(ParticipantId(_))
       )
+      unassignmentTs <- ProtoConverter.parseRequired(
+        CantonTimestamp.fromProtoTimestamp,
+        "unassignment_ts",
+        unassignmentTsP,
+      )
     } yield AssignmentCommonData(
       salt,
       sourceSynchronizerId,
@@ -279,6 +291,7 @@ object AssignmentCommonData
       uuid,
       submitterMetadata,
       reassigningParticipants = reassigningParticipants.toSet,
+      unassignmentTs,
     )(hashOps, Some(bytes))
   }
 }
@@ -287,12 +300,10 @@ object AssignmentCommonData
   *
   * @param salt
   *   The salt to blind the Merkle hash
-  * @param contract
-  *   The contract to be reassigned including the instance
-  * @param unassignmentResultEvent
-  *   The signed deliver event of the unassignment result message
-  * @param reassignmentCounter
-  *   The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
+  * @param reassignmentId
+  *   The reassignment id read from input. Must be validated against data from the tree.
+  * @param contracts
+  *   The contracts to be reassigned including the instance
   */
 final case class AssignmentView private (
     override val salt: Salt,
@@ -411,6 +422,19 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   def reassignmentId: ReassignmentId = view.reassignmentId
 
   override def reassignmentRef: ReassignmentIdRef = ReassignmentIdRef(reassignmentId)
+
+  def isReassignmentIdValid: Boolean = {
+    val expected = reassignmentId match {
+      case _: ReassignmentId.V0 =>
+        ReassignmentId.V0(
+          sourceSynchronizer.map(_.logical),
+          targetSynchronizer.map(_.logical),
+          commonData.unassignmentTs,
+          contracts.contractIdCounters.toMap.forgetNE,
+        )
+    }
+    reassignmentId == expected
+  }
 
   def mediatorMessage(
       submittingParticipantSignature: Signature,

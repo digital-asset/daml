@@ -22,7 +22,10 @@ final case class P2PNetworkOutModuleDependencies[
     E <: Env[E],
     P2PNetworkManagerT <: P2PNetworkManager[E, BftOrderingMessage],
 ](
-    createP2PNetworkManager: P2PConnectionEventListener => P2PNetworkManagerT,
+    createP2PNetworkManager: (
+        P2PConnectionEventListener,
+        ModuleRef[BftOrderingMessage],
+    ) => P2PNetworkManagerT,
     p2pNetworkIn: ModuleRef[BftOrderingMessage],
     mempool: ModuleRef[Mempool.Message],
     availability: ModuleRef[Availability.Message[E]],

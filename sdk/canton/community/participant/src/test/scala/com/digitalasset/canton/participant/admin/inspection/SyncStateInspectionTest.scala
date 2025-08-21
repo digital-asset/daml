@@ -32,7 +32,7 @@ import com.digitalasset.canton.participant.sync.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedSynchronizer
-import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.{
   ParticipantId,
@@ -865,7 +865,7 @@ sealed trait SyncStateInspectionTest
     val testPeriod = period(1, 2)
     val synchronizerSearchPeriod = SynchronizerSearchCommitmentPeriod(
       indexedSynchronizer,
-      testPeriod.toInclusive.forgetRefinement,
+      testPeriod.toInclusive.forgetRefinement.minusMillis(1),
       testPeriod.toInclusive.forgetRefinement,
     )
     val (_, dummySentCommitment) =
@@ -930,4 +930,4 @@ sealed trait SyncStateInspectionTest
 }
 
 class SyncStateInspectionTestPostgres extends SyncStateInspectionTest with PostgresTest
-class SyncStateInspectionTestH2 extends SyncStateInspectionTest with H2Test
+//class SyncStateInspectionTestH2 extends SyncStateInspectionTest with H2Test

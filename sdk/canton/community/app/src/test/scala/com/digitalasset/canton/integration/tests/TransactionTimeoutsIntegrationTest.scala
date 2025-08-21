@@ -18,7 +18,6 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.protocol.LocalRejectError
 import com.digitalasset.canton.synchronizer.sequencer.ProgrammableSequencerPolicies.isConfirmationResponse
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -129,14 +128,7 @@ abstract class TransactionTimeoutsIntegrationTest
             ) and
               include("Message rejected by send policy.")),
             "Mediator send attempts",
-          ),
-          (
-            _.shouldBeCantonError(
-              LocalRejectError.TimeRejects.LocalTimeout,
-              _ should startWith("Rejected transaction due to a participant determined timeout"),
-            ),
-            "timeout warning by the participant",
-          ),
+          )
         ),
         Seq(_.warningMessage should include("Sequencing result message timed out")),
       ),
@@ -200,7 +192,7 @@ abstract class TransactionTimeoutsIntegrationTest
   }
 }
 
-class TransactionTimeoutsReferenceIntegrationTestPostgres
+final class TransactionTimeoutsReferenceIntegrationTestPostgres
     extends TransactionTimeoutsIntegrationTest {
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))

@@ -46,4 +46,19 @@ object AssignmentValidationError extends LocalRejectionGroup {
     override def message: String =
       s"Cannot assign $reassignmentId: reassignment counters $declaredReassignmentCounters in assignment do not match $expectedReassignmentCounters from the unassignment"
   }
+
+  final case class UnassignmentTimestampMismatch(
+      reassignmentId: ReassignmentId,
+      declaredUnassignmentTs: CantonTimestamp,
+      expectedUnassignmentTs: CantonTimestamp,
+  ) extends AssignmentValidationError {
+    override def message: String =
+      s"Cannot assign $reassignmentId: unassignment timestamp $declaredUnassignmentTs in assignment does not match $expectedUnassignmentTs from the unassignment"
+  }
+
+  final case class InconsistentReassignmentId(reassignmentId: ReassignmentId)
+      extends ReassignmentValidationError {
+    override def message: String =
+      s"Cannot assign $reassignmentId: id is inconsistent with the reassignment data"
+  }
 }

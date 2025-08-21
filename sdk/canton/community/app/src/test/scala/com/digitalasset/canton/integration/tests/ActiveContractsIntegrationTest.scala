@@ -63,7 +63,7 @@ import java.util.UUID
 import scala.collection.concurrent.TrieMap
 import scala.jdk.CollectionConverters.*
 
-class ActiveContractsIntegrationTest
+final class ActiveContractsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with AcsInspection
@@ -224,13 +224,15 @@ class ActiveContractsIntegrationTest
     participant1.synchronizers.reconnect_all()
     val createdEvent = eventually() {
       val endOffset = participant1.ledger_api.state.end()
-      val updates = participant1.ledger_api.updates.transactions(
-        partyIds = Set(signatory),
-        completeAfter = Int.MaxValue,
-        beginOffsetExclusive = startOffset,
-        endOffsetInclusive = Some(endOffset),
-      )
-      updates.map(_.createEvents)
+
+      participant1.ledger_api.updates
+        .reassignments(
+          partyIds = Set(signatory),
+          completeAfter = Int.MaxValue,
+          beginOffsetExclusive = startOffset,
+          endOffsetInclusive = Some(endOffset),
+        )
+        .map(_.createEvents)
     }.flatten.loneElement
     val contract = Iou.Contract.fromCreatedEvent(createdEventFromProto(toJavaProto(createdEvent)))
     ContractData(contract, createdEvent)
@@ -818,7 +820,6 @@ class ActiveContractsIntegrationTest
     val unassignedUniqueId = participant.ledger_api.updates
       .reassignments(
         partyIds = Set(observer),
-        filterTemplates = Seq.empty,
         beginOffsetExclusive = startFromExclusive,
         completeAfter = PositiveInt.one,
         resultFilter = _.isUnassignment,

@@ -389,7 +389,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           participant1.commitments
             .received(
               daName,
-              lastCommTick.toInstant,
+              lastCommTick.toInstant.minusMillis(1),
               lastCommTick.toInstant,
               Some(participant2),
             )
@@ -400,7 +400,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           participant2.commitments
             .received(
               daName,
-              lastCommTick.toInstant,
+              lastCommTick.toInstant.minusMillis(1),
               lastCommTick.toInstant,
               Some(participant1),
             )
@@ -575,7 +575,12 @@ sealed trait AcsCommitmentProcessorIntegrationTest
                 Some(c),
               )
             val received =
-              p.commitments.received(daName, periodBegin.toInstant, periodBegin.toInstant, Some(c))
+              p.commitments.received(
+                daName,
+                periodBegin.toInstant.minusMillis(1),
+                periodBegin.toInstant,
+                Some(c),
+              )
             (c, computed.size, received.size)
           }
         )

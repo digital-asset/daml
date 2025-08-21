@@ -209,6 +209,38 @@ object P2PConnectionEventListener {
   }
 }
 
+sealed trait P2PAddress extends Product with Serializable {
+
+  val maybeP2PEndpoint: Option[P2PEndpoint]
+
+  lazy val maybeBftNodeId: Option[BftNodeId] =
+    this match {
+      case P2PAddress.Endpoint(_) => None
+      case P2PAddress.NodeId(bftNodeId, _) => Some(bftNodeId)
+    }
+
+  lazy val id: P2PAddress.Id =
+    this match {
+      case P2PAddress.Endpoint(p2pEndpoint) => Left(p2pEndpoint.id)
+      case P2PAddress.NodeId(bftNodeId, _) => Right(bftNodeId)
+    }
+}
+object P2PAddress {
+
+  type Id = Either[P2PEndpoint.Id, BftNodeId]
+
+  final case class Endpoint(p2pEndpoint: P2PEndpoint) extends P2PAddress {
+    override val maybeP2PEndpoint: Option[P2PEndpoint] = Some(p2pEndpoint)
+  }
+
+  final case class NodeId(
+      bftNodeId: BftNodeId,
+      maybeCommunicatedEndpoint: Option[P2PEndpoint] = None,
+  ) extends P2PAddress {
+    override val maybeP2PEndpoint: Option[P2PEndpoint] = maybeCommunicatedEndpoint
+  }
+}
+
 /** An abstraction of the P2P network reference factory for deterministic simulation testing
   * purposes.
   */
@@ -216,7 +248,7 @@ trait P2PNetworkManager[E <: Env[E], -P2PMessageT] extends FlagCloseable {
 
   def createNetworkRef[ActorContextT](
       context: E#ActorContextT[ActorContextT],
-      endpoint: P2PEndpoint,
+      p2pAddress: P2PAddress,
   )(implicit traceContext: TraceContext): P2PNetworkRef[P2PMessageT]
 }
 
@@ -486,7 +518,10 @@ object Module {
   ] {
     def initialize(
         moduleSystem: ModuleSystem[E],
-        createP2PNetworkManager: P2PConnectionEventListener => P2PNetworkManagerT,
+        createP2PNetworkManager: (
+            P2PConnectionEventListener,
+            ModuleRef[P2PMessageT],
+        ) => P2PNetworkManagerT,
     ): SystemInitializationResult[E, P2PNetworkManagerT, P2PMessageT, InputMessageT]
   }
 

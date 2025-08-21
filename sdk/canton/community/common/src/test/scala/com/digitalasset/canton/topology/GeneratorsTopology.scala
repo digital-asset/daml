@@ -27,6 +27,7 @@ final class GeneratorsTopology(protocolVersion: ProtocolVersion) {
   implicit val synchronizerIdArb: Arbitrary[SynchronizerId] = genArbitrary
   implicit val mediatorIdArb: Arbitrary[MediatorId] = genArbitrary
   implicit val sequencerIdArb: Arbitrary[SequencerId] = genArbitrary
+  implicit val participantIdArb: Arbitrary[ParticipantId] = genArbitrary
   implicit val memberArb: Arbitrary[Member] = genArbitrary
   implicit val partyIdArb: Arbitrary[PartyId] = genArbitrary
   implicit val identityArb: Arbitrary[Identity] = genArbitrary

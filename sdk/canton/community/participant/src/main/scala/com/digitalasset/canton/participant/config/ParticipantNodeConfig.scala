@@ -36,6 +36,7 @@ import io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
 import java.nio.file.Path
+import scala.concurrent.duration.Duration
 
 /** Base for all participant configs - both local and remote */
 trait BaseParticipantConfig extends NodeConfig with Product with Serializable {
@@ -241,6 +242,7 @@ final case class LedgerApiServerConfig(
       InteractiveSubmissionServiceConfig.Default,
     topologyAwarePackageSelection: TopologyAwarePackageSelectionConfig =
       TopologyAwarePackageSelectionConfig.Default,
+    maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 

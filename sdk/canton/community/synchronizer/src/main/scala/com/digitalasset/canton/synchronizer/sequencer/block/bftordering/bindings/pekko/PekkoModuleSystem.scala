@@ -522,7 +522,10 @@ object PekkoModuleSystem {
         BftOrderingMessage,
         InputMessageT,
       ],
-      createP2PNetworkManager: P2PConnectionEventListener => PekkoP2PGrpcNetworkManager,
+      createP2PNetworkManager: (
+          P2PConnectionEventListener,
+          ModuleRef[BftOrderingMessage],
+      ) => PekkoP2PGrpcNetworkManager,
       metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit

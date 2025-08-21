@@ -64,14 +64,16 @@ object SequencerUtils {
       upgradeTime: CantonTimestamp,
       parameterChanges: Seq[DynamicSynchronizerParametersWithValidity],
   ): NonNegativeFiniteDuration = {
-    val startBound = upgradeTime.immediatePredecessor
-    val maxPossibleDecisionTime = parameterChanges.foldLeft(startBound) {
-      (previousBound, parameterChanges) =>
-        // We compute here latest possible sequencing time, where parameterChanges apply, and add the timeout
-        val newBound = parameterChanges.validUntil.getOrElse(startBound)
-          + parameterChanges.parameters.decisionTimeout
-        if (newBound > previousBound) newBound else previousBound
+
+    val maxTime = parameterChanges.foldLeft(upgradeTime) { case (previousBound, parametersChange) =>
+      val parameters = parametersChange.parameters
+      val maxTime = parametersChange.validUntil.getOrElse(upgradeTime)
+
+      val newBound = maxTime + parameters.decisionTimeout
+
+      newBound.max(previousBound)
     }
-    NonNegativeFiniteDuration.tryCreate(maxPossibleDecisionTime - startBound)
+
+    NonNegativeFiniteDuration.tryCreate(maxTime - upgradeTime)
   }
 }

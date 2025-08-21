@@ -5,24 +5,14 @@ package com.digitalasset.canton.protocol
 
 import com.digitalasset.base.error.{ErrorCode, ErrorResource}
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.TransactionRejection
 import com.google.rpc.status.Status
 
-trait LocalError
-    extends TransactionError
-    with TransactionRejection
-    with PrettyPrinting
-    with Product
-    with Serializable {
+trait LocalError extends TransactionError with PrettyPrinting with Product with Serializable {
 
-  override def reason(): Status = rpcStatusWithoutLoggingContext()
+  def reason(): Status = rpcStatusWithoutLoggingContext()
 
-  override def logRejection(extra: Map[String, String] = Map())(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Unit =
-    errorLoggingContext.logError(this, extra)
+  def isMalformed: Boolean
 
   /** The first part of the cause. Typically, the same for all instances of the particular type.
     */

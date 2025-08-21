@@ -14,18 +14,10 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.*
 import com.google.protobuf.empty
 import pprint.Tree
-
-trait TransactionRejection {
-
-  def logRejection(extra: Map[String, String] = Map())(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Unit
-
-  def reason(): com.google.rpc.status.Status
-}
 
 /** Verdicts sent from the mediator to the participants inside the [[ConfirmationResultMessage]] */
 sealed trait Verdict
@@ -76,12 +68,11 @@ object Verdict
   }
 
   final case class MediatorReject private (
-      override val reason: com.google.rpc.status.Status,
+      reason: com.google.rpc.status.Status,
       isMalformed: Boolean,
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
-  ) extends Verdict
-      with TransactionRejection {
+  ) extends Verdict {
     require(reason.code != com.google.rpc.Code.OK_VALUE, "Rejection must not use status code OK")
 
     private[messages] override def toProtoV30: v30.Verdict =
@@ -95,18 +86,10 @@ object Verdict
       param("isMalformed", _.isMalformed),
     )
 
-    override def logRejection(
-        extra: Map[String, String]
-    )(implicit errorLoggingContext: ErrorLoggingContext): Unit =
-      // Log with level INFO, leave it to MediatorError to log the details.
-      errorLoggingContext.withContext(extra) {
-        lazy val action = if (isMalformed) "malformed" else "rejected"
-        errorLoggingContext.info(show"Request is finalized as $action. $reason")
-      }
-
     override def isTimeoutDeterminedByMediator: Boolean =
       DecodedCantonError.fromGrpcStatus(reason).exists(_.code.id == MediatorError.Timeout.id)
 
+    def errorDetails: ErrorDetails = ErrorDetails(reason, isMalformed)
   }
 
   object MediatorReject {
@@ -135,14 +118,14 @@ object Verdict
     *   from the [[com.digitalasset.canton.protocol.messages.ConfirmationResponse]]
     */
   final case class ParticipantReject(
-      reasons: NonEmpty[List[(Set[LfPartyId], NonPositiveLocalVerdict)]]
+      reasons: NonEmpty[List[(Set[LfPartyId], ParticipantId, NonPositiveLocalVerdict)]]
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[Verdict.type]
   ) extends Verdict {
 
     private[messages] override def toProtoV30: v30.Verdict = {
-      val reasonsP = v30.ParticipantReject(reasons.map { case (parties, message) =>
-        v30.RejectionReason(parties.toSeq, Some(message.toProtoV30))
+      val reasonsP = v30.ParticipantReject(reasons.map { case (parties, participantId, message) =>
+        v30.RejectionReason(parties.toSeq, Some(message.toProtoV30), participantId.toProtoPrimitive)
       })
       v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.ParticipantReject(reasonsP))
     }
@@ -152,21 +135,40 @@ object Verdict
 
       prettyOfClass(
         unnamedParam(
-          _.reasons.map { case (parties, reason) =>
-            Tree.Infix(reason.toTree, "- reported by:", parties.toTree)
+          _.reasons.map { case (parties, participantId, reason) =>
+            Tree.Infix(reason.toTree, s"- reported by $participantId for:", parties.toTree)
           }
         )
       )
     }
 
-    /** Returns the rejection reason with the highest [[com.digitalasset.base.error.ErrorCategory]]
+    /** Returns the first error by enriching the reason with the confirming parties and participant
+      * ID who reported it.
       */
-    def keyEvent(implicit loggingContext: ErrorLoggingContext): TransactionRejection = {
+    def keyErrorDetails(implicit
+        loggingContext: ErrorLoggingContext
+    ): ErrorDetails = {
       if (reasons.lengthCompare(1) > 0) {
         val message = show"Request was rejected with multiple reasons. $reasons"
         loggingContext.info(message)
       }
-      reasons.map { case (_, localReject) => localReject }.head1
+      val (parties, participantId, localReject) = reasons.head1
+
+      val newReason = DecodedCantonError
+        .fromGrpcStatus(localReject.reason)
+        .map(previous =>
+          previous
+            .copy(
+              context = previous.context ++ Seq(
+                "reported_by_participant_id" -> participantId.toProtoPrimitive,
+                "confirming_parties" -> parties.mkString(", "),
+              )
+            )
+            .rpcStatus()
+        )
+        .getOrElse(localReject.reason)
+
+      ErrorDetails(newReason, reasons.head1._3.isMalformed)
     }
 
     override def isTimeoutDeterminedByMediator: Boolean = false
@@ -174,7 +176,7 @@ object Verdict
 
   object ParticipantReject {
     def apply(
-        reasons: NonEmpty[List[(Set[LfPartyId], NonPositiveLocalVerdict)]],
+        reasons: NonEmpty[List[(Set[LfPartyId], ParticipantId, NonPositiveLocalVerdict)]],
         protocolVersion: ProtocolVersion,
     ): ParticipantReject =
       ParticipantReject(reasons)(Verdict.protocolVersionRepresentativeFor(protocolVersion))
@@ -219,8 +221,8 @@ object Verdict
 
   private def fromProtoReasonV30(
       protoReason: v30.RejectionReason
-  ): ParsingResult[(Set[LfPartyId], NonPositiveLocalVerdict)] = {
-    val v30.RejectionReason(partiesP, rejectP) = protoReason
+  ): ParsingResult[(Set[LfPartyId], ParticipantId, NonPositiveLocalVerdict)] = {
+    val v30.RejectionReason(partiesP, rejectP, participantIdP) = protoReason
     for {
       parties <- partiesP.traverse(ProtoConverter.parseLfPartyId(_, "parties")).map(_.toSet)
       localVerdict <- ProtoConverter.parseRequired(LocalVerdict.fromProtoV30, "reject", rejectP)
@@ -231,6 +233,7 @@ object Verdict
         case abstain: LocalAbstain =>
           Right(abstain)
       }
-    } yield (parties, nonPositiveVerdict)
+      participantId <- ParticipantId.fromProtoPrimitive(participantIdP, "participant_id")
+    } yield (parties, participantId, nonPositiveVerdict)
   }
 }

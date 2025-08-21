@@ -220,6 +220,7 @@ class StartableStoppableLedgerApiServer(
             _.create(
               config.serverConfig.jwtTimestampLeeway,
               loggerFactory,
+              config.serverConfig.maxTokenLifetime,
             )
           )
 

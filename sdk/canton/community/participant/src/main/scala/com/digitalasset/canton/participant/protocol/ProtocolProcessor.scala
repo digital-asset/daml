@@ -241,10 +241,7 @@ abstract class ProtocolProcessor[
     val result = for {
 
       maxSequencingTime <- EitherT
-        .right(
-          untracked.maxSequencingTimeO
-            .getOrElse(sequencerClient.generateMaxSequencingTime)
-        )
+        .right(untracked.maxSequencingTimeO.getOrElse(sequencerClient.generateMaxSequencingTime))
 
       sendResult <- submitInternal(
         submissionParam,
@@ -397,11 +394,12 @@ abstract class ProtocolProcessor[
           // we would observe the sequencing here only if the participant has not crashed.
           // We therefore delegate observing the sequencing to the MessageDispatcher,
           // which can rely on the SequencedEventStore for persistence.
-          unlessError(submittedEF, mayHaveBeenSent = true) { case sendResult =>
+          unlessError(submittedEF, mayHaveBeenSent = true) { sendResult =>
             val submissionResult = sendResult match {
               case SendResult.Success(deliver) =>
                 steps.createSubmissionResult(deliver, pendingSubmission)
-              case _: SendResult.NotSequenced => tracked.onDefinitiveFailure
+              case _: SendResult.NotSequenced =>
+                tracked.onDefinitiveFailure
             }
             FutureUnlessShutdown.pure(submissionResult)
           }
@@ -536,10 +534,13 @@ abstract class ProtocolProcessor[
             Verdict.ParticipantReject(
               NonEmpty(
                 List,
-                Set.empty[LfPartyId] ->
+                (
+                  Set.empty[LfPartyId],
+                  participantId,
                   LocalRejectError.TimeRejects.LocalTimeout
                     .Reject()
                     .toLocalReject(protocolVersion),
+                ),
               ),
               protocolVersion,
             ),

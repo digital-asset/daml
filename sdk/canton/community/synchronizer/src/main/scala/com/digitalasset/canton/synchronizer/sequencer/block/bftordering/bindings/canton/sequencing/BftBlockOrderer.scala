@@ -46,8 +46,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   P2PGrpcConnectionState,
   P2PGrpcNetworking,
   P2PGrpcServerManager,
-  P2PGrpcStreamingServerSideReceiver,
-  PekkoP2PGrpcNetworking,
+  P2PGrpcStreamingReceiver,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.{
   PekkoEnv,
@@ -392,16 +391,20 @@ final class BftBlockOrderer(
     scheduler
   }
 
-  private def createNetworkManager(P2PConnectionEventListener: P2PConnectionEventListener) =
-    new PekkoP2PGrpcNetworking.PekkoP2PGrpcNetworkManager(
-      createConnectionManager(P2PConnectionEventListener),
+  private def createNetworkManager(
+      connectionEventListener: P2PConnectionEventListener,
+      p2pNetworkIn: ModuleRef[BftOrderingMessage],
+  ) =
+    new PekkoP2PGrpcNetworkManager(
+      createConnectionManager(connectionEventListener, p2pNetworkIn),
       timeouts,
       loggerFactory,
       metrics,
     )
 
   private def createConnectionManager(
-      p2pConnectionEventListener: P2PConnectionEventListener
+      p2pConnectionEventListener: P2PConnectionEventListener,
+      p2pNetworkIn: ModuleRef[BftOrderingMessage],
   ) = {
     val maybeGrpcNetworkingAuthenticationInitialState =
       maybeAuthenticationServices.map { authenticationServices =>
@@ -418,7 +421,9 @@ final class BftBlockOrderer(
       thisNode,
       p2pGrpcConnectionState,
       maybeGrpcNetworkingAuthenticationInitialState,
+      getServerToClientAuthenticationEndpoint(config),
       p2pConnectionEventListener,
+      p2pNetworkIn,
       metrics,
       timeouts,
       loggerFactory,
@@ -430,7 +435,7 @@ final class BftBlockOrderer(
   //  is propagated to the peer as an error.
   private def tryCreatePeerReceiverForIncomingConnection(
       peerSender: StreamObserver[BftOrderingMessage]
-  )(implicit traceContext: TraceContext): P2PGrpcStreamingServerSideReceiver =
+  )(implicit traceContext: TraceContext): P2PGrpcStreamingReceiver =
     p2pNetworkManager.connectionManager.tryCreateServerSidePeerReceiver(
       p2pNetworkInModuleRef,
       peerSender,

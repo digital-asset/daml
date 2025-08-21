@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.scalacheck.{Arbitrary, Gen}
 
-final class GeneratorsLf(generatorsTopology: GeneratorsTopology) {
+final class GeneratorsLf(val generatorsTopology: GeneratorsTopology) {
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import generatorsTopology.*
 

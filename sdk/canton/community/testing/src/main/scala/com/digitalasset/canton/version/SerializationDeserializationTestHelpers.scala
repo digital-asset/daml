@@ -160,7 +160,8 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
 
     if (elapsed > warnWhenTestRunsLongerThan)
       logger.warn(
-        s"Test for $className took ${LoggerUtil.roundDurationForHumans(elapsed)} to run, instead of the allotted $warnWhenTestRunsLongerThan."
+        s"Test for $className took ${LoggerUtil.roundDurationForHumans(elapsed)} to run, instead of the allotted $warnWhenTestRunsLongerThan.\n" +
+          "Likely causes: Generating unbounded lists, getting a quadratic size from combining bounded, nested lists, ..."
       )
     result
   }

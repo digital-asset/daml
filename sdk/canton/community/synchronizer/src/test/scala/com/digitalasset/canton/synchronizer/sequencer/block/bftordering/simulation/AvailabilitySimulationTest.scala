@@ -389,7 +389,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         consensusRef,
         loggerFactory,
       )
-    val p2pNetworkManager = createP2PNetworkManager(P2PConnectionEventListener.NoOp)
+    val p2pNetworkManager =
+      createP2PNetworkManager(P2PConnectionEventListener.NoOp, p2pNetworkInRef)
     val pruningSimulationFake =
       new PruningSimulationFake[SimulationEnv](loggerFactory)
 

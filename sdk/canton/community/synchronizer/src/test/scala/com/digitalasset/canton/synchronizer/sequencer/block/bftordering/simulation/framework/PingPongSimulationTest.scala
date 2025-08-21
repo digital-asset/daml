@@ -31,6 +31,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Module,
   ModuleName,
   ModuleRef,
+  P2PAddress,
   P2PConnectionEventListener,
   P2PNetworkManager,
   P2PNetworkRef,
@@ -173,10 +174,11 @@ object TestSystem {
   ): SystemInitializer[E, P2PNetworkManagerT, String, String] =
     (system, createP2PNetworkManager) => {
       val inputModuleRef = system.newModuleRef[String](ModuleName("ping"))()
-      val p2pNetworkManager = createP2PNetworkManager(P2PConnectionEventListener.NoOp)
+      val p2pNetworkManager =
+        createP2PNetworkManager(P2PConnectionEventListener.NoOp, inputModuleRef)
       val pongerRef = p2pNetworkManager.createNetworkRef(
         system.rootActorContext,
-        pongerEndpoint,
+        P2PAddress.Endpoint(pongerEndpoint),
       )(TraceContext.empty)
       val module = Ping[E](pongerRef, recorder, loggerFactory, timeouts)
       system.setModule[String](inputModuleRef, module)
@@ -210,10 +212,11 @@ object TestSystem {
   ): SystemInitializer[E, P2PNetworkManagerT, String, String] =
     (system, createP2PNetworkManager) => {
       val inputModuleRef = system.newModuleRef[String](ModuleName("pong"))()
-      val p2pNetworkManager = createP2PNetworkManager(P2PConnectionEventListener.NoOp)
+      val p2pNetworkManager =
+        createP2PNetworkManager(P2PConnectionEventListener.NoOp, inputModuleRef)
       val pingerRef = p2pNetworkManager.createNetworkRef(
         system.rootActorContext,
-        pingerEndpoint,
+        P2PAddress.Endpoint(pingerEndpoint),
       )(TraceContext.empty)
       val module = Pong[E](pingerRef, recorder, loggerFactory, timeouts)
       system.setModule[String](inputModuleRef, module)

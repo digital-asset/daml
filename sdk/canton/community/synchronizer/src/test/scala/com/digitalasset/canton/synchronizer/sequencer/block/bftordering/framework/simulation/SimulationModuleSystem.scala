@@ -35,6 +35,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleName,
   ModuleRef,
   ModuleSystem,
+  P2PAddress,
   P2PConnectionEventListener,
   P2PNetworkManager,
   P2PNetworkRef,
@@ -88,10 +89,13 @@ object SimulationModuleSystem {
 
     override def createNetworkRef[ActorContextT](
         _context: SimulationModuleContext[ActorContextT],
-        endpoint: P2PEndpoint,
+        p2pAddress: P2PAddress,
     )(implicit traceContext: TraceContext): P2PNetworkRef[P2PMessageT] = {
-      val node = endpointToTestBftNodeId(endpoint)
-      endpoint match {
+      val p2pEndpoint = p2pAddress.maybeP2PEndpoint.getOrElse(
+        throw new IllegalArgumentException("Node ID addresses are not yet supported")
+      )
+      val node = endpointToTestBftNodeId(p2pEndpoint)
+      p2pEndpoint match {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
           collector.addOpenConnection(node, plaintextEndpoint, p2pConnectionEventListener)
           SimulationP2PNetworkRef(node, collector, timeouts, loggerFactory)
@@ -546,7 +550,7 @@ object SimulationModuleSystem {
           .systemInitializerFactory(onboardingData)
           .initialize(
             system,
-            p2pConnectionEventListener =>
+            (p2pConnectionEventListener, _) =>
               SimulationP2PNetworkManager[SystemNetworkMessageT](
                 collector,
                 p2pConnectionEventListener,

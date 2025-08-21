@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
   InconsistentReassignmentCounters,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
   UnassignmentDataNotFound,
+  UnassignmentTimestampMismatch,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationResult.ReassigningParticipantValidationResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
@@ -64,7 +65,7 @@ private[reassignment] class AssignmentValidation(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, AssignmentValidationResult] = {
     val assignmentRequest: FullAssignmentTree = parsedRequest.fullViewTree
 
-    val reassignmentId = assignmentRequest.reassignmentId
+    val reassignmentId = parsedRequest.reassignmentId
     val sourcePSId = assignmentRequest.sourceSynchronizer
     val targetSnapshot = Target(parsedRequest.snapshot).map(_.ipsSnapshot)
     val isReassigningParticipant = assignmentRequest.isReassigningParticipant(participantId)
@@ -139,8 +140,6 @@ private[reassignment] class AssignmentValidation(
     val topologySnapshot = Target(parsedRequest.snapshot.ipsSnapshot)
     val assignmentRequest: FullAssignmentTree = parsedRequest.fullViewTree
 
-    val reassignmentId = assignmentRequest.reassignmentId
-
     val stakeholdersCheckResultET =
       ReassignmentValidation.checkMetadata(
         contractAuthenticator,
@@ -153,7 +152,7 @@ private[reassignment] class AssignmentValidation(
       submitterCheckResult <-
         ReassignmentValidation
           .checkSubmitter(
-            ReassignmentRef(reassignmentId),
+            assignmentRequest.reassignmentRef,
             topologySnapshot = topologySnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
@@ -161,6 +160,8 @@ private[reassignment] class AssignmentValidation(
           )
           .value
           .map(_.swap.toOption)
+
+      reassignmentIdResult = validateReassignmentId(parsedRequest.fullViewTree)
 
       participantSignatureVerificationResult <- AuthenticationValidator.verifyViewSignature(
         parsedRequest
@@ -171,6 +172,7 @@ private[reassignment] class AssignmentValidation(
       participantSignatureVerificationResult = participantSignatureVerificationResult,
       contractAuthenticationResultF = stakeholdersCheckResultET,
       submitterCheckResult = submitterCheckResult,
+      reassignmentIdResult = reassignmentIdResult,
     )
   }
 
@@ -198,7 +200,7 @@ private[reassignment] class AssignmentValidation(
         unassignmentData,
         assignmentRequestTs,
         assignmentRequest.submitter,
-        assignmentRequest.reassignmentId,
+        parsedRequest.reassignmentId,
       )
 
       reassignmentDataResult <- EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
@@ -212,6 +214,13 @@ private[reassignment] class AssignmentValidation(
       exclusivityTimeoutError.toList ++ reassignmentDataResult
     )
   }
+
+  private def validateReassignmentId(
+      fullViewTree: FullAssignmentTree
+  ): Option[AssignmentValidationError.InconsistentReassignmentId] =
+    Option.unless(fullViewTree.isReassignmentIdValid) {
+      AssignmentValidationError.InconsistentReassignmentId(fullViewTree.reassignmentId)
+    }
 
   private def validateAssignmentRequestAgainstUnassignmentData(
       assignmentRequest: FullAssignmentTree,
@@ -249,10 +258,26 @@ private[reassignment] class AssignmentValidation(
         ),
       )
     }
+
+    val unassignmentTs = {
+      val declaredUnassignmentTs = assignmentRequest.tree.commonData.tryUnwrap.unassignmentTs
+      val expectedUnassignmentTs = unassignmentData.unassignmentTs
+      Validated.condNec(
+        declaredUnassignmentTs == expectedUnassignmentTs,
+        (),
+        UnassignmentTimestampMismatch(
+          reassignmentId,
+          declaredUnassignmentTs,
+          expectedUnassignmentTs,
+        ),
+      )
+    }
+
     Seq(
       reassigningParticipants,
       contract,
       reassignmentCounter,
+      unassignmentTs,
     ).sequence_.fold(_.toList, _ => Nil)
   }
 }

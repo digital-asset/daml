@@ -139,7 +139,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       case reject: MediatorReject =>
         reject.reason
       case reasons: ParticipantReject =>
-        reasons.keyEvent.reason()
+        reasons.keyErrorDetails.reason
     }
     pendingSubmission.reassignmentCompletion.success(status)
   }
@@ -320,7 +320,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, Option[SequencedUpdate]] = {
 
-    val RejectionArgs(pendingReassignment, rejectionReason) = rejectionArgs
+    val RejectionArgs(pendingReassignment, errorDetails) = rejectionArgs
     val isSubmittingParticipant =
       pendingReassignment.submitterMetadata.submittingParticipant == participantId
 
@@ -333,9 +333,8 @@ private[reassignment] trait ReassignmentProcessingSteps[
         submissionId = pendingReassignment.submitterMetadata.submissionId,
       )
     )
-
-    rejectionReason.logRejection(Map("requestId" -> pendingReassignment.requestId.toString))
-    val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
+    errorDetails.logRejection(Map("requestId" -> pendingReassignment.requestId.toString))
+    val rejection = Update.CommandRejected.FinalReason(errorDetails.reason)
     val updateO = completionInfoO.map(info =>
       Update.SequencedCommandRejected(
         info,
@@ -427,6 +426,11 @@ private[reassignment] trait ReassignmentProcessingSteps[
           val submitterCheckRejection = validationResult.commonValidationResult.submitterCheckResult
             .map(err => LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message))
 
+          val reassignmentIdRejection = validationResult.commonValidationResult.reassignmentIdResult
+            .map(err =>
+              LocalRejectError.ReassignmentRejects.InconsistentReassignmentId.Reject(err.message)
+            )
+
           val failedValidationRejection =
             validationResult.reassigningParticipantValidationResult.errors
               .map(err => LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message))
@@ -436,7 +440,7 @@ private[reassignment] trait ReassignmentProcessingSteps[
 
           val localRejections =
             (modelConformanceRejection ++ activenessRejection.toList ++
-              authenticationRejection.toList ++ submitterCheckRejection ++ failedValidationRejection)
+              authenticationRejection.toList ++ submitterCheckRejection ++ reassignmentIdRejection ++ failedValidationRejection)
               .map { err =>
                 err.logWithContext()
                 err.toLocalReject(protocolVersion)
@@ -481,10 +485,11 @@ private[reassignment] trait ReassignmentProcessingSteps[
     *   - Checks related to the submitter party:
     *     - Is the submitter a stakeholder?
     *     - Is the submitter hosted on the participant?
+    *   - Is the reassignment id consistent with the reassignment data?
     */
   def checkPhase7Validations(
       reassignmentValidationResult: ReassignmentValidationResult
-  ): FutureUnlessShutdown[Option[TransactionRejection]] =
+  ): FutureUnlessShutdown[Option[LocalRejectError]] =
     reassignmentValidationResult.commonValidationResult.contractAuthenticationResultF.value.map {
       contractAuthenticationResult =>
         val modelConformanceRejection =
@@ -507,7 +512,15 @@ private[reassignment] trait ReassignmentProcessingSteps[
             LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
           )
 
-        modelConformanceRejection.orElse(authenticationRejection).orElse(submitterCheckRejection)
+        val reassignmentIdResult =
+          reassignmentValidationResult.commonValidationResult.reassignmentIdResult.map(err =>
+            LocalRejectError.ReassignmentRejects.InconsistentReassignmentId.Reject(err.message)
+          )
+
+        modelConformanceRejection
+          .orElse(authenticationRejection)
+          .orElse(submitterCheckRejection)
+          .orElse(reassignmentIdResult)
     }
 
 }
@@ -553,7 +566,7 @@ object ReassignmentProcessingSteps {
 
   final case class RejectionArgs[T <: PendingReassignment](
       pendingReassignment: T,
-      error: TransactionRejection,
+      errorDetails: ErrorDetails,
   )
 
   trait ReassignmentProcessorError

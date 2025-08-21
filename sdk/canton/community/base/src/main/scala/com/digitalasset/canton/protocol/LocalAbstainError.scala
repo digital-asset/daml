@@ -29,7 +29,9 @@ sealed abstract class LocalAbstainErrorImpl(
     override val _resourcesType: Option[ErrorResource] = None,
     override val _resources: Seq[String] = Seq.empty,
 )(implicit override val code: LocalAbstainErrorCode)
-    extends LocalAbstainError {}
+    extends LocalAbstainError {
+  override def isMalformed: Boolean = false
+}
 
 object LocalAbstainError extends LocalRejectionGroup {
 

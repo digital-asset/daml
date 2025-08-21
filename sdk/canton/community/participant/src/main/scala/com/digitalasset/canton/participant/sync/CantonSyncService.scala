@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
   SyncStateInspection,
 }
-import com.digitalasset.canton.participant.admin.repair.RepairService
+import com.digitalasset.canton.participant.admin.repair.{CommitmentsService, RepairService}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
@@ -338,6 +338,14 @@ class CantonSyncService(
       parameters.processingTimeouts,
       loggerFactory,
     )
+
+  val commitmentsService: CommitmentsService = new CommitmentsService(
+    ledgerApiIndexer.asEval(TraceContext.empty),
+    parameters,
+    syncPersistentStateManager,
+    connectedSynchronizersLookup,
+    loggerFactory,
+  )
 
   val dynamicSynchronizerParameterGetter =
     new CantonDynamicSynchronizerParameterGetter(
@@ -1157,6 +1165,7 @@ class CantonSyncService(
     val instances = Seq(
       migrationService,
       repairService,
+      commitmentsService,
       pruningProcessor,
     ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ Seq(
       connectionsManager,

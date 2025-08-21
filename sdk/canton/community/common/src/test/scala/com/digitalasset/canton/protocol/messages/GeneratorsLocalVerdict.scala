@@ -24,6 +24,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
 }
 import com.digitalasset.canton.protocol.LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalAbstainError, LocalRejectErrorImpl, Malformed}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{GeneratorsLf, LfPartyId}
 import org.scalacheck.{Arbitrary, Gen}
@@ -97,11 +98,12 @@ final case class GeneratorsLocalVerdict(
     Gen.oneOf(localApproveGen, localRejectGen, localAbstainGen)
   )
 
-  implicit val participantRejectReasonArb: Arbitrary[(Set[LfPartyId], LocalReject)] =
+  implicit val participantRejectReasonArb: Arbitrary[(Set[LfPartyId], ParticipantId, LocalReject)] =
     Arbitrary(
       for {
         parties <- boundedSetGen[LfPartyId]
         reject <- localRejectGen
-      } yield (parties, reject)
+        participantId <- generatorsLf.generatorsTopology.participantIdArb.arbitrary
+      } yield (parties, participantId, reject)
     )
 }

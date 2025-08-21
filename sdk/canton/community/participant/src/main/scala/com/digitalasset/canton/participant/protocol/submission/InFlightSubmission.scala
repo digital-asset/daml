@@ -80,7 +80,7 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
 
   override protected def pretty: Pretty[InFlightSubmission.this.type] = prettyOfClass(
     param("change ID hash", _.changeIdHash),
-    paramIfDefined("submissionid", _.submissionId),
+    paramIfDefined("submission id", _.submissionId),
     param("submission synchronizer", _.submissionSynchronizerId),
     param("message UUID", _.messageUuid),
     paramIfDefined("root hash", _.rootHashO),

@@ -57,7 +57,9 @@ sealed abstract class LocalRejectErrorImpl(
     override val _resourcesType: Option[ErrorResource] = None,
     override val _resources: Seq[String] = Seq.empty,
 )(implicit override val code: LocalRejectErrorCode)
-    extends LocalRejectError
+    extends LocalRejectError {
+  override def isMalformed: Boolean = false
+}
 
 /** Base class for LocalReject errors, if the rejection occurs due to malicious behavior.
   */
@@ -74,6 +76,7 @@ sealed abstract class Malformed(
   override def toLocalReject(protocolVersion: ProtocolVersion): LocalReject =
     LocalReject.create(rpcStatusWithoutLoggingContext(), isMalformed = true, protocolVersion)
 
+  override def isMalformed: Boolean = true
 }
 
 object LocalRejectError extends LocalRejectionGroup {
@@ -169,7 +172,6 @@ object LocalRejectError extends LocalRejectionGroup {
           id = "LOCAL_VERDICT_TIMEOUT",
           ErrorCategory.ContentionOnSharedResources,
         ) {
-      override def logLevel: Level = Level.WARN
       final case class Reject()
           extends LocalRejectErrorImpl(
             _causePrefix = "Rejected transaction due to a participant determined timeout "
@@ -286,9 +288,24 @@ object LocalRejectError extends LocalRejectionGroup {
           id = "REASSIGNMENT_VALIDATION_FAILED",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(_causePrefix = "Validation check failed. ")
+    }
+
+    @Explanation(
+      """Validation checks failed for reassignment id."""
+    )
+    @Resolution(
+      "This indicates a malicious or faulty behaviour."
+    )
+    object InconsistentReassignmentId
+        extends LocalRejectErrorCode(
+          id = "INCONSISTENT_REASSIGNMENT_ID",
+          ErrorCategory.UnredactedSecurityAlert,
+        ) {
+      override def logLevel: Level = Level.ERROR
+      final case class Reject(override val _details: String)
+          extends LocalRejectErrorImpl(_causePrefix = s"Reassignment ID check failed. ")
     }
 
   }

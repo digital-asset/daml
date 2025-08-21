@@ -845,9 +845,7 @@ final class ConflictDetectorTest
 
         _ <- checkInvalidCommitSet(cd, RequestCounter(4), ofEpochMilli(4))(
           mkActivenessSet(useOnly = Set(coid00)),
-          mkCommitSet(unassign =
-            Map(coid00 -> (sourceSynchronizer1.unwrap -> reassignmentCounter1))
-          ),
+          mkCommitSet(unassign = Map(coid00 -> (targetSynchronizer1 -> reassignmentCounter1))),
         )("Unassigned contract only used, not locked.")
       } yield succeed
     }
@@ -1296,8 +1294,8 @@ final class ConflictDetectorTest
         actRes = mkActivenessResult(prior = Map(coid00 -> Some(active), coid01 -> Some(active)))
         commitSet = mkCommitSet(unassign =
           Map(
-            coid00 -> (synchronizer1 -> reassignmentCounter1),
-            coid01 -> (synchronizer2 -> reassignmentCounter2),
+            coid00 -> (targetSynchronizer1 -> reassignmentCounter1),
+            coid01 -> (targetSynchronizer2 -> reassignmentCounter2),
           )
         )
         _ <- singleCRwithTR(cd, tor.rc, activenessSet, actRes, commitSet, tor.timestamp)
@@ -1359,7 +1357,7 @@ final class ConflictDetectorTest
         )
         commitSet = mkCommitSet(
           arch = Set(coid00),
-          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter2)),
+          unassign = Map(coid01 -> (targetSynchronizer1 -> reassignmentCounter2)),
           assign = Map(coid20 -> (sourceSynchronizer2, reassignmentIds(0))),
           create = Set(coid10),
         )
@@ -1467,8 +1465,8 @@ final class ConflictDetectorTest
             coid11 -> (sourceSynchronizer1, reassignmentIds(0)),
           ),
           unassign = Map(
-            coid20 -> (synchronizer1 -> reassignmentCounter1),
-            coid11 -> (synchronizer2 -> reassignmentCounter2),
+            coid20 -> (targetSynchronizer1 -> reassignmentCounter1),
+            coid11 -> (targetSynchronizer2 -> reassignmentCounter2),
           ),
           arch = Set(coid10),
         )
@@ -1522,7 +1520,7 @@ final class ConflictDetectorTest
         )
         fin1 <- cd
           .finalizeRequest(
-            mkCommitSet(unassign = Map(coid00 -> (synchronizer2 -> reassignmentCounter2))),
+            mkCommitSet(unassign = Map(coid00 -> (targetSynchronizer2 -> reassignmentCounter2))),
             tor,
           )
           .flatten
@@ -1598,7 +1596,7 @@ final class ConflictDetectorTest
         commitSet1 = mkCommitSet(
           create = Set(coid10),
           arch = Set(coid00),
-          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter1)),
+          unassign = Map(coid01 -> (targetSynchronizer1 -> reassignmentCounter1)),
         )
         actSet2 = mkActivenessSet(
           assign = Set(coid10),
@@ -1608,8 +1606,8 @@ final class ConflictDetectorTest
         commitSet2 = mkCommitSet(
           assign = Map(coid10 -> (sourceSynchronizer2, reassignmentIds(0))),
           unassign = Map(
-            coid00 -> (synchronizer2 -> reassignmentCounter1),
-            coid01 -> (synchronizer2 -> reassignmentCounter2),
+            coid00 -> (targetSynchronizer2 -> reassignmentCounter1),
+            coid01 -> (targetSynchronizer2 -> reassignmentCounter2),
           ),
         )
         ts = ofEpochMilli(1000)
@@ -1707,7 +1705,7 @@ final class ConflictDetectorTest
           // This runs after committing the request, but before the reassignment store is updated
           val actSetOut = mkActivenessSet(deact = Set(coid00))
           val commitSetOut =
-            mkCommitSet(unassign = Map(coid00 -> (synchronizer1 -> reassignmentCounter1)))
+            mkCommitSet(unassign = Map(coid00 -> (targetSynchronizer1 -> reassignmentCounter1)))
           CheckedT((for {
             _ <- singleCRwithTR(
               cd,
@@ -1767,7 +1765,7 @@ final class ConflictDetectorTest
 
         commitSet1 = mkCommitSet(
           arch = Set(coid00),
-          unassign = Map(coid01 -> (synchronizer1 -> reassignmentCounter1)),
+          unassign = Map(coid01 -> (targetSynchronizer1 -> reassignmentCounter1)),
         )
         fin1 <- cd.finalizeRequest(commitSet1, tor1).flatten
         _ = assert(fin1 == Either.unit)

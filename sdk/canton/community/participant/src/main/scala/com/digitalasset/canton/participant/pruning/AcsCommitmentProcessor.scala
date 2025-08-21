@@ -91,11 +91,11 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.collection.{IterableUtil, MapsUtil}
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
+import com.digitalasset.canton.util.{FutureUtil, *}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
@@ -323,6 +323,12 @@ class AcsCommitmentProcessor private (
   private val timestampsWithPotentialTopologyChanges =
     new AtomicReference[List[Traced[EffectiveTime]]](List())
 
+  /** Indicates whether the reinitialization of the ACS commitments has been enqueued. This is used
+    * to avoid multiple reinitializations to be enqueued.
+    */
+  private val reinitializationEnqueued: AtomicReference[Boolean] =
+    new AtomicReference[Boolean](false)
+
   /** Queue to serialize the access to the DB, to avoid serialization failures at SERIALIZABLE level
     */
   private val dbQueue: SimpleExecutionQueue =
@@ -379,7 +385,9 @@ class AcsCommitmentProcessor private (
           warnOnUsingDefault = false,
         )
 
-    } yield { config.acsCommitmentsCatchUp }
+    } yield {
+      config.acsCommitmentsCatchUp
+    }
 
   private def catchUpEnabled(cfg: Option[AcsCommitmentsCatchUpParameters]): Boolean =
     cfg.exists(_.isCatchUpEnabled())
@@ -540,6 +548,7 @@ class AcsCommitmentProcessor private (
 
         case Some(_) => publishTick(publishTickData)
       }
+
     go()
   }
 
@@ -695,7 +704,7 @@ class AcsCommitmentProcessor private (
             activeContractStore,
             contractStore,
             enableAdditionalConsistencyChecks,
-            completedPeriod.toInclusive.forgetRefinement,
+            TimeOfChange(completedPeriod.toInclusive.forgetRefinement),
             batchingConfig,
           )
 
@@ -1469,8 +1478,8 @@ class AcsCommitmentProcessor private (
               AcsCommitmentAlarm
                 .Warn(
                   s"""There should be at most ${intervals.size} commitments from counter-participant
-                   |$counterParticipant covering the period ${completedPeriod.fromExclusive} to ${completedPeriod.toInclusive}),
-                   |but we have the following ${counterCommitmentList.size}""".stripMargin
+                     |$counterParticipant covering the period ${completedPeriod.fromExclusive} to ${completedPeriod.toInclusive}),
+                     |but we have the following ${counterCommitmentList.size}""".stripMargin
                 )
                 .report()
             }
@@ -1584,6 +1593,7 @@ class AcsCommitmentProcessor private (
     * reconciliation interval len * [[catchUpIntervalSkip]] * [[laggingBehindCatchUpTrigger]]. If
     * reconciliation intervals are dynamic, the reconciliation interval len represents the interval
     * len at the time when the catch-up decision is taken.
+    *
     * @return
     *   The catch-up timestamp, if the node needs to catch-up, otherwise None.
     */
@@ -1930,6 +1940,7 @@ class AcsCommitmentProcessor private (
         )
       )
     } yield ()
+
   private def markPeriods(
       cmt: AcsCommitmentData,
       commitments: Iterable[(CommitmentPeriod, HashedCommitmentType)],
@@ -1978,6 +1989,54 @@ class AcsCommitmentProcessor private (
       )
       .map(_ => ()) // maps FutureUnlessShutdown[Seq[Unit]] to FutureUnlessShutdown[Unit]
 
+  /** Reinitialize the running commitments at the given ACS timestamp. This is used to recompute the
+    * running commitments from the active contract store. Because the reinitialization task runs on
+    * the queue, a reinitialization cannot start before a previous initialization finished.
+    *
+    * Returns false if a reinitialization is already enqueued or executing, true otherwise.
+    */
+  def reinitializeCommitments(timestamp: CantonTimestamp)(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): Boolean =
+    if (reinitializationEnqueued.compareAndSet(false, true)) {
+      val fut = publishQueue
+        .executeUS(
+          for {
+            _ <- store.runningCommitments.markReinitializationStarted(timestamp)
+            rc <- computeRunningCommitmentsFromAcs(
+              activeContractStore,
+              contractStore,
+              TimeOfChange(timestamp),
+              batchingConfig,
+            )
+
+            snapshot = rc.snapshot()
+            _ <- persistRunningCommitments(snapshot)
+            _ = runningCommitments.reinitialize(snapshot.active, snapshot.recordTime)
+            res <- store.runningCommitments.markReinitializationCompleted(timestamp)
+            _ = if (!res) {
+              logger.error(
+                s"Could not complete renitialization of running commitments at $timestamp"
+              )
+            }
+            _ = reinitializationEnqueued.set(false)
+          } yield (),
+          s"reinitialize running commitments at $timestamp",
+        )
+
+      FutureUtil.doNotAwait(
+        fut.onShutdown(
+          logger.info("Giving up on reinitializing ACS commitment due to shutdown")
+        ),
+        failureMessage = s"Reinitializing ACS commitments failed.",
+        // If the failure is due to the DB instance transitioning to pasive, then failing to produce commitments is
+        // expected, and we shouldn't log it as an error.
+        logPassiveInstanceAtInfo = true,
+      )
+      true
+    } else false
+
   override protected def onClosed(): Unit =
     LifeCycle.close(dbQueue, publishQueue)(logger)
 
@@ -2014,6 +2073,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
   sealed trait PublishTickData {
     def timestamp: CantonTimestamp
+    def tieBreaker: Option[Long]
   }
 
   object PublishTickData {
@@ -2022,6 +2082,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         acsChangeF: () => FutureUnlessShutdown[AcsChange],
     ) extends PublishTickData {
       override def timestamp: CantonTimestamp = toc.timestamp
+      override def tieBreaker: Option[Long] = None
     }
 
     // Should be used only for logical synchronizer upgrades
@@ -2029,6 +2090,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
         upgradeTime: CantonTimestamp
     ) extends PublishTickData {
       override def timestamp: CantonTimestamp = upgradeTime
+      override def tieBreaker: Option[Long] = None
     }
   }
 
@@ -2263,6 +2325,20 @@ object AcsCommitmentProcessor extends HasLoggerName {
     }
 
     def watermark: RecordTime = rt
+
+    def reinitialize(snapshot: Map[SortedSet[LfPartyId], CommitmentType], recordTime: RecordTime) =
+      blocking {
+        lock.synchronized {
+          // delete all active
+          deltaB.clear()
+          commitments.clear()
+          snapshot.foreach { case (stkhd, cmt) =>
+            commitments += stkhd -> LtHash16.tryCreate(cmt)
+            deltaB += stkhd -> LtHash16.tryCreate(cmt)
+          }
+          rt = recordTime
+        }
+      }
   }
 
   /** Caches the commitments per participant and the commitments per stakeholder group in a period,
@@ -2516,17 +2592,15 @@ object AcsCommitmentProcessor extends HasLoggerName {
     ) extends CommitmentsPruningBound
   }
 
-  private def checkRunningCommitmentsAgainstACS(
-      runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+  def computeRunningCommitmentsFromAcs(
       activeContractStore: ActiveContractStore,
       contractStore: ContractStore,
-      enableAdditionalConsistencyChecks: Boolean,
-      toInclusive: CantonTimestamp, // end of interval used to snapshot the ACS
+      acsTimestamp: TimeOfChange,
       batchingConfig: BatchingConfig,
   )(implicit
       ec: ExecutionContext,
       namedLoggingContext: NamedLoggingContext,
-  ): FutureUnlessShutdown[Unit] = {
+  ): FutureUnlessShutdown[RunningCommitments] = {
 
     def withMetadataSeq(cids: Seq[LfContractId]): FutureUnlessShutdown[Seq[ContractInstance]] =
       contractStore
@@ -2562,30 +2636,50 @@ object AcsCommitmentProcessor extends HasLoggerName {
         )
       }
 
+    for {
+      activeContracts <- activeContractStore.snapshot(acsTimestamp)(
+        namedLoggingContext.traceContext
+      )
+      activations = activeContracts.map { case (cid, (_toc, reassignmentCounter)) =>
+        (
+          cid,
+          reassignmentCounter,
+        )
+      }
+      change <- lookupChangeMetadata(activations)
+    } yield {
+      runningCommitmentFromAcsChange(change, RecordTime(acsTimestamp.timestamp, 0))
+    }
+  }
+
+  private def checkRunningCommitmentsAgainstACS(
+      runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+      activeContractStore: ActiveContractStore,
+      contractStore: ContractStore,
+      enableAdditionalConsistencyChecks: Boolean,
+      acsTimestamp: TimeOfChange,
+      batchingConfig: BatchingConfig,
+  )(implicit
+      ec: ExecutionContext,
+      namedLoggingContext: NamedLoggingContext,
+  ): FutureUnlessShutdown[Unit] =
     if (enableAdditionalConsistencyChecks) {
       for {
-        activeContracts <- activeContractStore.snapshot(TimeOfChange(toInclusive))(
-          namedLoggingContext.traceContext
+        rc <- computeRunningCommitmentsFromAcs(
+          activeContractStore,
+          contractStore,
+          acsTimestamp,
+          batchingConfig,
         )
-        activations = activeContracts.map { case (cid, (_toc, reassignmentCounter)) =>
-          (
-            cid,
-            reassignmentCounter,
-          )
-        }
-        change <- lookupChangeMetadata(activations)
       } yield {
-        val toc = new RecordTime(toInclusive, 0)
-        val rc = runningCommitmentFromAcsChange(change, toc)
         val acsCommitments = rc.snapshot().active
         if (acsCommitments != runningCommitments) {
           Errors.InternalError
-            .InconsistentRunningCommitmentAndACS(toc, acsCommitments, runningCommitments)
+            .InconsistentRunningCommitmentAndACS(acsTimestamp, acsCommitments, runningCommitments)
             .discard
         }
       }
     } else FutureUnlessShutdown.unit
-  }
 
   object Errors extends AcsCommitmentErrorGroup {
     @Explanation(
@@ -2617,7 +2711,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       )
       @Resolution("Contact customer support.")
       final case class InconsistentRunningCommitmentAndACS(
-          toc: RecordTime,
+          toc: TimeOfChange,
           acsCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
           runningCommitments: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       )(implicit val loggingContext: ErrorLoggingContext)

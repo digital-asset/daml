@@ -501,5 +501,4 @@ object TransactionProcessor {
   type TransactionSubmissionFailure = TransactionSubmissionFailure.type
   final case class TransactionSubmissionUnknown(maxSequencingTime: CantonTimestamp)
       extends TransactionSubmissionResult
-  type TransactonSubmissionUnknown = TransactionSubmissionUnknown.type
 }

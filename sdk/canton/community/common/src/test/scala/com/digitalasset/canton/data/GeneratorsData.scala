@@ -533,6 +533,7 @@ final class GeneratorsData(
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
       reassigningParticipants <- boundedSetGen[ParticipantId]
+      unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
 
       hashOps = TestHash // Not used for serialization
 
@@ -546,6 +547,7 @@ final class GeneratorsData(
         uuid,
         submitterMetadata,
         reassigningParticipants,
+        unassignmentTs,
       )
   )
 

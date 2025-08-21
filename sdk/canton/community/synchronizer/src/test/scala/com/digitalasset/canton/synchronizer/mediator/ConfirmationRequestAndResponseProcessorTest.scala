@@ -1254,12 +1254,13 @@ class ConfirmationRequestAndResponseProcessorTest
               ) =>
             // TODO(#5337) These are only the rejections for the first view because this view happens to be finalized first.
             reasons.length shouldEqual 2
-            reasons.foreach { case (party, reject) =>
+            reasons.foreach { case (party, participantId, reject) =>
               reject shouldBe LocalRejectError.MalformedRejects.Payloads
                 .Reject(malformedMsg)
                 .toLocalReject(
                   testedProtocolVersion
                 )
+              participantId should (be(participant1) or be(participant2))
               party should (contain(submitter) or contain(signatory))
             }
         }
@@ -1410,8 +1411,12 @@ class ConfirmationRequestAndResponseProcessorTest
                 )
               ) =>
             reasons.length shouldEqual 1
-            reasons.foreach { case (party, reject) =>
-              reject shouldBe localAbstain
+            reasons.foreach { case (party, participant, reject) =>
+              // Since a previous rejection exists, we report the rejection error instead of the abstain.
+              participant shouldBe participant2
+              reject shouldBe LocalRejectError.ConsistencyRejections.LockedContracts
+                .Reject(Nil)
+                .toLocalReject(testedProtocolVersion)
               party shouldBe Set(signatory)
             }
         }
@@ -1528,8 +1533,9 @@ class ConfirmationRequestAndResponseProcessorTest
                 )
               ) =>
             reasons.length shouldEqual 2
-            reasons.foreach { case (party, reject) =>
+            reasons.foreach { case (party, participantId, reject) =>
               reject shouldBe localAbstain
+              participantId should (be(participant1) or be(participant2))
               party should (contain(submitter) or contain(signatory))
             }
         }

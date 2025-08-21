@@ -180,6 +180,7 @@ private[reassignment] class AssignmentProcessingSteps(
           assignmentUuid,
           protocolVersion,
           unassignmentData.reassigningParticipants,
+          unassignmentData.unassignmentTs,
         )
       )
 
@@ -315,14 +316,14 @@ private[reassignment] class AssignmentProcessingSteps(
         contracts = contractCheck,
         reassignmentIds =
           if (parsedRequest.fullViewTree.isReassigningParticipant(participantId))
-            Set(parsedRequest.fullViewTree.reassignmentId)
+            Set(parsedRequest.reassignmentId)
           else Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedSynchronizer(
-          parsedRequest.fullViewTree.reassignmentId,
+          parsedRequest.reassignmentId,
           targetSynchronizerId = parsedRequest.fullViewTree.synchronizerId,
           receivedOn = synchronizerId.unwrap,
         )
@@ -347,7 +348,7 @@ private[reassignment] class AssignmentProcessingSteps(
     ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val reassignmentId = parsedRequest.fullViewTree.reassignmentId
+    val reassignmentId = parsedRequest.reassignmentId
     val sourceSynchronizer = parsedRequest.fullViewTree.sourceSynchronizer
     val isReassigningParticipant =
       parsedRequest.fullViewTree.isReassigningParticipant(participantId)
@@ -438,9 +439,9 @@ private[reassignment] class AssignmentProcessingSteps(
         EitherT.right(responseF),
         RejectionArgs(
           entry,
-          LocalRejectError.TimeRejects.LocalTimeout
-            .Reject()
-            .toLocalReject(protocolVersion.unwrap),
+          ErrorDetails.fromLocalError(
+            LocalRejectError.TimeRejects.LocalTimeout.Reject()
+          ),
         ),
       )
     }
@@ -471,14 +472,14 @@ private[reassignment] class AssignmentProcessingSteps(
     ) = pendingRequestData
 
     def rejected(
-        reason: TransactionRejection
+        errorDetails: ErrorDetails
     ): EitherT[
       FutureUnlessShutdown,
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = {
       val commit = for {
-        eventO <- createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+        eventO <- createRejectionEvent(RejectionArgs(pendingRequestData, errorDetails))
       } yield CommitAndStoreContractsAndPublishEvent(
         None,
         Seq.empty,
@@ -488,11 +489,13 @@ private[reassignment] class AssignmentProcessingSteps(
     }
 
     def mergeRejectionReasons(
-        reason: TransactionRejection,
-        validationError: Option[TransactionRejection],
-    ): TransactionRejection =
+        validationError: Option[LocalRejectError],
+        errorDetails: ErrorDetails,
+    ): ErrorDetails =
       // we reject with the phase 7 rejection, as it is the best information we have
-      validationError.getOrElse(reason)
+      validationError
+        .map(e => ErrorDetails(e.reason(), e.isMalformed))
+        .getOrElse(errorDetails)
 
     for {
       rejectionFromPhase3 <- EitherT.right(checkPhase7Validations(assignmentValidationResult))
@@ -528,7 +531,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
       commitAndStoreContract <- (verdict, rejectionO) match {
         case (_: Verdict.Approve, Some(rejection)) =>
-          rejected(rejection)
+          rejected(ErrorDetails.fromLocalError(rejection))
         case (_: Verdict.Approve, _) =>
           val commitSet = assignmentValidationResult.commitSet
           val commitSetO = Some(FutureUnlessShutdown.pure(commitSet))
@@ -561,10 +564,13 @@ private[reassignment] class AssignmentProcessingSteps(
           )
 
         case (reasons: Verdict.ParticipantReject, rejectionO) =>
-          rejected(mergeRejectionReasons(reasons.keyEvent, rejectionO))
+          val mergedError = mergeRejectionReasons(rejectionO, reasons.keyErrorDetails)
+          rejected(mergedError)
 
         case (rejection: Verdict.MediatorReject, rejectionO) =>
-          rejected(mergeRejectionReasons(rejection, rejectionO))
+          val mergedError =
+            mergeRejectionReasons(rejectionO, rejection.errorDetails)
+          rejected(mergedError)
       }
     } yield commitAndStoreContract
   }
@@ -641,6 +647,7 @@ object AssignmentProcessingSteps {
       assignmentUuid: UUID,
       targetProtocolVersion: Target[ProtocolVersion],
       reassigningParticipants: Set[ParticipantId],
+      unassignmentTs: CantonTimestamp,
   ): Either[ReassignmentProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
@@ -656,6 +663,7 @@ object AssignmentProcessingSteps {
         uuid = assignmentUuid,
         submitterMetadata,
         reassigningParticipants,
+        unassignmentTs,
       )
 
     for {

@@ -309,7 +309,7 @@ object OnboardingRestriction {
   *   minimal value, unless you plan to subsequently increase `preparationTimeRecordTimeTolerance.`
   * @param reconciliationInterval
   *   The size of the reconciliation interval (minimum duration between two ACS commitments). Note:
-  *   default to [[StaticSynchronizerParameters.defaultReconciliationInterval]] for backward
+  *   default to [[DynamicSynchronizerParameters.defaultReconciliationInterval]] for backward
   *   compatibility. Should be significantly longer than the period of time it takes to compute the
   *   commitment and have it sequenced of the synchronizer. Otherwise, ACS commitments will keep
   *   being exchanged continuously on an idle synchronizer.
@@ -693,7 +693,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
         defaultPreparationTimeRecordTimeTolerance,
       confirmationResponseTimeout: NonNegativeFiniteDuration = defaultConfirmationResponseTimeout,
-  ) =
+  ): DynamicSynchronizerParameters =
     DynamicSynchronizerParameters.tryCreate(
       confirmationResponseTimeout = confirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,

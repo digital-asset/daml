@@ -148,7 +148,7 @@ final class AssignmentValidationTest
       targetMediator,
       cryptoSnapshot,
       cryptoSnapshot.ipsSnapshot.findDynamicSynchronizerParameters().futureValueUS.value,
-      reassignmentId,
+      view.reassignmentId,
     )
   }
 
@@ -175,7 +175,7 @@ final class AssignmentValidationTest
     val unassignmentData = reassignmentDataHelpers.unassignmentData(unassignmentRequest)
 
     val assignmentRequest = makeFullAssignmentTree(
-      reassignmentId,
+      unassignmentData.reassignmentId,
       contract,
     )
 
@@ -400,6 +400,7 @@ final class AssignmentValidationTest
       targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = ReassignmentCounter(1),
       reassigningParticipants: Set[ParticipantId] = reassigningParticipants,
+      unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(
@@ -415,6 +416,7 @@ final class AssignmentValidationTest
         uuid,
         Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
+        unassignmentTs = unassignmentTs,
       )
     )("Failed to create FullAssignmentTree")
   }

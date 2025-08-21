@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.daml.ledger.api.v2.completion.Completion
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -242,6 +243,13 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
           val result = runScenario(createGetCash(2.0), deleteReassignmentEntry = true)
 
           val status = result.status.value
+
+          val decodedError = DecodedCantonError.fromGrpcStatus(status).value
+
+          decodedError.context.get("reported_by_participant_id") shouldBe Some(
+            participant1.id.toProtoPrimitive
+          )
+          decodedError.context.get("confirming_parties") shouldBe Some(alice.toProtoPrimitive)
 
           status.code should not be 0
 

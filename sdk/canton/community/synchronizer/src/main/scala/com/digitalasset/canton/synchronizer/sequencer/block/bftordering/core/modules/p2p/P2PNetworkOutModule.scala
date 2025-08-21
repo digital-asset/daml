@@ -37,6 +37,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   ModuleRef,
+  P2PAddress,
   P2PConnectionEventListener,
   P2PNetworkManager,
   P2PNetworkRef,
@@ -72,7 +73,7 @@ final class P2PNetworkOutModule[
   private val connectedP2PEndpointIds = mutable.Set.empty[P2PEndpoint.Id]
 
   val p2pNetworkManager: P2PNetworkManagerT =
-    dependencies.createP2PNetworkManager(this)
+    dependencies.createP2PNetworkManager(this, dependencies.p2pNetworkIn)
 
   private var initialP2PEndpointsCount = 1
 
@@ -271,7 +272,7 @@ final class P2PNetworkOutModule[
     SequencerBftAdminData.PeerNetworkStatus(
       p2pEndpointIds
         .getOrElse(
-          p2pConnectionState.getP2PEndpoints
+          p2pConnectionState.connections
             .map(_.id)
             .sorted // Sorted for output determinism and easier testing
         )
@@ -386,7 +387,7 @@ final class P2PNetworkOutModule[
       s"Connecting new node at ${p2pEndpoint.id}"
     )
     val networkRef =
-      p2pNetworkManager.createNetworkRef(context, p2pEndpoint)
+      p2pNetworkManager.createNetworkRef(context, P2PAddress.Endpoint(p2pEndpoint))
     p2pConnectionState.addNetworkRef(p2pEndpoint, networkRef)
     emitConnectedCount(metrics, connectedCount)
     logEndpointsStatus()

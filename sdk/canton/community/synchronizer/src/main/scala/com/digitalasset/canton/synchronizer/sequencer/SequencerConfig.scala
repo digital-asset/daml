@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.{
   StorageConfig,
   UniformCantonConfigValidation,
 }
+import com.digitalasset.canton.synchronizer.sequencer.BlockSequencerConfig.CircuitBreakerConfig
 import com.digitalasset.canton.synchronizer.sequencer.DatabaseSequencerConfig.{
   SequencerPruningConfig,
   TestingInterceptor,
@@ -224,6 +225,7 @@ final case class BlockSequencerConfig(
     writer: SequencerWriterConfig = SequencerWriterConfig.HighThroughput(),
     reader: SequencerReaderConfig = SequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
+    circuitBreaker: CircuitBreakerConfig = CircuitBreakerConfig(),
 ) extends UniformCantonConfigValidation { self =>
   def toDatabaseSequencerConfig: DatabaseSequencerConfig = new DatabaseSequencerConfig {
     override val writer: SequencerWriterConfig = self.writer
@@ -243,6 +245,18 @@ object BlockSequencerConfig {
         : CantonConfigValidator[TestingInterceptor] =
       CantonConfigValidator.validateAll
     CantonConfigValidatorDerivation[BlockSequencerConfig]
+  }
+
+  final case class CircuitBreakerConfig(
+      allowedBlockDelay: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
+      maxFailures: Int = 10,
+      resetTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(30),
+      exponentialBackoffFactor: Double = 1.0,
+      maxResetTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofDays(36500),
+  ) extends UniformCantonConfigValidation
+  object CircuitBreakerConfig {
+    implicit val circuitBreakerConfigValidator: CantonConfigValidator[CircuitBreakerConfig] =
+      CantonConfigValidatorDerivation[CircuitBreakerConfig]
   }
 }
 

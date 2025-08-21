@@ -62,6 +62,7 @@ message AssignmentCommonData {
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string source_physical_synchronizer_id = 8;
   string target_physical_synchronizer_id = 2;
+  google.protobuf.Timestamp unassignment_ts = 9;
 
   Stakeholders stakeholders = 3; // stakeholders of the contract
 
