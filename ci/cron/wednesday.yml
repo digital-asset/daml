@@ -5,7 +5,7 @@ pr: none
 trigger: none
 
 schedules:
-- cron: "0 7 * * Thu"
+- cron: "14 7 * * Thu"
   displayName: weekly snapshot
   branches:
     include:
@@ -57,3 +57,5 @@ jobs:
       echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
       trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
       request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
