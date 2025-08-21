@@ -1441,6 +1441,8 @@ private[lf] object Speedy {
       }
       Control.Value(go(typ0, value0))
     }
+
+    def costModel: CostModel = CostModel.EmptyModel
   }
 
   object Machine {
