@@ -17,7 +17,7 @@ scala_runtime_deps = [
 runtime_deps = [
     "@maven//:ch_qos_logback_logback_classic",
     "@maven//:ch_qos_logback_logback_core",
-    "@maven//:io_grpc_grpc_netty",
+    "@maven//:io_grpc_grpc_netty_shaded",
     "@maven//:org_xerial_sqlite_jdbc",
 ]
 

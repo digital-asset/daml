@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.interpretation.Limits
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 import org.scalacheck.Gen
 
 import java.net.InetSocketAddress

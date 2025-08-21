@@ -4,8 +4,8 @@
 package com.daml.tls
 
 import com.daml.tls.TlsVersion.{TlsVersion, V1, V1_1, V1_2, V1_3}
-import io.grpc.netty.GrpcSslContexts
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.grpc.netty.shaded.io.grpc.netty.GrpcSslContexts
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}

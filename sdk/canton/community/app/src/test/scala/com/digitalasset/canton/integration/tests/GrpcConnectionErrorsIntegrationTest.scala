@@ -59,7 +59,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
       .withSetup { implicit env =>
         import env.*
         // Make ssl errors visible in the log.
-        logging.set_level("io.netty", "DEBUG")
+        logging.set_level("io.grpc.netty.shaded.io.netty", "DEBUG")
       }
 
   private lazy val hostname = "localhost"

@@ -82,7 +82,7 @@ import com.digitalasset.canton.version.{
   RepresentativeProtocolVersion,
 }
 import com.digitalasset.canton.{config, *}
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.grpc.{Server, StatusRuntimeException}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed

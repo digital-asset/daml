@@ -35,19 +35,11 @@ version_specific = {
 #    as long as the version we use is greater than or equal to the version required by ScalaPB,
 #    everything should work.
 #
-# 2. To keep TLS for the Ledger API Server working, the following three artifacts need be updated
-# in sync according to https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
-#
-# * io.grpc:grpc-netty
-# * io.netty:netty-handler
-# * io.netty:netty-tcnative-boringssl-static
-#
-# This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
-# need to be updated with careful consideration.
+# 2. As recommended by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
+
+# grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
 
 apispec_version = "0.11.7"
-netty_tcnative_version = "2.0.65.Final"
-netty_version = "4.1.110.Final"
 grpc_version = "1.67.1"
 protobuf_version = "3.25.5"
 pekko_version = "1.1.2"
@@ -181,17 +173,11 @@ def install_java_deps():
                 version = grpc_version,
             ),
             "io.grpc:grpc-inprocess:{}".format(grpc_version),
-            "io.grpc:grpc-netty:{}".format(grpc_version),
+            "io.grpc:grpc-netty-shaded:{}".format(grpc_version),
             "io.grpc:grpc-protobuf:{}".format(grpc_version),
             "io.grpc:grpc-services:{}".format(grpc_version),
             "io.grpc:grpc-stub:{}".format(grpc_version),
             "io.grpc:grpc-util:{}".format(grpc_version),
-            "io.netty:netty-buffer:{}".format(netty_version),
-            "io.netty:netty-codec-http2:{}".format(netty_version),
-            "io.netty:netty-handler-proxy:{}".format(netty_version),
-            "io.netty:netty-handler:{}".format(netty_version),
-            "io.netty:netty-resolver:{}".format(netty_version),
-            "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6:{}".format(opentelemetry_instrumentation_version),
             "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java8:{}".format(opentelemetry_instrumentation_version),
             "io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0:{}".format(opentelemetry_instrumentation_version),
