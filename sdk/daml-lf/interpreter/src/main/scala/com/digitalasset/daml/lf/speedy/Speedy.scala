@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package speedy
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{PackageInterface, TypeDestructor}
@@ -19,10 +19,12 @@ import com.digitalasset.daml.lf.speedy.SValue.{SAnyException, SArithmeticError, 
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.{newTraceLog, newWarningLog}
 import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.transaction.{
   ContractKeyUniquenessMode,
+  CreationTime,
+  FatContractInstance,
   GlobalKey,
+  GlobalKeyWithMaintainers,
   Node,
   NodeId,
   SubmittedTransaction,
@@ -34,6 +36,7 @@ import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.{nowarn, tailrec}
 import scala.util.control.NonFatal
@@ -193,7 +196,8 @@ private[lf] object Speedy {
         initialKontStackSize = initialKontStackSize,
       ) {
 
-    private[this] var contractsCache = Map.empty[V.ContractId, V.ThinContractInstance]
+    private[this] var contractLookupCache =
+      Map.empty[V.ContractId, (FatContractInstance, Hash.HashingMethod, Hash => Boolean)]
 
     // To handle continuation exceptions, as continuations run outside the interpreter loop.
     // Here we delay the throw to the interpreter loop, but it would be probably better
@@ -249,13 +253,18 @@ private[lf] object Speedy {
     final private[speedy] def needContract(
         location: => String,
         contractId: V.ContractId,
-        continue: V.ThinContractInstance => Control[Question.Update],
+        continue: (
+            FatContractInstance,
+            Hash.HashingMethod,
+            Hash => Boolean,
+        ) => Control[Question.Update],
     ): Control.Question[Question.Update] =
       Control.Question(
         Question.Update.NeedContract(
           contractId,
           committers,
-          x => safelyContinue(location, "NeedContract", continue(x)),
+          (coinst, hashMethod, authenticator) =>
+            safelyContinue(location, "NeedContract", continue(coinst, hashMethod, authenticator)),
         )
       )
 
@@ -332,29 +341,36 @@ private[lf] object Speedy {
       )
 
     private[speedy] def lookupContract(coid: V.ContractId)(
-        f: V.ThinContractInstance => Control[Question.Update]
+        f: (FatContractInstance, Hash.HashingMethod, Hash => Boolean) => Control[Question.Update]
     ): Control[Question.Update] =
-      contractsCache.get(coid) match {
+      contractLookupCache.get(coid) match {
         case Some(res) =>
-          f(res)
+          f.tupled(res)
         case None =>
+          // TODO(https://github.com/digital-asset/daml/issues/21667): do not treat disclosed contracts separately
           disclosedContracts.get(coid) match {
             case Some(contractInfo) =>
               markDisclosedcontractAsUsed(coid)
               f(
-                V.ThinContractInstance(
-                  contractInfo.packageName,
-                  contractInfo.templateId,
-                  contractInfo.value.toUnnormalizedValue,
-                )
+                FatContractInstance.fromCreateNode(
+                  create = contractInfo.toCreateNode(coid),
+                  createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
+                  authenticationData = Bytes.Empty,
+                ),
+                Hash.HashingMethod.TypedNormalForm,
+                _ =>
+                  throw new NotImplementedError(
+                    "The authentication of disclosed contracts is not implemented yet"
+                  ),
               )
             case None =>
               needContract(
                 NameOf.qualifiedNameOfCurrentFunc,
                 coid,
-                { res =>
-                  contractsCache = contractsCache.updated(coid, res)
-                  f(res)
+                (coinst, hashingMethod, idValidator) => {
+                  contractLookupCache =
+                    contractLookupCache.updated(coid, (coinst, hashingMethod, idValidator))
+                  f(coinst, hashingMethod, idValidator)
                 },
               )
           }

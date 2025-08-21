@@ -4,6 +4,8 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
@@ -14,10 +16,9 @@ import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
-import com.daml.logging.LoggingContext
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -371,7 +372,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
-  def go(e: Expr, contract: ThinContractInstance): Either[SError, Success] = {
+  def go(
+      e: Expr,
+      packageName: Ref.PackageName,
+      template: Identifier,
+      arg: Value,
+      signatories: Iterable[Ref.Party],
+      observers: Iterable[Ref.Party],
+      contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
+  ): Either[SError, Success] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args: Array[SValue] = Array(SContractId(theCid))
@@ -382,7 +391,21 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
+      .runCollectRequests(
+        machine,
+        getContract = Map(
+          theCid -> FatContractInstance
+            .withDummyDefaults(
+              VDev,
+              packageName,
+              template,
+              arg,
+              signatories,
+              observers,
+              contractKeyWithMaintainers,
+            )
+        ),
+      )
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
         (sv, v, uvs)
@@ -405,13 +428,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     val contractInfo: Speedy.ContractInfo =
-      // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
         version = VDev,
         packageName = pkgName,
         templateId = templateId,
         value = contractSValue,
-        signatories = Set.empty,
+        signatories = Set(alice),
         observers = Set.empty,
         keyOpt = None,
       )
@@ -455,6 +477,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueParty(bob),
           ValueInt64(100),
         )
+      val v_missingFieldKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg2-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       val sv_extendedWithNone =
         SValue.SRecord(
@@ -471,7 +499,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-pkg3-':M:do_fetch",
-          ThinContractInstance(pkgName, i"'-pkg2-':M:T", v_missingField),
+          packageName = pkgName,
+          template = i"'-pkg2-':M:T",
+          arg = v_missingField,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
       ) { case Right((sv, v, _)) =>
         sv shouldBe sv_extendedWithNone
@@ -482,11 +515,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     "missing non-optional field -- should be rejected" in {
       // should be caught by package upgradability check
       val v_missingField = makeRecord(ValueParty(alice))
+      val v_missingFieldKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg1-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       inside(
         go(
           e"'-pkg1-':M:do_fetch",
-          ThinContractInstance(pkgName, i"'-pkg1-':M:T", v_missingField),
+          packageName = pkgName,
+          template = i"'-pkg1-':M:T",
+          arg = v_missingField,
+          signatories = List(alice),
+          observers = List.empty,
+          contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
       ) { case Left(SError.SErrorCrash(_, reason)) =>
         reason should include(
@@ -503,22 +547,34 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
           ValueOptional(None),
         )
+      def key(templateId: Ref.TypeConId) = GlobalKeyWithMaintainers.assertBuild(
+        templateId,
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       val negativeTestCase = i"'-pkg2-':M:T"
       val positiveTestCases = Table("tyCon", i"'-pkg2-':M1:T", i"'-pkg2-':M2:T")
       go(
         e"'-pkg3-':M:do_fetch",
-        ThinContractInstance(pkgName, negativeTestCase, v),
+        packageName = pkgName,
+        template = negativeTestCase,
+        arg = v,
+        signatories = List(alice),
+        observers = List(bob),
+        contractKeyWithMaintainers = Some(key(i"'-pkg2-':M:T")),
       ) shouldBe a[
         Right[_, _]
       ]
 
       forEvery(positiveTestCases) { tyCon =>
-        inside(go(e"'-pkg3-':M:do_fetch", ThinContractInstance(pkgName, tyCon, v))) {
-          case Left(e) =>
-            // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
-            //    on import.
-            e shouldBe a[SError.SErrorCrash]
+        inside(
+          go(e"'-pkg3-':M:do_fetch", pkgName, tyCon, v, List(alice), List(bob), Some(key(tyCon)))
+        ) { case Left(e) =>
+          // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
+          //    on import.
+          e shouldBe a[SError.SErrorCrash]
         }
       }
     }
@@ -529,7 +585,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     "correct fields" in {
 
       val res =
-        go(e"'-pkg1-':M:do_fetch", ThinContractInstance(pkgName, i"'-pkg2-':M:T", v1_base))
+        go(
+          e"'-pkg1-':M:do_fetch",
+          packageName = pkgName,
+          template = i"'-pkg2-':M:T",
+          arg = v1_base,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = Some(v2_key),
+        )
 
       inside(res) { case Right((_, v, _)) =>
         v shouldBe v1_base
@@ -546,11 +610,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
           ValueText("extra"),
         )
+      val v1_extraTextKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg1-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ThinContractInstance(pkgName, i"'-pkg1-':M:T", v1_extraText),
+          packageName = pkgName,
+          template = i"'-pkg1-':M:T",
+          arg = v1_extraText,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = Some(v1_extraTextKey),
         )
 
       inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
@@ -569,10 +644,21 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
           ValueOptional(Some(ValueParty(bob))),
         )
+      val v1_extraSomeKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg3-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       val res = go(
         e"'-pkg2-':M:do_fetch",
-        ThinContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraSome),
+        packageName = pkgName,
+        template = i"'-pkg3-':M:T",
+        arg = v1_extraSome,
+        signatories = List(alice),
+        observers = List(bob),
+        Some(v1_extraSomeKey),
       )
 
       inside(res) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
@@ -589,11 +675,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
           Value.ValueOptional(None),
         )
+      val v1_extraNoneKey = GlobalKeyWithMaintainers.assertBuild(
+        i"'-pkg3-':M:T",
+        ValueParty(alice),
+        Set(alice),
+        pkgName,
+      )
 
       val res =
         go(
           e"'-pkg1-':M:do_fetch",
-          ThinContractInstance(pkgName, i"'-pkg3-':M:T", v1_extraNone),
+          packageName = pkgName,
+          template = i"'-pkg3-':M:T",
+          arg = v1_extraNone,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = Some(v1_extraNoneKey),
         )
 
       inside(res) { case Right((_, v, _)) =>
@@ -612,7 +709,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       inside(
         go(
           e"'-variant-v2-':M:do_fetch",
-          ThinContractInstance(pkgName, i"'-variant-v1-':M:T", v1Arg),
+          packageName = pkgName,
+          template = i"'-variant-v1-':M:T",
+          arg = v1Arg,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = None,
         )
       ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
         e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
@@ -628,7 +730,15 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
       inside(
-        go(e"'-enum-v2-':M:do_fetch", ThinContractInstance(pkgName, i"'-enum-v1-':M:T", v1Arg))
+        go(
+          e"'-enum-v2-':M:do_fetch",
+          packageName = pkgName,
+          template = i"'-enum-v1-':M:T",
+          arg = v1Arg,
+          signatories = List(alice),
+          observers = List(bob),
+          contractKeyWithMaintainers = None,
+        )
       ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
         e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
       }
@@ -645,7 +755,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ThinContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+        packageName = pkgName,
+        template = i"'-pkg1-':M:T",
+        arg = v1_base,
+        signatories = List(alice),
+        observers = List(bob),
+        contractKeyWithMaintainers = Some(v1_key),
       )
       res shouldBe a[Right[_, _]]
     }
@@ -731,7 +846,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ThinContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+        packageName = pkgName,
+        template = i"'-pkg1-':M:T",
+        arg = v1_base,
+        signatories = List(alice),
+        observers = List(bob),
+        contractKeyWithMaintainers = Some(v1_key),
       )
       res shouldBe a[Right[_, _]]
     }

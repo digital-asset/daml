@@ -33,6 +33,7 @@ import com.digitalasset.daml.lf.transaction.IncompleteTransaction
 import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -335,7 +336,11 @@ private[lf] object IdeLedgerRunner {
                 committers,
                 readAs,
                 (fcoinst: FatContractInstance) =>
-                  callback(fcoinst.toImplementation.toCreateNode.versionedCoinst.unversioned),
+                  callback(
+                    fcoinst,
+                    Hash.HashingMethod.TypedNormalForm,
+                    _ => throw new NotImplementedError("authentication not implemented yet"),
+                  ),
               ) match {
                 case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(_) => go()

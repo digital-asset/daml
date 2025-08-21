@@ -14,14 +14,15 @@ import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
+import com.digitalasset.daml.lf.speedy.Speedy.CachedKey
 import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKeyWithMaintainers,
   TransactionVersion,
-  Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
@@ -79,7 +80,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       expr: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -97,7 +98,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages: PureCompiledPackages,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[Value.ContractId, FatContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -1320,17 +1321,18 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               )
               val globalKey = GlobalKeyWithMaintainers.assertBuild(
                 templateId,
-                key.toUnnormalizedValue,
+                key.toNormalizedValue(TransactionVersion.StableVersions.max),
                 Set(alice),
                 templateDefsPkgName,
               )
-              val globalContract = Versioned(
+              val globalContract = FatContractInstance.withDummyDefaults(
                 version = TransactionVersion.StableVersions.max,
-                Value.ThinContractInstance(
-                  packageName = templateDefsV1Pkg.pkgName,
-                  template = templateId,
-                  arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                ),
+                packageName = templateDefsV1Pkg.pkgName,
+                template = templateId,
+                arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+                signatories = List(alice),
+                observers = List.empty,
+                contractKeyWithMaintainers = Some(globalKey),
               )
               val disclosedContract = Speedy.ContractInfo(
                 version = TransactionVersion.StableVersions.max,
@@ -1343,7 +1345,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 ),
                 Set(alice),
                 Set.empty,
-                None,
+                Some(CachedKey(templateDefsPkgName, globalKey, key)),
               )
 
               for (origin <- contractOrigins) {

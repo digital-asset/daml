@@ -41,7 +41,7 @@ import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import io.grpc._
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.reactivex.Observable
 
 import scala.annotation.nowarn
