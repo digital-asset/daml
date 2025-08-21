@@ -6,6 +6,7 @@ import json
 import os
 import pandas as pd
 import plotly.express as px
+from json.decoder import JSONDecodeError
 
 def get_jmh_data(base_dir):
     result = []
@@ -14,7 +15,10 @@ def get_jmh_data(base_dir):
             for jmh_data in os.listdir("{}/{}/{}".format(base_dir, dar_file, script)):
                 if jmh_data.endswith(".json"):
                     with open("{}/{}/{}/{}".format(base_dir, dar_file, script, jmh_data)) as fd:
-                        data = json.load(fd)
+                        try:
+                            data = json.load(fd)
+                        except JSONDecodeError:
+                            data = []
                         fd.close()
                         if len(data) > 0:
                             entry = {
