@@ -23,8 +23,8 @@ import com.digitalasset.canton.networking.grpc.{
 import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TracingConfig
-import io.grpc.netty.shadedio.grpc.ServerInterceptor
-import io.grpc.netty.shadedio.netty.handler.ssl.{ClientAuth, SslContext}
+import io.grpc.ServerInterceptor
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import scala.math.Ordering.Implicits.infixOrderingOps
