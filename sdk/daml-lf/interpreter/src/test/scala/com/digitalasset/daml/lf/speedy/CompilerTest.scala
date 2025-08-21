@@ -19,12 +19,11 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
-  Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
-import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
+import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -152,23 +151,19 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           hasKey = false,
           precondition = true,
         )
-      val versionedContract1 = Versioned(
+      val versionedContract1 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract1.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract1.argument.toUnnormalizedValue,
       )
       val disclosedContract2 =
         buildDisclosedContract(cid2, alice, templateId, hasKey = false, precondition = false)
-      val versionedContract2 = Versioned(
+      val versionedContract2 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract2.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract2.argument.toUnnormalizedValue,
       )
 
       "accept disclosed contracts with a valid precondition" in {
@@ -192,7 +187,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           case Left(
                 SErrorDamlException(TemplatePreconditionViolated(`templateId`, None, contract))
               ) =>
-            contract shouldBe versionedContract2.unversioned.arg
+            contract shouldBe versionedContract2.createArg
         }
       }
     }
@@ -201,23 +196,19 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
       val disclosedContract1 =
         buildDisclosedContract(disclosedCid1, alice, templateId, hasKey = false)
-      val versionedContract1 = Versioned(
+      val versionedContract1 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract1.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract1.argument.toUnnormalizedValue,
       )
       val disclosedContract2 =
         buildDisclosedContract(disclosedCid2, alice, templateId, hasKey = false)
-      val versionedContract2 = Versioned(
+      val versionedContract2 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract2.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract2.argument.toUnnormalizedValue,
       )
 
       "with no commands" should {
@@ -385,13 +376,11 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           label = "test-label-1",
           hasKey = true,
         )
-      val versionedContract1 = Versioned(
+      val versionedContract1 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract1.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract1.argument.toUnnormalizedValue,
       )
       val disclosedContract2 =
         buildDisclosedContract(
@@ -401,13 +390,11 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           label = "test-label-2",
           hasKey = true,
         )
-      val versionedContract2 = Versioned(
+      val versionedContract2 = FatContractInstance.fromThinInstance(
         version = version,
-        ThinContractInstance(
-          packageName = pkg.pkgName,
-          template = templateId,
-          arg = disclosedContract2.argument.toUnnormalizedValue,
-        ),
+        packageName = pkg.pkgName,
+        template = templateId,
+        arg = disclosedContract2.argument.toUnnormalizedValue,
       )
 
       "with no commands" should {
@@ -623,8 +610,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalSExpr(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
       committers: Set[Party] = Set.empty,
   ): Either[
     SError,

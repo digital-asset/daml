@@ -9,7 +9,11 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SubmittedTransaction,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
@@ -73,7 +77,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
 
   def eval(
       limits: interpretation.Limits,
-      contracts: PartialFunction[Value.ContractId, Versioned[Value.ThinContractInstance]],
+      contracts: PartialFunction[Value.ContractId, FatContractInstance],
       committers: Set[Ref.Party],
       e: Ast.Expr,
       agrs: SValue*
@@ -536,17 +540,15 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val aCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("a contract ID"))
   private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
 
-    Versioned(
+    FatContractInstance.fromThinInstance(
       TransactionVersion.StableVersions.max,
-      Value.ThinContractInstance(
-        pkg.pkgName,
-        T,
-        Value.ValueRecord(
-          None,
-          ImmArray(
-            None -> Value.ValueList(signatories.view.map(Value.ValueParty).to(FrontStack)),
-            None -> Value.ValueList(observers.view.map(Value.ValueParty).to(FrontStack)),
-          ),
+      pkg.pkgName,
+      T,
+      Value.ValueRecord(
+        None,
+        ImmArray(
+          None -> Value.ValueList(signatories.view.map(Value.ValueParty).to(FrontStack)),
+          None -> Value.ValueList(observers.view.map(Value.ValueParty).to(FrontStack)),
         ),
       ),
     )

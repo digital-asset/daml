@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
 import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -211,17 +211,15 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     Ref.TypeConId.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
-  val implementsContract: Versioned[Value.ThinContractInstance] = Versioned(
+  val implementsContract: FatContractInstance = FatContractInstance.fromThinInstance(
     newVersion,
-    Value.ThinContractInstance(
-      implementsPkg.pkgName,
-      implementsTemplateId,
-      Value.ValueRecord(
-        None,
-        ImmArray(
-          None -> Value.ValueParty(contractParty),
-          None -> Value.ValueText("test"),
-        ),
+    implementsPkg.pkgName,
+    implementsTemplateId,
+    Value.ValueRecord(
+      None,
+      ImmArray(
+        None -> Value.ValueParty(contractParty),
+        None -> Value.ValueText("test"),
       ),
     ),
   )
@@ -237,8 +235,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
       contractId: ContractId,
       committers: Set[Party] = Set.empty,
       controllers: Set[Party] = Set.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] = {
     import SpeedyTestLib.loggingContext
 
