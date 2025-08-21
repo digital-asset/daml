@@ -145,20 +145,6 @@ trait SynchronizerParametersTimeoutChangesIntegrationTest
             (
               entry => {
                 entry.shouldBeCantonErrorCode(LocalTimeout)
-                entry.mdc.getOrElse("participant", "") shouldBe participant1.name
-              },
-              "participant1 local timeout",
-            ),
-            (
-              entry => {
-                entry.shouldBeCantonErrorCode(LocalTimeout)
-                entry.mdc.getOrElse("participant", "") shouldBe participant2.name
-              },
-              "participant2 local timeout",
-            ),
-            (
-              entry => {
-                entry.shouldBeCantonErrorCode(LocalTimeout)
                 entry.warningMessage should include regex ("Failed to submit ping.*due to a participant determined timeout")
               },
               "Ping service timeout",

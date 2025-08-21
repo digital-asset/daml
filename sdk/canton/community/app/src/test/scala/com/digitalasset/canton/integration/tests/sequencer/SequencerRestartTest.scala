@@ -40,7 +40,7 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
 
   // Those test cases may interfere with each other by sending submissions in the background.
   // Some of the submissions, which started as part of one test case, may time out as part of the next one.
-  private val submissionTimedOut: LogEntry => Assertion =
+  private val optionalManySubmissionTimedOut: LogEntry => Assertion =
     _.warningMessage should include("Submission timed out at")
 
   protected def name: String
@@ -199,25 +199,25 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
       loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
         sendAndWait(participant2),
         logs => {
-          val assertion1: LogEntry => Assertion = _.shouldBeCantonError(
+          val assertSyncServiceAlarm: LogEntry => Assertion = _.shouldBeCantonError(
             SyncServiceAlarm,
             _ should include("Received no encrypted view message of type"),
           )
-          val assertion2: LogEntry => Assertion = _.shouldBeCantonError(
+          val assertBadRootHashMessages: LogEntry => Assertion = _.shouldBeCantonError(
             LocalRejectError.MalformedRejects.BadRootHashMessages,
             _ should include("Received no encrypted view message of type TransactionViewType"),
           )
-          val assertion3: LogEntry => Assertion = _.shouldBeCantonError(
+          val assertInvalidMessage: LogEntry => Assertion = _.shouldBeCantonError(
             InvalidMessage,
             _ should (include("Received a confirmation response") and include(
               "with an unknown request id"
             )),
           )
           if (logs.sizeIs > 3)
-            forAtLeast(logs.size - 3, logs)(submissionTimedOut)
-          forAtLeast(1, logs)(assertion1)
-          forAtLeast(1, logs)(assertion2)
-          forAtLeast(1, logs)(assertion3)
+            forAtMost(logs.size - 3, logs)(optionalManySubmissionTimedOut)
+          forAtLeast(1, logs)(assertSyncServiceAlarm)
+          forAtLeast(1, logs)(assertBadRootHashMessages)
+          forAtLeast(1, logs)(assertInvalidMessage)
         },
       )
     }

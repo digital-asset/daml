@@ -4,11 +4,14 @@
 package com.digitalasset.canton.synchronizer.config
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.netty.handler.ssl.SslContext
+
+import scala.concurrent.duration.Duration
 
 /** The public server configuration ServerConfig used by the synchronizer.
   *
@@ -45,6 +48,7 @@ final case class PublicServerConfig(
     maxTokenExpirationInterval: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(1),
     useExponentialRandomTokenExpiration: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
+    override val maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
 ) extends ServerConfig
     with UniformCantonConfigValidation {
 

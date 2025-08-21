@@ -267,8 +267,8 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
       )
       def reassignments(
           partyIds: Set[PartyId],
-          filterTemplates: Seq[TemplateId],
           completeAfter: PositiveInt,
+          filterTemplates: Seq[TemplateId] = Nil,
           beginOffsetExclusive: Long = 0L,
           endOffsetInclusive: Option[Long] = None,
           verbose: Boolean = false,

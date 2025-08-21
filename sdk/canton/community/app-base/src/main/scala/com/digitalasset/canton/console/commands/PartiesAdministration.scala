@@ -567,9 +567,9 @@ class ParticipantPartiesAdministrationGroup(
   )
   def export_acs(
       parties: Set[PartyId],
+      ledgerOffset: NonNegativeLong,
       synchronizerId: Option[SynchronizerId] = None,
       exportFilePath: String = "canton-acs-export.gz",
-      ledgerOffset: NonNegativeLong,
       contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Unit =

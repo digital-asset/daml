@@ -33,6 +33,7 @@ Participant:
 
 - Register callback to perform the upgrade when upgrade time is reached.
 - Upgrade is performed.
+- In-flight requests around the upgrade time out.
 
 ### WIP
 
@@ -40,7 +41,6 @@ Participant:
 
 ### To do
 
-- In-flight requests are handled
 - Manual upgrade on the participant
 - Upgrade is resilient to crashes
 - Disaster recovery

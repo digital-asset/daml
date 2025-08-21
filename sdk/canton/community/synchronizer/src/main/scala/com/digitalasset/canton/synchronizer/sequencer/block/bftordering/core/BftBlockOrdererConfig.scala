@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core
 
 import com.daml.jwt.JwtTimestampLeeway
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
@@ -179,7 +180,8 @@ object BftBlockOrdererConfig {
       override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
   ) extends ServerConfig
       with UniformCantonConfigValidation {
-
+    override val maxTokenLifetime: config.NonNegativeDuration =
+      config.NonNegativeDuration(Duration.Inf)
     override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
     override val keepAliveServer: Option[BasicKeepAliveServerConfig] = None
     override val authServices: Seq[AuthServiceConfig] = Seq.empty

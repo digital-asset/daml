@@ -142,6 +142,7 @@ object AssignmentValidationResult {
         Unit,
       ],
       submitterCheckResult: Option[ReassignmentValidationError],
+      reassignmentIdResult: Option[ReassignmentValidationError],
   ) extends ReassignmentValidationResult.CommonValidationResult
 
   final case class ReassigningParticipantValidationResult(

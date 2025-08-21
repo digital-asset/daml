@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -200,8 +200,8 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def mkCommitSet(
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
-      unassign: Map[LfContractId, (PhysicalSynchronizerId, ReassignmentCounter)] = Map.empty,
-      assign: Map[LfContractId, (Source[PhysicalSynchronizerId], ReassignmentId)] = Map.empty,
+      unassign: Map[LfContractId, (Target[SynchronizerId], ReassignmentCounter)] = Map.empty,
+      assign: Map[LfContractId, (Source[SynchronizerId], ReassignmentId)] = Map.empty,
   ): CommitSet =
     CommitSet(
       archivals = arch
@@ -217,16 +217,16 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           )
         )
         .toMap,
-      unassignments = unassign.fmap { case (id, reassignmentCounter) =>
+      unassignments = unassign.fmap { case (targetSynchronizer, reassignmentCounter) =>
         CommitSet.UnassignmentCommit(
-          Target(id),
+          targetSynchronizer,
           Set.empty,
           reassignmentCounter,
         )
       },
-      assignments = assign.fmap { case (sourcePSId, id) =>
+      assignments = assign.fmap { case (sourceSynchronizer, id) =>
         CommitSet.AssignmentCommit(
-          sourcePSId.map(_.logical),
+          sourceSynchronizer,
           id,
           ContractMetadata.empty,
           initialReassignmentCounter,

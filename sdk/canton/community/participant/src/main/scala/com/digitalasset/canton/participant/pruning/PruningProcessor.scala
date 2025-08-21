@@ -46,7 +46,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
-import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{
@@ -589,7 +589,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
-      synchronizerId: PhysicalSynchronizerId,
+      synchronizerId: SynchronizerId,
       checkForOutstandingCommitments: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -607,14 +607,14 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
         )
 
-    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(synchronizerId.logical)
+    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(synchronizerId)
 
     safeToPrune_(
       cleanReplayF,
       commitmentsPruningBound = commitmentsPruningBound,
       earliestInFlightF,
       sortedReconciliationIntervalsProvider,
-      synchronizerId.logical,
+      synchronizerId,
     )
   }
 

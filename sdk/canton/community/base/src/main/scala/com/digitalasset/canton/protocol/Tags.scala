@@ -253,7 +253,7 @@ object ReassignmentId {
   }
 
   object V0 {
-    val version: Byte = 0x00
+    private[ReassignmentId] val version: Byte = 0x00
 
     def apply(
         source: Source[SynchronizerId],

@@ -128,20 +128,20 @@ class FirstUnsafeOffsetComputation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
-    val synchronizerId = persistent.psid
+    val psid = persistent.psid
     for {
       synchronizerIndex <- EitherT
         .right(
           participantNodePersistentState.value.ledgerApiStore
-            .cleanSynchronizerIndex(synchronizerId.logical)
+            .cleanSynchronizerIndex(psid.logical)
         )
       _ = logger.debug(
-        s"SynchronizerIndex for synchronizer $synchronizerId: $synchronizerIndex "
+        s"SynchronizerIndex for synchronizer $psid: $synchronizerIndex "
       )
 
       sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
         .get(
-          synchronizerId,
+          psid,
           synchronizerIndex
             .flatMap(_.sequencerIndex)
             .map(_.sequencerTimestamp)
@@ -157,13 +157,13 @@ class FirstUnsafeOffsetComputation(
             sortedReconciliationIntervalsProvider,
             persistent.acsCommitmentStore,
             participantNodePersistentState.value.inFlightSubmissionStore,
-            synchronizerId,
+            psid.logical,
             checkForOutstandingCommitments = true,
           ),
-          Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId.logical),
+          Pruning.LedgerPruningOffsetUnsafeSynchronizer(psid.logical),
         )
       _ = logger.debug(
-        s"Safe commitment tick for synchronizer $synchronizerId at $safeCommitmentTick"
+        s"Safe commitment tick for synchronizer $psid at $safeCommitmentTick"
       )
 
       // Topology event crash recovery requires to not prune above the earliest sequenced timestamp referring to a not yet effective topology transaction,
@@ -184,7 +184,7 @@ class FirstUnsafeOffsetComputation(
           )
           .getOrElse(EitherT.right(FutureUnlessShutdown.pure(None)))
       _ = logger.debug(
-        s"Earliest sequenced timestamp for not-yet-effective topology transactions for synchronizer $synchronizerId: $earliestSequencedTimestampForNonEffectiveTopologyTransactions"
+        s"Earliest sequenced timestamp for not-yet-effective topology transactions for synchronizer $psid: $earliestSequencedTimestampForNonEffectiveTopologyTransactions"
       )
 
       (firstUnsafeRecordTime, cause) =
@@ -207,18 +207,18 @@ class FirstUnsafeOffsetComputation(
       firstUnsafeOffsetO <- EitherT
         .right(
           participantNodePersistentState.value.ledgerApiStore.firstSynchronizerOffsetAfterOrAt(
-            synchronizerId.logical,
+            psid.logical,
             firstUnsafeRecordTime,
           )
         )
     } yield {
       logger.debug(
-        s"First unsafe pruning offset for synchronizer $synchronizerId at $firstUnsafeOffsetO"
+        s"First unsafe pruning offset for synchronizer $psid at $firstUnsafeOffsetO"
       )
       firstUnsafeOffsetO.map(synchronizerOffset =>
         UnsafeOffset(
           offset = synchronizerOffset.offset,
-          synchronizerId = synchronizerId.logical,
+          synchronizerId = psid.logical,
           recordTime = CantonTimestamp(synchronizerOffset.recordTime),
           cause = cause,
         )

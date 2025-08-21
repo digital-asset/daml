@@ -23,7 +23,7 @@ import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPart
 private[protocol] object TopologyTransactionDiff {
 
   /** Compute a set of topology events from the old state and the current state
-    * @param synchronizerId
+    * @param psid
     *   synchronizer on which the topology transactions were sequenced
     * @param oldRelevantState
     *   Previous topology state
@@ -36,7 +36,7 @@ private[protocol] object TopologyTransactionDiff {
     *   participant
     */
   private[protocol] def apply(
-      synchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
       oldRelevantState: PositiveSignedTopologyTransactions,
       currentRelevantState: PositiveSignedTopologyTransactions,
       localParticipantId: ParticipantId,
@@ -79,7 +79,7 @@ private[protocol] object TopologyTransactionDiff {
       .map(
         TopologyTransactionDiff(
           _,
-          updateId(synchronizerId, oldRelevantState, currentRelevantState),
+          updateId(psid, oldRelevantState, currentRelevantState),
           requiresLocalParticipantPartyReplication =
             locallyAddedPartiesExistingOnOtherParticipants(added).nonEmpty,
         )

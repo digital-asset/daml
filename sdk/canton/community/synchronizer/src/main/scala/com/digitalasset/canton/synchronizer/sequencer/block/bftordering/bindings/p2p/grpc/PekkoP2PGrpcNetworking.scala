@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings.pekko.PekkoModuleSystem.PekkoActorContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  P2PAddress,
   P2PNetworkManager,
   P2PNetworkRef,
 }
@@ -95,36 +96,45 @@ object PekkoP2PGrpcNetworking {
 
     override def createNetworkRef[ActorContextT](
         context: PekkoActorContext[ActorContextT],
-        p2pEndpoint: P2PEndpoint,
-    )(implicit traceContext: TraceContext): P2PNetworkRef[BftOrderingMessage] = {
-      val security = if (p2pEndpoint.transportSecurity) "tls" else "plaintext"
-      val p2pEndpointActorNameComponent = s"${p2pEndpoint.address}-${p2pEndpoint.port}-$security"
-      // The Pekko actor name must be unique within the actor system.
-      val actorName =
-        s"pekko-p2p-grpc-connection-managing-actor-$p2pEndpointActorNameComponent-${UUID.randomUUID()}"
-      val outstandingMessages = new AtomicInteger()
-      logger.debug(s"Spawning P2P gRPC connection-managing actor '$actorName'")
-      val result =
-        new PekkoP2PNetworkRef(
-          context.underlying.spawn(
-            createGrpcP2PConnectionManagerPekkoBehavior(
-              p2pEndpoint,
+        p2pAddress: P2PAddress,
+    )(implicit traceContext: TraceContext): P2PNetworkRef[BftOrderingMessage] =
+      p2pAddress match {
+        case _: P2PAddress.NodeId =>
+          abort(
+            logger,
+            "Node ID addresses are not yet supported",
+          )
+
+        case P2PAddress.Endpoint(p2pEndpoint) =>
+          val security = if (p2pEndpoint.transportSecurity) "tls" else "plaintext"
+          val p2pEndpointActorNameComponent =
+            s"${p2pEndpoint.address}-${p2pEndpoint.port}-$security"
+          // The Pekko actor name must be unique within the actor system.
+          val actorName =
+            s"pekko-p2p-grpc-connection-managing-actor-$p2pEndpointActorNameComponent-${UUID.randomUUID()}"
+          val outstandingMessages = new AtomicInteger()
+          logger.debug(s"Spawning P2P gRPC connection-managing actor '$actorName'")
+          val result =
+            new PekkoP2PNetworkRef(
+              context.underlying.spawn(
+                createGrpcP2PConnectionManagerPekkoBehavior(
+                  p2pEndpoint,
+                  actorName,
+                  connectionManager,
+                  outstandingMessages,
+                  loggerFactory,
+                  metrics,
+                ),
+                actorName,
+              ),
               actorName,
-              connectionManager,
               outstandingMessages,
+              timeouts,
               loggerFactory,
-              metrics,
-            ),
-            actorName,
-          ),
-          actorName,
-          outstandingMessages,
-          timeouts,
-          loggerFactory,
-        )
-      logger.debug(s"Spawned P2P gRPC connection-managing actor '$actorName'")
-      result
-    }
+            )
+          logger.debug(s"Spawned P2P gRPC connection-managing actor '$actorName'")
+          result
+      }
 
     override def onClosed(): Unit = {
       logger.info("Closing P2P gRPC network manager")(TraceContext.empty)

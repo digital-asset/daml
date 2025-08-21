@@ -101,6 +101,7 @@ object ExampleContractFactory extends EitherValues {
       arg: Option[Value] = None,
       templateId: Option[LfTemplateId] = None,
       packageName: Option[PackageName] = None,
+      createdAt: Option[Time] = None,
   ): GenContractInstance { type InstCreatedAtTime <: Time } = {
 
     val create = base.toLf
@@ -114,7 +115,7 @@ object ExampleContractFactory extends EitherValues {
         keyOpt = metadata.map(_.maybeKeyWithMaintainers).getOrElse(create.keyOpt),
         packageName = packageName.getOrElse(create.packageName),
       ),
-      base.inst.createdAt,
+      createdAt.getOrElse(base.inst.createdAt),
       base.inst.authenticationData,
     )
 

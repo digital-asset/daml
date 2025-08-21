@@ -82,7 +82,6 @@ sealed trait RollbackUnassignmentIntegrationTest
     participant2.ledger_api.updates
       .reassignments(
         partyIds = Set(bob),
-        filterTemplates = Seq.empty,
         completeAfter = 1,
         resultFilter = _.isUnassignment,
       )
@@ -107,7 +106,6 @@ sealed trait RollbackUnassignmentIntegrationTest
 
     val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(alice),
-      filterTemplates = Seq.empty,
       completeAfter = 4,
       beginOffsetExclusive = ledgerEnd,
     )

@@ -32,7 +32,7 @@ trait P2PConnectionState {
 
   def setBftNodeId(p2pEndpointId: P2PEndpoint.Id, node: BftNodeId): Unit
 
-  def getP2PEndpoints: Seq[P2PEndpoint]
+  def connections: Seq[P2PEndpoint]
 
   def delete(p2pEndpointId: P2PEndpoint.Id): Unit
 }

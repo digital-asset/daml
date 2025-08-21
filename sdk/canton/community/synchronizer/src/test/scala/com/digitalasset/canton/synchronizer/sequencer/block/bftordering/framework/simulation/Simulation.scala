@@ -364,8 +364,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         case EstablishConnection(from, to, endpoint, p2pConnectionEventListener, traceContext) =>
           implicit val tc: TraceContext = traceContext
           logger.debug(s"Establish connection '$from' -> '$to' via $endpoint")
-          p2pConnectionEventListener.onConnect(endpoint.id)(traceContext)
-          p2pConnectionEventListener.onSequencerId(endpoint.id, to)(traceContext)
+          p2pConnectionEventListener.onConnect(endpoint.id)
+          p2pConnectionEventListener.onSequencerId(endpoint.id, to)
           val machine = tryGetMachine(from)
           runNodeCollector(from, EventOriginator.FromNetwork, machine.nodeCollector)
         case CrashNode(node) =>
@@ -469,7 +469,7 @@ final case class Machine[OnboardingDataT, SystemNetworkMessageT](
     init.p2pGrpcConnectionState.clear()
     val _ = init
       .systemInitializerFactory(onboardingManager.provide(ProvideForRestart, node))
-      .initialize(system, _ => simulationP2PNetworkManager)
+      .initialize(system, (_, _) => simulationP2PNetworkManager)
     crashed = false
   }
 

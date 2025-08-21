@@ -503,9 +503,10 @@ private[reassignment] class UnassignmentProcessingSteps(
         EitherT.right(responseF),
         RejectionArgs(
           entry,
-          LocalRejectError.TimeRejects.LocalTimeout
-            .Reject()
-            .toLocalReject(protocolVersion.unwrap),
+          ErrorDetails.fromLocalError(
+            LocalRejectError.TimeRejects.LocalTimeout
+              .Reject()
+          ),
         ),
       )
     }
@@ -538,7 +539,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
     val pendingSubmissionData = pendingSubmissionMap.get(unassignmentValidationResult.rootHash)
     def rejected(
-        reason: TransactionRejection
+        errorDetails: ErrorDetails
     ): EitherT[
       FutureUnlessShutdown,
       ReassignmentProcessorError,
@@ -546,7 +547,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     ] =
       for {
         eventO <- EitherT.fromEither[FutureUnlessShutdown](
-          createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+          createRejectionEvent(RejectionArgs(pendingRequestData, errorDetails))
         )
         _ = reassignmentCoordination.completeUnassignment(
           unassignmentValidationResult.reassignmentId,
@@ -559,11 +560,13 @@ private[reassignment] class UnassignmentProcessingSteps(
       )
 
     def mergeRejectionReasons(
-        reason: TransactionRejection,
-        validationError: Option[TransactionRejection],
-    ): TransactionRejection =
+        validationError: Option[LocalRejectError],
+        errorDetails: ErrorDetails,
+    ): ErrorDetails =
       // we reject with the phase 7 rejection, as it is the best information we have
-      validationError.getOrElse(reason)
+      validationError
+        .map(e => ErrorDetails(e.reason(), e.isMalformed))
+        .getOrElse(errorDetails)
 
     for {
       rejectionFromPhase3 <- EitherT.right(
@@ -601,7 +604,7 @@ private[reassignment] class UnassignmentProcessingSteps(
 
       commit <- (verdict, rejectionO) match {
         case (_: Verdict.Approve, Some(rejection)) =>
-          rejected(rejection)
+          rejected(ErrorDetails.fromLocalError(rejection))
 
         case (_: Verdict.Approve, _) =>
           val commitSet = unassignmentValidationResult.commitSet
@@ -637,10 +640,13 @@ private[reassignment] class UnassignmentProcessingSteps(
             Some(reassignmentAccepted),
           )
         case (reasons: Verdict.ParticipantReject, rejectionO) =>
-          rejected(mergeRejectionReasons(reasons.keyEvent, rejectionO))
+          val errorDetails = mergeRejectionReasons(rejectionO, reasons.keyErrorDetails)
+          rejected(errorDetails)
 
         case (rejection: MediatorReject, rejectionO) =>
-          rejected(mergeRejectionReasons(rejection, rejectionO))
+          val errorDetails =
+            mergeRejectionReasons(rejectionO, rejection.errorDetails)
+          rejected(errorDetails)
       }
     } yield commit
 

@@ -36,7 +36,7 @@ private[participant] class JournalGarbageCollector(
     acs: ActiveContractStore,
     submissionTrackerStore: SubmissionTrackerStore,
     inFlightSubmissionStore: Eval[InFlightSubmissionStore],
-    synchronizerId: PhysicalSynchronizerId,
+    psid: PhysicalSynchronizerId,
     journalGarbageCollectionDelay: NonNegativeFiniteDuration,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -58,7 +58,7 @@ private[participant] class JournalGarbageCollector(
             sortedReconciliationIntervalsProvider,
             acsCommitmentStore,
             inFlightSubmissionStore.value,
-            synchronizerId,
+            psid.logical,
             checkForOutstandingCommitments = false,
           )
         _ <- safeToPruneTsO.fold(FutureUnlessShutdown.unit) { ts =>

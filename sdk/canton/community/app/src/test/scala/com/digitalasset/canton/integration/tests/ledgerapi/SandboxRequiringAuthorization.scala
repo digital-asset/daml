@@ -71,7 +71,9 @@ trait SandboxRequiringAuthorizationFuns {
 
   protected def randomUserId(): String = UUID.randomUUID().toString
 
-  protected def adminToken: StandardJWTPayload = standardToken(participantAdmin)
+  protected def adminToken: StandardJWTPayload = standardToken(
+    participantAdmin
+  )
 
   protected def expiringIn(t: Duration, p: StandardJWTPayload): StandardJWTPayload =
     p.copy(exp = Option(Instant.now().plusNanos(t.toNanos)))

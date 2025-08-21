@@ -125,7 +125,7 @@ trait HttpJsonApiTestBase extends CantonFixture {
           "com.digitalasset.canton.ledger.api.auth.interceptor.AuthInterceptor",
           "com.digitalasset.canton.ledger.api.auth.IdentityProviderAwareAuthService",
           "com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService",
-        ).foreach(logging.set_level(_, "OFF"))
+        )
 
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         validSynchronizerId = daId

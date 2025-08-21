@@ -69,6 +69,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   BlockSubscription,
   Env,
+  ModuleRef,
   ModuleSystem,
   OrderingModuleSystemInitializer,
   P2PConnectionEventListener,
@@ -115,7 +116,10 @@ private[bftordering] class BftOrderingModuleSystemInitializer[
 
   override def initialize(
       moduleSystem: ModuleSystem[E],
-      createP2PNetworkManager: P2PConnectionEventListener => P2PNetworkManagerT,
+      createP2PNetworkManager: (
+          P2PConnectionEventListener,
+          ModuleRef[BftOrderingMessage],
+      ) => P2PNetworkManagerT,
   ): SystemInitializationResult[
     E,
     P2PNetworkManagerT,

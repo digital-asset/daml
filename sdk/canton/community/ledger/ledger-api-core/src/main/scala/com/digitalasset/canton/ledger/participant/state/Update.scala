@@ -632,7 +632,6 @@ object Update {
         .toLoggingValue(
           update
         )
-
     case update: SequencerIndexMoved =>
       SequencerIndexMoved.`SequencerIndexMoved to LoggingValue`.toLoggingValue(update)
     case _: CommitRepair =>

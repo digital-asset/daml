@@ -54,6 +54,8 @@ sealed trait LocalVerdict
 
   def isMalformed: Boolean = false
 
+  def reason: com.google.rpc.status.Status
+
   private[messages] def toProtoV30: v30.LocalVerdict
 
   @transient override protected lazy val companionObj: LocalVerdict.type = LocalVerdict
@@ -61,14 +63,14 @@ sealed trait LocalVerdict
   override def representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 }
 
-sealed trait NonPositiveLocalVerdict extends LocalVerdict with TransactionRejection {
-  override def logRejection(
+sealed trait NonPositiveLocalVerdict extends LocalVerdict {
+  def logRejection(
       extra: Map[String, String]
   )(implicit errorLoggingContext: ErrorLoggingContext): Unit =
     // Log with level INFO, leave it to LocalRejectError to log the details.
     errorLoggingContext.withContext(extra) {
       lazy val action = if (isMalformed) "malformed" else "rejected"
-      errorLoggingContext.info(show"Request is $action. ${reason()}")
+      errorLoggingContext.info(show"Request is $action. $reason")
     }
 }
 
@@ -114,11 +116,12 @@ final case class LocalApprove()(
 ) extends LocalVerdict {
 
   override def kind: String = "LocalApprove"
+  override def reason: com.google.rpc.status.Status = Status(code = 0) // 0 means OK
 
   private[messages] def toProtoV30: v30.LocalVerdict =
     v30.LocalVerdict(
       code = VERDICT_CODE_LOCAL_APPROVE,
-      reason = Some(Status(code = 0)), // 0 means OK
+      reason = Some(reason),
     )
 
   override protected def pretty: Pretty[this.type] = prettyOfClass()
@@ -130,7 +133,7 @@ object LocalApprove {
 }
 
 final case class LocalReject(
-    reason: com.google.rpc.status.Status,
+    override val reason: com.google.rpc.status.Status,
     override val isMalformed: Boolean,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
@@ -161,7 +164,7 @@ object LocalReject {
     LocalReject(reason, isMalformed)(LocalVerdict.protocolVersionRepresentativeFor(protocolVersion))
 }
 
-final case class LocalAbstain(reason: com.google.rpc.status.Status)(
+final case class LocalAbstain(override val reason: com.google.rpc.status.Status)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[LocalVerdict.type]
 ) extends LocalVerdict
     with NonPositiveLocalVerdict {

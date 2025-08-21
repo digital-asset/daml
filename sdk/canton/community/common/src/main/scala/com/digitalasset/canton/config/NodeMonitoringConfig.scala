@@ -8,6 +8,8 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import io.netty.handler.ssl.SslContext
 
+import scala.concurrent.duration.Duration
+
 /** Configuration of the gRPC health server for a canton node.
   * @param parallelism
   *   number of threads to be used in the gRPC server
@@ -27,7 +29,7 @@ final case class GrpcHealthServerConfig(
   override val sslContext: Option[SslContext] = None
   override val serverCertChainFile: Option[PemFileOrString] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
-
+  override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf)
   def toRemoteConfig: FullClientConfig =
     FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }

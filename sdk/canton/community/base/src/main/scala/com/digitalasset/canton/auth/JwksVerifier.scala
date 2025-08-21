@@ -54,6 +54,7 @@ class JwksVerifier(
     readTimeout: Long = 10,
     readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+    maxTokenLife: Option[Long] = None,
 ) extends JwtVerifierBase
     with WithExecuteUnsafe {
 
@@ -78,11 +79,11 @@ class JwksVerifier(
       val jwk = http.get(keyId)
       val publicKey = jwk.getPublicKey
       publicKey match {
-        case rsa: RSAPublicKey => RSA256Verifier(rsa, jwtTimestampLeeway)
+        case rsa: RSAPublicKey => RSA256Verifier(rsa, jwtTimestampLeeway, maxTokenLife)
         case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 256 =>
-          ECDSAVerifier(Algorithm.ECDSA256(ec, null), jwtTimestampLeeway)
+          ECDSAVerifier(Algorithm.ECDSA256(ec, null), jwtTimestampLeeway, maxTokenLife)
         case ec: ECPublicKey if ec.getParams.getCurve.getField.getFieldSize == 521 =>
-          ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway)
+          ECDSAVerifier(Algorithm.ECDSA512(ec, null), jwtTimestampLeeway, maxTokenLife)
         case key =>
           Left(
             Error(
@@ -124,6 +125,14 @@ class JwksVerifier(
 }
 
 object JwksVerifier {
-  def apply(url: String, jwtTimestampLeeway: Option[JwtTimestampLeeway] = None) =
-    new JwksVerifier(new URI(url).toURL, jwtTimestampLeeway = jwtTimestampLeeway)
+  def apply(
+      url: String,
+      jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
+      maxTokenLife: Option[Long] = None,
+  ) =
+    new JwksVerifier(
+      new URI(url).toURL,
+      jwtTimestampLeeway = jwtTimestampLeeway,
+      maxTokenLife = maxTokenLife,
+    )
 }

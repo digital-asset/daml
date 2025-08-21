@@ -19,7 +19,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbExceptionRetryPolicy, Storage}
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.protocol.SequencerErrors.SubmissionRequestRefused
+import com.digitalasset.canton.sequencing.protocol.SequencerErrors.{
+  Overloaded,
+  SubmissionRequestRefused,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.sequencing.traffic.{
   TrafficControlErrors,
@@ -148,6 +151,14 @@ class BlockSequencer(
         )
     }
 
+  private val circuitBreaker = BlockSequencerCircuitBreaker(
+    blockSequencerConfig.circuitBreaker,
+    clock,
+    metrics,
+    materializer,
+    loggerFactory,
+  )
+
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
     noTracingLogger.info(s"Subscribing to block source from ${headState.block.height + 1}")
@@ -182,7 +193,7 @@ class BlockSequencer(
       .async
       .via(stateManager.applyBlockUpdate(this))
       .wireTap { lastTs =>
-        metrics.block.delay.updateValue((clock.now - lastTs.value).toMillis)
+        circuitBreaker.registerLastBlockTimestamp(lastTs)
       }
     PekkoUtil.runSupervised(
       driverSource.toMat(Sink.ignore)(Keep.both),
@@ -331,6 +342,14 @@ class BlockSequencer(
     }
   }
 
+  private def rejectSubmissionsIfOverloaded()
+      : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    if (circuitBreaker.shouldRejectRequests)
+      EitherT.leftT(
+        Overloaded("Sequencer can't take requests because it is behind on processing events")
+      )
+    else EitherT.rightT(())
+
   override protected def sendAsyncSignedInternal(
       signedSubmission: SignedContent[SubmissionRequest]
   )(implicit
@@ -351,7 +370,11 @@ class BlockSequencer(
     )
 
     for {
+
       _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
+      _ <-
+        if (submission.isConfirmationRequest) rejectSubmissionsIfOverloaded()
+        else EitherT.rightT[FutureUnlessShutdown, SequencerDeliverError](())
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
@@ -387,6 +410,9 @@ class BlockSequencer(
     val req = signedAcknowledgeRequest.content
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
     for {
+      _ <- EitherTUtil.toFutureUnlessShutdown(
+        rejectSubmissionsIfOverloaded().leftMap(_.asGrpcError)
+      )
       _ <- EitherTUtil.toFutureUnlessShutdown(
         rejectSubmissionsBeforeOrAtSequencingTimeLowerBound().leftMap(_.asGrpcError)
       )
@@ -606,11 +632,14 @@ class BlockSequencer(
       _ = logger.trace(s"Storage active: ${storage.isActive}")
     } yield {
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
-      else
+      else if (!isStorageActive)
+        SequencerHealthStatus(isActive = false, Some("Can't connect to database"))
+      else if (circuitBreaker.shouldRejectRequests)
         SequencerHealthStatus(
-          isStorageActive,
-          if (isStorageActive) None else Some("Can't connect to database"),
+          isActive = false,
+          Some("Overloaded. Can't receive requests at the moment"),
         )
+      else SequencerHealthStatus(isActive = true, None)
     }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {

@@ -7,5 +7,5 @@ set -euo pipefail
 jar_file=lapitt.jar
 
 echo "### Running Ledger API conformance tests 🛠️"
-java -jar "${jar_file}" "${@:1}" localhost:10011
-java -jar "${jar_file}" "${@:1}" localhost:10021
+java -jar "${jar_file}" "${@:1}" "localhost:10011;localhost:10012"
+java -jar "${jar_file}" "${@:1}" "localhost:10021;localhost:10022"

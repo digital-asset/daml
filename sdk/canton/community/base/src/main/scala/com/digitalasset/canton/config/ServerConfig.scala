@@ -27,6 +27,7 @@ import io.grpc.ServerInterceptor
 import io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration.Duration
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 /** Configuration for hosting a server api */
@@ -87,6 +88,9 @@ trait ServerConfig extends Product with Serializable {
   /** maximum inbound message size in bytes on the ledger api and the admin api */
   def maxInboundMessageSize: NonNegativeInt
 
+  /** maximum expiration time accepted for tokens */
+  def maxTokenLifetime: NonNegativeDuration
+
   /** Use the configuration to instantiate the interceptors for this server */
   def instantiateServerInterceptors(
       tracingConfig: TracingConfig,
@@ -133,6 +137,7 @@ final case class AdminServerConfig(
     override val maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     override val authServices: Seq[AuthServiceConfig] = Seq.empty,
     override val adminTokenConfig: AdminTokenConfig = AdminTokenConfig(),
+    override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf),
 ) extends ServerConfig
     with UniformCantonConfigValidation {
   def clientConfig: FullClientConfig =

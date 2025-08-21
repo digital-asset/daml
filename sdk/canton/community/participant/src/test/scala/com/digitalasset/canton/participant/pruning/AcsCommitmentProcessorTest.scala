@@ -3106,11 +3106,11 @@ class AcsCommitmentProcessorTest
           )
 
           received <- store.searchReceivedBetween(
-            sequence.head,
+            sequence.head.minusMillis(1),
             endOfRemoteCommitsPeriod,
           )
           computed <- store.searchComputedBetween(
-            sequence.head,
+            sequence.head.minusMillis(1),
             endOfRemoteCommitsPeriod,
           )
         } yield {

@@ -132,7 +132,8 @@ object PipeTest {
   ): SystemInitializer[E, P2PNetworkManagerT, String, String] =
     (system, createP2PNetworkManager) => {
       val inputModuleRef = system.newModuleRef[String](ModuleName("module"))()
-      val p2pNetworkManager = createP2PNetworkManager(P2PConnectionEventListener.NoOp)
+      val p2pNetworkManager =
+        createP2PNetworkManager(P2PConnectionEventListener.NoOp, inputModuleRef)
       val module = new PipeNode[E](pipeStore, reporter, loggerFactory, timeouts)
       system.setModule(inputModuleRef, module)
       val p2PAdminModuleRef =
