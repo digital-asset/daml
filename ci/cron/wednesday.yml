@@ -5,11 +5,12 @@ pr: none
 trigger: none
 
 schedules:
-- cron: "0 6 * * Wed"
+- cron: "37 6 * * Thu"
   displayName: weekly snapshot
   branches:
     include:
     - main
+    - mziolek/fix-release-pr
   always: true
 
 jobs:
@@ -51,5 +52,7 @@ jobs:
       rotate
       git add .
       open_pr "$BRANCH" "$TITLE" "$BODY" "$PR_NUMBER"
+      trap "az devops logout" EXIT
+      echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
       trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
       request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"
