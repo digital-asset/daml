@@ -5,12 +5,11 @@ pr: none
 trigger: none
 
 schedules:
-- cron: "26 7 * * Thu"
+- cron: "0 6 * * Wed"
   displayName: weekly snapshot
   branches:
     include:
     - main
-    - mziolek/fix-release-pr
   always: true
 
 jobs:
