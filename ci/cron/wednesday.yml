@@ -5,7 +5,7 @@ pr: none
 trigger: none
 
 schedules:
-- cron: "14 7 * * Thu"
+- cron: "22 7 * * Thu"
   displayName: weekly snapshot
   branches:
     include:
