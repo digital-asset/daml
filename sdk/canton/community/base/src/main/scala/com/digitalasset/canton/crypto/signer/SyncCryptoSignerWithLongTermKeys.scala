@@ -70,4 +70,6 @@ class SyncCryptoSignerWithLongTermKeys(
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature
 
+  override def close(): Unit = ()
+
 }

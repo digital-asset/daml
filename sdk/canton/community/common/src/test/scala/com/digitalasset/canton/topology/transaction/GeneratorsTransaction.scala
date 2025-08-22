@@ -172,13 +172,6 @@ final class GeneratorsTransaction(
     } yield NamespaceDelegation.tryCreate(namespace, target, delegationRestriction)
   )
 
-  implicit val purgeTopologyTransactionArb: Arbitrary[PurgeTopologyTransaction] = Arbitrary(
-    for {
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
-      mappings <- Arbitrary.arbitrary[NonEmpty[Seq[TopologyMapping]]]
-    } yield PurgeTopologyTransaction.create(synchronizerId, mappings).value
-  )
-
   implicit val partyToParticipantTopologyTransactionArb: Arbitrary[PartyToParticipant] = Arbitrary(
     for {
       partyId <- Arbitrary.arbitrary[PartyId]

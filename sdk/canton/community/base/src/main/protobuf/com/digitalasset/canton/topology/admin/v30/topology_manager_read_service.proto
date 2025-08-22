@@ -29,8 +29,6 @@ service TopologyManagerReadService {
   rpc ListMediatorSynchronizerState(ListMediatorSynchronizerStateRequest) returns (ListMediatorSynchronizerStateResponse);
   rpc ListSequencerSynchronizerState(ListSequencerSynchronizerStateRequest) returns (ListSequencerSynchronizerStateResponse);
 
-  rpc ListPurgeTopologyTransaction(ListPurgeTopologyTransactionRequest) returns (ListPurgeTopologyTransactionResponse);
-
   rpc ListSynchronizerUpgradeAnnouncement(ListSynchronizerUpgradeAnnouncementRequest) returns (ListSynchronizerUpgradeAnnouncementResponse);
   rpc ListSequencerConnectionSuccessor(ListSequencerConnectionSuccessorRequest) returns (ListSequencerConnectionSuccessorResponse);
 
@@ -236,19 +234,6 @@ message ListSequencerSynchronizerStateResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.SequencerSynchronizerState item = 2;
-  }
-  repeated Result results = 1;
-}
-
-message ListPurgeTopologyTransactionRequest {
-  BaseQuery base_query = 1;
-  string filter_synchronizer_id = 2;
-}
-
-message ListPurgeTopologyTransactionResponse {
-  message Result {
-    BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.PurgeTopologyTransaction item = 2;
   }
   repeated Result results = 1;
 }

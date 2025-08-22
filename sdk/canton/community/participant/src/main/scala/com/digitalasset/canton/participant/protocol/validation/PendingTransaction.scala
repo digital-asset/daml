@@ -9,6 +9,7 @@ import com.digitalasset.canton.participant.protocol.EngineController.EngineAbort
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.PendingRequestData
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 
 /** Storing metadata of pending transactions required for emitting transactions on the sync API. */
@@ -22,6 +23,7 @@ final case class PendingTransaction(
     override val locallyRejectedF: FutureUnlessShutdown[Boolean],
     override val abortEngine: String => Unit,
     override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+    decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
 ) extends PendingRequestData {
 
   val requestId: RequestId = RequestId(requestTime)
@@ -31,4 +33,6 @@ final case class PendingTransaction(
   )
 
   override def isCleanReplay: Boolean = false
+
+  override def cancelDecisionTimeTickRequest(): Unit = decisionTimeTickRequest.cancel()
 }

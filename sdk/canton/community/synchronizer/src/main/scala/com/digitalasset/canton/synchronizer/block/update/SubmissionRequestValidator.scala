@@ -69,45 +69,43 @@ private[update] final class SubmissionRequestValidator(
     * [[com.digitalasset.canton.sequencing.protocol.SubmissionRequest.topologyTimestamp]] is too old
     * or after the `sequencingTime`.
     */
-  def validateAndGenerateSequencedEvents(
+  def applyAggregationAndTrafficControlAndGenerateOutcomes(
       inFlightAggregations: InFlightAggregations,
       sequencingTimestamp: CantonTimestamp,
       signedOrderingRequest: SignedOrderingRequest,
-      topologyOrSequencingSnapshot: SyncCryptoApi,
-      topologyTimestampError: Option[SequencerDeliverError],
+      trafficConsumption: TrafficConsumption,
+      errorOrResolvedGroups: Either[SubmissionOutcome, Map[GroupRecipient, Set[Member]]],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): FutureUnlessShutdown[SubmissionRequestValidationResult] = {
-    val processingResult = performInitialValidations(
-      sequencingTimestamp,
-      signedOrderingRequest.signedSubmissionRequest,
-      topologyOrSequencingSnapshot,
-      topologyTimestampError,
-    )
-      .flatMap { groupToMembers =>
-        finalizeProcessing(
-          groupToMembers,
-          inFlightAggregations,
-          sequencingTimestamp,
-          signedOrderingRequest.submissionRequest,
-        ).mapK(validationFUSK)
-          // Use the traffic updated ephemeral state in the response even if the rest of the processing stopped
-          .recover { errorSubmissionOutcome =>
+    val processingResult =
+      errorOrResolvedGroups match {
+        case Right(groupToMembers) =>
+          applyToAggregationState(
+            groupToMembers,
+            inFlightAggregations,
+            sequencingTimestamp,
+            signedOrderingRequest.submissionRequest,
+          ).recover { errorSubmissionOutcome =>
+            // Use the traffic updated ephemeral state in the response even if the rest of the processing stopped
+            SubmissionRequestValidationResult(inFlightAggregations, errorSubmissionOutcome, None)
+          }.leftMap { errorSubmissionOutcome =>
+            SubmissionRequestValidationResult(inFlightAggregations, errorSubmissionOutcome, None)
+          }.merge
+        case Left(errorSubmissionOutcome) =>
+          FutureUnlessShutdown.pure(
             SubmissionRequestValidationResult(
               inFlightAggregations,
               errorSubmissionOutcome,
               None,
             )
-          }
+          )
       }
-      .leftMap { errorSubmissionOutcome =>
-        SubmissionRequestValidationResult(inFlightAggregations, errorSubmissionOutcome, None)
-      }
-      .merge
 
     trafficControlValidator.applyTrafficControl(
+      trafficConsumption,
       processingResult,
       signedOrderingRequest,
       sequencingTimestamp,
@@ -120,8 +118,10 @@ private[update] final class SubmissionRequestValidator(
   // They are split into 3 functions to make it possible to re-use intermediate results (specifically
   // BlockUpdateEphemeralState containing updated traffic states), even if further processing fails.
 
-  // Performs initial validations and resolves groups to members
-  private def performInitialValidations(
+  /** Performs validations that don't affect any state and resolves groups to members. Can and
+    * should be run in parallel on many submissions (e.g. in a chunk).
+    */
+  def performIndependentValidations(
       sequencingTimestamp: CantonTimestamp,
       signedSubmissionRequest: SignedContent[SubmissionRequest],
       topologyOrSequencingSnapshot: SyncCryptoApi,
@@ -183,6 +183,17 @@ private[update] final class SubmissionRequestValidator(
           SubmissionOutcome.Discard
         },
       )
+      _ <- EitherT
+        .cond[FutureUnlessShutdown](
+          SubmissionRequestValidations.checkToAtMostOneMediator(submissionRequest),
+          (), {
+            SequencerError.MultipleMediatorRecipients
+              .Error(submissionRequest, sequencingTimestamp)
+              .report()
+            SubmissionOutcome.Discard: SubmissionOutcome
+          },
+        )
+        .mapK(validationFUSK)
       _ <- checkRecipientsAreKnown(
         submissionRequest,
         sequencingTimestamp,
@@ -520,7 +531,7 @@ private[update] final class SubmissionRequestValidator(
   // Performs additional checks and runs the aggregation logic
   // If this succeeds, it will produce a SubmissionOutcome containing
   // the complete validation result for a single submission
-  private def finalizeProcessing(
+  private def applyToAggregationState(
       groupToMembers: Map[GroupRecipient, Set[Member]],
       inFlightAggregations: InFlightAggregations,
       sequencingTimestamp: CantonTimestamp,
@@ -534,15 +545,6 @@ private[update] final class SubmissionRequestValidator(
     SubmissionRequestValidationResult,
   ] =
     for {
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        SubmissionRequestValidations.checkToAtMostOneMediator(submissionRequest),
-        (), {
-          SequencerError.MultipleMediatorRecipients
-            .Error(submissionRequest, sequencingTimestamp)
-            .report()
-          SubmissionOutcome.Discard
-        },
-      )
       aggregationIdO <- EitherT.fromEither[FutureUnlessShutdown](
         submissionRequest
           .aggregationId(synchronizerSyncCryptoApi.pureCrypto)

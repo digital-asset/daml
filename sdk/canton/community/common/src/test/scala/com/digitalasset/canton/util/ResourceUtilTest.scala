@@ -3,246 +3,251 @@
 
 package com.digitalasset.canton.util
 
-import cats.data.EitherT
+import cats.{Applicative, MonadThrow}
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.lifecycle.UnlessShutdown
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
-import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 class ResourceUtilTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   case class TestException(message: String) extends RuntimeException(message)
 
-  private def mockResource: AutoCloseable = {
-    val closeable = mock[AutoCloseable]
-    doNothing.when(closeable).close()
-    closeable
+  private sealed trait CountCloseInvocations extends AutoCloseable {
+    private val countRef: AtomicInteger = new AtomicInteger(0)
+    def close(): Unit =
+      countRef.incrementAndGet()
+    def closeCount: Int = countRef.get()
   }
 
-  private def mockResourceThatThrowsExceptionWhenClosing: AutoCloseable = {
-    val closeable = mock[AutoCloseable]
-    doNothing.when(closeable).close()
-    when(closeable.close()).thenThrow(TestException("Something happened when closing"))
-    closeable
+  private final class DoNothingResource extends CountCloseInvocations
+
+  private final class ThrowOnCloseResource(message: String) extends CountCloseInvocations {
+    override def close(): Unit = {
+      super.close()
+      throw TestException(message)
+    }
+  }
+
+  private final class ResourceFactory(mkResource: () => AutoCloseable) {
+    private val countCreations: AtomicInteger = new AtomicInteger(0)
+
+    def create(): AutoCloseable = {
+      countCreations.incrementAndGet()
+      mkResource()
+    }
+
+    def counter: Int = countCreations.get()
   }
 
   "ResourceUtil" when {
     "withResource" should {
       "return value from the function and close resource" in {
-        val resource = mockResource
+        val resource = new DoNothingResource
         val result = ResourceUtil.withResource(resource)(_ => "good")
 
-        verify(resource, times(1)).close()
+        resource.closeCount shouldBe 1
         result shouldBe "good"
       }
 
       "rethrow exception from function and still close resource" in {
-        val resource = mockResource
+        val resource = new DoNothingResource
         val exception = intercept[TestException](
           ResourceUtil.withResource(resource)(_ => throw TestException("Something happened"))
         )
 
-        verify(resource, times(1)).close()
+        resource.closeCount shouldBe 1
         exception shouldBe TestException("Something happened")
         exception.getSuppressed shouldBe empty
       }
 
       "rethrow exception from closing" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
+        val msg = "rethrow-exception message"
+        val resource = new ThrowOnCloseResource(msg)
         val exception = intercept[TestException](ResourceUtil.withResource(resource)(_ => "good"))
 
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened when closing")
+        resource.closeCount shouldBe 1
+        exception shouldBe TestException(msg)
         exception.getSuppressed shouldBe empty
       }
 
       "rethrow exception from function and add exception from closing to suppressed" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
+        val closeMsg = "rethrow-exception-message-from-closing"
+        val resource = new ThrowOnCloseResource(closeMsg)
+        val runMsg = "Something happened"
         val exception = intercept[TestException](
-          ResourceUtil.withResource(resource)(_ => throw TestException("Something happened"))
+          ResourceUtil.withResource(resource)(_ => throw TestException(runMsg))
         )
 
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
+        resource.closeCount shouldBe 1
+        exception shouldBe TestException(runMsg)
         exception
-          .getSuppressed()(0) shouldBe TestException("Something happened when closing")
+          .getSuppressed()(0) shouldBe TestException(closeMsg)
+      }
+
+      "tolerate the same exception being thrown by the close and the run method" in {
+        val ex = new TestException("test")
+        val resource = new CountCloseInvocations {
+          override def close(): Unit = {
+            super.close()
+            throw ex
+          }
+        }
+        val exception = intercept[TestException](
+          ResourceUtil.withResource(resource)(_ => throw ex)
+        )
+        resource.closeCount shouldBe 1
+        exception shouldBe ex
+      }
+
+      "create a resource exactly once" in {
+        val factory = new ResourceFactory(() => new DoNothingResource)
+        ResourceUtil.withResource(factory.create())(_ => ())
+        factory.counter shouldBe 1
+      }
+
+      "rethrow exceptions during resource creation" in {
+        val ex = TestException("Resource construction failed")
+        val exception = Try(ResourceUtil.withResource((throw ex): AutoCloseable)(_ => ()))
+        exception shouldBe Failure(ex)
       }
     }
 
     "withResourceEither" should {
-      "have the same behavior as withResources but return an Either with the result or exception" in {
-        ResourceUtil.withResourceEither(mockResource)(_ => "good") shouldBe Right("good")
-        ResourceUtil.withResourceEither(mockResource)(_ =>
-          throw TestException("Something happened")
-        ) shouldBe Left(TestException("Something happened"))
-        ResourceUtil.withResourceEither(mockResourceThatThrowsExceptionWhenClosing)(_ =>
+      "have the same behavior as withResource but return an Either with the result or exception" in {
+        ResourceUtil.withResourceEither(new DoNothingResource)(_ => "good") shouldBe Right("good")
+
+        val msg = "Something happened"
+        ResourceUtil.withResourceEither(new DoNothingResource)(_ =>
+          throw TestException(msg)
+        ) shouldBe Left(TestException(msg))
+
+        val closeMsg = "Something happened when closing"
+        ResourceUtil.withResourceEither(new ThrowOnCloseResource(closeMsg))(_ =>
           "good"
-        ) shouldBe Left(TestException("Something happened when closing"))
-        ResourceUtil.withResourceEither(mockResourceThatThrowsExceptionWhenClosing)(_ =>
-          throw TestException("Something happened")
+        ) shouldBe Left(TestException(closeMsg))
+
+        ResourceUtil.withResourceEither(new ThrowOnCloseResource(closeMsg))(_ =>
+          throw TestException(msg)
         ) should matchPattern {
-          case Left(e @ TestException("Something happened"))
-              if e.getSuppressed()(0) == TestException("Something happened when closing") =>
+          case Left(e @ TestException(`msg`)) if e.getSuppressed()(0) == TestException(closeMsg) =>
         }
+      }
+
+      "catch exceptions during resource construction" in {
+        val ex = TestException("Resource construction failed")
+        val exception = ResourceUtil.withResourceEither((throw ex): AutoCloseable)(_ => ())
+        exception shouldBe Left(ex)
+      }
+
+      "create a resource exactly once" in {
+        val factory = new ResourceFactory(() => new DoNothingResource)
+        ResourceUtil.withResourceEither(factory.create())(_ => ())
+        factory.counter shouldBe 1
       }
     }
 
-    "withResourceFuture" should {
+    def withResourceM[F[_], C[_], S](
+        fixture: ThereafterTest.Fixture[F, C, S]
+    )(implicit F: Thereafter.Aux[F, C, S], M: MonadThrow[F]): Unit = {
       "return value from the function and close resource" in {
-        val resource = mockResource
-        val result = ResourceUtil.withResourceFuture(resource)(_ => Future("good")).futureValue
 
-        verify(resource, times(1)).close()
-        result shouldBe "good"
+        forAll(fixture.contents) { content =>
+          val resource = new DoNothingResource
+          val result = fixture.await(ResourceUtil.withResourceM(resource) { _ =>
+            fixture.fromContent(content)
+          })
+          resource.closeCount shouldBe 1
+          result shouldBe content
+        }
       }
 
-      "rethrow exception from function and still close resource" in {
-        val resource = mockResource
-        val exception = ResourceUtil
-          .withResourceFuture(resource)(_ => Future.failed(TestException("Something happened")))
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception.getSuppressed shouldBe empty
-      }
-
-      "rethrow exception from outside of future and still close resource" in {
-        val resource = mockResource
-        val exception = ResourceUtil
-          .withResourceFuture(resource)(_ => throw TestException("Something happened"))
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception.getSuppressed shouldBe empty
+      "rethrow exception from outside of body and still close resource" in {
+        val resource = new DoNothingResource
+        val ex = TestException("Something happened")
+        val result = fixture.await(ResourceUtil.withResourceM[F](resource)(_ => throw ex))
+        Try(fixture.theContent(result)) shouldBe Failure(ex)
       }
 
       "rethrow exception from closing" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
-        val exception =
-          ResourceUtil.withResourceFuture(resource)(_ => Future("good")).failed.futureValue
+        val closeMsg = "Something happened when closing"
+        val resource = new ThrowOnCloseResource(closeMsg)
+        val result =
+          fixture.await(ResourceUtil.withResourceM(resource)(_ => fixture.fromTry(Success("good"))))
 
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened when closing")
-        exception.getSuppressed shouldBe empty
+        resource.closeCount shouldBe 1
+        Try(fixture.theContent(result)) shouldBe Failure(TestException(closeMsg))
       }
 
       "rethrow exception from function and add exception from closing to suppressed" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
-        val exception = ResourceUtil
-          .withResourceFuture(resource)(_ => Future.failed(TestException("Something happened")))
-          .failed
-          .futureValue
+        val closeMsg = "Something happened when closing"
+        val resource = new ThrowOnCloseResource(closeMsg)
+        val runEx = TestException("Something happened")
+        val exception = fixture.await(
+          ResourceUtil.withResourceM(resource)(_ => fixture.fromTry[String](Failure(runEx)))
+        )
 
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception
-          .getSuppressed()(0) shouldBe TestException("Something happened when closing")
+        resource.closeCount shouldBe 1
+        Try(fixture.theContent(exception)) shouldBe Failure(runEx)
+        runEx.getSuppressed()(0) shouldBe TestException(closeMsg)
       }
 
+      "create a resource exactly once" in {
+        val factory = new ResourceFactory(() => new DoNothingResource)
+        fixture.await(
+          ResourceUtil.withResourceM(factory.create())(_ => fixture.fromTry(Success(())))
+        )
+        factory.counter shouldBe 1
+      }
+
+      "rethrow exceptions during resource creation" in {
+        val ex = TestException("Resource construction failed")
+        val exception = fixture.await(
+          ResourceUtil.withResourceM((throw ex): AutoCloseable)(_ => fixture.fromTry(Success(())))
+        )
+        exception shouldBe Failure(ex)
+      }
     }
 
-    "withResourceEitherT" should {
-      "return value from the function and close resource" in {
-        val resource = mockResource
-        val resultRight = ResourceUtil
-          .withResourceEitherT(resource)(_ => EitherT.rightT[Future, String]("good"))
-          .futureValue
-        val resultLeft = ResourceUtil
-          .withResourceEitherT(resource)(_ => EitherT.leftT[Future, String]("good"))
-          .value
-          .futureValue
-          .left
-          .value
+    "withResourceM" when {
+      implicit def appTryUnlessShutdown = Applicative[Try].compose[UnlessShutdown]
 
-        verify(resource, times(2)).close()
-        resultRight shouldBe "good"
-        resultLeft shouldBe "good"
+      "used with Future" should {
+        behave like withResourceM(FutureThereafterTest.fixture)
       }
 
-      "rethrow exception from function and still close resource" in {
-        val resource = mockResource
-        val exception = ResourceUtil
-          .withResourceEitherT(resource)(_ =>
-            EitherT.liftF[Future, String, String](
-              Future.failed(TestException("Something happened"))
-            )
+      "used with FutureUnlessShutdown" should {
+        behave like withResourceM(FutureUnlessShutdownThereafterTest.fixture)
+      }
+
+      "used with EitherT[Future]" should {
+        behave like withResourceM(
+          EitherTThereafterTest.fixture(FutureThereafterTest.fixture, NonEmpty(Seq, 1, 2))
+        )
+      }
+
+      "used with EitherT[FutureUnlessShutdown]" should {
+        behave like withResourceM(
+          EitherTThereafterTest.fixture(
+            FutureUnlessShutdownThereafterTest.fixture,
+            NonEmpty(Seq, 1, 2),
           )
-          .value
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception.getSuppressed shouldBe empty
+        )
       }
 
-      "rethrow exception from outside of future and still close resource" in {
-        val resource = mockResource
-        val exception = ResourceUtil
-          .withResourceEitherT(resource)(_ => throw TestException("Something happened"))
-          .value
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception.getSuppressed shouldBe empty
+      "used with OptionT[Future]" should {
+        behave like withResourceM(
+          OptionTThereafterTest.fixture(FutureThereafterTest.fixture)
+        )
       }
 
-      "rethrow exception from closing" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
-        val exception = ResourceUtil
-          .withResourceEitherT(resource)(_ => EitherT.rightT[Future, String]("good"))
-          .value
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened when closing")
-        exception.getSuppressed shouldBe empty
+      "used with OptionT[FutureUnlessShutdown]" should {
+        behave like withResourceM(
+          OptionTThereafterTest.fixture(FutureUnlessShutdownThereafterTest.fixture)
+        )
       }
-
-      "rethrow exception from function and add exception from closing to suppressed" in {
-        val resource = mockResourceThatThrowsExceptionWhenClosing
-        val exception = ResourceUtil
-          .withResourceEitherT(resource)(_ =>
-            EitherT.liftF[Future, String, String](
-              Future.failed(TestException("Something happened"))
-            )
-          )
-          .value
-          .failed
-          .futureValue
-
-        verify(resource, times(1)).close()
-        exception shouldBe TestException("Something happened")
-        exception
-          .getSuppressed()(0) shouldBe TestException("Something happened when closing")
-      }
-
-      "create a resource only once" in {
-        val counter = new AtomicInteger(0)
-
-        def newResource() = new AutoCloseable {
-
-          // Increment the counter when the resource is created
-          counter.incrementAndGet()
-
-          override def close(): Unit = ()
-        }
-
-        ResourceUtil
-          .withResourceEitherT(newResource())(_ => EitherTUtil.unit[String])
-          .value
-          .futureValue
-
-        counter.get() shouldBe 1
-      }
-
     }
   }
 }

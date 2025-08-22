@@ -687,9 +687,11 @@ class BlockSequencer(
         // Even though it may be more recent than the TrafficConsumed timestamp of individual members,
         // we are sure that nothing has been consumed since then, because by the time we update getHeadState.block.lastTs
         // all traffic has been consumed for that block. This means we can use this timestamp to compute an updated
-        // base traffic that will be correct.
-        case LatestSafe => Some(stateManager.getHeadState.block.lastTs)
-        case LatestApproximate => Some(clock.now.max(stateManager.getHeadState.block.lastTs))
+        // base traffic that will be correct. More precisely, we take the immediate successor such that we include
+        // all the changes of that last block.
+        case LatestSafe => Some(stateManager.getHeadState.block.lastTs.immediateSuccessor)
+        case LatestApproximate =>
+          Some(clock.now.max(stateManager.getHeadState.block.lastTs.immediateSuccessor))
       }
 
       blockRateLimitManager.getStates(

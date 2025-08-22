@@ -8,10 +8,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.topology.Namespace
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
+import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth.RequiredNamespaces
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.{Namespace, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -46,6 +48,22 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     ]()
 
   protected def store: TopologyStore[TopologyStoreId]
+  protected lazy val synchronizerId: Option[PhysicalSynchronizerId] =
+    TopologyStoreId.select[TopologyStoreId.SynchronizerStore](store).map(_.storeId.psid)
+
+  protected def requiredAuthFor(
+      toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
+      inStore: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
+  ): TopologyMapping.RequiredAuth = {
+    val requiredAuthFromMapping =
+      toValidate.mapping.requiredAuth(inStore)
+
+    if (toValidate.operation == TopologyChangeOp.Remove) {
+      synchronizerId
+        .map(psid => requiredAuthFromMapping.or(RequiredNamespaces(Set(psid.namespace))))
+        .getOrElse(requiredAuthFromMapping)
+    } else requiredAuthFromMapping
+  }
 
   protected def pureCrypto: PureCrypto
 
@@ -61,7 +79,7 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       toProcess: GenericTopologyTransaction,
       inStore: Option[GenericTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val requiredKeys = AuthorizationKeys.required(toProcess, inStore)
+    val requiredKeys = requiredAuhtorizationKeys(toProcess, inStore)
     loadNamespaceCaches(asOfExclusive, requiredKeys.namespaces)
   }
 
@@ -201,4 +219,32 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
       )
     }
   }
+
+  def requiredAuhtorizationKeys(
+      toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
+      inStore: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]],
+  ): AuthorizationKeys = {
+    val referencedAuthorizations = requiredAuthFor(toValidate, inStore).referenced
+    requiredAuthorizationKeysForProcessing(toValidate) ++
+      requiredForCheckingAuthorization(referencedAuthorizations)
+  }
+
+  private def requiredAuthorizationKeysForProcessing(
+      toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping]
+  ): AuthorizationKeys =
+    toValidate.mapping match {
+      case NamespaceDelegation(namespace, _, _) => AuthorizationKeys(Set(namespace))
+      case DecentralizedNamespaceDefinition(_, _, owners)
+          if toValidate.operation == TopologyChangeOp.Replace =>
+        // In case of Replace, we need to preload the owner graphs so that we can construct the decentralized graph.
+        // In case of a Remove, we do not need to preload anything, as we'll simply set the cache value to None.
+        AuthorizationKeys(owners.forgetNE)
+      case _: TopologyMapping => AuthorizationKeys.empty
+    }
+
+  private def requiredForCheckingAuthorization(
+      requiredAuth: ReferencedAuthorizations
+  ): AuthorizationKeys =
+    AuthorizationKeys(requiredAuth.namespaces)
+
 }

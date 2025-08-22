@@ -46,6 +46,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
@@ -77,7 +78,7 @@ class TestProcessingSteps(
   override type RejectionArgs = Unit
   override type PendingSubmissions = concurrent.Map[Int, Unit]
   override type PendingSubmissionId = Int
-  override type PendingSubmissionData = Unit
+  override type PendingSubmissionData = Some[Unit]
   override type SubmissionSendError = TestProcessingError
   override type RequestError = TestProcessingError
   override type ResultError = TestProcessingError
@@ -103,8 +104,8 @@ class TestProcessingSteps(
   override def removePendingSubmission(
       pendingSubmissions: concurrent.Map[Int, Unit],
       pendingSubmissionId: Int,
-  ): Option[Unit] =
-    pendingSubmissions.remove(pendingSubmissionId)
+  ): Option[Some[Unit]] =
+    pendingSubmissions.remove(pendingSubmissionId).map(Some(_))
 
   override def requestKind: String = "test"
 
@@ -142,7 +143,7 @@ class TestProcessingSteps(
         TestProcessorError(err)
       override def toSubmissionError(err: TestProcessingError): TestProcessingError = err
     }
-    EitherT.rightT((submission, ()))
+    EitherT.rightT((submission, Some(())))
   }
 
   override def createSubmissionResult(
@@ -150,6 +151,11 @@ class TestProcessingSteps(
       submissionResultArgs: PendingSubmissionData,
   ): Unit =
     ()
+
+  override def setDecisionTimeTickRequest(
+      pendingSubmissionData: Some[Unit],
+      requestedTick: SynchronizerTimeTracker.TickRequest,
+  ): Unit = ()
 
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
@@ -226,6 +232,7 @@ class TestProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -290,10 +297,10 @@ class TestProcessingSteps(
 
   override def postProcessSubmissionRejectedCommand(
       error: TransactionError,
-      pendingSubmission: Unit,
+      pendingSubmission: Some[Unit],
   )(implicit traceContext: TraceContext): Unit = ()
 
-  override def postProcessResult(verdict: Verdict, pendingSubmissionO: Unit)(implicit
+  override def postProcessResult(verdict: Verdict, pendingSubmissionO: Some[Unit])(implicit
       traceContext: TraceContext
   ): Unit = ()
 
@@ -364,6 +371,8 @@ object TestProcessingSteps {
     override def rootHashO: Option[RootHash] = None
 
     override def isCleanReplay: Boolean = false
+
+    override def cancelDecisionTimeTickRequest(): Unit = ()
   }
 
   case object TestPendingRequestDataType extends RequestType {

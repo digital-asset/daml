@@ -8,8 +8,8 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
   WaitCommitments,
 }
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
@@ -31,7 +31,9 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors
   NoSharedContracts,
 }
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsHelpers
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import monocle.Monocle.toAppliedFocusOps
@@ -107,16 +109,19 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
             participant: ParticipantReference,
             minObservationDuration: NonNegativeFiniteDuration,
         ): Unit = {
-          // Connect and disconnect so that we can modify the synchronizer connection config afterwards
-          participant.synchronizers.connect_local(sequencer1, alias = daName)
-          participant.synchronizers.disconnect_local(daName)
-          val daConfig = participant.synchronizers.config(daName).value
+          val daSequencerConnection =
+            SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
           participant.synchronizers.connect_by_config(
-            daConfig
-              .focus(_.timeTracker.minObservationDuration)
-              .replace(minObservationDuration.toConfig)
+            SynchronizerConnectionConfig(
+              synchronizerAlias = daName,
+              sequencerConnections = daSequencerConnection,
+              timeTracker = SynchronizerTimeTrackerConfig(minObservationDuration =
+                minObservationDuration.toConfig
+              ),
+            )
           )
         }
+
         connect(participant1, minObservationDuration)
         connect(participant2, minObservationDuration)
         participants.all.foreach(_.dars.upload(CantonExamplesPath))
@@ -333,36 +338,47 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       participant2.repair.purge(daName, Seq(iou.id.toLf))
       participant2.synchronizers.reconnect_local(daName)
       // ensure participant2 is reconnected before we advance time
+
       eventually() {
         participant2.synchronizers.is_connected(daId) shouldBe true
         participant2.ledger_api.state.acs
           .of_all()
           .filter(_.contractId == iou.id.contractId) shouldBe empty
       }
+
       AdvanceTimeAndValidate(
         expectWarnings = true,
         acsPruningInterval,
         ensureParticipant1HasNoOutstanding = false,
       )
 
-      val secondPruningOffset = participant1.pruning.find_safe_offset()
+      // expect mismatches until we equalize ACSes again
+      loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+        {
+          val secondPruningOffset = participant1.pruning.find_safe_offset()
 
-      // firstPruningOffset and secondPruningOffset should be the same since the time between first and second we have acs mismatched
-      firstPruningOffset shouldBe secondPruningOffset
+          // firstPruningOffset and secondPruningOffset should be the same since the time between first and second we have acs mismatched
+          firstPruningOffset shouldBe secondPruningOffset
 
-      logger.info("setting no wait for participant2 on participant1")
-      // this will cause us to be able to prune again
-      participant1.commitments.set_no_wait_commitments_from(Seq(participant2.id), Seq(daId))
-      val lastPruningOffset = participant1.pruning.find_safe_offset()
-      // only difference between lastPruningOffset and secondPruningOffset is the inclusion of the no-wait for participant2
-      lastPruningOffset should be > secondPruningOffset
-      lastPruningOffset should be > contractCreationOffset
+          logger.info("setting no wait for participant2 on participant1")
+          // this will cause us to be able to prune again
+          participant1.commitments.set_no_wait_commitments_from(Seq(participant2.id), Seq(daId))
+          val lastPruningOffset = participant1.pruning.find_safe_offset()
+          // only difference between lastPruningOffset and secondPruningOffset is the inclusion of the no-wait for participant2
+          lastPruningOffset should be > secondPruningOffset
+          lastPruningOffset should be > contractCreationOffset
 
-      // clean up before next test
-      participant1.synchronizers.disconnect_all()
-      participant1.repair.purge(daName, Seq(iou.id.toLf))
-      participant1.synchronizers.reconnect_local(daName)
-      participant1.commitments.set_wait_commitments_from(Seq(participant2.id), Seq(daId))
+          // clean up before next test
+          participant1.synchronizers.disconnect_all()
+          participant1.repair.purge(daName, Seq(iou.id.toLf))
+          participant1.synchronizers.reconnect_local(daName)
+          participant1.commitments.set_wait_commitments_from(Seq(participant2.id), Seq(daId))
+        },
+        logs => {
+          forAtLeast(1, logs)(m => m.message should include(CommitmentsMismatch.id))
+          forAtLeast(1, logs)(m => m.message should include(NoSharedContracts.id))
+        },
+      )
   }
 
   "No wait configuration allows pruning in case of participant falling behind" onlyRunWhen (!isInMemory) in {
@@ -454,9 +470,7 @@ trait AcsCommitmentNoWaitCounterParticipantIntegrationTest
       )
     else
       method
-
   }
-
 }
 
 class AcsCommitmentNoWaitCounterParticipantIntegrationTestPostgres
@@ -465,5 +479,13 @@ class AcsCommitmentNoWaitCounterParticipantIntegrationTestPostgres
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
   override val isInMemory = false
 }
+
+//class AcsCommitmentNoWaitCounterParticipantIntegrationTestH2
+//    extends AcsCommitmentNoWaitCounterParticipantIntegrationTest {
+//  registerPlugin(new UseH2(loggerFactory))
+//  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  override val isInMemory = false
+//}
+
 class AcsCommitmentNoWaitCounterParticipantIntegrationTestDefault
     extends AcsCommitmentNoWaitCounterParticipantIntegrationTest {}

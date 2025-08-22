@@ -1112,7 +1112,7 @@ class CantonSyncService(
         _ = logger.debug(s"Awaiting tick at $tick from $alias for migration")
         _ <- EitherT.right(
           FutureUnlessShutdown.outcomeF(
-            syncService.timeTracker.awaitTick(tick).fold(Future.unit)(_.void)
+            syncService.timeTracker.awaitTick(tick).getOrElse(Future.unit)
           )
         )
         _ <- repairService

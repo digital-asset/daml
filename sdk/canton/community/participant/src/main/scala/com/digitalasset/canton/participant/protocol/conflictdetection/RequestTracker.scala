@@ -287,8 +287,9 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     RequestTrackerStoreError
   ], Unit]]
 
-  /** Returns a future that completes after the request has progressed to the given timestamp. If
-    * the request tracker has already progressed to the timestamp, [[scala.None]] is returned.
+  /** Returns a future that completes after the request tracker has progressed to the given
+    * timestamp. If the request tracker has already progressed to the timestamp, [[scala.None]] is
+    * returned.
     */
   def awaitTimestampUS(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext

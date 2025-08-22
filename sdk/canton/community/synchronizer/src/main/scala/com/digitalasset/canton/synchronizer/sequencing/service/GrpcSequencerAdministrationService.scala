@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
+import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.ProtoDeserializationError
@@ -219,8 +220,7 @@ class GrpcSequencerAdministrationService(
       // trigger a tick.
       _ <- synchronizerTimeTracker
         .awaitTick(sequencerSnapshotTimestamp)
-        .map(EitherTUtil.rightUS[RpcError, CantonTimestamp](_).void)
-        .getOrElse(EitherTUtil.unitUS[RpcError])
+        .traverse_(EitherTUtil.rightUS[RpcError, Unit](_))
 
       // wait for the sequencer snapshot's lastTs to be observed by the topology client,
       // which implies that all topology transactions with a sequenced time up to including the

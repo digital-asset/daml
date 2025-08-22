@@ -11,6 +11,7 @@ import com.digitalasset.canton.crypto.{
   HashOps,
   Signature,
   SigningKeyUsage,
+  SynchronizerCryptoClient,
   SynchronizerSnapshotSyncCryptoApi,
 }
 import com.digitalasset.canton.data.*
@@ -56,6 +57,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -72,6 +74,7 @@ private[reassignment] class UnassignmentProcessingSteps(
     val synchronizerId: Source[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
+    sourceCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
     staticSynchronizerParameters: Source[StaticSynchronizerParameters],
     override protected val contractAuthenticator: ContractAuthenticator,
@@ -292,7 +295,7 @@ private[reassignment] class UnassignmentProcessingSteps(
         )
     } yield (
       ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash),
-      pendingSubmission,
+      Some(pendingSubmission),
     )
   }
 
@@ -301,8 +304,8 @@ private[reassignment] class UnassignmentProcessingSteps(
       pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
     SubmissionResult(
-      pendingSubmission.mkReassignmentId(deliver.timestamp),
-      pendingSubmission.reassignmentCompletion.future,
+      pendingSubmission.value.mkReassignmentId(deliver.timestamp),
+      pendingSubmission.value.reassignmentCompletion.future,
     )
 
   override protected def decryptTree(
@@ -429,6 +432,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -496,6 +500,7 @@ private[reassignment] class UnassignmentProcessingSteps(
         locallyRejectedF,
         engineController.abort,
         engineAbortStatusF = engineAbortStatusF,
+        decisionTimeTickRequest,
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -534,6 +539,7 @@ private[reassignment] class UnassignmentProcessingSteps(
       _locallyRejected,
       _engineController,
       _abortedF,
+      _decisionTimeTickRequest,
     ) = pendingRequestData
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
@@ -577,17 +583,14 @@ private[reassignment] class UnassignmentProcessingSteps(
       // Activeness of the mediator already gets checked in Phase 3,
       // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
       resultTs = event.event.content.timestamp
-      topologySnapshotAtTs <-
-        reassignmentCoordination.awaitTimestampAndGetTaggedCryptoSnapshot(
-          synchronizerId,
-          staticSynchronizerParameters = staticSynchronizerParameters,
-          timestamp = resultTs,
-        )
+      topologySnapshotAtTs <- EitherT(
+        sourceCrypto.ips.awaitSnapshot(resultTs).map(snapshot => Either.right(Source(snapshot)))
+      )
 
       mediatorCheckResultO <- EitherT.right(
         ReassignmentValidation
           .ensureMediatorActive(
-            topologySnapshotAtTs.map(_.ipsSnapshot),
+            topologySnapshotAtTs,
             mediator = pendingRequestData.mediator,
             reassignmentId = unassignmentValidationResult.reassignmentId,
           )
@@ -758,6 +761,7 @@ object UnassignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   ) extends PendingReassignment {
 
     def isReassigningParticipant: Boolean =
@@ -767,5 +771,7 @@ object UnassignmentProcessingSteps {
 
     override def submitterMetadata: ReassignmentSubmitterMetadata =
       unassignmentValidationResult.submitterMetadata
+
+    override def cancelDecisionTimeTickRequest(): Unit = decisionTimeTickRequest.cancel()
   }
 }

@@ -55,6 +55,10 @@ class TrafficPurchasedSubmissionHandlerTest
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
   private val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
+  when(
+    synchronizerTimeTracker.requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext])
+  ).thenReturn(SynchronizerTimeTracker.DummyTickRequest)
+
   private val synchronizerId = SynchronizerId.tryFromString("da::default").toPhysical
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()

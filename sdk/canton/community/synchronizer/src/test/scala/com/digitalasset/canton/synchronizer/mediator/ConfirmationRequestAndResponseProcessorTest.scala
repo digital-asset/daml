@@ -32,6 +32,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.Party
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -267,6 +268,8 @@ class ConfirmationRequestAndResponseProcessorTest
         loggerFactory,
       )
     private val timeTracker: SynchronizerTimeTracker = mock[SynchronizerTimeTracker]
+    when(timeTracker.requestTick(any[CantonTimestamp], any[Boolean])(any[TraceContext]))
+      .thenReturn(SynchronizerTimeTracker.DummyTickRequest)
     val mediatorState = new MediatorState(
       new InMemoryFinalizedResponseStore(loggerFactory),
       new InMemoryMediatorDeduplicationStore(loggerFactory, timeouts),
@@ -962,6 +965,7 @@ class ConfirmationRequestAndResponseProcessorTest
             participantResponseDeadline,
             decisionTime,
             mockTopologySnapshot,
+            participantResponseDeadlineTick = None,
           )
 
         _ = requestState shouldBe responseAggregation

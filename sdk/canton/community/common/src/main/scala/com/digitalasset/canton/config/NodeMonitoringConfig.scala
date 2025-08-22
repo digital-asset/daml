@@ -6,7 +6,7 @@ package com.digitalasset.canton.config
 import com.daml.jwt.JwtTimestampLeeway
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.Duration
 

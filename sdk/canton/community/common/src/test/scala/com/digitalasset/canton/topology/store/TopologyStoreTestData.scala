@@ -232,7 +232,7 @@ class TopologyStoreTestData(
     OwnerToKeyMapping(p2Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1)),
     isProposal = true,
     serial = PositiveInt.tryCreate(2),
-  )(p1Key)
+  )(p2Key)
   val ptp_fred_p1 = makeSignedTx(
     PartyToParticipant.tryCreate(
       partyId = `fred::p2Namepsace`,

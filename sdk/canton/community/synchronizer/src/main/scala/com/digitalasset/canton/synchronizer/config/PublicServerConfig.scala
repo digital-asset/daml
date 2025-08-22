@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
-import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.SslContext
 
 import scala.concurrent.duration.Duration
 

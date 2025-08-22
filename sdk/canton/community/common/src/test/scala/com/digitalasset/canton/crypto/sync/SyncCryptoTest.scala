@@ -25,6 +25,7 @@ import com.digitalasset.canton.crypto.{
   SynchronizerCryptoClient,
   TestHash,
 }
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, participant2}
@@ -41,9 +42,15 @@ import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.typesafe.config.ConfigValueFactory
 import monocle.Monocle.toAppliedFocusOps
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.wordspec.AnyWordSpec
 
-trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+trait SyncCryptoTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext
+    with BeforeAndAfterAll {
+
   protected val sessionSigningKeysConfig: SessionSigningKeysConfig
 
   // Use JceCrypto for the configured crypto schemes
@@ -257,6 +264,14 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
 
     }
 
+  }
+
+  override def afterAll(): Unit = {
+    LifeCycle.close(
+      syncCryptoSignerP1,
+      syncCryptoSignerP2,
+    )(logger)
+    super.afterAll()
   }
 
 }

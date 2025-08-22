@@ -275,6 +275,73 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         }
       }
 
+      "fail to add if the OwnerToKeyMapping or PartyToKeyMapping misses the signature for the namespace and only has signatures for signing keys" in {
+        val validator = mk()
+        import Factory.*
+
+        logger.info("start")
+        val otk = mkAddMultiKey(
+          OwnerToKeyMapping(
+            SequencerId.tryCreate("sequencer1", ns1),
+            NonEmpty(Seq, SigningKeys.key2),
+          ),
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+        )
+        // remove a signature and explicitly set proposal=true, otherwise it would get rejected,
+        // because of missing signatures for a on a non-proposal
+        val ownerToKeyWithMissingKeySignature =
+          otk.removeSignatures(Set(SigningKeys.key2.fingerprint)).value.updateIsProposal(true)
+        val ownerToKeyWithMissingNamespaceSignature =
+          otk.removeSignatures(Set(SigningKeys.key1.fingerprint)).value.updateIsProposal(true)
+
+        val ptk = mkAddMultiKey(
+          PartyToKeyMapping.tryCreate(
+            PartyId.tryCreate("someParty", ns1),
+            PositiveInt.one,
+            NonEmpty(Seq, SigningKeys.key2),
+          ),
+          NonEmpty(Set, SigningKeys.key1, SigningKeys.key2),
+        )
+        val partyToKeyWithMissingNamespaceSignature =
+          ptk.removeSignatures(Set(SigningKeys.key1.fingerprint)).value.updateIsProposal(true)
+        val partyToKeyWithMissingKeySignature =
+          ptk.removeSignatures(Set(SigningKeys.key2.fingerprint)).value.updateIsProposal(true)
+
+        for {
+          validatedTopologyTransactions <- validate(
+            validator,
+            ts(0),
+            List(
+              ns1k1_k1,
+              otk,
+              ownerToKeyWithMissingKeySignature,
+              ownerToKeyWithMissingNamespaceSignature,
+              ptk,
+              partyToKeyWithMissingKeySignature,
+              partyToKeyWithMissingNamespaceSignature,
+            ),
+            Map.empty,
+            expectFullAuthorization = false,
+          )
+        } yield {
+          logger.info("checking")
+          check(
+            validatedTopologyTransactions,
+            Seq(
+              None, // root cert
+              None, // otk
+              None, // ownerToKeyWithMissingKeySignature, missing key signatures on proposals are allowed
+              // even though the transactions are proposals, meaning partial authorization would be allowed,
+              // at least 1 namespace must sign. just signing with the extra keys is not enough.
+              Some(_ == NotAuthorized), // ownerToKeyWithMissingNamespaceSignature
+              None, // ptk
+              None, // partyToKeyWithMissingKeySignature, missing key signatures on proposals are allowed
+              Some(_ == NotAuthorized), // partyToKeyWithMissingNamespaceSignature
+            ),
+          )
+        }
+      }
+
       "reject if the transaction is for the wrong synchronizer" in {
         val validator = mk()
         import Factory.*
@@ -437,9 +504,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             .value,
           SequencerSynchronizerState
             .create(synchronizerId, PositiveInt.one, active = Seq(SequencerId(uid)), Seq.empty)
-            .value,
-          PurgeTopologyTransaction
-            .create(synchronizerId, Seq(PartyHostingLimits(synchronizerId, partyId)))
             .value,
           DynamicSequencingParametersState(
             synchronizerId,

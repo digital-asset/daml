@@ -67,7 +67,6 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
 
       for {
         _ <- new InitialTopologySnapshotValidator(
-          testedProtocolVersion,
           testData.factory.syncCryptoClient.crypto.pureCrypto,
           store,
           timeouts,

@@ -6,7 +6,7 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
@@ -23,6 +23,7 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
+  LifeCycle,
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
@@ -32,6 +33,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
+import com.github.benmanes.caffeine.cache.Scheduler
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 
@@ -67,6 +69,11 @@ class SyncCryptoSignerWithSessionKeys(
     extends SyncCryptoSigner
     with FlagCloseable
     with HasCloseContext {
+
+  private val scheduledExecutorService = Threading.singleThreadScheduledExecutor(
+    "session-signing-key-cache",
+    noTracingLogger,
+  )
 
   /** The software-based crypto public API that is used to sign protocol messages with a session
     * signing key (generated in software). Except for the signing scheme, when signing with session
@@ -141,8 +148,21 @@ class SyncCryptoSignerWithSessionKeys(
         update = (_, _, d) => d,
         read = (_, _, d) => d,
       )
+      .scheduler(Scheduler.forScheduledExecutorService(scheduledExecutorService))
       .executor(executionContext.execute(_))
       .build()
+
+  override def onClosed(): Unit = {
+    LifeCycle.close(
+      {
+        // Invalidate all cache entries and run pending maintenance tasks
+        sessionKeysSigningCache.invalidateAll()
+        sessionKeysSigningCache.cleanUp()
+        ExecutorServiceExtensions(scheduledExecutorService)(logger, timeouts)
+      }
+    )(logger)
+    super.onClosed()
+  }
 
   /** To control access to the [[sessionKeysSigningCache]] and the [[pendingRequests]]. */
   private val lock = new Object()

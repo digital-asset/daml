@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithLongTermKeys
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.TestingTopology
+import com.digitalasset.canton.util.ResourceUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 class SyncCryptoWithLongTermKeysTest extends AnyWordSpec with SyncCryptoTest {
@@ -36,30 +37,31 @@ class SyncCryptoWithLongTermKeysTest extends AnyWordSpec with SyncCryptoTest {
           )
           .build(crypto, loggerFactory)
 
-      val p1WithSessionKey = testingTopologyWithSessionKeys.forOwnerAndSynchronizer(participant1)
+      ResourceUtil.withResource(
+        testingTopologyWithSessionKeys.forOwnerAndSynchronizer(participant1)
+      ) { p1WithSessionKey =>
+        val signature = p1WithSessionKey.syncCryptoSigner
+          .sign(
+            testingTopologyWithSessionKeys.topologySnapshot(),
+            hash,
+            defaultUsage,
+          )
+          .valueOrFail("sign failed")
+          .futureValueUS
 
-      val signature = p1WithSessionKey.syncCryptoSigner
-        .sign(
-          testingTopologyWithSessionKeys.topologySnapshot(),
-          hash,
-          defaultUsage,
-        )
-        .valueOrFail("sign failed")
-        .futureValueUS
+        signature.signatureDelegation should not be empty
 
-      signature.signatureDelegation should not be empty
-
-      syncCryptoVerifierP1
-        .verifySignature(
-          testSnapshot,
-          hash,
-          participant1.member,
-          signature,
-          defaultUsage,
-        )
-        .valueOrFail("verification failed")
-        .futureValueUS
-
+        syncCryptoVerifierP1
+          .verifySignature(
+            testSnapshot,
+            hash,
+            participant1.member,
+            signature,
+            defaultUsage,
+          )
+          .valueOrFail("verification failed")
+          .futureValueUS
+      }
     }
 
   }

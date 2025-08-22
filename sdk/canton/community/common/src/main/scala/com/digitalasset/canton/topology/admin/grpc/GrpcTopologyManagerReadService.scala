@@ -869,31 +869,6 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(res)
   }
 
-  override def listPurgeTopologyTransaction(
-      request: ListPurgeTopologyTransactionRequest
-  ): Future[ListPurgeTopologyTransactionResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val ret = for {
-      res <- collectFromStoresByFilterString(
-        request.baseQuery,
-        PurgeTopologyTransaction.code,
-        request.filterSynchronizerId,
-      )
-    } yield {
-      val results = res
-        .collect { case (result, x: PurgeTopologyTransaction) => (result, x) }
-        .map { case (context, elem) =>
-          new adminProto.ListPurgeTopologyTransactionResponse.Result(
-            context = Some(createBaseResult(context)),
-            item = Some(elem.toProto),
-          )
-        }
-
-      adminProto.ListPurgeTopologyTransactionResponse(results = results)
-    }
-    CantonGrpcUtil.mapErrNewEUS(ret)
-  }
-
   override def listSynchronizerUpgradeAnnouncement(
       request: ListSynchronizerUpgradeAnnouncementRequest
   ): Future[ListSynchronizerUpgradeAnnouncementResponse] = {

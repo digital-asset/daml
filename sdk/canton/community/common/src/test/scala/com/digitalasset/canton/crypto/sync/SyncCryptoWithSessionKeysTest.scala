@@ -16,6 +16,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant1
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.util.ResourceUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration.FiniteDuration
@@ -154,32 +155,34 @@ class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
     }
 
     "sign and verify message with different synchronizers uses different session keys" in {
-      val p1OtherSynchronizer =
+      ResourceUtil.withResource(
         testingTopology.forOwnerAndSynchronizer(
           owner = participant1,
           synchronizerId = otherSynchronizerId,
         )
-      val syncCryptoSignerP1Other = p1OtherSynchronizer.syncCryptoSigner
+      ) { p1OtherSynchronizer =>
+        val syncCryptoSignerP1Other = p1OtherSynchronizer.syncCryptoSigner
 
-      val signature = syncCryptoSignerP1Other
-        .sign(
-          testSnapshot,
-          hash,
-          defaultUsage,
-        )
-        .valueOrFail("sign failed")
-        .futureValueUS
+        val signature = syncCryptoSignerP1Other
+          .sign(
+            testSnapshot,
+            hash,
+            defaultUsage,
+          )
+          .valueOrFail("sign failed")
+          .futureValueUS
 
-      val signatureDelegationOther =
-        checkSignatureDelegation(testSnapshot, signature, p1OtherSynchronizer)
+        val signatureDelegationOther =
+          checkSignatureDelegation(testSnapshot, signature, p1OtherSynchronizer)
 
-      sessionKeysCache(p1OtherSynchronizer).loneElement
+        sessionKeysCache(p1OtherSynchronizer).loneElement
 
-      // it's different from the signature delegation for the other synchronizer
-      val (_, signatureDelegation) = sessionKeysCache(p1).loneElement
-      signatureDelegationOther.validityPeriod shouldBe signatureDelegation.signatureDelegation.validityPeriod
-      signatureDelegationOther.sessionKey should not be signatureDelegation.signatureDelegation.sessionKey
-      signatureDelegationOther.signature should not be signatureDelegation.signatureDelegation.signature
+        // it's different from the signature delegation for the other synchronizer
+        val (_, signatureDelegation) = sessionKeysCache(p1).loneElement
+        signatureDelegationOther.validityPeriod shouldBe signatureDelegation.signatureDelegation.validityPeriod
+        signatureDelegationOther.sessionKey should not be signatureDelegation.signatureDelegation.sessionKey
+        signatureDelegationOther.signature should not be signatureDelegation.signatureDelegation.signature
+      }
     }
 
     "use a new session signing key when the cut-off period has elapsed" in {

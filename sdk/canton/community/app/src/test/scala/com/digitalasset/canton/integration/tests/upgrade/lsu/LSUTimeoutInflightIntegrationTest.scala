@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.tests.upgrade.lsu
 
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.LocalSequencerReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.*
@@ -21,7 +21,9 @@ import com.digitalasset.canton.integration.tests.upgrade.LogicalUpgradeUtils.Syn
 import com.digitalasset.canton.integration.tests.upgrade.lsu.LSUBase.Fixture
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LocalRejectError
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
@@ -74,7 +76,18 @@ abstract class LSUTimeoutInFlightIntegrationTest extends LSUBase with HasProgram
       .withSetup { implicit env =>
         import env.*
 
-        participants.all.synchronizers.connect_local(sequencer1, alias = daName)
+        val daSequencerConnection =
+          SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
+        participants.all.synchronizers.connect(
+          SynchronizerConnectionConfig(
+            synchronizerAlias = daName,
+            sequencerConnections = daSequencerConnection,
+            timeTracker = SynchronizerTimeTrackerConfig(observationLatency =
+              config.NonNegativeFiniteDuration.Zero
+            ),
+          )
+        )
+
         participants.all.dars.upload(CantonExamplesPath)
 
         synchronizerOwners1.foreach(

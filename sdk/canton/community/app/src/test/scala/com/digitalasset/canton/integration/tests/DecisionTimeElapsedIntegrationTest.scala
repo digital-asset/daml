@@ -93,9 +93,10 @@ trait DecisionTimeElapsedIntegrationTest
       participant1.ledger_api.javaapi.commands
         .submit(Seq(participant1.id.adminParty), pingCommand),
       // the decision time will be used for the max sequencing time, so the result message won't be sequenced in this test
-      // the mediator will see that its send timed out and log a warning
-      _.warningMessage should (include("Sequencing result message timed out.")),
-      // finally, the command failed in the console
+      // The mediator does not observe a timestamp after the decision time as we don't request a time proof for
+      // observing elapsed decision times (we'd only produce a log line anyway).
+      // So no warning message is expected in this test.
+      // Just the command failed in the console
       _.commandFailureMessage should include(
         "Rejected transaction due to a participant determined timeout"
       ),

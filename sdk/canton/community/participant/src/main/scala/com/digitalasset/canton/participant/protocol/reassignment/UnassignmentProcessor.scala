@@ -52,6 +52,7 @@ class UnassignmentProcessor(
         synchronizerId,
         participantId,
         reassignmentCoordination,
+        synchronizerCrypto,
         seedGenerator,
         staticSynchronizerParameters,
         ContractAuthenticator(synchronizerCrypto.pureCrypto),

@@ -52,6 +52,7 @@ class AssignmentProcessor(
         synchronizerId,
         participantId,
         reassignmentCoordination,
+        synchronizerCrypto,
         seedGenerator,
         ContractAuthenticator(synchronizerCrypto.pureCrypto),
         staticSynchronizerParameters,

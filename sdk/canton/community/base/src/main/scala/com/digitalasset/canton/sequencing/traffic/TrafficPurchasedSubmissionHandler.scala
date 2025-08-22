@@ -189,8 +189,6 @@ class TrafficPurchasedSubmissionHandler(
   ): EitherT[FutureUnlessShutdown, TrafficControlError, Unit] = {
     val callback = SendCallback.future
     implicit val metricsContext: MetricsContext = MetricsContext("type" -> "traffic-purchase")
-    // Make sure that the sequencer will ask for a time proof if it doesn't observe the sequencing in time
-    synchronizerTimeTracker.requestTick(maxSequencingTime)
     for {
       _ <- sequencerClient
         .send(
@@ -204,28 +202,33 @@ class TrafficPurchasedSubmissionHandler(
             .Error(err.show): TrafficControlError
         )
     } yield {
-      val logOutcomeF = callback.future.map {
-        case SendResult.Success(_) =>
-          logger.debug(
-            s"Traffic balance request with max sequencing time $maxSequencingTime successfully submitted"
-          )
-        case SendResult.Error(
-              DeliverError(
-                _,
-                _,
-                _,
-                _,
-                SequencerErrors.AggregateSubmissionAlreadySent(message),
-                _,
-              )
-            ) =>
-          logger.info(s"The top-up request was already sent: $message")
-        case SendResult.Error(err) =>
-          logger.info(show"The traffic balance request submission failed: $err")
-        case SendResult.Timeout(time) =>
-          logger.info(
-            show"The traffic balance request submission timed out after sequencing time $time has elapsed"
-          )
+      // Make sure that the sequencer will ask for a time proof if it doesn't observe the sequencing in time
+      val tickRequest = synchronizerTimeTracker.requestTick(maxSequencingTime)
+      val logOutcomeF = callback.future.map { result =>
+        tickRequest.cancel()
+        result match {
+          case SendResult.Success(_) =>
+            logger.debug(
+              s"Traffic balance request with max sequencing time $maxSequencingTime successfully submitted"
+            )
+          case SendResult.Error(
+                DeliverError(
+                  _,
+                  _,
+                  _,
+                  _,
+                  SequencerErrors.AggregateSubmissionAlreadySent(message),
+                  _,
+                )
+              ) =>
+            logger.info(s"The top-up request was already sent: $message")
+          case SendResult.Error(err) =>
+            logger.info(show"The traffic balance request submission failed: $err")
+          case SendResult.Timeout(time) =>
+            logger.info(
+              show"The traffic balance request submission timed out after sequencing time $time has elapsed"
+            )
+        }
       }
       FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
         logOutcomeF,

@@ -40,6 +40,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -88,7 +89,7 @@ trait ProcessingSteps[
   /** The data stored for submissions that have been sent out, if any. It is created by
     * [[createSubmission]] and passed to [[createSubmissionResult]]
     */
-  type PendingSubmissionData
+  type PendingSubmissionData <: Option[?]
 
   /** The type used for look-ups into the [[PendingSubmissions]] */
   type PendingSubmissionId
@@ -322,6 +323,17 @@ trait ProcessingSteps[
       pendingSubmissionId: PendingSubmissionId,
   ): Option[PendingSubmissionData]
 
+  /** Phase 1, step 3:
+    *
+    * Remember the [[com.digitalasset.canton.time.SynchronizerTimeTracker.TickRequest]] for the
+    * decision time in the [[PendingSubmissionData]] so that the tick request can be cancelled if
+    * the tick is no longer needed. Called when sending the submission succeeded.
+    */
+  def setDecisionTimeTickRequest(
+      pendingSubmissionData: PendingSubmissionData,
+      requestedTick: SynchronizerTimeTracker.TickRequest,
+  ): Unit
+
   // Phase 3: Request processing
 
   /** Phase 3, step 1:
@@ -470,6 +482,7 @@ trait ProcessingSteps[
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RequestError, StorePendingDataAndSendResponseAndCreateTimeout]
@@ -725,6 +738,8 @@ object ProcessingSteps {
     def rootHashO: Option[RootHash]
 
     def isCleanReplay: Boolean
+
+    def cancelDecisionTimeTickRequest(): Unit
   }
 
   object PendingRequestData {
@@ -757,6 +772,8 @@ object ProcessingSteps {
     override def rootHashO: Option[RootHash] = unwrap.rootHashO
 
     override def toOption: Option[A] = Some(unwrap)
+
+    override def cancelDecisionTimeTickRequest(): Unit = unwrap.cancelDecisionTimeTickRequest()
   }
 
   /** Minimal implementation of [[PendingRequestData]] to be used in case of a clean replay. */
@@ -773,5 +790,7 @@ object ProcessingSteps {
     override def rootHashO: Option[RootHash] = None
 
     override def toOption: Option[Nothing] = None
+
+    override def cancelDecisionTimeTickRequest(): Unit = ()
   }
 }

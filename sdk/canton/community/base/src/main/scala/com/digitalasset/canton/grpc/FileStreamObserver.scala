@@ -5,7 +5,7 @@ package com.digitalasset.canton.grpc
 
 import better.files.File
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.util.ResourceUtil
+import com.digitalasset.canton.util.TryUtil.*
 import com.google.protobuf.ByteString
 import io.grpc.stub.StreamObserver
 
@@ -23,18 +23,21 @@ class FileStreamObserver[T](
   override def onNext(value: T): Unit =
     Try(os.write(converter(value).toByteArray)) match {
       case Failure(exception) =>
-        ResourceUtil.closeAndAddSuppressed(Some(exception), os)
+        Try(os.close()).forFailed { suppressed =>
+          // Avoid an IllegalArgumentException if it's the same exception,
+          if (!(suppressed eq exception)) exception.addSuppressed(suppressed)
+        }
         throw exception
       case Success(_) => // all good
     }
 
   override def onError(t: Throwable): Unit = {
     requestComplete.tryFailure(t).discard
-    ResourceUtil.closeAndAddSuppressed(None, os)
+    os.close()
   }
 
   override def onCompleted(): Unit = {
     requestComplete.trySuccess(()).discard
-    ResourceUtil.closeAndAddSuppressed(None, os)
+    os.close()
   }
 }

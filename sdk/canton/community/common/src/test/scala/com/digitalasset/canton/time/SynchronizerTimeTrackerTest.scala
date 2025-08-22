@@ -244,6 +244,27 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
       )
       timeTracker.earliestExpectedObservationTime().isDefined shouldBe true
     }
+
+    "do not request time proof if tick is in the past" in { env =>
+      import env.*
+
+      timeTracker.subscriptionResumesAfter(ts(1))
+      for {
+        _ <- observeTimestamp(2)
+        _ = timeTracker.requestTick(ts(1))
+        _ <- advanceToAndFlush(1 + observationLatencySecs + 1)
+      } yield requestSubmitter.hasRequestedTime shouldBe false
+    }
+
+    "ignore immediate tick requests in the past" in { env =>
+      import env.*
+
+      timeTracker.subscriptionResumesAfter(ts(1))
+      for {
+        _ <- observeTimestamp(2)
+        _ = timeTracker.requestTick(ts(1), immediately = true)
+      } yield requestSubmitter.hasRequestedTime shouldBe false
+    }
   }
 
   "fetch" should {
@@ -343,8 +364,8 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         _ <- observeTimeProof(2)
         _ = awaitF.isCompleted shouldBe false
         _ <- observeTimeProof(3)
-        awaitedTs <- awaitF
-      } yield awaitedTs shouldBe ts(3)
+        _ <- awaitF
+      } yield succeed
     }
 
     "return None if we've already witnessed an equal or greater timestamp from the synchronizer" in {

@@ -168,9 +168,6 @@ object TopologyMapping {
     case object SequencerSynchronizerState
         extends Code("sds", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCER_SYNCHRONIZER_STATE)
 
-    case object PurgeTopologyTransaction
-        extends Code("ptt", v30Code.TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS)
-
     case object SequencingDynamicParametersState
         extends Code("sep", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE)
     case object PartyToKeyMapping
@@ -193,7 +190,6 @@ object TopologyMapping {
       SynchronizerParametersState,
       MediatorSynchronizerState,
       SequencerSynchronizerState,
-      PurgeTopologyTransaction,
       SequencingDynamicParametersState,
       PartyToKeyMapping,
       SynchronizerUpgradeAnnouncement,
@@ -288,7 +284,8 @@ object TopologyMapping {
         ReferencedAuthorizations(namespaces = namespaces, extraKeys = extraKeys)
 
       override protected def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
-        unnamedParam(_.namespaces)
+        unnamedParam(_.namespaces.toSeq.sortBy(_.toProtoPrimitive)),
+        paramIfNonEmpty("extra keys", _.extraKeys.toSeq.sortBy(_.toProtoPrimitive)),
       )
     }
 
@@ -334,7 +331,6 @@ object TopologyMapping {
       case Mapping.MediatorSynchronizerState(value) => MediatorSynchronizerState.fromProtoV30(value)
       case Mapping.SequencerSynchronizerState(value) =>
         SequencerSynchronizerState.fromProtoV30(value)
-      case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
       case Mapping.SynchronizerUpgradeAnnouncement(value) =>
         SynchronizerUpgradeAnnouncement.fromProtoV30(value)
       case Mapping.SequencerConnectionSuccessor(value) =>
@@ -1817,70 +1813,6 @@ object SequencerSynchronizerState extends TopologyMappingCompanion {
         UniqueIdentifier.fromProtoPrimitive(_, "observers").map(SequencerId(_))
       )
       result <- create(synchronizerId, threshold, active, observers).leftMap(
-        ProtoDeserializationError.OtherError.apply
-      )
-    } yield result
-  }
-
-}
-
-// Purge topology transaction
-final case class PurgeTopologyTransaction private (
-    synchronizerId: SynchronizerId,
-    mappings: NonEmpty[Seq[TopologyMapping]],
-) extends TopologyMapping {
-
-  override def companion: PurgeTopologyTransaction.type = PurgeTopologyTransaction
-
-  def toProto: v30.PurgeTopologyTransaction =
-    v30.PurgeTopologyTransaction(
-      synchronizerId = synchronizerId.toProtoPrimitive,
-      mappings = mappings.map(_.toProtoV30),
-    )
-
-  def toProtoV30: v30.TopologyMapping =
-    v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.PurgeTopologyTxs(
-        toProto
-      )
-    )
-
-  override def namespace: Namespace = synchronizerId.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
-
-  override def restrictedToSynchronizer: Option[SynchronizerId] = Some(synchronizerId)
-
-  override def requiredAuth(
-      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
-
-  override def uniqueKey: MappingHash = PurgeTopologyTransaction.uniqueKey(synchronizerId)
-}
-
-object PurgeTopologyTransaction extends TopologyMappingCompanion {
-
-  def uniqueKey(synchronizerId: SynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
-
-  override def code: TopologyMapping.Code = Code.PurgeTopologyTransaction
-
-  def create(
-      synchronizerId: SynchronizerId,
-      mappings: Seq[TopologyMapping],
-  ): Either[String, PurgeTopologyTransaction] = for {
-    mappingsToPurge <- NonEmpty
-      .from(mappings)
-      .toRight("purge topology transaction requires at least one topology mapping")
-  } yield PurgeTopologyTransaction(synchronizerId, mappingsToPurge)
-
-  def fromProtoV30(
-      value: v30.PurgeTopologyTransaction
-  ): ParsingResult[PurgeTopologyTransaction] = {
-    val v30.PurgeTopologyTransaction(synchronizerIdP, mappingsP) = value
-    for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
-      mappings <- mappingsP.traverse(TopologyMapping.fromProtoV30)
-      result <- create(synchronizerId, mappings).leftMap(
         ProtoDeserializationError.OtherError.apply
       )
     } yield result

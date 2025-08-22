@@ -129,7 +129,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
       _ <- EitherT
         .right(populateCaches(asOfExclusive, toSign, inStore))
 
-      referencedAuth = toSign.mapping.requiredAuth(inStore).referenced
+      referencedAuth = requiredAuthFor(toSign, inStore).referenced
 
       knownNsKeys = referencedAuth.namespaces.toSeq
         .parFlatTraverse(namespace =>

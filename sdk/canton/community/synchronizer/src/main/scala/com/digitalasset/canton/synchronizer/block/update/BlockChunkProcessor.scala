@@ -41,7 +41,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
-import BlockUpdateGeneratorImpl.{SequencedSubmission, State}
+import BlockUpdateGeneratorImpl.{SequencedValidatedSubmission, State}
 import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 
 /** Processes a chunk of events in a block, yielding a [[ChunkUpdate]].
@@ -58,14 +58,20 @@ final class BlockChunkProcessor(
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
-  private val sequencedSubmissionsValidator =
-    new SequencedSubmissionsValidator(
+  private val submissionRequestValidator =
+    new SubmissionRequestValidator(
       synchronizerSyncCryptoApi,
       sequencerId,
       rateLimitManager,
       loggerFactory,
       metrics,
       memberValidator = memberValidator,
+    )
+
+  private val sequencedSubmissionsValidator =
+    new SequencedSubmissionsValidator(
+      loggerFactory,
+      submissionRequestValidator = submissionRequestValidator,
     )
 
   def processDataChunk(
@@ -81,7 +87,6 @@ final class BlockChunkProcessor(
 
     logChunkDetails(state, height, index, fixedTsChanges)
 
-    // TODO(i18438): verify the signature of the sequencer on the SendEvent
     val orderingRequests =
       fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
         // Discard the timestamp of the `Send` event as we're using the adjusted timestamp
@@ -93,24 +98,27 @@ final class BlockChunkProcessor(
       "submission metric updating failed",
     )
 
-    for {
-      sequencedSubmissionsWithSnapshots <-
-        addSnapshots(
-          state.latestSequencerEventTimestamp,
-          sequencersSequencerCounter = None,
-          height,
-          index,
-          orderingRequests,
-        )
+    // Note: this runs for every submission in parallel using parTraverse
+    val validatedSequencedSubmissionsF = addSnapshotsAndValidateSubmissions(
+      state.latestSequencerEventTimestamp,
+      sequencersSequencerCounter = None,
+      height,
+      index,
+      orderingRequests,
+    )
 
-      acksValidationResult <- processAcknowledgements(state, fixedTsChanges)
+    val acksValidationResultF = processAcknowledgements(state, fixedTsChanges)
+
+    for {
+      validatedSequencedSubmissions <- validatedSequencedSubmissionsF
+      acksValidationResult <- acksValidationResultF
       (acksByMember, invalidAcks) = acksValidationResult
 
       validationResult <-
-        sequencedSubmissionsValidator.validateSequencedSubmissions(
+        sequencedSubmissionsValidator.sequentialApplySubmissionsAndEmitOutcomes(
           state,
           height,
-          sequencedSubmissionsWithSnapshots,
+          validatedSequencedSubmissions,
         )
       SequencedSubmissionsValidationResult(
         finalInFlightAggregations,
@@ -344,13 +352,15 @@ final class BlockChunkProcessor(
     }
   }
 
-  private def addSnapshots(
+  private def addSnapshotsAndValidateSubmissions(
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       sequencersSequencerCounter: Option[SequencerCounter],
       height: Long,
       index: Int,
       submissionRequests: Seq[(CantonTimestamp, Traced[SignedOrderingRequest])],
-  )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[Seq[SequencedSubmission]] =
+  )(implicit
+      executionContext: ExecutionContext
+  ): FutureUnlessShutdown[Seq[SequencedValidatedSubmission]] =
     submissionRequests.zipWithIndex.parTraverse {
       case ((sequencingTimestamp, tracedSubmissionRequest), requestIndex) =>
         tracedSubmissionRequest.withTraceContext { implicit traceContext => orderingRequest =>
@@ -416,12 +426,29 @@ final class BlockChunkProcessor(
                     snapshot
                   }
             }
-          } yield SequencedSubmission(
-            sequencingTimestamp,
-            orderingRequest,
-            topologyOrSequencingSnapshot,
-            topologySnapshotOrErrO.mapFilter(_.swap.toOption),
-          )(traceContext)
+            topologyTimestampError = topologySnapshotOrErrO.mapFilter(_.swap.toOption)
+            sequencedValidatedSubmission <- {
+              submissionRequestValidator
+                .performIndependentValidations(
+                  sequencingTimestamp,
+                  orderingRequest.signedSubmissionRequest,
+                  topologyOrSequencingSnapshot,
+                  topologyTimestampError,
+                )(traceContext, executionContext)
+                .value
+                .run
+                .map { case (trafficConsumption, errorOrResolvedGroups) =>
+                  SequencedValidatedSubmission(
+                    sequencingTimestamp,
+                    orderingRequest,
+                    topologyOrSequencingSnapshot,
+                    topologyTimestampError,
+                    trafficConsumption,
+                    errorOrResolvedGroups,
+                  )(traceContext)
+                }
+            }
+          } yield sequencedValidatedSubmission
         }
     }
 

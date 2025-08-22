@@ -8,13 +8,18 @@ import cats.data.EitherT
 import cats.implicits.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{
   Signature,
   SigningKeyUsage,
   SyncCryptoError,
   SynchronizerCrypto,
+  SynchronizerCryptoClient,
   SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
@@ -76,6 +81,7 @@ import com.digitalasset.canton.store.{
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
+import com.digitalasset.canton.time.SynchronizerTimeTracker.DummyTickRequest
 import com.digitalasset.canton.time.{SynchronizerTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -88,6 +94,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -204,7 +211,9 @@ final class UnassignmentProcessingStepsTest
       ProcessingStartingPoints.default,
       ParticipantTestMetrics.synchronizer,
       exitOnFatalFailures = true,
-      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      // Disable the session encryption key cache: it starts a scheduler that must be closed properly,
+      // otherwise we see RejectedExecutionException warnings during shutdown.
+      SessionEncryptionKeyCacheConfig(enabled = false),
       DefaultProcessingTimeouts.testing,
       loggerFactory,
       FutureSupervisor.Noop,
@@ -266,14 +275,14 @@ final class UnassignmentProcessingStepsTest
 
   private lazy val cryptoFactory = createCryptoFactory()
 
-  private def createCryptoSnapshot(
+  private def createCryptoClient(
       testingIdentityFactory: TestingIdentityFactory = cryptoFactory
   ) =
     testingIdentityFactory
       .forOwnerAndSynchronizer(submittingParticipant, sourceSynchronizer.unwrap)
-      .currentSnapshotApproximation
 
-  private lazy val cryptoSnapshot = createCryptoSnapshot()
+  private lazy val cryptoClient = createCryptoClient()
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
@@ -293,12 +302,14 @@ final class UnassignmentProcessingStepsTest
     createReassignmentCoordination()
 
   private def createUnassignmentProcessingSteps(
-      reassignmentCoordination: ReassignmentCoordination = coordination
+      reassignmentCoordination: ReassignmentCoordination = coordination,
+      cryptoClient: SynchronizerCryptoClient = cryptoClient,
   ) =
     new UnassignmentProcessingSteps(
       sourceSynchronizer,
       submittingParticipant,
       reassignmentCoordination,
+      cryptoClient,
       seedGenerator,
       Source(defaultStaticSynchronizerParameters),
       ContractAuthenticator(crypto.pureCrypto),
@@ -726,34 +737,40 @@ final class UnassignmentProcessingStepsTest
   "receive request" should {
     val unassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
     "succeed without errors" in {
-      val sessionKeyStore =
-        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionEncryptionKeyCacheConfig)
-      for {
-        encryptedOutRequest <- encryptUnassignmentTree(
-          unassignmentTree,
-          RecipientsTest.testInstance,
-          sessionKeyStore,
+      ResourceUtil.withResourceM(
+        new SessionKeyStoreWithInMemoryCache(
+          CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+          timeouts,
+          loggerFactory,
         )
-        envelopes =
-          NonEmpty(
-            Seq,
-            OpenEnvelope(encryptedOutRequest, RecipientsTest.testInstance)(testedProtocolVersion),
+      ) { sessionKeyStore =>
+        for {
+          encryptedOutRequest <- encryptUnassignmentTree(
+            unassignmentTree,
+            RecipientsTest.testInstance,
+            sessionKeyStore,
           )
-        decrypted <-
-          unassignmentProcessingSteps
-            .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
-            .valueOrFailShutdown(
-              "decrypt request failed"
+          envelopes =
+            NonEmpty(
+              Seq,
+              OpenEnvelope(encryptedOutRequest, RecipientsTest.testInstance)(testedProtocolVersion),
             )
-        activenessSet =
-          unassignmentProcessingSteps
-            .computeActivenessSet(
-              mkParsedRequest(unassignmentTree, RecipientsTest.testInstance, None)
-            )
-            .value
-      } yield {
-        decrypted.decryptionErrors shouldBe Seq.empty
-        activenessSet shouldBe mkActivenessSet(deact = Set(contractId), prior = Set(contractId))
+          decrypted <-
+            unassignmentProcessingSteps
+              .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+              .valueOrFailShutdown(
+                "decrypt request failed"
+              )
+          activenessSet =
+            unassignmentProcessingSteps
+              .computeActivenessSet(
+                mkParsedRequest(unassignmentTree, RecipientsTest.testInstance, None)
+              )
+              .value
+        } yield {
+          decrypted.decryptionErrors shouldBe Seq.empty
+          activenessSet shouldBe mkActivenessSet(deact = Set(contractId), prior = Set(contractId))
+        }
       }
     }
   }
@@ -804,6 +821,7 @@ final class UnassignmentProcessingStepsTest
             RequestId(CantonTimestamp.Epoch),
             loggerFactory,
           ),
+          DummyTickRequest,
         )
         .value
         .onShutdown(fail("unexpected shutdown during a test"))
@@ -822,7 +840,7 @@ final class UnassignmentProcessingStepsTest
     "prevent the contract being reassigned is not vetted on the target synchronizer" in {
       val unassignmentProcessingStepsWithoutPackages = {
         val f = createCryptoFactory(packages = Seq.empty)
-        val s = createCryptoSnapshot(f)
+        val s = createCryptoClient(f).currentSnapshotApproximation
         val c = createReassignmentCoordination(s)
         createUnassignmentProcessingSteps(c)
       }
@@ -907,6 +925,7 @@ final class UnassignmentProcessingStepsTest
       locallyRejectedF = FutureUnlessShutdown.pure(false),
       abortEngine = _ => (),
       engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+      DummyTickRequest,
     )
 
     "succeed without errors" in {

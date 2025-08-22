@@ -729,12 +729,11 @@ class MediatorNodeBootstrap(
       // TODO(i12076): Request topology information from all sequencers and reconcile
       _ <- MonadUtil.unlessM(
         EitherT.right[String](synchronizerConfigurationStore.isTopologyInitialized())
-      ) {
+      )(
         new StoreBasedSynchronizerTopologyInitializationCallback(
           mediatorId
         ).callback(
           new InitialTopologySnapshotValidator(
-            staticSynchronizerParameters.protocolVersion,
             crypto.pureCrypto,
             synchronizerTopologyStore,
             arguments.parameterConfig.processingTimeouts,
@@ -744,7 +743,7 @@ class MediatorNodeBootstrap(
           sequencerClient,
           staticSynchronizerParameters.protocolVersion,
         ).semiflatMap(_ => synchronizerConfigurationStore.setTopologyInitialized())
-      }
+      )
 
       mediatorRuntime <- MediatorRuntimeFactory.create(
         mediatorId,

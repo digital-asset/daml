@@ -708,6 +708,7 @@ class InteractiveSubmissionIntegrationTestPostgres
     completionStatus.code shouldBe Status.Code.OK.value()
     cpn(env).stop()
     cpn(env).start()
+    cpn(env).synchronizers.reconnect_all()
     findTransactionInStream(aliceE, cpnLedgerEnd, prepared.preparedTransactionHash, cpn)
   }
 }

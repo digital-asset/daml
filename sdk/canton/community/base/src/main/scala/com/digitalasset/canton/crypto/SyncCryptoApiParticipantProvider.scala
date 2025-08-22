@@ -353,7 +353,10 @@ class SynchronizerCryptoClient private (
   override def approximateTimestamp: CantonTimestamp = ips.approximateTimestamp
 
   override def onClosed(): Unit =
-    LifeCycle.close(ips)(logger)
+    LifeCycle.close(
+      ips,
+      syncCryptoSigner,
+    )(logger)
 
   override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
       traceContext: TraceContext

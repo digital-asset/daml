@@ -4,19 +4,22 @@
 package com.digitalasset.canton.store
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.SessionEncryptionKeyCacheConfig
+import com.digitalasset.canton.concurrent.{ExecutorServiceExtensions, Threading}
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.tracing.TraceContext
+import com.github.benmanes.caffeine.cache.Scheduler
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
 //TODO(#15057) Add stats on cache hits/misses
-sealed trait SessionKeyStore {
+sealed trait SessionKeyStore extends AutoCloseable {
 
   /** If the session store is set, we use it to store our session keys and reuse them across
     * transactions. Otherwise, if the 'global' session store is disabled, we create a local cache
@@ -91,14 +94,24 @@ sealed trait ConfirmationRequestSessionKeyStore {
     }
 }
 
-object SessionKeyStoreDisabled extends SessionKeyStore
+object SessionKeyStoreDisabled extends SessionKeyStore {
+  override def close(): Unit = ()
+}
 
 final class SessionKeyStoreWithInMemoryCache(
-    sessionKeysCacheConfig: SessionEncryptionKeyCacheConfig
+    sessionKeysCacheConfig: SessionEncryptionKeyCacheConfig,
+    timeouts: ProcessingTimeout,
+    protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
 ) extends SessionKeyStore
-    with ConfirmationRequestSessionKeyStore {
+    with ConfirmationRequestSessionKeyStore
+    with NamedLogging {
+
+  private val scheduledExecutorService = Threading.singleThreadScheduledExecutor(
+    "session-encryption-key-cache",
+    noTracingLogger,
+  )
 
   /** This cache keeps track of the session key information for each recipient tree, which is then
     * used to encrypt the view messages.
@@ -126,6 +139,7 @@ final class SessionKeyStoreWithInMemoryCache(
   override protected lazy val sessionKeysCacheSender: Cache[RecipientGroup, SessionKeyInfo] =
     sessionKeysCacheConfig.senderCache
       .buildScaffeine()
+      .scheduler(Scheduler.forScheduledExecutorService(scheduledExecutorService))
       .build()
 
   /** This cache keeps track of the matching encrypted randomness for the session keys and their
@@ -136,8 +150,20 @@ final class SessionKeyStoreWithInMemoryCache(
       : Cache[AsymmetricEncrypted[SecureRandomness], SecureRandomness] =
     sessionKeysCacheConfig.receiverCache
       .buildScaffeine()
+      .scheduler(Scheduler.forScheduledExecutorService(scheduledExecutorService))
       .build()
 
+  override def close(): Unit =
+    LifeCycle.close(
+      {
+        // Invalidate all cache entries and run pending maintenance tasks
+        sessionKeysCacheReceiver.invalidateAll()
+        sessionKeysCacheReceiver.cleanUp()
+        sessionKeysCacheSender.invalidateAll()
+        sessionKeysCacheSender.cleanUp()
+        ExecutorServiceExtensions(scheduledExecutorService)(logger, timeouts)
+      }
+    )(logger)
 }
 
 /** This cache stores session key information for each recipient tree, which is later used to
@@ -160,10 +186,12 @@ final class SessionKeyStoreWithNoEviction(implicit executionContext: ExecutionCo
 object SessionKeyStore {
 
   def apply(
-      sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig
+      sessionKeyCacheConfig: SessionEncryptionKeyCacheConfig,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SessionKeyStore =
     if (sessionKeyCacheConfig.enabled)
-      new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
+      new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig, timeouts, loggerFactory)
     else SessionKeyStoreDisabled
 
   // Defines a recipients tree and the crypto scheme used to generate the session key for that group

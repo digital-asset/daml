@@ -241,11 +241,11 @@ class StoreBasedSynchronizerTopologyClient(
         case Some(timeTracker) =>
           timeTracker.awaitTick(effectiveTimestamp.value) match {
             case Some(future) =>
-              future.foreach { timestamp =>
+              future.foreach { _ =>
                 updateHead(
                   sequencedTimestamp,
-                  EffectiveTime(timestamp),
-                  ApproximateTime(timestamp),
+                  effectiveTimestamp,
+                  ApproximateTime(effectiveTimestamp.value),
                   potentialTopologyChange = true,
                 )
                 logIfNoPendingTopologyChanges()

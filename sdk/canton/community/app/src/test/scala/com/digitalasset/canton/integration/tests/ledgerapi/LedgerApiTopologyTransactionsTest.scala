@@ -500,7 +500,7 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
     implicit env =>
       import env.*
 
-      loggerFactory.assertEventuallyLogsSeq(SuppressionRule.Level(Level.WARN))(
+      loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
         {
           val startOffset = participant1.ledger_api.state.end()
 
@@ -513,6 +513,9 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
             // as soon as the sequencer will see that the trust certificate is revoked, it will remove the participant and thus we cannot synchronize this topology change
             synchronize = None,
           )
+          // disconnect from the synchronizer to avoid futile attempts to re-broadcast the revocation, in case the sequencer
+          // terminates the connection before the participant receives the topology broadcast itself.
+          participant2.synchronizers.disconnect(daName)
 
           eventually() {
             val txsWild = participant1.ledger_api.updates
@@ -531,27 +534,19 @@ trait LedgerApiTopologyTransactionsTest extends CommunityIntegrationTest with Sh
           }
         },
         LogEntry.assertLogSeq(
-          mustContainWithClue = Seq(
-            (
-              _.shouldBeCantonErrorCode(
-                PermissionDenied
-              ),
-              "MemberAuthenticationService terminates connection",
-            ),
-            (
-              _.shouldBeCantonError(
-                SyncServiceSynchronizerDisabledUs,
-                _ should include(s"$daName rejected our subscription"),
-              ),
-              "CantonSyncService disconnect",
-            ),
-          ),
+          mustContainWithClue = Seq.empty,
           mayContain = Seq(
             _.warningMessage should include("Token refresh aborted due to shutdown"),
-            /* Participant3 may attempt to connect to the sequencer (e.g., via a health check), but fail
-             * because the connection to the sequencer has been "revoked".
-             */
+            // Participant3 may attempt to connect to the sequencer (e.g., via a health check), but fail
+            // because the connection to the sequencer has been "revoked".
             _.warningMessage should include("Request failed for sequencer."),
+            // in case the MemberAuthenticationService terminates the connection
+            _.shouldBeCantonErrorCode(PermissionDenied),
+            // CantonSyncService disconnect
+            _.shouldBeCantonError(
+              SyncServiceSynchronizerDisabledUs,
+              _ should include(s"$daName rejected our subscription"),
+            ),
           ),
         ),
       )
