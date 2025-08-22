@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.topology.processing
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
-import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
@@ -17,7 +19,12 @@ import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.{
+  DecentralizedNamespaceDefinition,
+  SignedTopologyTransaction,
+}
+import com.digitalasset.canton.version.ProtocolVersionValidation
 
 abstract class InitialTopologySnapshotValidatorTest
     extends TopologyTransactionHandlingBase
@@ -32,7 +39,6 @@ abstract class InitialTopologySnapshotValidatorTest
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
-      testedProtocolVersion,
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
       DefaultProcessingTimeouts.testing,
@@ -112,6 +118,89 @@ abstract class InitialTopologySnapshotValidatorTest
 
       val stateAfterInitialization = fetch(store, timestampForInit.immediateSuccessor)
       validate(stateAfterInitialization, genesisState.result.map(_.transaction))
+    }
+
+    "successfully process the genesis state at topology initialization with transactions with different signatures by the same key" in {
+      val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
+
+      val dnd = mkAddMultiKey(
+        DecentralizedNamespaceDefinition.tryCreate(
+          DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2, ns3)),
+          PositiveInt.two,
+          NonEmpty(Set, ns1, ns2, ns3),
+        ),
+        NonEmpty(Set, SigningKeys.key1, SigningKeys.key2, SigningKeys.key3),
+      )
+      // construct a proto with multiple signatures, just like it would be deserialized from a pre-signature-deduplication snapshot
+      val dnd_duplicate_k1_sig = {
+        val dndProto = dnd.toProtoV30
+        val newSig = syncCryptoClient.crypto.privateCrypto
+          .sign(dnd.hash.hash, SigningKeys.key1.fingerprint, SigningKeyUsage.NamespaceOnly)
+          .futureValueUS
+          .value
+        // specifically adding the duplicate signature first in the list of signatures.
+        // this causes the new transaction to have a different signature for key1 as the original `dnd`
+        val protoWithDuplicateSig =
+          dndProto.copy(signatures = newSig.toProtoV30 +: dndProto.signatures)
+
+        SignedTopologyTransaction
+          .fromProtoV30(
+            ProtocolVersionValidation.NoValidation,
+            protoWithDuplicateSig,
+          )
+          .value
+      }
+
+      dnd.signatures should not be dnd_duplicate_k1_sig.signatures
+      dnd.signatures.map(_.authorizingLongTermKey) shouldBe dnd_duplicate_k1_sig.signatures.map(
+        _.authorizingLongTermKey
+      )
+
+      val inputTransactions = List(
+        ns1k1_k1 -> false, // whether to expire immediately or not
+        ns2k2_k2 -> false,
+        ns3k3_k3 -> false,
+        dmp1_k1 -> false,
+        dnd -> true,
+        dnd_duplicate_k1_sig -> false,
+        okm1bk5k1E_k1 -> false,
+      )
+
+      // the DNDs in the input transactions will get deduplicated and only the original DND is retained.
+      // the second one is effectively the same.
+      val expectedTransactions = List(
+        ns1k1_k1,
+        ns2k2_k2,
+        ns3k3_k3,
+        dmp1_k1,
+        dnd, // the stored DND should not have validUntil set.
+        okm1bk5k1E_k1,
+      ).map(_ -> false)
+
+      def toStored(txs: Seq[(GenericSignedTopologyTransaction, Boolean)]) =
+        StoredTopologyTransactions(
+          txs.map { case (tx, expireImmediately) =>
+            StoredTopologyTransaction(
+              SequencedTime(timestampForInit),
+              EffectiveTime(timestampForInit),
+              validUntil = Option.when(expireImmediately)(EffectiveTime(timestampForInit)),
+              tx,
+              None,
+            )
+          }
+        )
+
+      val genesisState = toStored(inputTransactions)
+      val (validator, store) = mk()
+
+      val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
+      result shouldBe Right(())
+
+      val stateAfterInitialization = fetchTx(store, timestampForInit.immediateSuccessor)
+      stateAfterInitialization.result should contain theSameElementsInOrderAs toStored(
+        expectedTransactions
+      ).result
+
     }
 
     "reject missing signatures of signing keys if the transaction is not in the genesis topology state" in {

@@ -27,7 +27,6 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.MonadUtil.syntax.*
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -47,7 +46,6 @@ import scala.concurrent.ExecutionContext
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
   */
 class InitialTopologySnapshotValidator(
-    protocolVersion: ProtocolVersion,
     pureCrypto: CryptoPureApi,
     store: TopologyStore[TopologyStoreId],
     timeouts: ProcessingTimeout,
@@ -104,14 +102,19 @@ class InitialTopologySnapshotValidator(
       initialSnapshot.result
         // first retain the global order of the topology transactions within the snapshot
         .zipWithIndex
-        // Find the transaction entries with the same hash of signatures at the same sequenced timestamp.
+        // Find the transaction entries with the same set of signing keys at the same sequenced timestamp.
         // The problematic scenario above is only relevant for the genesis snapshot, in which all topology
         // transactions have the same sequenced/effective time.
         // However, for onboarding snapshots (no matter which node), we MUST not merge transactions from
         // different timestamps, because each transaction may affect the epsilon tracker and therefore
         // must be preserved.
+        // The grouping is done with the set of signatures and specifically not hashOfSignatures,
+        // because legacy transactions allowed multiple signatures with the same key, but due to signature deduplication,
+        // this could lead to transactions ending up being (silently) deduplicated due to the unique key in the database table.
+        // This causes a mismatch between the transactions-to-be-validated and the transactions-actually-persisted.
+        // For more details, see canton#27390
         .groupBy1 { case (tx, _idx) =>
-          (tx.sequenced, tx.hash, tx.transaction.hashOfSignatures(protocolVersion))
+          (tx.sequenced, tx.hash, tx.transaction.signatures.map(_.authorizingLongTermKey))
         }
         .toSeq
         .flatMap { case ((sequenced, _, _), transactions) =>
@@ -134,7 +137,7 @@ class InitialTopologySnapshotValidator(
           //
           // Proposals do not need special treatment, because they should have
           // different sets of signatures and not enough signatures to be fully authorized.
-          // Therefore proposals should end up in separate groups of transactions or
+          // Therefore, proposals should end up in separate groups of transactions, or
           // they can be merged regardless.
           val (nonRejected, rejected) = transactions.partition { case (tx, _idx) =>
             tx.rejectionReason.isEmpty

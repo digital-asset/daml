@@ -645,36 +645,6 @@ class TopologyAdministrationGroup(
         else Seq.empty
       (latestAuthorized ++ latestProposal).maxByOption(_.serial)
     }
-
-    @Help.Summary("Manage topology transaction purging", FeatureFlag.Preview)
-    @Help.Group("Purge Topology Transactions")
-    object purge extends Helpful {
-      def list(
-          store: TopologyStoreId,
-          proposals: Boolean = false,
-          timeQuery: TimeQuery = TimeQuery.HeadState,
-          operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-          filterSynchronizer: String = "",
-          filterSigningKey: String = "",
-          protocolVersion: Option[String] = None,
-      ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
-        adminCommand(
-          TopologyAdminCommands.Read.ListPurgeTopologyTransaction(
-            BaseQuery(
-              store,
-              proposals,
-              timeQuery,
-              operation,
-              filterSigningKey,
-              protocolVersion.map(ProtocolVersion.tryCreate),
-            ),
-            filterSynchronizer,
-          )
-        )
-      }
-
-      // TODO(#15236): implement write service for purging
-    }
   }
 
   object synchronizer_bootstrap {

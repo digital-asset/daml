@@ -16,6 +16,15 @@ $$
   immutable
   returns null on null input;
 
+-- convert canton logs timestamp string to the bigint representation used in the tables
+create or replace function debug.to_canton_timestamp(text) returns bigint as
+$$
+select (extract(epoch from $1::timestamptz) * 1000000)::bigint;
+$$
+    language sql
+    immutable
+    returns null on null input;
+
 -- convert the integer representation to the name of the topology mapping
 create or replace function debug.topology_mapping(integer) returns char as
 $$
@@ -35,7 +44,7 @@ select
     when $1 = 12 then 'MediatorSynchronizerState'
     when $1 = 13 then 'SequencerSynchronizerState'
     -- 14 was OffboardParticipant
-    when $1 = 15 then 'PurgeTopologyTransaction'
+    -- 15 was PurgeTopologyTransaction
     -- 16 was TrafficControlState
     when $1 = 17 then 'DynamicSequencingParametersState'
     when $1 = 18 then 'PartyToKeyMapping'
