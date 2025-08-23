@@ -255,22 +255,27 @@ class BlockSequencerStateManager(
       case _ => None
     }
 
-    (for {
-      _ <- EitherT.right[String](
-        synchronizeWithClosing("trafficConsumedStore.store")(
-          trafficConsumedStore.store(trafficConsumedUpdates)
-        )
+    val trafficConsumedFUS = EitherT.right[String](
+      synchronizeWithClosing("trafficConsumedStore.store")(
+        trafficConsumedStore.store(trafficConsumedUpdates)
       )
-      _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes)
-      _ <- EitherT.right[String](
-        dbSequencerIntegration.blockSequencerAcknowledge(update.acknowledgements)
+    )
+    val blockSequencerWritesFUS =
+      dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes)
+    val blockSequencerAcknowledgementsFUS = EitherT.right[String](
+      dbSequencerIntegration.blockSequencerAcknowledge(update.acknowledgements)
+    )
+    val inFlightAggregationUpdatesFUS = EitherT.right[String](
+      synchronizeWithClosing("partialBlockUpdate")(
+        store.partialBlockUpdate(inFlightAggregationUpdates = update.inFlightAggregationUpdates)
       )
+    )
 
-      _ <- EitherT.right[String](
-        synchronizeWithClosing("partialBlockUpdate")(
-          store.partialBlockUpdate(inFlightAggregationUpdates = update.inFlightAggregationUpdates)
-        )
-      )
+    (for {
+      _ <- trafficConsumedFUS
+      _ <- blockSequencerWritesFUS
+      _ <- blockSequencerAcknowledgementsFUS
+      _ <- inFlightAggregationUpdatesFUS
     } yield {
       val newHead = priorHead.copy(chunk = newState)
       updateHeadState(priorHead, newHead)

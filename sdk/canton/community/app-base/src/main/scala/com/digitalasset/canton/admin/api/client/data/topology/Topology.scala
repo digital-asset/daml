@@ -291,23 +291,6 @@ object ListSequencerSynchronizerStateResult {
     } yield ListSequencerSynchronizerStateResult(context, item)
 }
 
-final case class ListPurgeTopologyTransactionResult(
-    context: BaseResult,
-    item: PurgeTopologyTransaction,
-) extends TopologyResult[PurgeTopologyTransaction]
-
-object ListPurgeTopologyTransactionResult {
-  def fromProtoV30(
-      value: v30.ListPurgeTopologyTransactionResponse.Result
-  ): ParsingResult[ListPurgeTopologyTransactionResult] =
-    for {
-      contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV30(contextProto)
-      itemProto <- ProtoConverter.required("item", value.item)
-      item <- PurgeTopologyTransaction.fromProtoV30(itemProto)
-    } yield ListPurgeTopologyTransactionResult(context, item)
-}
-
 final case class ListSynchronizerUpgradeAnnouncementResult(
     context: BaseResult,
     item: SynchronizerUpgradeAnnouncement,

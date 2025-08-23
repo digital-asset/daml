@@ -5,8 +5,8 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   LocalParticipantReference,
@@ -44,9 +44,11 @@ import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
+import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencerPolicies,
@@ -117,14 +119,16 @@ trait AcsCommitmentToolingIntegrationTest
             participant: ParticipantReference,
             minObservationDuration: NonNegativeFiniteDuration,
         ): Unit = {
-          // Connect and disconnect so that we can modify the synchronizer connection config afterwards
-          participant.synchronizers.connect_local(sequencer1, alias = daName)
-          participant.synchronizers.disconnect_local(daName)
-          val daConfig = participant.synchronizers.config(daName).value
+          val daSequencerConnection =
+            SequencerConnections.single(sequencer1.sequencerConnection.withAlias(daName.toString))
           participant.synchronizers.connect_by_config(
-            daConfig
-              .focus(_.timeTracker.minObservationDuration)
-              .replace(minObservationDuration.toConfig)
+            SynchronizerConnectionConfig(
+              synchronizerAlias = daName,
+              sequencerConnections = daSequencerConnection,
+              timeTracker = SynchronizerTimeTrackerConfig(minObservationDuration =
+                minObservationDuration.toConfig
+              ),
+            )
           )
         }
 

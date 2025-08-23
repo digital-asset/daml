@@ -9,7 +9,11 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  SessionEncryptionKeyCacheConfig,
+}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.*
@@ -75,12 +79,14 @@ import com.digitalasset.canton.store.{
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
+import com.digitalasset.canton.time.SynchronizerTimeTracker.DummyTickRequest
 import com.digitalasset.canton.time.{SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.transaction.CreationTime
 import monocle.macros.syntax.lens.*
@@ -156,7 +162,7 @@ final class AssignmentProcessingStepsTest
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
   private lazy val identityFactory = TestingTopology()
-    .withSynchronizers(sourceSynchronizer.unwrap)
+    .withSynchronizers(sourceSynchronizer.unwrap, targetSynchronizer.unwrap)
     .withReversedTopology(
       Map(
         participant -> Map(
@@ -168,13 +174,13 @@ final class AssignmentProcessingStepsTest
     .withSimpleParticipants(participant) // required such that `participant` gets a signing key
     .build(crypto, loggerFactory)
 
-  private lazy val cryptoSnapshot =
-    identityFactory
-      .forOwnerAndSynchronizer(participant, sourceSynchronizer.unwrap)
-      .currentSnapshotApproximation
+  private lazy val cryptoClient =
+    identityFactory.forOwnerAndSynchronizer(participant, targetSynchronizer.unwrap)
+
+  private lazy val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
   private lazy val assignmentProcessingSteps =
-    testInstance(targetSynchronizer, cryptoSnapshot, None)
+    testInstance(targetSynchronizer, cryptoClient, None)
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
@@ -223,7 +229,9 @@ final class AssignmentProcessingStepsTest
         ProcessingStartingPoints.default,
         ParticipantTestMetrics.synchronizer,
         exitOnFatalFailures = true,
-        CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+        // Disable the session encryption key cache: it starts a scheduler that must be closed properly,
+        // otherwise we see RejectedExecutionException warnings during shutdown.
+        SessionEncryptionKeyCacheConfig(enabled = false),
         DefaultProcessingTimeouts.testing,
         loggerFactory = loggerFactory,
         FutureSupervisor.Noop,
@@ -440,37 +448,43 @@ final class AssignmentProcessingStepsTest
     val assignmentTree = makeFullAssignmentTree()
 
     "succeed without errors" in {
-      val sessionKeyStore =
-        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionEncryptionKeyCacheConfig)
-      for {
-        assignmentRequest <- encryptFullAssignmentTree(
-          assignmentTree,
-          RecipientsTest.testInstance,
-          sessionKeyStore,
+      ResourceUtil.withResourceM(
+        new SessionKeyStoreWithInMemoryCache(
+          CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+          timeouts,
+          loggerFactory,
         )
-        envelopes = NonEmpty(
-          Seq,
-          OpenEnvelope(assignmentRequest, RecipientsTest.testInstance)(testedProtocolVersion),
-        )
-        decrypted <-
-          assignmentProcessingSteps
-            .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
-            .valueOrFailShutdown(
-              "decrypt request failed"
-            )
-        (WithRecipients(view, recipients), signature) = decrypted.views.loneElement
-        activenessSet =
-          assignmentProcessingSteps
-            .computeActivenessSet(
-              mkParsedRequest(
-                view,
-                recipients,
-              ).copy(signatureO = signature)
-            )
-            .value
-      } yield {
-        decrypted.decryptionErrors shouldBe Seq.empty
-        activenessSet shouldBe mkActivenessSet(assign = Set(contract.contractId))
+      ) { sessionKeyStore =>
+        for {
+          assignmentRequest <- encryptFullAssignmentTree(
+            assignmentTree,
+            RecipientsTest.testInstance,
+            sessionKeyStore,
+          )
+          envelopes = NonEmpty(
+            Seq,
+            OpenEnvelope(assignmentRequest, RecipientsTest.testInstance)(testedProtocolVersion),
+          )
+          decrypted <-
+            assignmentProcessingSteps
+              .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
+              .valueOrFailShutdown(
+                "decrypt request failed"
+              )
+          (WithRecipients(view, recipients), signature) = decrypted.views.loneElement
+          activenessSet =
+            assignmentProcessingSteps
+              .computeActivenessSet(
+                mkParsedRequest(
+                  view,
+                  recipients,
+                ).copy(signatureO = signature)
+              )
+              .value
+        } yield {
+          decrypted.decryptionErrors shouldBe Seq.empty
+          activenessSet shouldBe mkActivenessSet(assign = Set(contract.contractId))
+        }
       }
     }
 
@@ -556,6 +570,7 @@ final class AssignmentProcessingStepsTest
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
                 EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+              DummyTickRequest,
             )
         )("construction of pending data and response failed").failOnShutdown
       } yield {
@@ -595,6 +610,7 @@ final class AssignmentProcessingStepsTest
                 FutureUnlessShutdown.pure(mkActivenessResult()),
                 engineController =
                   EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+                DummyTickRequest,
               )
               .failOnShutdown
           confirmationResponse <- result.confirmationResponsesF.failOnShutdown
@@ -746,6 +762,7 @@ final class AssignmentProcessingStepsTest
                   FutureUnlessShutdown.pure(mkActivenessResult()),
                   engineController =
                     EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+                  DummyTickRequest,
                 )
             )("construction of pending data and response failed").failOnShutdown
 
@@ -797,9 +814,13 @@ final class AssignmentProcessingStepsTest
       locallyRejectedF = FutureUnlessShutdown.pure(false),
       abortEngine = _ => (),
       engineAbortStatusF = FutureUnlessShutdown.pure(EngineAbortStatus.notAborted),
+      DummyTickRequest,
     )
+    val mockDeliver = mock[Deliver[DefaultOpenEnvelope]]
+    when(mockDeliver.timestamp).thenReturn(CantonTimestamp.Epoch)
 
     "succeed without errors" in {
+
       for {
         deps <- statefulDependencies
         (_persistentState, state) = deps
@@ -808,12 +829,7 @@ final class AssignmentProcessingStepsTest
           assignmentProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEventFactory(
               NoOpeningErrors(
-                SignedContent(
-                  mock[Deliver[DefaultOpenEnvelope]],
-                  Signature.noSignature,
-                  None,
-                  testedProtocolVersion,
-                )
+                SignedContent(mockDeliver, Signature.noSignature, None, testedProtocolVersion)
               ),
               Verdict.Approve(testedProtocolVersion),
               pendingRequestData,
@@ -835,12 +851,7 @@ final class AssignmentProcessingStepsTest
               assignmentProcessingSteps
                 .getCommitSetAndContractsToBeStoredAndEventFactory(
                   NoOpeningErrors(
-                    SignedContent(
-                      mock[Deliver[DefaultOpenEnvelope]],
-                      Signature.noSignature,
-                      None,
-                      testedProtocolVersion,
-                    )
+                    SignedContent(mockDeliver, Signature.noSignature, None, testedProtocolVersion)
                   ),
                   Verdict.Approve(testedProtocolVersion),
                   // request used MediatorGroupIndex.zero
@@ -915,7 +926,7 @@ final class AssignmentProcessingStepsTest
 
   private def testInstance(
       targetSynchronizer: Target[PhysicalSynchronizerId],
-      snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
+      snapshotOverride: SynchronizerCryptoClient,
       awaitTimestampOverride: Option[Future[Unit]],
   ) = {
 
@@ -928,10 +939,11 @@ final class AssignmentProcessingStepsTest
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
-        Some(snapshotOverride),
+        Some(snapshotOverride.currentSnapshotApproximation),
         Some(awaitTimestampOverride),
         loggerFactory,
       ),
+      snapshotOverride,
       seedGenerator,
       ContractAuthenticator(pureCrypto),
       Target(defaultStaticSynchronizerParameters),

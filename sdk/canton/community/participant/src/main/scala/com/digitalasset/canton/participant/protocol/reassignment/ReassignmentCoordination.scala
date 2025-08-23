@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
   UnassignmentData,
 }
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ReassignmentSynchronizer
@@ -90,8 +91,8 @@ class ReassignmentCoordination(
   ): EitherT[Future, UnknownPhysicalSynchronizer, Unit] =
     reassignmentSubmissionFor(psid.unwrap) match {
       case Some(handle) =>
-        handle.timeTracker.requestTick(timestamp, immediately = true)
-        EitherT.right(handle.timeTracker.awaitTick(timestamp).map(_.void).getOrElse(Future.unit))
+        handle.timeTracker.requestTick(timestamp, immediately = true).discard
+        EitherT.right(handle.timeTracker.awaitTick(timestamp).getOrElse(Future.unit))
       case None =>
         EitherT.leftT(
           UnknownPhysicalSynchronizer(
@@ -120,7 +121,7 @@ class ReassignmentCoordination(
       )
       handle <- reassignmentSubmissionFor(synchronizerId.unwrap)
     } yield {
-      handle.timeTracker.requestTick(timestamp, immediately = true)
+      handle.timeTracker.requestTick(timestamp, immediately = true).discard
       cryptoApi.awaitTimestamp(timestamp)
     }).toRight(UnknownPhysicalSynchronizer(synchronizerId.unwrap, "When waiting for timestamp"))
 

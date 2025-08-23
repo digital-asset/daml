@@ -114,7 +114,6 @@ class TopologyComponentFactory(
       executionContext: ExecutionContext
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
-      psid.protocolVersion,
       crypto.pureCrypto,
       topologyStore,
       timeouts,

@@ -8,8 +8,8 @@ import com.digitalasset.canton.config.KeepAliveServerConfig
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import io.grpc.{BindableService, ForwardingServerBuilder, Server, ServerInterceptor}
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext
+import io.grpc.{BindableService, ForwardingServerBuilder, Server, ServerInterceptor}
 
 import java.io.IOException
 import java.net.BindException

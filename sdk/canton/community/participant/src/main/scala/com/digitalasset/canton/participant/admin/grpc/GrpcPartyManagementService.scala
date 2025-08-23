@@ -257,7 +257,7 @@ class GrpcPartyManagementService(
       )
       _ <- EitherT
         .apply[Future, PartyManagementServiceError, Unit](
-          ResourceUtil.withResourceFuture(out)(out =>
+          ResourceUtil.withResourceM(out)(out =>
             service
               .activeContracts(request.parties, Some(request.offset))
               .map(response => response.getActiveContract)

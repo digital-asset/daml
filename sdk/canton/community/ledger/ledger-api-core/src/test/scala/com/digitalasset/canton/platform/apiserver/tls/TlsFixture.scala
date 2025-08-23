@@ -22,8 +22,8 @@ import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
 import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
 import com.digitalasset.canton.protobuf
 import com.digitalasset.canton.util.JarResourceUtils
-import io.grpc.{BindableService, ManagedChannel}
 import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
+import io.grpc.{BindableService, ManagedChannel}
 
 import java.io.File
 import java.util.concurrent.Executors

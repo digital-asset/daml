@@ -24,7 +24,6 @@ import scala.concurrent.ExecutionContext
   * participant that have at least confirmation rights.
   */
 private[reassignment] trait ReassignmentValidationResult {
-  // TODO(#26277) Should that one be computed instead of passed?
   def reassignmentId: ReassignmentId
   def rootHash: RootHash
   def contracts: ContractsReassignmentBatch

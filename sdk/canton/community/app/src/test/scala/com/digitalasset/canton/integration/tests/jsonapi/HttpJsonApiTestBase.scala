@@ -118,15 +118,6 @@ trait HttpJsonApiTestBase extends CantonFixture {
       .withSetup { implicit env =>
         import env.*
 
-        // mute logging since it is expected that the ledger api server will complain with a WARN message
-        // enable for debugging
-        Seq(
-          "com.digitalasset.canton.ledger.api.auth.AuthServiceJWT",
-          "com.digitalasset.canton.ledger.api.auth.interceptor.AuthInterceptor",
-          "com.digitalasset.canton.ledger.api.auth.IdentityProviderAwareAuthService",
-          "com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService",
-        )
-
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         validSynchronizerId = daId
 

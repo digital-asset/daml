@@ -12,7 +12,10 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.LifeCycleContainer
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
-import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.store.{
+  StoredSynchronizerConnectionConfig,
+  SynchronizerConnectionConfigStore,
+}
 import com.digitalasset.canton.participant.sync.LogicalSynchronizerUpgrade.UpgradabilityCheckResult
 import com.digitalasset.canton.resource.DbExceptionRetryPolicy
 import com.digitalasset.canton.topology.{
@@ -95,15 +98,15 @@ final class LogicalSynchronizerUpgrade(
         val isConnected = connectedSynchronizersLookup.isConnected(lsid)
         val text = if (isConnected) "" else "not "
 
-        if (isConnected == shouldBeConnected)
+        if (isConnected == shouldBeConnected) {
+          logger.info(s"Scheduling $description")
           operation
-        else {
-          logger.info(s"Not scheduling $operation because the node is ${text}connected to $lsid")
+        } else {
+          logger.info(s"Not scheduling $description because the node is ${text}connected to $lsid")
           FutureUnlessShutdown.pure(
-            Left(s"Not scheduling $operation because the not is ${text}connected to $lsid")
+            Left(s"Not scheduling $description because the node is ${text}connected to $lsid")
           )
         }
-
       },
       description,
     )
@@ -127,87 +130,131 @@ final class LogicalSynchronizerUpgrade(
       synchronizerSuccessor: SynchronizerSuccessor,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val successorPSId = synchronizerSuccessor.psid
-    val lsid = currentPSId.logical
 
     logger.info(s"Upgrade from $currentPSId to $successorPSId")
 
-    /* Check whether the upgrade can be done. A left indicates that the upgrade cannot be done. A
-     * right indicates that the upgrade can be attempted or was already done.
-     */
-    def upgradabilityCheck(): FutureUnlessShutdown[Either[String, UpgradabilityCheckResult]] = {
-      logger.debug("Attempting upgradability check")
-
-      connectSynchronizer(Traced(alias)).value.flatMap {
-        case Left(error) =>
-          // Left will lead to a retry
-          FutureUnlessShutdown.pure(s"Unable to connect to $alias: $error".asLeft)
-
-        case Right(Some(`successorPSId`)) =>
-          FutureUnlessShutdown.pure(UpgradabilityCheckResult.UpgradeDone.asRight)
-
-        case Right(_) =>
-          enqueueOperation(
-            lsid,
-            canBeUpgradedTo(currentPSId, synchronizerSuccessor).value,
-            description = "lsu-upgradability-check",
-            shouldBeConnected = true,
+    performIfNotUpgradedYet(successorPSId)(
+      for {
+        upgradabilityCheckResult <- EitherT[FutureUnlessShutdown, String, UpgradabilityCheckResult](
+          retryPolicy.unlessShutdown(
+            upgradabilityCheck(alias, currentPSId, synchronizerSuccessor),
+            DbExceptionRetryPolicy,
           )
-      }
+        )
+
+        _ <- upgradabilityCheckResult match {
+          case UpgradabilityCheckResult.ReadyToUpgrade =>
+            logger.info(
+              s"Upgrade from $currentPSId to $successorPSId is possible, starting internal upgrade"
+            )
+
+            EitherT.liftF[FutureUnlessShutdown, String, Unit](
+              retryPolicy
+                .unlessShutdown(
+                  performUpgrade(alias, currentPSId, synchronizerSuccessor).value,
+                  DbExceptionRetryPolicy,
+                )
+                .map(_ => ())
+            )
+
+          case UpgradabilityCheckResult.UpgradeDone =>
+            logger.info(s"Upgrade from $currentPSId to $successorPSId already done.")
+            EitherTUtil.unitUS
+        }
+
+        _ <- connectSynchronizer(Traced(alias)).leftMap(_.toString)
+      } yield ()
+    )
+  }
+
+  /** Runs `f` if the upgrade was not done yet.
+    */
+  private def performIfNotUpgradedYet(
+      successorPSId: PhysicalSynchronizerId
+  )(
+      f: => EitherT[FutureUnlessShutdown, String, Unit]
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    synchronizerConnectionConfigStore.get(successorPSId) match {
+      case Right(
+            StoredSynchronizerConnectionConfig(_, SynchronizerConnectionConfigStore.Active, _, _)
+          ) =>
+        EitherT.pure(())
+      case _ => f
     }
 
-    def performUpgrade(): EitherT[FutureUnlessShutdown, String, Unit] = for {
-      /*
-        We can discard the result because failure of the disconnect call will prevent the operation to be performed,
-        which will lead to a retry.
-       */
-      _disconnect <- disconnectSynchronizer(Traced(alias)).leftMap(_.toString)
+  /* Check whether the upgrade can be done. A left indicates that the upgrade cannot be done. A
+   * right indicates that the upgrade can be attempted or was already done.
+   */
+  private def upgradabilityCheck(
+      alias: SynchronizerAlias,
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Either[String, UpgradabilityCheckResult]] = {
+    val successorPSId = synchronizerSuccessor.psid
+    val lsid = currentPSId.logical
 
-      _ <- EitherT(
+    logger.debug("Attempting upgradability check")
+
+    connectSynchronizer(Traced(alias)).value.flatMap {
+      case Left(error) =>
+        // Left will lead to a retry
+        FutureUnlessShutdown.pure(s"Unable to connect to $alias: $error".asLeft)
+
+      case Right(Some(`successorPSId`)) =>
+        FutureUnlessShutdown.pure(UpgradabilityCheckResult.UpgradeDone.asRight)
+
+      case Right(_) =>
         enqueueOperation(
           lsid,
-          operation =
-            performUpgradeInternal(alias, currentPSId, synchronizerSuccessor).value.flatMap {
-              /*
-            Because preconditions are checked, a failure of the upgrade is not something that can be automatically
-            recovered from (except DB exceptions). Hence, we transform the left into a failed future which will bubble
-            up and interrupt the upgrade. Manual intervention will be required.
-               */
-              case Left(error) =>
-                val err =
-                  s"Unable to upgrade $currentPSId to $successorPSId. Not trying. Cause: $error"
-                logger.error(err)
-                FutureUnlessShutdown.failed(new RuntimeException(err))
-
-              case Right(()) => FutureUnlessShutdown.pure(().asRight[String])
-            },
-          description = "lsu-upgrade",
-          shouldBeConnected = false,
+          canBeUpgradedTo(currentPSId, synchronizerSuccessor).value,
+          description = "lsu-upgradability-check",
+          shouldBeConnected = true,
         )
-      )
-    } yield ()
+    }
+  }
 
-    logger.info(s"Preliminary checks for upgradability from $currentPSId to $successorPSId")
+  private def performUpgrade(
+      alias: SynchronizerAlias,
+      currentPSId: PhysicalSynchronizerId,
+      synchronizerSuccessor: SynchronizerSuccessor,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
+    val successorPSId = synchronizerSuccessor.psid
+    val lsid = currentPSId.logical
 
-    for {
-      upgradabilityCheckResult <- EitherT[FutureUnlessShutdown, String, UpgradabilityCheckResult](
-        retryPolicy.unlessShutdown(upgradabilityCheck(), DbExceptionRetryPolicy)
-      )
+    performIfNotUpgradedYet(successorPSId)(
+      for {
+        /*
+          We can discard the result because failure of the disconnect call will prevent the operation to be performed,
+          which will lead to a retry.
+         */
+        _disconnect <- disconnectSynchronizer(Traced(alias)).leftMap(_.toString)
 
-      _ <- upgradabilityCheckResult match {
-        case UpgradabilityCheckResult.ReadyToUpgrade =>
-          logger.info(s"Upgrade from $currentPSId to $successorPSId is possible, starting upgrade")
+        _ <- EitherT(
+          enqueueOperation(
+            lsid,
+            operation =
+              performUpgradeInternal(alias, currentPSId, synchronizerSuccessor).value.flatMap {
+                /*
+                Because preconditions are checked, a failure of the upgrade is not something that can be automatically
+                recovered from (except DB exceptions). Hence, we transform the left into a failed future which will bubble
+                up and interrupt the upgrade. Manual intervention will be required.
+                 */
+                case Left(error) =>
+                  val err =
+                    s"Unable to upgrade $currentPSId to $successorPSId. Not trying. Cause: $error"
+                  logger.error(err)
+                  FutureUnlessShutdown.failed(new RuntimeException(err))
 
-          EitherT.liftF[FutureUnlessShutdown, String, Unit](
-            retryPolicy.unlessShutdown(performUpgrade().value, DbExceptionRetryPolicy).map(_ => ())
+                case Right(()) => FutureUnlessShutdown.pure(().asRight[String])
+              },
+            description = "lsu-upgrade",
+            shouldBeConnected = false,
           )
-
-        case UpgradabilityCheckResult.UpgradeDone =>
-          logger.info(s"Upgrade from $currentPSId to $successorPSId already done.")
-          EitherTUtil.unitUS
-      }
-
-      _ <- connectSynchronizer(Traced(alias)).leftMap(_.toString)
-    } yield ()
+        )
+      } yield ()
+    )
   }
 
   /** Performs the upgrade. Fails if the upgrade cannot be performed.

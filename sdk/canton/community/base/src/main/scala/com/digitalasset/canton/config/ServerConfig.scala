@@ -428,7 +428,9 @@ object TlsServerConfig {
     )
     val logger = LoggerFactory.getLogger(TlsServerConfig.getClass)
     val filtered = candidates.filter { x =>
-      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.availableOpenSslCipherSuites().contains(x) ||
+      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
+        .availableOpenSslCipherSuites()
+        .contains(x) ||
       io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
     }
     if (filtered.isEmpty) {

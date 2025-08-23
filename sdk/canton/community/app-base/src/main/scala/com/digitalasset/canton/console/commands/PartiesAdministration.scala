@@ -41,7 +41,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias}
+import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias, config}
 import io.grpc.Context
 
 import java.time.Instant
@@ -156,12 +156,10 @@ class ParticipantPartiesAdministrationGroup(
   def enable(
       name: String,
       namespace: Namespace = participantId.namespace,
-      participants: Seq[ParticipantId] = Seq(participantId),
-      threshold: PositiveInt = PositiveInt.one,
       synchronizer: Option[SynchronizerAlias] = None,
       synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
       mustFullyAuthorize: Boolean = true,
-      synchronize: Option[NonNegativeDuration] = Some(
+      synchronize: Option[config.NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.unbounded
       ),
   ): PartyId = {
@@ -218,8 +216,6 @@ class ParticipantPartiesAdministrationGroup(
           synchronizerId <- lookupOrDetectSynchronizerId(synchronizer)
           _ <- runPartyCommand(
             partyId,
-            participants,
-            threshold,
             synchronizerId,
             mustFullyAuthorize,
             synchronize,
@@ -257,11 +253,9 @@ class ParticipantPartiesAdministrationGroup(
 
   private def runPartyCommand(
       partyId: PartyId,
-      participants: Seq[ParticipantId],
-      threshold: PositiveInt,
       synchronizerId: PhysicalSynchronizerId,
       mustFullyAuthorize: Boolean,
-      synchronize: Option[NonNegativeDuration],
+      synchronize: Option[config.NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
     val nextSerial = reference.topology.party_to_participant_mappings
@@ -274,12 +268,11 @@ class ParticipantPartiesAdministrationGroup(
         TopologyAdminCommands.Write.Propose(
           mapping = PartyToParticipant.create(
             partyId,
-            threshold,
-            participants.map(pid =>
+            PositiveInt.one,
+            Seq(
               HostingParticipant(
-                pid,
-                if (threshold.value > 1) ParticipantPermission.Confirmation
-                else ParticipantPermission.Submission,
+                participantId,
+                ParticipantPermission.Submission,
               )
             ),
           ),

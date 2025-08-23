@@ -53,7 +53,7 @@ message Enums {
     TOPOLOGY_MAPPING_CODE_MEDIATOR_SYNCHRONIZER_STATE = 12;
     TOPOLOGY_MAPPING_CODE_SEQUENCER_SYNCHRONIZER_STATE = 13;
     reserved 14; // was OffboardParticipant
-    TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS = 15;
+    reserved 15; // was PurgeTopologyTransaction
     reserved 16; // was TrafficControlState
     TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
     TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
@@ -332,19 +332,6 @@ message SequencerSynchronizerState {
   repeated string observers = 4;
 }
 
-// explicitly invalidate topology transactions for good
-// this can be used by the synchronizer to offboard participants forcefully or to
-// remove stray topology transactions
-// authorization: whoever controls the synchronizer
-// UNIQUE(synchronizer_id)
-message PurgeTopologyTransaction {
-  // the synchronizer id
-  string synchronizer_id = 1;
-
-  // the list of mappings to remove from this synchronizer
-  repeated TopologyMapping mappings = 2;
-}
-
 // indicates the beginning of a synchronizer upgrade and effectuates a topology freeze,
 // after which only synchronizer upgrade specific topology mappings are accepted.
 // removing this mapping unfreezes the topology state again.
@@ -400,7 +387,6 @@ message TopologyMapping {
     SynchronizerParametersState synchronizer_parameters_state = 11;
     MediatorSynchronizerState mediator_synchronizer_state = 12;
     SequencerSynchronizerState sequencer_synchronizer_state = 13;
-    PurgeTopologyTransaction purge_topology_txs = 14;
     DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15;
 
     PartyToKeyMapping party_to_key_mapping = 16;
@@ -410,6 +396,7 @@ message TopologyMapping {
   }
   reserved 2; // was identifier_delegation
   reserved 10; // was authority_of
+  reserved 14; // was purge_topology_txs
 }
 // [docs-entry-end: topology mapping]
 
