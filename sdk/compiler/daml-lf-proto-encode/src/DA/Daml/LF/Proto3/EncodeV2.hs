@@ -12,6 +12,7 @@ module DA.Daml.LF.Proto3.EncodeV2 (
 import           Control.Lens ((^.), matching, makeLensesFor, zoom)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
+import           Control.Monad.Extra (ifM)
 
 import           Data.Coerce
 import           Data.Functor.Identity
@@ -63,6 +64,17 @@ makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
               , ("internedTypesMap", "internedTypesMapLens")
               , ("internedExprsMap", "internedExprsMapLens")] ''EncodeEnv
 
+ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
+ifSupportsFlatteningM = ifM (gets (flip supports featureFlatArchive . version))
+
+ifSupportsFlattening :: a -> a -> Encode a
+ifSupportsFlattening b1 b2 = ifSupportsFlatteningM (return b1) (return b2)
+
+assertSupportsFlattening :: Encode a -> Encode a
+assertSupportsFlattening = flip ifSupportsFlatteningM $ error "assertion failiure: version supports flattening"
+
+assertSupportsFlattening_ :: Encode ()
+assertSupportsFlattening_ = assertSupportsFlattening $ return ()
 
 initEncodeEnv :: Version -> EncodeEnv
 initEncodeEnv version =
@@ -270,7 +282,7 @@ internKind :: P.Kind -> Encode P.Kind
 internKind k =
   do
     EncodeEnv{version} <- get
-    if isDevVersion version
+    if version `supports` featureFlatArchive
       then case k of
         (P.Kind (Just k')) -> do
             n <- zoom internedKindsMapLens $ I.internState k'
@@ -307,9 +319,16 @@ encodeBuiltinType = P.Enumerated . Right . \case
     BTAnyException -> P.BuiltinTypeANY_EXCEPTION
     BTFailureCategory -> P.BuiltinTypeFAILURE_CATEGORY
 
+{- This code implements the local flattening, using leftSpine via _TApps. On lf
+ versions that support a flat archive this is not needed anymore. To avoid
+ duplicate logic, we hack the case statement, and simply give the entire
+ expression as lhs and empty arg list as rhs. -}
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
-  ptyp <- case typ ^. _TApps of
+  pat <- ifSupportsFlattening
+    {-then-} (typ, [])
+    {-else-} (typ ^. _TApps)
+  ptyp <- case pat of
     (TVar var, args) -> do
         type_VarVarInternedStr <- encodeNameId unTypeVarName var
         type_VarArgs <- encodeList encodeType' args
@@ -326,8 +345,10 @@ encodeType' typ = do
         let type_BuiltinBuiltin = encodeBuiltinType bltn
         type_BuiltinArgs <- encodeList encodeType' args
         pure $ P.TypeSumBuiltin P.Type_Builtin{..}
-    (t@TForall{}, []) -> do
-        let (binders, body) = t ^. _TForalls
+    (t@(TForall bn bdy), []) -> do
+        (binders, body) <- ifSupportsFlattening
+            {-then-} ([bn], bdy)
+            {-else-} (t ^. _TForalls)
         type_ForallVars <- encodeTypeVarsWithKinds binders
         type_ForallBody <- encodeType body
         pure $ P.TypeSumForall P.Type_Forall{..}
@@ -338,8 +359,13 @@ encodeType' typ = do
     (TNat n, _) ->
         pure $ P.TypeSumNat (fromTypeLevelNat n)
 
-    (TApp{}, _) -> error "TApp after unwinding TApp"
-    -- NOTE(MH): The following case is ill-kinded.
+    (TApp lhs rhs, args) -> do
+      unless (null args) $ error "Arguments set on TApp"
+      assertSupportsFlattening_
+      type_TAppLhs <- encodeType lhs
+      type_TAppRhs <- encodeType rhs
+      pure $ P.TypeSumTapp P.Type_TApp{..}
+
     (TStruct{}, _:_) -> error "Application of TStruct"
     -- NOTE(MH): The following case requires impredicative polymorphism,
     -- which we don't support.
@@ -551,23 +577,31 @@ encodeExpr' e = case e of
         expr_StructUpdStruct <- encodeExpr structExpr
         expr_StructUpdUpdate <- encodeExpr structUpdate
         pureExpr $ P.ExprSumStructUpd P.Expr_StructUpd{..}
-    e@ETmApp{} -> do
-        let (fun, args) = e ^. _ETmApps
+    e@(ETmApp e1 e2) -> do
+        (fun, args) <- ifSupportsFlattening
+            {-then-} (e1, [e2])
+            {-else-} (e ^. _ETmApps)
         expr_AppFun <- encodeExpr fun
         expr_AppArgs <- encodeList encodeExpr' args
         pureExpr $ P.ExprSumApp P.Expr_App{..}
-    e@ETyApp{} -> do
-        let (fun, args) = e ^. _ETyApps
+    e@(ETyApp inner t) -> do
+        (fun, args) <- ifSupportsFlattening
+            {-then-} (inner, [t])
+            {-else-} (e ^. _ETyApps)
         expr_TyAppExpr <- encodeExpr fun
         expr_TyAppTypes <- encodeList encodeType' args
         pureExpr $ P.ExprSumTyApp P.Expr_TyApp{..}
-    e@ETmLam{} -> do
-        let (params, body) = e ^. _ETmLams
+    e@(ETmLam bnd bdy) -> do
+        (params, body) <- ifSupportsFlattening
+            {-then-} ([bnd], bdy)
+            {-else-} (e ^. _ETmLams)
         expr_AbsParam <- encodeList encodeExprVarWithType params
         expr_AbsBody <- encodeExpr body
         pureExpr $ P.ExprSumAbs P.Expr_Abs{..}
-    e@ETyLam{} -> do
-        let (params, body) = e ^. _ETyLams
+    e@(ETyLam bnd bdy) -> do
+        (params, body) <- ifSupportsFlattening
+            {-then-} ([bnd], bdy)
+            {-else-} (e ^. _ETyLams)
         expr_TyAbsParam <- encodeTypeVarsWithKinds params
         expr_TyAbsBody <- encodeExpr body
         pureExpr $ P.ExprSumTyAbs P.Expr_TyAbs{..}
@@ -700,7 +734,7 @@ internExpr :: Encode P.Expr -> Encode P.Expr
 internExpr f = do
   e <- f
   EncodeEnv{version} <- get
-  if isDevVersion version
+  if version `supports` featureFlatArchive
     then case e of
       (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
           error "not allowed to add interned to interning table"

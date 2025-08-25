@@ -229,7 +229,9 @@ class DecodeV2Spec
     )
 
     "translate TNumeric as is" in {
-      forEveryVersion { version =>
+      // TODO[RB] Actually test for Flat LF as well, and not just only for
+      // pre-flattening lf https://github.com/digital-asset/daml/pull/21658
+      forEveryVersionSuchThat(_ < LV.Features.flatArchive) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
           decoder.uncheckedDecodeTypeForTest(input) shouldBe expectedOutput

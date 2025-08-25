@@ -187,7 +187,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       val builder = PLF.Kind.newBuilder()
       // KArrows breaks the exhaustiveness checker.
       (k: @unchecked) match {
-        case KArrows(params, result) =>
+        case KArrows(params, result) if languageVersion < LV.Features.flatArchive =>
           expect(result == KStar)
           builder
             .setArrow(
@@ -195,6 +195,14 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
                 .newBuilder()
                 .accumulateLeft(params)(_ addParams encodeKind(_))
                 .setResult(kStar)
+            )
+        case KArrow(param, result) =>
+          builder
+            .setArrow(
+              PLF.Kind.Arrow
+                .newBuilder()
+                .addParams(encodeKindBuilder(param))
+                .setResult(encodeKindBuilder(result))
             )
         case KStar =>
           builder
@@ -243,7 +251,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     private def encodeTypeBuilder(typ0: Type): PLF.Type.Builder = {
       val (typ, args) =
         typ0 match {
-          case TApps(typ1, args1) => typ1 -> args1
+          case TApps(typ1, args1) if languageVersion < LV.Features.flatArchive => typ1 -> args1
           case _ => typ0 -> ImmArray.Empty
         }
       val builder = PLF.Type.newBuilder()
@@ -268,12 +276,25 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setBuiltin(
             PLF.Type.Builtin.newBuilder().setBuiltin(proto).accumulateLeft(typs)(_ addArgs _)
           )
-        case TApp(_, _) =>
-          sys.error("unexpected error")
-        case TForalls(binders, body) =>
+        case TApp(lhs, rhs) =>
+          if (languageVersion >= LV.Features.flatArchive)
+            builder.setTapp(
+              PLF.Type.TApp
+                .newBuilder()
+                .setLhs(encodeTypeBuilder(lhs))
+                .setRhs(encodeTypeBuilder(rhs))
+            )
+          else
+            sys.error(s"unexpected TApp on lf version $languageVersion")
+        // TODO[RB]: expect args empty???
+        case TForalls(binders, body) if languageVersion < LV.Features.flatArchive =>
           expect(args.isEmpty)
           builder.setForall(
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body)
+          )
+        case TForall(binder, body) if languageVersion >= LV.Features.flatArchive =>
+          builder.setForall(
+            PLF.Type.Forall.newBuilder().addVars(binder).setBody(body)
           )
         case TStruct(fields) =>
           expect(args.isEmpty)
@@ -575,11 +596,17 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           b.setStruct(struct)
           b.setUpdate(update)
           builder.setStructUpd(b)
-        case EApps(fun, args) =>
+        case EApps(fun, args) if languageVersion < LV.Features.flatArchive =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
-        case ETyApps(expr: Expr, typs0) =>
+        case EApp(fun, arg) if languageVersion >= LV.Features.flatArchive =>
+          builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).addArgs(arg))
+        // TODO[RB]: why wouldn't expr ever NOT be Expr?
+        case ETyApps(expr: Expr, typs0) if languageVersion < LV.Features.flatArchive =>
           expr match {
-            case EBuiltinFun(builtin) if indirectBuiltinFunctionMap.contains(builtin) =>
+            case EBuiltinFun(builtin)
+                if indirectBuiltinFunctionMap.contains(
+                  builtin
+                ) && languageVersion < LV.Features.flatArchive =>
               val typs = typs0.toSeq.toList
               builder.setBuiltin(indirectBuiltinFunctionMap(builtin)(typs).proto)
             case _ =>
@@ -587,17 +614,25 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
                 PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs0)(_ addTypes _)
               )
           }
-        case ETyApps(expr, typs) =>
+        case ETyApp(expr, typ) if languageVersion >= LV.Features.flatArchive =>
           builder.setTyApp(
-            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _)
+            PLF.Expr.TyApp.newBuilder().setExpr(expr).addTypes(typ)
           )
-        case EAbss(binders, body) =>
+        case EAbss(binders, body) if languageVersion < LV.Features.flatArchive =>
           builder.setAbs(
             PLF.Expr.Abs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
           )
-        case ETyAbss(binders, body) =>
+        case EAbs(binder, body) if languageVersion >= LV.Features.flatArchive =>
+          builder.setAbs(
+            PLF.Expr.Abs.newBuilder().addParam(binder).setBody(body)
+          )
+        case ETyAbss(binders, body) if languageVersion < LV.Features.flatArchive =>
           builder.setTyAbs(
             PLF.Expr.TyAbs.newBuilder().accumulateLeft(binders)(_ addParam _).setBody(body)
+          )
+        case ETyAbs(binder, body) if languageVersion >= LV.Features.flatArchive =>
+          builder.setTyAbs(
+            PLF.Expr.TyAbs.newBuilder().addParam(binder).setBody(body)
           )
         case ECase(scrut, alts) =>
           builder.setCase(PLF.Case.newBuilder().setScrut(scrut).accumulateLeft(alts)(_ addAlts _))
@@ -610,6 +645,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           )
         case ENil(typ) =>
           builder.setNil(PLF.Expr.Nil.newBuilder().setType(typ))
+        // TODO[RB]: so in the scala ast front is already a list... so what now?
+        // Do we fold PLF.Expr.Cons over that list? Encode the list anyway?
         case ECons(typ, front, tail) =>
           builder.setCons(
             PLF.Expr.Cons

@@ -188,9 +188,9 @@ featureCryptoAdditions = Feature
     , featureCppFlag = Just "DAML_CRYPTO_ADDITIONS"
     }
 
-featureKindInterning :: Feature
-featureKindInterning = Feature
-    { featureName = "Kind Interning"
+featureFlatArchive :: Feature
+featureFlatArchive = Feature
+    { featureName = "Flat Archive"
     , featureVersionReq = devOnly
     , featureCppFlag = Just "DAML_KINDINTERNING"
     }
