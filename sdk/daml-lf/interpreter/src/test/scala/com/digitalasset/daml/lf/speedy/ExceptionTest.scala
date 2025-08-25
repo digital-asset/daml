@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
+import com.digitalasset.daml.lf.speedy.Speedy.CachedKey
 import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -1320,15 +1321,18 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               )
               val globalKey = GlobalKeyWithMaintainers.assertBuild(
                 templateId,
-                key.toUnnormalizedValue,
+                key.toNormalizedValue(TransactionVersion.StableVersions.max),
                 Set(alice),
                 templateDefsPkgName,
               )
-              val globalContract = FatContractInstance.fromThinInstance(
+              val globalContract = FatContractInstance.withDummyDefaults(
                 version = TransactionVersion.StableVersions.max,
                 packageName = templateDefsV1Pkg.pkgName,
                 template = templateId,
                 arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+                signatories = List(alice),
+                observers = List.empty,
+                contractKeyWithMaintainers = Some(globalKey),
               )
               val disclosedContract = Speedy.ContractInfo(
                 version = TransactionVersion.StableVersions.max,
@@ -1341,7 +1345,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 ),
                 Set(alice),
                 Set.empty,
-                None,
+                Some(CachedKey(templateDefsPkgName, globalKey, key)),
               )
 
               for (origin <- contractOrigins) {

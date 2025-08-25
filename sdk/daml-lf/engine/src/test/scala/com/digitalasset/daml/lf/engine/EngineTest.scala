@@ -1388,6 +1388,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Some[Name]("sig2"), ValueParty(bob)),
       (Some[Name]("obs"), ValueParty(clara)),
     )
+    val fetchedSignatories = List(alice, bob)
+    val fetchedObservers = List(clara)
 
     val fetcherStrTid = "BasicTests:Fetcher"
     val fetcherTid = Identifier(basicTestsPkgId, fetcherStrTid)
@@ -1398,6 +1400,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Some[Name]("obs"), ValueParty(bob)),
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
+    val fetcher1Signatories = List(alice)
+    val fetcher1Observers = List(bob)
 
     val fetcher2Cid = toContractId("3")
     val fetcher2TArgs = ImmArray(
@@ -1405,6 +1409,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Some[Name]("obs"), ValueParty(alice)),
       (Some[Name]("fetcher"), ValueParty(clara)),
     )
+    val fetcher2Signatories = List(party)
+    val fetcher2Observers = List(alice)
 
     val fetcher3Cid = toContractId("4")
     val fetcher3TArgs = ImmArray(
@@ -1412,23 +1418,33 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       (Some[Name]("obs"), ValueParty(alice)),
       (Some[Name]("fetcher"), ValueParty(party)),
     )
+    val fetcher3Signatories = List(clara)
+    val fetcher3Observers = List(alice)
 
     def makeContract(
         tid: Ref.QualifiedName,
         targs: ImmArray[(Option[Name], Value)],
+        signatories: Iterable[Party],
+        observers: Iterable[Party],
     ) =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
         arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+        signatories = signatories,
+        observers = observers,
       )
 
     val lookupContract: PartialFunction[ContractId, FatContractInstance] = {
-      case `fetchedCid` => makeContract(fetchedStrTid, fetchedTArgs)
-      case `fetcher1Cid` => makeContract(fetcherStrTid, fetcher1TArgs)
-      case `fetcher2Cid` => makeContract(fetcherStrTid, fetcher2TArgs)
-      case `fetcher3Cid` => makeContract(fetcherStrTid, fetcher3TArgs)
+      case `fetchedCid` =>
+        makeContract(fetchedStrTid, fetchedTArgs, fetchedSignatories, fetchedObservers)
+      case `fetcher1Cid` =>
+        makeContract(fetcherStrTid, fetcher1TArgs, fetcher1Signatories, fetcher1Observers)
+      case `fetcher2Cid` =>
+        makeContract(fetcherStrTid, fetcher2TArgs, fetcher2Signatories, fetcher2Observers)
+      case `fetcher3Cid` =>
+        makeContract(fetcherStrTid, fetcher3TArgs, fetcher3Signatories, fetcher3Observers)
     }
 
     val let = Time.Timestamp.now()
@@ -1559,7 +1575,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
     val fetchedContract =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
@@ -1571,6 +1587,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             (Some[Name]("obs"), ValueParty(clara)),
           ),
         ),
+        signatories = List(alice, bob),
+        observers = List(clara),
       )
 
     val lookupContract: PartialFunction[ContractId, FatContractInstance] = { case `fetchedCid` =>
@@ -1606,7 +1624,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
-      FatContractInstance.fromThinInstance(
+      FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
@@ -1951,7 +1969,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
-      val fetcherInst = FatContractInstance.fromThinInstance(
+      val fetcherInst = FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
@@ -2019,7 +2037,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
-    val fetcherInst = FatContractInstance.fromThinInstance(
+    val fetcherInst = FatContractInstance.withDummyDefaults(
       version = defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = fetcherId,
@@ -2198,7 +2216,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2348,7 +2366,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2426,7 +2444,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.fromThinInstance(
+      cid -> FatContractInstance.withDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2660,23 +2678,35 @@ class EngineTestHelpers(
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    FatContractInstance.withDummyDefaults(
       defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
         Some(BasicTests_WithKey),
         ImmArray(
-          (Some[Ref.Name]("p"), ValueParty(alice)),
-          (Some[Ref.Name]("k"), ValueInt64(42)),
+          (Some[Name]("p"), ValueParty(alice)),
+          (Some[Name]("k"), ValueInt64(42)),
         ),
+      ),
+      signatories = List(alice),
+      observers = List.empty,
+      contractKeyWithMaintainers = Some(
+        GlobalKeyWithMaintainers(
+          GlobalKey.assertBuild(
+            templateId = TypeConId(basicTestsPkgId, withKeyTemplate),
+            key = ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
+            packageName = basicTestsPkg.pkgName,
+          ),
+          Set(alice),
+        )
       ),
     )
 
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
@@ -2684,19 +2714,23 @@ class EngineTestHelpers(
             Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),
           ),
+          signatories = List(party),
+          observers = List.empty,
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        FatContractInstance.fromThinInstance(
+        FatContractInstance.withDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
             ImmArray(
-              (Some[Ref.Name]("giver"), ValueParty(alice)),
-              (Some[Ref.Name]("receiver"), ValueParty(bob)),
+              (Some[Name]("giver"), ValueParty(alice)),
+              (Some[Name]("receiver"), ValueParty(bob)),
             ),
           ),
+          signatories = List(alice),
+          observers = List(bob),
         ),
       toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,

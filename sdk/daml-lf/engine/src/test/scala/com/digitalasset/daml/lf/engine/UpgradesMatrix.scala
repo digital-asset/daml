@@ -845,7 +845,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
     override def additionalv1KeyArgsValue(pkgId: PackageId, setupData: SetupData) =
       ImmArray(
-        Some("maintainers2": Name) -> ValueList(
+        None /* maintainers2 */ -> ValueList(
           FrontStack(ValueParty(setupData.bob))
         )
       )
@@ -1568,7 +1568,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
         setupData: SetupData,
     ): ImmArray[(Option[Name], Value)] =
       ImmArray(
-        Some("extra": Name) -> ValueOptional(Some(ValueUnit))
+        None /* extra */ -> ValueOptional(Some(ValueUnit))
       )
 
     override def v1Key = s"""
@@ -1792,8 +1792,8 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     def globalContractv1Key(setupData: SetupData): ValueRecord = ValueRecord(
       None,
       ImmArray(
-        Some("label": Name) -> ValueText("test-key"),
-        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
+        None /* label */ -> ValueText("test-key"),
+        None /* maintainers */ -> ValueList(FrontStack(ValueParty(setupData.alice))),
       ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId, setupData)),
     )
 
