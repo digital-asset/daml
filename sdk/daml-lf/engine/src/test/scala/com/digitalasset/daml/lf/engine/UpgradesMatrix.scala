@@ -1273,7 +1273,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional template parameter, None arg, downgrade succeeds
   case object InvalidDowngradeAdditionalTemplateArg
-      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectUpgradeError) {
+      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectRuntimeTypeMismatchError) {
     override def v1AdditionalFields = ", extra: Option Unit"
     override def v2AdditionalFields = ""
 
@@ -1323,7 +1323,10 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as template parameter, Some value, downgrade fails
   case object InvalidDowngradeAdditionalFieldInRecordArg
-      extends TestCase("InvalidDowngradeAdditionalFieldInRecordArg", ExpectUpgradeError) {
+      extends TestCase(
+        "InvalidDowngradeAdditionalFieldInRecordArg",
+        ExpectRuntimeTypeMismatchError,
+      ) {
 
     val recordName = s"${templateName}Record"
 
@@ -1391,7 +1394,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
   case object InvalidDowngradeAdditionalConstructorInVariantArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInVariantArg",
-        ExpectUpgradeError,
+        ExpectRuntimeTypeMismatchError,
       ) {
 
     val variantName = s"${templateName}Variant"
@@ -1456,7 +1459,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
   case object InvalidDowngradeAdditionalConstructorInEnumArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInEnumArg",
-        ExpectUpgradeError,
+        ExpectRuntimeTypeMismatchError,
       ) {
 
     val enumName = s"${templateName}Enum"
@@ -1959,6 +1962,8 @@ object UpgradesMatrixCases {
   case object ExpectSuccess extends ExpectedOutcome("should succeed")
   case object ExpectPreconditionViolated
       extends ExpectedOutcome("should fail with a precondition violated error")
+  case object ExpectRuntimeTypeMismatchError
+      extends ExpectedOutcome("should fail with a runtime type mismatch error")
   case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
   case object ExpectPreprocessingError
       extends ExpectedOutcome("should fail with a preprocessing error")

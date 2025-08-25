@@ -163,6 +163,11 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
         inside(result) { case Left(EE.Interpretation(EE.Interpretation.DamlException(error), _)) =>
           error shouldBe a[IE.Upgrade]
         }
+      case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
+        inside(result) {
+          case Left(EE.Interpretation(EE.Interpretation.DamlException(IE.Dev(_, error)), _)) =>
+            error shouldBe a[IE.Dev.TranslationError]
+        }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(error) =>
           error shouldBe a[EE.Preprocessing]

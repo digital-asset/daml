@@ -253,6 +253,10 @@ abstract class UpgradesMatrixIntegration(n: Int, k: Int)
               be(a[SubmitError.UpgradeError.DowngradeFailed])
           )
         }
+      case UpgradesMatrixCases.ExpectRuntimeTypeMismatchError =>
+        inside(result) { case Left(ScriptLedgerClient.SubmitFailure(_, error)) =>
+          error shouldBe a[SubmitError.DevError]
+        }
       case UpgradesMatrixCases.ExpectPreprocessingError =>
         inside(result) { case Left(ScriptLedgerClient.SubmitFailure(statusError, submitError)) =>
           statusError shouldBe a[StatusRuntimeException]
