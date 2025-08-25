@@ -61,6 +61,7 @@ templateInvalidChange shouldSucceed makeV1Contract v2Choice = test $ do
     (Right "V1", True) -> pure ()
     (Right "V2", True) -> pure ()
     (Left (UpgradeError _ _), False) -> pure ()
+    (Left (DevError TranslationError _), False) -> pure ()
     (Left (WronglyTypedContract {}), False) -> pure ()
     (Left (UnknownError msg), False) | "An error occurred." `isInfixOf` msg -> pure ()
     -- IDE Ledger doesn't apply obfuscation, instead the lookup error is wrapped in SCrash
