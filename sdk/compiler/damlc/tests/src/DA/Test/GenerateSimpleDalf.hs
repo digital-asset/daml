@@ -4,6 +4,7 @@ module DA.Test.GenerateSimpleDalf (main) where
 
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.NameMap as NM
+import qualified Data.Set as S
 import qualified Data.Text.IO as T
 
 import DA.Daml.LF.Ast.Base
@@ -140,6 +141,8 @@ main = do
             { packageLfVersion = optLfVersion
             , packageModules = NM.fromList [mod]
             , packageMetadata = PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
+            --TODO[RB]: what kind of package is this??
+            , importedPackages = S.empty
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile optFile bytes

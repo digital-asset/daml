@@ -13,6 +13,7 @@ da_haskell_library(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "lsp-types",
         "ghc-lib-parser",
         "text",
