@@ -3,12 +3,12 @@
 
 -- Check that functional dependency metadata is added when available.
 
--- @SINCE-LF 2.dev
 -- Querying for the structure of these foralls was a lot easier when foralls
 -- could quantify over a list. Now, we have to it this ugly verbose way, or be
 -- more clever with a function
--- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 1) | .body | .forall | select(.vars | length == 1) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 1
--- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | lf::norm_ty($pkg) | .forall | select(.vars | length == 1) | .body | .forall | select(.vars | length == 1) | .body | .forall | select(.vars | length == 1) | .body | .forall | select(.vars | length == 1) | .body | .forall | select(.vars | length == 1) | .body | lf::norm_ty($pkg) | .struct | .fields | length == 3
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdFoo"]) | .type | lf::norm_ty($pkg) | select(lf::count_foralls($pkg) == 2) | lf::get_forall_body($pkg) | .struct | .fields | length == 1
+-- @QUERY-LF $pkg | .modules[] | .values[] | .name_with_type | select(lf::get_value_name($pkg) == ["$$$$fdBar"]) | .type | lf::norm_ty($pkg) | select(lf::count_foralls($pkg) == 5) | lf::get_forall_body($pkg) | .struct | .fields | length == 3
+
 module FunctionalDependencies where
 
 class Foo a b | a -> b where
