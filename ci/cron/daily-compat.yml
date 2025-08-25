@@ -257,6 +257,8 @@ jobs:
         else
           echo "No changes"
         fi
+      env:
+        AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: report
     dependsOn: [compatibility_ts_libs, compatibility_linux, compatibility_windows,
