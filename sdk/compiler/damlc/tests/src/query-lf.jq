@@ -47,6 +47,23 @@ def norm_ty(pkg):
   norm_interned(pkg)
 ;
 
+# Recursively counts the total number of variables in a forall type,
+# handling both a single list and a nested chain of foralls.
+# It assumes the input type has already been normalized once.
+def count_foralls($pkg):
+  if .forall then
+    (.forall.vars | length) + (.forall.body | norm_ty($pkg) | count_foralls($pkg))
+  else
+    0
+  end;
+
+def get_forall_body($pkg):
+  if .forall then
+    .forall.body | norm_ty($pkg) | get_forall_body($pkg)
+  else
+    .
+  end;
+
 # @SINCE-LF 1.7
 def norm_qualified_module(pkg; f):
     .type | norm_ty(pkg) | .struct.fields |

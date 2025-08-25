@@ -38,6 +38,7 @@ deriving instance Data P.Type_Syn
 deriving instance Data P.Type_Builtin
 deriving instance Data P.Type_Forall
 deriving instance Data P.Type_Struct
+deriving instance Data P.Type_TApp
 deriving instance Data P.TypeSum
 deriving instance Data P.BuiltinCon
 deriving instance Data P.BuiltinFunction

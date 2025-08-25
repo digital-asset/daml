@@ -8,7 +8,7 @@ module DA.Daml.LF.Proto3.EncodeTest (
 
 import           Control.Monad.State.Strict
 import qualified Data.Text.Lazy                           as TL
-import qualified Data.Vector                              as V
+import           Data.Vector                              (Vector, (!), singleton, empty)
 import           Text.Printf
 
 import           Data.Data
@@ -150,7 +150,7 @@ propertyCorrectTypeArrow :: TestTree
 propertyCorrectTypeArrow =
   testCase "(() -> interned 0)" $
     assertBool "type (() -> interned 0) should be rejected as not well interned, but is accepted" $
-    not (wellInterned $ ptarr ptunit (ptinterned 0))
+    not (wellInterned $ ptapp (ptapp ptarr ptunit) (ptinterned 0))
 
 propertyCorrectKindInType :: TestTree
 propertyCorrectKindInType =
@@ -242,10 +242,10 @@ unitTests = testGroup "Unit tests"
 
 -- EncodeTestEnv
 data EncodeTestEnv = EncodeTestEnv
-    { iStrings :: V.Vector TL.Text
-    , iKinds   :: V.Vector P.Kind
-    , iTypes   :: V.Vector P.Type
-    , iExprs   :: V.Vector P.Expr
+    { iStrings :: Vector TL.Text
+    , iKinds   :: Vector P.Kind
+    , iTypes   :: Vector P.Type
+    , iExprs   :: Vector P.Expr
     }
 
 deriving instance Show EncodeTestEnv
@@ -290,8 +290,8 @@ kindInterningStarToStar =
       assertInterned pk
       assertInternedEnv e
       pk @?= pkinterned 1
-      iKinds V.! 0 @?= pkstar
-      iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
+      iKinds ! 0 @?= pkstar
+      iKinds ! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
 
 kindInterningStarToNatToStar :: TestTree
 kindInterningStarToNatToStar =
@@ -300,10 +300,10 @@ kindInterningStarToNatToStar =
       assertInterned pk
       assertInternedEnv e
       pk @?= pkinterned 3
-      iKinds V.! 0 @?= pkstar
-      iKinds V.! 1 @?= pknat
-      iKinds V.! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
-      iKinds V.! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
+      iKinds ! 0 @?= pkstar
+      iKinds ! 1 @?= pknat
+      iKinds ! 2 @?= pkarr (pkinterned 0) (pkinterned 1)
+      iKinds ! 3 @?= pkarr (pkinterned 2) (pkinterned 0)
 
 kindInterningAssertSharing :: TestTree
 kindInterningAssertSharing =
@@ -312,9 +312,9 @@ kindInterningAssertSharing =
       assertInterned pk
       assertInternedEnv e
       pk @?= pkinterned 2
-      iKinds V.! 0 @?= pkstar
-      iKinds V.! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
-      iKinds V.! 2 @?= pkarr (pkinterned 1) (pkinterned 1)
+      iKinds ! 0 @?= pkstar
+      iKinds ! 1 @?= pkarr (pkinterned 0) (pkinterned 0)
+      iKinds ! 2 @?= pkarr (pkinterned 1) (pkinterned 1)
 
 -- Types
 typeInterningTests :: TestTree
@@ -341,8 +341,8 @@ typeInterningVar =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 0
-      iTypes V.! 0 @?= (pliftT $ P.TypeSumVar $ P.Type_Var 0 V.empty)
-      iStrings V.! 0 @?= "a"
+      iTypes ! 0 @?= (pliftT $ P.TypeSumVar $ P.Type_Var 0 empty)
+      iStrings ! 0 @?= "a"
 
 typeInterningMyFuncUnit :: TestTree
 typeInterningMyFuncUnit =
@@ -350,11 +350,12 @@ typeInterningMyFuncUnit =
   in  testCase "MyFunc ()" $ do
       assertInterned pt
       assertInternedEnv e
-      pt @?= ptinterned 1
-      iTypes V.! 0 @?= ptunit
-      iTypes V.! 1 @?= ptcon 1 (V.singleton $ ptinterned 0)
-      iStrings V.! 0 @?= "Main"
-      iStrings V.! 1 @?= "MyFunc"
+      pt @?= ptinterned 2
+      iTypes ! 0 @?= ptcon 1 empty
+      iTypes ! 1 @?= ptunit
+      iTypes ! 2 @?= ptapp (ptinterned 0) (ptinterned 1)
+      iStrings ! 0 @?= "Main"
+      iStrings ! 1 @?= "MyFunc"
 
 typeInterningMaybeSyn :: TestTree
 typeInterningMaybeSyn =
@@ -363,10 +364,10 @@ typeInterningMaybeSyn =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 1
-      iTypes V.! 0 @?= ptunit
-      iTypes V.! 1 @?= ptsyn 1 (V.singleton $ ptinterned 0)
-      iStrings V.! 0 @?= "Main"
-      iStrings V.! 1 @?= "MaybeSyn"
+      iTypes ! 0 @?= ptunit
+      iTypes ! 1 @?= ptsyn 1 (singleton $ ptinterned 0)
+      iStrings ! 0 @?= "Main"
+      iStrings ! 1 @?= "MaybeSyn"
 
 typeInterningUnit :: TestTree
 typeInterningUnit =
@@ -375,30 +376,36 @@ typeInterningUnit =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 0
-      (iTypes V.! 0) @?= ptunit
+      (iTypes ! 0) @?= ptunit
 
 typeInterningIntToBool :: TestTree
 typeInterningIntToBool =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest $ TInt64 :-> TBool
-  in  testCase "Int -> Bool" $ do
-      assertInterned pt
-      assertInternedEnv e
-      pt @?= ptinterned 2
-      (iTypes V.! 0) @?= ptint
-      (iTypes V.! 1) @?= ptbool
-      (iTypes V.! 2) @?= ptarr (ptinterned 0) (ptinterned 1)
+  in testCase "Int -> Bool" $ do
+    assertInterned pt
+    assertInternedEnv e
+    pt @?= ptinterned 4
+    (iTypes ! 0) @?= ptarr
+    (iTypes ! 1) @?= ptint
+    (iTypes ! 2) @?= ptapp (ptinterned 0) (ptinterned 1)
+    (iTypes ! 3) @?= ptbool
+    (iTypes ! 4) @?= ptapp (ptinterned 2) (ptinterned 3)
 
 typeInterningForall :: TestTree
 typeInterningForall =
   let (pt, e@EncodeTestEnv{..}) = runEncodeTypeTest tyLamTyp
   in  testCase "forall (a : * -> *). a -> a" $ do
-      assertInterned pt
-      assertInternedEnv e
-      pt @?= ptinterned 2
-      (iKinds V.! 0) @?= pkstar
-      (iKinds V.! 1) @?= pkarr (pkinterned 0) (pkinterned 0)
-      (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
-      (iTypes V.! 2) @?= ptforall 0 (pkinterned 1) (ptinterned 1)
+    assertInterned pt
+    assertInternedEnv e
+    pt @?= ptinterned 4
+    iStrings ! 0 @?= "a"
+    (iKinds ! 0) @?= pkstar
+    (iKinds ! 1) @?= pkarr (pkinterned 0) (pkinterned 0)
+    (iTypes ! 0) @?= ptarr
+    (iTypes ! 1) @?= ptvar 0
+    (iTypes ! 2) @?= ptapp (ptinterned 0) (ptinterned 1)
+    (iTypes ! 3) @?= ptapp (ptinterned 2) (ptinterned 1)
+    (iTypes ! 4) @?= ptforall 0 (pkinterned 1) (ptinterned 3)
 
 typeInterningTStruct :: TestTree
 typeInterningTStruct =
@@ -407,9 +414,9 @@ typeInterningTStruct =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 1
-      (iTypes V.! 0) @?= ptunit
-      (iTypes V.! 1) @?= ptstructSingleton 0 (ptinterned 0)
-      iStrings V.! 0 @?= "foo"
+      (iTypes ! 0) @?= ptunit
+      (iTypes ! 1) @?= ptstructSingleton 0 (ptinterned 0)
+      iStrings ! 0 @?= "foo"
 
 typeInterningTNat :: TestTree
 typeInterningTNat =
@@ -418,7 +425,7 @@ typeInterningTNat =
       assertInterned pt
       assertInternedEnv e
       pt @?= ptinterned 0
-      (iTypes V.! 0) @?= (pliftT $ P.TypeSumNat 16)
+      (iTypes ! 0) @?= (pliftT $ P.TypeSumNat 16)
 
 typeInterningAssertSharing :: TestTree
 typeInterningAssertSharing =
@@ -426,9 +433,11 @@ typeInterningAssertSharing =
   in  testCase "Sharing: () -> ()" $ do
       assertInterned pt
       assertInternedEnv e
-      pt @?= ptinterned 1
-      (iTypes V.! 0) @?= ptunit
-      (iTypes V.! 1) @?= ptarr (ptinterned 0) (ptinterned 0)
+      pt @?= ptinterned 3
+      (iTypes ! 0) @?= ptarr
+      (iTypes ! 1) @?= ptunit
+      (iTypes ! 2) @?= ptapp (ptinterned 0) (ptinterned 1)
+      (iTypes ! 3) @?= ptapp (ptinterned 2) (ptinterned 1)
 
 -- Exprs
 exprInterningTests :: TestTree
@@ -449,8 +458,8 @@ exprInterningVar =
       assertInterned pe
       assertInternedEnv e
       pe @?= peInterned 0
-      iExprs V.! 0 @?= peVar 0
-      iStrings V.! 0 @?= "x"
+      iExprs ! 0 @?= peVar 0
+      iStrings ! 0 @?= "x"
 
 exprInterningVal :: TestTree
 exprInterningVal =
@@ -459,9 +468,9 @@ exprInterningVal =
       assertInterned pe
       assertInternedEnv e
       pe @?= peInterned 0
-      iExprs V.! 0 @?= peVal 0 1
-      iStrings V.! 0 @?= "Main"
-      iStrings V.! 1 @?= "x"
+      iExprs ! 0 @?= peVal 0 1
+      iStrings ! 0 @?= "Main"
+      iStrings ! 1 @?= "x"
 
 exprInterningBool :: TestTree
 exprInterningBool =
@@ -470,7 +479,7 @@ exprInterningBool =
       assertInterned pe
       assertInternedEnv e
       pe @?= peInterned 0
-      iExprs V.! 0 @?= peTrue
+      iExprs ! 0 @?= peTrue
 
 mkIdLocLam :: Expr
 mkIdLocLam = ELocation loc1 $ mkETmLams [(x, TUnit)] (ELocation loc2 $ EVar x)

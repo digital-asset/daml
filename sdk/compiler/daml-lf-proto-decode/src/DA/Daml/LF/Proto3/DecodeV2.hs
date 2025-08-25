@@ -483,15 +483,19 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> mayDecode "Expr_StructUpdStruct" mbStruct decodeExpr
       <*> mayDecode "Expr_StructUpdUpdate" mbUpdate decodeExpr
   LF2.ExprSumApp (LF2.Expr_App mbFun args) -> do
+    singletonIfLfFlat_ args
     fun <- mayDecode "Expr_AppFun" mbFun decodeExpr
     foldl' ETmApp fun <$> mapM decodeExpr (V.toList args)
   LF2.ExprSumTyApp (LF2.Expr_TyApp mbFun args) -> do
+    singletonIfLfFlat_ args
     fun <- mayDecode "Expr_TyAppFun" mbFun decodeExpr
     foldl' ETyApp fun <$> mapM decodeType (V.toList args)
   LF2.ExprSumAbs (LF2.Expr_Abs params mbBody) -> do
+    singletonIfLfFlat_ params
     body <- mayDecode "Expr_AbsBody" mbBody decodeExpr
     foldr ETmLam body <$> mapM decodeVarWithType (V.toList params)
   LF2.ExprSumTyAbs (LF2.Expr_TyAbs params mbBody) -> do
+    singletonIfLfFlat_ params
     body <- mayDecode "Expr_TyAbsBody" mbBody decodeExpr
     foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
   LF2.ExprSumCase (LF2.Case mbScrut alts) ->
@@ -737,6 +741,25 @@ decodeNumericLit (T.unpack -> str) = case readMaybe str of
     Nothing -> throwError $ ParseError $ "bad Numeric literal: " ++ show str
     Just n -> pure $ BENumeric n
 
+singletonIfLfFlat :: Foldable t => t a -> Decode (t a)
+singletonIfLfFlat xs = do
+  v <- asks version
+  if v `supports` featureFlatArchive && length xs /= 1
+    then error $ printf "multiple arguments disallowed since lf %s supports flat archives" $ show v
+    else return xs
+
+singletonIfLfFlat_ :: Foldable t => t a -> Decode ()
+singletonIfLfFlat_ = void . singletonIfLfFlat
+
+nullIfLfFlat :: Foldable t => t a -> String -> Decode (t a)
+nullIfLfFlat xs str = do
+  v <- asks version
+  if v `supports` featureFlatArchive && (not $ null xs)
+    then error $ printf "argument(s) disallowed since lf %s supports flat archives, origin: %s" (show v) str
+    else return xs
+
+nullIfLfFlat_ :: Foldable t => t a -> String -> Decode ()
+nullIfLfFlat_ x str = void $ nullIfLfFlat x str
 
 decodeKind :: LF2.Kind -> Decode Kind
 decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
@@ -744,10 +767,11 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumNat LF2.Unit -> pure KNat
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
-    foldr KArrow result <$> traverse decodeKind (V.toList params)
+    prms <- singletonIfLfFlat $ V.toList params
+    foldr KArrow result <$> traverse decodeKind prms
   LF2.KindSumInternedKind n -> do
     DecodeEnv{internedKinds, version} <- ask
-    if version `supports` featureKindInterning
+    if version `supports` featureFlatArchive
       then lookupInterned internedKinds BadKindId n
       else error $ printf "kind interning not supported in version %s" (show version)
 
@@ -785,18 +809,22 @@ decodeTypeLevelNat m =
 
 decodeType :: LF2.Type -> Decode Type
 decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
-  LF2.TypeSumVar (LF2.Type_Var var args) ->
+  LF2.TypeSumVar (LF2.Type_Var var args) -> do
+    nullIfLfFlat_ args "Type_Var"
     decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
-  LF2.TypeSumCon (LF2.Type_Con mbCon args) ->
+  LF2.TypeSumCon (LF2.Type_Con mbCon args) -> do
+    nullIfLfFlat_ args "Type_Con"
     decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConId
   LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
     TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynId <*> traverse decodeType (V.toList args)
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
+    nullIfLfFlat_ args "Type_Builtin"
     decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
     throwError (UnknownEnum "Builtin" idx)
   LF2.TypeSumForall (LF2.Type_Forall binders mbBody) -> do
+    singletonIfLfFlat_ binders
     body <- mayDecode "type_ForAllBody" mbBody decodeType
     foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF2.TypeSumStruct (LF2.Type_Struct flds) ->
@@ -804,6 +832,9 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF2.TypeSumInternedType n -> do
     DecodeEnv{internedTypes} <- ask
     lookupInterned internedTypes BadTypeId n
+  LF2.TypeSumTapp (LF2.Type_TApp lhs rhs) ->
+    TApp <$> mayDecode "type_TApp_lhs" lhs decodeType
+         <*> mayDecode "type_TApp_rhs" rhs decodeType
   where
     decodeWithArgs :: V.Vector LF2.Type -> Decode Type -> Decode Type
     decodeWithArgs args fun = foldl' TApp <$> fun <*> traverse decodeType args
