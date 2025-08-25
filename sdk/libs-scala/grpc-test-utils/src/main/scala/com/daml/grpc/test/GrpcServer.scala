@@ -56,6 +56,7 @@ trait GrpcServer { this: AsyncFlatSpec =>
 
       val Name: String = ServerReflectionGrpc.SERVICE_NAME
 
+      @deprecated("ProtoReflectionService.newInstance is deprecated", since = "3.4.0")
       def newInstance: BindableService = ProtoReflectionService.newInstance()
 
       def listServices(channel: Channel, interceptors: ClientInterceptor*): Iterable[String] = {
