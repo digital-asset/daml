@@ -25,6 +25,8 @@ import scalaz.std.either._
 import scalaz.std.option._
 import scalaz.syntax.traverse._
 
+import scala.collection.immutable.ArraySeq
+
 object Converter extends script.ConverterMethods(StablePackagesV2) {
   import com.daml.script.converter.Converter._
 
@@ -327,7 +329,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toPackageId(v: SValue): Either[String, PackageId] =
     v match {
-      case SRecord(_, _, Array(SText(packageId))) =>
+      case SRecord(_, _, ArraySeq(SText(packageId))) =>
         Right(PackageId.assertFromString(packageId))
       case _ => Left(s"Expected PackageId but got $v")
     }
@@ -343,8 +345,8 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             SRecord(
               _,
               _,
-              Array(
-                SRecord(_, _, Array(SText(name), SInt64(version), payload, locations, continue))
+              ArraySeq(
+                SRecord(_, _, ArraySeq(SText(name), SInt64(version), payload, locations, continue))
               ),
             ),
           ) =>
@@ -357,7 +359,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toCommandWithMeta(v: SValue): Either[String, ScriptLedgerClient.CommandWithMeta] =
     v match {
-      case SRecord(_, _, Array(command, SBool(explicitPackageId))) =>
+      case SRecord(_, _, ArraySeq(command, SBool(explicitPackageId))) =>
         for {
           command <- toCommand(command)
         } yield ScriptLedgerClient.CommandWithMeta(command, explicitPackageId)
@@ -366,7 +368,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
 
   def toCommand(v: SValue): Either[String, command.ApiCommand] =
     v match {
-      case SVariant(_, "Create", _, SRecord(_, _, Array(anyTemplateSValue))) =>
+      case SVariant(_, "Create", _, SRecord(_, _, ArraySeq(anyTemplateSValue))) =>
         for {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)
         } yield command.ApiCommand.Create(
@@ -377,7 +379,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "Exercise",
             _,
-            SRecord(_, _, Array(tIdSValue, cIdSValue, anyChoiceSValue)),
+            SRecord(_, _, ArraySeq(tIdSValue, cIdSValue, anyChoiceSValue)),
           ) =>
         for {
           typeId <- typeRepToIdentifier(tIdSValue)
@@ -393,7 +395,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "ExerciseByKey",
             _,
-            SRecord(_, _, Array(tIdSValue, anyKeySValue, anyChoiceSValue)),
+            SRecord(_, _, ArraySeq(tIdSValue, anyKeySValue, anyChoiceSValue)),
           ) =>
         for {
           typeId <- typeRepToIdentifier(tIdSValue)
@@ -409,7 +411,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             _,
             "CreateAndExercise",
             _,
-            SRecord(_, _, Array(anyTemplateSValue, anyChoiceSValue)),
+            SRecord(_, _, ArraySeq(anyTemplateSValue, anyChoiceSValue)),
           ) =>
         for {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)

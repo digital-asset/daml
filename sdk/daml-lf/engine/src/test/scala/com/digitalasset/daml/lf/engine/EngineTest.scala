@@ -50,7 +50,7 @@ import org.scalatest.Inside._
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 import scala.annotation.nowarn
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
@@ -678,9 +678,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
-            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), Array(SParty(alice))),
+            SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), ArraySeq(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
-          choiceArgument = SRecord(sumToKId, ImmArray.empty, Array.empty),
+          choiceArgument = SRecord(sumToKId, ImmArray.empty, ArraySeq.empty),
         )
       )
       val submitters = Set(alice)
@@ -857,7 +857,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           key = SRecord(
             BasicTests_WithKey,
             ImmArray("_1", "_2"),
-            Array(SParty(alice), SInt64(43)),
+            ArraySeq(SParty(alice), SInt64(43)),
           ),
         )
       )
@@ -904,9 +904,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val cmds = ImmArray(
         speedy.Command.CreateAndExercise(
           templateId = templateId,
-          SRecord(templateId, ImmArray("p"), Array(SParty(alice))),
+          SRecord(templateId, ImmArray("p"), ArraySeq(SParty(alice))),
           "FetchAfterLookup",
-          SRecord(templateId, ImmArray("n"), Array(SInt64(43))),
+          SRecord(templateId, ImmArray("n"), ArraySeq(SInt64(43))),
         )
       )
 
@@ -950,7 +950,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = Array(SValue.SParty(alice), SValue.SInt64(42)),
+        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
       )
       val usedContractKey = usedContractSKey.toNormalizedValue(txVersion)
       val usedDisclosedContract = buildDisclosedContract(
@@ -961,14 +961,14 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          Array(SValue.SParty(alice), SValue.SInt64(42)),
+          ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
         ),
         Some(usedContractKey),
       )
       val unusedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = Array(SValue.SParty(alice), SValue.SInt64(69)),
+        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
       )
       val unusedDisclosedContract =
         buildDisclosedContract(
@@ -979,7 +979,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           SValue.SRecord(
             templateId,
             ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-            Array(SValue.SParty(alice), SValue.SInt64(69)),
+            ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
           ),
           Some(unusedContractSKey.toNormalizedValue(txVersion)),
         )
@@ -1780,7 +1780,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
-        values = Array(SValue.SParty(alice), SValue.SInt64(42)),
+        values = ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
       )
       val usedContractKey = Value.ValueRecord(
         None,
@@ -1797,7 +1797,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          Array(SValue.SParty(alice), SValue.SInt64(42)),
+          ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
         ),
         Some(usedContractKey),
       )
@@ -1816,7 +1816,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         SValue.SRecord(
           templateId,
           ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
-          Array(SValue.SParty(alice), SValue.SInt64(69)),
+          ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
         ),
         Some(unusedContractKey),
       )
@@ -1843,7 +1843,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
-        Array(SValue.SParty(alice)),
+        ArraySeq(SValue.SParty(alice)),
       ),
       None,
     )
@@ -1855,7 +1855,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       SValue.SRecord(
         templateId,
         ImmArray(Ref.Name.assertFromString("p")),
-        Array(SValue.SParty(alice)),
+        ArraySeq(SValue.SParty(alice)),
       ),
       None,
     )

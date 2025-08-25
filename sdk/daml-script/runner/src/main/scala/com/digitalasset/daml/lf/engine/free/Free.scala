@@ -12,6 +12,7 @@ import scalaz.std.either._
 import scalaz.std.vector._
 import scalaz.syntax.traverse._
 
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 case class ConversionError(message: String) extends RuntimeException(message)
@@ -192,8 +193,8 @@ private[lf] object Free {
         w <- v match {
           // Unwrap Script type and apply to ()
           // Second value in record is dummy unit, ignored
-          case SRecord(_, _, Array(expr @ SPAP(_, _, _), _)) =>
-            runFreeMonad(SEAppAtomic(SEValue(expr), Array(SEValue(SUnit))))
+          case SRecord(_, _, ArraySeq(expr @ SPAP(_, _, _), _)) =>
+            runFreeMonad(SEAppAtomic(SEValue(expr), ArraySeq(SEValue(SUnit))))
           case v =>
             convError(s"Expected record with 1 field but got $v").toResult
         }
@@ -244,11 +245,11 @@ private[lf] object Free {
               SRecord(
                 _,
                 _,
-                Array(
+                ArraySeq(
                   SRecord(
                     _,
                     _,
-                    Array(SText(name), SInt64(version), payload, locations, continue),
+                    ArraySeq(SText(name), SInt64(version), payload, locations, continue),
                   )
                 ),
               ),
@@ -275,10 +276,10 @@ private[lf] object Free {
                   Result.Final(
                     expr.map(expr =>
                       SELet1(
-                        SEMakeClo(Array(), 1, expr),
+                        SEMakeClo(ArraySeq.empty, 1, expr),
                         SELet1(
-                          SEAppAtomic(SELocS(1), Array(SEValue(SValue.Unit))),
-                          SEAppAtomic(SEValue(continue), Array(SELocS(1))),
+                          SEAppAtomic(SELocS(1), ArraySeq(SEValue(SValue.Unit))),
+                          SEAppAtomic(SEValue(continue), ArraySeq(SELocS(1))),
                         ),
                       )
                     )
@@ -289,7 +290,7 @@ private[lf] object Free {
             } yield res
           case Left(v) =>
             v match {
-              case SRecord(_, _, Array(result, _)) =>
+              case SRecord(_, _, ArraySeq(result, _)) =>
                 // Unwrap the Tuple2 we get from the inlined StateT.
                 Result.successful(result)
               case _ =>
@@ -304,7 +305,7 @@ private[lf] object Free {
         case SRecord(
               _,
               _,
-              Array(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+              ArraySeq(unitId, module, file @ _, startLine, startCol, endLine, endCol),
             ) =>
           for {
             unitId <- toText(unitId)
@@ -343,7 +344,7 @@ private[lf] object Free {
 
     def toLocation(v: SValue): ErrOr[Ref.Location] =
       v match {
-        case SRecord(_, _, Array(definition, loc)) =>
+        case SRecord(_, _, ArraySeq(definition, loc)) =>
           for {
             // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
             //   However, the call-stack only gives us access to the inner definition, `submit` in this case.

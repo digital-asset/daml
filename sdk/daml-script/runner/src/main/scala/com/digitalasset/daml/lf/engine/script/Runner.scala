@@ -59,6 +59,7 @@ import scalaz.syntax.traverse._
 import scalaz.{Applicative, NonEmptyList, OneAnd, Traverse, \/-}
 import spray.json._
 
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 object LfValueCodec extends ApiCodecCompressed(false, false)
@@ -190,7 +191,7 @@ object Script {
 
   final case class Action(expr: SExpr, scriptIds: ScriptIds) extends Script
   final case class Function(expr: SExpr, param: Type, scriptIds: ScriptIds) extends Script {
-    def apply(arg: SValue): Script.Action = Script.Action(SEApp(expr, Array(arg)), scriptIds)
+    def apply(arg: SValue): Script.Action = Script.Action(SEApp(expr, ArraySeq(arg)), scriptIds)
   }
 
   def fromIdentifier(
@@ -504,7 +505,7 @@ private[lf] class Runner(
             "Daml.Script.Internal.LowLevel",
             "dangerousCast",
           ) =>
-        Some(SDefinition(SEMakeClo(Array(), 1, SELocA(0))))
+        Some(SDefinition(SEMakeClo(ArraySeq.empty, 1, SELocA(0))))
       case _ =>
         None
     }

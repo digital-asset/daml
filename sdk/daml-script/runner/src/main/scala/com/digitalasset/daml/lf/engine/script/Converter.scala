@@ -30,6 +30,7 @@ import scalaz.syntax.traverse._
 import scalaz.{-\/, OneAnd, \/-}
 import spray.json._
 
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.Future
 import scala.util.Random
 
@@ -200,15 +201,15 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   private[lf] def toAnyChoice(v: SValue): Either[String, AnyChoice] =
     v match {
-      case SRecord(_, _, Array(SAny(TTyCon(choiceCons), choiceVal), _)) =>
+      case SRecord(_, _, ArraySeq(SAny(TTyCon(choiceCons), choiceVal), _)) =>
         Right(AnyChoice(choiceArgTypeToChoiceName(choiceCons), choiceVal))
       case SRecord(
             _,
             _,
-            Array(
+            ArraySeq(
               SAny(
                 TStruct(Struct((_, TTyCon(choiceCons)), _)),
-                SStruct(_, Array(choiceVal, _)),
+                SStruct(_, ArraySeq(choiceVal, _)),
               ),
               _,
             ),
@@ -220,7 +221,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toAnyContractKey(v: SValue): Either[String, AnyContractKey] = {
     v match {
-      case SRecord(_, _, Array(SAny(ty, key), templateRep)) =>
+      case SRecord(_, _, ArraySeq(SAny(ty, key), templateRep)) =>
         typeRepToIdentifier(templateRep).map(templateId => AnyContractKey(templateId, ty, key))
       case _ => Left(s"Expected AnyContractKey but got $v")
     }
@@ -256,9 +257,9 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   private[lf] val sndOutputIdx = tupleFieldInputOrder.indexOf(sndName)
 
   private[lf] val extractToTuple = SEMakeClo(
-    Array(),
+    ArraySeq.empty,
     2,
-    SEAppAtomic(SEBuiltinFun(SBStructCon(tupleFieldInputOrder)), Array(SELocA(0), SELocA(1))),
+    SEAppAtomic(SEBuiltinFun(SBStructCon(tupleFieldInputOrder)), ArraySeq(SELocA(0), SELocA(1))),
   )
 
   def toParty(v: SValue): Either[String, Party] =
@@ -317,7 +318,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case SRecord(
             _,
             _,
-            Array(unitId, module, file @ _, startLine, startCol, endLine, endCol),
+            ArraySeq(unitId, module, file @ _, startLine, startCol, endLine, endCol),
           ) =>
         for {
           unitId <- toText(unitId)
@@ -338,7 +339,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toLocation(knownPackages: Map[String, PackageId], v: SValue): Either[String, Location] =
     v match {
-      case SRecord(_, _, Array(definition, loc)) =>
+      case SRecord(_, _, ArraySeq(definition, loc)) =>
         for {
           // TODO[AH] This should be the outer definition. E.g. `main` in `main = do submit ...`.
           //   However, the call-stack only gives us access to the inner definition, `submit` in this case.
@@ -561,7 +562,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
 
   def toDisclosure(v: SValue): Either[String, Disclosure] =
     v match {
-      case SRecord(_, _, Array(tplId, cid, blob)) =>
+      case SRecord(_, _, ArraySeq(tplId, cid, blob)) =>
         for {
           tplId <- typeRepToIdentifier(tplId)
           cid <- toContractId(cid)

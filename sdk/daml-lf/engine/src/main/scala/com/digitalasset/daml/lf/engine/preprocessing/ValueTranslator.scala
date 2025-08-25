@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
@@ -259,7 +260,7 @@ private[lf] final class ValueTranslator(
             SValue.SRecord(
               tyCon,
               ImmArray.from(translatedCorrectFields.map(_._1)),
-              translatedCorrectFields.map(_._2).to(Array),
+              translatedCorrectFields.map(_._2).to(ArraySeq),
             )
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
             checkUserTypeId(tyCon, mbId)

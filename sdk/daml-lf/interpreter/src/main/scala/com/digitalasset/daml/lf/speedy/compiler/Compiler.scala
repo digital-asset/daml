@@ -28,6 +28,7 @@ import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
+import scala.collection.immutable.ArraySeq
 
 /** Compiles LF expressions into Speedy expressions.
   * This includes:
@@ -903,7 +904,7 @@ private[lf] final class Compiler(
   ): t.SExpr =
     t.SELet1(
       t.SEVal(t.ThrowExceptionAsFailureStatusDefRef(exceptionId)),
-      t.SEAppAtomic(t.SELocS(1), Array(t.SEValue(exceptionValue))),
+      t.SEAppAtomic(t.SELocS(1), ArraySeq(t.SEValue(exceptionValue))),
     )
 
   private[this] def compileCreate(

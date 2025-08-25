@@ -24,6 +24,7 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
 class SBuiltinInterfaceTestDefaultLf
@@ -158,7 +159,7 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
       e"\(cid: ContractId Mod:IfaceB) -> exercise_interface @Mod:IfaceB MyChoiceB cid ()" (
         ifaceParserParams
       ),
-      Array(SContractId(cid), SToken),
+      ArraySeq(SContractId(cid), SToken),
       packageResolution = packagePreferences,
       getContract = contracts,
       getPkg = PartialFunction.empty,
@@ -305,7 +306,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
       inside(
         evalApp(
           e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid" (ifaceParserParams),
-          Array(SContractId(cid), SToken),
+          ArraySeq(SContractId(cid), SToken),
           packageResolution = packagePreference(2),
           getContract = contracts,
           getPkg = PartialFunction.empty,
@@ -325,7 +326,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
           e"\(cid: ContractId Mod:Iface) -> exercise_interface @Mod:Iface MyChoice cid ()" (
             ifaceParserParams
           ),
-          Array(SContractId(cid), SToken),
+          ArraySeq(SContractId(cid), SToken),
           packageResolution = packagePreference(2),
           getContract = contracts,
           getPkg = PartialFunction.empty,
@@ -349,7 +350,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
                   in upure @Mod:MyViewType view_interface @Mod:Iface iface""" (
               ifaceParserParams
             ),
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = packagePreference(preferredVersion),
             getContract = contracts,
             getPkg = PartialFunction.empty,
@@ -358,7 +359,7 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
           )
         ) {
           case Success(
-                Right(SRecord(`ifaceViewTypeId`, _, Array(SInt64(`preferredVersion`))))
+                Right(SRecord(`ifaceViewTypeId`, _, ArraySeq(SInt64(`preferredVersion`))))
               ) =>
             succeed
         }
@@ -406,7 +407,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
         inside(
           evalApp(
             e"\(cid: ContractId I0:I0) -> ViewErrorTest:exercise_interface_with_view_error cid",
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> FatContractInstance.fromThinInstance(
@@ -435,7 +436,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
         inside(
           evalApp(
             e"\(cid: ContractId I0:I0) -> ViewErrorTest:fetch_interface_with_view_error cid",
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> FatContractInstance.fromThinInstance(
@@ -461,7 +462,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
         inside(
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> FatContractInstance.fromThinInstance(
@@ -482,7 +483,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
         inside(
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> FatContractInstance.fromThinInstance(
@@ -503,7 +504,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
         inside(
           evalApp(
             e"\(cid: ContractId Mod:Iface) -> fetch_interface @Mod:Iface cid",
-            Array(SContractId(cid), SToken),
+            ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
               cid -> FatContractInstance.fromThinInstance(
@@ -684,7 +685,7 @@ object EvalHelpers {
 
   def evalApp(
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
       getContract: PartialFunction[Value.ContractId, FatContractInstance] = PartialFunction.empty,
@@ -716,7 +717,7 @@ object EvalHelpers {
         compiledPackages,
         packageResolution = packageResolution,
         transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-        updateSE = SELet1(e, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
+        updateSE = SELet1(e, SEMakeClo(ArraySeq(SELocS(1)), 1, SELocF(0))),
         committers = committers,
       )
     Try(SpeedyTestLib.run(machine, getPkg, getContract, getKey))

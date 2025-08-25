@@ -15,14 +15,14 @@ import com.daml.scalautil.Statement.discard
 import com.daml.nameof.NameOf
 import com.digitalasset.daml.lf.speedy.iterable.SValueIterable
 
-import scala.collection.immutable.TreeMap
+import scala.collection.immutable.{ArraySeq, TreeMap}
 import scala.util.hashing.MurmurHash3
 
 /** Speedy values. These are the value types recognized by the
   * machine. In addition to the usual types present in the LF value,
   * this also contains partially applied functions (SPAP).
   */
-sealed abstract class SValue {
+sealed abstract class SValue extends AnyRef {
 
   import SValue.{SValue => _, _}
 
@@ -132,7 +132,7 @@ object SValue {
     * entered, we write an "open event" with the label and when the closure is
     * left, we write a "close event" with the same label.
     */
-  final case class PClosure(label: Profile.Label, expr: SExpr, frame: Array[SValue])
+  final case class PClosure(label: Profile.Label, expr: SExpr, frame: ArraySeq[SValue])
       extends Prim
       with SomeArrayEquals {
     override def toString: String = s"PClosure($expr, ${frame.mkString("[", ",", "]")})"
@@ -141,7 +141,7 @@ object SValue {
   /** A partially applied primitive.
     * An SPAP is *never* fully applied. This is asserted on construction.
     */
-  final case class SPAP(prim: Prim, actuals: Array[SValue], arity: Int)
+  final case class SPAP(prim: Prim, actuals: ArraySeq[SValue], arity: Int)
       extends SValue
       with SomeArrayEquals {
     if (actuals.size >= arity) {
@@ -179,13 +179,13 @@ object SValue {
     * And is also used when we convert the svalue back to a normalised LF value.
     */
 
-  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: Array[SValue])
+  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: ArraySeq[SValue])
       extends SValue
       with SomeArrayEquals
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames
-  final case class SStruct(fieldNames: Struct[Unit], values: Array[SValue])
+  final case class SStruct(fieldNames: Struct[Unit], values: ArraySeq[SValue])
       extends SValue
       with SomeArrayEquals
 
@@ -308,10 +308,12 @@ object SValue {
 
   class SArithmeticError(valueArithmeticError: ValueArithmeticError) {
     val fields: ImmArray[Ref.Name] = ImmArray(valueArithmeticError.fieldName)
+
     def apply(builtinName: String, args: ImmArray[String]): SAny = {
-      val array = Array.ofDim[SValue](1)
-      array(0) = SText(
-        s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+      val array = ArraySeq(
+        SText(
+          s"ArithmeticError while evaluating ($builtinName ${args.iterator.mkString(" ")})."
+        )
       )
       SAny(valueArithmeticError.typ, SRecord(valueArithmeticError.tyCon, fields, array))
     }
@@ -420,12 +422,7 @@ object SValue {
   def toList(entries: TreeMap[SValue, SValue]): SList =
     SList(
       entries.view
-        .map { case (k, v) =>
-          val entry = Array.ofDim[SValue](2)
-          entry(0) = k
-          entry(1) = v
-          SStruct(entryFields, entry)
-        }
+        .map { case (k, v) => SStruct(entryFields, ArraySeq(k, v)) }
         .to(FrontStack)
     )
 

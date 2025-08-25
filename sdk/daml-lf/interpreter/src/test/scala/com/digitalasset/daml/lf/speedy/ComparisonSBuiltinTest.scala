@@ -14,6 +14,8 @@ import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor2}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.immutable.ArraySeq
+
 class ComparisonSBuiltinTestV2 extends ComparisonSBuiltinTest(LanguageMajorVersion.V2)
 
 class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
@@ -688,7 +690,7 @@ class ComparisonSBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     val machine =
       Speedy.Machine.fromPureSExpr(
         compiledPackages,
-        SEApp(sexpr, (parties ++ contractIds).toArray),
+        SEApp(sexpr, (parties ++ contractIds).to(ArraySeq)),
       )
     machine.runPure()
   }

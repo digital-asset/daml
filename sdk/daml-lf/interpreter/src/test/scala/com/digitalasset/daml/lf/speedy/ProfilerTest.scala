@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
 import scala.jdk.CollectionConverters._
 
 class ProfilerTestV2 extends ProfilerTest(LanguageMajorVersion.V2)
@@ -78,7 +79,7 @@ class ProfilerTest(majorLanguageVersion: LanguageMajorVersion)
     val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("foobar")
     val party = Ref.Party.assertFromString("Alice")
     val se = compiledPackages.compiler.unsafeCompile(e)
-    val example: SExpr = SEApp(se, Array(SParty(party)))
+    val example: SExpr = SEApp(se, ArraySeq(SParty(party)))
     val machine =
       Speedy.Machine.fromUpdateSExpr(compiledPackages, transactionSeed, example, Set(party))
     val res = machine.run()

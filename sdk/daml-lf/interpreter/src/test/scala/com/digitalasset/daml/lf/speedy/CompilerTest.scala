@@ -29,6 +29,8 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
+import scala.collection.immutable.ArraySeq
+
 class CompilerTestV2 extends CompilerTest(LanguageMajorVersion.V2)
 
 class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
@@ -90,7 +92,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         Table(
           "inputs" -> "output",
           context.map(f => EAbs(x -> TUnit, f(EAbs(x -> TUnit, EVar(x))))) ->
-            SExpr.SEMakeClo(Array.empty, 2, SExpr.SELocA(1)),
+            SExpr.SEMakeClo(ArraySeq.empty, 2, SExpr.SELocA(1)),
           context.map(f =>
             EAbs(
               x -> TTyCon(tyCon),
@@ -109,11 +111,11 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             )
           ) -> SExpr.SEMakeClo(
-            Array.empty,
+            ArraySeq.empty,
             1,
             SExpr.SEAppAtomicSaturatedBuiltin(
               SBuiltinFun.SBRecUpdMulti(tyCon, List(1, 0)),
-              Array(
+              ArraySeq(
                 SExpr.SEValue(SValue.SText("")),
                 SExpr.SELocA(0),
                 SExpr.SEValue(SValue.SBool(false)),
@@ -602,11 +604,11 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       Ref.Name.assertFromString("label"),
       Ref.Name.assertFromString("party"),
     ),
-    Array(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
+    ArraySeq(SValue.SBool(precondition), SValue.SText(label), SValue.SParty(alice)),
   )
 
   def tokenApp(sexpr: SExpr): SExpr =
-    SExpr.SEApp(sexpr, Array(SValue.SToken))
+    SExpr.SEApp(sexpr, ArraySeq(SValue.SToken))
 
   def evalSExpr(
       sexpr: SExpr,
@@ -647,7 +649,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           Ref.Name.assertFromString("label"),
           Ref.Name.assertFromString("party"),
         ),
-        Array(
+        ArraySeq(
           SValue.SBool(precondition),
           SValue.SText(label),
           SValue.SParty(maintainer),

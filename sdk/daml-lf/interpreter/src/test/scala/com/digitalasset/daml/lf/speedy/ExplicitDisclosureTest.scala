@@ -19,6 +19,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, Inside}
 
+import scala.collection.immutable.ArraySeq
+
 class ExplicitDisclosureTestV2 extends ExplicitDisclosureTest(LanguageMajorVersion.V2)
 
 private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVersion)
@@ -413,7 +415,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         e"""\(contractId: ContractId TestMod:House) ->
                       $action contractId
               """,
-        Array(SContractId(contractId)),
+        ArraySeq(SContractId(contractId)),
       )(
         sexpr,
         committers = committers,
@@ -442,7 +444,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         e"""\(contractId: ContractId TestMod:House) ->
                       $action contractId
                 """,
-        Array(SContractId(contractToDestroy)),
+        ArraySeq(SContractId(contractToDestroy)),
       )(
         sexpr,
         committers = committers,

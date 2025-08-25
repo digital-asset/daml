@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.Speedy._
 import com.daml.logging.LoggingContext
 
 import java.io.File
+import scala.collection.immutable.ArraySeq
 
 // Explore the execution of speedy machine on small examples taken from a dar file
 
@@ -97,7 +98,7 @@ object PlaySpeedy {
           )
         val func = SEVal(LfDefRef(ref))
         val arg = SInt64(config.argValue)
-        SEApp(func, Array(arg))
+        SEApp(func, ArraySeq(arg))
       }
       Machine.fromPureSExpr(compiledPackages, expr)
     }

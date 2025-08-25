@@ -13,6 +13,8 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import scalaz.std.either._
 import scalaz.syntax.bind._
 
+import scala.collection.immutable.ArraySeq
+
 class ConverterException(message: String) extends RuntimeException(message)
 
 object Converter {
@@ -29,7 +31,7 @@ object Converter {
   // Helper to make constructing an SRecord more convenient
   def record(ty: Identifier, fields: (String, SValue)*): SValue = {
     val fieldNames = fields.view.map { case (n, _) => Name.assertFromString(n) }.to(ImmArray)
-    val args = fields.map(_._2).toArray
+    val args = fields.map(_._2).to(ArraySeq)
     SRecord(ty, fieldNames, args) // TODO: construct SRecord directly from Map
   }
 
@@ -57,7 +59,7 @@ object Converter {
 
   object DamlTuple2 {
     def unapply(v: SRecord): Option[(SValue, SValue)] = v match {
-      case SRecord(Identifier(_, DaTypesTuple2), _, Array(fst, snd)) =>
+      case SRecord(Identifier(_, DaTypesTuple2), _, ArraySeq(fst, snd)) =>
         Some((fst, snd))
       case _ => None
     }

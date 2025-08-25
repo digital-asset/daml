@@ -24,6 +24,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 import com.digitalasset.daml.lf.speedy.Compiler
 
+import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
 
 class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
@@ -154,7 +155,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       (
         t"Mod:Tuple Int64 Text",
         ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        SRecord("Mod:Tuple", ImmArray("x", "y"), Array(SInt64(33), SText("a"))),
+        SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a"))),
       ),
       (
         t"Mod:Either Int64 Text",
@@ -199,7 +200,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
         ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
       )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), Array(SInt64(33), SText("a")))
+      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a")))
 
       forEvery(testCases)(testCase =>
         Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
@@ -215,7 +216,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
         ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
       )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), Array(SInt64(33), SText("a")))
+      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a")))
 
       forEvery(testCases)(testCase =>
         Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
@@ -364,7 +365,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         SRecord(
           "Mod:Upgradeable",
           ImmArray("field", "extraField", "anotherExtraField"),
-          Array(
+          ArraySeq(
             SInt64(1),
             SOptional(Some(SText("a")).filter(Function.const(extraFieldDefined))),
             SOptional(Some(SText("b")).filter(Function.const(anotherExtraFieldDefined))),

@@ -20,6 +20,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
+
 class TransactionVersionTestV2 extends TransactionVersionTest(V2)
 
 class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
@@ -251,7 +253,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
         pkgs,
         transactionSeed = crypto.Hash.hashPrivateKey("TransactionVersionTest"),
         updateSE = SEMakeClo(
-          Array(),
+          ArraySeq.empty,
           1,
           SExpr.SELet1General(
             SBFetchTemplate(templateId)(speedyContractId),

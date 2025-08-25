@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.compiler.{SExpr0 => compileTime}
+import scala.collection.immutable.ArraySeq
 
 /** The speedy expression:
   * - variables represented by their runtime location
@@ -86,9 +87,9 @@ private[lf] object SExpr {
       /* special case for nullary record constructors */
       b match {
         case SBRecCon(id, fields) if b.arity == 0 =>
-          SRecord(id, fields, Array.empty)
+          SRecord(id, fields, ArraySeq.empty)
         case _ =>
-          SPAP(PBuiltin(b), Array.empty, b.arity)
+          SPAP(PBuiltin(b), ArraySeq.empty, b.arity)
       }
     }
   }
@@ -104,13 +105,13 @@ private[lf] object SExpr {
 
   object SEApp {
     // Helper: build an application of an unrestricted expression, to value-arguments.
-    def apply(fun: SExpr, args: Array[SValue]): SExpr = {
+    def apply(fun: SExpr, args: ArraySeq[SValue]): SExpr = {
       SELet1(fun, SEAppAtomic(SELocS(1), args.map(SEValue(_))))
     }
   }
 
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
-  final case class SEAppAtomicGeneral(fun: SExprAtomic, args: Array[SExprAtomic])
+  final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
@@ -122,26 +123,19 @@ private[lf] object SExpr {
   /** Function application: ANF case: 'fun' is builtin; 'args' are atomic expressions.  Size
     * of `args' matches the builtin arity.
     */
-  final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: Array[SExprAtomic])
+  final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: ArraySeq[SExprAtomic])
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
-      val arity = builtin.arity
-      val actuals = Array.ofDim[SValue](arity)
-      var i = 0
-      while (i < arity) {
-        val arg = args(i)
-        val v = arg.lookupValue(machine)
-        actuals(i) = v
-        i += 1
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       builtin.execute(actuals, machine)
     }
   }
 
   object SEAppAtomic {
     // smart constructor (used in Anf.scala): detect special case of saturated builtin application
-    def apply(func: SExprAtomic, args: Array[SExprAtomic]): SExpr = {
+    def apply(func: SExprAtomic, args: ArraySeq[SExprAtomic]): SExpr = {
       func match {
         case SEBuiltinFun(builtin) if builtin.arity == args.length =>
           SEAppAtomicSaturatedBuiltin(builtin, args)
@@ -154,18 +148,13 @@ private[lf] object SExpr {
   /** Closure creation. Create a new closure object storing the free variables
     * in 'body'.
     */
-  final case class SEMakeClo(fvs: Array[SELoc], arity: Int, body: SExpr)
+  final case class SEMakeClo(fvs: ArraySeq[SELoc], arity: Int, body: SExpr)
       extends SExpr
       with SomeArrayEquals {
 
     override def execute[Q](machine: Machine[Q]): Control.Value = {
-      val sValues = Array.ofDim[SValue](fvs.length)
-      var i = 0
-      while (i < fvs.length) {
-        sValues(i) = fvs(i).lookupValue(machine)
-        i += 1
-      }
-      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), Array.empty, arity)
+      val sValues = fvs.map(_.lookupValue(machine))
+      val pap = SPAP(PClosure(Profile.LabelUnset, body, sValues), ArraySeq.empty, arity)
       Control.Value(pap)
     }
   }
@@ -199,7 +188,7 @@ private[lf] object SExpr {
   }
 
   /** (Atomic) Pattern match. */
-  final case class SECaseAtomic(scrut: SExprAtomic, alts: Array[SCaseAlt])
+  final case class SECaseAtomic(scrut: SExprAtomic, alts: ArraySeq[SCaseAlt])
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
@@ -217,18 +206,12 @@ private[lf] object SExpr {
   }
 
   /** A (single) let-expression with an unhungry,saturated builtin-application as RHS */
-  final case class SELet1Builtin(builtin: SBuiltinPure, args: Array[SExprAtomic], body: SExpr)
+  final case class SELet1Builtin(builtin: SBuiltinPure, args: ArraySeq[SExprAtomic], body: SExpr)
       extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
-      val arity = builtin.arity
-      val actuals = Array.ofDim[SValue](arity)
-      var i = 0
-      while (i < arity) {
-        val arg = args(i)
-        actuals(i) = arg.lookupValue(machine)
-        i += 1
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       val v = builtin.executePure(actuals)
       machine.pushEnv(v) // use pushEnv not env.add so instrumentation is updated
       Control.Expression(body)
@@ -238,19 +221,13 @@ private[lf] object SExpr {
   /** A (single) let-expression with an unhungry, saturated builtin-application as RHS */
   final case class SELet1BuiltinArithmetic(
       builtin: SBuiltinArithmetic,
-      args: Array[SExprAtomic],
+      args: ArraySeq[SExprAtomic],
       body: SExpr,
   ) extends SExpr
       with SomeArrayEquals {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
-      val arity = builtin.arity
-      val actuals = Array.ofDim[SValue](arity)
-      var i = 0
-      while (i < arity) {
-        val arg = args(i)
-        actuals(i) = arg.lookupValue(machine)
-        i += 1
-      }
+      assert(args.length == builtin.arity)
+      val actuals = args.map(_.lookupValue(machine))
       builtin.compute(actuals) match {
         case Some(value) =>
           machine.pushEnv(value) // use pushEnv not env.add so instrumentation is updated

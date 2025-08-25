@@ -28,6 +28,7 @@ import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
+import scala.collection.immutable.ArraySeq
 import scala.collection.mutable.ArrayBuffer
 import scala.math.Ordered.orderingToOrdered
 import scala.util.{Failure, Success, Try}
@@ -373,7 +374,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         value = SRecord(
           Dummy,
           ImmArray(Ref.Name.assertFromString("signatory")),
-          Array(SParty(signatory)),
+          ArraySeq(SParty(signatory)),
         ),
         signatories = Set(signatory),
         observers = Set.empty,
@@ -431,7 +432,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] def evalUpdateApp(
       pkgs: CompiledPackages,
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       parties: Set[Party],
       readAs: Set[Party] = Set.empty,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = packageNameMap,
@@ -488,7 +489,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
              Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) { case Success(Right(_)) =>
@@ -513,7 +514,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create M:T { signatory = sig, observer = obs, precondition = False, key = M:toKey sig, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -531,7 +532,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             in ubind x : ContractId M:T <- create @M:T c
               in Test:create c
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
@@ -553,7 +554,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:keyNoMaintainers, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -578,7 +579,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(bob),
         )
         inside(res) {
@@ -612,7 +613,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) ->
             Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0 }
        """,
-          Array(
+          ArraySeq(
             SParty(alice),
             SParty(bob),
             SContractId(Value.ContractId.V1.assertFromString("00" * 32 + "0000")),
@@ -638,7 +639,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 100 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -664,7 +665,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
           in Test:create M:T { signatory = sig, observer = obs, precondition = True, key = key, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -692,7 +693,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
              Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) { case Success(Right(_)) =>
@@ -718,7 +719,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
              Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = False, key = M:toKey sig, nested = M:buildNested 0}
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -738,7 +739,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             in ubind x : ContractId M:Human <- create @M:Human c
               in Test:create_interface c
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.DuplicateContractKey(_)))) =>
@@ -760,7 +761,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:keyNoMaintainers, nested = M:buildNested 0}
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -785,7 +786,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(bob),
         )
         inside(res) {
@@ -819,7 +820,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) (cid : ContractId Unit) ->
             Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKeyWithCid sig cid, nested = M:buildNested 0}
        """,
-          Array(
+          ArraySeq(
             SParty(alice),
             SParty(bob),
             SContractId(Value.ContractId.V1.assertFromString("00" * 32 + "0000")),
@@ -845,7 +846,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           e"""\(sig : Party) (obs : Party) ->
             Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 100 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -871,7 +872,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           let key: M:TKey = M:TKey { maintainers = Cons @Party [sig] (Nil @Party), optCid = None @(ContractId Unit), nested = M:buildNested 100 }
           in Test:create_interface M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = key, nested = M:buildNested 0 }
        """,
-          Array(SParty(alice), SParty(bob)),
+          ArraySeq(SParty(alice), SParty(bob)),
           Set(alice),
         )
         inside(res) {
@@ -899,7 +900,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -926,7 +927,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -941,7 +942,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -988,7 +989,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
            in Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = PartialFunction.empty,
@@ -1021,7 +1022,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:T <- fetch_template @M:T cId in
            Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -1045,7 +1046,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind x: Unit <- exercise @M:T Archive cId () in
            Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -1062,7 +1063,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Dummy <- fetch_template @M:Dummy cId in
            Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -1080,7 +1081,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
            Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -1101,7 +1102,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(exercisingParty : Party) (cId: ContractId M:T) ->
            ubind x: M:T <- fetch_template @M:T cId
            in  Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -1145,7 +1146,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in
          Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -1171,7 +1172,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
@@ -1189,7 +1190,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -1209,7 +1210,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:exercise_by_id exercisingParty cId1 (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -1227,7 +1228,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               in
                 Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)
               """,
-            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -1266,7 +1267,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 0)""",
-          Array(SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SContractId(cId)),
           Set(alice),
           getContract = PartialFunction.empty,
         )
@@ -1280,7 +1281,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Left @Int64 @Int64 100)""",
-          Array(SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SContractId(cId)),
           Set(alice),
           getContract = getContract,
         )
@@ -1308,7 +1309,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (cId: ContractId M:T) -> Test:exercise_by_id exercisingParty cId (M:Either:Right @Int64 @Int64 100)""",
-          Array(SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SContractId(cId)),
           Set(alice),
           getContract = getContract,
         )
@@ -1342,7 +1343,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -1372,7 +1373,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getWronglyTypedContract,
             getKey = getKey,
@@ -1388,7 +1389,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SParty(alice)),
+            ArraySeq(SParty(charlie), SParty(alice)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -1441,7 +1442,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:T <- fetch_template @M:T cId in
            Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -1467,7 +1468,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind x: Unit <- exercise @M:T Archive cId () in
            Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -1486,7 +1487,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Dummy <- fetch_template @M:Dummy cId in
            Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
            """,
-            Array(SParty(alice), SContractId(cId), SParty(alice)),
+            ArraySeq(SParty(alice), SContractId(cId), SParty(alice)),
             Set(alice),
             getContract = getWronglyTypedContract,
             getKey = getKey,
@@ -1504,7 +1505,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(exercisingParty : Party) (cId: ContractId M:T) (sig: Party) ->
            ubind x: M:T <- fetch_template @M:T cId
            in Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-            Array(SParty(charlie), SContractId(cId), SParty(alice)),
+            ArraySeq(SParty(charlie), SContractId(cId), SParty(alice)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -1551,7 +1552,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } in
          Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -1578,7 +1579,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
          """,
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(gKey)))) =>
@@ -1596,7 +1597,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               in
                 Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)
               """,
-            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
           )
 
@@ -1635,7 +1636,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Some @Party sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 0)""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
           getContract = PartialFunction.empty,
         )
@@ -1650,7 +1651,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Some @Party sig) Test:noCid 0 (M:Either:Left @Int64 @Int64 100)""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
           getContract = getContract,
           getKey = getKey,
@@ -1681,7 +1682,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty : Party) (sig: Party) -> Test:exercise_by_key exercisingParty (Test:someParty sig) Test:noCid 0 (M:Either:Right @Int64 @Int64 100)""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
           getContract = getContract,
           getKey = getKey,
@@ -1713,7 +1714,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(exercisingParty: Party) -> Test:exercise_by_key exercisingParty Test:noParty Test:noCid 0 (M:Either:Right @Int64 @Int64 100)""",
-          Array(SParty(alice)),
+          ArraySeq(SParty(alice)),
           Set(alice),
         )
         inside(res) {
@@ -1730,7 +1731,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           pkgs,
           e"""\(exercisingParty: Party) (sig: Party) (cId: ContractId M:T) ->
              Test:exercise_by_key exercisingParty (Test:someParty sig) (Test:someCid cId) 0 (M:Either:Right @Int64 @Int64 100)""",
-          Array(SParty(alice), SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
@@ -1754,7 +1755,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty: Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getIfaceContract,
             )
@@ -1781,7 +1782,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             val (res, msgs) = evalUpdateApp(
               pkgs,
               e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getWronglyTypedContract,
               getKey = getKey,
@@ -1800,7 +1801,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               pkgs = pkgs,
               e =
                 e"""\(exercisingParty : Party) (cId: ContractId M:Human) -> Test:$testCase exercisingParty cId""",
-              args = Array(SParty(charlie), SContractId(cId)),
+              args = ArraySeq(SParty(charlie), SContractId(cId)),
               parties = Set(charlie),
               readAs = Set(alice),
               getContract = getIfaceContract,
@@ -1851,7 +1852,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Human <- fetch_template @M:Human cId in
            Test:$testCase exercisingParty cId
            """,
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getIfaceContract,
             )
@@ -1875,7 +1876,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind x: Unit <- exercise @M:Human Archive cId () in
            Test:$testCase exercisingParty cId
          """,
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getIfaceContract,
             )
@@ -1893,7 +1894,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Dummy <- fetch_template @M:Dummy cId in
            Test:$testCase exercisingParty cId
            """,
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getWronglyTypedContract,
             )
@@ -1917,7 +1918,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Dummy <- exercise @M:Dummy Archive cId () in
            Test:$testCase exercisingParty cId
            """,
-              Array(SParty(alice), SContractId(cId)),
+              ArraySeq(SParty(alice), SContractId(cId)),
               Set(alice),
               getContract = getWronglyTypedContract,
             )
@@ -1934,7 +1935,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               e"""\(exercisingParty : Party) (cId: ContractId M:Human) ->
            ubind x: M:Human <- fetch_template @M:Human cId
            in  Test:$testCase exercisingParty cId""",
-              Array(SParty(bob), SContractId(cId)),
+              ArraySeq(SParty(bob), SContractId(cId)),
               Set(bob),
               getContract = getIfaceContract,
             )
@@ -1978,7 +1979,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, obs = exercisingParty, ctrl = exercisingParty, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
          Test:$testCase exercisingParty cId
          """,
-              Array(SParty(alice)),
+              ArraySeq(SParty(alice)),
               Set(alice),
             )
             inside(res) { case Success(Right(_)) =>
@@ -2003,7 +2004,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
          Test:$testCase exercisingParty cId
          """,
-              Array(SParty(alice)),
+              ArraySeq(SParty(alice)),
               Set(alice),
             )
             inside(res) {
@@ -2022,7 +2023,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:$testCase exercisingParty cId1
          """,
-              Array(SParty(alice)),
+              ArraySeq(SParty(alice)),
               Set(alice),
             )
             inside(res) {
@@ -2048,7 +2049,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in
            Test:$testCase exercisingParty cId1
          """,
-              Array(SParty(alice)),
+              ArraySeq(SParty(alice)),
               Set(alice),
             )
             inside(res) {
@@ -2065,7 +2066,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               ubind cId: ContractId M:Human <- create @M:Human M:Human {person = exercisingParty, obs = other, ctrl = other, precond = True, key = M:toKey exercisingParty, nested = M:buildNested 0} in
                 Test:$testCase exercisingParty cId
               """,
-              Array(SParty(alice), SParty(bob)),
+              ArraySeq(SParty(alice), SParty(bob)),
               Set(alice),
             )
 
@@ -2109,7 +2110,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_by_id""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -2132,7 +2133,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_by_id""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2147,7 +2148,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_by_id""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -2185,7 +2186,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x : Option (ContractId M:T) <- lookup_by_key @M:T (M:toKey maintainer)
            in Test:fetch_by_id fetchingParty cId
            """,
-            Array(SParty(alice), SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = PartialFunction.empty,
@@ -2215,7 +2216,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:T <- fetch_template @M:T cId in
            Test:fetch_by_id fetchingParty cId
            """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -2231,7 +2232,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:T)  ->
          ubind x: Unit <- exercise @M:T Archive cId ()
          in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
           )
@@ -2247,7 +2248,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
            ubind x: M:Dummy <- fetch_template @M:Dummy cId
            in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2264,7 +2265,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
            ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
            in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2285,7 +2286,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:T) ->
            ubind x: M:T <- fetch_template @M:T cId
            in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -2317,7 +2318,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
          ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
          in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -2334,7 +2335,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 } ;
            x: Unit <- exercise @M:T Archive cId ()
          in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractNotActive(_, T, _)))) =>
@@ -2350,7 +2351,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
          in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
          in Test:fetch_by_id fetchingParty cId2""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -2368,7 +2369,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
          in let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
          in Test:fetch_by_id fetchingParty cId2""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -2384,7 +2385,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
               ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
               in Test:fetch_by_id fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
             getContract = getContract,
           )
@@ -2416,7 +2417,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig : Party) (fetchingParty: Party) (cId1: ContractId M:Dummy) ->
          let cId2: ContractId M:T = COERCE_CONTRACT_ID @M:Dummy @M:T cId1
          in Test:fetch_by_id fetchingParty cId2""",
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
             disclosedContracts = List(buildDisclosedContract(alice)),
           )
@@ -2433,7 +2434,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(fetchingParty: Party) (cId: ContractId M:T) -> Test:fetch_by_id fetchingParty cId""",
-          Array(SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SContractId(cId)),
           Set(alice),
           getContract = PartialFunction.empty,
         )
@@ -2452,7 +2453,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -2478,7 +2479,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getWronglyTypedContract,
             getKey = getKey,
@@ -2500,7 +2501,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             pkgs = pkgs,
             e =
               e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            args = Array(SParty(charlie), SParty(alice)),
+            args = ArraySeq(SParty(charlie), SParty(alice)),
             parties = Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -2542,7 +2543,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->
              ubind x: M:T <- fetch_template @M:T cId
              in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -2560,7 +2561,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(cId: ContractId M:T) (fetchingParty: Party) (sig: Party) ->
          ubind x: Unit <- exercise @M:T Archive cId ()
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SContractId(cId), SParty(alice), SParty(alice)),
+            ArraySeq(SContractId(cId), SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -2578,7 +2579,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty:Party) (sig: Party) (cId: ContractId M:T) ->
            ubind x: M:T <- fetch_template @M:T cId
            in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(charlie), SParty(alice), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -2611,7 +2612,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind
            cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -2628,7 +2629,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
            x: Unit <- exercise @M:T Archive cId ()
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Left(SErrorDamlException(IE.ContractKeyNotFound(key)))) =>
@@ -2644,7 +2645,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e = e"""\(helperCId: ContractId Test:Helper) (sig : Party) (fetchingParty: Party) ->
          ubind x: ContractId M:T <- exercise @Test:Helper CreateNonvisibleKey helperCId ()
          in Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 0""",
-            args = Array(SContractId(helperCId), SParty(alice), SParty(charlie)),
+            args = ArraySeq(SContractId(helperCId), SParty(alice), SParty(charlie)),
             parties = Set(charlie),
             readAs = Set(alice),
             getContract = getHelper,
@@ -2672,7 +2673,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(fetchingParty:Party) (sig: Party) -> Test:fetch_by_key fetchingParty (Some @Party sig) (None @(ContractId Unit)) 0""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
           getContract = getContract,
           getKey = PartialFunction.empty,
@@ -2688,7 +2689,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(fetchingParty: Party) -> Test:fetch_by_key fetchingParty Test:noParty Test:noCid 0""",
-          Array(SParty(alice)),
+          ArraySeq(SParty(alice)),
           Set(alice),
         )
         inside(res) {
@@ -2705,7 +2706,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           pkgs,
           e"""\(fetchingParty: Party) (sig: Party) (cId: ContractId M:T) ->
              Test:fetch_by_key fetchingParty (Test:someParty sig) (Test:someCid cId) 0""",
-          Array(SParty(alice), SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
@@ -2718,7 +2719,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(sig : Party) (fetchingParty: Party) -> Test:fetch_by_key fetchingParty (Test:someParty sig) Test:noCid 100""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
         )
         inside(res) {
@@ -2739,7 +2740,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_interface""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getIfaceContract,
           )
@@ -2762,7 +2763,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_interface""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2781,7 +2782,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""Test:fetch_interface""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getIfaceContract,
           )
@@ -2822,7 +2823,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            ubind x: M:Person <- fetch_interface @M:Person cId in
            Test:fetch_interface fetchingParty cId
            """,
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getIfaceContract,
           )
@@ -2838,7 +2839,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:Person)  ->
          ubind x: Unit <- exercise @M:Human Archive cId ()
          in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getIfaceContract,
           )
@@ -2855,7 +2856,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
            ubind x: M:Dummy <- fetch_template @M:Dummy cId
            in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2876,7 +2877,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:Human) ->
            ubind x: M:Dummy <- exercise @M:Dummy Archive cId ()
            in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getWronglyTypedContract,
           )
@@ -2893,7 +2894,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(fetchingParty: Party) (cId: ContractId M:Person) ->
            ubind x: M:Person <- fetch_interface @M:Person cId
            in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(charlie), SContractId(cId)),
+            ArraySeq(SParty(charlie), SContractId(cId)),
             Set(alice, charlie),
             getContract = getIfaceContract,
           )
@@ -2925,7 +2926,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
          ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
          in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -2941,7 +2942,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
          in ubind x: Unit <- exercise @M:Human Archive cId ()
          in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -2958,7 +2959,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind cId1: ContractId M:Dummy <- create @M:Dummy M:Dummy { signatory = sig }
          in let cId2: ContractId M:Human = COERCE_CONTRACT_ID @M:Dummy @M:Human cId1
          in Test:fetch_interface fetchingParty cId2""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -2979,7 +2980,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          in ubind x: Unit <- exercise @M:Dummy Archive cId1 ()
          in let cId2: ContractId M:Human = COERCE_CONTRACT_ID @M:Dummy @M:Human cId1
          in Test:fetch_interface fetchingParty cId2""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
           )
           inside(res) {
@@ -2995,7 +2996,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig: Party) (obs : Party) (fetchingParty: Party) ->
               ubind cId: ContractId M:Human <- create @M:Human M:Human { person = sig, obs = obs, ctrl = sig, precond = True, key = M:toKey sig, nested = M:buildNested 0}
               in Test:fetch_interface fetchingParty cId""",
-            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
             getContract = getIfaceContract,
           )
@@ -3023,7 +3024,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(fetchingParty: Party) (cId: ContractId M:Person) -> Test:fetch_interface fetchingParty cId""",
-          Array(SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SContractId(cId)),
           Set(alice),
           getContract = PartialFunction.empty,
         )
@@ -3043,7 +3044,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -3069,7 +3070,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice)),
+            ArraySeq(SParty(charlie), SParty(alice)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -3111,7 +3112,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
              ubind x: M:T <- fetch_template @M:T cId
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -3129,7 +3130,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(cId: ContractId M:T) (lookingParty: Party) (sig: Party) ->
          ubind x: Unit <- exercise @M:T Archive cId ()
          in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SContractId(cId), SParty(alice), SParty(alice)),
+            ArraySeq(SContractId(cId), SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = getKey,
@@ -3146,7 +3147,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(lookingParty:Party) (sig: Party) (cId: ContractId M:T) ->
            ubind x: M:T <- fetch_template @M:T cId
            in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(charlie), SParty(alice), SContractId(cId)),
+            ArraySeq(SParty(charlie), SParty(alice), SContractId(cId)),
             Set(alice, charlie),
             getContract = getContract,
             getKey = getKey,
@@ -3179,7 +3180,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
          ubind
            cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
          in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -3196,7 +3197,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
            cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 };
            x: Unit <- exercise @M:T Archive cId ()
          in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(bob), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(alice)),
             Set(alice),
           )
           inside(res) { case Success(Right(_)) =>
@@ -3211,7 +3212,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
             e"""\(sig: Party) (obs : Party) (lookingParty: Party) ->
               ubind cId: ContractId M:T <- create @M:T M:T { signatory = sig, observer = obs, precondition = True, key = M:toKey sig, nested = M:buildNested 0 }
              in Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 0""",
-            Array(SParty(alice), SParty(bob), SParty(charlie)),
+            ArraySeq(SParty(alice), SParty(bob), SParty(charlie)),
             Set(alice, charlie),
           )
 
@@ -3239,7 +3240,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           val (res, msgs) = evalUpdateApp(
             pkgs,
             e"""\(lookingParty:Party) (sig: Party) -> Test:lookup_by_key lookingParty (Some @Party sig) None @(ContractId Unit) 0""",
-            Array(SParty(alice), SParty(alice)),
+            ArraySeq(SParty(alice), SParty(alice)),
             Set(alice),
             getContract = getContract,
             getKey = PartialFunction.empty,
@@ -3255,7 +3256,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(lookingParty: Party) -> Test:lookup_by_key lookingParty Test:noParty Test:noCid 0""",
-          Array(SParty(alice)),
+          ArraySeq(SParty(alice)),
           Set(alice),
         )
         inside(res) {
@@ -3272,7 +3273,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           pkgs,
           e"""\(lookingParty: Party) (sig: Party) (cId: ContractId M:T) ->
              Test:lookup_by_key lookingParty (Test:someParty sig) (Test:someCid cId) 0""",
-          Array(SParty(alice), SParty(alice), SContractId(cId)),
+          ArraySeq(SParty(alice), SParty(alice), SContractId(cId)),
           Set(alice),
         )
         inside(res) { case Success(Left(SErrorDamlException(IE.ContractIdInContractKey(_)))) =>
@@ -3285,7 +3286,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
         val (res, msgs) = evalUpdateApp(
           pkgs,
           e"""\(sig : Party) (lookingParty: Party) -> Test:lookup_by_key lookingParty (Test:someParty sig) Test:noCid 100""",
-          Array(SParty(alice), SParty(alice)),
+          ArraySeq(SParty(alice), SParty(alice)),
           Set(alice),
         )
         inside(res) {

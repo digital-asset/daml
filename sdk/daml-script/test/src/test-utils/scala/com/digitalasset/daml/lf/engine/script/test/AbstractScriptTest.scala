@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Suite
 
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.{ExecutionContext, Future}
 
 // Fixture for a set of participants used in Daml Script tests
@@ -33,7 +34,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
     SValue.SRecord(
       id = StablePackages(majorLanguageVersion).Tuple2,
       fields = ImmArray(Ref.Name.assertFromString("_1"), Ref.Name.assertFromString("_2")),
-      values = Array(a, b),
+      values = ArraySeq(a, b),
     )
 
   // TODO(https://github.com/digital-asset/daml/issues/18457): delete once test cases using keys

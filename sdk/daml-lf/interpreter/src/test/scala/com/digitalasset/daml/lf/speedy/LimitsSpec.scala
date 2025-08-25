@@ -20,6 +20,8 @@ import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
+import scala.collection.immutable.ArraySeq
+
 class LimitsSpecV2 extends LimitsSpec(LanguageMajorVersion.V2)
 
 class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
@@ -86,7 +88,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
       machine = Speedy.Machine.fromUpdateSExpr(
         compiledPackages = pkgs,
         transactionSeed = txSeed,
-        updateSE = SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.toArray),
+        updateSE = SExpr.SEApp(pkgs.compiler.unsafeCompile(e), agrs.view.to(ArraySeq)),
         committers = committers,
         limits = limits,
       ),

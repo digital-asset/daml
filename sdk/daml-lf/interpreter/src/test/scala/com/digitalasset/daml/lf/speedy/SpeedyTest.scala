@@ -25,6 +25,8 @@ import com.daml.logging.ContextualizedLogger
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 
+import scala.collection.immutable.ArraySeq
+
 class SpeedyTestV2 extends SpeedyTest(LanguageMajorVersion.V2)
 
 class SpeedyTest(majorLanguageVersion: LanguageMajorVersion)
@@ -165,7 +167,7 @@ module M {
           Some(
             SStruct(
               Struct.assertFromNameSeq(List(n"x1", n"x2")),
-              Array(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
+              ArraySeq(SInt64(7), SList(FrontStack(SInt64(11), SInt64(13)))),
             )
           )
         )
@@ -204,7 +206,7 @@ module M {
     "succeed on record type without parameters" in {
       evalApp(
         e"""\ (p: Party) -> to_any @Test:T1 (Test:T1 {party = p})""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual
         Right(
@@ -213,7 +215,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
               ImmArray(Name.assertFromString("party")),
-              Array(SParty(Party.assertFromString("Alice"))),
+              ArraySeq(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
@@ -222,7 +224,7 @@ module M {
     "succeed on record type with parameters" in {
       evalApp(
         e"""\ (p : Party) -> to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p})""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual
         Right(
@@ -234,13 +236,13 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              Array(SParty(Party.assertFromString("Alice"))),
+              ArraySeq(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
       evalApp(
         e"""\ (p : Party) -> to_any @(Test:T3 Text) (Test:T3 @Text {party = p})""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual
         Right(
@@ -252,7 +254,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              Array(SParty(Party.assertFromString("Alice"))),
+              ArraySeq(SParty(Party.assertFromString("Alice"))),
             ),
           )
         )
@@ -267,7 +269,7 @@ module M {
     "return Some(tpl) if template type matches" in {
       evalApp(
         e"""\(p : Party) -> from_any @Test:T1 (to_any @Test:T1 (Test:T1 {party = p}))""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual
         Right(
@@ -276,7 +278,7 @@ module M {
               SRecord(
                 Identifier(pkgId, QualifiedName.assertFromString("Test:T1")),
                 ImmArray(Name.assertFromString("party")),
-                Array(SParty(Party.assertFromString("Alice"))),
+                ArraySeq(SParty(Party.assertFromString("Alice"))),
               )
             )
           )
@@ -286,7 +288,7 @@ module M {
     "return None if template type does not match" in {
       evalApp(
         e"""\(p : Party) -> from_any @Test:T2 (to_any @Test:T1 (Test:T1 {party = p}))""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual Right(
         SOptional(None)
@@ -296,7 +298,7 @@ module M {
     "return Some(v) if type parameter is the same" in {
       evalApp(
         e"""\(p : Alice) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Int64) (Test:T3 @Int64 {party = p}))""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual Right(
         SOptional(
@@ -304,7 +306,7 @@ module M {
             SRecord(
               Identifier(pkgId, QualifiedName.assertFromString("Test:T3")),
               ImmArray(Name.assertFromString("party")),
-              Array(SParty(Party.assertFromString("Alice"))),
+              ArraySeq(SParty(Party.assertFromString("Alice"))),
             )
           )
         )
@@ -314,7 +316,7 @@ module M {
     "return None if type parameter is different" in {
       evalApp(
         e"""\ (p : Party) -> from_any @(Test:T3 Int64) (to_any @(Test:T3 Text) (Test:T3 @Int64 {party = p}))""",
-        Array(alice),
+        ArraySeq(alice),
         anyPkgs,
       ) shouldEqual Right(SOptional(None))
     }
@@ -343,7 +345,7 @@ module M {
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
                 SBRecUpd(qualify("M:Point"), 0),
-                Array(SELocS(1), SEValue(SInt64(1))),
+                ArraySeq(SELocS(1), SEValue(SInt64(1))),
               ),
             )
           )
@@ -357,7 +359,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            Array(SInt64(1), SInt64(0)),
+            ArraySeq(SInt64(1), SInt64(0)),
           )
         )
     }
@@ -374,7 +376,7 @@ module M {
                   qualify("M:Point"),
                   List(0, 1),
                 ),
-                Array(
+                ArraySeq(
                   SELocS(1),
                   SEValue(SInt64(1)),
                   SEValue(SInt64(2)),
@@ -391,7 +393,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            Array(SInt64(1), SInt64(2)),
+            ArraySeq(SInt64(1), SInt64(2)),
           )
         )
     }
@@ -419,7 +421,7 @@ module M {
                     qualify("M:Point"),
                     List(0, 1),
                   ),
-                  Array(
+                  ArraySeq(
                     SELocS(1),
                     SEValue(SInt64(3)),
                     SEValue(SInt64(4)),
@@ -437,7 +439,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            Array(SInt64(3), SInt64(4)),
+            ArraySeq(SInt64(3), SInt64(4)),
           )
         )
     }
@@ -448,11 +450,11 @@ module M {
           SELet1General(
             SEVal(LfDefRef(qualify("M:f"))),
             SELet1General(
-              SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(4)))),
+              SEAppAtomicGeneral(SELocS(1), ArraySeq(SEValue(SInt64(4)))),
               SELet1General(
                 SEVal(LfDefRef(qualify("M:f"))),
                 SELet1General(
-                  SEAppAtomicGeneral(SELocS(1), Array(SEValue(SInt64(3)))),
+                  SEAppAtomicGeneral(SELocS(1), ArraySeq(SEValue(SInt64(3)))),
                   SELet1General(
                     SEVal(LfDefRef(qualify("M:origin"))),
                     SEAppAtomicSaturatedBuiltin(
@@ -460,7 +462,7 @@ module M {
                         qualify("M:Point"),
                         List(0, 1),
                       ),
-                      Array(SELocS(1), SELocS(2), SELocS(4)),
+                      ArraySeq(SELocS(1), SELocS(2), SELocS(4)),
                     ),
                   ),
                 ),
@@ -478,7 +480,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            Array(SInt64(6), SInt64(8)),
+            ArraySeq(SInt64(6), SInt64(8)),
           )
         )
     }
@@ -494,7 +496,7 @@ module M {
                   qualify("M:Point"),
                   List(0, 1, 0),
                 ),
-                Array(
+                ArraySeq(
                   SELocS(1),
                   SEValue(SInt64(1)),
                   SEValue(SInt64(2)),
@@ -512,7 +514,7 @@ module M {
           SRecord(
             qualify("M:Point"),
             ImmArray(n"x", n"y"),
-            Array(SInt64(3), SInt64(2)),
+            ArraySeq(SInt64(3), SInt64(2)),
           )
         )
     }
@@ -534,7 +536,7 @@ object SpeedyTest {
 
   def evalApp(
       e: Expr,
-      args: Array[SValue],
+      args: ArraySeq[SValue],
       packages: PureCompiledPackages,
   ): Either[SError, SValue] = {
     val se = packages.compiler.unsafeCompile(e)

@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.speedy.{SExpr => t}
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
+import scala.collection.immutable.ArraySeq
 
 /** Initial Conversion (Phase of the speedy compiler pipeline)
   *
@@ -547,7 +548,7 @@ private[lf] final class PhaseOne(
     tapp match {
       case TypeConApp(tycon, _) =>
         if (fields.isEmpty)
-          Return(SEValue(SRecord(tycon, ImmArray.Empty, Array.empty)))
+          Return(SEValue(SRecord(tycon, ImmArray.Empty, ArraySeq.empty)))
         else {
           val exps = fields.toList.map(_._2)
           compileExps(env, exps) { exps =>
