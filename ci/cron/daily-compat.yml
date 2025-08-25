@@ -168,6 +168,8 @@ jobs:
                                        --org "https://dev.azure.com/digitalasset" \
                                        --project daml
           fi
+        env:
+          AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
 
   - job: update_canton
     condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
