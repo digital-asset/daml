@@ -6,8 +6,8 @@ package interpretation
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConId}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -230,6 +230,28 @@ object Error {
         accepted: List[TypeConId],
         actual: TypeConId,
     ) extends Error
+
+    final case class TranslationError(error: TranslationError.Error) extends Error
+
+    object TranslationError {
+      sealed abstract class Error
+          extends RuntimeException
+          with scala.util.control.NoStackTrace
+          with Serializable
+          with Product
+
+      final case class LookupError(lookupError: com.digitalasset.daml.lf.language.LookupError)
+          extends Error
+
+      final case class TypeMismatch(expectedType: Ast.Type, actualValue: Value, message: String)
+          extends Error
+
+      final case class ValueNesting(value: Value) extends Error
+
+      final case class NonSuffixedV1ContractId(cid: Value.ContractId.V1) extends Error
+
+      final case class NonSuffixedV2ContractId(cid: Value.ContractId.V2) extends Error
+    }
 
     final case class Limit(error: Limit.Error) extends Error
 

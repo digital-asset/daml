@@ -67,7 +67,7 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
         dar.compiledPackages.pkgInterface,
         false,
       )
-        .strictTranslateValue(typ, input)
+        .translateValue(typ, input)
         .left
         .map(_.message)
     Runner

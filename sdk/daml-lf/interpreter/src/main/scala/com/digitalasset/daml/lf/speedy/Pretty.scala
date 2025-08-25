@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
 import com.digitalasset.daml.lf.script.IdeLedger.{Disclosure, TransactionId}
 import com.digitalasset.daml.lf.script._
 import com.digitalasset.daml.lf.transaction.{
@@ -254,6 +255,17 @@ private[lf] object Pretty {
               ) & prettyTypeConId(
                 actual
               )
+          case Dev.TranslationError(translationError) =>
+            translationError match {
+              case TranslationError.LookupError(lookupError) => text(lookupError.pretty)
+              case TranslationError.TypeMismatch(_, _, message) => text(message)
+              case TranslationError.ValueNesting(_) =>
+                text(s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}")
+              case TranslationError.NonSuffixedV1ContractId(_) =>
+                text("non-suffixed V1 Contract IDs are forbidden")
+              case TranslationError.NonSuffixedV2ContractId(_) =>
+                text("non-suffixed V2 Contract IDs are forbidden")
+            }
         }
     }
   }

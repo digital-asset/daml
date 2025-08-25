@@ -258,7 +258,7 @@ private[lf] object IdeLedgerRunner {
         requireContractIdSuffix = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-      valueTranslator.strictTranslateValue(typ, value) match {
+      valueTranslator.translateValue(typ, value) match {
         case Left(err) => ResultError(err)
         case Right(sv) => ResultDone(sv)
       }

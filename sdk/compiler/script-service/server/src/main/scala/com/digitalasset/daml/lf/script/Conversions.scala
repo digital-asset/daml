@@ -6,16 +6,10 @@ package script
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Ref}
 import com.digitalasset.daml.lf.language.Ast.{FailureCategory, PackageMetadata}
-import com.digitalasset.daml.lf.script.api.{v1 => proto}
-import com.digitalasset.daml.lf.speedy.{SError, SValue, TraceLog, Warning, WarningLog}
-import com.digitalasset.daml.lf.transaction.{
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-}
 import com.digitalasset.daml.lf.ledger._
+import com.digitalasset.daml.lf.script.api.{v1 => proto}
+import com.digitalasset.daml.lf.speedy._
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.jdk.CollectionConverters._
@@ -278,6 +272,9 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
+                  // TODO(https://github.com/digital-asset/daml/issues/21667): handle translation errors properly
+                  case Dev.TranslationError(translationError) =>
+                    builder.setCrash(s"translation error: ${translationError}")
                 }
               case _: Upgrade =>
                 builder.setUpgradeError(
