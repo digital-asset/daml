@@ -183,7 +183,7 @@ findPackageResolutionData path (ResolutionData packages) =
     Nothing -> Left $ ResolutionError $ "Failed to find DPM package resolution for " <> path <> ". This should never happen, contact support."
 
 resolutionFileEnvVar :: String
-resolutionFileEnvVar = "UNIFI_ASSISTANT_RESOLUTION_FILE"
+resolutionFileEnvVar = "DPM_RESOLUTION_FILE"
 
 getResolutionData :: IO (Maybe ResolutionData)
 getResolutionData = do
@@ -228,13 +228,34 @@ instance Aeson.FromJSON PackageResolutionData where
     mErrors <- obj .:? "errors"
     case mErrors of
       Just errs -> pure $ ErrorPackageResolutionData errs
-      Nothing ->
-        fmap ValidPackageResolutionData $ ValidPackageResolution
-          <$> obj .:? "components" .!= mempty
-          <*> obj .:? "imports" .!= mempty
+      Nothing -> fmap ValidPackageResolutionData $ Aeson.parseJSON $ Aeson.Object obj
+
+instance Aeson.FromJSON ValidPackageResolution where
+  parseJSON = Aeson.withObject "ValidPackageResolution" $ \obj ->
+    ValidPackageResolution
+      <$> obj .:? "components" .!= mempty
+      <*> obj .:? "imports" .!= mempty
 
 instance Aeson.FromJSON ErrorPackageResolution where
   parseJSON = Aeson.withObject "ErrorPackageResolution" $ \obj ->
     ErrorPackageResolution
       <$> obj .: "cause"
       <*> obj .: "code"
+
+instance Aeson.ToJSON ResolutionData where
+  toJSON (ResolutionData packages) =
+    Aeson.object ["packages" .= packages]
+
+instance Aeson.ToJSON PackageResolutionData where
+  toJSON (ErrorPackageResolutionData errs) =
+    Aeson.object ["errors" .= errs]
+  toJSON (ValidPackageResolutionData validResolutionData) =
+    Aeson.toJSON validResolutionData
+
+instance Aeson.ToJSON ValidPackageResolution where
+  toJSON (ValidPackageResolution components imports) =
+    Aeson.object ["components" .= components, "imports" .= imports]
+
+instance Aeson.ToJSON ErrorPackageResolution where
+  toJSON (ErrorPackageResolution cause code) =
+    Aeson.object ["cause" .= cause, "code" .= code]

@@ -129,13 +129,15 @@ package_app(
     visibility = ["//visibility:public"],
 )
 
-# When publishing for DPM, script service is part of a different component
+# When publishing for DPM, script service is part of a different component, extension is included
 package_app(
-    name = "damlc-dist-no-script-service",
+    name = "damlc-dist-dpm",
     binary = ":damlc",
     resources = [
         ":daml-base-anchors.json",
         ":ghc-pkg-dist",
+        "//compiler/daml-extension:vsix",
+        "//compiler/daml-extension:webview-stylesheet.css",
         "//compiler/damlc:ghcversion",
         "//compiler/damlc:hpp-dist",
         "//compiler/damlc/daml-ide-core:dlint.yaml",
@@ -152,7 +154,7 @@ package_oci_component(
     name = "damlc-oci",
     component_manifest = ":component.yaml",
     resources = [
-        ":damlc-dist-no-script-service",
+        ":damlc-dist-dpm",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],

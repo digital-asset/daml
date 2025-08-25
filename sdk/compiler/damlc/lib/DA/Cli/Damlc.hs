@@ -58,6 +58,7 @@ import DA.Cli.Options (Debug(..),
                        projectOpts,
                        render,
                        studioAutorunAllScriptsOpt,
+                       studioReplaceOpt,
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
 import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
@@ -96,6 +97,7 @@ import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Assistant.Util (wrapErr)
 import DA.Daml.Compiler.DocTest (docTest)
 import DA.Daml.Desugar (desugar)
+import DA.Daml.Helper.Studio (runDamlStudio)
 import DA.Daml.LF.ScriptServiceClient (readScriptServiceConfig, withScriptService')
 import DA.Daml.Compiler.Validate (validateDar)
 import qualified DA.Daml.LF.Ast as LF
@@ -307,6 +309,7 @@ data CommandName =
   | GenerateMultiPackageManifest
   | MultiIde
   | UpgradeCheck
+  | Studio
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
@@ -632,6 +635,17 @@ cmdGenerateMultiPackageManifest =
     cmd = execGenerateMultiPackageManifest
         <$> multiPackageLocationOpt
         <*> generateMultiPackageManifestOutputOpt
+
+cmdStudio :: Mod CommandFields Command
+cmdStudio =
+    command "studio" $
+    info (helper <*> cmd) $
+    progDesc "Launch Daml Studio" <> fullDesc
+  where
+    cmd = execDamlStudio
+        <$> studioReplaceOpt
+        <*> many (strArgument $ metavar "ARG")
+    execDamlStudio opts args = Command License Nothing $ runDamlStudio opts args
 
 --------------------------------------------------------------------------------
 -- Execution
@@ -1576,6 +1590,7 @@ options numProcessors =
       <> cmdValidateDar
       <> cmdDocTest numProcessors
       <> cmdLint numProcessors
+      <> cmdStudio
       )
     <|> subparser
       (internal -- internal commands
@@ -1759,6 +1774,7 @@ cmdUseDamlYamlArgs = \case
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
   UpgradeCheck -> False -- just reads the DARs it is given
+  Studio -> False
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

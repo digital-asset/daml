@@ -268,12 +268,18 @@ packageSummaryFromDamlYaml path = do
     releaseVersion <- except $ queryProjectConfigRequired ["sdk-version"] project
     -- Default error gives too much information, e.g. `Invalid SDK version  "2.8.e": Failed reading: takeWhile1`
     -- Just saying its invalid is enough
+
     unresolvedReleaseVersion <- except $ first (const $ ConfigFieldInvalid "project" ["sdk-version"] $ "Invalid Daml SDK version: " <> T.unpack releaseVersion) 
       $ parseUnresolvedVersion releaseVersion
+    
+    let usingLocalComponents =
+          either (const False) (any (Map.member "local-path")) $ queryProjectConfig @(Map.Map String (Map.Map String String)) ["override-components"] project
+    
     pure PackageSummary
       { psUnitId = UnitId $ name <> "-" <> version
       , psDeps = DarFile . toPosixFilePath <$> canonDeps
       , psReleaseVersion = unresolvedReleaseVersion
+      , psUsingLocalComponents = usingLocalComponents
       }
 
 -- LSP requires all requests are replied to. When we don't have a working IDE (say the daml.yaml is malformed), we need to reply
