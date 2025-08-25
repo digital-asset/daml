@@ -70,9 +70,10 @@ class SequencerBasedRegisterTopologyTransactionHandle(
         _ => {
           // request a tick for maxSequencing time, so that a node with no traffic
           // can still determine whether the topology broadcast timed out or not.
-          timeTracker.requestTick(maxSequencingTime)
-          sendCallback.future
-            .map {
+          val tickRequest = timeTracker.requestTick(maxSequencingTime)
+          sendCallback.future.map { result =>
+            tickRequest.cancel()
+            result match {
               case SendResult.Success(_) =>
                 TopologyTransactionsBroadcast.State.Accepted
               case notSequenced @ (_: SendResult.Timeout | _: SendResult.Error) =>
@@ -81,6 +82,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
                 )
                 TopologyTransactionsBroadcast.State.Failed
             }
+          }
         },
       )
       .merge

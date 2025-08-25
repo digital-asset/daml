@@ -193,6 +193,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId.unwrap.plusSeconds(300),
           requestId.unwrap.plusSeconds(600),
           topologySnapshot,
+          participantResponseDeadlineTick = None,
         )
         .futureValueUS
 
@@ -277,7 +278,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                   NonEmpty(List, (Set(alice), solo, testReject()))
                 )
               ),
-            )(TraceContext.empty)
+            )(TraceContext.empty, None)
           }
         }
 
@@ -336,7 +337,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                 requestId.unwrap.plusSeconds(600),
                 changeTs2,
                 Left(rejection),
-              )(TraceContext.empty)
+              )(TraceContext.empty, None)
             }
 
             describe("further rejection") {
@@ -431,7 +432,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId.unwrap.plusSeconds(600),
               changeTs,
               Left(MediatorApprove),
-            )(TraceContext.empty)
+            )(TraceContext.empty, None)
           }
 
           describe("further rejection") {
@@ -527,7 +528,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                 NonEmpty(List, (Set(alice), solo, localAbstain))
               )
             ),
-          )(TraceContext.empty)
+          )(TraceContext.empty, None)
         }
       }
     }
@@ -623,6 +624,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId.unwrap.plusSeconds(300),
           requestId.unwrap.plusSeconds(600),
           topologySnapshot,
+          participantResponseDeadlineTick = None,
         )
         .futureValueUS
       lazy val changeTs = requestId.unwrap.plusSeconds(1)
@@ -947,6 +949,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
           requestId.unwrap.plusSeconds(300),
           requestId.unwrap.plusSeconds(600),
           topologySnapshot,
+          participantResponseDeadlineTick = None,
         )
         .futureValueUS
 
@@ -1183,7 +1186,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                   NonEmpty(List, (Set(alice), two, testReject))
                 )
               ),
-            )(TraceContext.empty)
+            )(TraceContext.empty, None)
           }
         }
 
@@ -1287,7 +1290,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
                 requestId.unwrap.plusSeconds(600),
                 changeTs5,
                 Left(rejection),
-              )(TraceContext.empty)
+              )(TraceContext.empty, None)
             }
 
             describe("further rejection") {
@@ -1612,7 +1615,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
               requestId.unwrap.plusSeconds(600),
               changeTs2,
               Left(MediatorApprove),
-            )(TraceContext.empty)
+            )(TraceContext.empty, None)
           }
 
           describe("further rejection") {

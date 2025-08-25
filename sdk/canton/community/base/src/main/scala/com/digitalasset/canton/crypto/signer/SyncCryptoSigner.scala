@@ -26,7 +26,7 @@ import scala.concurrent.ExecutionContext
 /** Aggregates all methods related to protocol signing. These methods require a topology snapshot to
   * ensure the correct signing keys are used, based on the current state (i.e., OwnerToKeyMappings).
   */
-trait SyncCryptoSigner extends NamedLogging {
+trait SyncCryptoSigner extends NamedLogging with AutoCloseable {
 
   /** Signs a given hash using the currently active signing keys in the current topology state.
     */

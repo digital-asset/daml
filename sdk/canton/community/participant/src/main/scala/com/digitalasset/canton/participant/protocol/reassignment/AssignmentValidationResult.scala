@@ -34,7 +34,7 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import AssignmentValidationResult.*
 
-final case class AssignmentValidationResult(
+final case class AssignmentValidationResult private[reassignment] (
     rootHash: RootHash,
     contracts: ContractsReassignmentBatch,
     submitterMetadata: ReassignmentSubmitterMetadata,

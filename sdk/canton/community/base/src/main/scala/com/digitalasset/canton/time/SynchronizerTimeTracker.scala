@@ -8,8 +8,10 @@ import cats.syntax.foldable.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.{ProcessingTimeout, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -36,6 +38,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
 /** Provides a variety of methods for tracking time on the synchronizer.
@@ -60,7 +63,7 @@ import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
   * event at least once during the `minObservationDuration`.
   */
 class SynchronizerTimeTracker(
-    config: SynchronizerTimeTrackerConfig,
+    val config: SynchronizerTimeTrackerConfig,
     clock: Clock,
     timeRequestSubmitter: TimeProofRequestSubmitter,
     protected val timeouts: ProcessingTimeout,
@@ -70,12 +73,18 @@ class SynchronizerTimeTracker(
     with FlagCloseable
     with HasFlushFuture {
 
-  // timestamps that we are waiting to observe held in ascending order queue
-  // modifications to pendingTicks must be made while holding the `lock`
-  private val pendingTicks: PriorityBlockingQueue[Traced[AwaitingTick]] =
-    new PriorityBlockingQueue[Traced[AwaitingTick]](
+  /** Timestamps that we are waiting to observe held in ascending order. Queue access must be made
+    * while holding the [[lock]].
+    *
+    * Note: Timestamps in [[pendingTicks]] may be below [[latestTime]] even though [[requestTicks]]
+    * and [[awaitTick]] check for this prior to insertion. The issue is that [[latestTime]] may be
+    * bumped while the insertion into [[pendingTicks]] is running. This can lead to unnecessary time
+    * proof requests. We currently accept this limitation in favor of code simplicity.
+    */
+  private val pendingTicks: PriorityBlockingQueue[PendingTick] =
+    new PriorityBlockingQueue[PendingTick](
       PriorityBlockingQueueUtil.DefaultInitialCapacity,
-      Ordering[Traced[AwaitingTick]],
+      Ordering[PendingTick],
     )
 
   /** Ensures that changes to [[timestampRef]] and [[pendingTicks]] happen atomically */
@@ -126,8 +135,10 @@ class SynchronizerTimeTracker(
     fetch(freshnessBound, timeProofRef, requiresTimeProof = true)
 
   /** Register that we want to observe a synchronizer time. The tracker will attempt to make sure
-    * that we observe a sequenced event with this timestamp or greater. If "immediately" is
-    * configured and the clock is a SimClock, a new time proof will be fetched.
+    * that we observe a sequenced event with this timestamp or greater. For ticks below *
+    * [[latestTime]], observation has already happened and no further action is needed. If
+    * "immediately" is configured and the clock is a [[com.digitalasset.canton.time.SimClock]], a
+    * new time proof will be fetched.
     *
     * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus
     * the configured observation latency. If a greater value is provided a warning will be logged
@@ -135,12 +146,14 @@ class SynchronizerTimeTracker(
     */
   def requestTick(ts: CantonTimestamp, immediately: Boolean = false)(implicit
       traceContext: TraceContext
-  ): Unit =
-    requestTicks(Seq(Traced(ts)), immediately)
+  ): TickRequest =
+    checked(requestTicks(Seq(Traced(ts)), immediately).apply(0))
 
   /** Register that we want to observe synchronizer times. The tracker will attempt to make sure
-    * that we observe a sequenced event with the given timestamps or greater. If "immediately" is
-    * configured and the clock is a SimClock, a new time proof will be fetched.
+    * that we observe a sequenced event with the given timestamps or greater. For ticks below
+    * [[latestTime]], observation has already happened and no further action is needed. If
+    * "immediately" is configured and the clock is a [[com.digitalasset.canton.time.SimClock]], a
+    * new time proof will be fetched.
     *
     * The maximum timestamp that we support waiting for is [[data.CantonTimestamp.MaxValue]] minus
     * the configured observation latency. If a greater value is provided a warning will be logged
@@ -148,8 +161,8 @@ class SynchronizerTimeTracker(
     */
   def requestTicks(timestamps: Seq[Traced[CantonTimestamp]], immediately: Boolean = false)(implicit
       traceContext: TraceContext
-  ): Unit = {
-    val (toRequest, tooLarge) = timestamps.partition(_.value < maxPendingTick)
+  ): Seq[TickRequest] = {
+    val tooLarge = timestamps.filter(_.value >= maxPendingTick)
 
     NonEmpty.from(tooLarge).foreach { tooLarge =>
       val first = tooLarge.min1.value
@@ -159,14 +172,25 @@ class SynchronizerTimeTracker(
       )
     }
 
-    if (toRequest.nonEmpty) {
+    val theLatestTime = latestTime
+    // Ignore all requests that are not above the latest time we have observed and those that are too large.
+    val (ticksAboveBound, tickRequests) =
+      timestamps.foldLeft(Vector.empty[RequestingTick] -> Vector.empty[TickRequest]) {
+        case ((ticksAboveBound, tickRequests), tracedTick) =>
+          implicit val traceContext: TraceContext = tracedTick.traceContext
+          val tick = tracedTick.value
+          if (theLatestTime.forall(_ < tick) && tick < maxPendingTick) {
+            val requestingTick = new RequestingTick(tick)
+            (ticksAboveBound :+ requestingTick, tickRequests :+ requestingTick)
+          } else (ticksAboveBound, tickRequests :+ DummyTickRequest)
+      }
+    if (ticksAboveBound.nonEmpty) {
       withLock {
-        toRequest.foreach { tick =>
-          pendingTicks.put(tick.map(new AwaitingTick(_)))
-        }
+        ticksAboveBound.foreach(pendingTicks.put)
       }
       maybeScheduleUpdate(immediately)
     }
+    tickRequests
   }
 
   /** Waits for an event with a timestamp greater or equal to `ts` to be observed from the
@@ -175,7 +199,7 @@ class SynchronizerTimeTracker(
     */
   def awaitTick(
       ts: CantonTimestamp
-  )(implicit traceContext: TraceContext): Option[Future[CantonTimestamp]] = {
+  )(implicit traceContext: TraceContext): Option[Future[Unit]] = {
     val latest = timestampRef.get().latest
     if (latest.exists(_.value >= ts)) {
       logger.debug(s"No await time for $ts as we are already at $latest")
@@ -183,12 +207,12 @@ class SynchronizerTimeTracker(
     } else {
       logger.debug(s"Await time for $ts as we are at ${latest.map(_.value)} ")
       // wait for this timestamp to be observed
-      val promise = Promise[CantonTimestamp]()
+      val awaitingTick = new AwaitingTick(ts)
       withLock {
-        pendingTicks.put(Traced(new AwaitingTick(ts, promise.some)))
+        pendingTicks.put(awaitingTick)
       }
       maybeScheduleUpdate()
-      promise.future.some
+      awaitingTick.promise.future.some
     }
   }
 
@@ -262,10 +286,10 @@ class SynchronizerTimeTracker(
   @SuppressWarnings(Array("org.wartremover.warts.While"))
   private def removeTicks(ts: CantonTimestamp): Unit =
     // remove pending ticks up to and including this timestamp
-    while (Option(pendingTicks.peek()).exists(_.value.ts <= ts)) {
+    while (Option(pendingTicks.peek()).exists(_.desiredTimestamp <= ts)) {
       val removed = pendingTicks.poll()
       // complete any futures waiting for them
-      removed.value.complete()
+      removed.complete()
     }
 
   private def fetch[A](
@@ -302,7 +326,7 @@ class SynchronizerTimeTracker(
             // we use MinValue rather than Epoch so it will still be considered far before "now" when initially started
             // using the simclock.
             if (requiresTimeProof) timeRequestSubmitter.fetchTimeProof()
-            else pendingTicks.put(Traced(new AwaitingTick(CantonTimestamp.MinValue)))
+            else pendingTicks.put(new AwaitingTick(CantonTimestamp.MinValue))
             FutureUnlessShutdown(promise.future) -> !requiresTimeProof
         }
       }
@@ -312,8 +336,26 @@ class SynchronizerTimeTracker(
 
   /** When we expect to observe the earliest timestamp in local time. */
   @VisibleForTesting
-  private[time] def earliestExpectedObservationTime(): Option[Traced[CantonTimestamp]] =
-    Option(withLock(pendingTicks.peek())).map(_.map(_.ts.add(config.observationLatency.asJava)))
+  private[time] def earliestExpectedObservationTime(): Option[(Traced[CantonTimestamp], String)] =
+    firstUncancelledTick().map(tick =>
+      Traced(tick.desiredTimestamp.add(config.observationLatency.asJava))(
+        tick.traceContext
+      ) -> tick.creationStackTrace
+    )
+
+  private[this] def firstUncancelledTick(): Option[PendingTick] =
+    withLock {
+      @tailrec def go(): Option[PendingTick] =
+        Option(pendingTicks.peek()) match {
+          case firstO @ Some(first) =>
+            if (first.hasBeenCancelled) {
+              pendingTicks.poll().discard
+              go()
+            } else firstO
+          case None => None
+        }
+      go()
+    }
 
   /** Local time of when we'd like to see the next event produced. If we are waiting to observe a
     * timestamp, this value will be the greater (see note below) of:
@@ -335,27 +377,30 @@ class SynchronizerTimeTracker(
     *   - An event is received with sequencing time t2, with t1 < t2 < t3
     *   - Then, the max would lead to t3 which skips the request for a time proof
     */
-  private def nextScheduledCheck(): Option[Traced[CantonTimestamp]] =
+  private def nextScheduledCheck(): Option[(Traced[CantonTimestamp], String)] =
     // if we're not waiting for an event, then we don't need to see one
     // Only request an event if the time tracker has observed a time;
     // otherwise the submission may fail because the node does not have any signing keys registered
-    earliestExpectedObservationTime().flatMap { earliestExpectedObservationTime =>
-      val latest = timestampRef.get().latest
-      if (latest.isEmpty) {
-        logger.debug(
-          s"Not scheduling a next check at ${earliestExpectedObservationTime.value} because no timestamp has been observed from the synchronizer"
-        )(earliestExpectedObservationTime.traceContext)
-      }
+    earliestExpectedObservationTime().flatMap {
+      case (earliestExpectedObservationTime, initiatorStackTrace) =>
+        val latest = timestampRef.get().latest
+        if (latest.isEmpty) {
+          logger.debug(
+            s"Not scheduling a next check at ${earliestExpectedObservationTime.value} because no timestamp has been observed from the synchronizer"
+          )(earliestExpectedObservationTime.traceContext)
+        }
 
-      val timeFromReceivedEvent = latest.map(_.receivedAt.add(config.patienceDuration.asJava))
+        val timeFromReceivedEvent = latest.map(_.receivedAt.add(config.patienceDuration.asJava))
 
-      clock match {
-        case _: SimClock => latest.map(_ => earliestExpectedObservationTime)
-        case _ =>
-          timeFromReceivedEvent.map(received =>
-            earliestExpectedObservationTime.map(_.max(received))
-          )
-      }
+        clock match {
+          case _: SimClock =>
+            latest.map(_ => earliestExpectedObservationTime -> initiatorStackTrace)
+          case _ =>
+            timeFromReceivedEvent.map(received =>
+              earliestExpectedObservationTime.map(_.max(received))
+                -> initiatorStackTrace
+            )
+        }
     }
 
   /** we're unable to cancel an update once scheduled, so if we decide to schedule an earlier update
@@ -379,14 +424,22 @@ class SynchronizerTimeTracker(
       // The next call to update will complete the promise in `timestampRef.get().next`.
       timeRequestSubmitter.fetchTimeProof()(tc)
 
-    if (clock.isSimClock && immediately) updateNow(traceContext)
-    else {
-      nextScheduledCheck().foreach { updateBy =>
+    if (clock.isSimClock && immediately) {
+      if (PrintCallStackForExecutedTimeProofRequests) {
+        val callStack = callStackForExecutedTimeProofRequest()
+        logger.debug(s"Call stack for immediate time proof request:\n  $callStack")
+      }
+      updateNow(traceContext)
+    } else {
+      nextScheduledCheck().foreach { case (updateBy, initiatorStackTrace) =>
         // if we've already surpassed when we wanted to see a time, just ask for one
         // means that we're waiting on a timestamp and we're not receiving regular updates
         val now = clock.now
-        if (updateBy.value <= now) updateNow(updateBy.traceContext)
-        else {
+        if (updateBy.value <= now) {
+          if (PrintCallStackForExecutedTimeProofRequests)
+            logger.debug(s"Call stack for scheduled time proof request:\n  $initiatorStackTrace")
+          updateNow(updateBy.traceContext)
+        } else {
           def updateCondition(current: Option[CantonTimestamp]): Boolean = current match {
             case Some(ts) => ts <= now || updateBy.value < ts
             case None => true
@@ -470,31 +523,121 @@ class SynchronizerTimeTracker(
 
 object SynchronizerTimeTracker {
 
-  private class AwaitingTick(
-      val ts: CantonTimestamp,
-      promiseO: Option[Promise[CantonTimestamp]] = None,
-  ) {
-    def complete(): Unit = promiseO.foreach(_.trySuccess(ts))
+  /** Handle returned by [[SynchronizerTimeTracker.requestTick]] that allows the caller to cancel
+    * the request.
+    */
+  sealed trait TickRequest {
+    def cancel(): Unit
   }
-  private object AwaitingTick {
-    implicit val ordering: Ordering[AwaitingTick] = Ordering.by(_.ts)
+
+  case object DummyTickRequest extends SynchronizerTimeTracker.TickRequest {
+    override def cancel(): Unit = ()
+  }
+
+  /** A cell for storing [[TickRequest]]s. */
+  trait TickRequestCell {
+
+    /** Sets the cell content to the given [[TickRequest]]. If the cell already contains a tick
+      * request, then this one will be cancelled. Also cancelled the given [[TickRequest]] if the
+      * cell thinks that the tick is no longer needed.
+      */
+    def setRequest(tickRequest: TickRequest): Unit
+  }
+
+  class TickRequestTracker extends TickRequestCell {
+    import TickRequestTracker.*
+    private val tickRequestState: AtomicReference[TickRequestState] =
+      new AtomicReference[TickRequestState](TickRequestState.NotRequested)
+
+    override def setRequest(tickRequest: TickRequest): Unit = {
+      val previousState = tickRequestState.getAndUpdate {
+        case TickRequestState.NotNeededAnyMore =>
+          TickRequestState.NotNeededAnyMore
+        case _ => TickRequestState.Requested(tickRequest)
+      }
+      previousState match {
+        case TickRequestState.NotRequested =>
+        case TickRequestState.NotNeededAnyMore =>
+          // Immediately cancel the requested tick as it's not needed any more
+          tickRequest.cancel()
+        case TickRequestState.Requested(prior) => prior.cancel()
+      }
+    }
+
+    /** Cancels the current (if any) and all subsequent [[TickRequest]]s given to [[setRequest]] */
+    def cancel(): Unit = {
+      val previousState = tickRequestState.getAndSet(TickRequestState.NotNeededAnyMore)
+      previousState match {
+        case TickRequestState.Requested(requestedTick) => requestedTick.cancel()
+        case TickRequestState.NotRequested |
+            TickRequestState.NotNeededAnyMore => // nothing to cancel
+      }
+    }
+  }
+  object TickRequestTracker {
+    private sealed trait TickRequestState extends Product with Serializable
+    private object TickRequestState {
+      case object NotRequested extends TickRequestState
+      final case class Requested(
+          requestedTick: SynchronizerTimeTracker.TickRequest
+      ) extends TickRequestState
+      case object NotNeededAnyMore extends TickRequestState
+    }
+
+  }
+
+  private sealed trait PendingTick {
+    def desiredTimestamp: CantonTimestamp
+    def hasBeenCancelled: Boolean
+    def complete(): Unit
+    def traceContext: TraceContext
+
+    final val creationStackTrace: String = callStackForExecutedTimeProofRequest()
+  }
+  private object PendingTick {
+    implicit val ordering: Ordering[PendingTick] = Ordering.by(_.desiredTimestamp)
+  }
+
+  private final class RequestingTick(
+      override val desiredTimestamp: CantonTimestamp
+  )(implicit override val traceContext: TraceContext)
+      extends PendingTick
+      with TickRequest {
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    @volatile private var cancelled = false
+
+    override def cancel(): Unit =
+      cancelled = true
+
+    def hasBeenCancelled: Boolean = cancelled
+
+    override def complete(): Unit = ()
+  }
+
+  private final class AwaitingTick(override val desiredTimestamp: CantonTimestamp)(implicit
+      override val traceContext: TraceContext
+  ) extends PendingTick {
+    val promise: Promise[Unit] = Promise[Unit]()
+
+    def hasBeenCancelled: Boolean = false
+    def complete(): Unit = promise.trySuccess(()).discard
   }
 
   /** Keep track of a value, and when we received said value, measured on the participant's clock */
-  final case class Received[+A](value: A, receivedAt: CantonTimestamp)
+  private final case class Received[+A](value: A, receivedAt: CantonTimestamp)
 
   /** Keep track of the latest value received and a promise to complete when the next one arrives It
     * is not a case class so that equality is object identity (equality on promises is anyway object
     * identity).
     */
-  class LatestAndNext[A](
+  private final class LatestAndNext[A](
       val latest: Option[Received[A]],
       val next: Option[Promise[UnlessShutdown[A]]],
   ) {
     def withNextSet: LatestAndNext[A] =
       next.fold(LatestAndNext(latest, Promise[UnlessShutdown[A]]().some))(_ => this)
   }
-  object LatestAndNext {
+  private object LatestAndNext {
     def apply[A](
         latest: Option[Received[A]],
         next: Option[Promise[UnlessShutdown[A]]],
@@ -523,4 +666,21 @@ object SynchronizerTimeTracker {
       timeouts,
       loggerFactory,
     )
+
+  /** Controls whether we log the stack traces of all tick requests that lead to fetching a time
+    * proof. Use this only for debugging purposes to identify the reason for the time proof
+    * requests.
+    */
+  private val PrintCallStackForExecutedTimeProofRequests: Boolean = true
+
+  @inline
+  private def callStackForExecutedTimeProofRequest(): String =
+    if (PrintCallStackForExecutedTimeProofRequests) {
+      val callStack = Thread.currentThread().getStackTrace
+      callStack
+        // First entry is getStackTrace
+        .drop(1)
+        .dropWhile(_.getClassName.startsWith(classOf[SynchronizerTimeTracker].getName))
+        .mkString("\n  ")
+    } else ""
 }

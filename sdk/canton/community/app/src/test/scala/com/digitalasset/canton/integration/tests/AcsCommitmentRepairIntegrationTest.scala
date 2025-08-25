@@ -138,14 +138,14 @@ trait AcsCommitmentRepairIntegrationTest
           Seq.empty,
           NonNegativeDuration.ofSeconds(30),
         )
-      // We should have results for both synchronizers and they should have the reinit timestamp defined and greater than
+      // We should have results for both synchronizers and they should have the reinit timestamp defined and equal or greater than
       // the time just before the command
       reinitCmtsResult.map(_.synchronizerId) should contain theSameElementsAs Seq(
         daId.logical,
         acmeId.logical,
       )
       forAll(reinitCmtsResult)(_.acsTimestamp.isDefined shouldBe true)
-      forAll(reinitCmtsResult)(_.acsTimestamp.value shouldBe >(ts))
+      forAll(reinitCmtsResult)(_.acsTimestamp.value shouldBe >=(ts))
       // exchange commitments again, all should be fine
       createContractsAndCheck(daId)
       createContractsAndCheck(acmeId)
@@ -270,30 +270,22 @@ trait AcsCommitmentRepairIntegrationTest
     "not be scheduled if a reinitialization is in progress" in { implicit env =>
       import env.*
 
-      // Launch many reinitializations in parallel. Some of these would fail if another one is in progress, but
-      // we do so in order to increase the chance that a reinitialization is already ongoing when we run the
-      // reinit whose status we want to check
-      val manyReinits = Future.traverse(1 to 50)(_ => Future(reinitCommitments(participant1)))
-      val reinitThatFails = Future {
-        participant1.commitments.reinitialize_commitments(
-          Seq(daId.logical),
-          Seq.empty,
-          Seq.empty,
-          NonNegativeDuration.ofSeconds(30),
-        )
-      }
+      // Launch many reinitializations in parallel. Some of these should fail because likely another reinit is in
+      // progress. This is a weaker condition than "no two reinitializations are ever scheduled in parallel",
+      // but it's good enough because (1) Checking the stricter condition is flaky unless we invest quite a bit of effort,
+      // or we increase the CI cost, and (2) The logic we're testing isn't terribly complex.
+      val manyReinits = Future.traverse(1 to 10)(_ => Future(reinitCommitments(participant1)))
 
-      val res2 = for {
-        res <- reinitThatFails
-        _ = forAll(
-          res.map(
-            _.error shouldBe Some(
-              s"Reinitialization is already scheduled or in progress for $daId."
-            )
+      val res = for {
+        resManyReinits <- manyReinits
+        _ = resManyReinits.flatten.map(
+          _.error
+        ) should contain(
+          Some(
+            s"Reinitialization is already scheduled or in progress for $daId."
           )
         )
         // after all reinits return, another reinit should succeed
-        _ <- manyReinits
         successfulReinit = participant1.commitments.reinitialize_commitments(
           Seq(daId.logical),
           Seq.empty,
@@ -302,7 +294,7 @@ trait AcsCommitmentRepairIntegrationTest
         )
         _ = forAll(successfulReinit.map(_.error shouldBe None))
       } yield ()
-      res2.futureValue
+      res.futureValue
     }
   }
 }

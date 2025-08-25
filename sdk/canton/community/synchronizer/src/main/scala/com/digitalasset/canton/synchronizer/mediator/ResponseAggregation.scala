@@ -29,6 +29,7 @@ import com.digitalasset.canton.synchronizer.mediator.ResponseAggregation.{
   ConsortiumVotingState,
   ViewState,
 }
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -59,7 +60,10 @@ final case class ResponseAggregation[VKEY](
     decisionTime: CantonTimestamp,
     override val version: CantonTimestamp,
     state: Either[MediatorVerdict, Map[VKEY, ViewState]],
-)(val requestTraceContext: TraceContext)(implicit val viewKeyOps: ViewKey[VKEY])
+)(
+    val requestTraceContext: TraceContext,
+    val participantResponseDeadlineTick: Option[SynchronizerTimeTracker.TickRequest],
+)(implicit val viewKeyOps: ViewKey[VKEY])
     extends ResponseAggregator
     with PrettyPrinting {
 
@@ -329,7 +333,8 @@ final case class ResponseAggregation[VKEY](
       state: Either[MediatorVerdict, Map[VKEY, ViewState]] = state,
   ): ResponseAggregation[VKEY] =
     ResponseAggregation(requestId, request, timeout, decisionTime, version, state)(
-      requestTraceContext
+      requestTraceContext,
+      participantResponseDeadlineTick,
     )
 
   def withVersion(version: CantonTimestamp): ResponseAggregation[VKEY] =
@@ -508,6 +513,7 @@ object ResponseAggregation {
       timeout: CantonTimestamp,
       decisionTime: CantonTimestamp,
       topologySnapshot: TopologySnapshot,
+      participantResponseDeadlineTick: Option[SynchronizerTimeTracker.TickRequest],
   )(implicit
       requestTraceContext: TraceContext,
       ec: ExecutionContext,
@@ -525,7 +531,7 @@ object ResponseAggregation {
         decisionTime,
         requestId.unwrap,
         Right(initialState),
-      )(requestTraceContext = requestTraceContext)
+      )(requestTraceContext, participantResponseDeadlineTick)
     }
 
   private def mkInitialState[K](

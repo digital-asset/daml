@@ -471,7 +471,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              protocolVersion = testedProtocolVersion,
               pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
               store = store,
               timeouts = timeouts,
@@ -612,7 +611,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              testedProtocolVersion,
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
               timeouts,
@@ -657,7 +655,6 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              testedProtocolVersion,
               factory.syncCryptoClient.crypto.pureCrypto,
               store,
               timeouts,

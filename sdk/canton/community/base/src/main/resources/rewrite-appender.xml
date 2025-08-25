@@ -117,7 +117,7 @@
 
         <!-- KMS integration test might disable certificate verification -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>software.amazon.awssdk.http.nio.netty.internal.SslContextProvider</logger>
+            <logger>software.amazon.awssdk.http.nio.grpc.netty.shaded.io.netty.internal.SslContextProvider</logger>
             <maxLevel>INFO</maxLevel>
             <contains>SSL Certificate verification is disabled</contains>
             <testing>true</testing>

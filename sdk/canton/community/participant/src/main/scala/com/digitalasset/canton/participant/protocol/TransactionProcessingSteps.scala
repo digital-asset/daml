@@ -86,6 +86,7 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -107,6 +108,7 @@ import com.google.protobuf.ByteString
 import monocle.PLens
 
 import java.util.concurrent.ConcurrentHashMap
+import scala.None
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.*
@@ -147,7 +149,7 @@ class TransactionProcessingSteps(
   override type SubmissionSendError = TransactionProcessor.SubmissionErrors.SequencerRequest.Error
   override type PendingSubmissions = Unit
   override type PendingSubmissionId = Unit
-  override type PendingSubmissionData = Unit
+  override type PendingSubmissionData = None.type
 
   override type ParsedRequestType = ParsedTransactionRequest
 
@@ -175,6 +177,11 @@ class TransactionProcessingSteps(
       pendingSubmissions: Unit,
       pendingSubmissionId: Unit,
   ): Option[Nothing] = None
+
+  override def setDecisionTimeTickRequest(
+      pendingSubmissionData: None.type,
+      requestedTick: SynchronizerTimeTracker.TickRequest,
+  ): Unit = ()
 
   override def createSubmission(
       submissionParam: SubmissionParam,
@@ -207,7 +214,7 @@ class TransactionProcessingSteps(
       disclosedContracts,
     )
 
-    EitherT.rightT[FutureUnlessShutdown, TransactionSubmissionError]((tracked, ()))
+    EitherT.rightT[FutureUnlessShutdown, TransactionSubmissionError]((tracked, None))
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
@@ -512,7 +519,7 @@ class TransactionProcessingSteps(
 
   override def createSubmissionResult(
       deliver: Deliver[Envelope[?]],
-      unit: Unit,
+      pendingSubmissionData: None.type,
   ): TransactionSubmitted =
     TransactionSubmitted
 
@@ -781,6 +788,7 @@ class TransactionProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -1023,6 +1031,7 @@ class TransactionProcessingSteps(
             mediator,
             freshOwnTimelyTx,
             engineController,
+            decisionTimeTickRequest,
           )
         StorePendingDataAndSendResponseAndCreateTimeout(
           pendingTransaction,
@@ -1075,7 +1084,7 @@ class TransactionProcessingSteps(
 
   override def postProcessSubmissionRejectedCommand(
       error: TransactionError,
-      pendingSubmission: Unit,
+      pendingSubmission: None.type,
   )(implicit
       traceContext: TraceContext
   ): Unit = ()
@@ -1095,8 +1104,8 @@ class TransactionProcessingSteps(
       _locallyRejected,
       _engineController,
       _abortedF,
-    ) =
-      pendingTransaction
+      _decisionTimeTickRequest,
+    ) = pendingTransaction
     val submitterMetaO = transactionValidationResult.submitterMetadataO
     val completionInfoO =
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
@@ -1156,6 +1165,7 @@ class TransactionProcessingSteps(
       mediator: MediatorGroupRecipient,
       freshOwnTimelyTx: Boolean,
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): PendingTransaction = {
@@ -1170,7 +1180,7 @@ class TransactionProcessingSteps(
       case _ => EngineAbortStatus.notAborted
     }
 
-    validation.PendingTransaction(
+    PendingTransaction(
       freshOwnTimelyTx,
       id.unwrap,
       rc,
@@ -1180,6 +1190,7 @@ class TransactionProcessingSteps(
       locallyRejectedF,
       engineController.abort,
       engineAbortStatusF,
+      decisionTimeTickRequest,
     )
   }
 
@@ -1486,7 +1497,7 @@ class TransactionProcessingSteps(
     } yield res
   }
 
-  override def postProcessResult(verdict: Verdict, pendingSubmission: Unit)(implicit
+  override def postProcessResult(verdict: Verdict, pendingSubmission: None.type)(implicit
       traceContext: TraceContext
   ): Unit = ()
 

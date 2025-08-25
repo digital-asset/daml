@@ -86,7 +86,8 @@ class SyncEphemeralState(
   val reassignmentSynchronizer: ReassignmentSynchronizer =
     new ReassignmentSynchronizer(loggerFactory, timeouts)
 
-  val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)
+  val sessionKeyStore: SessionKeyStore =
+    SessionKeyStore(sessionKeyCacheConfig, timeouts, loggerFactory)
 
   val requestJournal =
     new RequestJournal(
@@ -161,6 +162,7 @@ class SyncEphemeralState(
       phase37Synchronizer,
       reassignmentCache,
       reassignmentSynchronizer,
+      sessionKeyStore,
     )(logger)
 
 }

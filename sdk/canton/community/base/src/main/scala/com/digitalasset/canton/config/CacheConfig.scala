@@ -67,7 +67,6 @@ final case class CacheConfigWithTimeout(
     expireAfterTimeout: PositiveFiniteDuration = PositiveFiniteDuration.ofMinutes(10),
 ) extends UniformCantonConfigValidation {
 
-  // TODO(#24566): Use scheduler instead of expireAfter
   def buildScaffeine()(implicit executionContext: ExecutionContext): Scaffeine[Any, Any] =
     Scaffeine()
       .maximumSize(maximumSize.value)
@@ -98,8 +97,14 @@ object CacheConfigWithTimeout {
   */
 final case class SessionEncryptionKeyCacheConfig(
     enabled: Boolean,
-    senderCache: CacheConfigWithTimeout,
-    receiverCache: CacheConfigWithTimeout,
+    senderCache: CacheConfigWithTimeout = CacheConfigWithTimeout(
+      maximumSize = PositiveNumeric.tryCreate(10000),
+      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+    ),
+    receiverCache: CacheConfigWithTimeout = CacheConfigWithTimeout(
+      maximumSize = PositiveNumeric.tryCreate(10000),
+      expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
+    ),
 ) extends UniformCantonConfigValidation
 
 object SessionEncryptionKeyCacheConfig {
@@ -166,15 +171,7 @@ object CachingConfigs {
   )
   val defaultSessionEncryptionKeyCacheConfig: SessionEncryptionKeyCacheConfig =
     SessionEncryptionKeyCacheConfig(
-      enabled = true,
-      senderCache = CacheConfigWithTimeout(
-        maximumSize = PositiveNumeric.tryCreate(10000),
-        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-      ),
-      receiverCache = CacheConfigWithTimeout(
-        maximumSize = PositiveNumeric.tryCreate(10000),
-        expireAfterTimeout = PositiveFiniteDuration.ofSeconds(10),
-      ),
+      enabled = true
     )
   val defaultPackageVettingCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(10000))

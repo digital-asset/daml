@@ -906,6 +906,7 @@ private[sync] class SynchronizerConnectionsManager(
                 psid,
                 ephemeral.timeTracker,
                 this,
+                loggerFactory,
               )
             else LogicalSynchronizerUpgradeCallback.NoOp
 
@@ -1098,12 +1099,13 @@ private[sync] class SynchronizerConnectionsManager(
     (for {
       synchronizerId <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
     } yield {
-      val removed = connectedSynchronizers.psidFor(synchronizerId).flatMap { psid =>
+      val removedO = connectedSynchronizers.psidFor(synchronizerId).flatMap { psid =>
         syncCrypto.remove(psid)
         connectedSynchronizers.remove(psid)
       }
-      removed match {
+      removedO match {
         case Some(connectedSynchronizer) =>
+          logger.info(s"Disconnecting connected synchronizer ${connectedSynchronizer.psid}")
           Try(LifeCycle.close(connectedSynchronizer)(logger)) match {
             case Success(_) =>
               logger.info(show"Disconnected from $synchronizerAlias")

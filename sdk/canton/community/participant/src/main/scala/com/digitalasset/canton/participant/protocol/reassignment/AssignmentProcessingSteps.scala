@@ -42,6 +42,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
+import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.TraceContext
@@ -57,6 +58,7 @@ private[reassignment] class AssignmentProcessingSteps(
     val synchronizerId: Target[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
+    targetCrypto: SynchronizerCryptoClient,
     seedGenerator: SeedGenerator,
     override protected val contractAuthenticator: ContractAuthenticator,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
@@ -257,7 +259,7 @@ private[reassignment] class AssignmentProcessingSteps(
         )
     } yield (
       ReassignmentsSubmission(Batch.of(protocolVersion.unwrap, messages*), rootHash),
-      pendingSubmission,
+      Some(pendingSubmission),
     )
   }
 
@@ -265,7 +267,7 @@ private[reassignment] class AssignmentProcessingSteps(
       deliver: Deliver[Envelope[_]],
       pendingSubmission: PendingSubmissionData,
   ): SubmissionResult =
-    SubmissionResult(pendingSubmission.reassignmentCompletion.future)
+    SubmissionResult(pendingSubmission.value.reassignmentCompletion.future)
 
   override protected def decryptTree(
       snapshot: SynchronizerSnapshotSyncCryptoApi,
@@ -341,6 +343,7 @@ private[reassignment] class AssignmentProcessingSteps(
       reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -432,6 +435,7 @@ private[reassignment] class AssignmentProcessingSteps(
         locallyRejectedF,
         engineController.abort,
         engineAbortStatusF,
+        decisionTimeTickRequest,
       )
 
       StorePendingDataAndSendResponseAndCreateTimeout(
@@ -469,6 +473,7 @@ private[reassignment] class AssignmentProcessingSteps(
       _locallyRejectedF,
       _engineController,
       _abortedF,
+      _decisionTimeTickRequest,
     ) = pendingRequestData
 
     def rejected(
@@ -504,17 +509,14 @@ private[reassignment] class AssignmentProcessingSteps(
       // Activeness of the mediator already gets checked in Phase 3,
       // this additional validation covers the case that the mediator gets deactivated between Phase 3 and Phase 7.
       resultTs = event.event.content.timestamp
-      topologySnapshotAtTs <-
-        reassignmentCoordination.awaitTimestampAndGetTaggedCryptoSnapshot(
-          synchronizerId,
-          staticSynchronizerParameters = staticSynchronizerParameters,
-          timestamp = resultTs,
-        )
+      topologySnapshotAtTs <- EitherT(
+        targetCrypto.ips.awaitSnapshot(resultTs).map(snapshot => Either.right(Target(snapshot)))
+      )
 
       mediatorCheckResultO <- EitherT.right(
         ReassignmentValidation
           .ensureMediatorActive(
-            topologySnapshotAtTs.map(_.ipsSnapshot),
+            topologySnapshotAtTs,
             mediator = pendingRequestData.mediator,
             reassignmentId = assignmentValidationResult.reassignmentId,
           )
@@ -627,12 +629,15 @@ object AssignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
+      decisionTimeTickRequest: SynchronizerTimeTracker.TickRequest,
   ) extends PendingReassignment {
 
     override def rootHashO: Option[RootHash] = Some(assignmentValidationResult.rootHash)
 
     override def submitterMetadata: ReassignmentSubmitterMetadata =
       assignmentValidationResult.submitterMetadata
+
+    override def cancelDecisionTimeTickRequest(): Unit = decisionTimeTickRequest.cancel()
   }
 
   private[reassignment] def makeFullAssignmentTree(
