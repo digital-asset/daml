@@ -239,6 +239,7 @@ data GlobalErrors = GlobalErrors
   , geResolutionError :: Maybe String
   , gePendingHomes :: Set.Set PackageHome
   }
+  deriving Eq
 
 instance Show GlobalErrors where
   show (GlobalErrors pkgError resError _) = maybe "" renderPkgError pkgError <> maybe "" renderResError resError

@@ -26,6 +26,12 @@ sendClient miState = atomically . sendClientSTM miState
 sendClientFirst :: MultiIdeState -> LSP.FromServerMessage -> IO ()
 sendClientFirst miState = atomically . unGetTChan (misToClientChan miState) . Aeson.encode
 
+data GlobalErrorStatus = HasGlobalError | NoGlobalError
+  deriving Eq
+
+globalErrorStatus :: GlobalErrors -> GlobalErrorStatus
+globalErrorStatus ge = if isJust (geUpdatePackageError ge) || isJust (geResolutionError ge) then HasGlobalError else NoGlobalError
+
 -- Global errors prevent new environments from being spun up
 -- They include failures in package data gathers (reading multi-package.yaml, iterating dars for unit-ids, etc.)
 -- and DPM component resolution (i.e. bad sdk-versions or component overrides)
@@ -34,29 +40,32 @@ sendClientFirst miState = atomically . unGetTChan (misToClientChan miState) . Ae
 reportGlobalErrorChange :: MultiIdeState -> (GlobalErrors -> GlobalErrors) -> IO [PackageHome]
 reportGlobalErrorChange miState f = modifyMVar (misGlobalErrors miState) $ \ge ->
   let newGe = f ge
-      hasErrors ge' = isJust (geUpdatePackageError ge') || isJust (geResolutionError ge')
       multiPackagePath = misMultiPackageHome miState </> "multi-package.yaml"
-   in case (hasErrors ge, hasErrors newGe) of
+   in case (globalErrorStatus ge, globalErrorStatus newGe) of
       -- No longer erroring
-      (True, False) -> do
+      (HasGlobalError, NoGlobalError) -> do
         logDebug miState "Recovered from global errors"
         sendClient miState $ clearDiagnostics multiPackagePath
         pure (newGe {gePendingHomes = Set.empty}, Set.toList $ gePendingHomes newGe)
       -- Nothing to be done
-      (False, False) -> pure (newGe, [])
+      (NoGlobalError, NoGlobalError) -> pure (newGe, [])
       -- Errors to be reported
-      _ -> do
+      _ | ge /= newGe -> do
         logDebug miState $ "New global errors: " <> show newGe
         sendClient miState $ fullFileDiagnostic LSP.DsError (show newGe) multiPackagePath
         pure (newGe, [])
+      _ ->
+      -- Nothing has changed
+        pure (ge, [])
 
--- Returns if the package was added and thus should be disabled
-addPackageHomeIfErrored :: MultiIdeState -> PackageHome -> IO Bool
-addPackageHomeIfErrored miState home = do
+-- Get the current global error status (i.e. if a package can start)
+-- If a package cannot start, it is added to the restart Set
+getGlobalErrorStatusWithPackageRestart :: MultiIdeState -> PackageHome -> IO GlobalErrorStatus
+getGlobalErrorStatusWithPackageRestart miState home = do
   modifyMVar (misGlobalErrors miState) $ \ge -> pure $
-    if isJust (geUpdatePackageError ge) || isJust (geResolutionError ge)
-      then (ge { gePendingHomes = home `Set.insert` gePendingHomes ge}, True)
-      else (ge, False)
+    case globalErrorStatus ge of
+      HasGlobalError -> (ge {gePendingHomes = home `Set.insert` gePendingHomes ge}, HasGlobalError)
+      NoGlobalError -> (ge, NoGlobalError)
 
 reportUpdatePackageError :: MultiIdeState -> Maybe String -> IO [PackageHome]
 reportUpdatePackageError miState err = reportGlobalErrorChange miState (\ge -> ge {geUpdatePackageError = err})

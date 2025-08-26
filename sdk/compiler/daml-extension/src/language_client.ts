@@ -313,12 +313,12 @@ export class DamlLanguageClient {
   }
 
   static findAssistantCommand(config: vscode.WorkspaceConfiguration): string {
-    const useUnifi = config.get("useDPMWhenAvailable");
-    if (useUnifi) {
+    const useDpm = config.get("useDPMWhenAvailable");
+    if (useDpm) {
       const dpmPath = DamlLanguageClient.findDpmCommand();
       if (dpmPath) {
         vscode.window.showInformationMessage(
-          "Daml IDE is starting using the Early Access Unifi Assistant.",
+          "Daml IDE is starting using the Early Access DPM assistant.",
         );
         return dpmPath;
       }
@@ -327,7 +327,7 @@ export class DamlLanguageClient {
     if (damlPath) return damlPath;
 
     vscode.window.showErrorMessage(
-      "Failed to start the Daml language server. Make sure an assistant (daml assistant or Unifi) is installed.",
+      "Failed to start the Daml language server. Make sure an assistant (daml assistant or DPM) is installed.",
     );
     throw new Error("Failed to locate assistant.");
   }

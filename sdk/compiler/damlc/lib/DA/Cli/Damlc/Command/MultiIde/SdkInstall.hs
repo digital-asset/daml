@@ -59,9 +59,10 @@ ensureIdeSdkInstalled miState packageSummary home ideData = do
     Just resolutionData -> ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData
     Nothing -> (,Nothing) <$> ensureIdeSdkInstalledDamlAssistant miState (psReleaseVersion packageSummary) home ideData
 
+-- Called from unsafeAddNewSubIdeAndSend, which is called with subIDE lock, so this function should be safe for IDE lock
 ensureIdeSdkInstalledDPM :: MultiIdeState -> MultiIdeResolutionData -> PackageSummary -> PackageHome -> SubIdeData -> IO (SubIdeData, Maybe (ValidPackageResolution, FilePath))
 ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
-  shouldDisable <- addPackageHomeIfErrored miState home
+  globalErrorStatus <- getGlobalErrorStatusWithPackageRestart miState home
 
   let handleResolution :: PackageResolutionData -> Either (LSP.DiagnosticSeverity, T.Text) (ValidPackageResolution, FilePath)
       handleResolution = \case
@@ -74,9 +75,10 @@ ensureIdeSdkInstalledDPM miState resolutionData packageSummary home ideData = do
             Just damlcPath -> pure (packageResolution, damlcPath)
 
   diagOrResolution <-
-    if shouldDisable
-      then pure $ Left (LSP.DsError, "Failed to load information from multi-package.yaml, check this file for diagnostics")
-      else
+    case globalErrorStatus of
+      HasGlobalError ->
+        pure $ Left (LSP.DsError, "Failed to load information from multi-package.yaml, check this file for diagnostics")
+      NoGlobalError ->
         -- First try main packages, then orphan packages
         Map.lookup home (mainPackages resolutionData) <|> Map.lookup home (orphanPackages resolutionData) & \case
           Just res -> pure $ handleResolution res
@@ -239,17 +241,16 @@ addOrphanResolution miState home = do
 -- Updates the resolution data and reports packages that have been changed or removed
 -- Takes the package home of the currently updated daml.yaml, if there is one
 updateResolutionFileForChanged :: MultiIdeState -> Maybe PackageHome -> IO [PackageHome]
-updateResolutionFileForChanged miState mHome = do
+updateResolutionFileForChanged miState mHome = withIDEs miState $ \ides -> do
   mResolutionData <- tryReadMVar (misResolutionData miState)
   case mResolutionData of
     -- No resolution file means we're using legacy assistant, nothing to do here
-    Nothing -> pure []
+    Nothing -> pure (ides, [])
     Just resolutionData -> do
       logDebug miState "Running project DPM resolution"
       eNewMainPackages <- callDpmResolve miState DpmResolveMultiPackage
       case eNewMainPackages of
         Right newMainPackages -> do
-          ides <- atomically $ readTMVar $ misSubIdesVar miState
           -- New and removed packages should be restarted
           --   we don't simply shutdown removed packages as removed here simply means dropped from the resolution file
           --   this is most likely due to it being removed from the multi-package.yaml, but still existing on disk
@@ -263,20 +264,22 @@ updateResolutionFileForChanged miState mHome = do
           recoveredPackages <- reportResolutionError miState Nothing
 
           -- For package changes outside the multi-package scope, update that specific package and report failures on the package, rather than as a global error
-          forM_ mHome $ \home -> when (Map.notMember home newMainPackages) $ do
-            res <- addOrphanResolution miState home
-            case res of
-              Left err -> do
-                atomically $ modifyTMVarM_ (misSubIdesVar miState) $ \ides -> do
-                  let ideData' = (lookupSubIde home ides) {ideDataDisabled = IdeDataDisabled LSP.DsError err}
-                  sendPackageDiagnostic miState ideData'
-                  pure $ Map.insert home ideData' ides
-              _ -> pure ()
+          updatedIdes <-
+            case mHome of
+              Just home | Map.notMember home newMainPackages -> do
+                res <- addOrphanResolution miState home
+                case res of
+                  Left err -> do
+                    let ideData' = (lookupSubIde home ides) {ideDataDisabled = IdeDataDisabled LSP.DsError err}
+                    atomically $ sendPackageDiagnostic miState ideData'
+                    pure $ Map.insert home ideData' ides
+                  _ -> pure ides
+              _ -> pure ides
 
-          pure $ nubOrd $ changedPackages <> newPackages <> removedPackages <> recoveredPackages
+          pure (updatedIdes, nubOrd $ changedPackages <> newPackages <> removedPackages <> recoveredPackages)
         Left err -> do
           void $ reportResolutionError miState $ Just err
-          pure []
+          pure (ides, [])
 
 -- Handle the Client -> Coordinator response to the "Would you like to install ..." message
 handleSdkInstallPromptResponse :: MultiIdeState -> LSP.LspId 'LSP.WindowShowMessageRequest -> Either LSP.ResponseError (Maybe LSP.MessageActionItem) -> IO ()

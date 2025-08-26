@@ -645,7 +645,7 @@ cmdStudio =
     cmd = execDamlStudio
         <$> studioReplaceOpt
         <*> many (strArgument $ metavar "ARG")
-    execDamlStudio opts args = Command License Nothing $ runDamlStudio opts args
+    execDamlStudio opts args = Command Studio Nothing $ runDamlStudio opts args
 
 --------------------------------------------------------------------------------
 -- Execution
