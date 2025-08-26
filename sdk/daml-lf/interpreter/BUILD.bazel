@@ -172,7 +172,7 @@ scala_repl(
 
 da_scala_benchmark_jmh(
     name = "speedy-struct-proj-bench",
-    srcs = glob(["src/bench/**/StructProjBench.scala"]),
+    srcs = glob(["src/bench/scala/**/StructProjBench.scala"]),
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
