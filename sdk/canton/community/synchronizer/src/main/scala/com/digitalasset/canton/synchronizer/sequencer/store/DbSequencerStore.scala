@@ -28,7 +28,7 @@ import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
-import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage}
+import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -62,7 +62,7 @@ import scala.util.{Failure, Success}
   * same backing database.
   */
 class DbSequencerStore(
-    @VisibleForTesting private[canton] val storage: DbStorage,
+    @VisibleForTesting override protected val storage: DbStorage,
     protocolVersion: ProtocolVersion,
     override val bufferedEventsMaxMemory: BytesUnit,
     bufferedEventsPreloadBatchSize: PositiveInt,
@@ -75,6 +75,8 @@ class DbSequencerStore(
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore
+    with DbSequencerStorePruning
+    with DbStore
     with NamedLogging
     with FlagCloseable {
 
@@ -83,7 +85,7 @@ class DbSequencerStore(
   import storage.api.*
   import storage.converters.*
 
-  implicit val closeContext: CloseContext =
+  override implicit val closeContext: CloseContext =
     overrideCloseContext
       .map(CloseContext.combineUnsafe(_, CloseContext(this), timeouts, logger)(TraceContext.empty))
       .getOrElse(CloseContext(this))
@@ -1365,25 +1367,40 @@ class DbSequencerStore(
   override protected[store] def pruneEvents(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.update(
-      DBIO
-        .sequence(
-          Seq(
-            sqlu"delete from sequencer_events where ts < $beforeExclusive",
-            sqlu"delete from sequencer_event_recipients where ts < $beforeExclusive",
-          )
-        )
-        .map(_.sum),
-      functionFullName,
-    )
+    for {
+      eventPruningIntervals <- storage.query(
+        pruningIntervalsDBIO("sequencer_events", "ts", beforeExclusive),
+        "eventPruningIntervals",
+      )
+      recipientsPruningIntervals <- storage.query(
+        pruningIntervalsDBIO("sequencer_event_recipients", "ts", beforeExclusive),
+        "recipientsPruningIntervals",
+      )
+      prunedEvents <- pruneIntervalsInBatches(
+        eventPruningIntervals,
+        "sequencer_events",
+        "ts",
+      )
+      prunedRecipients <- pruneIntervalsInBatches(
+        recipientsPruningIntervals,
+        "sequencer_event_recipients",
+        "ts",
+      )
+    } yield prunedEvents.sum + prunedRecipients.sum
 
   override protected[store] def prunePayloads(
       beforeExclusive: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
-    storage.update(
-      sqlu"delete from sequencer_payloads where id < $beforeExclusive",
-      functionFullName,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = for {
+    payloadsPruningIntervals <- storage.query(
+      pruningIntervalsDBIO("sequencer_payloads", "id", beforeExclusive),
+      "payloadsPruningIntervals",
     )
+    prunedPayloads <- pruneIntervalsInBatches(
+      payloadsPruningIntervals,
+      "sequencer_payloads",
+      "id",
+    )
+  } yield prunedPayloads.sum
 
   override def findPruningTimestamp(skip: NonNegativeInt)(implicit
       traceContext: TraceContext

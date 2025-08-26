@@ -120,7 +120,8 @@ private[logging] final class SimpleNamedLoggerFactory(
         // We need to sanitize invalid values (instead of throwing an exception),
         // because values contain user input and it would be pretty hard to educate the user to not use dots.
         _.replaceFirst("\\.+$", "") // Remove trailing dots.
-          .replaceAll("\\.", "_") // Replace any other "." by "_".
+          .replace("...", "") // Explicitly remove the "abbreviation" dots anywhere in the string
+          .replaceAll("\\.", "_") // Replace any other individual "." by "_".
       )
       .mkString("/")
 }

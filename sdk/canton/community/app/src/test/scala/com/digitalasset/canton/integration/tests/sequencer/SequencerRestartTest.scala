@@ -166,7 +166,9 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
 
       def sendAndWait(participant: LocalParticipantReference): Unit = {
         implicit val metricsContext: MetricsContext = MetricsContext.Empty
-        val client = participant.underlying.value.sync
+        val syncService = participant.underlying.value.sync
+        utils.retry_until_true(syncService.readyConnectedSynchronizerById(daId).nonEmpty)
+        val client = syncService
           .readyConnectedSynchronizerById(daId)
           .value
           .sequencerClient

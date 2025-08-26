@@ -213,33 +213,13 @@ private[backend] class ParameterStorageBackendImpl(
         """
         .execute()(connection)
     )
-  override def updatePrunedAllDivulgedContractsUpToInclusive(
-      prunedUpToInclusive: Offset
-  )(connection: Connection): Unit =
-    discard(
-      SQL"""
-        update lapi_parameters set participant_all_divulged_contracts_pruned_up_to_inclusive=$prunedUpToInclusive
-        where participant_all_divulged_contracts_pruned_up_to_inclusive < $prunedUpToInclusive or participant_all_divulged_contracts_pruned_up_to_inclusive is null
-        """
-        .execute()(connection)
-    )
+
   private val SqlSelectMostRecentPruning =
     SQL"select participant_pruned_up_to_inclusive from lapi_parameters"
 
   override def prunedUpToInclusive(connection: Connection): Option[Offset] =
     SqlSelectMostRecentPruning
       .as(offset("participant_pruned_up_to_inclusive").?.single)(connection)
-
-  private val SqlSelectMostRecentPruningAllDivulgedContracts =
-    SQL"select participant_all_divulged_contracts_pruned_up_to_inclusive from lapi_parameters"
-
-  override def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset] =
-    SqlSelectMostRecentPruningAllDivulgedContracts
-      .as(offset("participant_all_divulged_contracts_pruned_up_to_inclusive").?.single)(
-        connection
-      )
 
   private val SqlSelectMostRecentPruningAndLedgerEnd =
     SQL"select participant_pruned_up_to_inclusive, #$LedgerEndColumnName from lapi_parameters"

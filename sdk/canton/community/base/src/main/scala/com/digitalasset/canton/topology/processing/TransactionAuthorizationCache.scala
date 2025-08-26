@@ -3,12 +3,17 @@
 
 package com.digitalasset.canton.topology.processing
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLogging
-import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  StoredTopologyTransactions,
+  TopologyStore,
+  TopologyStoreId,
+}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.topology.transaction.TopologyMapping.RequiredAuth.RequiredNamespaces
@@ -121,15 +126,21 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
     val decentralizedNamespacesToLoad = namespaces -- decentralizedNamespaceCache.keys
 
     for {
-      storedDecentralizedNamespace <- store.findPositiveTransactions(
-        asOfExclusive,
-        asOfInclusive = false,
-        isProposal = false,
-        types = Seq(DecentralizedNamespaceDefinition.code),
-        filterUid = None,
-        filterNamespace = Some(decentralizedNamespacesToLoad.toSeq),
-      )
-      decentralizedNamespaceDefinitions = storedDecentralizedNamespace
+      storedDecentralizedNamespaces <-
+        NonEmpty
+          .from(decentralizedNamespacesToLoad)
+          .map(dns =>
+            store.findPositiveTransactions(
+              asOfExclusive,
+              asOfInclusive = false,
+              isProposal = false,
+              types = Seq(DecentralizedNamespaceDefinition.code),
+              filterUid = None,
+              filterNamespace = Some(dns.toSeq),
+            )
+          )
+          .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
+      decentralizedNamespaceDefinitions = storedDecentralizedNamespaces
         .collectOfMapping[DecentralizedNamespaceDefinition]
         .collectLatestByUniqueKey
         .result
@@ -141,21 +152,26 @@ trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
         .toSet
       namespacesToLoad = namespaces ++ decentralizedNamespaceOwners -- namespaceCache.keys
 
-      storedNamespaceDelegations <- store.findPositiveTransactions(
-        asOfExclusive,
-        asOfInclusive = false,
-        isProposal = false,
-        types = Seq(NamespaceDelegation.code),
-        filterUid = None,
-        filterNamespace = Some(namespacesToLoad.toSeq),
-      )
+      storedNamespaceDelegations <-
+        NonEmpty
+          .from(namespacesToLoad)
+          .map { ns =>
+            store.findPositiveTransactions(
+              asOfExclusive,
+              asOfInclusive = false,
+              isProposal = false,
+              types = Seq(NamespaceDelegation.code),
+              filterUid = None,
+              filterNamespace = Some(ns.toSeq),
+            )
+          }
+          .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
       namespaceDelegations = storedNamespaceDelegations
         .collectOfMapping[NamespaceDelegation]
         .collectLatestByUniqueKey
         .result
         .map(_.transaction)
     } yield {
-
       namespaceDelegations
         .groupBy(_.mapping.namespace)
         .foreach { case (namespace, transactions) =>

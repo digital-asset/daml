@@ -43,7 +43,6 @@ final case class PostgresStorageBackendFactory(loggerFactory: NamedLoggerFactory
     new PostgresEventStorageBackend(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      parameterStorageBackend = createParameterStorageBackend(stringInterning),
       loggerFactory = loggerFactory,
     )
 

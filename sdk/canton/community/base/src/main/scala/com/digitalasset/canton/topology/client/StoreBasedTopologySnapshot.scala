@@ -4,6 +4,8 @@
 package com.digitalasset.canton.topology.client
 
 import cats.syntax.functorFilter.*
+import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -48,8 +50,8 @@ class StoreBasedTopologySnapshot(
 
   private def findTransactions(
       types: Seq[TopologyMapping.Code],
-      filterUid: Option[Seq[UniqueIdentifier]],
-      filterNamespace: Option[Seq[Namespace]],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[StoredTopologyTransactions[TopologyChangeOp.Replace, TopologyMapping]] =
@@ -68,7 +70,7 @@ class StoreBasedTopologySnapshot(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
     findTransactions(
       types = Seq(TopologyMapping.Code.VettedPackages),
-      filterUid = Some(Seq(participant.uid)),
+      filterUid = Some(NonEmpty(Seq, participant.uid)),
       filterNamespace = None,
     ).map { transactions =>
       collectLatestMapping(
@@ -80,23 +82,28 @@ class StoreBasedTopologySnapshot(
   override def loadVettedPackages(participants: Seq[ParticipantId])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, Map[PackageId, VettedPackage]]] =
-    findTransactions(
-      types = Seq(TopologyMapping.Code.VettedPackages),
-      filterUid = Some(participants.map(_.uid)),
-      filterNamespace = None,
-    ).map { transactions =>
-      transactions
-        .collectOfMapping[VettedPackages]
-        .result
-        .groupBy(_.mapping.participantId)
-        .view
-        .mapValues { txs =>
-          collectLatestMapping(TopologyMapping.Code.VettedPackages, txs).toList
-            .flatMap(_.packages.map(vp => (vp.packageId, vp)))
+    NonEmpty
+      .from(participants.map(_.uid))
+      .map { participantsNE =>
+        findTransactions(
+          types = Seq(TopologyMapping.Code.VettedPackages),
+          filterUid = Some(participantsNE),
+          filterNamespace = None,
+        ).map { transactions =>
+          transactions
+            .collectOfMapping[VettedPackages]
+            .result
+            .groupBy(_.mapping.participantId)
+            .view
+            .mapValues { txs =>
+              collectLatestMapping(TopologyMapping.Code.VettedPackages, txs).toList
+                .flatMap(_.packages.map(vp => (vp.packageId, vp)))
+                .toMap
+            }
             .toMap
         }
-        .toMap
-    }
+      }
+      .getOrElse(FutureUnlessShutdown.pure(Map.empty))
 
   override private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
@@ -244,34 +251,47 @@ class StoreBasedTopologySnapshot(
 
     for {
       // get all party to participant mappings and also participant states for this uid (latter to mix in admin parties)
-      partyData <- findTransactions(
-        types = Seq(
-          TopologyMapping.Code.PartyToParticipant,
-          TopologyMapping.Code.SynchronizerTrustCertificate,
-        ),
-        filterUid = Some(parties.map(_.uid)),
-        filterNamespace = None,
-      ).map { storedTransactions =>
-        // find normal party declarations
-        val partyToParticipantMappings = collectLatestByType[PartyToParticipant](
-          storedTransactions,
-          TopologyMapping.Code.PartyToParticipant,
-        ).map { ptp =>
-          ptp.partyId -> (ptp.threshold, ptp.participants.map {
-            case HostingParticipant(participantId, partyPermission, onboarding) =>
-              participantId -> (partyPermission, onboarding)
-          }.toMap)
-        }.toMap
+      partyData <- NonEmpty
+        .from(parties.map(_.uid))
+        .map { partiesNE =>
+          findTransactions(
+            types = Seq(
+              TopologyMapping.Code.PartyToParticipant,
+              TopologyMapping.Code.SynchronizerTrustCertificate,
+            ),
+            filterUid = Some(partiesNE),
+            filterNamespace = None,
+          )
+            .map { storedTransactions =>
+              // find normal party declarations
+              val partyToParticipantMappings = collectLatestByType[PartyToParticipant](
+                storedTransactions,
+                TopologyMapping.Code.PartyToParticipant,
+              ).map { ptp =>
+                ptp.partyId -> (ptp.threshold, ptp.participants.map {
+                  case HostingParticipant(participantId, partyPermission, onboarding) =>
+                    participantId -> (partyPermission, onboarding)
+                }.toMap)
+              }.toMap
 
-        // admin parties are implicitly defined by the fact that a participant is available on a synchronizer.
-        // admin parties have the same UID as their participant
-        val synchronizerTrustCerts = collectLatestByType[SynchronizerTrustCertificate](
-          storedTransactions,
-          TopologyMapping.Code.SynchronizerTrustCertificate,
-        ).map(cert => cert.participantId)
+              // admin parties are implicitly defined by the fact that a participant is available on a synchronizer.
+              // admin parties have the same UID as their participant
+              val synchronizerTrustCerts = collectLatestByType[SynchronizerTrustCertificate](
+                storedTransactions,
+                TopologyMapping.Code.SynchronizerTrustCertificate,
+              ).map(cert => cert.participantId)
 
-        (partyToParticipantMappings, synchronizerTrustCerts)
-      }
+              (partyToParticipantMappings, synchronizerTrustCerts)
+            }
+        }
+        .getOrElse(
+          FutureUnlessShutdown.pure(
+            Map.empty[
+              PartyId,
+              (PositiveInt, Map[ParticipantId, (ParticipantPermission, Boolean)]),
+            ] -> Seq.empty
+          )
+        )
       (partyToParticipantMap, adminPartyParticipants) = partyData
 
       // fetch all admin parties
@@ -537,15 +557,20 @@ class StoreBasedTopologySnapshot(
           )
         )
       )
-      storedTxs <- findTransactions(
-        types = Seq(
-          TopologyMapping.Code.SynchronizerTrustCertificate,
-          TopologyMapping.Code.OwnerToKeyMapping,
-          TopologyMapping.Code.ParticipantSynchronizerPermission,
-        ),
-        filterUid = Some(participantsFilter.map(_.uid)),
-        filterNamespace = None,
-      )
+      storedTxs <- NonEmpty
+        .from(participantsFilter.map(_.uid))
+        .map { participantsNE =>
+          findTransactions(
+            types = Seq(
+              TopologyMapping.Code.SynchronizerTrustCertificate,
+              TopologyMapping.Code.OwnerToKeyMapping,
+              TopologyMapping.Code.ParticipantSynchronizerPermission,
+            ),
+            filterUid = Some(participantsNE),
+            filterNamespace = None,
+          )
+        }
+        .getOrElse(FutureUnlessShutdown.pure(StoredTopologyTransactions.empty))
 
     } yield {
       // 1. Participant needs to have requested access to synchronizer by issuing a synchronizer trust certificate
@@ -616,23 +641,28 @@ class StoreBasedTopologySnapshot(
   override def allKeys(
       members: Seq[Member]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Member, KeyCollection]] =
-    findTransactions(
-      types = Seq(TopologyMapping.Code.OwnerToKeyMapping),
-      filterUid = Some(members.map(_.uid)),
-      filterNamespace = None,
-    ).map { transactions =>
-      transactions
-        .collectOfMapping[OwnerToKeyMapping]
-        .result
-        .groupBy(_.mapping.member)
-        .map { case (member, otks) =>
-          val keys = collectLatestMapping[OwnerToKeyMapping](
-            TopologyMapping.Code.OwnerToKeyMapping,
-            otks.sortBy(_.validFrom),
-          ).toList.flatMap(_.keys.forgetNE)
-          member -> KeyCollection.empty.addAll(keys)
+    NonEmpty
+      .from(members)
+      .map(membersNE =>
+        findTransactions(
+          types = Seq(TopologyMapping.Code.OwnerToKeyMapping),
+          filterUid = Some(membersNE.map(_.uid)),
+          filterNamespace = None,
+        ).map { transactions =>
+          transactions
+            .collectOfMapping[OwnerToKeyMapping]
+            .result
+            .groupBy(_.mapping.member)
+            .map { case (member, otks) =>
+              val keys = collectLatestMapping[OwnerToKeyMapping](
+                TopologyMapping.Code.OwnerToKeyMapping,
+                otks.sortBy(_.validFrom),
+              ).toList.flatMap(_.keys.forgetNE)
+              member -> KeyCollection.empty.addAll(keys)
+            }
         }
-    }
+      )
+      .getOrElse(FutureUnlessShutdown.pure(Map.empty))
 
   override def allMembers()(implicit
       traceContext: TraceContext
@@ -669,17 +699,20 @@ class StoreBasedTopologySnapshot(
     val mediators = members.collect { case MediatorId(uid) => uid }
     val sequencers = members.collect { case SequencerId(uid) => uid }
 
-    val knownParticipantsF = if (participants.nonEmpty) {
-      findTransactions(
-        types = Seq(SynchronizerTrustCertificate.code),
-        filterUid = Some(participants.toSeq),
-        filterNamespace = None,
-      ).map(
-        _.collectOfMapping[SynchronizerTrustCertificate].result
-          .map(_.mapping.participantId: Member)
-          .toSet
-      )
-    } else FutureUnlessShutdown.pure(Set.empty[Member])
+    val knownParticipantsF = NonEmpty
+      .from(participants)
+      .map { participantsNE =>
+        findTransactions(
+          types = Seq(SynchronizerTrustCertificate.code),
+          filterUid = Some(participantsNE.toSeq),
+          filterNamespace = None,
+        ).map(
+          _.collectOfMapping[SynchronizerTrustCertificate].result
+            .map(_.mapping.participantId: Member)
+            .toSet
+        )
+      }
+      .getOrElse(FutureUnlessShutdown.pure(Set.empty[Member]))
 
     val knownMediatorsF = if (mediators.nonEmpty) {
       findTransactions(
@@ -770,7 +803,7 @@ class StoreBasedTopologySnapshot(
   ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
     findTransactions(
       types = Seq(TopologyMapping.Code.PartyToKeyMapping),
-      filterUid = Some(Seq(party.uid)),
+      filterUid = Some(NonEmpty(Seq, party.uid)),
       filterNamespace = None,
     ).map { transactions =>
       val keys = transactions

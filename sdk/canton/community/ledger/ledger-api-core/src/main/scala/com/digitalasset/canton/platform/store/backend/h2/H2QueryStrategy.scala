@@ -8,9 +8,6 @@ import com.digitalasset.canton.platform.store.backend.common.{ComposableQuery, Q
 
 object H2QueryStrategy extends QueryStrategy {
 
-  override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
-    s"array_contains($arrayColumnName, $elementColumnName)"
-
   override def analyzeTable(tableName: String): ComposableQuery.CompositeSql =
     cSQL"ANALYZE TABLE #$tableName"
 }

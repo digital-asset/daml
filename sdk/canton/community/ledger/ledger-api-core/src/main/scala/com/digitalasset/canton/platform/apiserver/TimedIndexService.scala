@@ -174,12 +174,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def prune(
       pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] =
     Timed.future(
       metrics.services.index.prune,
-      delegate.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets),
+      delegate.prune(pruneUpToInclusive, incompletReassignmentOffsets),
     )
 
   override def currentHealth(): HealthStatus =
@@ -193,10 +192,10 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       delegate.lookupContractState(contractId),
     )
 
-  override def latestPrunedOffsets()(implicit
+  override def latestPrunedOffset()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Offset], Option[Offset])] =
-    Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
+  ): Future[Option[Offset]] =
+    Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffset())
 
   override def getEventsByContractId(
       contractId: ContractId,

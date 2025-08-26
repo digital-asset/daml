@@ -10,7 +10,7 @@
         "ContractId": {
           "typeId": {
             "Template": {
-              "tycon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo"
+              "tycon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:TemplateFoo"
             }
           }
         }
@@ -22,7 +22,7 @@
 
             }
           }],
-          "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
+          "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeParamRecord"
         }
       }
     },
@@ -45,6 +45,164 @@
     }
   },
   "definitions": {
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyChoice": {
+      "RecordSig": {
+        "fields": {
+          "argument1": {
+            "Bool": {
+
+            }
+          },
+          "argument2": {
+            "Int64": {
+
+            }
+          }
+        },
+        "params": []
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyInterfaceViewType": {
+      "RecordSig": {
+        "fields": {
+          "name": {
+            "Text": {
+
+            }
+          },
+          "value": {
+            "Int64": {
+
+            }
+          }
+        },
+        "params": []
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyList": {
+      "VariantSig": {
+        "constructor": {
+          "MyCons": {
+            "Record": {
+              "params": [{
+                "Var": {
+                  "name": "t"
+                }
+              }],
+              "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyList.MyCons"
+            }
+          },
+          "Nil": {
+            "Unit": {
+
+            }
+          }
+        },
+        "params": ["t"]
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyList.MyCons": {
+      "RecordSig": {
+        "fields": {
+          "head": {
+            "Var": {
+              "name": "t"
+            }
+          },
+          "tail": {
+            "Variant": {
+              "params": [{
+                "Var": {
+                  "name": "t"
+                }
+              }],
+              "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyList"
+            }
+          }
+        },
+        "params": ["t"]
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyNonConsumingChoice": {
+      "RecordSig": {
+        "fields": {
+
+        },
+        "params": []
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeParamRecord": {
+      "RecordSig": {
+        "fields": {
+          "foo": {
+            "Var": {
+              "name": "a"
+            }
+          }
+        },
+        "params": ["a"]
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeVariant": {
+      "VariantSig": {
+        "constructor": {
+          "SomeEnum": {
+            "Unit": {
+
+            }
+          },
+          "SomeVariant": {
+            "Int64": {
+
+            }
+          }
+        },
+        "params": []
+      }
+    },
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:TemplateFoo": {
+      "RecordSig": {
+        "fields": {
+          "someOptionalRecField": {
+            "Optional": {
+              "typ": {
+                "Variant": {
+                  "params": [{
+                    "Text": {
+
+                    }
+                  }],
+                  "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyList"
+                }
+              }
+            }
+          },
+          "someParty": {
+            "Party": {
+
+            }
+          },
+          "someRecordField": {
+            "Variant": {
+              "params": [],
+              "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeVariant"
+            }
+          },
+          "someRecordTyped": {
+            "Record": {
+              "params": [{
+                "Variant": {
+                  "params": [],
+                  "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeVariant"
+                }
+              }],
+              "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeParamRecord"
+            }
+          }
+        },
+        "params": []
+      }
+    },
     "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4:DA.Types:Tuple2": {
       "RecordSig": {
         "fields": {
@@ -62,164 +220,6 @@
         "params": ["t1", "t2"]
       }
     },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyChoice": {
-      "RecordSig": {
-        "fields": {
-          "argument1": {
-            "Bool": {
-
-            }
-          },
-          "argument2": {
-            "Int64": {
-
-            }
-          }
-        },
-        "params": []
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterfaceViewType": {
-      "RecordSig": {
-        "fields": {
-          "name": {
-            "Text": {
-
-            }
-          },
-          "value": {
-            "Int64": {
-
-            }
-          }
-        },
-        "params": []
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList": {
-      "VariantSig": {
-        "constructor": {
-          "MyCons": {
-            "Record": {
-              "params": [{
-                "Var": {
-                  "name": "t"
-                }
-              }],
-              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList.MyCons"
-            }
-          },
-          "Nil": {
-            "Unit": {
-
-            }
-          }
-        },
-        "params": ["t"]
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList.MyCons": {
-      "RecordSig": {
-        "fields": {
-          "head": {
-            "Var": {
-              "name": "t"
-            }
-          },
-          "tail": {
-            "Variant": {
-              "params": [{
-                "Var": {
-                  "name": "t"
-                }
-              }],
-              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList"
-            }
-          }
-        },
-        "params": ["t"]
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyNonConsumingChoice": {
-      "RecordSig": {
-        "fields": {
-
-        },
-        "params": []
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord": {
-      "RecordSig": {
-        "fields": {
-          "foo": {
-            "Var": {
-              "name": "a"
-            }
-          }
-        },
-        "params": ["a"]
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant": {
-      "VariantSig": {
-        "constructor": {
-          "SomeEnum": {
-            "Unit": {
-
-            }
-          },
-          "SomeVariant": {
-            "Int64": {
-
-            }
-          }
-        },
-        "params": []
-      }
-    },
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:TemplateFoo": {
-      "RecordSig": {
-        "fields": {
-          "someOptionalRecField": {
-            "Optional": {
-              "typ": {
-                "Variant": {
-                  "params": [{
-                    "Text": {
-
-                    }
-                  }],
-                  "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyList"
-                }
-              }
-            }
-          },
-          "someParty": {
-            "Party": {
-
-            }
-          },
-          "someRecordField": {
-            "Variant": {
-              "params": [],
-              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant"
-            }
-          },
-          "someRecordTyped": {
-            "Record": {
-              "params": [{
-                "Variant": {
-                  "params": [],
-                  "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeVariant"
-                }
-              }],
-              "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
-            }
-          }
-        },
-        "params": []
-      }
-    },
     "9e70a8b3510d617f8a136213f33d6a903a10ca0eeec76bb06ba55d1ed9680f69:DA.Internal.Template:Archive": {
       "RecordSig": {
         "fields": {
@@ -230,7 +230,7 @@
     }
   },
   "implements": {
-    "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterface": {
+    "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyInterface": {
       "choices": {
         "Archive": {
           "arguments": {
@@ -269,7 +269,7 @@
                 "ContractId": {
                   "typeId": {
                     "Interface": {
-                      "tycon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:MyInterface"
+                      "tycon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyInterface"
                     }
                   }
                 }
@@ -327,7 +327,7 @@
 
             }
           }],
-          "tyCon": "81b4ad62277662760cc98205bad5cb3dd9aa622239b149987296d351f93cd118:ExternalDep:SomeParamRecord"
+          "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeParamRecord"
         }
       }],
       "tyCon": "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4:DA.Types:Tuple2"

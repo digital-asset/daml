@@ -160,7 +160,6 @@ trait EpochStoreTest extends AsyncWordSpec {
         for {
           _ <- store.startEpoch(activeEpoch0Info)
 
-          // these shouldn't show up in loadEpochProgress because block 0 is being completed
           _ <- store.addPrePrepare(prePrepare(EpochNumber.First, BlockNumber.First))
           _ <- store.addPrepares(Seq(prepare(EpochNumber.First, BlockNumber.First)))
 
@@ -202,26 +201,33 @@ trait EpochStoreTest extends AsyncWordSpec {
 
           e1 <- store.loadEpochProgress(activeEpoch1Info)
         } yield {
-          e0 shouldBe EpochInProgress(
-            Seq(BlockNumber.First, 1L, 2L).map(n =>
-              Block(
-                activeEpoch0Info.number,
-                BlockNumber(n),
-                CommitCertificate(
-                  prePrepare(activeEpoch0Info.number, n),
-                  commitMessages(activeEpoch0Info.number, n),
-                ),
-              )
-            ),
-            pbftMessagesForIncompleteBlocks = Seq[SignedMessage[PbftNetworkMessage]](
-              viewChange(EpochNumber.First, 0L),
-              newView(EpochNumber.First, 0L),
-              prePrepare(EpochNumber.First, 3L),
-              prePrepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1),
-              prepare(EpochNumber.First, 3L),
-              prepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1),
-            ),
-          )
+          e0 should matchPattern {
+            case EpochInProgress(
+                  completedBlocks,
+                  pbftMessagesForIncompleteBlocks,
+                )
+                if completedBlocks == Seq(BlockNumber.First, 1L, 2L).map(n =>
+                  Block(
+                    activeEpoch0Info.number,
+                    BlockNumber(n),
+                    CommitCertificate(
+                      prePrepare(activeEpoch0Info.number, n),
+                      commitMessages(activeEpoch0Info.number, n),
+                    ),
+                  )
+                ) &&
+                  pbftMessagesForIncompleteBlocks.toSet ==
+                  Set[SignedMessage[PbftNetworkMessage]](
+                    prePrepare(EpochNumber.First, BlockNumber.First),
+                    prepare(EpochNumber.First, BlockNumber.First),
+                    viewChange(EpochNumber.First, 0L),
+                    newView(EpochNumber.First, 0L),
+                    prePrepare(EpochNumber.First, 3L),
+                    prePrepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1),
+                    prepare(EpochNumber.First, 3L),
+                    prepare(EpochNumber.First, 3L, viewNumber = ViewNumber.First + 1),
+                  ) =>
+          }
           e1 shouldBe EpochInProgress(
             Seq(10L, 11L, 13L).map(n =>
               Block(

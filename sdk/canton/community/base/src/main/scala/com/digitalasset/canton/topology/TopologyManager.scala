@@ -866,7 +866,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           asOfInclusive = false,
           isProposal = false,
           types = Seq(SynchronizerParametersState.code),
-          filterUid = Some(Seq(synchronizerId.uid)),
+          filterUid = Some(NonEmpty(Seq, synchronizerId.uid)),
           filterNamespace = None,
         )
     } yield {
@@ -915,7 +915,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
               asOfInclusive = false,
               isProposal = false,
               types = Seq(VettedPackages.code),
-              filterUid = Some(Seq(participantId.uid)),
+              filterUid = Some(NonEmpty(Seq, participantId.uid)),
               filterNamespace = None,
             )
         )
@@ -966,7 +966,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
           asOfInclusive = false,
           isProposal = false,
           types = Seq(PartyToParticipant.code),
-          filterUid = Some(Seq(partyId.uid)),
+          filterUid = Some(NonEmpty(Seq, partyId.uid)),
           filterNamespace = None,
         )
         .map {

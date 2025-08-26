@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.block.data.db
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -35,6 +35,7 @@ class DbSequencerBlockStore(
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
+    batchingConfig: BatchingConfig,
 )(implicit override protected val executionContext: ExecutionContext)
     extends SequencerBlockStore
     with DbStore {
@@ -49,6 +50,7 @@ class DbSequencerBlockStore(
     protocolVersion,
     timeouts,
     loggerFactory,
+    batchingConfig,
   )
 
   override def readHead(implicit

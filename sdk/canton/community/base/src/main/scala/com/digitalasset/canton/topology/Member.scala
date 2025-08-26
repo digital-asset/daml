@@ -237,7 +237,10 @@ final case class PhysicalSynchronizerId(
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 
   override protected def pretty: Pretty[PhysicalSynchronizerId.this.type] =
-    prettyOfString(_ => toLengthLimitedString.unwrap)
+    prettyOfString(_ =>
+      logical.show ++ PhysicalSynchronizerId.primaryDelimiter ++ protocolVersion.show ++
+        PhysicalSynchronizerId.secondaryDelimiter ++ serial.show
+    )
 }
 
 object PhysicalSynchronizerId {

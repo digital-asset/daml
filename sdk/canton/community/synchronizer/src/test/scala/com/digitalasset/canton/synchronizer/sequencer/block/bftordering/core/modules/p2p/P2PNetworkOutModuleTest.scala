@@ -64,7 +64,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     "ready" should {
       "connect to nodes and " +
         "initialize availability and " +
-        "consensus once enough nodes are connected" in {
+        "consensus once enough nodes are connected if starting from genesis" in {
           val availabilitySpy =
             spy(fakeIgnoringModule[Availability.Message[ProgrammableUnitTestEnv]])
           val consensusSpy = spy(fakeIgnoringModule[Consensus.Message[ProgrammableUnitTestEnv]])
@@ -130,6 +130,28 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
           verify(availabilitySpy, times(1)).asyncSend(Availability.Start)
           verify(consensusSpy, times(1)).asyncSend(Consensus.Start)
         }
+
+      "initialize availability and consensus immediately if not starting from genesis" in {
+        val availabilitySpy =
+          spy(fakeIgnoringModule[Availability.Message[ProgrammableUnitTestEnv]])
+        val consensusSpy = spy(fakeIgnoringModule[Consensus.Message[ProgrammableUnitTestEnv]])
+        val (_, state, _, _) =
+          setup(availability = availabilitySpy, consensus = consensusSpy, isGenesis = false)
+
+        import state.*
+
+        // No other node is authenticated
+        maxNodesContemporarilyAuthenticated shouldBe 1
+        availabilityStarted shouldBe true
+        consensusStarted shouldBe true
+        verify(availabilitySpy, times(1)).asyncSend(
+          any[Availability.Message[ProgrammableUnitTestEnv]]
+        )(any[TraceContext], any[MetricsContext])
+        verify(consensusSpy, times(1)).asyncSend(any[Consensus.Message[ProgrammableUnitTestEnv]])(
+          any[TraceContext],
+          any[MetricsContext],
+        )
+      }
     }
 
     "a node tries to authenticate as self" should {
@@ -631,6 +653,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
         new InMemoryUnitTestP2PEndpointsStore(
           otherInitialEndpoints.toSet
         ),
+      isGenesis: Boolean = true,
   ): (
       ProgrammableUnitTestContext[P2PNetworkOut.Message],
       P2PNetworkOutModule.State,
@@ -651,6 +674,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       pruning,
       state,
       p2pEndpointsStore,
+      isGenesis,
     )
     module.ready(context.self)
     context.selfMessages should contain only P2PNetworkOut.Start
@@ -668,6 +692,7 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       pruning: ModuleRef[Pruning.Message],
       state: P2PNetworkOutModule.State,
       p2pEndpointsStore: P2PEndpointsStore[ProgrammableUnitTestEnv],
+      isGenesis: Boolean,
   ): (
       P2PNetworkOutModule[ProgrammableUnitTestEnv, FakeP2PNetworkManager],
       FakeP2PNetworkManager,
@@ -685,6 +710,8 @@ class P2PNetworkOutModuleTest extends AnyWordSpec with BftSequencerBaseTest {
     val outputModule =
       new P2PNetworkOutModule[ProgrammableUnitTestEnv, FakeP2PNetworkManager](
         selfNode,
+        isGenesis,
+        bootstrapTopologySize = 4,
         state,
         p2pEndpointsStore,
         SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,

@@ -132,7 +132,9 @@ object ConsensusSegment {
     sealed trait PbftNetworkMessage
         extends HasRepresentativeProtocolVersion
         with ProtocolVersionedMemoizedEvidence
-        with MessageFrom {
+        with MessageFrom
+        with Product
+        with Serializable {
       def blockMetadata: BlockMetadata
       def viewNumber: ViewNumber
       def toProto: v30.ConsensusMessage

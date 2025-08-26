@@ -60,8 +60,8 @@ create or replace function debug.topology_change_op(integer) returns varchar as
 $$
 select
   case
-    when $1 = 1 then 'Remove'
-    when $1 = 2 then 'Replace'
+    when $1 = 1 then 'Replace'
+    when $1 = 2 then 'Remove'
     else $1::text
   end;
 $$

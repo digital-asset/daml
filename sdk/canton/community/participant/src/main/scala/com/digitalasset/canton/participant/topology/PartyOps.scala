@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.*
@@ -54,7 +55,7 @@ class PartyOps(
             asOfInclusive = false,
             isProposal = false,
             types = Seq(PartyToParticipant.code),
-            filterUid = Some(Seq(partyId.uid)),
+            filterUid = Some(NonEmpty(Seq, partyId.uid)),
             filterNamespace = None,
           )
         )

@@ -1024,7 +1024,7 @@ abstract class CantonNodeBootstrapImpl[
           asOfInclusive = false,
           isProposal = false,
           types = Seq(OwnerToKeyMapping.code),
-          filterUid = Some(Seq(nodeId)),
+          filterUid = Some(NonEmpty(Seq, nodeId)),
           filterNamespace = None,
         )
         .map { res =>
@@ -1080,7 +1080,7 @@ abstract class CantonNodeBootstrapImpl[
               isProposal = false,
               types = Seq(NamespaceDelegation.code),
               filterUid = None,
-              filterNamespace = Some(Seq(nodeId.namespace)),
+              filterNamespace = Some(NonEmpty(Seq, nodeId.namespace)),
             )
         )
         .flatMap { existing =>

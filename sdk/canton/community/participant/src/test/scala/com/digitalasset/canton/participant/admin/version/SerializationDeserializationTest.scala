@@ -13,8 +13,6 @@ import com.digitalasset.canton.version.{
 import org.scalatest.wordspec.AnyWordSpec
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import scala.concurrent.duration.*
-
 class SerializationDeserializationTest
     extends AnyWordSpec
     with BaseTest
@@ -28,7 +26,7 @@ class SerializationDeserializationTest
 
     s"Serialization and deserialization methods using protocol version $version" should {
       "compose to the identity" in {
-        test(ActiveContractOld, version, warnWhenTestRunsLongerThan = 2.seconds)
+        test(ActiveContractOld, version)
       }
     }
   }
