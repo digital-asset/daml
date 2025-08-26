@@ -50,8 +50,10 @@ ujson_version = "4.0.2"
 guava_version = "33.3.0-jre"
 
 # Updated 2024-03-15
-opentelemetry_version = "1.36.0"
-opentelemetry_instrumentation_version = "2.1.0-alpha"
+opentelemetry_version = "1.43.0"
+# we pick the newest version of opentelemetry_instrumentation build with the opentelemetry version above
+# https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/v2.9.0/dependencyManagement/build.gradle.kts
+opentelemetry_instrumentation_version = "2.9.0-alpha"
 prometheus_version = "0.16.0"
 
 protostuff_version = "3.1.40"
