@@ -750,6 +750,8 @@ private[lf] object Speedy {
         contractIdVersion: ContractIdVersion = ContractIdVersion.V1,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
+        initialEnvSize: Int = 512,
+        initialKontStackSize: Int = 128,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
       new UpdateMachine(
         sexpr = expr,
@@ -774,6 +776,8 @@ private[lf] object Speedy {
         profile = new Profile(),
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
         compiledPackages = compiledPackages,
+        initialEnvSize = initialEnvSize,
+        initialKontStackSize = initialKontStackSize,
       )
 
     private[lf] final case class Result(
@@ -925,7 +929,9 @@ private[lf] object Speedy {
     /* Actuals: to access values for a function application's arguments. */
     private[this] var actuals: Actuals = null
     /* [env] is a stack of temporary values for: let-bindings and pattern-matches. */
-    private[speedy] final val env: Env = new Stack(initialEnvSize)
+    private[speedy] final val env: Env = {
+      new Stack(initialEnvSize)
+    }
     /* [envBase] is the depth of the temporaries-stack when the current code-context was
      * begun. We revert to this depth when entering a closure, or returning to the top
      * continuation on the kontStack.
@@ -934,7 +940,11 @@ private[lf] object Speedy {
     /* Kont, or continuation specifies what should be done next
      * once the control has been evaluated.
      */
-    private[speedy] final val kontStack: Stack[Kont[Q]] = initialKontStack(initialKontStackSize)
+    private[speedy] final val kontStack: Stack[Kont[Q]] = {
+      val kontStack = new Stack[Kont[Q]](initialKontStackSize)
+      kontStack.push(KPure(Control.Complete)) // stack is not full, no need to check
+      kontStack
+    }
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
     /* Used when enableLightweightStepTracing is true */
@@ -987,7 +997,10 @@ private[lf] object Speedy {
 
     @inline
     private[speedy] final def pushKont(k: Kont[Q]): Unit = {
-      discard[Int](kontStack.push(k))
+      if (kontStack.isFull) {
+        kontStack.grow()
+      }
+      kontStack.push(k)
       if (enableInstrumentation) {
         track.incrPushesKont()
         track.setDepthKont(kontDepth())
@@ -1026,7 +1039,10 @@ private[lf] object Speedy {
 
     @inline
     final def pushEnv(v: SValue): Unit = {
-      discard[Int](env.push(v))
+      if (env.isFull) {
+        env.grow()
+      }
+      env.push(v)
       if (enableInstrumentation) {
         track.incrPushesEnv()
         track.setDepthEnv(env.size)
@@ -1103,7 +1119,7 @@ private[lf] object Speedy {
       setControl(Control.Expression(expr))
       clearEnv()
       clearKontStack()
-      discard[Int](kontStack.push(KPure(Control.Complete)))
+      kontStack.push(KPure(Control.Complete))
       envBase = 0
       interruptionCountDown = iterationsBetweenInterruptions
       track.reset()
@@ -1619,19 +1635,6 @@ private[lf] object Speedy {
   // Environment
   private[speedy] type Env = Stack[SValue]
 
-  //
-  // Kontinuation
-  //
-  // Whilst the machine is running, we ensure the kontStack is *never* empty.
-  // We do this by pushing a KPure(Control.Complete) continuation on the initially
-  // empty stack, which returns the final result
-
-  private[this] def initialKontStack[Q](initialKontStackSize: Int): Stack[Kont[Q]] = {
-    val kontStack = new Stack[Kont[Q]](initialKontStackSize)
-    discard[Int](kontStack.push(KPure(Control.Complete)))
-    kontStack
-  }
-
   private[speedy] sealed abstract class Control[+Q]
   object Control {
     final case class Value(v: SValue) extends Control[Nothing]
@@ -1785,7 +1788,7 @@ private[lf] object Speedy {
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
       machine.env.keep(base)
-      discard[Int](machine.env.push(v))
+      machine.pushEnv(v)
       Control.Expression(next)
     }
   }

@@ -3,15 +3,16 @@
 
 package com.digitalasset.daml.lf.speedy
 
-// Adhoc data structure back by an array to implement speedy stacks.
-// It has been tailored for this usage and are not design to be a general-purpose stack.
-// In particular:
-//  - it is 1-indexed, i.e. the top of the stack is at index 1.
-//  - push returns the number of elements added to the underlying array, everytime it grows.
-//  - it implements an operation `keep` to keep the oldest n elements of the stack, dropping the rest.
+// Ad-hoc data structure backed by an array to implement speedy stacks.
+// This implementation is tailored specifically for this use case and is not intended to be a general-purpose stack.
+// Key characteristics:
+//  - No bounds checking is performed.
+//  - It is 1-indexed, meaning the top of the stack is at index 1.
+//  - The `push` method assumes the stack is not full; growing the stack when needed is the caller's responsibility.
+//  - Includes a `keep` operation to retain the oldest `n` elements of the stack while discarding the rest.
 //
 // We force `X` to be an AnyRef to avoid the need a ClassTag.
-private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[X] {
+private[speedy] final class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[X] {
 
   assert(0 < initialCapacity)
 
@@ -22,20 +23,21 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
 
   override def size: Int = size_
 
-  private[this] def grow: Int = {
-    val capacity = this.capacity
+  // Double the capacity of the stack
+  def grow(): Unit = {
+    val oldCapacity = capacity
     val oldArray = array
-    array = Array.ofDim(capacity * 2)
-    Array.copy(oldArray, 0, array, 0, capacity)
-    capacity
+    array = Array.ofDim(oldCapacity * 2)
+    System.arraycopy(oldArray, 0, array, 0, oldCapacity)
   }
 
-  // Return the number of elements added to the underlying array
-  def push(value: X): Int = {
-    val increase = if (size < capacity) 0 else grow
+  def isFull: Boolean =
+    size == capacity
+
+  // it is the responsibility of the caller to check the stack is not full
+  def push(value: X): Unit = {
     array(size_) = value
     size_ += 1
-    increase
   }
 
   def pop: X = {
@@ -47,8 +49,6 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
 
   // keep the n oldest elements of the stack
   def keep(n: Int): Unit = {
-    if (n < 0 || size < n)
-      throw new IllegalArgumentException(s"Invalid stack index: $n, size: $size")
     var i = n
     while (i < size) {
       array(i) = null // drop the references
@@ -57,14 +57,12 @@ private[speedy] class Stack[X <: AnyRef](initialCapacity: Int) extends Iterable[
     size_ = n
   }
 
-  // Variables which reside on the stack. Indexed (from 1) by relative offset from the top of the stack (1 is top!)
-  def apply(i: Int): X = {
-    if (i <= 0 || size < i)
-      throw new IllegalArgumentException(s"Invalid stack index: $i, size: $size")
+  // Indexed from 1 by relative offset from the top of the stack (1 is top!)
+  def apply(i: Int): X =
     array(size_ - i).asInstanceOf[X]
-  }
 
-  override def iterator: Iterator[X] = array.iterator.take(size).asInstanceOf[Iterator[X]]
+  override def iterator: Iterator[X] =
+    array.iterator.take(size).asInstanceOf[Iterator[X]]
 
   override def knownSize: Int = size
 
