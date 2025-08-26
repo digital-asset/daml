@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction._
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -1779,7 +1780,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> FatContractInstance.withDummyDefaults(
+              contractId -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 version = txVersion,
                 packageName = pkg.pkgName,
                 template = templateId,
@@ -1830,7 +1831,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
               ),
             ),
             getContract = Map(
-              contractId -> FatContractInstance.withDummyDefaults(
+              contractId -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 version = txVersion,
                 template = templateId,
                 arg = disclosedContract.argument.toUnnormalizedValue,
@@ -1858,7 +1859,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           e"Mod:exerciseFailingPreconditionAndCatchError",
           ArraySeq(SContractId(cid)),
           getContract = Map(
-            cid -> FatContractInstance.withDummyDefaults(
+            cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
               version = txVersion,
               packageName = pkg.pkgName,
               template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,

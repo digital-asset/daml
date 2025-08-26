@@ -54,6 +54,7 @@ import scala.collection.immutable.{ArraySeq, HashMap}
 import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
 class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
@@ -1427,7 +1428,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         signatories: Iterable[Party],
         observers: Iterable[Party],
     ) =
-      FatContractInstance.withDummyDefaults(
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
@@ -1575,7 +1576,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetchedTid = Identifier(basicTestsPkgId, fetchedStrTid)
 
     val fetchedContract =
-      FatContractInstance.withDummyDefaults(
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
@@ -1624,7 +1625,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val lookerUpTemplateId = Identifier(basicTestsPkgId, lookerUpTemplate)
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
-      FatContractInstance.withDummyDefaults(
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
@@ -1969,7 +1970,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val fetcherTemplate = "BasicTests:FetcherByKey"
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
-      val fetcherInst = FatContractInstance.withDummyDefaults(
+      val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
@@ -2037,7 +2038,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
-    val fetcherInst = FatContractInstance.withDummyDefaults(
+    val fetcherInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
       version = defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = fetcherId,
@@ -2216,7 +2217,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.withDummyDefaults(
+      cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2366,7 +2367,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.withDummyDefaults(
+      cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2444,7 +2445,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seeding = Engine.initialSeeding(submissionSeed, participant, let)
     val cid = toContractId("1")
     val contracts = Map(
-      cid -> FatContractInstance.withDummyDefaults(
+      cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
         template = TypeConId(exceptionsPkgId, "Exceptions:K"),
@@ -2678,7 +2679,7 @@ class EngineTestHelpers(
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
-    FatContractInstance.withDummyDefaults(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
@@ -2706,7 +2707,7 @@ class EngineTestHelpers(
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        FatContractInstance.withDummyDefaults(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
@@ -2718,7 +2719,7 @@ class EngineTestHelpers(
           observers = List.empty,
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        FatContractInstance.withDummyDefaults(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),

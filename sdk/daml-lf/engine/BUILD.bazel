@@ -229,6 +229,7 @@ da_scala_test(
         "//daml-lf/parser",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
+        "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",

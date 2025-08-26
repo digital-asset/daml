@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
@@ -347,7 +348,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   private val testTxVersion: TransactionVersion = languageVersion
 
   private[this] def buildContract(observer: Party): FatContractInstance =
-    FatContractInstance.withDummyDefaults(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       testTxVersion,
       packageName = pkg.pkgName,
       template = T,
@@ -384,7 +385,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val visibleContract = buildContract(bob)
 
-  private[this] val helper = FatContractInstance.withDummyDefaults(
+  private[this] val helper = TransactionBuilder.fatContractInstanceWithDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Helper,
@@ -394,7 +395,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     ),
   )
 
-  private[this] val iface_contract = FatContractInstance.withDummyDefaults(
+  private[this] val iface_contract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Human,
@@ -419,7 +420,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     GlobalKeyWithMaintainers.assertBuild(T, keyValue, Set(alice), pkg.pkgName) -> cId
   )
 
-  private[this] val dummyContract = FatContractInstance.withDummyDefaults(
+  private[this] val dummyContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
     testTxVersion,
     packageName = pkg.pkgName,
     template = Dummy,

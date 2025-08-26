@@ -156,38 +156,6 @@ object FatContractInstance {
       createdAt = createTime,
       authenticationData = authenticationData,
     )
-
-  // TOTO https://github.com/DACH-NY/canton/issues/24843
-  //  drop when canton produce proper FatContract
-  private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
-  private[this] val DummyParties = List(Ref.Party.assertFromString("DummyParty"))
-
-  /** Creates a FatContractInstance with dummy contract ID, signatories, observers, creation time and authentication
-    * data. The signatories and observers may be overridden with non-dummy values if necessary. For testing purposes
-    * only.
-    */
-  def withDummyDefaults(
-      version: TransactionVersion,
-      packageName: Ref.PackageName,
-      template: Ref.Identifier,
-      arg: Value,
-      signatories: Iterable[Ref.Party] = DummyParties,
-      observers: Iterable[Ref.Party] = List.empty,
-      contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers] = None,
-  ): FatContractInstance =
-    FatContractInstanceImpl(
-      version = version,
-      contractId = DummyCid,
-      packageName = packageName,
-      templateId = template,
-      createArg = arg,
-      signatories = TreeSet.from(signatories),
-      stakeholders = TreeSet.from(observers ++ signatories),
-      contractKeyWithMaintainers = contractKeyWithMaintainers,
-      createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
-      authenticationData = Bytes.Empty,
-    )
-
 }
 
 /** Trait for specifying the creation time of a contract */

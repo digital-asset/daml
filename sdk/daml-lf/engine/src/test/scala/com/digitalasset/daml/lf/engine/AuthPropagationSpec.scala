@@ -36,6 +36,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueRecord,
 }
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 import java.io.File
 import org.scalatest.Inside
@@ -76,7 +77,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private def t1InstanceFor(party: Party): FatContractInstance =
-    FatContractInstance.withDummyDefaults(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       version = TransactionVersion.VDev,
       packageName = pkg.pkgName,
       template = "T1",
@@ -87,7 +88,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
   private def x1InstanceFor(party: Party): FatContractInstance =
-    FatContractInstance.withDummyDefaults(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       TransactionVersion.VDev,
       pkg.pkgName,
       "X1",

@@ -15,8 +15,9 @@ import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.Inside
@@ -396,8 +397,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(
         machine,
         getContract = Map(
-          theCid -> FatContractInstance
-            .withDummyDefaults(
+          theCid -> TransactionBuilder
+            .fatContractInstanceWithDummyDefaults(
               VDev,
               packageName,
               template,

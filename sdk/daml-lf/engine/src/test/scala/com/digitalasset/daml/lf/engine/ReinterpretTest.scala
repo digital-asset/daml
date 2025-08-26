@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
 import org.scalatest.wordspec.AnyWordSpec
@@ -52,7 +53,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   private val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
-        FatContractInstance.withDummyDefaults(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = langVersion,
           packageName = miniTestsPkg.pkgName,
           template = TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),

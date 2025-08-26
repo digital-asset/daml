@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
@@ -1327,7 +1328,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 Set(alice),
                 templateDefsPkgName,
               )
-              val globalContract = FatContractInstance.withDummyDefaults(
+              val globalContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 version = TransactionVersion.StableVersions.max,
                 packageName = templateDefsV1Pkg.pkgName,
                 template = templateId,
