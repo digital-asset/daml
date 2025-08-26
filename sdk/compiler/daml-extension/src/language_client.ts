@@ -34,6 +34,7 @@ namespace DamlKeepAliveRequest {
 }
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
+let dpmRoot: string = path.join(os.homedir(), ".dpm");
 
 export interface EnvVars {
   [envVarName: string]: string | undefined;
@@ -78,6 +79,7 @@ export class DamlLanguageClient {
     rootPath: string,
     envVars: EnvVars,
     config: vscode.WorkspaceConfiguration,
+    output: vscode.OutputChannel,
     telemetryConsent: boolean | undefined,
     _context: vscode.ExtensionContext,
     _webviewFiles: WebviewFiles,
@@ -89,6 +91,7 @@ export class DamlLanguageClient {
           rootPath,
           envVars,
           config,
+          output,
           telemetryConsent,
           identifier,
         );
@@ -249,12 +252,13 @@ export class DamlLanguageClient {
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
     multiIdeSupport: boolean,
+    output: vscode.OutputChannel,
     identifier: string | undefined,
   ): string[] {
     const logLevel = config.get("logLevel");
     const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
 
-    let args: string[] = [multiIdeSupport ? "multi-ide" : "ide", "--"];
+    let args: string[] = ["damlc", multiIdeSupport ? "multi-ide" : "ide"];
 
     if (telemetryConsent === true) {
       args.push("--telemetry");
@@ -284,28 +288,55 @@ export class DamlLanguageClient {
       ],
     );
 
+    output.appendLine("Running language server with following args:");
+    output.appendLine(serverArgs.join(" "));
+
     return serverArgs;
   }
 
-  static findDamlCommand(): string {
+  static findDpmCommand(): string | null {
+    try {
+      return which.sync("dpm");
+    } catch (ex) {
+      const dpmCmdPath = path.join(dpmRoot, "bin", "dpm");
+      return fs.existsSync(dpmCmdPath) ? dpmCmdPath : null;
+    }
+  }
+
+  static findDamlCommand(): string | null {
     try {
       return which.sync("daml");
     } catch (ex) {
       const damlCmdPath = path.join(damlRoot, "bin", "daml");
-      if (fs.existsSync(damlCmdPath)) {
-        return damlCmdPath;
-      } else {
-        vscode.window.showErrorMessage(
-          "Failed to start the Daml language server. Make sure the assistant is installed.",
-        );
-        throw new Error("Failed to locate assistant.");
-      }
+      return fs.existsSync(damlCmdPath) ? damlCmdPath : null;
     }
   }
+
+  static findAssistantCommand(config: vscode.WorkspaceConfiguration): string {
+    const useDpm = config.get("useDPMWhenAvailable");
+    if (useDpm) {
+      const dpmPath = DamlLanguageClient.findDpmCommand();
+      if (dpmPath) {
+        vscode.window.showInformationMessage(
+          "Daml IDE is starting using the Early Access DPM assistant.",
+        );
+        return dpmPath;
+      }
+    }
+    const damlPath = DamlLanguageClient.findDamlCommand();
+    if (damlPath) return damlPath;
+
+    vscode.window.showErrorMessage(
+      "Failed to start the Daml language server. Make sure an assistant (daml assistant or DPM) is installed.",
+    );
+    throw new Error("Failed to locate assistant.");
+  }
+
   private static async createLanguageClient(
     rootPath: string,
     envVars: EnvVars,
     config: vscode.WorkspaceConfiguration,
+    output: vscode.OutputChannel,
     telemetryConsent: boolean | undefined,
     identifier: string | undefined,
   ): Promise<[LanguageClient, boolean]> {
@@ -317,7 +348,7 @@ export class DamlLanguageClient {
       ],
     };
 
-    const command = DamlLanguageClient.findDamlCommand();
+    const command = DamlLanguageClient.findAssistantCommand(config);
     const sdkVersion = await DamlLanguageClient.getSdkVersion(
       command,
       rootPath,
@@ -335,6 +366,7 @@ export class DamlLanguageClient {
       config,
       telemetryConsent,
       multiIdeSupport,
+      output,
       identifier,
     );
 

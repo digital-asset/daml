@@ -29,7 +29,8 @@ import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
 import DA.Daml.LanguageServer.SplitGotoDefinition
 import Data.Foldable (traverse_)
-import Data.List (find, isInfixOf, isSuffixOf)
+import Data.List (delete, find, isInfixOf, isSuffixOf)
+import Data.List.Extra (nubOrd)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Data.Set as Set
@@ -258,41 +259,57 @@ clientMessageHandler miState unblock bs = do
             logInfo miState $ "daml.yaml change in " <> unPackageHome home <> ". Shutting down IDE"
             atomically $ sourceFileHomeHandleDamlYamlChanged miState home
             allowIdeSdkInstall miState home
-            case changeType of
-              LSP.FcDeleted -> do
-                shutdownIdeByHome miState home
-                handleRemovedPackageOpenFiles miState home
-                atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = False}
-              LSP.FcCreated -> do
-                isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
-                if isFullDamlYaml
-                  then do
-                    handleCreatedPackageOpenFiles miState home
-                    rebootIdeByHome miState home
-                  else
-                    -- If a daml.yaml with only sdk-version defined is created, we shutdown its IDE (in case something was running)
-                    -- and don't update any state
-                    shutdownIdeByHome miState home
-                atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = isFullDamlYaml}
-              LSP.FcChanged -> do
-                isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
-                oldIdeData <- atomically $ onSubIde miState home $ \ideData -> (ideData {ideDataIsFullDamlYaml = isFullDamlYaml}, ideData)
-                if isFullDamlYaml
-                  then do
-                    -- If a daml.yaml has gone from only containing sdk-version, to containing package fields,
-                    -- we want to treat it as through a full daml.yaml was created, calling the relevant handlers
-                    when (not (ideDataIsFullDamlYaml oldIdeData) && Set.null (ideDataOpenFiles oldIdeData)) $
-                      handleCreatedPackageOpenFiles miState home
-                    rebootIdeByHome miState home
-                  else do
-                    when (not $ Set.null $ ideDataOpenFiles oldIdeData) $ handleRemovedPackageOpenFiles miState home
-                    sendClient miState $ clearDiagnostics $ unPackageHome home </> "daml.yaml"
-                    shutdownIdeByHome miState home
-            void $ updatePackageData miState
+            -- Changes to daml.yaml or multi-package.yaml retrigger a RPM resolution, which can result in 
+            -- packages disabled by global errors from being restarted
+            idesToRestart <-
+              case changeType of
+                LSP.FcDeleted -> do
+                  shutdownIdeByHome miState home
+                  handleRemovedPackageOpenFiles miState home
+                  atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = False}
+                  pure []
+                LSP.FcCreated -> do
+                  isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
+                  idesToRestart <-
+                    if isFullDamlYaml
+                      then do
+                        handleCreatedPackageOpenFiles miState home
+                        idesToRestart <- updateResolutionFileForChanged miState $ Just home
+                        rebootIdeByHome miState home
+                        pure $ delete home idesToRestart
+                      else do
+                        -- If a daml.yaml with only sdk-version defined is created, we shutdown its IDE (in case something was running)
+                        -- and don't update any state
+                        shutdownIdeByHome miState home
+                        pure []
+                  atomically $ onSubIde_ miState home $ \ideData -> ideData {ideDataIsFullDamlYaml = isFullDamlYaml}
+                  pure idesToRestart
+                LSP.FcChanged -> do
+                  isFullDamlYaml <- shouldHandleDamlYamlChange <$> T.readFile (unPackageHome home </> "daml.yaml")
+                  oldIdeData <- atomically $ onSubIde miState home $ \ideData -> (ideData {ideDataIsFullDamlYaml = isFullDamlYaml}, ideData)
+                  if isFullDamlYaml
+                    then do
+                      -- If a daml.yaml has gone from only containing sdk-version, to containing package fields,
+                      -- we want to treat it as through a full daml.yaml was created, calling the relevant handlers
+                      idesToRestart <- updateResolutionFileForChanged miState $ Just home
+                      when (not (ideDataIsFullDamlYaml oldIdeData) && Set.null (ideDataOpenFiles oldIdeData)) $
+                        handleCreatedPackageOpenFiles miState home
+                      rebootIdeByHome miState home
+                      pure $ delete home idesToRestart
+                    else do
+                      when (not $ Set.null $ ideDataOpenFiles oldIdeData) $ handleRemovedPackageOpenFiles miState home
+                      sendClient miState $ clearDiagnostics $ unPackageHome home </> "daml.yaml"
+                      shutdownIdeByHome miState home
+                      pure []
+            idesToRestart' <- updatePackageData miState
+            traverse_ (lenientRebootIdeByHome miState) $ nubOrd $ idesToRestart <> idesToRestart'
 
           "multi-package.yaml" -> do
             logInfo miState "multi-package.yaml change."
-            void $ updatePackageData miState
+            idesToReboot <- updatePackageData miState
+            idesToReboot' <- updateResolutionFileForChanged miState Nothing
+            traverse_ (lenientRebootIdeByHome miState) $ nubOrd $ idesToReboot <> idesToReboot'
+
           _ | takeExtension changedPath == ".dar" -> do
             let darFile = DarFile changedPath
             logInfo miState $ ".dar file changed: " <> changedPath
@@ -300,7 +317,8 @@ clientMessageHandler miState unblock bs = do
             logDebug miState $ "Shutting down following ides: " <> show idesToShutdown
             traverse_ (lenientRebootIdeByHome miState) idesToShutdown
 
-            void $ updatePackageData miState
+            idesToReboot <- updatePackageData miState
+            traverse_ (lenientRebootIdeByHome miState) idesToReboot
           -- for .daml, we remove entry from the sourceFileHome cache if the file is deleted (note that renames/moves are sent as delete then create)
           _ | takeExtension changedPath == ".daml" && changeType == LSP.FcDeleted -> atomically $ sourceFileHomeHandleDamlFileDeleted miState changedPath
           _ -> pure ()

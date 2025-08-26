@@ -26,7 +26,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import Data.Time.Clock (getCurrentTime)
 import qualified SdkVersion.Class
-import System.Directory (getCurrentDirectory)
+import System.Directory (getCurrentDirectory, removeFile)
 import System.Exit (exitSuccess)
 import System.FilePath.Posix ((</>))
 import System.IO.Extra
@@ -100,6 +100,7 @@ runMultiIde loggingThreshold mIdentifier args = do
             logDebug miState $ "SubIde at " <> unPackageHome home <> " exited, cleaning up."
             traverse_ hTryClose [ideInHandle ide, ideOutHandle ide, ideErrHandle ide]
             traverse_ cancel [ideInhandleAsync ide, ideOutHandleAsync ide, ideErrTextAsync ide]
+            traverse_ removeFile $ ideMResolutionPath ide
             stderrContent <- readTVarIO (ideErrText ide)
             currentTime <- getCurrentTime
             let ideData = lookupSubIde home subIdes
