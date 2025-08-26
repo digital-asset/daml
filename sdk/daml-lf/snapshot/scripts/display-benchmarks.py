@@ -68,7 +68,7 @@ def main():
         html.Div(children="JMH Benchmarking Data for Snapshot Files"),
         html.Div(children=[dcc.Graph(figure=display_graph(graph_data))], style={"width":"100%", "height":"100vh"})
     ]
-    app.run(host="0.0.0.0", port=8080)
+    app.run(host="127.0.0.1", port=8080)
 
 if __name__ == "__main__":
     main()
