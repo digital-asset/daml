@@ -103,7 +103,7 @@ private[snapshot] object TransactionSnapshot {
     engine
   }
 
-  def getAllChoiceNames(dumpFile: Path): Set[String] = {
+  def getAllTopLevelChoiceNames(dumpFile: Path): Set[String] = {
     val inputStream = new BufferedInputStream(Files.newInputStream(dumpFile))
 
     val entries = new Iterator[Snapshot.SubmissionEntry] {
@@ -130,7 +130,7 @@ private[snapshot] object TransactionSnapshot {
       tx.foreachInExecutionOrder(
         exerciseBegin = { (_, exe) =>
           result = result + s"${exe.templateId}:${exe.choiceId}"
-          ChildrenRecursion.DoRecurse
+          ChildrenRecursion.DoNotRecurse
         },
         rollbackBegin = (_, _) => ChildrenRecursion.DoNotRecurse,
         leaf = (_, _) => (),
