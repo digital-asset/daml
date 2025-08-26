@@ -23,6 +23,8 @@ library
       base,
       -- @@stackage//:bytestring
       bytestring,
+      -- @@stackage//:containers
+      containers,
       -- //libs-haskell/da-hs-base:da-hs-base
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
