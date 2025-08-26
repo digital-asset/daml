@@ -2,18 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package engine
-package preprocessing
+package speedy
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.{
-  Ast,
-  LanguageMajorVersion,
-  LanguageVersion,
-  LookupError,
-  Reference,
-}
+import com.digitalasset.daml.lf.interpretation.Error.Dev.TranslationError
 import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.value.Value
@@ -22,7 +16,6 @@ import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
-import com.digitalasset.daml.lf.speedy.Compiler
 
 import scala.collection.immutable.ArraySeq
 import scala.util.{Failure, Success, Try}
@@ -95,11 +88,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     """
   }
 
-  private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
-  )
-  assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
-  assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)
+  private[this] val compiledPackage = PureCompiledPackages
+    .assertBuild(
+      Map(
+        defaultPackageId -> pkg,
+        upgradablePkgId -> upgradablePkg,
+      ),
+      Compiler.Config.Default(majorLanguageVersion),
+    )
 
   "translateValue" should {
 
@@ -166,7 +162,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
     val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", "svalue"),
+      ("type", "value", ""),
       (TList(TText), ValueList(FrontStack.empty), SList(FrontStack.empty)),
       (
         TOptional(TText),
@@ -233,7 +229,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       t"Mod:Enum"
 
     "return proper mismatch error for upgrades" in {
-      val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
+      val testCases = Table[Ast.Type, Value, PartialFunction[TranslationError.Error, _]](
         ("type", "value", "error"),
         (
           TRecordUpgradable,
@@ -245,7 +241,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "fieldC" -> none,
             ),
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+          { case TranslationError.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aParty
           },
@@ -260,7 +256,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "fieldB" -> someText,
             ),
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+          { case TranslationError.TypeMismatch(typ, _, _) =>
             typ shouldBe TRecordUpgradable
           },
         ),
@@ -270,7 +266,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
             "",
             ImmArray(), // missing a non-optional field
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+          { case TranslationError.TypeMismatch(typ, _, _) =>
             typ shouldBe TRecordUpgradable
           },
         ),
@@ -285,14 +281,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "fieldD" -> aInt, // extra non-optional field
             ),
           ),
-          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+          { case TranslationError.TypeMismatch(typ, _, _) =>
             typ shouldBe TRecordUpgradable
           },
         ),
         (
           TVariantUpgradable,
           ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
-          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+          { case TranslationError.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aInt
           },
@@ -301,7 +297,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TVariantUpgradable,
           ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
           {
-            case Error.Preprocessing.Lookup(
+            case TranslationError.LookupError(
                   LookupError.NotFound(
                     Reference.DataVariantConstructor(_, consName),
                     Reference.DataVariantConstructor(_, _),
@@ -314,7 +310,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TEnumUpgradable,
           ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
           {
-            case Error.Preprocessing.Lookup(
+            case TranslationError.LookupError(
                   LookupError.NotFound(
                     Reference.DataEnumConstructor(_, consName),
                     Reference.DataEnumConstructor(_, _),
@@ -327,7 +323,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TVariantUpgradable,
           ValueVariant("", "ConsC", aInt), // ConsC is not a constructor of Mod:Variant
           {
-            case Error.Preprocessing.Lookup(
+            case TranslationError.LookupError(
                   LookupError.NotFound(
                     Reference.DataVariantConstructor(_, consName),
                     Reference.DataVariantConstructor(_, _),
@@ -340,7 +336,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           TEnumUpgradable,
           ValueEnum("", "Cons3"), // Cons3 is not a constructor of Mod:Enum
           {
-            case Error.Preprocessing.Lookup(
+            case TranslationError.LookupError(
                   LookupError.NotFound(
                     Reference.DataEnumConstructor(_, consName),
                     Reference.DataEnumConstructor(_, _),
@@ -351,10 +347,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       forEvery(testCases)((typ, value, _) =>
-        inside(Try(unsafeTranslateValue(typ, value))) {
-          case Failure(_: Error.Preprocessing.Error) =>
-            ()
-          // checkError(error)
+        inside(Try(unsafeTranslateValue(typ, value))) { case Failure(_: TranslationError.Error) =>
+          ()
+        // checkError(error)
         }
       )
     }
@@ -378,9 +373,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ) =
         (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
       def upgradeCaseFailure(s: String, value: Value) =
-        (Failure(Error.Preprocessing.TypeMismatch(typ, value, s)), value)
+        (Failure(TranslationError.TypeMismatch(typ, value, s)), value)
       val testCases = Table(
-        ("svalue", "record"),
+        ("", "record"),
         upgradeCaseSuccess(
           true,
           true,
@@ -522,7 +517,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ),
         )
       )
-      inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
+      inside(res) { case Failure(TranslationError.TypeMismatch(typ, value, _)) =>
         typ shouldBe t"Text"
         value shouldBe ValueParty("Alice")
       }
@@ -532,7 +527,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       forAll(testCases) { (typ1, value1, _) =>
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
-            a[Error.Preprocessing.Error] shouldBe thrownBy(
+            a[TranslationError.Error] shouldBe thrownBy(
               unsafeTranslateValue(typ1, value2)
             )
           }
@@ -552,7 +547,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         }
       val notTooBig = mkMyList(49)
       val tooBig = mkMyList(50)
-      val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
+      val failure = Failure(TranslationError.ValueNesting(tooBig))
 
       Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
       Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
@@ -629,9 +624,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         crypto.Hash.hashPrivateKey("an illegal Contract ID"),
       )
       val failureV1 =
-        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCidV1))
+        Failure(TranslationError.NonSuffixedV1ContractId(illegalCidV1))
       val failureV2 =
-        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
+        Failure(TranslationError.NonSuffixedV2ContractId(illegalCidV2))
 
       forEvery(testCasesForCid(legalCidV1))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
