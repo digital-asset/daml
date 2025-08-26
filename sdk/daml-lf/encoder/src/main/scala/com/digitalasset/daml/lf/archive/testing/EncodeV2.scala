@@ -600,7 +600,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
         case EApp(fun, arg) if languageVersion >= LV.Features.flatArchive =>
           builder.setApp(PLF.Expr.App.newBuilder().setFun(fun).addArgs(arg))
-        // TODO[RB]: why wouldn't expr ever NOT be Expr?
         case ETyApps(expr: Expr, typs0) if languageVersion < LV.Features.flatArchive =>
           expr match {
             case EBuiltinFun(builtin)
@@ -645,8 +644,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
           )
         case ENil(typ) =>
           builder.setNil(PLF.Expr.Nil.newBuilder().setType(typ))
-        // TODO[RB]: so in the scala ast front is already a list... so what now?
-        // Do we fold PLF.Expr.Cons over that list? Encode the list anyway?
         case ECons(typ, front, tail) =>
           builder.setCons(
             PLF.Expr.Cons
