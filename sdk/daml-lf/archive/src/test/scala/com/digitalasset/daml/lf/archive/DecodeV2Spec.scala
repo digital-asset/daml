@@ -37,6 +37,9 @@ class DecodeV2Spec
   val boolTypInterned = DamlLf2.Type.newBuilder().setInternedType(1).build()
   val textTypInterned = DamlLf2.Type.newBuilder().setInternedType(2).build()
 
+  val unit = DamlLf2.Unit.newBuilder().build()
+  val kstar = DamlLf2.Kind.newBuilder().setStar(unit).build()
+
   val unitExpr: DamlLf2.Expr = DamlLf2.Expr
     .newBuilder()
     .setBuiltinCon(DamlLf2.BuiltinCon.CON_UNIT)
@@ -120,7 +123,7 @@ class DecodeV2Spec
       }
     }
 
-    "reject Arrow if result_interned_kind is set" in {
+    "reject if result_interned_kind is set" in {
       val input = DamlLf2.Kind
         .newBuilder()
         .setInternedKind(32)
@@ -131,19 +134,45 @@ class DecodeV2Spec
       }
     }
 
+    "reject arrow with empty arg list" in {
+      val input = DamlLf2.Kind
+        .newBuilder()
+        .setArrow(DamlLf2.Kind.Arrow
+                    .newBuilder()
+                    .setResult(kstar))
+        .build()
+
+      forEveryVersion { version =>
+        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
+      }
+    }
+
+    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" in {
+      val input = DamlLf2.Kind
+        .newBuilder()
+        .setArrow(DamlLf2.Kind.Arrow
+                    .newBuilder()
+                    .addParams(kstar)
+                    .addParams(kstar)
+                    .setResult(kstar))
+        .build()
+
+      forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version  =>
+        inside(Try(moduleDecoder(version).decodeKindForTest(input))) {
+          case Failure(Error.Parsing(message)) =>
+                message should include("Illegal local flattening")
+        }
+      }
+    }
+
   }
 
   "decodeKindsTable" should {
 
     "reject nonempty lfkinds on unsupported versions" in {
-      val unit = DamlLf2.Unit.newBuilder().build()
-      val kind = DamlLf2.Kind
-        .newBuilder()
-        .setStar(unit)
-        .build()
       val pkg = DamlLf2.Package
         .newBuilder()
-        .addInternedKinds(kind)
+        .addInternedKinds(kstar)
         .build()
 
       forEveryVersionSuchThat(_ < LV.Features.kindInterning) { version =>
@@ -229,8 +258,6 @@ class DecodeV2Spec
     )
 
     "translate TNumeric as is" in {
-      // TODO[RB] Actually test for Flat LF as well, and not just only for
-      // pre-flattening lf https://github.com/digital-asset/daml/pull/21658
       forEveryVersionSuchThat(_ < LV.Features.flatArchive) { version =>
         val decoder = moduleDecoder(version)
         forEvery(numericTestCases) { (input, expectedOutput) =>
@@ -321,6 +348,92 @@ class DecodeV2Spec
         }
       }
     }
+
+    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+
+      "for case VAR (enforced: null)" in {
+        val stringTable = ImmArraySeq("a")
+        val input = DamlLf2.Type
+          .newBuilder()
+          .setVar(DamlLf2.Type.Var
+            .newBuilder()
+            .setVarInternedStr(0)
+            .addArgs(unitType))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version  =>
+          inside(Try(moduleDecoder(version, stringTable).uncheckedDecodeTypeForTest(input))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+           }
+        }
+      }
+
+
+      "for case CON (enforced: null)" in {
+        val stringTable = ImmArraySeq("pkgId", "x")
+        val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
+
+        val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+        val modId =
+          DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
+        val tyConId = DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(1)
+
+        val input = DamlLf2.Type
+          .newBuilder()
+          .setCon(DamlLf2.Type.Con
+            .newBuilder()
+            .setTycon(tyConId)
+            .addArgs(unitType))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version  =>
+          inside(Try(moduleDecoder(version, stringTable, dottedNameTable).uncheckedDecodeTypeForTest(input))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+           }
+        }
+      }
+
+      "for case BUILTIN (enforced: null)" in {
+        val input = DamlLf2.Type
+          .newBuilder
+          .setBuiltin(DamlLf2.Type.Builtin
+            .newBuilder()
+            .setBuiltin(DamlLf2.BuiltinType.BOOL)
+            .addArgs(unitType))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version  =>
+          inside(Try(moduleDecoder(version).uncheckedDecodeTypeForTest(input))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+           }
+        }
+      }
+
+      "for case FORALL (enforced: singleton)" in {
+        val stringTable = ImmArraySeq("pkgId", "x")
+        val typeVar = DamlLf2.Type.newBuilder().setVar(DamlLf2.Type.Var.newBuilder().setVarInternedStr(0)).build()
+        val xWithStar = DamlLf2.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(kstar).build()
+
+        val input = DamlLf2.Type
+          .newBuilder
+          .setForall(DamlLf2.Type.Forall
+            .newBuilder()
+            .setBody(typeVar)
+            .addVars(xWithStar)
+            .addVars(xWithStar))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version  =>
+          inside(Try(moduleDecoder(version, stringTable).uncheckedDecodeTypeForTest(input))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+           }
+        }
+      }
+    }
   }
 
   "decodeType" should {
@@ -330,7 +443,6 @@ class DecodeV2Spec
       val stringTable = ImmArraySeq("pkgId", "x")
       val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
 
-      val unit = DamlLf2.Unit.newBuilder().build()
       val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
       val modId =
         DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
@@ -680,7 +792,6 @@ class DecodeV2Spec
     s"decode basic interface primitives" in {
       val testCases = {
 
-        val unit = DamlLf2.Unit.newBuilder().build()
         val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
         val modId =
           DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
@@ -880,7 +991,6 @@ class DecodeV2Spec
     s"decode interface update" in {
       val testCases = {
 
-        val unit = DamlLf2.Unit.newBuilder().build()
         val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
         val modRef =
           DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
@@ -945,7 +1055,6 @@ class DecodeV2Spec
 
     s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
 
-      val unit = DamlLf2.Unit.newBuilder().build()
       val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
       val modRef =
         DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
@@ -991,10 +1100,6 @@ class DecodeV2Spec
         .newBuilder()
         .setInternedExpr(0)
         .build()
-      val unit = DamlLf2.Expr
-        .newBuilder()
-        .setBuiltinCon(PLF.BuiltinCon.CON_UNIT)
-        .build()
 
       forEveryVersionSuchThat(_ < LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
@@ -1004,7 +1109,7 @@ class DecodeV2Spec
           ImmArraySeq.empty,
           ImmArraySeq.empty,
           ImmArraySeq.empty,
-          ImmArraySeq(unit),
+          ImmArraySeq(unitExpr),
           None,
           Some(dummyModuleName),
           onlySerializableDataDefs = false,
@@ -1042,10 +1147,6 @@ class DecodeV2Spec
         .newBuilder()
         .setInternedExpr(0)
         .build()
-      val unit = DamlLf2.Expr
-        .newBuilder()
-        .setBuiltinCon(PLF.BuiltinCon.CON_UNIT)
-        .build()
 
       forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
@@ -1055,7 +1156,7 @@ class DecodeV2Spec
           ImmArraySeq.empty,
           ImmArraySeq.empty,
           ImmArraySeq.empty,
-          ImmArraySeq(unit),
+          ImmArraySeq(unitExpr),
           None,
           Some(dummyModuleName),
           onlySerializableDataDefs = false,
@@ -1066,10 +1167,6 @@ class DecodeV2Spec
     }
 
     "reject interned in interned expressions table" in {
-      val unit = DamlLf2.Expr
-        .newBuilder()
-        .setBuiltinCon(PLF.BuiltinCon.CON_UNIT)
-        .build()
       val internedZero = DamlLf2.Expr
         .newBuilder()
         .setInternedExpr(0)
@@ -1087,7 +1184,7 @@ class DecodeV2Spec
           ImmArraySeq.empty,
           ImmArraySeq.empty,
           ImmArraySeq.empty,
-          ImmArraySeq(unit, internedZero),
+          ImmArraySeq(unitExpr, internedZero),
           None,
           Some(dummyModuleName),
           onlySerializableDataDefs = false,
@@ -1136,6 +1233,141 @@ class DecodeV2Spec
           None,
         )
         an[Error.IllegalInterning] shouldBe thrownBy(env.decodeExprForTest(internedZero, ""))
+      }
+    }
+
+    s"Reject local flattening iff lf version >= ${LV.Features.exceptions}" should {
+      "for case ABS (enforced: singleton)" in {
+        val internedZero = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(0)
+          .build()
+        val internedOne = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(1)
+          .build()
+        val x = DamlLf2.VarWithType
+          .newBuilder()
+          .setVarInternedStr(0)
+          .setType(
+            DamlLf2.Type
+              .newBuilder()
+              .setBuiltin(DamlLf2.Type.Builtin.newBuilder().setBuiltin(DamlLf2.BuiltinType.UNIT))
+          )
+          .build()
+        val ab = DamlLf2.Expr.Abs
+          .newBuilder()
+          .addParam(x)
+          .addParam(x)
+          .setBody(internedZero)
+          .build()
+        val ab2 = DamlLf2.Expr
+          .newBuilder()
+          .setAbs(ab)
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
+          val decoder = new DecodeV2(version.minor)
+          val env = decoder.Env(
+            Ref.PackageId.assertFromString("noPkgId"),
+            ImmArraySeq("arg"),
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq(unitExpr, ab2),
+            None,
+            Some(dummyModuleName),
+            onlySerializableDataDefs = false,
+            None,
+          )
+          inside(Try(env.decodeExprForTest(internedOne, ""))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+          }
+        }
+      }
+
+      "for case TY_APP (enforced: singleton)" in {
+        val internedZero = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(0)
+          .build()
+        val internedOne = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(1)
+          .build()
+
+        val tyapp = DamlLf2.Expr
+          .newBuilder()
+          .setTyApp(DamlLf2.Expr.TyApp
+            .newBuilder()
+            .setExpr(internedZero)
+            .addTypes(unitType)
+            .addTypes(unitType))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
+          val decoder = new DecodeV2(version.minor)
+          val env = decoder.Env(
+            Ref.PackageId.assertFromString("noPkgId"),
+            ImmArraySeq("arg"),
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq(unitExpr, tyapp),
+            None,
+            Some(dummyModuleName),
+            onlySerializableDataDefs = false,
+            None,
+          )
+          inside(Try(env.decodeExprForTest(internedOne, ""))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+          }
+        }
+      }
+
+      "for case TY_ABS (enforced: singleton)" in {
+        val internedZero = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(0)
+          .build()
+        val internedOne = DamlLf2.Expr
+          .newBuilder()
+          .setInternedExpr(1)
+          .build()
+
+        val stringTable = ImmArraySeq("pkgId", "x")
+        val xWithStar = DamlLf2.TypeVarWithKind.newBuilder().setVarInternedStr(1).setKind(kstar).build()
+
+        val tyabs = DamlLf2.Expr
+          .newBuilder()
+          .setTyAbs(DamlLf2.Expr.TyAbs
+            .newBuilder()
+            .setBody(internedZero)
+            .addParam(xWithStar)
+            .addParam(xWithStar))
+          .build()
+
+        forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
+          val decoder = new DecodeV2(version.minor)
+          val env = decoder.Env(
+            Ref.PackageId.assertFromString("noPkgId"),
+            stringTable,
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq.empty,
+            ImmArraySeq(unitExpr, tyabs),
+            None,
+            Some(dummyModuleName),
+            onlySerializableDataDefs = false,
+            None,
+          )
+          inside(Try(env.decodeExprForTest(internedOne, ""))) {
+            case Failure(Error.Parsing(message)) =>
+                  message should include("Illegal local flattening")
+          }
+        }
       }
     }
   }

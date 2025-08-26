@@ -1589,7 +1589,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   ): Unit =
     if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 1)
       throw Error.Parsing(
-        s"Since lf flattening is supported, expected a single element for $description, but found ${s.length}, version ${languageVersion}"
+        s"Illegal local flattening: since lf flattening is supported, expected a single element for $description, but found ${s.length}, version ${languageVersion}"
       )
 
   private def assertNullIfSupportsFlatArchive(
@@ -1598,7 +1598,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   ): Unit =
     if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 0)
       throw Error.Parsing(
-        s"Since lf flattening is supported, expected a null list $description, but found ${s.length}, version ${languageVersion}"
+        s"Illegal local flattening: Since lf flattening is supported, expected a null list $description, but found ${s.length}, version ${languageVersion}"
       )
 
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
