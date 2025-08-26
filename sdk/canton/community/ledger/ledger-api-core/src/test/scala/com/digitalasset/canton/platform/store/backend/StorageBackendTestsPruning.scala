@@ -30,7 +30,6 @@ private[backend] trait StorageBackendTestsPruning
 
   def pruneEventsSql(
       pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompleteReassignmentOffsets: Vector[Offset] = Vector.empty,
   )(implicit
       traceContext: TraceContext
@@ -39,7 +38,6 @@ private[backend] trait StorageBackendTestsPruning
       conn.setAutoCommit(false)
       backend.event.pruneEvents(
         pruneUpToInclusive,
-        pruneAllDivulgedContracts,
         incompleteReassignmentOffsets,
       )(
         conn,
@@ -66,39 +64,6 @@ private[backend] trait StorageBackendTestsPruning
     executeSql(backend.parameter.updatePrunedUptoInclusive(offset_3))
     val updatedPruningOffset_3 = executeSql(backend.parameter.prunedUpToInclusive)
 
-    initialPruningOffset shouldBe empty
-    updatedPruningOffset_1 shouldBe Some(offset_1)
-    // The pruning offset is not updated if lower than the existing offset
-    updatedPruningOffset_2 shouldBe Some(offset_1)
-    updatedPruningOffset_3 shouldBe Some(offset_3)
-  }
-
-  it should "correctly update the pruning offset of all divulged contracts" in {
-    val offset_1 = offset(3)
-    val offset_2 = offset(2)
-    val offset_3 = offset(4)
-    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    val initialPruningOffset = executeSql(
-      backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
-    )
-    executeSql(
-      backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_1)
-    )
-    val updatedPruningOffset_1 = executeSql(
-      backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
-    )
-    executeSql(
-      backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_2)
-    )
-    val updatedPruningOffset_2 = executeSql(
-      backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
-    )
-    executeSql(
-      backend.parameter.updatePrunedAllDivulgedContractsUpToInclusive(offset_3)
-    )
-    val updatedPruningOffset_3 = executeSql(
-      backend.parameter.participantAllDivulgedContractsPrunedUpToInclusive
-    )
     initialPruningOffset shouldBe empty
     updatedPruningOffset_1 shouldBe Some(offset_1)
     // The pruning offset is not updated if lower than the existing offset
@@ -184,10 +149,10 @@ private[backend] trait StorageBackendTestsPruning
 
     assertAllDataPresent()
     // Prune before the offset at which we ingested any events
-    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(2))
     assertAllDataPresent()
     // Prune at offset such that there are events ingested before and after
-    pruneEventsSql(offset(5), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(5))
     assertIndexDbDataSql(
       consuming = Vector(EventConsuming(9)),
       consumingFilterStakeholder = Vector(FilterConsumingStakeholder(9, 4)),
@@ -198,13 +163,13 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(10, 4)),
     )
     // Prune at the ledger end, but setting the unassign incomplete
-    pruneEventsSql(endOffset, pruneAllDivulgedContracts = true, Vector(offset(8)))
+    pruneEventsSql(endOffset, Vector(offset(8)))
     assertIndexDbDataSql(
       unassign = Vector(EventUnassign(10)),
       unassignFilter = Vector(FilterUnassign(10, 4)),
     )
     // Prune at the ledger end
-    pruneEventsSql(endOffset, pruneAllDivulgedContracts = true)
+    pruneEventsSql(endOffset)
     assertIndexDbDataSql()
   }
 
@@ -276,12 +241,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(11))
     assertIndexDbDataSql(
       txMeta = Vector.empty
     )
@@ -349,12 +314,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the create event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(11))
     assertIndexDbDataSql()
   }
 
@@ -486,7 +451,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(1))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -499,7 +464,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at create
-    pruneEventsSql(offset(2), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(2))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(3),
@@ -511,7 +476,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(6), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(6))
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
@@ -532,7 +497,7 @@ private[backend] trait StorageBackendTestsPruning
     )
     // Prune at the end, but following unassign is incomplete
     // (the following archive can be pruned, but the following incomplete unassign and the create cannot, to be able to look up create event for the incomplete unassigned)
-    pruneEventsSql(offset(8), pruneAllDivulgedContracts = true, Vector(offset(8)))
+    pruneEventsSql(offset(8), Vector(offset(8)))
     assertIndexDbDataSql(
       create = Vector(EventCreate(1)),
       createFilterStakeholder = Vector(
@@ -544,7 +509,7 @@ private[backend] trait StorageBackendTestsPruning
       unassignFilter = Vector(FilterUnassign(7, 3)),
     )
     // Prune at the end (to verify that additional events are related)
-    pruneEventsSql(offset(8), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(8))
     assertIndexDbDataSql()
   }
 
@@ -605,12 +570,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the archive event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(11))
     assertIndexDbDataSql()
   }
 
@@ -668,12 +633,12 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector(TxMeta(10), TxMeta(11))
     )
     // Prune at the offset of the assign event
-    pruneEventsSql(offset(10), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(10))
     assertAllDataPresent(
       txMeta = Vector(TxMeta(11))
     )
     // Prune at the offset of the unassign event
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(11))
     assertIndexDbDataSql()
   }
 
@@ -839,7 +804,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune earlier
-    pruneEventsSql(offset(1), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(1))
     assertAllDataPresent(
       txMeta = Vector(
         TxMeta(2),
@@ -855,7 +820,7 @@ private[backend] trait StorageBackendTestsPruning
       )
     )
     // Prune at assign
-    pruneEventsSql(offset(5), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(5))
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 4)),
@@ -885,7 +850,7 @@ private[backend] trait StorageBackendTestsPruning
       ),
     )
     // Prune after unrelated archive and reassign events but before related ones
-    pruneEventsSql(offset(9), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(9))
     assertIndexDbDataSql(
       assign = Vector(EventAssign(4)),
       assignFilter = Vector(FilterAssign(4, 4)),
@@ -908,7 +873,6 @@ private[backend] trait StorageBackendTestsPruning
     // (the archive and the unassing cannot be pruned neither, because they belong to an incomplete activation)
     pruneEventsSql(
       offset(11),
-      pruneAllDivulgedContracts = true,
       Vector(offset(5), offset(1000), offset(1001)),
     )
     assertIndexDbDataSql(
@@ -930,7 +894,6 @@ private[backend] trait StorageBackendTestsPruning
     // (the following archive can be pruned, but the following unassign and the assign can't, to be able to look up create event for the incomplete unassigned)
     pruneEventsSql(
       offset(11),
-      pruneAllDivulgedContracts = true,
       Vector(offset(11), offset(1000), offset(1001)),
     )
     assertIndexDbDataSql(
@@ -945,11 +908,11 @@ private[backend] trait StorageBackendTestsPruning
       txMeta = Vector.empty,
     )
     // Prune at the end
-    pruneEventsSql(offset(11), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(11))
     assertIndexDbDataSql()
   }
 
-  it should "prune all retroactively and immediately divulged contracts (if pruneAllDivulgedContracts is set)" in {
+  it should "prune all retroactively and immediately divulged contracts" in {
     val partyName = "party"
     val divulgee = Ref.Party.assertFromString(partyName)
     val contract1_id = hashCid("#1")
@@ -959,10 +922,10 @@ private[backend] trait StorageBackendTestsPruning
       eventSequentialId = 1L,
       contractId = contract1_id,
       signatory = divulgee,
+      emptyFlatEventWitnesses = true,
     )
-    val partyEntry = dtoPartyEntry(offset(2), partyName)
     val contract2_createWithLocalStakeholder = dtoCreate(
-      offset = offset(3),
+      offset = offset(2),
       eventSequentialId = 2L,
       contractId = contract2_id,
       signatory = divulgee,
@@ -973,18 +936,30 @@ private[backend] trait StorageBackendTestsPruning
       ingest(
         Vector(
           contract1_immediateDivulgence,
-          partyEntry,
+          DbDto.IdFilterCreateNonStakeholderInformee(
+            1L,
+            someTemplateId.toString,
+            divulgee,
+          ),
           contract2_createWithLocalStakeholder,
+          DbDto.IdFilterCreateStakeholder(
+            2L,
+            someTemplateId.toString,
+            divulgee,
+          ),
         ),
         _,
       )
     )
     assertIndexDbDataSql(
-      create = Vector(EventCreate(1), EventCreate(2))
+      create = Vector(EventCreate(1), EventCreate(2)),
+      createFilterNonStakeholder = Vector(FilterCreateNonStakeholder(1, 3)),
+      createFilterStakeholder = Vector(FilterCreateStakeholder(2, 3)),
     )
-    pruneEventsSql(offset(3), pruneAllDivulgedContracts = true)
+    pruneEventsSql(offset(2))
     assertIndexDbDataSql(
-      create = Vector(EventCreate(2))
+      create = Vector(EventCreate(2)),
+      createFilterStakeholder = Vector(FilterCreateStakeholder(2, 3)),
     )
   }
 

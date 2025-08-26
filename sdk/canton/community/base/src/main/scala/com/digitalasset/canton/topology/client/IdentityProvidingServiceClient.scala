@@ -19,7 +19,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
@@ -56,8 +56,10 @@ import scala.concurrent.{ExecutionContext, Future}
   * the layout of the synchronizers, such as party-participant relationships, used encryption and
   * signing keys, package information, participant states, synchronizer parameters, and so on.
   */
-class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFactory)
-    extends NamedLogging {
+class IdentityProvidingServiceClient(
+    override protected val loggerFactory: NamedLoggerFactory
+) extends AutoCloseable
+    with NamedLogging {
 
   private val synchronizers = TrieMap.empty[PhysicalSynchronizerId, SynchronizerTopologyClient]
 
@@ -76,8 +78,6 @@ class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFac
   def remove(synchronizerId: PhysicalSynchronizerId): Option[SynchronizerTopologyClient] =
     synchronizers.remove(synchronizerId)
 
-  def allSynchronizers: Iterable[SynchronizerTopologyClient] = synchronizers.values
-
   def tryForSynchronizer(synchronizerId: PhysicalSynchronizerId): SynchronizerTopologyClient =
     synchronizers.getOrElse(
       synchronizerId,
@@ -86,6 +86,11 @@ class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFac
 
   def forSynchronizer(synchronizerId: PhysicalSynchronizerId): Option[SynchronizerTopologyClient] =
     synchronizers.get(synchronizerId)
+
+  override def close(): Unit = {
+    val instances: Seq[AutoCloseable] = synchronizers.values.toSeq
+    LifeCycle.close(instances*)(logger)
+  }
 
 }
 

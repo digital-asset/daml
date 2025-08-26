@@ -572,13 +572,12 @@ private[index] class IndexServiceImpl(
 
   override def prune(
       pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit] = {
     pruneBuffers(pruneUpToInclusive)
-    ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets)
+    ledgerDao.prune(pruneUpToInclusive, incompletReassignmentOffsets)
   }
 
   override def currentLedgerEnd(): Future[Option[Offset]] =
@@ -635,10 +634,10 @@ private[index] class IndexServiceImpl(
   ): Future[MaximumLedgerTime] =
     maximumLedgerTimeService.lookupMaximumLedgerTimeAfterInterpretation(ids)
 
-  override def latestPrunedOffsets()(implicit
+  override def latestPrunedOffset()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Offset], Option[Offset])] =
-    ledgerDao.pruningOffsets
+  ): Future[Option[Offset]] =
+    ledgerDao.pruningOffset
 
   private def createViewUpgradeMemoized(implicit
       loggingContextWithTrace: LoggingContextWithTrace

@@ -201,10 +201,6 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
     val epochNumber = prePrepare.message.blockMetadata.epochNumber
     val blockNumber = prePrepare.message.blockMetadata.blockNumber
     createFuture(addOrderedBlockActionName(epochNumber, blockNumber)) { () =>
-      // we can drop the in progress messages for this block
-      preparesMap.remove(blockNumber).discard
-      prePreparesMap.remove(blockNumber).discard
-
       putIfAbsent(
         store = blocks,
         key = blockNumber,

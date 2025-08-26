@@ -8,7 +8,6 @@ import anorm.~
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.store.backend.Conversions.contractId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.UnassignProperties
-import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.EventStorageBackendTemplate
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
@@ -20,14 +19,11 @@ import java.sql.Connection
 class PostgresEventStorageBackend(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
-    parameterStorageBackend: ParameterStorageBackend,
     loggerFactory: NamedLoggerFactory,
 ) extends EventStorageBackendTemplate(
       queryStrategy = PostgresQueryStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      participantAllDivulgedContractsPrunedUpToInclusive =
-        parameterStorageBackend.participantAllDivulgedContractsPrunedUpToInclusive,
       loggerFactory = loggerFactory,
     ) {
 

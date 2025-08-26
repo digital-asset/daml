@@ -21,7 +21,6 @@ CREATE TABLE lapi_parameters (
     -- the sequential_event_id up to which all events have been ingested
     -- NULL denotes that no events have been ingested
     ledger_end_sequential_id bigint,
-    participant_all_divulged_contracts_pruned_up_to_inclusive bigint,
     -- lapi_string_interning ledger-end tracking
     ledger_end_string_interning_id integer,
     ledger_end_publication_time bigint

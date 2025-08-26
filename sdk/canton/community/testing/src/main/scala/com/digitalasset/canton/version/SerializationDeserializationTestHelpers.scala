@@ -21,9 +21,24 @@ import SerializationDeserializationTestHelpers.*
 
 trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPropertyChecks {
 
+  /** Configures the herein contained `forAll` method behaviour for the
+    * serialization/deserialization tests explicitly.
+    *
+    * The `minSuccessful` parameter affects how many test data samples will be generated and tested
+    * per test case. Consequently, it determines how long a test case such as `test(AcsCommitment,
+    * version)` will take, for example.
+    */
+  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 10)
+
   // Classes for which we ran the (de)serialization tests
   // Populated by the methods `testVersioned` and friends
   lazy val testedClasses: scala.collection.mutable.Set[String] = mutable.Set.empty
+
+  /** We use 10 seconds default for `warnWhenTestRunsLongerThan` to have a very generous buffer to
+    * prevent test flakiness. On CI, tests should normally finish within 1 to 3 seconds.
+    */
+  private val maxDurationWarning: Duration = 10.second
 
   /** Test for classes extending `HasVersionedWrapper` (protocol version passed to the serialization
     * method), without context for deserialization.
@@ -36,8 +51,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     testVersionedCommon(companion, protocolVersion, companion.fromTrustedByteString, defaults)
 
   /** Test for classes extending `HasProtocolVersionedWrapper` (protocol version embedded in the
-    * instance). In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x
-    * to 2x the normal runtime.
+    * instance).
     */
   protected def test[
       T <: HasProtocolVersionedWrapper[T],
@@ -50,7 +64,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         Unit,
       ],
       protocolVersion: ProtocolVersion,
-      warnWhenTestRunsLongerThan: Duration = 1.second,
+      warnWhenTestRunsLongerThan: Duration = maxDurationWarning,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
@@ -58,9 +72,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       warnWhenTestRunsLongerThan,
     )
 
-  /** In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x to 2x the
-    * normal runtime.
-    */
   protected def testContext[
       T <: HasProtocolVersionedWrapper[T],
       DeserializedValueClass <: HasRepresentativeProtocolVersion,
@@ -70,7 +81,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion: BaseVersioningCompanion[T, Context, DeserializedValueClass, Dependency],
       context: Context,
       protocolVersion: ProtocolVersion,
-      warnWhenTestRunsLongerThan: Duration = 2.second,
+      warnWhenTestRunsLongerThan: Duration = maxDurationWarning,
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
@@ -78,9 +89,6 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       warnWhenTestRunsLongerThan,
     )
 
-  /** In case the test runs slow or becomes flaky, set warnWhenTestRunsLongerThan to 1.5x to 2x the
-    * normal runtime.
-    */
   protected def testContextTaggedProtocolVersion[
       ValueClass <: HasProtocolVersionedWrapper[ValueClass],
       T[X] <: ReassignmentTag[X],
@@ -89,7 +97,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
       companion: VersioningCompanionContextTaggedPVValidation2[ValueClass, T, Context],
       context: Context,
       protocolVersion: T[ProtocolVersion],
-      warnWhenTestRunsLongerThan: Duration = 1.second,
+      warnWhenTestRunsLongerThan: Duration = maxDurationWarning,
   )(implicit arb: Arbitrary[ValueClass]): Assertion =
     testProtocolVersionedCommon(
       companion,
@@ -166,7 +174,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
     result
   }
 
-  protected def findBaseVersionionCompanionSubClasses(): Seq[Class[?]] =
+  protected def findBaseVersioningCompanionSubClasses(): Seq[Class[?]] =
     findSubClassesOf(classOf[BaseVersioningCompanion[_, _, _, _]])
 }
 

@@ -160,19 +160,17 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
     */
   def prune(
       pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Unit]
 
-  /** Return the pruned offsets from the parameters table (if defined) as a tuple of
-    * (participant_all_divulged_contracts_pruned_up_to_inclusive,
-    * participant_pruned_up_to_inclusive)
+  /** Return the latest pruned offset inclusive (participant_pruned_up_to_inclusive) from the
+    * parameters table (if defined)
     */
-  def pruningOffsets(implicit
+  def pruningOffset(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Offset], Option[Offset])]
+  ): Future[Option[Offset]]
 }
 
 // TODO(i12285) sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite

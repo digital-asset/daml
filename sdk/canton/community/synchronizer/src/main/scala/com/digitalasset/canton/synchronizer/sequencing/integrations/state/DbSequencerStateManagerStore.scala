@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmptyUtil
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -20,6 +20,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.protocol.v30
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
+import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStorePruning
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.*
@@ -37,9 +38,11 @@ class DbSequencerStateManagerStore(
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
+    override protected val batchingConfig: BatchingConfig,
 )(implicit ec: ExecutionContext)
     extends SequencerStateManagerStore
-    with DbStore {
+    with DbStore
+    with DbSequencerStorePruning {
 
   import DbSequencerStateManagerStore.*
   import Member.DbStorageImplicits.*
@@ -179,11 +182,21 @@ class DbSequencerStateManagerStore(
   override def pruneExpiredInFlightAggregations(upToInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    // It's enough to delete from `in_flight_aggregation` because deletion cascades to `in_flight_aggregated_sender`
-    storage.update_(
-      sqlu"delete from seq_in_flight_aggregation where max_sequencing_time <= $upToInclusive",
-      functionFullName,
-    )
+    for {
+      pruningIntervals <- storage.query(
+        pruningIntervalsDBIO(
+          "seq_in_flight_aggregation",
+          "max_sequencing_time",
+          upToInclusive.immediateSuccessor,
+        ),
+        s"$functionFullName-pruningIntervals",
+      )
+      _ <- pruneIntervalsInBatches(
+        pruningIntervals,
+        "seq_in_flight_aggregation",
+        "max_sequencing_time",
+      )
+    } yield ()
 }
 
 object DbSequencerStateManagerStore {

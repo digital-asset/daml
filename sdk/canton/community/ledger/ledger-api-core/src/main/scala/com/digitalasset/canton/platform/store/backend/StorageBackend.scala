@@ -139,14 +139,6 @@ trait ParameterStorageBackend {
 
   def prunedUpToInclusiveAndLedgerEnd(connection: Connection): PruneUptoInclusiveAndLedgerEnd
 
-  def updatePrunedAllDivulgedContractsUpToInclusive(
-      prunedUpToInclusive: Offset
-  )(connection: Connection): Unit
-
-  def participantAllDivulgedContractsPrunedUpToInclusive(
-      connection: Connection
-  ): Option[Offset]
-
   def updatePostProcessingEnd(
       postProcessingEnd: Option[Offset]
   )(connection: Connection): Unit
@@ -281,7 +273,6 @@ trait EventStorageBackend {
     */
   def pruneEvents(
       pruneUpToInclusive: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompleteReassignmentOffsets: Vector[Offset],
   )(implicit
       connection: Connection,

@@ -73,6 +73,7 @@ abstract class BlockSequencerFactory(
     sequencerStore,
     nodeParameters.processingTimeouts,
     loggerFactory,
+    nodeParameters.batchingConfig,
   )
 
   private val trafficPurchasedStore = TrafficPurchasedStore(

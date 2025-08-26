@@ -99,7 +99,7 @@ final class ApiParticipantPruningService private (
             _ <- Tracked.future(
               metrics.services.pruning.pruneCommandStarted,
               metrics.services.pruning.pruneCommandCompleted,
-              pruneSyncService(pruneUpTo, submissionId, request.pruneAllDivulgedContracts)(
+              pruneSyncService(pruneUpTo, submissionId)(
                 loggingContext
               ),
             )(MetricsContext(("phase", "underlyingLedger")))
@@ -118,7 +118,6 @@ final class ApiParticipantPruningService private (
               metrics.services.pruning.pruneCommandCompleted,
               pruneLedgerApiServerIndex(
                 pruneUpTo,
-                request.pruneAllDivulgedContracts,
                 incompleteReassignmentOffsets,
               )(loggingContext),
             )(MetricsContext(("phase", "ledgerApiServerIndex")))
@@ -147,14 +146,13 @@ final class ApiParticipantPruningService private (
   private def pruneSyncService(
       pruneUpTo: Offset,
       submissionId: Ref.SubmissionId,
-      pruneAllDivulgedContracts: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     import state.PruningResult.*
     logger.info(
       s"About to prune participant ledger up to ${pruneUpTo.unwrap} inclusively starting with the write service."
     )
     syncService
-      .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
+      .prune(pruneUpTo, submissionId)
       .toScalaUnwrapped
       .flatMap {
         case NotPruned(status) =>
@@ -167,12 +165,11 @@ final class ApiParticipantPruningService private (
 
   private def pruneLedgerApiServerIndex(
       pruneUpTo: Offset,
-      pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
     logger.info(s"About to prune ledger api server index to ${pruneUpTo.unwrap} inclusively.")
     readBackend
-      .prune(pruneUpTo, pruneAllDivulgedContracts, incompletReassignmentOffsets)
+      .prune(pruneUpTo, incompletReassignmentOffsets)
       .map { _ =>
         logger.info(s"Pruned ledger api server index up to ${pruneUpTo.unwrap} inclusively.")
         PruneResponse()

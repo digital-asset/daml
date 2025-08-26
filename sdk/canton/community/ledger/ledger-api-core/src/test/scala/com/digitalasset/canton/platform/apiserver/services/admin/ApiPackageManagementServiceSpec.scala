@@ -203,7 +203,6 @@ object ApiPackageManagementServiceSpec {
     override def prune(
         pruneUpToInclusive: Offset,
         submissionId: SubmissionId,
-        pruneAllDivulgedContracts: Boolean,
     ): CompletionStage[PruningResult] =
       throw new UnsupportedOperationException()
 

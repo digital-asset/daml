@@ -257,7 +257,7 @@ object FormatValidator {
         case PackageRef.Id(id) =>
           errorLoggingContext.logger.warn(
             s"Received an identifier with package ID $id, but expected a package name. " +
-              "The query will be resolved for the package-name pertaining to the requested package-id instead." +
+              "The query will be resolved for the package-name pertaining to the requested package-id instead. " +
               "The usage of package IDs in identifiers is deprecated and will be removed in a future release."
           )(errorLoggingContext.traceContext)
       }

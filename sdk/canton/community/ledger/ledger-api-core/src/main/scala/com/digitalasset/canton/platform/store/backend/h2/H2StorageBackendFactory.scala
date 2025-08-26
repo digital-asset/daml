@@ -66,7 +66,6 @@ object H2StorageBackendFactory extends StorageBackendFactory with CommonStorageB
     new H2EventStorageBackend(
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
-      parameterStorageBackend = createParameterStorageBackend(stringInterning),
       loggerFactory = loggerFactory,
     )
 

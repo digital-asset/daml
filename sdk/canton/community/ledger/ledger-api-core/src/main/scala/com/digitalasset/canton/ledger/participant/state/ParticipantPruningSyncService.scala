@@ -45,16 +45,12 @@ trait ParticipantPruningSyncService {
     *   The offset up to which contracts should be pruned.
     * @param submissionId
     *   The submission id.
-    * @param pruneAllDivulgedContracts
-    *   If set, instruct the ledger to prune all immediately divulged contracts created before
-    *   `pruneUpToInclusive` independent of whether they were archived before `pruneUpToInclusive`.
     * @return
     *   The pruning result.
     */
   def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
-      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult]
 
 }

@@ -104,7 +104,6 @@ create or replace view debug.lapi_parameters as
     participant_id,
     participant_pruned_up_to_inclusive,
     ledger_end_sequential_id,
-    participant_all_divulged_contracts_pruned_up_to_inclusive,
     ledger_end_string_interning_id,
     debug.canton_timestamp(ledger_end_publication_time) as ledger_end_publication_time
   from lapi_parameters;

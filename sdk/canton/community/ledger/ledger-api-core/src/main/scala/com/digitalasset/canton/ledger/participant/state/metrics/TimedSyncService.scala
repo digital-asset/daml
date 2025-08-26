@@ -111,11 +111,10 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: Ref.SubmissionId,
-      pruneAllDivulgedContracts: Boolean,
   ): CompletionStage[PruningResult] =
     Timed.completionStage(
       metrics.services.write.prune,
-      delegate.prune(pruneUpToInclusive, submissionId, pruneAllDivulgedContracts),
+      delegate.prune(pruneUpToInclusive, submissionId),
     )
 
   override def currentHealth(): HealthStatus =

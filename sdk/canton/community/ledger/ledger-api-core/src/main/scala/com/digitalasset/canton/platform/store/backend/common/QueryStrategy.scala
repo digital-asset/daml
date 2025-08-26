@@ -120,11 +120,6 @@ object QueryStrategy {
 
 trait QueryStrategy {
 
-  /** Predicate which tests if the element referenced by the `elementColumnName` is in the array
-    * from column `arrayColumnName`
-    */
-  def arrayContains(arrayColumnName: String, elementColumnName: String): String
-
   /** ANY SQL clause generation for a number of Long values
     */
   def anyOf(longs: Iterable[Long]): CompositeSql = {

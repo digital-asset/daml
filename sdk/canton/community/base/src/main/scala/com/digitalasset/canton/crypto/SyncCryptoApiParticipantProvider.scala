@@ -61,8 +61,10 @@ class SyncCryptoApiParticipantProvider(
     publicKeyConversionCacheConfig: CacheConfig,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
-    loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContext) {
+    override protected val loggerFactory: NamedLoggerFactory,
+)(implicit ec: ExecutionContext)
+    extends AutoCloseable
+    with NamedLogging {
 
   require(ips != null)
 
@@ -132,6 +134,11 @@ class SyncCryptoApiParticipantProvider(
     ips.forSynchronizer(synchronizerId).map { topologyClient =>
       getOrUpdate(synchronizerId, staticSynchronizerParameters, topologyClient)
     }
+
+  override def close(): Unit = {
+    val instances: Seq[AutoCloseable] = synchronizerCryptoClientCache.values.toSeq :+ ips
+    LifeCycle.close(instances*)(logger)
+  }
 
 }
 

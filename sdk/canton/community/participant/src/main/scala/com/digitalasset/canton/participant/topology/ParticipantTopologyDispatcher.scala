@@ -169,7 +169,7 @@ class ParticipantTopologyDispatcher(
               asOfInclusive = true,
               isProposal = false,
               types = Seq(SynchronizerTrustCertificate.code),
-              filterUid = Some(Seq(participantId.uid)),
+              filterUid = Some(NonEmpty(Seq, participantId.uid)),
               filterNamespace = None,
             )
             .map(_.toTopologyState.exists {

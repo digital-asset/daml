@@ -23,7 +23,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeNumeric,
   PositiveInt,
 }
-import com.digitalasset.canton.config.{CantonConfig, DbConfig, RequireTypes}
+import com.digitalasset.canton.config.{BatchingConfig, CantonConfig, DbConfig, RequireTypes}
 import com.digitalasset.canton.console.{
   InstanceReference,
   LocalMediatorReference,
@@ -176,6 +176,7 @@ abstract class BaseSynchronizerRestartTest
       testedProtocolVersion,
       timeouts,
       loggerFactory,
+      batchingConfig = BatchingConfig(),
     )
 
     import storage.api.*

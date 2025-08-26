@@ -331,6 +331,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         BftOrderingMessage
       ]](
         thisNode,
+        isGenesis = true, // This test assumes quorum connectivity
+        bootstrapTopologySize = orderingTopology.size,
         new P2PNetworkOutModule.State(p2pGrpcConnectionState),
         new SimulationP2PEndpointsStore(
           config.initialNetwork
