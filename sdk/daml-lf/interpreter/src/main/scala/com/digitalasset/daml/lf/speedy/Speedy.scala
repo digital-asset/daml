@@ -355,6 +355,8 @@ private[lf] object Speedy {
               f(
                 FatContractInstance.fromCreateNode(
                   create = contractInfo.toCreateNode(coid),
+                  // These two fields aren't used by the engine so it is safe to use dummy values here. We will
+                  // eventually receive disclosures via needContract so this hack is temporary.
                   createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
                   authenticationData = Bytes.Empty,
                 ),
