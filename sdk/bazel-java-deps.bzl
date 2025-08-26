@@ -51,6 +51,7 @@ guava_version = "33.3.0-jre"
 
 # Updated 2024-03-15
 opentelemetry_version = "1.43.0"
+
 # we pick the newest version of opentelemetry_instrumentation build with the opentelemetry version above
 # https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/v2.9.0/dependencyManagement/build.gradle.kts
 opentelemetry_instrumentation_version = "2.9.0-alpha"
