@@ -6,6 +6,7 @@ import json
 import os
 import pandas as pd
 import plotly.express as px
+from dash import Dash, html, dash_table, dcc
 from json.decoder import JSONDecodeError
 
 def get_jmh_data(base_dir):
@@ -51,7 +52,7 @@ def get_graph_data(base_data, update_data):
     return pd.DataFrame(result)
 
 def display_graph(graph_data):
-    return px.bar(graph_data, x="choice", y="score", color="type", barmode="group", facet_row="dar#script", facet_col="choice")
+    return px.bar(graph_data, x="choice", y="score", color="type", barmode="group", facet_row="dar#script")
 
 def main():
     parser = argparse.ArgumentParser(description="Display JMH Benchmarking Data for Snapshot Files")
@@ -61,9 +62,13 @@ def main():
     base_data = get_jmh_data(args.base_dir)
     update_data = get_jmh_data(args.update_dir)
     graph_data = get_graph_data(base_data, update_data)
-    fig = display_graph(graph_data)
-    fig.show()
+
+    app = Dash()
+    app.layout = [
+        html.Div(children="JMH Benchmarking Data for Snapshot Files"),
+        html.Div(children=[dcc.Graph(figure=display_graph(graph_data))], style={"width":"100%", "height":"100vh"})
+    ]
+    app.run(host="127.0.0.1", port=8080)
 
 if __name__ == "__main__":
     main()
-
