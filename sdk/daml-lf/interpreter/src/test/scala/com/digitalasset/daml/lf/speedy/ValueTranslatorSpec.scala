@@ -106,7 +106,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     import valueTranslator.unsafeTranslateValue
 
     val testCases = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", ""),
+      ("type", "value", "svalue"),
       (TUnit, ValueUnit, SValue.Unit),
       (TBool, ValueTrue, SValue.True),
       (TInt64, ValueInt64(42), SInt64(42)),

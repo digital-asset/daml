@@ -17,7 +17,7 @@ private[lf] final class ValueTranslator(
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
-  val delegate =
+  private[this] val speedyValueTranslator =
     new speedy.ValueTranslator(pkgInterface, requireContractIdSuffix, shouldCheckDataSerializable)
 
   private[this] def translateError(
@@ -52,19 +52,19 @@ private[lf] final class ValueTranslator(
 
   @throws[Error.Preprocessing.Error]
   def validateCid(cid: Value.ContractId): Unit =
-    translateException(delegate.validateCid(cid))
+    translateException(speedyValueTranslator.validateCid(cid))
 
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId =
-    translateException(delegate.unsafeTranslateCid(cid))
+    translateException(speedyValueTranslator.unsafeTranslateCid(cid))
 
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(ty: Type, value: Value): SValue =
-    translateException(delegate.unsafeTranslateValue(ty, value))
+    translateException(speedyValueTranslator.unsafeTranslateValue(ty, value))
 
   def translateValue(
       ty: Type,
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
-    delegate.translateValue(ty, value).left.map(translateError)
+    speedyValueTranslator.translateValue(ty, value).left.map(translateError)
 }
