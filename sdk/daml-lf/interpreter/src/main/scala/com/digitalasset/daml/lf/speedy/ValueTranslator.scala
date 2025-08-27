@@ -48,7 +48,7 @@ private[lf] final class ValueTranslator(
   }
 
   // For efficiency reasons we do not produce here the monad Result[SValue] but rather throw
-  // exception in case of error or package missing.
+  // exceptions in case of error or package missing.
   @throws[TranslationError.Error]
   def unsafeTranslateValue(
       ty: Type,
