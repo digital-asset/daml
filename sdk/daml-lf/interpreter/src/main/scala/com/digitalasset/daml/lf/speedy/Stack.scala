@@ -34,7 +34,7 @@ private[speedy] final class Stack[X <: AnyRef](initialCapacity: Int) extends Ite
   def isFull: Boolean =
     size == capacity
 
-  // it is the responsibility of the caller to check the stack is not full
+  // It is the responsibility of the caller to check the stack is not full
   def push(value: X): Unit = {
     array(size_) = value
     size_ += 1
@@ -58,6 +58,7 @@ private[speedy] final class Stack[X <: AnyRef](initialCapacity: Int) extends Ite
   }
 
   // Indexed from 1 by relative offset from the top of the stack (1 is top!)
+  @throws[ArrayIndexOutOfBoundsException]
   def apply(i: Int): X =
     array(size_ - i).asInstanceOf[X]
 
