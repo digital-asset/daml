@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.speedy.SExpr.SExpr
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
@@ -153,7 +154,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           hasKey = false,
           precondition = true,
         )
-      val versionedContract1 = FatContractInstance.fromThinInstance(
+      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,
@@ -161,7 +162,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       )
       val disclosedContract2 =
         buildDisclosedContract(cid2, alice, templateId, hasKey = false, precondition = false)
-      val versionedContract2 = FatContractInstance.fromThinInstance(
+      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,
@@ -198,7 +199,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
       val disclosedContract1 =
         buildDisclosedContract(disclosedCid1, alice, templateId, hasKey = false)
-      val versionedContract1 = FatContractInstance.fromThinInstance(
+      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,
@@ -206,7 +207,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
       )
       val disclosedContract2 =
         buildDisclosedContract(disclosedCid2, alice, templateId, hasKey = false)
-      val versionedContract2 = FatContractInstance.fromThinInstance(
+      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,
@@ -378,7 +379,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           label = "test-label-1",
           hasKey = true,
         )
-      val versionedContract1 = FatContractInstance.fromThinInstance(
+      val versionedContract1 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,
@@ -392,7 +393,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
           label = "test-label-2",
           hasKey = true,
         )
-      val versionedContract2 = FatContractInstance.fromThinInstance(
+      val versionedContract2 = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = version,
         packageName = pkg.pkgName,
         template = templateId,

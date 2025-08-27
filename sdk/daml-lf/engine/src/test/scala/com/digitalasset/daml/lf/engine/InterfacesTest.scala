@@ -4,26 +4,25 @@
 package com.digitalasset.daml.lf
 package engine
 
-import java.io.File
-import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
+import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.value.Value
-import Value._
-import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.SubmittedTransaction
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Transaction}
-import com.daml.logging.LoggingContext
-import org.scalatest.prop.TableDrivenPropertyChecks
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Transaction}
+import com.digitalasset.daml.lf.value.Value._
 import org.scalatest.EitherValues
 import org.scalatest.Inside._
-import org.scalatest.wordspec.AnyWordSpec
 import org.scalatest.matchers.should.Matchers
-import interpretation.{Error => IE}
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatest.wordspec.AnyWordSpec
 
+import java.io.File
 import scala.language.implicitConversions
 
 class InterfacesTestV2 extends InterfacesTest(LanguageMajorVersion.V2)
@@ -75,14 +74,14 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 ->
-        FatContractInstance.fromThinInstance(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = LanguageMajorVersion.V2.minStableVersion,
           packageName = interfacesPkg.pkgName,
           template = idT1,
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
         ),
       cid2 ->
-        FatContractInstance.fromThinInstance(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = LanguageMajorVersion.V2.minStableVersion,
           interfacesPkg.pkgName,
           idT2,

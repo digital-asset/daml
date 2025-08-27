@@ -12,6 +12,7 @@ import com.digitalasset.daml.lf.speedy.SValue.SToken
 import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKey,
@@ -231,7 +232,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         )
     }
 
-    FatContractInstance.fromThinInstance(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       TransactionVersion.minVersion,
       packageName = packageName,
       template = templateId,

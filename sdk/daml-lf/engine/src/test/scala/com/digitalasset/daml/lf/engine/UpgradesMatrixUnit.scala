@@ -19,6 +19,7 @@ import org.scalatest.Inside.inside
 import org.scalatest.{Assertion, ParallelTestExecution}
 import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.engine.UpgradesMatrix
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -69,7 +70,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       contractOrigin: UpgradesMatrixCases.ContractOrigin,
   ): Future[Either[Error, (SubmittedTransaction, Transaction.Metadata)]] = Future {
     val clientContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = cases.langVersion,
         packageName = cases.clientPkg.pkgName,
         template = testHelper.clientTplId,
@@ -77,11 +78,14 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
       )
 
     val globalContract: FatContractInstance =
-      FatContractInstance.fromThinInstance(
+      TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = cases.langVersion,
-        packageName = cases.clientPkg.pkgName,
+        packageName = cases.templateDefsPkgName,
         template = testHelper.v1TplId,
         arg = testHelper.globalContractArg(setupData.alice, setupData.bob),
+        signatories = immutable.Set(setupData.alice),
+        observers = immutable.Set.empty,
+        contractKeyWithMaintainers = Some(testHelper.globalContractKeyWithMaintainers(setupData)),
       )
 
     val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(

@@ -34,6 +34,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ValueRecord,
 }
 import com.daml.logging.LoggingContext
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 
 import java.io.File
 import org.scalatest.EitherValues
@@ -90,7 +91,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: FatContractInstance =
-    FatContractInstance.fromThinInstance(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       version = langVersion,
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
@@ -106,7 +107,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        FatContractInstance.fromThinInstance(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
@@ -116,7 +117,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           ),
         ),
       toContractId("BasicTests:CallablePayout:1") ->
-        FatContractInstance.fromThinInstance(
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
@@ -294,7 +295,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
-      val keyedInst = FatContractInstance.fromThinInstance(
+      val keyedInst = TransactionBuilder.fatContractInstanceWithDummyDefaults(
         version = langVersion,
         packageName = multiKeysPkg.pkgName,
         template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
