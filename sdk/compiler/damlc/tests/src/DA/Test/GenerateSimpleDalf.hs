@@ -141,7 +141,6 @@ main = do
             { packageLfVersion = optLfVersion
             , packageModules = NM.fromList [mod]
             , packageMetadata = PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
-            --TODO[RB]: what kind of package is this??
             , importedPackages = S.empty
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg

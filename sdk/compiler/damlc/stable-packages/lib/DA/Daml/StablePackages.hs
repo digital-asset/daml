@@ -700,7 +700,6 @@ daSetTypes version = Package
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
         }
-    --TODO[RB]: what kind of package is this??
     , importedPackages = S.empty
     }
   where
@@ -803,7 +802,6 @@ builtinExceptionPackage version name = Package
         , packageVersion = PackageVersion "1.0.0"
         , upgradedPackageId = Nothing
         }
-    --TODO[RB]: what kind of package is this??
     , importedPackages = S.empty
     }
   where

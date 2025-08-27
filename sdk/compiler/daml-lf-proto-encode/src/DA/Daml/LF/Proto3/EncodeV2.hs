@@ -982,7 +982,6 @@ encodeSinglePackageModule version mod =
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }
-    --TODO[RB]: is this where we import the modules?
     imports = S.empty
 
 encodeModule :: Module -> Encode P.Module
