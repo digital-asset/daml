@@ -7,31 +7,22 @@ import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
+import com.digitalasset.daml.lf.value.Value.ContractId
 
+/** Contract authenticator that verifies that the payload of the contract is consistent with the
+  * contract id
+  */
 trait ContractAuthenticator {
 
-  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
-    * instance and authentication data) against the contract id.
-    *
-    * @param contract
-    *   the fat contract contract
-    */
-  def authenticate(contract: FatContractInstance): Either[String, Unit]
+  /** authenticates the contract based on the externally generated contract hash */
+  def authenticate(contract: FatContractInstance, contractHash: LfHash): Either[String, Unit]
 
-  /** This method is used in contract upgrade verification to ensure that the metadata computed by
-    * the upgraded template matches the original metadata.
-    *
-    * @param contract
-    *   the contract whose metadata has been re-calculated
-    * @param metadata
-    *   the recalculated metadata
+  /** Authenticates the contract payload and metadata (consisted of ledger create time, contract
+    * instance and authentication data) against the contract id. This is the legacy function as it
+    * does not support externally generated hashes.
     */
-  def verifyMetadata(
-      contract: GenContractInstance,
-      metadata: ContractMetadata,
-  ): Either[String, Unit]
+  // TODO(#27344) - Future versions of contract hash will require a minimal type calculated by the engine
+  def legacyAuthenticate(contract: FatContractInstance): Either[String, Unit]
 
 }
 
@@ -48,14 +39,26 @@ object ContractAuthenticator {
 
 class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends ContractAuthenticator {
 
-  private def toThin(inst: FatContractInstance): ThinContractInstance =
-    Value.ThinContractInstance(
-      inst.packageName,
-      inst.templateId,
-      inst.createArg,
-    )
+  override def legacyAuthenticate(contract: FatContractInstance): Either[String, Unit] =
+    for {
+      idVersion <- CantonContractIdVersion
+        .extractCantonContractIdVersion(contract.contractId)
+        .leftMap(e => s"Malformed contract id: $e")
+      idVersionV1 <- idVersion match {
+        case v: CantonContractIdV1Version => Right(v)
+        case other => Left(s"Unsupported contract authentication id version: $other")
+      }
+      contractHash = LegacyContractHash.tryFatContractHash(
+        contract,
+        idVersionV1.useUpgradeFriendlyHashing,
+      )
+      result <- authenticate(contract, contractHash)
+    } yield result
 
-  override def authenticate(contract: FatContractInstance): Either[String, Unit] = {
+  override def authenticate(
+      contract: FatContractInstance,
+      contractHash: LfHash,
+  ): Either[String, Unit] = {
     val gk = contract.contractKeyWithMaintainers.map(Versioned(contract.version, _))
     for {
       metadata <- ContractMetadata.create(contract.signatories, contract.stakeholders, gk)
@@ -69,71 +72,60 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         .leftMap(_.toString)
       _ <- authenticate(
         contract.contractId,
+        contractIdVersion,
         authenticationData,
         contract.createdAt,
         metadata,
-        toThin(contract),
+        contractHash,
       )
     } yield ()
   }
 
-  override def verifyMetadata(
-      contract: GenContractInstance,
-      metadata: ContractMetadata,
-  ): Either[String, Unit] = for {
-    cad <- contract.contractAuthenticationData
-    result <- authenticate(
-      contract.contractId,
-      cad,
-      contract.inst.createdAt,
-      metadata,
-      toThin(contract.inst),
-    )
-  } yield result
-
-  def authenticate(
+  private def authenticate(
       contractId: LfContractId,
+      contractIdVersion: CantonContractIdVersion,
       authenticationData: ContractAuthenticationData,
       ledgerTime: CreationTime,
       metadata: ContractMetadata,
-      suffixedContractInstance: ThinContractInstance,
+      contractHash: LfHash,
   ): Either[String, Unit] = {
     val ContractId.V1(_, cantonContractSuffix) = contractId match {
       case cid: LfContractId.V1 => cid
       case _ => sys.error("ContractId V2 are not supported")
     }
-    val optContractIdVersion = CantonContractIdVersion.extractCantonContractIdVersion(contractId)
     val createdAt = ledgerTime match {
       case x: CreationTime.CreatedAt => x
-      case CreationTime.Now => sys.error("Cannot authenticate contract with creation time Now")
+      case CreationTime.Now =>
+        sys.error("Cannot authenticate contract with creation time Now")
     }
-    optContractIdVersion match {
-      case Right(contractIdVersion: CantonContractIdV1Version) =>
+    contractIdVersion match {
+      case contractIdVersion: CantonContractIdV1Version =>
         for {
           salt <- authenticationData match {
             case ContractAuthenticationDataV1(salt) => Right(salt)
             case ContractAuthenticationDataV2() =>
-              Left("Cannot authenticate contract with V1 contract ID via a V2 authentication data")
+              Left(
+                "Cannot authenticate contract with V1 contract ID via a V2 authentication data"
+              )
           }
-          recomputedUnicum <- unicumGenerator
-            .recomputeUnicum(
-              contractSalt = salt,
-              ledgerCreateTime = createdAt,
-              metadata = metadata,
-              suffixedContractInstance = suffixedContractInstance,
-              cantonContractIdVersion = contractIdVersion,
-            )
-          recomputedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
+          recomputedUnicum <- unicumGenerator.recomputeUnicum(
+            salt,
+            createdAt,
+            metadata,
+            contractHash,
+          )
+          recomputedSuffix = recomputedUnicum
+            .toContractIdSuffix(contractIdVersion)
           _ <- Either.cond(
             recomputedSuffix == cantonContractSuffix,
             (),
             s"Mismatching contract id suffixes. Expected: $recomputedSuffix vs actual: $cantonContractSuffix",
           )
         } yield ()
-      case Right(v2) =>
-        // TODO(#23971) implement this
-        Left(s"Unsupported contract ID version $v2")
-      case Left(scheme) => Left(s"Unsupported contract authentication id scheme: $scheme")
+      case _ =>
+        // TODO(#23971) implement this for V2
+        Left(s"Unsupported contract ID version $contractIdVersion")
     }
   }
+
 }

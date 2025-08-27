@@ -278,7 +278,6 @@ trait RepairSynchronizerRecoveryIntegrationTest
               val deliverErrorP1 = participant1.testing.state_inspection
                 .findMessage(daId, LatestUpto(afterRefusedRequest))
                 .value
-                .value
               deliverErrorP1.timestamp shouldBe >(beforeRefusedRequest)
               inside(deliverErrorP1) { case OrdinarySequencedEvent(_, signedEvent) =>
                 // Make sure that we actually test the right thing!

@@ -69,24 +69,24 @@ class TopologyTransactionTestFactory(
 
   val okm1ak5k1E_k2 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping.tryCreate(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key2, key5),
     )
   val okm1bk5k1E_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping.tryCreate(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key1, key5),
     )
   val okm1bk5k1E_k2 =
     mkAddMultiKey(
-      OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping.tryCreate(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key2, key5),
     )
 
   val sequencer1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", ns1))
   val okmS1k7_k1 =
     mkAddMultiKey(
-      OwnerToKeyMapping(sequencer1, NonEmpty(Seq, key7)),
+      OwnerToKeyMapping.tryCreate(sequencer1, NonEmpty(Seq, key7)),
       NonEmpty(Set, key1, key7),
     )
   val sdmS1_k1 =

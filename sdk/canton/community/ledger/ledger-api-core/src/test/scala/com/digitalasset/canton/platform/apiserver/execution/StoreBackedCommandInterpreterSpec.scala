@@ -13,17 +13,24 @@ import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.ContractStore
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.platform.config.CommandServiceConfig
 import com.digitalasset.canton.protocol.{
+  AuthenticatedContractIdVersionV10,
   AuthenticatedContractIdVersionV11,
+  CantonContractIdV1Version,
   ContractAuthenticationDataV1,
+  ExampleContractFactory,
+  LegacyContractHash,
   LfContractId,
+  LfFatContractInst,
   LfTransactionVersion,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -35,6 +42,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ParticipantId, Party}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
@@ -43,10 +51,12 @@ import com.digitalasset.daml.lf.transaction.{
   Transaction,
 }
 import com.digitalasset.daml.lf.value.Value
+import com.google.protobuf.ByteString
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
+import scala.concurrent.Future
 
 class StoreBackedCommandInterpreterSpec
     extends AsyncWordSpec
@@ -142,7 +152,7 @@ class StoreBackedCommandInterpreterSpec
   }
 
   private def mkCommands(
-      ledgerEffectiveTime: Time.Timestamp,
+      ledgerEffectiveTime: Time.Timestamp = Time.Timestamp.now(),
       disclosedContracts: ImmArray[DisclosedContract] = ImmArray(disclosedContract),
       synchronizerIdO: Option[SynchronizerId] = None,
   ) =
@@ -167,13 +177,18 @@ class StoreBackedCommandInterpreterSpec
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
 
-  private def mkSut(tolerance: NonNegativeFiniteDuration, engine: Engine) =
+  private def mkSut(
+      engine: Engine,
+      contractStore: ContractStore = mock[ContractStore],
+      contractAuthenticator: ContractAuthenticatorFn = (_, _) => Left("Not authorized"),
+      tolerance: NonNegativeFiniteDuration = NonNegativeFiniteDuration.tryOfSeconds(60),
+  ) =
     new StoreBackedCommandInterpreter(
       engine = engine,
       participant = Ref.ParticipantId.assertFromString("anId"),
       packageSyncService = mock[SyncService],
-      contractStore = mock[ContractStore],
-      authenticateFatContractInstance = _ => Either.unit,
+      contractStore = contractStore,
+      contractAuthenticator = contractAuthenticator,
       metrics = LedgerApiServerMetrics.ForTesting,
       config = EngineLoggingConfig(),
       prefetchingRecursionLevel = CommandServiceConfig.DefaultContractPrefetchingDepth,
@@ -201,7 +216,7 @@ class StoreBackedCommandInterpreterSpec
       })
       val commands = mkCommands(Time.Timestamp.Epoch)
 
-      val sut = mkSut(NonNegativeFiniteDuration.Zero, mockEngine)
+      val sut = mkSut(mockEngine, tolerance = NonNegativeFiniteDuration.Zero)
 
       sut
         .interpret(commands, submissionSeed)(
@@ -222,7 +237,7 @@ class StoreBackedCommandInterpreterSpec
       val mockEngine = mkMockEngine(result)
       val tolerance = NonNegativeFiniteDuration.tryOfSeconds(60)
 
-      val sut = mkSut(tolerance, mockEngine)
+      val sut = mkSut(mockEngine, tolerance = tolerance)
 
       val let = Time.Timestamp.now()
       val commands = mkCommands(let)
@@ -243,7 +258,7 @@ class StoreBackedCommandInterpreterSpec
       val mockEngine = mkMockEngine(result)
       val tolerance = NonNegativeFiniteDuration.tryOfMillis(500)
 
-      val sut = mkSut(tolerance, mockEngine)
+      val sut = mkSut(mockEngine, tolerance = tolerance)
 
       val let = Time.Timestamp.now()
       val commands = mkCommands(let)
@@ -346,6 +361,94 @@ class StoreBackedCommandInterpreterSpec
         error.synchronizerIdOfDisclosedContracts shouldBe synchronizerIdOfDisclosedContracts
         error.disclosedContractIds shouldBe Set(disclosedContractId1, disclosedContractId2)
       }
+    }
+  }
+  "Contract provision" should {
+
+    def testWithAuthResult(
+        cantonContractIdVersion: CantonContractIdV1Version,
+        authenticationResult: Either[String, Unit],
+    ): FutureUnlessShutdown[Either[ErrorCause, CommandInterpretationResult]] = {
+
+      val contract: LfFatContractInst =
+        ExampleContractFactory.build(cantonContractIdVersion = cantonContractIdVersion).inst
+
+      val needContract = ResultNeedContract[(SubmittedTransaction, Transaction.Metadata)](
+        coid = contract.contractId,
+        resume = _ => resultDone,
+      )
+
+      val mockEngine = mkMockEngine(needContract)
+
+      val contractStore = mock[ContractStore]
+      when(
+        contractStore.lookupActiveContract(
+          readers = any[Set[Ref.Party]],
+          contractId = eqTo(contract.contractId),
+        )(any[LoggingContextWithTrace])
+      ).thenReturn(Future.successful(Some(contract)))
+
+      val contractHash = LegacyContractHash.fatContractHash(contract).value
+
+      val sut = mkSut(
+        mockEngine,
+        contractStore,
+        contractAuthenticator = {
+          case (`contract`, `contractHash`) => authenticationResult
+          case other => Left(s"Unexpected: $other")
+        },
+      )
+
+      sut
+        .interpret(mkCommands(), submissionSeed)(
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
+        )
+
+    }
+
+    s"fail if invalid contract id prefix is used" in {
+
+      val needContract = ResultNeedContract[(SubmittedTransaction, Transaction.Metadata)](
+        coid = ExampleContractFactory.buildContractId().mapCid {
+          case Value.ContractId.V1(d, _) =>
+            Value.ContractId.V1(d, Bytes.fromByteString(ByteString.copyFrom("invalid".getBytes)))
+          case other => fail(s"Unexpected: $other")
+        },
+        resume = {
+          case Response.UnsupportedContractIdVersion => resultDone
+          case other => fail(s"Unexpected: $other")
+        },
+      )
+
+      val mockEngine = mkMockEngine(needContract)
+      val sut = mkSut(mockEngine)
+      sut
+        .interpret(mkCommands(), submissionSeed)(
+          LoggingContextWithTrace(loggerFactory),
+          executionContext,
+        )
+        .map(_.isRight shouldBe true)
+    }
+
+    forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
+      authContractIdVersion =>
+        s"pass if on successful verification with $authContractIdVersion" in {
+          testWithAuthResult(authContractIdVersion, Either.unit).map {
+            case Right(_) => succeed
+            case other => fail(s"Expected success, got $other")
+          }
+        }
+        // TODO(#27344) - This test can be enabled, and error matched, once the engine authentication callback is supported
+        s"fail if on failed verification with $authContractIdVersion" ignore {
+          testWithAuthResult(authContractIdVersion, Left("Not authorized")).map {
+            case Left(err) =>
+              inside(err) { case ErrorCause.DamlLf(_) =>
+                succeed
+              }
+            case other => fail(s"Expected failure, got $other")
+          }
+        }
     }
   }
 

@@ -516,12 +516,16 @@ class LocalParticipantTestingGroup(
       from: Option[Instant] = None,
       to: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
+      warnOnDiscardedEnvelopes: Boolean = false,
   ): Seq[PossiblyIgnoredProtocolEvent] =
     check(FeatureFlag.Testing)(
       state_inspection
-        .findMessages(physicalSynchronizerId, from, to, Some(limit.value))
-        .map(
-          _.valueOr(e => consoleEnvironment.raiseError(s"Cannot retrieve sequencer messages: $e"))
+        .findMessages(
+          physicalSynchronizerId,
+          from,
+          to,
+          Some(limit.value),
+          warnOnDiscardedEnvelopes = warnOnDiscardedEnvelopes,
         )
     )
 

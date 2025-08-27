@@ -21,9 +21,10 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, ParticipantId, Party, QualifiedName}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
@@ -42,6 +43,7 @@ class TestEngine(
     participantId: ParticipantId = ParticipantId.assertFromString("TestParticipantId"),
     userId: String = "TestUserId",
     commandId: String = "TestCmdId",
+    iterationsBetweenInterruptions: Long = 1000,
 ) extends EitherValues
     with OptionValues {
 
@@ -87,7 +89,10 @@ class TestEngine(
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
 
   val engine = new Engine(
-    EngineConfig(allowedLanguageVersions = LanguageVersion.AllVersions(LanguageMajorVersion.V2))
+    EngineConfig(
+      allowedLanguageVersions = LanguageVersion.AllVersions(LanguageMajorVersion.V2),
+      iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+    )
   )
 
   private val valueEnricher = new Enricher(engine)
@@ -105,8 +110,18 @@ class TestEngine(
         case ResultNeedPackage(packageId, resume) =>
           go(resume(packageStore.getPackage(packageId)))
         case ResultNeedContract(acoid, resume) =>
-          val instance: Option[FatContractInstance] = contracts.get(acoid)
-          go(resume(ResultNeedContract.wrapLegacyResponse(instance)))
+          go(resume(contracts.get(acoid) match {
+            case Some(contractInstance) =>
+              Response.ContractFound(
+                contractInstance,
+                Hash.HashingMethod.UpgradeFriendly,
+                _ => true,
+              )
+            case None =>
+              Response.ContractNotFound
+          }))
+        case ResultInterruption(continue, _) =>
+          go(continue())
         case other => throw new IllegalStateException(s"Did not expect $other")
       }
     go(initial)
@@ -192,8 +207,8 @@ class TestEngine(
           create.stakeholders,
           create.keyOpt.map(Versioned(create.version, _)),
         ),
-        suffixedContractInstance = create.coinst,
-        cantonContractIdVersion = cantonContractIdVersion,
+        contractHash = LegacyContractHash
+          .tryThinContractHash(create.coinst, cantonContractIdVersion.useUpgradeFriendlyHashing),
       )
       .value
 
@@ -216,8 +231,13 @@ class TestEngine(
   def recomputeUnicum(
       fat: FatContractInstance,
       recomputeIdVersion: CantonContractIdV1Version,
-  ): Unicum =
-    unicumGenerator.recomputeUnicum(fat, recomputeIdVersion).value
+  ): Unicum = {
+
+    val contractHash =
+      LegacyContractHash.tryFatContractHash(fat, recomputeIdVersion.useUpgradeFriendlyHashing)
+
+    unicumGenerator.recomputeUnicum(fat, recomputeIdVersion, contractHash).value
+  }
 
   def disclose(fat: FatContractInstance): com.daml.ledger.api.v2.commands.DisclosedContract = {
     val t = fat.templateId
@@ -262,28 +282,7 @@ class TestEngine(
 
     val nodeSeeds = Map.from(meta.nodeSeeds.toList)
     val node = tx.nodes.get(testNodeId).value
-    val (replayCommand, submitters) = node match {
-      case create: Node.Create =>
-        (
-          ReplayCommand.Create(
-            create.templateId,
-            create.arg,
-          ),
-          create.requiredAuthorizers,
-        )
-      case ex: Node.Exercise =>
-        (
-          ReplayCommand.Exercise(
-            templateId = ex.templateId,
-            interfaceId = ex.interfaceId,
-            contractId = ex.targetCoid,
-            choiceId = ex.choiceId,
-            argument = ex.chosenValue,
-          ),
-          ex.requiredAuthorizers,
-        )
-      case other => throw new UnsupportedOperationException(s"Do not support $other")
-    }
+    val (replayCmd, submitters) = replayCommand(node)
 
     val nodeSeed = nodeSeeds(testNodeId)
 
@@ -297,12 +296,36 @@ class TestEngine(
 
     reinterpretAndConsume(
       submitters = submitters,
-      command = replayCommand,
+      command = replayCmd,
       nodeSeed = nodeSeed,
       contracts = contracts,
       packageResolution = packageResolution,
     )
   }
+
+  def replayCommand(node: LfNode): (ReplayCommand, Set[Party]) =
+    node match {
+      case create: LfNodeCreate =>
+        (
+          ReplayCommand.Create(
+            create.templateId,
+            create.arg,
+          ),
+          create.requiredAuthorizers,
+        )
+      case ex: LfNodeExercises =>
+        (
+          ReplayCommand.Exercise(
+            templateId = ex.templateId,
+            interfaceId = ex.interfaceId,
+            contractId = ex.targetCoid,
+            choiceId = ex.choiceId,
+            argument = ex.chosenValue,
+          ),
+          ex.requiredAuthorizers,
+        )
+      case other => throw new UnsupportedOperationException(s"Do not support $other")
+    }
 
   def toRefIdentifier(i: com.daml.ledger.javaapi.data.Identifier): Ref.Identifier =
     Ref.Identifier(

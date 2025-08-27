@@ -38,16 +38,16 @@ object P2PNetworkOut {
   sealed trait Admin extends Message
   object Admin {
     final case class AddEndpoint(
-        endpoint: P2PEndpoint,
+        p2pEndpoint: P2PEndpoint,
         callback: Boolean => Unit,
     ) extends Admin
     final case class RemoveEndpoint(
-        endpointId: P2PEndpoint.Id,
+        p2pEndpointId: P2PEndpoint.Id,
         callback: Boolean => Unit,
     ) extends Admin
     final case class GetStatus(
         callback: PeerNetworkStatus => Unit,
-        endpointIds: Option[Iterable[P2PEndpoint.Id]] = None,
+        p2pEndpointIds: Option[Iterable[P2PEndpoint.Id]] = None,
     ) extends Admin
   }
 

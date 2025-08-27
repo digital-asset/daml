@@ -55,8 +55,10 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.TryUtil
 import com.digitalasset.daml.lf.command.ApiCommands
 import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{CommandId, SubmissionId, UserId, WorkflowId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.engine.{
   Engine,
   EngineConfig,
@@ -340,8 +342,15 @@ class TestSubmissionService(
 
       case ResultNeedContract(acoid, resume) =>
         for {
-          fatContractO <- contractResolver(acoid)(traceContext)
-          r <- resolve(resume(ResultNeedContract.wrapLegacyResponse(fatContractO)))
+          contractOpt <- contractResolver(acoid)(traceContext)
+          response: Response =
+            contractOpt match {
+              case Some(contract) =>
+                Response.ContractFound(contract, Hash.HashingMethod.UpgradeFriendly, _ => true)
+              case None =>
+                Response.ContractNotFound
+            }
+          r <- resolve(resume(response))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>

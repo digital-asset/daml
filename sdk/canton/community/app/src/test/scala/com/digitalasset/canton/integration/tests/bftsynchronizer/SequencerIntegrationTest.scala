@@ -3,10 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
+import com.digitalasset.canton.crypto.SigningKeyUsage
+import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -17,9 +20,21 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.logging.SuppressionRule
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
+import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast
+import com.digitalasset.canton.sequencing.handlers.EnvelopeOpenerError.EnvelopeOpenerDeserializationError
 import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStore
-import com.digitalasset.canton.topology.PhysicalSynchronizerId
+import com.digitalasset.canton.topology.transaction.{
+  DelegationRestriction,
+  NamespaceDelegation,
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyTransaction,
+}
+import com.digitalasset.canton.topology.{Namespace, PhysicalSynchronizerId}
+import com.digitalasset.canton.util.MaliciousParticipantNode
+import org.scalatest.Assertion
 import org.slf4j.event.Level
 
 trait SequencerIntegrationTest
@@ -133,6 +148,128 @@ trait SequencerIntegrationTest
           _.infoMessage should (include regex ("Loaded [1-9]\\d* events between .*? and .*?".r))
         }
       },
+    )
+
+  }
+
+  "sequencer should discard only invalid envelopes" in { implicit env =>
+    import env.*
+
+    participant3.start()
+    participant3.synchronizers.connect_local(sequencer1, daName)
+
+    val syncService = participant3.underlying.value.sync
+
+    // generate a new signing key, with which we'll generate an invalid root certificate
+    val rootKey =
+      participant3.keys.secret.generate_signing_key(usage = SigningKeyUsage.NamespaceOnly)
+
+    def mkBroadcast(nsd: NamespaceDelegation) =
+      TopologyTransactionsBroadcast(
+        synchronizerId,
+        Seq(
+          SignedTopologyTransaction
+            .signAndCreate(
+              TopologyTransaction(
+                TopologyChangeOp.Replace: TopologyChangeOp,
+                PositiveInt.one,
+                nsd,
+                testedProtocolVersion,
+              ),
+              signingKeys = NonEmpty(Set, rootKey.fingerprint),
+              isProposal = false,
+              syncService.syncCrypto.crypto.privateCrypto,
+              testedProtocolVersion,
+            )
+            .futureValueUS
+            .value
+        ),
+      )
+
+    val maliciousParticipant = MaliciousParticipantNode(
+      participant3,
+      synchronizerId,
+      testedProtocolVersion,
+      timeouts,
+      loggerFactory,
+    )
+
+    def submitInvalidEnvelopeAndAssertWarnings(
+        broadcasts: Seq[TopologyTransactionsBroadcast],
+        assertEventually: Option[() => Assertion] = None,
+    ): Assertion =
+      loggerFactory.assertEventuallyLogsSeq(SuppressionRule.LevelAndAbove(Level.WARN))(
+        {
+          // remember the approximate timestamp before submitting the topology transactions
+          val approximateTimestampBefore =
+            sequencer1.underlying.value.sequencer.syncCrypto.approximateTimestamp
+
+          maliciousParticipant.submitTopologyTransactionBroadcasts(broadcasts).futureValueUS
+          eventually() {
+            // if the sequencer has processed the Deliver event (even without the invalid envelope),
+            // the approximate timestamp must have moved.
+            val approximateTimestampAfter =
+              sequencer1.underlying.value.sequencer.syncCrypto.approximateTimestamp
+            approximateTimestampAfter should be > approximateTimestampBefore
+
+            assertEventually.map(_()).getOrElse(succeed)
+          }
+        },
+        // expect warnings about invalid envelopes from all nodes
+        LogEntry.assertLogSeq(
+          Seq(
+            (
+              entry => {
+                entry.shouldBeCantonErrorCode(EnvelopeOpenerDeserializationError)
+                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
+              },
+              "sequencer deserialization warning",
+            ),
+            (
+              entry => {
+                entry.shouldBeCantonErrorCode(SyncServiceAlarm)
+                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
+              },
+              "participant deserialization warning",
+            ),
+            (
+              entry => {
+                entry.shouldBeCantonErrorCode(MalformedMessage)
+                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
+              },
+              "mediator deserialization warning",
+            ),
+          )
+        ),
+      )
+
+    // create a valid root certificate
+    val rootCert = NamespaceDelegation.tryCreate(
+      Namespace(rootKey.fingerprint),
+      rootKey,
+      DelegationRestriction.CanSignAllMappings,
+    )
+    // create an invalid root certificate that will fail when deserialized
+    val invalidRootCert = NamespaceDelegation.restrictionUnsafe.replace(
+      DelegationRestriction.CanSignAllButNamespaceDelegations
+    )(rootCert)
+
+    // check that a batch with a single invalid envelope still gets processed by the sequencer
+    // topology processing pipeline, even if it's just an empty Deliver that simply moves the approximate time forward.
+    submitInvalidEnvelopeAndAssertWarnings(broadcasts = Seq(mkBroadcast(invalidRootCert)))
+
+    // submit the invalid root cert together with a valid root cert.
+    // we expect that the invalid envelope gets dropped, and the valid envelope
+    // gets processed.
+    submitInvalidEnvelopeAndAssertWarnings(
+      broadcasts = Seq(invalidRootCert, rootCert).map(mkBroadcast),
+      assertEventually = Some(() =>
+        participant3.topology.namespace_delegations
+          .list(
+            synchronizerId,
+            filterNamespace = rootKey.fingerprint.toProtoPrimitive,
+          ) should not be empty
+      ),
     )
 
   }

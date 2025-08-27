@@ -33,7 +33,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
-import com.digitalasset.canton.topology.transaction.OwnerToKeyMapping
 import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
 import monocle.macros.syntax.lens.*
 import org.scalatest.Assertion
@@ -221,10 +220,8 @@ trait MemberAutoInitIntegrationTest
           )
           logger.debug(s"Adding owner-to-key mappings for manual-$base")
           node.topology.owner_to_key_mappings.propose(
-            OwnerToKeyMapping(
-              node.id.member,
-              NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
-            ),
+            member = node.id.member,
+            keys = NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
             signedBy =
               Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
           )

@@ -210,7 +210,7 @@ final class RepairService(
     for {
       _ <- EitherT
         .fromEither[FutureUnlessShutdown](
-          contractAuthenticator.authenticate(repairContract.contract)
+          contractAuthenticator.legacyAuthenticate(repairContract.contract)
         )
         .leftMap(e =>
           log(s"Failed to authenticate contract with id: ${repairContract.contract.contractId}: $e")

@@ -129,7 +129,7 @@ class TopologyAdministrationIntegrationTest
       val otkm = storedOtkm.mapping.asInstanceOf[OwnerToKeyMapping]
 
       // we forcibly add an unintended key to the OwnerToKeyMapping
-      val otkmWithNewKey = otkm.copy(keys = otkm.keys :+ keyToAdd)
+      val otkmWithNewKey = OwnerToKeyMapping.tryCreate(otkm.member, otkm.keys :+ keyToAdd)
 
       val topologyTransaction = TopologyTransaction(
         storedOtkm.transaction.transaction.operation,
@@ -309,7 +309,8 @@ class TopologyAdministrationIntegrationTest
 
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           participant2.topology.owner_to_key_mappings.propose(
-            existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
+            member = existingOtk.item.member,
+            keys = existingOtk.item.keys :+ signingKey,
             serial = Some(existingOtk.context.serial.increment),
             // explicitly only sign with the namespace key, but not the signing key
             signedBy = Seq(participant2.fingerprint),
@@ -346,14 +347,17 @@ class TopologyAdministrationIntegrationTest
           .loneElement
           .item
 
-        val otkWithNewKey = existingOtk.copy(keys = existingOtk.keys :+ signingKey)
-        participant2.topology.owner_to_key_mappings.propose(
-          otkWithNewKey,
-          serial = Some(PositiveInt.one),
-          // explicitly only sign with the namespace key, but not the signing key
-          signedBy = Seq(participant2.fingerprint),
-          store = testTempStoreId,
-        )
+        val otkWithNewKey =
+          participant2.topology.owner_to_key_mappings
+            .propose(
+              member = existingOtk.member,
+              keys = existingOtk.keys :+ signingKey,
+              serial = Some(PositiveInt.one),
+              // explicitly only sign with the namespace key, but not the signing key
+              signedBy = Seq(participant2.fingerprint),
+              store = testTempStoreId,
+            )
+            .mapping
 
         // verify that the OTK in the temporary store was accepted and stored how we expect it
         val otkInTempStore =
@@ -379,7 +383,8 @@ class TopologyAdministrationIntegrationTest
 
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           participant2.topology.owner_to_key_mappings.propose(
-            existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
+            member = existingOtk.item.member,
+            keys = existingOtk.item.keys :+ signingKey,
             serial = Some(existingOtk.context.serial.increment),
             // explicitly only sign with the namespace key, but not the signing key
             signedBy = Seq(participant2.fingerprint),

@@ -174,7 +174,7 @@ class TopologyStoreTestData(
     )
   )(dnd_p1p2_keys*)
   val otk_p1 = makeSignedTx(
-    OwnerToKeyMapping(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
+    OwnerToKeyMapping.tryCreate(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
   )((p1Key))
   val p1_permission_daSynchronizer = makeSignedTx(
     ParticipantSynchronizerPermission(
@@ -229,7 +229,7 @@ class TopologyStoreTestData(
       .getOrElse(fail())
   )(p1Key, seqKey)
   val otk_p2_proposal = makeSignedTx(
-    OwnerToKeyMapping(p2Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1)),
+    OwnerToKeyMapping.tryCreate(p2Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1)),
     isProposal = true,
     serial = PositiveInt.tryCreate(2),
   )(p2Key)

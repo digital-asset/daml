@@ -15,11 +15,7 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Transac
 import com.digitalasset.canton.participant.protocol.submission.TransactionConfirmationRequestFactory
 import com.digitalasset.canton.participant.protocol.validation.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.protocol.{
-  ContractMetadata,
-  ExampleContractFactory,
-  GenContractInstance,
-}
+import com.digitalasset.canton.protocol.{ExampleContractFactory, LfHash}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -44,15 +40,19 @@ class TransactionProcessingStepsTest extends AsyncWordSpec with BaseTest {
     crypto = mock[SynchronizerCryptoClient],
     metrics = ParticipantTestMetrics.synchronizer.transactionProcessing,
     serializableContractAuthenticator = new ContractAuthenticator {
-      override def authenticate(contract: FatContractInstance): Either[String, Unit] =
+      override def legacyAuthenticate(contract: FatContractInstance): Either[String, Unit] =
         behaviors.getOrElse(
           contract.contractId,
-          fail(s"authenticateSerializable did not find ${contract.contractId}"),
+          fail(s"contract authentication did not find ${contract.contractId}"),
         )
-      override def verifyMetadata(
-          contract: GenContractInstance,
-          metadata: ContractMetadata,
-      ): Either[String, Unit] = Either.unit
+      override def authenticate(
+          instance: FatContractInstance,
+          contractHash: LfHash,
+      ): Either[String, Unit] =
+        behaviors.getOrElse(
+          instance.contractId,
+          fail(s"contract authentication did not find ${instance.contractId}"),
+        )
     },
     transactionEnricher = tx => _ => EitherT.pure(tx),
     createNodeEnricher = node => _ => EitherT.pure(node),

@@ -22,14 +22,24 @@ object CantonContractIdVersion {
     if (protocolVersion >= ProtocolVersion.v34) Right(AuthenticatedContractIdVersionV11)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
+  def extractCantonContractIdV1Version(
+      contractId: LfContractId
+  ): Either[String, CantonContractIdV1Version] =
+    extractCantonContractIdVersion(contractId)
+      .leftMap(e => s"Contract id is malformed: $e")
+      .flatMap {
+        case c: CantonContractIdV1Version => Right(c)
+        case other => Left(s"Expected CantonContractIdV1Version, got: $other")
+      }
+
   def extractCantonContractIdVersion(
       contractId: LfContractId
-  ): Either[MalformedContractId, CantonContractIdVersion] = {
-    val LfContractId.V1(_, suffix) = contractId match {
-      case cid: LfContractId.V1 => cid
-      case _ => sys.error("ContractId V2 are not supported")
-    }
+  ): Either[MalformedContractId, CantonContractIdVersion] =
     for {
+      suffix <- contractId match {
+        case LfContractId.V1(_, suffix) => Right(suffix)
+        case _ => Left(MalformedContractId(contractId.coid, s"Expected V1 contract id"))
+      }
       versionedContractId <- CantonContractIdVersion
         .fromContractSuffix(suffix)
         .leftMap(error => MalformedContractId(contractId.toString, error))
@@ -40,7 +50,6 @@ object CantonContractIdVersion {
         .fromByteString(unprefixedSuffix.toByteString)
         .leftMap(err => MalformedContractId(contractId.toString, err.message))
     } yield versionedContractId
-  }
 
   // Only use when the contract has been authenticated
   def tryCantonContractIdVersion(contractId: LfContractId): CantonContractIdVersion =
@@ -85,8 +94,11 @@ sealed abstract class CantonContractIdV1Version(
 
   override type AuthenticationData = ContractAuthenticationDataV1
 
+  def contractHashingMethod: LfHash.HashingMethod
+
   /** Set to true if upgrade friendly hashing should be used when constructing the contract hash */
-  def useUpgradeFriendlyHashing: Boolean
+  def useUpgradeFriendlyHashing: Boolean =
+    contractHashingMethod == LfHash.HashingMethod.UpgradeFriendly
 
   def versionPrefixBytes: Bytes
 
@@ -96,12 +108,12 @@ sealed abstract class CantonContractIdV1Version(
 
 case object AuthenticatedContractIdVersionV10 extends CantonContractIdV1Version(10) {
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x10.toByte))
-  override def useUpgradeFriendlyHashing: Boolean = false
+  override def contractHashingMethod: LfHash.HashingMethod = LfHash.HashingMethod.Legacy
 }
 
 case object AuthenticatedContractIdVersionV11 extends CantonContractIdV1Version(11) {
   lazy val versionPrefixBytes: Bytes = Bytes.fromByteArray(Array(0xca.toByte, 0x11.toByte))
-  override def useUpgradeFriendlyHashing: Boolean = true
+  override def contractHashingMethod: LfHash.HashingMethod = LfHash.HashingMethod.UpgradeFriendly
 }
 
 sealed trait CantonContractIdV2Version extends CantonContractIdVersion {

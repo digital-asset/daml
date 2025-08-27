@@ -1310,13 +1310,13 @@ class TopologyAdministrationGroup(
         maybePreviousState match {
           case None =>
             (
-              OwnerToKeyMapping(keyOwner, publicKeys),
+              OwnerToKeyMapping.create(keyOwner, publicKeys),
               PositiveInt.one,
               TopologyChangeOp.Replace,
             )
           case Some((_, TopologyChangeOp.Remove, previousSerial)) =>
             (
-              OwnerToKeyMapping(keyOwner, publicKeys),
+              OwnerToKeyMapping.create(keyOwner, publicKeys),
               previousSerial.increment,
               TopologyChangeOp.Replace,
             )
@@ -1326,7 +1326,7 @@ class TopologyAdministrationGroup(
               "The owner-to-key mapping already contains the specified keys to add",
             )
             (
-              okm.copy(keys = okm.keys ++ publicKeys),
+              OwnerToKeyMapping.create(okm.member, okm.keys ++ publicKeys),
               previousSerial.increment,
               TopologyChangeOp.Replace,
             )
@@ -1347,27 +1347,34 @@ class TopologyAdministrationGroup(
             // Remove publicKeys from okm.keys
             NonEmpty.from(okm.keys.filterNot(publicKeys.contains)) match {
               case Some(fewerKeys) =>
-                (okm.copy(keys = fewerKeys), previousSerial.increment, TopologyChangeOp.Replace)
+                (
+                  OwnerToKeyMapping.create(okm.member, keys = fewerKeys),
+                  previousSerial.increment,
+                  TopologyChangeOp.Replace,
+                )
               case None =>
-                (okm, previousSerial.increment, TopologyChangeOp.Remove)
+                (Right(okm), previousSerial.increment, TopologyChangeOp.Remove)
             }
         }
       }
 
-      propose(
-        proposedMapping,
-        Some(serial),
-        ops,
-        signedBy,
-        TopologyStoreId.Authorized,
-        synchronize,
-        mustFullyAuthorize,
-        force,
+      runAdminCommand(
+        TopologyAdminCommands.Write.Propose(
+          mapping = proposedMapping,
+          signedBy = signedBy,
+          store = TopologyStoreId.Authorized,
+          change = ops,
+          serial = Some(serial),
+          mustFullyAuthorize = mustFullyAuthorize,
+          forceChanges = force,
+          waitToBecomeEffective = synchronize,
+        )
       ).discard
     }
 
     def propose(
-        proposedMapping: OwnerToKeyMapping,
+        member: Member,
+        keys: NonEmpty[Seq[PublicKey]],
         serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Seq[Fingerprint] = Seq.empty,
@@ -1381,7 +1388,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, OwnerToKeyMapping] =
       runAdminCommand(
         TopologyAdminCommands.Write.Propose(
-          mapping = proposedMapping,
+          mapping = OwnerToKeyMapping.create(member, keys),
           signedBy = signedBy,
           store = store,
           change = ops,
@@ -1425,7 +1432,9 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Propose a party to key mapping")
     def propose(
-        proposedMapping: PartyToKeyMapping,
+        partyId: PartyId,
+        threshold: PositiveInt,
+        signingKeys: NonEmpty[Seq[SigningPublicKey]],
         serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Option[Fingerprint] = None,
@@ -1439,7 +1448,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToKeyMapping] =
       runAdminCommand(
         TopologyAdminCommands.Write.Propose(
-          mapping = proposedMapping,
+          mapping = PartyToKeyMapping.create(partyId, threshold, signingKeys),
           signedBy = signedBy.toList,
           store = store,
           change = ops,

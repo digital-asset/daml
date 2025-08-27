@@ -59,13 +59,13 @@ import scala.concurrent.ExecutionContext
   *   reconstructs a transaction view from the reinterpreted action description.
   */
 class ModelConformanceChecker(
-    val reinterpreter: HasReinterpret,
-    val validateContract: ContractInstanceValidation,
-    val transactionTreeFactory: TransactionTreeFactory,
-    val participantId: ParticipantId,
-    val serializableContractAuthenticator: ContractAuthenticator,
-    val packageResolver: PackageResolver,
-    val hashOps: HashOps & HmacOps,
+    reinterpreter: HasReinterpret,
+    validateContract: ContractInstanceValidation,
+    transactionTreeFactory: TransactionTreeFactory,
+    participantId: ParticipantId,
+    contractAuthenticator: ContractAuthenticator,
+    packageResolver: PackageResolver,
+    hashOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -259,18 +259,14 @@ class ModelConformanceChecker(
     for {
       viewInputContracts <- validateInputContracts(view, getEngineAbortStatus)
 
-      contractLookupAndVerification =
-        new ExtendedContractLookup(
-          viewInputContracts,
-          resolverFromView,
-          serializableContractAuthenticator,
-        )
+      contractAndKeyLookup = new ExtendedContractLookup(viewInputContracts, resolverFromView)
 
       packagePreference <- buildPackageNameMap(packageIdPreference)
 
       lfTxAndMetadata <- reinterpreter
         .reinterpret(
-          contractLookupAndVerification,
+          contractAndKeyLookup,
+          contractAuthenticator.authenticate,
           authorizers,
           cmd,
           ledgerTime,
@@ -284,7 +280,7 @@ class ModelConformanceChecker(
         .leftWiden[Error]
     } yield ConformanceReInterpretationResult(
       lfTxAndMetadata,
-      contractLookupAndVerification,
+      contractAndKeyLookup,
       viewInputContracts,
     )
   }
@@ -333,7 +329,7 @@ class ModelConformanceChecker(
           usedPackages,
           _,
         ),
-        contractLookupAndVerification,
+        contractAndKeyLookup,
         _,
       ) = lfTxAndMetadata
 
@@ -364,8 +360,7 @@ class ModelConformanceChecker(
           salts = salts,
           transactionUuid = transactionUuid,
           topologySnapshot = topologySnapshot,
-          contractOfId =
-            TransactionTreeFactory.contractInstanceLookup(contractLookupAndVerification),
+          contractOfId = TransactionTreeFactory.contractInstanceLookup(contractAndKeyLookup),
           keyResolver = resolverFromReinterpretation,
           absolutizer = absolutizer,
         )
@@ -416,7 +411,7 @@ object ModelConformanceChecker {
   def apply(
       damlE: DAMLe,
       transactionTreeFactory: TransactionTreeFactory,
-      serializableContractAuthenticator: ContractAuthenticator,
+      contractAuthenticator: ContractAuthenticator,
       participantId: ParticipantId,
       packageResolver: PackageResolver,
       hashOps: HashOps & HmacOps,
@@ -427,7 +422,7 @@ object ModelConformanceChecker {
       validateContractInstance(damlE),
       transactionTreeFactory,
       participantId,
-      serializableContractAuthenticator,
+      contractAuthenticator,
       packageResolver,
       hashOps,
       loggerFactory,
@@ -616,7 +611,6 @@ object ModelConformanceChecker {
     }
   }
 
-  /** Indicates that [[ModelConformanceChecker.reinterpreter]] has failed. */
   final case class DAMLeError(cause: DAMLe.ReinterpretationError, viewHash: ViewHash)
       extends Error {
     override protected def pretty: Pretty[DAMLeError] = prettyOfClass(

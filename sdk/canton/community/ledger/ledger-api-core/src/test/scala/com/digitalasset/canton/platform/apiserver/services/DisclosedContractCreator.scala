@@ -6,17 +6,15 @@ package com.digitalasset.canton.platform.apiserver.services
 import com.daml.ledger.api.v2.commands.DisclosedContract
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.LfValue
-import com.digitalasset.canton.protocol.LfTransactionVersion
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.canton.protocol.{ExampleContractFactory, LfTransactionVersion}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
-  Node,
   TransactionCoder,
 }
-import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord, ValueTrue}
-import com.google.protobuf.ByteString
+import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueTrue}
 
 object DisclosedContractCreator {
 
@@ -27,7 +25,6 @@ object DisclosedContractCreator {
       Identifier("package", moduleName = "module", entityName = "entity")
     val packageName: String = "pkg-name"
 
-    val contractId: String = "00" + "00" * 31 + "ef"
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     val bob: Ref.Party = Ref.Party.assertFromString("bob")
     val charlie: Ref.Party = Ref.Party.assertFromString("charlie")
@@ -35,7 +32,6 @@ object DisclosedContractCreator {
     val signatories: Set[Ref.Party] = Set(alice, bob)
     val keyMaintainers: Set[Ref.Party] = Set(bob)
     val createdAtSeconds = 1337L
-    val someAuthenticationDataStr = "SomeAuthenticationData"
   }
 
   private object lf {
@@ -52,10 +48,6 @@ object DisclosedContractCreator {
       fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> ValueTrue),
     )
 
-    val lfContractId: ContractId.V1 = ContractId.V1.assertFromString(api.contractId)
-
-    private val authenticationDataBytes: Bytes =
-      Bytes.fromByteString(ByteString.copyFromUtf8(api.someAuthenticationDataStr))
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
       LfValue.ValueRecord(
@@ -69,26 +61,24 @@ object DisclosedContractCreator {
       Ref.PackageName.assertFromString(api.packageName),
     )
 
-    val fatContractInstance: FatContractInstance = FatContractInstance.fromCreateNode(
-      create = Node.Create(
-        coid = lf.lfContractId,
-        templateId = lf.templateId,
+    val fatContractInstance: FatContractInstance = ExampleContractFactory
+      .build(
+        templateId = templateId,
         packageName = packageName,
-        arg = lf.createArg,
+        argument = createArg,
+        createdAt =
+          CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
         signatories = api.signatories,
         stakeholders = api.stakeholders,
         keyOpt = Some(lf.keyWithMaintainers),
         version = testTxVersion,
-      ),
-      createTime =
-        CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
-      authenticationData = lf.authenticationDataBytes,
-    )
+      )
+      .inst
   }
 
   val disclosedContract: DisclosedContract = DisclosedContract(
     templateId = Some(api.templateId),
-    contractId = api.contractId,
+    contractId = lf.fatContractInstance.contractId.coid,
     createdEventBlob = TransactionCoder
       .encodeFatContractInstance(lf.fatContractInstance)
       .fold(

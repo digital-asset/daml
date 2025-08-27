@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
-import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -24,25 +23,26 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
-import com.digitalasset.canton.protocol.ContractMetadata
+import com.digitalasset.canton.protocol.{CantonContractIdVersion, LfFatContractInst}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.Checked
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
-import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, Transaction, Versioned}
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
+import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, Transaction}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import scala.collection.View
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.chaining.scalaUtilChainingOps
 
 private[apiserver] trait CommandInterpreter {
 
@@ -65,7 +65,7 @@ final class StoreBackedCommandInterpreter(
     packageSyncService: PackageSyncService,
     contractStore: ContractStore,
     metrics: LedgerApiServerMetrics,
-    authenticateFatContractInstance: AuthenticateFatContractInstance,
+    contractAuthenticator: ContractAuthenticatorFn,
     config: EngineLoggingConfig,
     prefetchingRecursionLevel: PositiveInt,
     val loggerFactory: NamedLoggerFactory,
@@ -260,6 +260,19 @@ final class StoreBackedCommandInterpreter(
     val lookupContractKeyTime = new AtomicLong(0L)
     val lookupContractKeyCount = new AtomicLong(0L)
 
+    def timedLookup(acoid: ContractId): FutureUnlessShutdown[Option[LfFatContractInst]] = {
+      val start = System.nanoTime
+      Timed
+        .future(
+          metrics.execution.lookupActiveContract,
+          FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
+        )
+        .tap { _ =>
+          lookupActiveContractTime.addAndGet(System.nanoTime() - start)
+          lookupActiveContractCount.incrementAndGet()
+        }
+    }
+
     def resolveStep(result: Result[A]): FutureUnlessShutdown[Either[ErrorCause, A]] =
       result match {
         case ResultDone(r) => FutureUnlessShutdown.pure(Right(r))
@@ -267,24 +280,29 @@ final class StoreBackedCommandInterpreter(
         case ResultError(err) => FutureUnlessShutdown.pure(Left(ErrorCause.DamlLf(err)))
 
         case ResultNeedContract(acoid, resume) =>
-          val start = System.nanoTime
-          Timed
-            .future(
-              metrics.execution.lookupActiveContract,
-              FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
-            )
-            .flatMap { case fatInstanceOpt =>
-              lookupActiveContractTime.addAndGet(System.nanoTime() - start)
-              lookupActiveContractCount.incrementAndGet()
-              resolveStep(
-                Tracked.value(
-                  metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(
-                    resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt))
-                  ),
-                )
+          // TODO(#23971) - Add support for V2 contract IDs
+          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
+            case Right(v1Version) =>
+              timedLookup(acoid).map[Response] {
+                case Some(contract) =>
+                  Response.ContractFound(
+                    contract,
+                    v1Version.contractHashingMethod,
+                    hash => contractAuthenticator(contract, hash).isRight,
+                  )
+                case None => Response.ContractNotFound
+              }
+
+            case Left(_) =>
+              FutureUnlessShutdown.pure[Response](Response.UnsupportedContractIdVersion)
+          }).flatMap(response =>
+            resolveStep(
+              Tracked.value(
+                metrics.execution.engineRunning,
+                trackSyncExecution(interpretationTimeNanos)(resume(response)),
               )
-            }
+            )
+          )
 
         case ResultNeedKey(key, resume) =>
           val start = System.nanoTime
@@ -438,81 +456,6 @@ final class StoreBackedCommandInterpreter(
     result
   }
 
-  private case class UpgradeVerificationContractData(
-      originalContract: FatContract,
-      recomputedMetadata: ContractMetadata,
-  ) {
-    private def originalMetadata: ContractMetadata = ContractMetadata.tryCreate(
-      signatories = originalContract.signatories,
-      stakeholders = originalContract.stakeholders,
-      maybeKeyWithMaintainersVersioned = originalContract.contractKeyWithMaintainers.map(
-        Versioned(originalContract.version, _)
-      ),
-    )
-
-    private def checkProvidedContractMetadataAgainstRecomputed
-        : Either[NonEmptyChain[String], Unit] = {
-
-      import scala.collection.immutable.TreeSet
-
-      def checkSet[T: Ordering](
-          f: ContractMetadata => Set[T]
-      )(desc: String): Checked[Nothing, String, Unit] = {
-        val original = f(originalMetadata)
-        val recomputed = f(recomputedMetadata)
-        Checked.fromEitherNonabort(())(
-          Either.cond(
-            recomputed == original,
-            (),
-            s"$desc mismatch: ${TreeSet.from(original).mkString("{", ",", "}")} vs ${TreeSet.from(recomputed).mkString("{", ",", "}")}",
-          )
-        )
-      }
-
-      def check[T](f: ContractMetadata => T)(desc: String): Checked[Nothing, String, Unit] = {
-        val original = f(originalMetadata)
-        val recomputed = f(recomputedMetadata)
-        Checked.fromEitherNonabort(())(
-          Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
-        )
-      }
-
-      for {
-        _ <- checkSet(_.signatories)("signatories")
-        _ <- checkSet(m => m.stakeholders -- m.signatories)("observers")
-        _ <- check(_.maybeKey)("key value")
-        _ <- checkSet(_.maintainers)("key maintainers")
-      } yield ()
-
-    }.toEitherMergeNonaborts
-
-    def validate: Either[String, Unit] =
-      authenticateFatContractInstance(originalContract).leftMap { contractAuthenticationError =>
-        val firstParticle =
-          s"Upgrading contract with ${originalContract.contractId} failed authentication check with error: $contractAuthenticationError."
-        checkProvidedContractMetadataAgainstRecomputed
-          .leftMap(_.mkString_("['", "', '", "']"))
-          .fold(
-            value => s"$firstParticle The following upgrading checks failed: $value",
-            _ => firstParticle,
-          )
-      }
-
-  }
-
-  private object UpgradeVerificationContractData {
-    def fromDisclosedContract(
-        disclosedContract: FatContract,
-        recomputedMetadata: ContractMetadata,
-    ): UpgradeVerificationContractData =
-      UpgradeVerificationContractData(disclosedContract, recomputedMetadata)
-
-    def fromActiveContract(
-        active: ContractState.Active,
-        recomputedMetadata: ContractMetadata,
-    ): UpgradeVerificationContractData =
-      UpgradeVerificationContractData(active.contractInstance, recomputedMetadata)
-  }
 }
 
 object StoreBackedCommandInterpreter {
@@ -568,13 +511,4 @@ object StoreBackedCommandInterpreter {
             }
       }
   }
-}
-
-private sealed trait UpgradeVerificationResult extends Product with Serializable
-
-private object UpgradeVerificationResult {
-  case object Valid extends UpgradeVerificationResult
-  final case class UpgradeFailure(message: String) extends UpgradeVerificationResult
-  case object ContractNotFound extends UpgradeVerificationResult
-  case object MissingAuthenticationData extends UpgradeVerificationResult
 }

@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   validateDisclosedContracts,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV11,
   ContractAuthenticationDataV1,
@@ -73,8 +73,7 @@ class ValidateDisclosedContractsTest
 
   it should "fail validation if contract fails authentication" in {
 
-    val underTest =
-      new ValidateDisclosedContracts(_ => Left("Auth failure!"))
+    val underTest = new ValidateDisclosedContracts((_, _) => Left("Auth failure!"))
 
     requestMustFailWith(
       request = underTest(api.protoCommands),
@@ -247,7 +246,7 @@ class ValidateDisclosedContractsTest
 
 object ValidateDisclosedContractsTest {
 
-  private val dummyContractIdAuthenticator: AuthenticateFatContractInstance = _ => Right(())
+  private val dummyContractIdAuthenticator: ContractAuthenticatorFn = (_, _) => Right(())
 
   private val validateDisclosedContracts =
     new ValidateDisclosedContracts(dummyContractIdAuthenticator)

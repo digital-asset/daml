@@ -48,6 +48,8 @@ import com.digitalasset.canton.version.ProtoVersion
 import com.digitalasset.canton.{LfPackageId, ProtoDeserializationError, SequencerAlias}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import monocle.Lens
+import monocle.macros.GenLens
 import slick.jdbc.SetParameter
 
 import scala.annotation.nowarn
@@ -478,6 +480,13 @@ final case class NamespaceDelegation private (
 
   override lazy val uniqueKey: MappingHash =
     NamespaceDelegation.uniqueKey(namespace, target.fingerprint)
+
+  @VisibleForTesting
+  private[transaction] def copy(
+      namespace: Namespace = namespace,
+      target: SigningPublicKey = target,
+      restriction: DelegationRestriction = restriction,
+  ) = new NamespaceDelegation(namespace, target, restriction)
 }
 
 object NamespaceDelegation extends TopologyMappingCompanion {
@@ -574,6 +583,10 @@ object NamespaceDelegation extends TopologyMappingCompanion {
         .leftMap(err => ProtoDeserializationError.InvariantViolation(None, err))
 
     } yield namespaceDelegation
+
+  @VisibleForTesting
+  val restrictionUnsafe: Lens[NamespaceDelegation, DelegationRestriction] =
+    GenLens[NamespaceDelegation](_.restriction)
 
 }
 
@@ -700,7 +713,7 @@ sealed trait KeyMapping extends Product with Serializable {
   * protocol members (participant, mediator) plus the sequencer (which provides the communication
   * infrastructure for the protocol members).
   */
-final case class OwnerToKeyMapping(
+final case class OwnerToKeyMapping private (
     member: Member,
     keys: NonEmpty[Seq[PublicKey]],
 ) extends TopologyMapping
@@ -741,14 +754,48 @@ final case class OwnerToKeyMapping(
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member)
 
   override def mappedKeys: NonEmpty[Seq[PublicKey]] = keys
+
+  @VisibleForTesting
+  private[transaction] def copy(
+      member: Member = member,
+      keys: NonEmpty[Seq[PublicKey]] = keys,
+  ) =
+    new OwnerToKeyMapping(member, keys)
 }
 
 object OwnerToKeyMapping extends TopologyMappingCompanion {
+
+  val MaxKeys = 20
+
+  @VisibleForTesting
+  val keysUnsafe: Lens[OwnerToKeyMapping, NonEmpty[Seq[PublicKey]]] =
+    GenLens[OwnerToKeyMapping](_.keys)
 
   def uniqueKey(member: Member): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(member.uid.toProtoPrimitive))
 
   override def code: TopologyMapping.Code = Code.OwnerToKeyMapping
+
+  def create(member: Member, keys: NonEmpty[Seq[PublicKey]]): Either[String, OwnerToKeyMapping] = {
+    val duplicateKeys = keys.groupBy(_.fingerprint).values.filter(_.sizeIs > 1).toList
+    for {
+      _ <- Either.cond(
+        duplicateKeys.isEmpty,
+        (),
+        s"All keys must be unique. Duplicate keys: $duplicateKeys",
+      )
+      keysNE <- NonEmpty.from(keys).toRight("At least 1 key must be provided")
+      _ <- Either.cond(
+        keysNE.sizeIs <= MaxKeys,
+        (),
+        s"At most $MaxKeys can be specified.",
+      )
+    } yield OwnerToKeyMapping(member, keysNE)
+  }
+
+  @VisibleForTesting
+  def tryCreate(member: Member, keys: NonEmpty[Seq[PublicKey]]): OwnerToKeyMapping =
+    create(member, keys).valueOr(err => throw new IllegalArgumentException(err))
 
   def fromProtoV30(
       value: v30.OwnerToKeyMapping
@@ -756,16 +803,11 @@ object OwnerToKeyMapping extends TopologyMappingCompanion {
     val v30.OwnerToKeyMapping(memberP, keysP) = value
     for {
       member <- Member.fromProtoPrimitive(memberP, "member")
-      keys <- keysP.traverse(x =>
-        ProtoConverter
-          .parseRequired(PublicKey.fromProtoPublicKeyV30, "public_keys", Some(x))
-      )
-      keysNE <- NonEmpty
-        .from(keys)
-        .toRight(ProtoDeserializationError.FieldNotSet("public_keys"): ProtoDeserializationError)
-    } yield OwnerToKeyMapping(member, keysNE)
+      keys <- ProtoConverter
+        .parseRequiredNonEmpty(PublicKey.fromProtoPublicKeyV30, "public_keys", keysP)
+      otk <- create(member, keys).leftMap(ProtoDeserializationError.InvariantViolation(None, _))
+    } yield otk
   }
-
 }
 
 /** A party to key mapping
@@ -817,34 +859,44 @@ final case class PartyToKeyMapping private (
   override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party)
 
   override def mappedKeys: NonEmpty[Seq[PublicKey]] = signingKeys.toSeq
+
+  @VisibleForTesting
+  private[transaction] def copy(
+      party: PartyId = party,
+      threshold: PositiveInt = threshold,
+      signingKeys: NonEmpty[Seq[SigningPublicKey]] = signingKeys,
+  ) =
+    new PartyToKeyMapping(party, threshold, signingKeys)
 }
 
 object PartyToKeyMapping extends TopologyMappingCompanion {
+
+  val MaxKeys = OwnerToKeyMapping.MaxKeys
+
+  @VisibleForTesting
+  val signingKeysUnsafe: Lens[PartyToKeyMapping, NonEmpty[Seq[SigningPublicKey]]] =
+    GenLens[PartyToKeyMapping](_.signingKeys)
 
   def create(
       partyId: PartyId,
       threshold: PositiveInt,
       signingKeys: NonEmpty[Seq[SigningPublicKey]],
   ): Either[String, PartyToKeyMapping] = {
-    val noDuplicateKeys = {
-      val duplicateKeys = signingKeys.groupBy(_.fingerprint).values.filter(_.sizeIs > 1).toList
-      Either.cond(
+    val duplicateKeys = signingKeys.groupBy(_.fingerprint).values.filter(_.sizeIs > 1).toList
+    for {
+      _ <- Either.cond(
         duplicateKeys.isEmpty,
         (),
         s"All signing keys must be unique. Duplicate keys: $duplicateKeys",
       )
-    }
-
-    val thresholdCanBeMet =
-      Either
+      _ <- Either.cond(signingKeys.sizeIs <= MaxKeys, (), s"At most $MaxKeys can be specified.")
+      _ <- Either
         .cond(
           threshold.value <= signingKeys.size,
           (),
           s"Party $partyId cannot meet threshold of $threshold signing keys with participants ${signingKeys.size} keys",
         )
-        .map(_ => PartyToKeyMapping(partyId, threshold, signingKeys))
-
-    noDuplicateKeys.flatMap(_ => thresholdCanBeMet)
+    } yield PartyToKeyMapping(partyId, threshold, signingKeys)
   }
 
   def tryCreate(
@@ -874,7 +926,10 @@ object PartyToKeyMapping extends TopologyMappingCompanion {
       threshold <- PositiveInt
         .create(thresholdP)
         .leftMap(InvariantViolation.toProtoDeserializationError("threshold", _))
-    } yield PartyToKeyMapping(party, threshold, signingKeysNE)
+      ptk <- PartyToKeyMapping
+        .create(party, threshold, signingKeysNE)
+        .leftMap(ProtoDeserializationError.InvariantViolation(None, _))
+    } yield ptk
   }
 
 }

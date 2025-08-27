@@ -50,8 +50,7 @@ class P2PNetworkInModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     val sentBy = BftNodeId(message.sentBy)
-    logger.debug(s"Received network message from $sentBy")
-    logger.trace(s"Message from $sentBy is: $message")
+    logger.trace(s"Received network message from $sentBy: $message")
     val start = Instant.now
     parseAndForwardBody(
       sentBy,

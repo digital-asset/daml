@@ -198,7 +198,13 @@ paths:
       - apiKeyAuth: []
   /v2/commands/completions:
     post:
-      description: Query completions list (blocking call)
+      description: |-
+        Query completions list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2CommandsCompletions
       parameters:
       - name: limit
@@ -619,7 +625,18 @@ paths:
       - apiKeyAuth: []
   /v2/state/active-contracts:
     post:
-      description: Query active contracts list (blocking call)
+      description: |-
+        Query active contracts list (blocking call).
+        Querying active contracts is an expensive operation and if possible should not be repeated often.
+        Consider querying active contracts initially (for a given offset)
+        and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
+        You can also use websockets to get updates with better performance.
+
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2StateActive-contracts
       parameters:
       - name: limit
@@ -768,7 +785,13 @@ paths:
       - apiKeyAuth: []
   /v2/updates/flats:
     post:
-      description: Query flat transactions update list (blocking call)
+      description: |-
+        Query flat transactions update list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2UpdatesFlats
       parameters:
       - name: limit
@@ -821,7 +844,13 @@ paths:
       - apiKeyAuth: []
   /v2/updates/trees:
     post:
-      description: Query update transactions tree list (blocking call)
+      description: |-
+        Query update transactions tree list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
       operationId: postV2UpdatesTrees
       parameters:
       - name: limit
@@ -4035,6 +4064,7 @@ components:
             the prepared transaction
             Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
             obtained from calling `prepareSubmission`.
+            Required
           type: string
         partySignatures:
           $ref: '#/components/schemas/PartySignatures'
@@ -4043,6 +4073,7 @@ components:
             Each party can provide one or more signatures..
             and one or more parties can sign.
             Note that currently, only single party submissions are supported.
+            Required
         deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod2'
         submissionId:
@@ -4055,10 +4086,14 @@ components:
             Required
           type: string
         userId:
-          description: See [PrepareSubmissionRequest.user_id]
+          description: |-
+            See [PrepareSubmissionRequest.user_id]
+            Optional
           type: string
         hashingSchemeVersion:
-          description: The hashing scheme version used when building the hash
+          description: |-
+            The hashing scheme version used when building the hash
+            Required
           type: string
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
@@ -4072,6 +4107,8 @@ components:
             If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
             TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
             filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+            When the ``transaction_shape`` TRANSACTION_SHAPE_ACS_DELTA shape is used (explicitly or is defaulted to as explained above),
+            events will only be returned if the submitting party is hosted on this node.
             Optional
     JsExecuteSubmissionAndWaitForTransactionResponse:
       title: JsExecuteSubmissionAndWaitForTransactionResponse
@@ -4099,6 +4136,7 @@ components:
             the prepared transaction
             Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
             obtained from calling `prepareSubmission`.
+            Required
           type: string
         partySignatures:
           $ref: '#/components/schemas/PartySignatures'
@@ -4107,6 +4145,7 @@ components:
             Each party can provide one or more signatures..
             and one or more parties can sign.
             Note that currently, only single party submissions are supported.
+            Required
         deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod2'
         submissionId:
@@ -4119,10 +4158,14 @@ components:
             Required
           type: string
         userId:
-          description: See [PrepareSubmissionRequest.user_id]
+          description: |-
+            See [PrepareSubmissionRequest.user_id]
+            Optional
           type: string
         hashingSchemeVersion:
-          description: The hashing scheme version used when building the hash
+          description: |-
+            The hashing scheme version used when building the hash
+            Required
           type: string
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
@@ -4144,6 +4187,7 @@ components:
             the prepared transaction
             Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
             obtained from calling `prepareSubmission`.
+            Required
           type: string
         partySignatures:
           $ref: '#/components/schemas/PartySignatures'
@@ -4152,6 +4196,7 @@ components:
             Each party can provide one or more signatures..
             and one or more parties can sign.
             Note that currently, only single party submissions are supported.
+            Required
         deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod2'
         submissionId:
@@ -4164,10 +4209,14 @@ components:
             Required
           type: string
         userId:
-          description: See [PrepareSubmissionRequest.user_id]
+          description: |-
+            See [PrepareSubmissionRequest.user_id]
+            Optional
           type: string
         hashingSchemeVersion:
-          description: The hashing scheme version used when building the hash
+          description: |-
+            The hashing scheme version used when building the hash
+            Required
           type: string
         minLedgerTime:
           $ref: '#/components/schemas/MinLedgerTime'
@@ -4327,6 +4376,7 @@ components:
             Must be a valid UserIdString (as described in ``value.proto``).
             Required unless authentication is used with a user token.
             In that case, the token's user-id will be used for the request's user_id.
+            Optional
           type: string
         commandId:
           description: |-
@@ -4340,6 +4390,8 @@ components:
         commands:
           description: |-
             Individual elements of this atomic command. Must be non-empty.
+            Limitation: Only single command transaction are currently supported by the API.
+            The field is marked as repeated in preparation for future support of multiple commands.
             Required
           type: array
           items:
@@ -4388,6 +4440,7 @@ components:
           description: |-
             The package-id selection preference of the client for resolving
             package names and interface instances in command submission and interpretation
+            Optional
           type: array
           items:
             type: string
@@ -4395,6 +4448,7 @@ components:
           description: |-
             When true, the response will contain additional details on how the transaction was encoded and hashed
             This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
+            Optional, default to false
           type: boolean
         prefetchContractKeys:
           description: |-
@@ -5267,7 +5321,9 @@ components:
       type: object
       properties:
         signatures:
-          description: Additional signatures provided by all individual parties
+          description: |-
+            Additional signatures provided by all individual parties
+            Required
           type: array
           items:
             $ref: '#/components/schemas/SinglePartySignatures'
@@ -5460,10 +5516,14 @@ components:
       - party
       properties:
         party:
-          description: Submitting party
+          description: |-
+            Submitting party
+            Required
           type: string
         signatures:
-          description: Signatures
+          description: |-
+            Signatures
+            Required
           type: array
           items:
             $ref: '#/components/schemas/Signature'

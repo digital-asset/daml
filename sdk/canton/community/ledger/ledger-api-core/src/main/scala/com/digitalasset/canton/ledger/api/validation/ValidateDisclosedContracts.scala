@@ -16,7 +16,8 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
+import com.digitalasset.canton.protocol.LegacyContractHash
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
@@ -25,7 +26,7 @@ import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
 
-class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFatContractInstance) {
+class ValidateDisclosedContracts(contractAuthenticator: ContractAuthenticatorFn) {
 
   def apply(commands: ProtoCommands)(implicit
       errorLoggingContext: ErrorLoggingContext
@@ -106,7 +107,12 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
           case time: CreationTime.CreatedAt => Right(time)
           case _ => Left(invalidArgument("Contract creation time cannot be 'Now'"))
         }
-        _ <- authenticateFatContractInstance(lfFatContractInst).leftMap { error =>
+        contractHash <- LegacyContractHash.fatContractHash(lfFatContractInst).leftMap { error =>
+          invalidArgument(
+            s"Failed to hash contract (${disclosedContract.contractId}): $error"
+          )
+        }
+        _ <- contractAuthenticator(lfFatContractInst, contractHash).leftMap { error =>
           invalidArgument(
             s"Contract authentication failed for attached disclosed contract with id (${disclosedContract.contractId}): $error"
           )
@@ -119,5 +125,5 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
 
 object ValidateDisclosedContracts {
   @VisibleForTesting
-  val WithContractIdVerificationDisabled = new ValidateDisclosedContracts(_ => Right(()))
+  val WithContractIdVerificationDisabled = new ValidateDisclosedContracts((_, _) => Right(()))
 }

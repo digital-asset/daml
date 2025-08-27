@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.ContractAuthenticator
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   GenContractInstance,
@@ -28,9 +27,8 @@ import scala.concurrent.ExecutionContext
 class ExtendedContractLookup(
     private val contracts: Map[LfContractId, GenContractInstance],
     private val keys: Map[LfGlobalKey, Option[LfContractId]],
-    private val authenticator: ContractAuthenticator,
 )(protected implicit val ec: ExecutionContext)
-    extends ContractLookupAndVerification {
+    extends ContractAndKeyLookup {
 
   override type ContractsCreatedAtTime = CreationTime
 
@@ -40,19 +38,6 @@ class ExtendedContractLookup(
       s"Tried to store contract $contract under the wrong id $id",
     )
   }
-
-  override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
-      traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, String] =
-    lookup(coid).transform {
-      case Some(contract) =>
-        authenticator
-          .verifyMetadata(contract, metadata)
-          .left
-          .toOption
-      case None =>
-        Some(s"Failed to find contract $coid")
-    }
 
   override def lookup(id: LfContractId)(implicit
       traceContext: TraceContext

@@ -453,7 +453,13 @@ final class ParticipantMigrateSynchronizerIntegrationTest
         val inspection = p.testing.state_inspection
 
         val sequencerClientEvents =
-          inspection.findMessages(daId, from = None, to = None, limit = Some(10))
+          inspection.findMessages(
+            daId,
+            from = None,
+            to = None,
+            limit = Some(10),
+            warnOnDiscardedEnvelopes = false,
+          )
         sequencerClientEvents shouldBe empty
 
         val acs = valueOrFail(inspection.findAcs(daName))("ACS").futureValueUS

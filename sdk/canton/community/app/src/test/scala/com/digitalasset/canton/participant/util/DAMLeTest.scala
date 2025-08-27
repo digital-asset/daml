@@ -4,253 +4,223 @@
 package com.digitalasset.canton.participant.util
 
 import cats.data.EitherT
-import cats.syntax.functorFilter.*
-import cats.syntax.parallel.*
-import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.examples.java.cycle.Cycle
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory}
-import com.digitalasset.canton.participant.admin.*
-import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.protocol.EngineController.{
   EngineAbortStatus,
   GetEngineAbortStatus,
 }
-import com.digitalasset.canton.participant.store.ContractLookupAndVerification
-import com.digitalasset.canton.participant.store.memory.{
-  InMemoryDamlPackageStore,
-  NoopPackageMetadataView,
-}
-import com.digitalasset.canton.participant.util.DAMLe.{
-  EngineAborted,
-  ReInterpretationResult,
-  ReinterpretationError,
-}
+import com.digitalasset.canton.participant.store.{ContractAndKeyLookup, ExtendedContractLookup}
+import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.DefaultTestIdentities
-import com.digitalasset.canton.util.BinaryFileUtil
+import com.digitalasset.canton.util.TestEngine
 import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
   HasActorSystem,
   HasExecutionContext,
-  LfCreateCommand,
+  LfCommand,
   LfPartyId,
-  protocol,
 }
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.*
-import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.Versioned
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.data.Ref.Party
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.concurrent.ExecutionContext
-
-trait DAMLeTest
+class DAMLeTest
     extends AsyncWordSpec
     with BaseTest
     with HasActorSystem
     with HasExecutionContext
     with FailOnShutdown {
 
-  protected def cantonTestsPath: String
-  protected def testDarFileName: String
-  protected def enableLfDev: Boolean
-  protected def enableLfBeta: Boolean
+  def cantonTestsPath: String = CantonTestsPath
+  def testDarFileName: String = "CantonTests"
 
-  private val engine =
-    DAMLe.newEngine(
-      enableLfDev = enableLfDev,
-      enableLfBeta = enableLfBeta,
-      enableStackTraces = false,
-      // Increase granularity of interruptions so that command reinterpretation gets
-      // some `ResultInterruption`s during its execution before completing.
-      iterationsBetweenInterruptions = 10,
-      paranoidMode = true,
-    )
+  "DAMLe" should {
 
-  private val packageService = DAMLeTest.packageService(engine, loggerFactory)
-  protected val damlE: DAMLe =
-    new DAMLe(
-      DAMLe.packageResolver(packageService),
-      engine,
+    val testEngine =
+      new TestEngine(packagePaths = Seq(CantonExamplesPath), iterationsBetweenInterruptions = 10)
+
+    val packageResolver: PackageResolver =
+      packageId => _ => FutureUnlessShutdown.pure(testEngine.packageStore.getPackage(packageId))
+
+    val damlE = new DAMLe(
+      packageResolver,
+      DAMLe.newEngine(
+        enableLfDev = false,
+        enableLfBeta = false,
+        enableStackTraces = false,
+        iterationsBetweenInterruptions = 10,
+        paranoidMode = false,
+      ),
       EngineLoggingConfig(),
       loggerFactory,
     )
 
-  protected val alice: LfPartyId = LfPartyId.assertFromString("Alice")
-  protected val bob: LfPartyId = LfPartyId.assertFromString("Bob")
+    val alice = LfPartyId.assertFromString("Alice")
 
-  protected def resolveTemplateIdPackageName(
-      module: String,
-      template: String,
-  ): FutureUnlessShutdown[(Identifier, PackageName)] = {
-    val payload = BinaryFileUtil
-      .readByteStringFromFile(cantonTestsPath)
-      .valueOrFail("could not load test")
-    for {
-      _ <- packageService
-        .upload(
-          darBytes = payload,
-          description = Some(testDarFileName),
-          submissionIdO = None,
-          vetAllPackages = false,
-          synchronizeVetting = PackageVettingSynchronization.NoSync,
-          expectedMainPackageId = None,
+    def reinterpret(
+        command: LfCommand,
+        rootSeed: LfHash,
+        submitters: Set[LfPartyId],
+        contracts: ContractAndKeyLookup = new ExtendedContractLookup(Map.empty, Map.empty),
+        contractAuthenticator: ContractAuthenticatorFn = (_, _) => Either.unit,
+        getEngineAbortStatus: GetEngineAbortStatus = () => EngineAbortStatus.notAborted,
+    ): EitherT[FutureUnlessShutdown, DAMLe.ReinterpretationError, DAMLe.ReInterpretationResult] =
+      damlE
+        .reinterpret(
+          contracts = contracts,
+          contractAuthenticator = contractAuthenticator,
+          submitters = submitters,
+          command = command,
+          ledgerTime = CantonTimestamp.now(),
+          preparationTime = CantonTimestamp.now(),
+          rootSeed = Some(rootSeed),
+          packageResolution = Map.empty,
+          expectFailure = false,
+          getEngineAbortStatus = getEngineAbortStatus,
         )
-        .value
-      moduleName = DottedName.assertFromString(module)
-      packageIdsWithState <- packageService.listPackages()
-      packages <- packageIdsWithState
-        .parTraverse(packageIdWithState =>
-          packageService
-            .getPackage(packageIdWithState.packageId)
-            .map(_.map(p => (packageIdWithState.packageId, p)))
-        )
-        .map(_.flattenOption)
-      (packageId, astPackage) = packages.find(_._2.modules.contains(moduleName)).value
 
-      packageName = astPackage.metadata.name
-      templateId = Identifier(
-        PackageId.assertFromString(packageId),
-        QualifiedName(moduleName, DottedName.assertFromString(template)),
-      )
-    } yield (templateId, packageName)
-  }
-}
-
-object DAMLeTest {
-  val pureCrypto = new SymbolicPureCrypto
-
-  def packageService(
-      engine: Engine,
-      loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): PackageService = {
-    val timeouts = ProcessingTimeout()
-    val packageDependencyResolver = new PackageDependencyResolver(
-      new InMemoryDamlPackageStore(loggerFactory),
-      timeouts,
-      loggerFactory,
-    )
-    val packageUploader = PackageUploader(
-      clock = new SimClock(loggerFactory = loggerFactory),
-      engine = engine,
-      packageMetadataView = NoopPackageMetadataView,
-      packageDependencyResolver = packageDependencyResolver,
-      enableUpgradeValidation = false,
-      enableStrictDarValidation = false,
-      exitOnFatalFailures = true,
-      futureSupervisor = FutureSupervisor.Noop,
-      timeouts = timeouts,
-      loggerFactory = loggerFactory,
-    )
-    new PackageService(
-      packageDependencyResolver = packageDependencyResolver,
-      packageUploader = packageUploader,
-      packageOps = new PackageOpsForTesting(DefaultTestIdentities.participant1, loggerFactory),
-      packageMetadataView = NoopPackageMetadataView,
-      metrics = ParticipantTestMetrics,
-      timeouts = timeouts,
-      loggerFactory = loggerFactory,
-    )
-  }
-}
-
-class DAMLeTestDefault extends DAMLeTest {
-
-  override def cantonTestsPath: String = CantonTestsPath
-  override def testDarFileName: String = "CantonTests"
-  override def enableLfDev: Boolean = false
-  override def enableLfBeta: Boolean = false
-
-  private def mkContractInst(): FutureUnlessShutdown[LfThinContractInst] =
-    for {
-      entry <- resolveTemplateIdPackageName(
-        "FailedTransactionsDoNotDivulge",
-        "Two",
-      )
-      (templateId, packageName) = entry
-    } yield {
-      val arg = Value.ValueRecord(
-        None,
-        ImmArray(
-          (None /* sig */ -> Value.ValueParty(alice)),
-          (None /* obs */ -> Value.ValueParty(bob)),
-        ),
-      )
-      LfThinContractInst(
-        packageName = packageName,
-        template = templateId,
-        arg = Versioned(protocol.DummyTransactionVersion, arg),
-      )
+    def createCycleContract(): (LfNodeCreate, LfHash, GenContractInstance) = {
+      val (createTx, createMeta) =
+        testEngine.submitAndConsume(new Cycle("id", alice).create().commands.loneElement, alice)
+      val createNode = createTx.nodes.values.collect { case c: LfNodeCreate => c }.loneElement
+      val (_, createSeed) = createMeta.nodeSeeds.toList.loneElement
+      val contract = ExampleContractFactory.fromCreate(createNode)
+      (createNode, createSeed, contract)
     }
 
-  private lazy val zeroSeed =
-    LfHash.assertFromByteArray(new Array[Byte](LfHash.underlyingHashLength))
-
-  private def reinterpretCreateCmd(
-      contractInst: LfThinContractInst,
-      getEngineAbortStatus: GetEngineAbortStatus,
-  ): EitherT[
-    FutureUnlessShutdown,
-    ReinterpretationError,
-    ReInterpretationResult,
-  ] = {
-    val unversionedContractInst = contractInst.unversioned
-    val createCmd = LfCreateCommand(unversionedContractInst.template, unversionedContractInst.arg)
-
-    damlE.reinterpret(
-      ContractLookupAndVerification.noContracts(loggerFactory),
-      Set(alice, bob),
-      createCmd,
-      CantonTimestamp.Epoch,
-      CantonTimestamp.Epoch,
-      Some(zeroSeed),
-      packageResolution = Map.empty,
-      expectFailure = false,
-      getEngineAbortStatus = getEngineAbortStatus,
-    )
-  }
-
-  "DAMLe" should {
-
-    "produce a result when reinterpretation continues freely" in {
-      for {
-        contractInst <- mkContractInst()
-        _ <- reinterpretCreateCmd(
-          contractInst,
-          getEngineAbortStatus = () => EngineAbortStatus.notAborted,
-        ).value
-      } yield {
-        succeed
-      }
+    def replayCreateCommand(): (LfCommand, LfHash, Set[LfPartyId]) = {
+      val (createNode, createSeed, _) = createCycleContract()
+      val (replayCreate, submitters) = testEngine.replayCommand(createNode)
+      (replayCreate, createSeed, submitters)
     }
 
-    "fail with an abort error when reinterpretation is aborted" in {
+    def replayExecuteCommand(contract: NewContractInstance): (LfHash, LfCommand, Set[Party]) = {
+      val contractId = new Cycle.ContractId(contract.contractId.coid)
+      val (tx, meta) = testEngine.submitAndConsume(
+        command = contractId.exerciseRepeat().commands().loneElement,
+        actAs = contract.signatories.head,
+        storedContracts = Seq(contract.inst),
+      )
+      val rootId = tx.roots.toSeq.loneElement
+      val exerciseNode = tx.nodes.get(rootId).value
+      val exerciseSeed = meta.nodeSeeds.toSeq.toMap.get(rootId).value
+      val (replayExercise, submitters) = testEngine.replayCommand(exerciseNode)
+      (exerciseSeed, replayExercise, submitters)
+    }
+
+    "reinterpret create commands" in {
+
+      val (replayCreate, createSeed, submitters) = replayCreateCommand()
+
+      reinterpret(
+        submitters = submitters,
+        command = replayCreate,
+        rootSeed = createSeed,
+      ).value
+        .map(inside(_) { case Right(_) =>
+          succeed
+        })
+
+    }
+
+    "reinterpret exercise commands" in {
+
+      val (_, _, contract) = createCycleContract()
+
+      val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
+
+      reinterpret(
+        submitters = submitters,
+        command = replayExercise,
+        rootSeed = exerciseSeed,
+        contracts = new ExtendedContractLookup(Map(contract.contractId -> contract), Map.empty),
+      ).value
+        .map(inside(_) { case Right(_) =>
+          succeed
+        })
+    }
+
+    "fail when execution is aborted" in {
+      val (replayCreate, createSeed, submitters) = replayCreateCommand()
+
+      val expected = "test execution aborted"
+
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
-        for {
-          contractInst <- mkContractInst()
-          error <- reinterpretCreateCmd(
-            contractInst,
-            getEngineAbortStatus = () => EngineAbortStatus(Some("test abort")),
-          ).swap.value
-        } yield {
-          error.value shouldBe EngineAborted("test abort")
-        },
+        reinterpret(
+          submitters = submitters,
+          command = replayCreate,
+          rootSeed = createSeed,
+          getEngineAbortStatus = () => EngineAbortStatus(Some(expected)),
+        ).swap.map(error => error shouldBe DAMLe.EngineAborted(expected)),
         LogEntry.assertLogSeq(
           mustContainWithClue = Seq(
             (
-              _.warningMessage should include(s"Aborting engine computation, reason = test abort"),
+              _.warningMessage should include(s"Aborting engine computation, reason = $expected"),
               "engine gets aborted",
             )
           )
         ),
       )
     }
+
+    "authenticate contracts" in {
+
+      val (_, _, contract) = createCycleContract()
+
+      val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
+
+      val inst = contract.inst
+      val contractHash = LegacyContractHash.fatContractHash(inst).value
+
+      reinterpret(
+        submitters = submitters,
+        command = replayExercise,
+        rootSeed = exerciseSeed,
+        contracts = new ExtendedContractLookup(Map(contract.contractId -> contract), Map.empty),
+        contractAuthenticator = {
+          case (`inst`, `contractHash`) => Either.unit
+          case other => fail(s"Unexpected: $other")
+        },
+      ).value
+        .map(inside(_) { case Right(_) =>
+          succeed
+        })
+
+    }
+
+    // TODO(#27344) - This test can be enabled, and error matched, once the engine authentication callback is supported
+    "fail if authentication fails" ignore {
+
+      val (_, _, contract) = createCycleContract()
+
+      val (exerciseSeed, replayExercise, submitters) = replayExecuteCommand(contract)
+
+      val inst = contract.inst
+      val contractHash = LegacyContractHash.fatContractHash(inst).value
+
+      reinterpret(
+        submitters = submitters,
+        command = replayExercise,
+        rootSeed = exerciseSeed,
+        contracts = new ExtendedContractLookup(Map(contract.contractId -> contract), Map.empty),
+        contractAuthenticator = {
+          case (`inst`, `contractHash`) => Left("Authentication failed")
+          case other => fail(s"Unexpected: $other")
+        },
+      ).swap.map(error =>
+        inside(error) { case DAMLe.EngineAborted(_) =>
+          succeed
+        }
+      )
+
+    }
+
   }
+
 }

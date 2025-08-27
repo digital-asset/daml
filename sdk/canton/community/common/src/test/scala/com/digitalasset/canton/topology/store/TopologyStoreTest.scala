@@ -820,11 +820,11 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           //    the accepted transaction will not be stored correctly.
 
           val good_otk = makeSignedTx(
-            OwnerToKeyMapping(p1Id, NonEmpty(Seq, factory.SigningKeys.key1))
+            OwnerToKeyMapping.tryCreate(p1Id, NonEmpty(Seq, factory.SigningKeys.key1))
           )(p1Key, factory.SigningKeys.key1)
 
           val bad_otkTx = makeSignedTx(
-            OwnerToKeyMapping(p1Id, NonEmpty(Seq, factory.EncryptionKeys.key2))
+            OwnerToKeyMapping.tryCreate(p1Id, NonEmpty(Seq, factory.EncryptionKeys.key2))
           )(p1Key, factory.SigningKeys.key2)
           val bad_otk = bad_otkTx
             .copy(signatures =

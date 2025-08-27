@@ -9,9 +9,9 @@ import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.auth.{AuthInterceptor, ClaimSet}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
-import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
+import com.digitalasset.canton.ledger.error.{JsonApiErrors, LedgerApiErrors}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.digitalasset.daml.lf.data.Ref
@@ -45,6 +45,12 @@ trait Endpoints extends NamedLogging {
   import Endpoints.*
   import com.digitalasset.canton.http.util.GrpcHttpErrorCodes.`gRPC status  as sttp`
 
+  protected def handleFailure[R](implicit
+      traceContext: TraceContext
+  ): Try[Either[CustomError, R]] => Try[Either[CustomError, R]] =
+    _.recoverWith { case error =>
+      handleErrorResponse(traceContext)(Failure(error))
+    }
   protected def handleErrorResponse[R](implicit
       traceContext: TraceContext
   ): Try[Either[JsCantonError, R]] => Try[Either[CustomError, R]] = {
@@ -133,8 +139,8 @@ trait Endpoints extends NamedLogging {
 
   private def maxRowsToReturn(requestLimit: Option[Long])(implicit wsConfig: WebsocketConfig) =
     Math.min(
-      requestLimit.getOrElse(wsConfig.httpListMaxElementsLimit),
-      wsConfig.httpListMaxElementsLimit,
+      requestLimit.getOrElse(wsConfig.httpListMaxElementsLimit + 1),
+      wsConfig.httpListMaxElementsLimit + 1,
     )
 
   def asList[INPUT, OUTPUT, R](
@@ -154,15 +160,18 @@ trait Endpoints extends NamedLogging {
       .serverSecurityLogic(validateJwtToken)
       .serverLogic(caller =>
         (tracedInput: TracedInput[StreamList[INPUT]]) => {
+          implicit val tc = tracedInput.traceContext
           val flow = service(caller)(tracedInput.copy(in = ()))
           val limit = tracedInput.in.limit
+          val elementsLimit = maxRowsToReturn(limit)
+          val systemListElementsLimit = wsConfig.httpListMaxElementsLimit
           val idleWaitTime = tracedInput.in.waitTime
             .map(FiniteDuration.apply(_, TimeUnit.MILLISECONDS))
             .getOrElse(wsConfig.httpListWaitTime)
           val source = Source
             .single(tracedInput.in.input)
             .via(flow)
-            .take(maxRowsToReturn(limit))
+            .take(elementsLimit)
           (if (timeoutOpenEndedStream || tracedInput.in.waitTime.isDefined) {
              source
                .map(Some(_))
@@ -175,9 +184,35 @@ trait Endpoints extends NamedLogging {
                }
            } else {
              source
-           }).runWith(Sink.seq).resultWithStatusToRight
+           })
+            .runWith(Sink.seq)
+            .map(
+              handleListLimit(systemListElementsLimit, _)
+            )(ExecutionContext.parasitic)
+            .transform(handleFailure(tracedInput.traceContext))(ExecutionContext.parasitic)
         }
       )
+
+  private def handleListLimit[R, OUTPUT, INPUT](
+      systemListElementsLimit: Long,
+      elements: Seq[OUTPUT],
+  )(implicit traceContext: TraceContext) = {
+    def belowSystemLimit = elements.size <= systemListElementsLimit
+
+    if (belowSystemLimit) {
+      Right(elements)
+    } else {
+      Left(
+        (
+          StatusCode.PayloadTooLarge,
+          JsCantonError.fromErrorCode(
+            JsonApiErrors.MaximumNumberOfElements
+              .Reject(elements.size, systemListElementsLimit)
+          ),
+        )
+      )
+    }
+  }
 
   def asPagedList[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, PagedList[INPUT], (StatusCode, JsCantonError), OUTPUT, R],
@@ -416,7 +451,7 @@ object Endpoints {
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =
     Future.successful(Left(error))
 
-  private def addStreamListParams[INPUT, OUTPUT, R](
+  private def addStreamListParamsAndDescription[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, INPUT, (StatusCode, JsCantonError), Seq[
         OUTPUT
       ], R]
@@ -443,6 +478,15 @@ object Endpoints {
 
       override def validator: Validator[StreamList[INPUT]] = Validator.pass
     })
+    .description(
+      endpoint.info.description.getOrElse("") +
+        """
+      |Notice: This endpoint should be used for small results set.
+      |When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+      |there will be an error (`413 Content Too Large`) returned.
+      |Increasing this limit may lead to performance issues and high memory consumption.
+      |Consider using websockets (asyncapi) for better efficiency with larger results.""".stripMargin
+    )
 
   private def addPagedListParams[INPUT, OUTPUT, R](
       endpoint: Endpoint[CallerContext, INPUT, (StatusCode, JsCantonError), OUTPUT, R]
@@ -475,7 +519,7 @@ object Endpoints {
         OUTPUT
       ], R]
   ) {
-    def inStreamListParams() = addStreamListParams(endpoint)
+    def inStreamListParamsAndDescription() = addStreamListParamsAndDescription(endpoint)
 
   }
 

@@ -27,6 +27,7 @@ final case class TopologySettings(
     retryBecomingOnlineInterval: FiniteDuration = 1.second,
     nodesToOffboard: Seq[P2PEndpoint] = Seq.empty,
     offboardDistribution: PowerDistribution = defaultOffboardDistribution,
+    crashAfterOnboardDistribution: Option[PowerDistribution] = None,
 )
 
 object TopologySettings {
