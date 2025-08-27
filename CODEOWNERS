@@ -3,6 +3,8 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
+sdk/bazel-java-deps.bzl @digital-asset/daml-release-owners
+
 CODEOWNERS   @dylant-da @paulbrauner-da @remyhaemmerle-da 
 /sdk/LATEST @digital-asset/daml-release-owners
 
