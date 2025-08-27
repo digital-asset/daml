@@ -139,7 +139,6 @@ main = do
       let npmPackages =
               [ "//language-support/ts/daml-types"
               , "//language-support/ts/daml-ledger"
-              , "//language-support/ts/daml-react"
               ]
 
       when (getIncludeTypescript optIncludeTypescript) $ do

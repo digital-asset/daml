@@ -7,8 +7,6 @@ Command line tools
      - ``curl -sSL https://get.daml.com | sh -s <version>``
    * - Create a new Daml project
      - ``daml new <myproject>``
-   * - Create a new Daml/React full stack project
-     - ``daml new <myproject> --template create-daml-app``
    * - Start the IDE
      - ``daml studio``
    * - Build project
