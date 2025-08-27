@@ -72,7 +72,7 @@ private[lf] final class ValueTranslator(
   }
 
   // For efficiency reasons we do not produce here the monad Result[SValue] but rather throw
-  // exception in case of error or package missing.
+  // exceptions in case of error or package missing.
   @throws[TranslationError.Error]
   def unsafeTranslateValue(
       ty: Type,
@@ -81,8 +81,6 @@ private[lf] final class ValueTranslator(
     import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
 
-    // TODO: https://github.com/digital-asset/daml/issues/17082
-    //   Should we consider factorizing this code with Seedy.Machine#importValues
     def go(ty0: Type, value0: Value, nesting: Int): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw TranslationError.ValueNesting(value)
