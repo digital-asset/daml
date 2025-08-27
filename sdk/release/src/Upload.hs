@@ -22,8 +22,9 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Char8 as C8
+import qualified Data.Map as Map
 import qualified Data.Text as T
-import           Data.Text.Encoding (encodeUtf8)
+import           Data.Text.Encoding as T
 import           Data.Time.Clock.POSIX (getPOSIXTime)
 import           Network.Connection (TLSSettings(..))
 import           Network.HTTP.Client
@@ -34,6 +35,7 @@ import           Network.HTTP.Types.Status
 import           Path
 import           System.Environment
 import           System.IO.Temp
+import Text.Printf
 
 import Types
 import Util
@@ -62,7 +64,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
     manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (10 * 60 * 1000 * 1000) }
 
     parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
-    let baseRequest = setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword)
+    let baseRequest = setRequestBasicAuth (T.encodeUtf8 mucUser) (T.encodeUtf8 mucPassword)
             $ setRequestMethod "POST"
             $ setRequestHeader "User-Agent" ["http-conduit"] parsedUrlRequest
 
@@ -79,6 +81,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
         currentTime <- liftIO $ round <$> getPOSIXTime
         foldlM (addArtifactToBundle gpgTempDir releaseDir currentTime) ZipArchive.emptyArchive artifacts
 
+    $logInfo $ T.pack $ printf "Writing bundle.zip of size %.2f MB" (totalSizeInMB bundle)
     liftIO $ BSL.writeFile (fromAbsDir releaseDir <> "bundle.zip") $ ZipArchive.fromArchive bundle
     uploadRequest <- formDataBody [partFile "bundle" $ fromAbsDir releaseDir <> "bundle.zip"]
             $ setRequestPath "/api/v1/publisher/upload"
@@ -195,9 +198,10 @@ logStatusRetry shouldRetry DeploymentInProgress {..} status =
             "Deployment is still in progress ("
             <> inProgressStatus
             <> "). Checked after "
-            <> tshow (rsCumulativeDelay status) <> "µs"
+            <> tshow (rsCumulativeDelay status `div` (1000 * 1000))
+            <> " s"
     else
-        $logDebug ("Aborting deployment check after " <> (tshow $ rsCumulativeDelay status) <> "µs.")
+        $logDebug ("Aborting deployment check after " <> (tshow $ rsCumulativeDelay status `div` (1000 * 1000)) <> " s.")
 
 -- Retry for 5 minutes total, doubling delay starting with 20ms.
 uploadRetryPolicy :: RetryPolicy
@@ -208,12 +212,15 @@ uploadRetryPolicy = limitRetriesByCumulativeDelay (5 * 60 * 1000 * 1000) (expone
 checkStatusRetryPolicy :: RetryPolicy
 checkStatusRetryPolicy = limitRetriesByCumulativeDelay (2 * 60 * 60 * 1000 * 1000) (constantDelay (15 * 1000 * 1000))
 
-handleStatusRequest :: (MonadIO m) => Request -> Manager -> m ()
+handleStatusRequest :: (MonadIO m, MonadLogger m) => Request -> Manager -> m ()
 handleStatusRequest request manager = do
     statusResponse <- liftIO $ httpLbs request manager
     DeploymentStatus {..} <- decodeDeploymentStatus $ responseBody statusResponse 
     case deploymentState of
-        "FAILED" -> throwIO DeploymentFailed
+        "FAILED" -> do
+            $logError "Deployment failed"
+            $logError $ T.unlines [ (pkg <> ":\n  - " <> T.intercalate "\n  - " errors) :: T.Text | (pkg, errors) <- Map.toList errors ]
+            throwIO DeploymentFailed
         "PUBLISHED" -> pure ()
         _ -> throwIO $ DeploymentInProgress deploymentState
 
@@ -222,17 +229,22 @@ decodeDeploymentStatus json = case (eitherDecode json :: Either String Deploymen
     Left err -> throwIO $ ParseJsonException err
     Right r -> return r
 
+totalSizeInMB :: ZipArchive.Archive -> Double
+totalSizeInMB bundle =
+    fromIntegral (sum $ map ZipArchive.eCompressedSize $ ZipArchive.zEntries bundle) / (1024 * 1024)
+
 --
 -- Data Transfer Objects for the Nexus Staging REST API.
 -- Note that fields from the REST response that are not used do not need to be defined
 -- as Aeson will simply ignore them.
 --
 
-data DeploymentStatus = DeploymentStatus { deploymentState :: T.Text }
+data DeploymentStatus = DeploymentStatus { deploymentState :: T.Text, errors :: Map.Map T.Text [T.Text] }
 
 instance FromJSON DeploymentStatus where
     parseJSON = withObject "DeploymentStatus" $ \o -> DeploymentStatus
       <$> o .: "deploymentState"
+      <*> o .: "errors"
 
 --
 -- Error definitions
