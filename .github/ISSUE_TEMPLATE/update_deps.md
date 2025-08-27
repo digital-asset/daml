@@ -14,7 +14,7 @@ Note: Since the process involves synchronous changes to both the SDK and Canton 
 - [ ] Create a _dependencies SDK PR_ to update the relevant dependencies.
    - Leave the PR in draft mode initially (to prevent accidental early merging).
    - In the PR description, list the updated dependencies and their new versions
-   - Links this issue.
+   - Link to this issue.
 
 - [ ] Ensure the _dependencies SDK PR_ passes all CI checks.
 
