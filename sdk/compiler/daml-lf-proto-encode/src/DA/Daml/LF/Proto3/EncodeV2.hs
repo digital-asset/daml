@@ -64,17 +64,15 @@ makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
               , ("internedTypesMap", "internedTypesMapLens")
               , ("internedExprsMap", "internedExprsMapLens")] ''EncodeEnv
 
-ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
-ifSupportsFlatteningM = ifM (gets (flip supports featureFlatArchive . version))
-
 ifSupportsFlattening :: a -> a -> Encode a
 ifSupportsFlattening b1 b2 = ifSupportsFlatteningM (return b1) (return b2)
+  where
+    ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
+    ifSupportsFlatteningM = ifM (gets (flip supports featureFlatArchive . version))
 
-assertSupportsFlattening :: Encode a -> Encode a
-assertSupportsFlattening = flip ifSupportsFlatteningM $ error "assertion failiure: version supports flattening"
-
-assertSupportsFlattening_ :: Encode ()
-assertSupportsFlattening_ = assertSupportsFlattening $ return ()
+assertSupportsFlattening :: Encode ()
+assertSupportsFlattening =
+  ifSupportsFlattening () (error "assertion failiure: version does not support flattening")
 
 initEncodeEnv :: Version -> EncodeEnv
 initEncodeEnv version =
@@ -361,7 +359,7 @@ encodeType' typ = do
 
     (TApp lhs rhs, args) -> do
       unless (null args) $ error "Arguments set on TApp"
-      assertSupportsFlattening_
+      assertSupportsFlattening
       type_TAppLhs <- encodeType lhs
       type_TAppRhs <- encodeType rhs
       pure $ P.TypeSumTapp P.Type_TApp{..}

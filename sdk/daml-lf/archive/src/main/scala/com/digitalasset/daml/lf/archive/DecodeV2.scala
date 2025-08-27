@@ -819,6 +819,10 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             )
           )
         case PLF.Type.SumCase.TAPP =>
+          if (!(languageVersion >= LV.Features.flatArchive))
+            throw Error.Parsing(
+              s"Illegal case: TApp not supported in version ${languageVersion}, since this version has local flattening"
+            )
           val tapp = lfType.getTapp
           Work.bind(uncheckedDecodeType(tapp.getLhs())) { lhs =>
             Work.bind(uncheckedDecodeType(tapp.getRhs())) { rhs =>

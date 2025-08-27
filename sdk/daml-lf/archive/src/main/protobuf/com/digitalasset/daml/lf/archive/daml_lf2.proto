@@ -280,6 +280,9 @@ message Type {
     sint64 nat = 6;
     Syn syn = 7;
     int32 interned_type = 8;
+
+    // added in 2.dev, to replace local flattening (the lists of types on other
+    // nodes)
     TApp tapp = 9;
   }
 

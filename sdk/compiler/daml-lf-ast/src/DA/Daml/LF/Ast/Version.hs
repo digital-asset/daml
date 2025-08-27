@@ -192,7 +192,7 @@ featureFlatArchive :: Feature
 featureFlatArchive = Feature
     { featureName = "Flat Archive"
     , featureVersionReq = devOnly
-    , featureCppFlag = Just "DAML_KINDINTERNING"
+    , featureCppFlag = Just "DAML_FLATARCHIVE"
     }
 
 featureComplexAnyType :: Feature
