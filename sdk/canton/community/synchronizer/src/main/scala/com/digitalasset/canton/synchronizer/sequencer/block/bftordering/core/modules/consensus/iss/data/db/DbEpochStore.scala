@@ -276,7 +276,7 @@ class DbEpochStore(
                 pp >> msg.from
               },
             functionName,
-            1,
+            maxRetries = 1,
           )
           .map(_ => ())
       case _: H2 =>
@@ -333,7 +333,7 @@ class DbEpochStore(
                 pp >> msg.from
               },
             functionName,
-            1,
+            maxRetries = 1,
           )
           .map(_ => ())
       case _: H2 =>

@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.protocol.{
   DummyContractAuthenticator,
   TransactionProcessingSteps,
 }
-import com.digitalasset.canton.participant.store.ContractLookupAndVerification
+import com.digitalasset.canton.participant.store.ContractAndKeyLookup
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.{
   EngineError,
@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.util.DAMLe.{
   PackageResolver,
   ReInterpretationResult,
 }
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -82,7 +83,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     with HashReInterpretationCounter {
 
     override def reinterpret(
-        contracts: ContractLookupAndVerification,
+        contracts: ContractAndKeyLookup,
+        contractAuthenticator: ContractAuthenticatorFn,
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
@@ -124,7 +126,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
   val failOnReinterpret: HasReinterpret = new HasReinterpret {
     override def reinterpret(
-        contracts: ContractLookupAndVerification,
+        contracts: ContractAndKeyLookup,
+        contractAuthenticator: ContractAuthenticatorFn,
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
@@ -352,7 +355,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
       val sut = buildUnderTest(new HasReinterpret {
         override def reinterpret(
-            contracts: ContractLookupAndVerification,
+            contracts: ContractAndKeyLookup,
+            contractAuthenticator: ContractAuthenticatorFn,
             submitters: Set[LfPartyId],
             command: LfCommand,
             ledgerTime: CantonTimestamp,
@@ -419,7 +423,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
         val sut = buildUnderTest(new HasReinterpret {
           override def reinterpret(
-              contracts: ContractLookupAndVerification,
+              contracts: ContractAndKeyLookup,
+              contractAuthenticator: ContractAuthenticatorFn,
               submitters: Set[LfPartyId],
               command: LfCommand,
               ledgerTime: CantonTimestamp,
@@ -504,7 +509,8 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         val sut =
           buildUnderTest(new HasReinterpret {
             override def reinterpret(
-                contracts: ContractLookupAndVerification,
+                contracts: ContractAndKeyLookup,
+                contractAuthenticator: ContractAuthenticatorFn,
                 submitters: Set[LfPartyId],
                 command: LfCommand,
                 ledgerTime: CantonTimestamp,

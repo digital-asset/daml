@@ -10,9 +10,8 @@ import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
-import com.digitalasset.canton.participant.store.ContractLookupAndVerification
+import com.digitalasset.canton.participant.store.ContractAndKeyLookup
 import com.digitalasset.canton.participant.util.DAMLe.{
   CreateNodeEnricher,
   HasReinterpret,
@@ -21,6 +20,7 @@ import com.digitalasset.canton.participant.util.DAMLe.{
   TransactionEnricher,
 }
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
@@ -28,6 +28,7 @@ import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPar
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.engine.{Enricher as _, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -110,15 +111,10 @@ object DAMLe {
   private val zeroSeed: LfHash =
     LfHash.assertFromByteArray(new Array[Byte](LfHash.underlyingHashLength))
 
-  // Helper to ensure the package service resolver uses the caller's trace context.
-  def packageResolver(
-      packageService: PackageService
-  ): PackageId => TraceContext => FutureUnlessShutdown[Option[Package]] =
-    pkgId => traceContext => packageService.getPackage(pkgId)(traceContext)
-
   trait HasReinterpret {
     def reinterpret(
-        contracts: ContractLookupAndVerification,
+        contracts: ContractAndKeyLookup,
+        contractAuthenticator: ContractAuthenticatorFn,
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
@@ -189,7 +185,8 @@ class DAMLe(
   }
 
   override def reinterpret(
-      contracts: ContractLookupAndVerification,
+      contracts: ContractAndKeyLookup,
+      contractAuthenticator: ContractAuthenticatorFn,
       submitters: Set[LfPartyId],
       command: LfCommand,
       ledgerTime: CantonTimestamp,
@@ -261,7 +258,9 @@ class DAMLe(
     }
 
     for {
-      txWithMetadata <- EitherT(handleResult(contracts, result, getEngineAbortStatus))
+      txWithMetadata <- EitherT(
+        handleResult(contracts, contractAuthenticator, result, getEngineAbortStatus)
+      )
       (tx, metadata) = txWithMetadata
       peeledTxE = peelAwayRootLevelRollbackNode(tx).leftMap(EngineError.apply)
       txNoRootRollback <- EitherT.fromEither[FutureUnlessShutdown](
@@ -296,7 +295,8 @@ class DAMLe(
       for {
         txWithMetadata <- EitherT(
           handleResult(
-            ContractLookupAndVerification.noContracts(loggerFactory),
+            ContractAndKeyLookup.noContracts(loggerFactory),
+            (_, _) => Left("Unexpected contract authenticator when replaying a create command"),
             result,
             getEngineAbortStatus,
           )
@@ -314,13 +314,14 @@ class DAMLe(
     }
 
   private[this] def handleResult[A](
-      contracts: ContractLookupAndVerification,
+      contracts: ContractAndKeyLookup,
+      contractAuthenticator: ContractAuthenticatorFn,
       result: Result[A],
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Either[ReinterpretationError, A]] = {
-    def handleResultInternal(contracts: ContractLookupAndVerification, result: Result[A])(implicit
+    def handleResultInternal(contracts: ContractAndKeyLookup, result: Result[A])(implicit
         traceContext: TraceContext
     ): FutureUnlessShutdown[Either[ReinterpretationError, A]] = {
       @tailrec
@@ -364,15 +365,27 @@ class DAMLe(
             .flatMap(optCid => EitherT(handleResultInternal(contracts, resume(optCid))))
             .value
         case ResultNeedContract(acoid, resume) =>
-          contracts
-            .lookupFatContract(acoid)
-            .value
-            .flatMap { fatInstanceOpt =>
-              handleResultInternal(
-                contracts,
-                resume(ResultNeedContract.wrapLegacyResponse(fatInstanceOpt)),
-              )
-            }
+          // TODO(#23971) - Add support for V2 contract IDs
+          (CantonContractIdVersion.extractCantonContractIdV1Version(acoid) match {
+            case Right(v1Version) =>
+              contracts.lookupFatContract(acoid).value.map[Response] {
+                case Some(contract) =>
+                  Response.ContractFound(
+                    contract,
+                    v1Version.contractHashingMethod,
+                    hash => contractAuthenticator(contract, hash).isRight,
+                  )
+                case None => Response.ContractNotFound
+              }
+            case Left(_) =>
+              FutureUnlessShutdown.pure[Response](Response.UnsupportedContractIdVersion)
+          }).flatMap(response =>
+            handleResultInternal(
+              contracts,
+              resume(response),
+            )
+          )
+
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.

@@ -220,11 +220,9 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       )
 
       participant1.topology.party_to_key_mappings.propose(
-        PartyToKeyMapping.tryCreate(
-          PartyId.tryCreate("nsd-test", participant1.namespace),
-          PositiveInt.one,
-          NonEmpty(Seq, restrictedKey),
-        ),
+        PartyId.tryCreate("nsd-test", participant1.namespace),
+        PositiveInt.one,
+        NonEmpty(Seq, restrictedKey),
         signedBy = Some(restrictedKey.fingerprint),
       )
     }
@@ -277,10 +275,8 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
     def otkForP1(key: SigningPublicKey) =
       participant1.topology.owner_to_key_mappings.propose(
-        OwnerToKeyMapping(
-          participant1.id.member,
-          NonEmpty(Seq, key),
-        ),
+        member = participant1.id.member,
+        keys = NonEmpty(Seq, key),
         serial = Some(initialOkmSerial.tryAdd(5)),
         signedBy = Seq(key.id),
       )
@@ -318,13 +314,9 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
     def ptkForP1(key: SigningPublicKey) =
       participant1.topology.party_to_key_mappings.propose(
-        PartyToKeyMapping
-          .create(
-            bob.party,
-            PositiveInt.one,
-            NonEmpty.mk(Seq, key),
-          )
-          .valueOrFail("create party to key mapping"),
+        bob.party,
+        PositiveInt.one,
+        NonEmpty(Seq, key),
         signedBy = Some(key.id),
       )
 

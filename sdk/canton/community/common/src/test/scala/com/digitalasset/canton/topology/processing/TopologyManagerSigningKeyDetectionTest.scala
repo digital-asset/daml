@@ -130,7 +130,7 @@ class TopologyManagerSigningKeyDetectionTest
       val otk = TopologyTransaction(
         Replace,
         PositiveInt.one,
-        OwnerToKeyMapping(
+        OwnerToKeyMapping.tryCreate(
           ParticipantId("decentralized-participant", dns1.mapping.namespace),
           NonEmpty(Seq, EncryptionKeys.key1, SigningKeys.key4),
         ),

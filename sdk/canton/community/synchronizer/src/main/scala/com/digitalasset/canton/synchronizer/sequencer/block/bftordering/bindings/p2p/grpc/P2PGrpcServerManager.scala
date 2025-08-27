@@ -19,10 +19,12 @@ final class P2PGrpcServerManager(
   import TraceContext.Implicits.Empty.emptyTraceContext
 
   def startServer(): Unit =
-    if (!isClosing)
+    if (!isClosing) {
       maybeServerUS.foreach(_.foreach(_.server.start().discard)).discard
-    else
+      logger.info("Started P2P gRPC server")
+    } else {
       logger.info("Not starting P2P gRPC server due to shutdown")
+    }
 
   private def shutdownGrpcServers(): Unit =
     maybeServerUS.foreach(_.foreach { closeableServer =>

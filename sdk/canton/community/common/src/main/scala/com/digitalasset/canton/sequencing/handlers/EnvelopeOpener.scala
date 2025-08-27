@@ -3,67 +3,51 @@
 
 package com.digitalasset.canton.sequencing.handlers
 
-import cats.instances.either.*
 import com.digitalasset.base.error.{Alarm, AlarmErrorCode, Explanation, Resolution}
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
-import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
-import com.digitalasset.canton.sequencing.{ApplicationHandler, EnvelopeBox, HandlerResult}
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.ProtocolVersion
-
-/** Opener for envelopes inside an arbitrary [[EnvelopeBox]] */
-class EnvelopeOpener[Box[+_ <: Envelope[_]]](protocolVersion: ProtocolVersion, hashOps: HashOps)(
-    implicit Box: EnvelopeBox[Box]
-) {
-  def open(closed: Box[ClosedEnvelope]): ParsingResult[Box[DefaultOpenEnvelope]] =
-    Box.traverse(closed)(_.openEnvelope(hashOps, protocolVersion))
+import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
+import com.digitalasset.canton.sequencing.{
+  ApplicationHandler,
+  OrdinaryApplicationHandler,
+  OrdinaryEnvelopeBox,
 }
+import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.version.ProtocolVersion
 
 object EnvelopeOpener {
 
   /** Opens the envelopes inside the [[EnvelopeBox]] before handing them to the given application
-    * handler.
+    * handler. Envelopes that cannot be opened are discarded, possibly resulting in an event with an
+    * empty batch.
     */
-  def apply[Box[+_ <: Envelope[_]]](
+  def apply(
       protocolVersion: ProtocolVersion,
       hashOps: HashOps,
   )(
-      handler: ApplicationHandler[Box, DefaultOpenEnvelope]
+      handler: OrdinaryApplicationHandler[DefaultOpenEnvelope]
   )(implicit
-      Box: EnvelopeBox[Box],
-      logger: ErrorLoggingContext,
-  ): ApplicationHandler[Box, ClosedEnvelope] = handler.replace {
-    val opener = new EnvelopeOpener[Box](protocolVersion, hashOps)
-    closedEvent =>
-      opener.open(closedEvent) match {
-        case Right(openEnvelope) =>
-          handler(openEnvelope)
-        case Left(err) =>
-          val alarm =
-            EnvelopeOpenerError.EnvelopeOpenerDeserializationError.Error(err, protocolVersion)
-          alarm.report()
-          HandlerResult.done
-
+      logger: ErrorLoggingContext
+  ): ApplicationHandler[OrdinaryEnvelopeBox, ClosedEnvelope] = handler.replace { tracedEvents =>
+    val openedEvents = tracedEvents.map { closedEvents =>
+      closedEvents.map { event =>
+        val openedEvent = OrdinarySequencedEvent.openEnvelopes(event)(protocolVersion, hashOps)
+        openedEvent.openingErrors.foreach { error =>
+          EnvelopeOpenerError.EnvelopeOpenerDeserializationError
+            .Error(error, protocolVersion)
+            .report()
+        }
+        openedEvent.event
       }
+    }
+    handler(openedEvents)
   }
-
 }
 
 object EnvelopeOpenerError extends SequencerErrorGroup {
-
-  @SuppressWarnings(Array("org.wartremover.warts.Null"))
-  final case class EventDeserializationError(
-      error: ProtoDeserializationError,
-      protocolVersion: ProtocolVersion,
-      cause: Throwable = null,
-  ) extends RuntimeException(
-        s"Failed to deserialize event with protocol version $protocolVersion: $error",
-        cause,
-      )
 
   @Explanation("""
       |This error indicates that the sequencer client was unable to parse a message.

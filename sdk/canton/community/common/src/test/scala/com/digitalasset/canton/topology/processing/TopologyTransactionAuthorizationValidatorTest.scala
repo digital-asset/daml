@@ -279,9 +279,8 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         val validator = mk()
         import Factory.*
 
-        logger.info("start")
         val otk = mkAddMultiKey(
-          OwnerToKeyMapping(
+          OwnerToKeyMapping.tryCreate(
             SequencerId.tryCreate("sequencer1", ns1),
             NonEmpty(Seq, SigningKeys.key2),
           ),
@@ -324,7 +323,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             expectFullAuthorization = false,
           )
         } yield {
-          logger.info("checking")
           check(
             validatedTopologyTransactions,
             Seq(
@@ -473,7 +471,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
               NonEmpty(Set, uid.namespace),
             )
             .value,
-          OwnerToKeyMapping(participantId, NonEmpty(Seq, key4)),
+          OwnerToKeyMapping.tryCreate(participantId, NonEmpty(Seq, key4)),
           SynchronizerTrustCertificate(participantId, synchronizerId),
           ParticipantSynchronizerPermission(
             synchronizerId,
@@ -1502,7 +1500,8 @@ class TopologyTransactionAuthorizationValidatorTestMultiTransactionHash
     // Create a signature for an OTK with participant 2. Should not authorize okm1ak5k1E_k2 in any way because it's
     // a different transaction
     val signatureFromKey5ForParticipant2 = mkAddMultiKey(
-      OwnerToKeyMapping(participant2, NonEmpty(Seq, SigningKeys.key5, EncryptionKeys.key1)),
+      OwnerToKeyMapping
+        .tryCreate(participant2, NonEmpty(Seq, SigningKeys.key5, EncryptionKeys.key1)),
       NonEmpty(Set, SigningKeys.key5, SigningKeys.key2),
     )
     okm1ak5k1E_k2

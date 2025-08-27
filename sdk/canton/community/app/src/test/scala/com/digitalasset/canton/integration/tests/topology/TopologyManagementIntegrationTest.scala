@@ -707,7 +707,7 @@ trait TopologyManagementIntegrationTest
           TopologyTransaction(
             TopologyChangeOp.Replace,
             PositiveInt.tryCreate(2),
-            OwnerToKeyMapping(sequencer1.id, NonEmpty(Seq, key)),
+            OwnerToKeyMapping.tryCreate(sequencer1.id, NonEmpty(Seq, key)),
             testedProtocolVersion,
           ),
           key,

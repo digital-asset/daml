@@ -112,7 +112,7 @@ import scala.util.Random
 final class BftBlockOrderer(
     config: BftBlockOrdererConfig,
     sharedLocalStorage: Storage,
-    psid: PhysicalSynchronizerId,
+    psId: PhysicalSynchronizerId,
     sequencerId: SequencerId,
     clock: Clock,
     orderingTopologyProvider: OrderingTopologyProvider[PekkoEnv],
@@ -124,7 +124,7 @@ final class BftBlockOrderer(
     override val orderingTimeFixMode: OrderingTimeFixMode,
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
     metrics: BftOrderingMetrics,
-    namedLoggerFactory: NamedLoggerFactory,
+    override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
     queryCostMonitoring: Option[QueryCostMonitoringConfig] = None,
 )(implicit executionContext: ExecutionContext, materializer: Materializer)
@@ -140,7 +140,7 @@ final class BftBlockOrderer(
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
   )
 
-  private implicit val protocolVersion: ProtocolVersion = psid.protocolVersion
+  private implicit val protocolVersion: ProtocolVersion = psId.protocolVersion
 
   private val isAuthenticationEnabled =
     config.initialNetwork.exists(_.endpointAuthentication.enabled)
@@ -174,24 +174,6 @@ final class BftBlockOrderer(
 
   override def firstBlockHeight: Long = sequencerSubscriptionInitialHeight
 
-  private val loggedP2PEndpoint = config.initialNetwork
-    .map(endpointConfig =>
-      P2PEndpoint
-        .fromEndpointConfig(
-          endpointConfig.serverEndpoint.serverToClientAuthenticationEndpointConfig
-        )
-        .id
-        .logString
-    )
-    .getOrElse("unknown")
-
-  override protected val loggerFactory: NamedLoggerFactory =
-    namedLoggerFactory
-      .append(
-        "p2pEndpoint",
-        loggedP2PEndpoint,
-      )
-
   checkConfigSecurity()
 
   private val p2pServerGrpcExecutor =
@@ -215,7 +197,7 @@ final class BftBlockOrderer(
   private val maybeServerAuthenticatingFilter =
     maybeAuthenticationServices.map { authenticationServices =>
       new ServerAuthenticatingServerInterceptor(
-        psid,
+        psId,
         sequencerId,
         authenticationServices.syncCryptoForAuthentication.crypto,
         Seq(protocolVersion),
@@ -409,7 +391,7 @@ final class BftBlockOrderer(
     val maybeGrpcNetworkingAuthenticationInitialState =
       maybeAuthenticationServices.map { authenticationServices =>
         P2PGrpcNetworking.AuthenticationInitialState(
-          psid,
+          psId,
           sequencerId,
           authenticationServices,
           authenticationTokenManagerConfig,

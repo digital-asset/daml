@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.participant.protocol.DummyContractAuthenticator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.packageName
 import com.digitalasset.canton.util.ShowUtil.*
@@ -68,7 +67,6 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
     val extendedStore = new ExtendedContractLookup(
       overwrites,
       Map(key00 -> Some(coid00), key1 -> None),
-      DummyContractAuthenticator,
     )
 
     "not make up contracts" in {
@@ -103,7 +101,6 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest with FailOn
         new ExtendedContractLookup(
           Map(coid10 -> contract),
           Map.empty,
-          DummyContractAuthenticator,
         )
       )
     }

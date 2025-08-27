@@ -180,8 +180,8 @@ class TopologyTransactionTest
     }
 
     "key to owner mappings" should {
-      val k1 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))
-      val k2 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))
+      val k1 = mk(OwnerToKeyMapping.tryCreate(sequencerId, NonEmpty(Seq, publicKey)))
+      val k2 = mk(OwnerToKeyMapping.tryCreate(sequencerId, NonEmpty(Seq, publicKey)))
       runTest(k1, k2)
     }
 

@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.{
   AddEndpoint,
   Command,
+  CrashNode,
   EventOriginator,
   InjectedSend,
   ModuleAddress,
@@ -46,6 +47,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.jdk.DurationConverters.ScalaDurationOps
+import scala.util.Random
 
 class SequencerSnapshotOnboardingManager(
     newlyOnboardingNodesToTimes: Map[BftNodeId, TopologyActivationTime],
@@ -54,6 +56,7 @@ class SequencerSnapshotOnboardingManager(
     stores: Map[BftNodeId, BftOrderingStores[SimulationEnv]],
     model: BftOrderingVerifier,
     topologySettings: TopologySettings,
+    random: Random,
 ) extends OnboardingManager[BftOnboardingData]
     with TestEssentials {
 
@@ -96,11 +99,18 @@ class SequencerSnapshotOnboardingManager(
   }
 
   override def commandsToSchedule(timestamp: CantonTimestamp): Seq[(Command, FiniteDuration)] = {
-    val commandsToStartNodes: Seq[(Command, FiniteDuration)] = nodesToStart.map { sequencerId =>
+    val commandsToStartNodes: Seq[(Command, FiniteDuration)] = nodesToStart.flatMap { sequencerId =>
       val myEndpoint = nodeToEndpoint(sequencerId)
 
-      StartMachine(myEndpoint) -> DefaultEpsilonForSchedulingCommand
+      Seq[(Command, FiniteDuration)](StartMachine(myEndpoint) -> DefaultEpsilonForSchedulingCommand)
+      ++
+      topologySettings.crashAfterOnboardDistribution.map(dist =>
+        CrashNode(sequencerId) -> DefaultEpsilonForSchedulingCommand.plus(
+          dist.generateRandomDuration(random)
+        )
+      )
     }
+
     nodesToStart = Seq.empty
 
     val commandsToRetryNodes: Seq[(Command, FiniteDuration)] = nodesToRetry.map { sequencerId =>
@@ -144,6 +154,7 @@ class SequencerSnapshotOnboardingManager(
     stores,
     newModel,
     topologySettings,
+    random,
   )
 
   override def initCommands: Seq[(Command, CantonTimestamp)] = newlyOnboardingNodesToTimes.map {

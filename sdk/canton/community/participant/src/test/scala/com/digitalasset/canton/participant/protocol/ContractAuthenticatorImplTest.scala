@@ -4,43 +4,37 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.syntax.either.*
+import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{CryptoPureApi, TestSalt}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.lfHash
-import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
-import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, defaultTemplateId}
-import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
+import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.IdString
-import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
+import com.digitalasset.daml.lf.transaction.CreationTime.CreatedAt
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value
-import monocle.macros.syntax.lens.*
-import org.scalatest.Assertion
+import com.digitalasset.daml.lf.value.Value.ValueText
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Duration
-import java.util.UUID
 
 class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
-
-  private def modifyCreateNode(
-      f: LfNodeCreate => LfNodeCreate
-  ): LfFatContractInst => LfFatContractInst =
-    fci =>
-      LfFatContractInst.fromCreateNode(f(fci.toCreateNode), fci.createdAt, fci.authenticationData)
 
   forEvery(Seq(AuthenticatedContractIdVersionV10, AuthenticatedContractIdVersionV11)) {
     authContractIdVersion =>
       s"ContractAuthenticatorImpl with $authContractIdVersion" when {
-        "using a contract id" should {
+        "using a valid contract id" should {
           "correctly authenticate the contract" in new WithContractAuthenticator(
             authContractIdVersion
           ) {
-            contractAuthenticator.authenticate(fatContractInstance) shouldBe Either.unit
+            contractAuthenticator.legacyAuthenticate(fatContractInstance) shouldBe Either.unit
+            contractAuthenticator.authenticate(
+              fatContractInstance,
+              LegacyContractHash.tryFatContractHash(
+                fatContractInstance,
+                contractIdVersion.useUpgradeFriendlyHashing,
+              ),
+            ) shouldBe Either.unit
           }
         }
 
@@ -62,217 +56,180 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
               ),
             )
 
-            val baseInstance = ExampleTransactionFactory.contractInstance()
+            val unNormalizedContract = ExampleContractFactory.build(argument = unNormalizedArg)
+            val normalizedContract =
+              ExampleContractFactory.modify(unNormalizedContract, arg = Some(normalizedArg))
 
-            "authenticate" in new WithContractAuthenticator(
+            "correctly authenticate the contract" in new WithContractAuthenticator(
               authContractIdVersion
             ) {
-              lazy override val contractInstance: LfThinContractInst =
-                baseInstance.map(_.copy(arg = normalizedArg))
-              contractAuthenticator.authenticate(fatContractInstance) shouldBe Either.unit
-
-              private val unNormalizedContract =
-                modifyCreateNode(_.copy(arg = unNormalizedArg))(fatContractInstance)
-
-              contractAuthenticator.authenticate(unNormalizedContract) shouldBe Either.unit
+              contractAuthenticator.legacyAuthenticate(
+                unNormalizedContract.inst
+              ) shouldBe Either.unit
+              contractAuthenticator.legacyAuthenticate(normalizedContract.inst) shouldBe Either.unit
             }
           }
         }
 
-        "using a generic contract id" should {
-
-          def genericContractId(discriminator: Int, suffix: Int): LfContractId =
-            LfContractId.V1(lfHash(discriminator), Bytes.assertFromString(f"$suffix%04x"))
-
-          "correctly authenticate the contract" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val nonAuthenticatedContractId = genericContractId(1, 2)
-            val nonAuthenticatedContractInstance =
-              modifyCreateNode(_.copy(coid = nonAuthenticatedContractId))(fatContractInstance)
-
-            contractAuthenticator.authenticate(nonAuthenticatedContractInstance) shouldBe Left(
-              "malformed contract id 'ContractId(0000010000000000000000000000000000000000000000000000000000000000000002)'. Suffix 0002 is not a supported contract-id prefix"
-            )
+        "using an invalid contract id" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val invalidContractId = ExampleContractFactory.buildContractId()
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](contractInstance, contractId = Some(invalidContractId))
+              .inst
+            shouldFailAuthentication(invalid)
           }
         }
 
-        "using a contract with a mismatching salt" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedAuthenticationData =
-              ContractAuthenticationDataV1(TestSalt.generateSalt(1337))(contractIdVersion)
-            testFailedAuthentication(
-              fci =>
-                LfFatContractInst
-                  .fromCreateNode(
-                    fci.toCreateNode,
-                    fci.createdAt,
-                    changedAuthenticationData.toLfBytes,
-                  ),
-              testedAuthenticationData = changedAuthenticationData,
-            )
+        "using an invalid hash" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            val invalidHash: LfHash = ExampleTransactionFactory.lfHash(7)
+            shouldFailAuthentication(fatContractInstance, Some(invalidHash))
           }
         }
 
-        "using a contract with changed ledger time" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedLedgerTime = ledgerTime.add(Duration.ofDays(1L))
-            testFailedAuthentication(
-              fci =>
-                LfFatContractInst.fromCreateNode(
-                  fci.toCreateNode,
-                  CreationTime.CreatedAt(changedLedgerTime.toLf),
-                  fci.authenticationData,
+        "using a changed salt/authentication data" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+
+            val authenticationData =
+              ContractAuthenticationDataV1(TestSalt.generateSalt(42))(contractIdVersion).toLfBytes
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](contractInstance, authenticationData = Some(authenticationData))
+              .inst
+            shouldFailAuthentication(invalid)
+          }
+        }
+
+        "using a changed ledger time" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val changedTime =
+              CreatedAt(contractInstance.inst.createdAt.time.add(Duration.ofDays(1L)))
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](contractInstance, createdAt = Some(changedTime))
+              .inst
+            shouldFailAuthentication(invalid)
+          }
+        }
+
+        "using a changed contract argument" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](contractInstance, arg = Some(ValueText("changed")))
+              .inst
+            shouldFailAuthentication(invalid)
+          }
+        }
+
+        "using a changed template-id" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstance,
+                templateId = Some(LfTemplateId.assertFromString("definitely:changed:template")),
+              )
+              .inst
+            shouldFailAuthentication(invalid)
+          }
+        }
+
+        "using a changed package-name" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstance,
+                packageName =
+                  Some(LfPackageName.assertFromString("definitely-changed-package-name")),
+              )
+              .inst
+            shouldFailAuthentication(invalid)
+          }
+        }
+
+        "using changed signatories" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val changedSignatory: IdString.Party =
+              LfPartyId.assertFromString("changed::signatory")
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstance,
+                metadata = Some(
+                  ContractMetadata.tryCreate(
+                    signatories = contractInstance.metadata.signatories + changedSignatory,
+                    stakeholders = contractInstance.metadata.stakeholders + changedSignatory,
+                    maybeKeyWithMaintainersVersioned =
+                      contractInstance.metadata.maybeKeyWithMaintainersVersioned,
+                  )
                 ),
-              testedLedgerTime = changedLedgerTime,
-            )
+              )
+              .inst
+            shouldFailAuthentication(invalid)
           }
         }
 
-        "using a contract with changed contract arguments" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            private val changedContractInstance = ExampleTransactionFactory.contractInstance(
-              Seq(ExampleTransactionFactory.suffixedId(1, 2))
-            )
-            testFailedAuthentication(
-              modifyCreateNode(_.copy(arg = changedContractInstance.unversioned.arg)),
-              testedContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
-            )
+        "using changed observers" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val changedObserver: IdString.Party =
+              LfPartyId.assertFromString("changed::observer")
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstance,
+                metadata = Some(
+                  ContractMetadata.tryCreate(
+                    signatories = contractInstance.metadata.signatories,
+                    stakeholders = contractInstance.metadata.stakeholders + changedObserver,
+                    maybeKeyWithMaintainersVersioned =
+                      contractInstance.metadata.maybeKeyWithMaintainersVersioned,
+                  )
+                ),
+              )
+              .inst
+            shouldFailAuthentication(invalid)
           }
         }
 
-        "using a contract with changed template-id" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            private val templateId = LfTemplateId.assertFromString("definitely:changed:templateid")
-            private val changedContractInstance: LfThinContractInst =
-              ExampleTransactionFactory.contractInstance(templateId = templateId)
-            private val changedContractKey = contractKey.map(
-              _.focus(_.globalKey).modify(gk =>
-                LfGlobalKey.assertBuild(templateId, gk.key, gk.packageName)
+        "using a changed key value" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val changeKey = keyWithMaintainers.copy(globalKey =
+              LfGlobalKey.assertBuild(
+                contractInstance.templateId,
+                ValueText("changed"),
+                contractInstance.inst.packageName,
               )
             )
-            testFailedAuthentication(
-              modifyCreateNode(
-                _.copy(templateId = templateId, keyOpt = Some(changedContractKey.unversioned))
-              ),
-              testedContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
-
-        "using a contract with changed package-name" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            private val changedContractInstance: LfThinContractInst =
-              ExampleTransactionFactory.contractInstance(
-                packageName = LfPackageName.assertFromString("definitely-changed-package-name")
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstanceWithKey,
+                metadata = Some(
+                  ContractMetadata.tryCreate(
+                    signatories = contractInstanceWithKey.metadata.signatories,
+                    stakeholders = contractInstanceWithKey.metadata.stakeholders,
+                    maybeKeyWithMaintainersVersioned =
+                      Some(Versioned(contractInstanceWithKey.inst.version, changeKey)),
+                  )
+                ),
               )
-            testFailedAuthentication(
-              modifyCreateNode(
-                _.copy(packageName = changedContractInstance.unversioned.packageName)
-              ),
-              testedContractInstance =
-                ExampleTransactionFactory.asSerializableRaw(changedContractInstance),
-            )
+              .inst
+            shouldFailAuthentication(invalid)
           }
         }
 
-        "using a contract that has mismatching signatories" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedSignatories = signatories - alice
-            // As observers == stakeholders -- signatories, we also need to ensure that alice is not a stakeholder - or unicum's will be calculated incorrectly
-            testFailedAuthentication(
-              modifyCreateNode(
-                _.focus(_.signatories)
-                  .replace(changedSignatories)
-                  .focus(_.stakeholders)
-                  .modify(_ - alice)
-              ),
-              testedSignatories = changedSignatories,
-            )
-          }
-        }
-
-        "using a contract that has mismatching observers" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val additionalObserver = LfPartyId.assertFromString("observer::changed")
-            val changedObservers = observers incl additionalObserver
-            testFailedAuthentication(
-              modifyCreateNode(_.focus(_.stakeholders).modify(_ incl additionalObserver)),
-              testedObservers = changedObservers,
-            )
-          }
-        }
-
-        "using a contract with a missing contract key" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            testFailedAuthentication(
-              modifyCreateNode(_.copy(keyOpt = None)),
-              testedContractKey = None,
-            )
-          }
-        }
-
-        "using a contract that has a mismatching contract key hash" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedContractKey = ExampleTransactionFactory.globalKeyWithMaintainers(
-              key = LfGlobalKey.assertBuild(
-                defaultTemplateId,
-                Value.ValueInt64(0),
-                defaultPackageName,
-              ),
-              maintainers = maintainers,
-            )
-            testFailedAuthentication(
-              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
-
-        "using a contract that has mismatching contract key maintainers" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedContractKey =
-              ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set(alice))
-            testFailedAuthentication(
-              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
-              testedContractKey = Some(changedContractKey),
-            )
-          }
-        }
-
-        "using a contract that has missing contract key maintainers" should {
-          "fail authentication" in new WithContractAuthenticator(
-            authContractIdVersion
-          ) {
-            val changedContractKey =
-              ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = Set.empty)
-            testFailedAuthentication(
-              modifyCreateNode(_.copy(keyOpt = Some(changedContractKey.unversioned))),
-              testedContractKey = Some(changedContractKey),
-            )
+        "using a changed key maintainers" should {
+          "fail authentication" in new WithContractAuthenticator(authContractIdVersion) {
+            private val changeKey = keyWithMaintainers.copy(maintainers = Set.empty)
+            private val invalid: FatContractInstance = ExampleContractFactory
+              .modify[CreatedAt](
+                contractInstanceWithKey,
+                metadata = Some(
+                  ContractMetadata.tryCreate(
+                    signatories = contractInstanceWithKey.metadata.signatories,
+                    stakeholders = contractInstanceWithKey.metadata.stakeholders,
+                    maybeKeyWithMaintainersVersioned =
+                      Some(Versioned(contractInstanceWithKey.inst.version, changeKey)),
+                  )
+                ),
+              )
+              .inst
+            shouldFailAuthentication(invalid)
           }
         }
       }
@@ -281,96 +238,28 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
 
 class WithContractAuthenticator(protected val contractIdVersion: CantonContractIdV1Version)
     extends BaseTest {
-  protected lazy val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
-  protected lazy val contractIdSuffixer: ContractIdSuffixer =
-    new ContractIdSuffixer(pureCrypto, contractIdVersion)
-  protected lazy val unicumGenerator = new UnicumGenerator(pureCrypto)
-  protected lazy val contractAuthenticator =
-    new ContractAuthenticatorImpl(unicumGenerator)
 
-  protected lazy val contractInstance: LfThinContractInst =
-    ExampleTransactionFactory.contractInstance()
-  protected lazy val ledgerTime: CantonTimestamp = CantonTimestamp.MinValue
-  protected lazy val creationTime: CreationTime.CreatedAt = CreationTime.CreatedAt(ledgerTime.toLf)
-  protected lazy val alice: IdString.Party = LfPartyId.assertFromString("alice")
-  protected lazy val signatories: Set[LfPartyId] =
-    Set(ExampleTransactionFactory.signatory, alice)
-  protected lazy val observers: Set[LfPartyId] = Set(ExampleTransactionFactory.observer)
-  protected lazy val maintainers: Set[LfPartyId] = Set(ExampleTransactionFactory.signatory)
-  protected lazy val contractKey: Versioned[LfGlobalKeyWithMaintainers] =
-    ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = maintainers)
-  protected lazy val contractMetadata: ContractMetadata =
-    ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
-  protected lazy val contractSalt: ContractSalt = ContractSalt.create(pureCrypto)(
-    transactionUuid = new UUID(1L, 1L),
-    psid = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")).toPhysical,
-    mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
-    viewParticipantDataSalt = TestSalt.generateSalt(1),
-    createIndex = 0,
-    viewPosition = ViewPosition(List.empty),
-  )
-  protected lazy val ContractIdSuffixer.RelativeSuffixResult(
-    suffixedNode,
-    _,
-    relativeSuffix,
-    authenticationData,
-  ) = {
-    val unsuffixedCreate = LfNodeCreate(
-      coid = LfContractId.V1(ExampleTransactionFactory.lfHash(1337)),
-      contract = contractInstance,
-      signatories = signatories,
-      stakeholders = signatories ++ observers,
-      key = Some(contractKey.unversioned),
-    )
-    contractIdSuffixer
-      .relativeSuffixForLocalContract(contractSalt, creationTime, unsuffixedCreate)
-      .valueOrFail("Cannot create contract suffix")
-  }
-  protected lazy val contractId = suffixedNode.coid
+  def shouldFailAuthentication(
+      invalid: FatContractInstance,
+      contractHashO: Option[LfHash] = None,
+  ): Unit = {
+    val contractHash = contractHashO.getOrElse(LegacyContractHash.fatContractHash(invalid).value)
 
-  lazy val fatContractInstance: LfFatContractInst = LfFatContractInst.fromCreateNode(
-    suffixedNode,
-    creationTime,
-    authenticationData.toLfBytes,
-  )
-
-  lazy val contract: SerializableContract =
-    SerializableContract
-      .fromLfFatContractInst(fatContractInstance)
-      .valueOrFail("Failed creating serializable contract instance")
-
-  protected def testFailedAuthentication(
-      changeContract: LfFatContractInst => LfFatContractInst,
-      testedAuthenticationData: ContractAuthenticationData = authenticationData,
-      testedLedgerTime: CantonTimestamp = ledgerTime,
-      testedContractInstance: SerializableRawContractInstance =
-        ExampleTransactionFactory.asSerializableRaw(contractInstance),
-      testedSignatories: Set[LfPartyId] = signatories,
-      testedObservers: Set[LfPartyId] = observers,
-      testedContractKey: Option[Versioned[protocol.LfGlobalKeyWithMaintainers]] = Some(
-        contractKey
-      ),
-  ): Assertion = {
-    val salt = testedAuthenticationData match {
-      case ContractAuthenticationDataV1(salt) => salt
-      case ContractAuthenticationDataV2() =>
-        // TODO(#23971) implement this
-        fail("ContractAuthenticatorImplTest does not support V2 authentication data")
+    inside(contractAuthenticator.authenticate(invalid, contractHash)) { case Left(error) =>
+      error should startWith("Mismatching contract id suffixes.")
     }
-    val recomputedUnicum = unicumGenerator
-      .recomputeUnicum(
-        contractSalt = salt,
-        ledgerCreateTime = CreationTime.CreatedAt(testedLedgerTime.toLf),
-        metadata = ContractMetadata
-          .tryCreate(testedSignatories, testedSignatories ++ testedObservers, testedContractKey),
-        suffixedContractInstance = testedContractInstance.contractInstance.unversioned,
-        cantonContractIdVersion = contractIdVersion,
-      )
-      .valueOrFail("Failed unicum computation")
-    val actualSuffix = relativeSuffix.toBytes
-    val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
-    contractAuthenticator.authenticate(changeContract(fatContractInstance)) shouldBe Left(
-      s"Mismatching contract id suffixes. Expected: $expectedSuffix vs actual: $actualSuffix"
-    )
   }
+
+  protected val pureCrypto = new SymbolicPureCrypto()
+  protected val contractIdSuffixer = new ContractIdSuffixer(pureCrypto, contractIdVersion)
+  protected val unicumGenerator = new UnicumGenerator(pureCrypto)
+  protected val contractAuthenticator = new ContractAuthenticatorImpl(unicumGenerator)
+  protected val contractInstance =
+    ExampleContractFactory.build[CreatedAt](cantonContractIdVersion = contractIdVersion)
+  protected val keyWithMaintainers = ExampleContractFactory.buildKeyWithMaintainers()
+  protected val contractInstanceWithKey = ExampleContractFactory.build[CreatedAt](
+    cantonContractIdVersion = contractIdVersion,
+    keyOpt = Some(keyWithMaintainers),
+  )
+  protected val fatContractInstance: FatContractInstance = contractInstance.inst
 }

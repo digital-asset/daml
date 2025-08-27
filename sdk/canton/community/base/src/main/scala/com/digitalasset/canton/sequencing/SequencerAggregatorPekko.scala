@@ -157,7 +157,7 @@ class SequencerAggregatorPekko(
       case DeadlockDetected(elem, trigger) =>
         trigger match {
           case DeadlockTrigger.ActiveSourceTermination =>
-            // TODO(#26535): Log this unsettling event as info rather than as error as this condition can
+            // TODO(#27260): Log this unsettling event as info rather than as error as this condition can
             //  be flakily triggered upon shutdown by an unpredictable ordering of onUpstreamFinish()
             //  notifications at different levels of the pekko graph (details in #26543). We get away with
             //  not investing further into hardening this because the SequencerAggregatorPekko and

@@ -131,7 +131,10 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       contractSaltSize.toLong == cryptoOps.defaultHmacAlgorithm.hashAlgorithm.length,
       s"Invalid contract salt size ($contractSaltSize)",
     )
-    val contractArgHash = contractHash(suffixedContractInstance, cantonContractIdVersion)
+    val contractArgHash = LegacyContractHash.tryThinContractHash(
+      suffixedContractInstance,
+      cantonContractIdVersion.useUpgradeFriendlyHashing,
+    )
     val unicum = computeUnicumHash(
       ledgerCreateTime = ledgerCreateTime,
       metadata = metadata,
@@ -140,17 +143,6 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     )
     Unicum(unicum)
   }
-
-  private def contractHash(
-      contractInstance: ThinContractInstance,
-      contractIdVersion: CantonContractIdV1Version,
-  ): LfHash =
-    LfHash.assertHashContractInstance(
-      contractInstance.template,
-      contractInstance.arg,
-      contractInstance.packageName,
-      upgradeFriendly = contractIdVersion.useUpgradeFriendlyHashing,
-    )
 
   /** Re-computes a contract's [[Unicum]] based on the provided salt. Used for authenticating
     * contracts.
@@ -180,7 +172,10 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
       contractSalt = contractSalt,
       ledgerCreateTime = ledgerCreateTime,
       metadata = metadata,
-      contractHash = contractHash(suffixedContractInstance, cantonContractIdVersion),
+      contractHash = LegacyContractHash.tryThinContractHash(
+        suffixedContractInstance,
+        cantonContractIdVersion.useUpgradeFriendlyHashing,
+      ),
     )
 
   /** Re-computes a contract's [[Unicum]] based on the provided salt. Used for authenticating
@@ -196,9 +191,8 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
   def recomputeUnicum(
       contractInstance: FatContractInstance,
       cantonContractIdVersion: CantonContractIdV1Version,
-  ): Either[String, Unicum] = {
-    val contractHash =
-      this.contractHash(contractInstance.toCreateNode.coinst, cantonContractIdVersion)
+      contractHash: LfHash,
+  ): Either[String, Unicum] =
     for {
       metadata <- ContractMetadata.create(
         signatories = contractInstance.signatories,
@@ -222,9 +216,8 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
         contractHash,
       )
     } yield unicum
-  }
 
-  private def recomputeUnicum(
+  def recomputeUnicum(
       contractSalt: Salt,
       ledgerCreateTime: CreationTime.CreatedAt,
       metadata: ContractMetadata,

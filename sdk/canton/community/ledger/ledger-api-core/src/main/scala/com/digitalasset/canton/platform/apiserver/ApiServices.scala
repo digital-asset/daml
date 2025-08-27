@@ -26,7 +26,7 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
-import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
+import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.ContractAuthenticatorFn
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
@@ -114,7 +114,7 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
-      authenticateFatContractInstance: AuthenticateFatContractInstance,
+      contractAuthenticator: ContractAuthenticatorFn,
       telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicSynchronizerParameterGetter,
@@ -259,7 +259,7 @@ object ApiServices {
           participant = participantId,
           packageSyncService = syncService,
           contractStore = contractStore,
-          authenticateFatContractInstance = authenticateFatContractInstance,
+          contractAuthenticator = contractAuthenticator,
           metrics = metrics,
           config = engineLoggingConfig,
           prefetchingRecursionLevel = commandConfig.contractPrefetchingDepth,
@@ -290,8 +290,7 @@ object ApiServices {
           getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
-        validateDisclosedContracts =
-          new ValidateDisclosedContracts(authenticateFatContractInstance),
+        validateDisclosedContracts = new ValidateDisclosedContracts(contractAuthenticator),
         validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
         topologyAwarePackageSelectionEnabled = ledgerFeatures.topologyAwarePackageSelection,
       )

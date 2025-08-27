@@ -1451,7 +1451,7 @@ class IssSegmentModuleTest
         context.blockingAwait(store.loadEpochProgress(epochInfo)) should matchPattern {
           case EpochInProgress(
                 completedBlocks,
-                _, // pbftMessagesForIncompleteBlocks
+                _pbftMessagesForIncompleteBlocks,
               )
               if completedBlocks == Seq[EpochStore.Block](
                 EpochStore.Block(

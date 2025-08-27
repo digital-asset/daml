@@ -54,6 +54,7 @@ import com.digitalasset.canton.http.{
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.MetadataReader
 import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
+import com.digitalasset.canton.protocol.ExampleContractFactory
 import com.digitalasset.canton.tracing.{SerializableTraceContextConverter, W3CTraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.test.TypedValueGenerators.ValueAddend as VA
@@ -456,8 +457,7 @@ abstract class AbstractHttpServiceIntegrationTest extends AbstractHttpServiceInt
 
     "with unknown contractId should return proper error" in httpTestFixture { fixture =>
       import fixture.encoder
-      // 66 for the contract id + 2 for an arbitrary suffix (as per `requireV1ContractIdSuffix`)
-      val contractIdString = "0" * 68
+      val contractIdString = ExampleContractFactory.buildContractId().coid
       val contractId = lar.ContractId(contractIdString)
       for {
         (bob, headers) <- fixture.getUniquePartyAndAuthHeaders("Bob")
@@ -473,7 +473,7 @@ abstract class AbstractHttpServiceIntegrationTest extends AbstractHttpServiceInt
               )
               ledgerApiError.message should include("CONTRACT_NOT_FOUND")
               ledgerApiError.message should include(
-                "Contract could not be found with id 00000000000000000000000000000000000000000000000000000000000000000000"
+                s"Contract could not be found with id $contractIdString"
               )
               forExactly(1, ledgerApiError.details) {
                 case ErrorInfoDetail(errorCodeId, _) =>
@@ -486,7 +486,7 @@ abstract class AbstractHttpServiceIntegrationTest extends AbstractHttpServiceInt
               }
               forExactly(1, ledgerApiError.details) {
                 case ResourceInfoDetail(name, typ) =>
-                  name shouldBe "00000000000000000000000000000000000000000000000000000000000000000000"
+                  name shouldBe contractIdString
                   typ shouldBe "CONTRACT_ID"
                 case _ => fail()
               }

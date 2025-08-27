@@ -59,8 +59,6 @@ import com.digitalasset.canton.pruning.{
 }
 import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
-import com.digitalasset.canton.sequencing.handlers.EnvelopeOpener
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.{
   ByTimestamp,
   ByTimestampRange,
@@ -454,7 +452,8 @@ final class SyncStateInspection(
       from: Option[Instant],
       to: Option[Instant],
       limit: Option[Int],
-  )(implicit traceContext: TraceContext): Seq[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
+      warnOnDiscardedEnvelopes: Boolean,
+  )(implicit traceContext: TraceContext): Seq[PossiblyIgnoredProtocolEvent] = {
     val state = getOrFail(syncPersistentStateManager.get(psid), psid)
     val messagesF =
       if (from.isEmpty && to.isEmpty)
@@ -476,9 +475,16 @@ final class SyncStateInspection(
       timeouts.inspection
         .awaitUS(s"finding messages from $from to $to on $psid")(messagesF)
         .asGrpcResponse
-    val opener =
-      new EnvelopeOpener[PossiblyIgnoredSequencedEvent](psid.protocolVersion, state.pureCryptoApi)
-    closed.map(opener.open)
+    closed.map { closedEvent =>
+      val openWithErrors = PossiblyIgnoredSequencedEvent.openEnvelopes(closedEvent)(
+        psid.protocolVersion,
+        state.pureCryptoApi,
+      )
+      if (warnOnDiscardedEnvelopes && openWithErrors.openingErrors.nonEmpty) {
+        logger.warn(s"Discarding envelopes with errors: ${openWithErrors.openingErrors}")
+      }
+      openWithErrors.event
+    }
   }
 
   @VisibleForTesting
@@ -487,18 +493,22 @@ final class SyncStateInspection(
       criterion: SequencedEventStore.SearchCriterion,
   )(implicit
       traceContext: TraceContext
-  ): Option[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
+  ): Option[PossiblyIgnoredProtocolEvent] = {
     val state = getOrFail(syncPersistentStateManager.get(psid), psid)
     val messageF = state.sequencedEventStore.find(criterion).value
     val closed =
       timeouts.inspection
         .awaitUS(s"$functionFullName on $psid matching $criterion")(messageF)
-    val opener = new EnvelopeOpener[PossiblyIgnoredSequencedEvent](
-      psid.protocolVersion,
-      state.pureCryptoApi,
-    )
     closed match {
-      case UnlessShutdown.Outcome(result) => result.toOption.map(opener.open)
+      case UnlessShutdown.Outcome(result) =>
+        result.toOption.map(
+          PossiblyIgnoredSequencedEvent
+            .openEnvelopes(_)(
+              psid.protocolVersion,
+              state.pureCryptoApi,
+            )
+            .event
+        )
       case UnlessShutdown.AbortedDueToShutdown => None
     }
   }

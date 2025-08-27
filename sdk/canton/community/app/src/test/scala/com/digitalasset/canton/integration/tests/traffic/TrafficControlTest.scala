@@ -66,8 +66,6 @@ trait TrafficControlTest
     with OnboardsNewSequencerNode
     with ProtocolVersionChecksFixtureAnyWordSpec {
 
-  protected val enableSequencerRestart: Boolean = true
-
   private val baseEventCost = 500L
   private val trafficControlParameters = TrafficControlParameters(
     maxBaseTrafficAmount = NonNegativeNumeric.tryCreate(20 * 1000L),
@@ -349,54 +347,65 @@ trait TrafficControlTest
     (consumptionRound1 - consumptionRound2) should equal(0L +- 100L)
   }
 
-  "support restarting of sequencers" onlyRunWhen (enableSequencerRestart) in { implicit env =>
+  "support restarting of sequencers" in { implicit env =>
     import env.*
 
     // sanity check, and also makes the latest block only contain events from/to p1
     // When we restart we'll check that p2 recovered its state as well even though it is not in the latest block
-    participant1.health.ping(participant1.id)
+    clue("P1 self-ping sanity-check")(
+      participant1.health.ping(participant1.id)
+    )
 
-    val trafficStateBeforeRestart =
+    val trafficStateBeforeRestart = clue("traffic state before sequencer restart")(
       sequencer1.traffic_control.traffic_state_of_members(
         Seq(participant1.id, participant2.id, mediator1.id, sequencer1.id)
       )
+    )
 
     // Both P1 and P2 should have a status
     trafficStateBeforeRestart.trafficStates.keys should contain(participant1.id)
     trafficStateBeforeRestart.trafficStates.keys should contain(participant2.id)
 
-    loggerFactory.assertLoggedWarningsAndErrorsSeq(
-      {
-        sequencer1.stop()
-        sequencer1.start()
-        sequencer1.health.wait_for_running()
-      },
-      LogEntry.assertLogSeq(
-        mustContainWithClue = Seq.empty,
-        mayContain = Seq(
-          _.warningMessage should include(LostSequencerSubscription.id),
-          // We may get some failed gRPC calls to the sequencer while it's down (e.g auth token refresh)
-          _.warningMessage should include("Connection refused"),
+    clue("restart sequencer") {
+      loggerFactory.assertLoggedWarningsAndErrorsSeq(
+        {
+          sequencer1.stop()
+          sequencer1.start()
+          sequencer1.health.wait_for_running()
+        },
+        LogEntry.assertLogSeq(
+          mustContainWithClue = Seq.empty,
+          mayContain = Seq(
+            _.warningMessage should include(LostSequencerSubscription.id),
+            // We may get some failed gRPC calls to the sequencer while it's down (e.g auth token refresh)
+            _.warningMessage should include("Connection refused"),
+          ),
         ),
-      ),
-    )
+      )
+    }
 
-    val trafficStateAfterRestart = sequencer1.traffic_control.traffic_state_of_members(
-      Seq(participant1.id, participant2.id, mediator1.id, sequencer1.id)
+    val trafficStateAfterRestart = clue("traffic state after sequencer restart")(
+      sequencer1.traffic_control.traffic_state_of_members(
+        Seq(participant1.id, participant2.id, mediator1.id, sequencer1.id)
+      )
     )
 
     trafficStateBeforeRestart.trafficStates should
       contain theSameElementsAs trafficStateAfterRestart.trafficStates
 
-    val clock = env.environment.simClock.value
-    eventually() {
-      // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-      clock.advance(Duration.ofSeconds(1))
-
-      participant1.health.status.trySuccess.connectedSynchronizers
-        .get(daId) should contain(SubmissionReady(true))
-      participant1.health.ping(participant1.id)
+    clue("advance clock sequencer pool") {
+      eventually() {
+        val clock = env.environment.simClock.value
+        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
+        clock.advance(
+          Duration.ofSeconds(1)
+        ) // 1 second is the default subscription pool retry delay
+        participant1.health.status.trySuccess.connectedSynchronizers
+          .get(daId) should contain(SubmissionReady(true))
+      }
     }
+
+    participant1.health.ping(participant1.id)
 
   }
 
@@ -863,7 +872,6 @@ class TrafficControlTestBftOrderingPostgres
 //  extends TrafficControlTest {
 //  registerPlugin(new UsePostgres(loggerFactory))
 //  registerPlugin(new UseBftOrderingBlockSequencer(loggerFactory))
-//  override protected val enableSequencerRestart: Boolean = false
 //}
 
 // TODO(#16789) Re-enable test once dynamic onboarding is supported for BFT Orderer
@@ -871,5 +879,4 @@ class TrafficControlTestBftOrderingH2
 //  extends TrafficControlTest {
 //  registerPlugin(new UseH2(loggerFactory))
 //  registerPlugin(new UseBftOrderingBlockSequencer(loggerFactory))
-//  override protected val enableSequencerRestart: Boolean = false
 //}

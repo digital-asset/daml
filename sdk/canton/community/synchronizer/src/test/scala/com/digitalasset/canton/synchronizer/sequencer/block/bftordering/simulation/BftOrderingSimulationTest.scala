@@ -265,6 +265,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
                 allNodes.view.mapValues(_.stores).toMap,
                 model,
                 topologySettings,
+                topologyRandom,
               )
               val simulation =
                 SimulationModuleSystem(

@@ -215,8 +215,7 @@ final class P2PNetworkOutModule[
           droppedAsUnauthenticated = false,
         )
       locally {
-        logger.debug(s"Sending network message to $destinationBftNodeId")
-        logger.trace(s"Message to $destinationBftNodeId is: $message")
+        logger.trace(s"Sending network message to $destinationBftNodeId: $message")
         implicit val mc: MetricsContext = mc1
         networkSend(ref, serializedMessage)
         emitSendStats(metrics, serializedMessage)

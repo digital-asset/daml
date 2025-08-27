@@ -83,7 +83,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
     participant1.testing.state_inspection
       .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
       .value
-      .value
   }
 
   var missingEncryptionKey: EncryptionPublicKey = _
@@ -157,7 +156,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         val lastSequencedEvent = participant.testing.state_inspection
           .findMessage(synchronizerId, SearchCriterion.Latest)
           .getOrElse(throw new Exception("Sequenced event not found"))
-          .getOrElse(throw new Exception("Unable to parse sequenced event"))
         val lastCounter = lastSequencedEvent.counter
         // user-manual-entry-end: LookUpLastSequencedEventToIgnore
         val sequencedEventTimestamp = lastSequencedEvent.timestamp
@@ -166,7 +164,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         val sequencedEvent = participant.testing.state_inspection
           .findMessage(synchronizerId, ByTimestamp(sequencedEventTimestamp))
           .getOrElse(throw new Exception("Sequenced event not found"))
-          .getOrElse(throw new Exception("Unable to parse sequenced event"))
         val sequencerCounter = sequencedEvent.counter
         // user-manual-entry-end: LookUpSequencedEventToIgnoreByTimestamp
         lastCounter shouldBe sequencerCounter
@@ -449,15 +446,13 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             )
             .loneElement
             .item
-          val otk = previousOtk.copy(keys =
-            NonEmpty(Seq, missingEncryptionKey) ++
-              previousOtk.keys.filterNot(_.purpose == KeyPurpose.Encryption)
-          )
 
           loggerFactory.assertLogs(
             {
               participant2.topology.owner_to_key_mappings.propose(
-                otk,
+                member = previousOtk.member,
+                keys = NonEmpty(Seq, missingEncryptionKey) ++
+                  previousOtk.keys.filterNot(_.purpose == KeyPurpose.Encryption),
                 Some(PositiveInt.tryCreate(2)),
                 signedBy = Seq(signingKey.fingerprint),
                 store = daId,
@@ -523,7 +518,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
 
         val lastEvent = participant1.testing.state_inspection
           .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
-          .value
           .value
         val lastEventRecipients =
           lastEvent.underlying.value.content.asInstanceOf[Deliver[_]].batch.allRecipients

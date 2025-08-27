@@ -10,7 +10,6 @@ import com.digitalasset.canton.crypto.KeyPurpose.Signing
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
-import com.digitalasset.canton.topology.transaction.OwnerToKeyMapping
 
 import scala.concurrent.ExecutionContext
 
@@ -158,10 +157,8 @@ trait TopologyManagementHelper { this: BaseTest =>
 
     // Assign the new keys to this node.
     node.topology.owner_to_key_mappings.propose(
-      OwnerToKeyMapping(
-        node.id.member,
-        NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
-      ),
+      member = node.id.member,
+      keys = NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
       signedBy = Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
     )
 

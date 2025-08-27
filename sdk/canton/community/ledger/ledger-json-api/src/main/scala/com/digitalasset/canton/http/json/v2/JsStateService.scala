@@ -149,8 +149,15 @@ object JsStateService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("active-contracts"))
     .in(jsonBody[state_service.GetActiveContractsRequest])
     .out(jsonBody[Seq[JsGetActiveContractsResponse]])
-    .inStreamListParams()
-    .description("Query active contracts list (blocking call)")
+    .description(
+      """Query active contracts list (blocking call).
+        |Querying active contracts is an expensive operation and if possible should not be repeated often.
+        |Consider querying active contracts initially (for a given offset)
+        |and then repeatedly call one of `/v2/updates/...`endpoints  to get subsequent modifications.
+        |You can also use websockets to get updates with better performance.
+        |""".stripMargin
+    )
+    .inStreamListParamsAndDescription()
 
   val getConnectedSynchronizersEndpoint = state.get
     .in(sttp.tapir.stringToPath("connected-synchronizers"))

@@ -1188,6 +1188,7 @@ abstract class CantonNodeBootstrapImpl[
               NonEmpty.mk(Seq, sequencerAuthKey, signingKey)
             )
           }
+        otk <- EitherT.fromEither[FutureUnlessShutdown](OwnerToKeyMapping.create(ownerId, keys))
         // register the keys
         _ <- authorizeStateUpdate(
           Seq(
@@ -1195,7 +1196,7 @@ abstract class CantonNodeBootstrapImpl[
             sequencerAuthKey.fingerprint,
             signingKey.fingerprint,
           ),
-          OwnerToKeyMapping(ownerId, keys),
+          otk,
           ProtocolVersion.latest,
         )
       } yield Some(())

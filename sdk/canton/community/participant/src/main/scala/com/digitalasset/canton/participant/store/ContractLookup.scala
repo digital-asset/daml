@@ -81,24 +81,13 @@ trait ContractAndKeyLookup extends ContractLookup {
   ): OptionT[FutureUnlessShutdown, Option[LfContractId]]
 }
 
-trait ContractLookupAndVerification extends ContractAndKeyLookup {
-
-  /** Verify that the contract metadata associated with the contract id is consistent with the
-    * provided metadata
-    */
-  def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
-      traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, String]
-
-}
-
-object ContractLookupAndVerification {
+object ContractAndKeyLookup {
 
   /** An empty contract and key lookup interface that fails to find any contracts and keys when
     * asked, but allows any key to be asked
     */
-  def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractLookupAndVerification =
-    new ContractLookupAndVerification with NamedLogging {
+  def noContracts(namedLoggerFactory: NamedLoggerFactory): ContractAndKeyLookup =
+    new ContractAndKeyLookup with NamedLogging {
 
       override type ContractsCreatedAtTime = CreationTime.CreatedAt
 
@@ -130,9 +119,5 @@ object ContractLookupAndVerification {
       ): EitherT[FutureUnlessShutdown, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =
         EitherT.cond(ids.isEmpty, Map.empty, UnknownContracts(ids))
 
-      override def verifyMetadata(coid: LfContractId, metadata: ContractMetadata)(implicit
-          traceContext: TraceContext
-      ): OptionT[FutureUnlessShutdown, String] =
-        OptionT.pure[FutureUnlessShutdown]("Not expecting call to verifyMetadata")
     }
 }
