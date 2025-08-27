@@ -206,17 +206,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
     ): Unit =
       throw new UnsupportedOperationException
 
-    override def updatePrunedAllDivulgedContractsUpToInclusive(prunedUpToInclusive: Offset)(
-        connection: Connection
-    ): Unit =
-      throw new UnsupportedOperationException
-
     override def prunedUpToInclusive(connection: Connection): Option[Offset] =
-      throw new UnsupportedOperationException
-
-    override def participantAllDivulgedContractsPrunedUpToInclusive(
-        connection: Connection
-    ): Option[Offset] =
       throw new UnsupportedOperationException
 
     override def prunedUpToInclusiveAndLedgerEnd(

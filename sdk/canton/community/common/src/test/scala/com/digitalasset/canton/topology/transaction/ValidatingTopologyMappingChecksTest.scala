@@ -110,6 +110,37 @@ class ValidatingTopologyMappingChecksTest
         )
       }
 
+      "reject only REPLACE transactions with the highest possible serial" in {
+        import factory.SigningKeys.key1
+        val (checks, _) = mk()
+
+        val maxSerialReplace = factory.mkAdd(
+          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
+          serial = PositiveInt.MaxValue,
+        )
+        checkTransaction(checks, maxSerialReplace) shouldBe Left(
+          TopologyTransactionRejection.InvalidTopologyMapping(
+            s"The serial for a REPLACE must be less than ${PositiveInt.MaxValue}."
+          )
+        )
+
+        val maxSerialMinsOneReplace = factory.mkAdd(
+          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
+          serial = PositiveInt.tryCreate(PositiveInt.MaxValue.value - 1),
+        )
+        val maxSerialRemove = factory.mkRemove(
+          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
+          serial = PositiveInt.MaxValue,
+        )
+
+        checkTransaction(checks, toValidate = maxSerialMinsOneReplace) shouldBe Right(())
+        checkTransaction(
+          checks,
+          toValidate = maxSerialRemove,
+          inStore = Some(maxSerialMinsOneReplace),
+        ) shouldBe Right(())
+      }
+
       "reject if removal also changes the content" in {
         import factory.SigningKeys.{key1, key2}
         val (checks, _) = mk()
@@ -239,7 +270,7 @@ class ValidatingTopologyMappingChecksTest
             EffectiveTime(ts.immediateSuccessor),
             codes = Set(Code.NamespaceDelegation),
             pendingChangesLookup = Map(nsd3Replace_1.mapping.uniqueKey -> nsd3Replace_1),
-            filterNamespace = Some(Seq(ns2, ns3)),
+            filterNamespace = Some(NonEmpty(Seq, ns2, ns3)),
           )
           .futureValueUS
           .value should contain theSameElementsAs Seq(nsd2Replace_1, nsd3Replace_1)

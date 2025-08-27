@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -189,7 +190,7 @@ class PackageOpsImpl(
               asOfInclusive = true,
               isProposal = false,
               types = Seq(VettedPackages.code),
-              filterUid = Some(Seq(nodeId)),
+              filterUid = Some(NonEmpty(Seq, nodeId)),
               filterNamespace = None,
             )
             .map { result =>

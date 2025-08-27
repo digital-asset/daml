@@ -14,6 +14,7 @@ import Options.Applicative.Extended
 import Data.List
 import Data.Maybe
 import qualified DA.Pretty           as Pretty
+import DA.Daml.Helper.Studio (ReplaceExtension (..))
 import DA.Daml.Options.Types
 import DA.Daml.LF.Ast.Util (splitUnitId)
 import qualified DA.Daml.LF.Ast.Version as LF
@@ -621,3 +622,17 @@ shakeProfilingOpt = optional $ strOptionOnce $
 
 incrementalBuildOpt :: Parser IncrementalBuild
 incrementalBuildOpt = IncrementalBuild <$> flagYesNoAuto "incremental" False "Enable incremental builds" idm
+
+studioReplaceOpt :: Parser ReplaceExtension
+studioReplaceOpt = 
+    Options.Applicative.option readReplacement $
+      long "replace"
+        <> help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')"
+        <> value ReplaceExtPublished
+  where
+    readReplacement = maybeReader $ \arg ->
+      case lower arg of
+        "never" -> Just ReplaceExtNever
+        "always" -> Just ReplaceExtAlways
+        "published" -> Just ReplaceExtPublished
+        _ -> Nothing

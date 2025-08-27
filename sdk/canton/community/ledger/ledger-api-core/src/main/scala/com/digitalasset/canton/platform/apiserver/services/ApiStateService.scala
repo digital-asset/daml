@@ -192,11 +192,11 @@ final class ApiStateService(
     implicit val loggingContext = LoggingContextWithTrace(loggerFactory, telemetry)
 
     updateService
-      .latestPrunedOffsets()
-      .map { case (prunedUptoInclusive, divulgencePrunedUptoInclusive) =>
+      .latestPrunedOffset()
+      .map { prunedUptoInclusive =>
         GetLatestPrunedOffsetsResponse(
           participantPrunedUpToInclusive = prunedUptoInclusive.fold(0L)(_.unwrap),
-          allDivulgedContractsPrunedUpToInclusive = divulgencePrunedUptoInclusive.fold(0L)(_.unwrap),
+          allDivulgedContractsPrunedUpToInclusive = prunedUptoInclusive.fold(0L)(_.unwrap),
         )
       }
       .thereafter(logger.logErrorsOnCall[GetLatestPrunedOffsetsResponse])

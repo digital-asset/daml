@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology.store.db
 
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
+import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String185, String300}
@@ -361,8 +362,8 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       asOfInclusive: Boolean,
       isProposal: Boolean,
       types: Seq[TopologyMapping.Code],
-      filterUid: Option[Seq[UniqueIdentifier]],
-      filterNamespace: Option[Seq[Namespace]],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     findTransactionsBatchingUidFilter(
       asOf,
@@ -645,35 +646,70 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       asOfInclusive: Boolean,
       isProposal: Boolean,
       types: Set[TopologyMapping.Code],
-      filterUid: Option[Seq[UniqueIdentifier]],
-      filterNamespace: Option[Seq[Namespace]],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
-    def forwardBatch(filterUidsNew: Option[Seq[UniqueIdentifier]]) =
+    def forwardBatch(
+        filterUidsNew: Option[NonEmpty[Seq[UniqueIdentifier]]],
+        filterNamespaceNew: Option[NonEmpty[Seq[Namespace]]],
+    ) =
       findTransactionsSingleBatch(
         asOf,
         asOfInclusive,
         isProposal,
         types,
         filterUidsNew,
-        filterNamespace,
+        filterNamespaceNew,
         filterOp,
       )
 
-    filterUid.map(
-      // Optimization: remove uid-filters made redundant by namespace filters
-      _.filterNot(uid => filterNamespace.exists(_.contains(uid.namespace)))
-    ) match {
-      case None => forwardBatch(None)
-      case Some(uids) =>
-        MonadUtil
-          .batchedSequentialTraverse(
-            parallelism = storage.threadsAvailableForWriting,
-            chunkSize = maxItemsInSqlQuery,
-          )(uids)(batchedUidFilters => forwardBatch(Some(batchedUidFilters)).map(_.result))
-          .map(StoredTopologyTransactions(_))
+    // Optimization: remove uid-filters made redundant by namespace filters
+    val explicitUidFilters = filterUid
+      .flatMap(uids =>
+        NonEmpty.from(uids.filterNot(uid => filterNamespace.exists(_.contains(uid.namespace))))
+      )
+
+    // if both filters are empty, we can simply run a single batch
+    if (filterNamespace.isEmpty && explicitUidFilters.isEmpty) {
+      forwardBatch(None, None)
+    } else {
+      // split both filters into batches. we need to jump through a few hoops to go
+      // from Option[NonEmpty[Seq[X]]] to
+      // Seq[ // collection containing the batches
+      //   Option[ // we need to retain optionality, so that we can zip the filters together and allow for a different number of uid/namespaces filter batches
+      //     NonEmpty[Seq[X]] // finally the actual batch
+      //   ]
+      // ]
+      // because grouped doesn't return NonEmpty collections.
+      val chunkedUids = explicitUidFilters.flatTraverse(uids =>
+        uids
+          .grouped(maxItemsInSqlQuery.value)
+          .toSeq
+          .map[Option[NonEmpty[Seq[UniqueIdentifier]]]](NonEmpty.from)
+      )
+      val chunkedNamespaces =
+        filterNamespace.flatTraverse(ns =>
+          ns.grouped(maxItemsInSqlQuery.value)
+            .toSeq
+            .map[Option[NonEmpty[Seq[Namespace]]]](NonEmpty.from)
+        )
+      // since the filters are ORed in the query, we can simply interlace them in the same chunk.
+      // if one of the filters has fewer chunks, we simply pad with None
+      val chunkedFilters = chunkedUids.zipAll(chunkedNamespaces, None, None)
+
+      MonadUtil
+        .parTraverseWithLimit(
+          parallelism = storage.threadsAvailableForWriting
+        )(chunkedFilters) { case (batchedUidFilters, batchedNamespaceFilters) =>
+          forwardBatch(
+            batchedUidFilters,
+            batchedNamespaceFilters,
+          ).map(_.result)
+        }
+        .map(chunkedResult => StoredTopologyTransactions(chunkedResult.flatten))
     }
   }
 
@@ -682,49 +718,44 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       asOfInclusive: Boolean,
       isProposal: Boolean,
       types: Set[TopologyMapping.Code],
-      filterUid: Option[Seq[UniqueIdentifier]],
-      filterNamespace: Option[Seq[Namespace]],
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]],
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]],
       filterOp: Option[TopologyChangeOp],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericStoredTopologyTransactions] = {
     val hasUidFilter = filterUid.nonEmpty || filterNamespace.nonEmpty
-    // exit early if the caller produced an empty uid/namespace filter batch:
-    if (hasUidFilter && filterUid.forall(_.isEmpty) && filterNamespace.forall(_.isEmpty)) {
-      FutureUnlessShutdown.pure(StoredTopologyTransactions.empty)
-    } else {
-      val filterUidStr = filterUid.map(f => s"uids ${f.mkString(", ")}")
-      val filterNamespaceStr = filterNamespace.map(f => s"namespaces ${f.mkString(", ")}")
-      val filterOpStr = filterOp.map(f => s"op $f")
-      val filters = filterUidStr.toList ++ filterNamespaceStr ++ filterOpStr
-      val filterStr = if (filters.nonEmpty) s" with filters for ${filters.mkString("; ")}" else ""
-      logger.debug(
-        s"Querying transactions as of $asOf for types $types$filterStr"
-      )
+    val filterUidStr = filterUid.map(f => s"uids ${f.mkString(", ")}")
+    val filterNamespaceStr = filterNamespace.map(f => s"namespaces ${f.mkString(", ")}")
+    val filterOpStr = filterOp.map(f => s"op $f")
+    val filters = filterUidStr.toList ++ filterNamespaceStr ++ filterOpStr
+    val filterStr = if (filters.nonEmpty) s" with filters for ${filters.mkString("; ")}" else ""
+    logger.debug(
+      s"Querying transactions as of $asOf for types $types$filterStr"
+    )
 
-      val timeRangeFilter = asOfQuery(asOf, asOfInclusive)
-      val isProposalFilter = sql" AND is_proposal = $isProposal"
-      val changeOpFilter = filterOp.fold(sql"")(op => sql" AND operation = $op")
-      val mappingTypeFilter = typeFilter(types)
-      val uidNamespaceFilter =
-        if (hasUidFilter) {
-          val namespaceFilter = filterNamespace.toList.flatMap(_.map(ns => sql"namespace = $ns"))
-          val uidFilter =
-            filterUid.toList.flatten.map(uid =>
-              sql"(identifier = ${uid.identifier} AND namespace = ${uid.namespace})"
-            )
-          sql" AND (" ++ (namespaceFilter ++ uidFilter).intercalate(sql" OR ") ++ sql")"
-        } else SQLActionBuilderChain(sql"")
+    val timeRangeFilter = asOfQuery(asOf, asOfInclusive)
+    val isProposalFilter = sql" AND is_proposal = $isProposal"
+    val changeOpFilter = filterOp.fold(sql"")(op => sql" AND operation = $op")
+    val mappingTypeFilter = typeFilter(types)
+    val uidNamespaceFilter =
+      if (hasUidFilter) {
+        val namespaceFilter = filterNamespace.toList.flatMap(_.map(ns => sql"namespace = $ns"))
+        val uidFilter =
+          filterUid.toList.flatten.map(uid =>
+            sql"(identifier = ${uid.identifier} AND namespace = ${uid.namespace})"
+          )
+        sql" AND (" ++ (namespaceFilter ++ uidFilter).intercalate(sql" OR ") ++ sql")"
+      } else SQLActionBuilderChain(sql"")
 
-      toStoredTopologyTransactions(
-        storage.query(
-          buildQueryForTransactions(
-            timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
-          ),
-          operationName = "singleBatch",
-        )
+    toStoredTopologyTransactions(
+      storage.query(
+        buildQueryForTransactions(
+          timeRangeFilter ++ isProposalFilter ++ changeOpFilter ++ mappingTypeFilter ++ uidNamespaceFilter
+        ),
+        operationName = "singleBatch",
       )
-    }
+    )
   }
 
   private def typeFilter(types: Set[TopologyMapping.Code]): SQLActionBuilderChain =

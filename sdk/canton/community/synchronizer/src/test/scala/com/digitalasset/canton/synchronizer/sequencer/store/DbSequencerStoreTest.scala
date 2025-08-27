@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, PositiveFiniteDuration}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -33,7 +33,10 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         sequencerMember,
         blockSequencerMode = true,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -48,7 +51,10 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         sequencerMember,
         blockSequencerMode = true,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
       )
     )
   }
@@ -65,7 +71,10 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         sequencerMember,
         blockSequencerMode = true,
         cachingConfigs = CachingConfigs(),
-        batchingConfig = BatchingConfig(),
+        batchingConfig = BatchingConfig(
+          // Required to test the pruning query batching
+          maxPruningTimeInterval = PositiveFiniteDuration.ofSeconds(1)
+        ),
       )
     )
   }

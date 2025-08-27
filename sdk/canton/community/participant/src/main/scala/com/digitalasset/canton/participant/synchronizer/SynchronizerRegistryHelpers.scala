@@ -209,7 +209,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         // Yields a unique path inside the given directory for record/replay purposes.
         def updateMemberRecordingPath(recordingConfig: RecordingConfig): RecordingConfig = {
           val namePrefix =
-            s"${participantId.show.stripSuffix("...")}-${synchronizerId.show.stripSuffix("...")}"
+            s"${participantId.show.stripSuffix("...")}-${synchronizerId.toProtoPrimitive}"
           recordingConfig.setFilename(namePrefix)
         }
 

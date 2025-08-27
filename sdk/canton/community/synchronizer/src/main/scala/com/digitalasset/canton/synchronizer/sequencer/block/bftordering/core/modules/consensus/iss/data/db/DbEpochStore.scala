@@ -8,8 +8,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.DbStorage.DbAction
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
@@ -48,6 +47,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   PbftNetworkMessage,
+  PbftNormalCaseMessage,
   PbftViewChangeMessage,
   PrePrepare,
 }
@@ -167,7 +167,7 @@ class DbEpochStore(
       storage.update_(
         for {
           // delete all in-progress messages after an epoch ends and before we start adding new messages in the new epoch
-          _ <- sqlu"delete from ord_pbft_messages_in_progress"
+          _ <- sqlu"truncate table ord_pbft_messages_in_progress"
           _ <- sqlu"""update ord_epochs set in_progress = false
                       where epoch_number = $epochNumber
                       """
@@ -213,20 +213,14 @@ class DbEpochStore(
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPrePrepareActionName(prePrepare), orderingStage = functionFullName) {
-      storage.update_(
-        DBIOAction.sequence(insertInProgressPbftMessages(Seq(prePrepare))),
-        functionFullName,
-      )
+      runInsertInProgressPbftMessages(Seq(prePrepare), functionFullName)
     }
 
   override def addPrepares(
       prepares: Seq[SignedMessage[ConsensusMessage.Prepare]]
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPreparesActionName, orderingStage = functionFullName) {
-      storage.update_(
-        DBIOAction.sequence(insertInProgressPbftMessages(prepares)).transactionally,
-        functionFullName,
-      )
+      runInsertInProgressPbftMessages(prepares, functionFullName)
     }
 
   override def addViewChangeMessage[M <: PbftViewChangeMessage](
@@ -238,10 +232,7 @@ class DbEpochStore(
       addViewChangeMessageActionName(viewChangeMessage),
       orderingStage = functionFullName,
     ) {
-      storage.update_(
-        DBIOAction.sequence(insertInProgressPbftMessages(Seq(viewChangeMessage))).transactionally,
-        functionFullName,
-      )
+      runInsertInProgressPbftMessages(Seq(viewChangeMessage), functionFullName)
     }
 
   override def addOrderedBlock(
@@ -256,42 +247,50 @@ class DbEpochStore(
       addOrderedBlockActionName(epochNumber, blockNumber),
       orderingStage = functionFullName,
     ) {
-      storage.update_(
-        DBIOAction
-          .sequence(
-            cleanUpInProgressMessages(blockNumber) +: (insertFinalPbftMessages(
-              commitMessages
-            ) ++ insertFinalPbftMessages(Seq(prePrepare)))
-          )
-          .transactionally,
-        functionFullName,
-      )
+      val messages: Seq[SignedMessage[PbftNormalCaseMessage]] =
+        commitMessages :++ Seq[SignedMessage[PbftNormalCaseMessage]](prePrepare)
+      runInsertFinalPbftMessages(messages, functionFullName)
     }
   }
 
-  private def cleanUpInProgressMessages(blockNumber: Long) =
-    // delete pre-prepares and prepares, but not view change messages
-    sqlu"delete from ord_pbft_messages_in_progress where block_number=$blockNumber and discriminator <= $PrepareMessageDiscriminator"
-
-  private def insertInProgressPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[SignedMessage[M]]
-  ): Seq[DbAction.WriteOnly[Int]] =
-    messages.headOption.fold(Seq.empty[DbAction.WriteOnly[Int]]) { head =>
-      val discriminator = getDiscriminator(head.message)
-      messages.map { msg =>
-        val from = msg.from
-        val blockNumber = msg.message.blockMetadata.blockNumber
-        val epochNumber = msg.message.blockMetadata.epochNumber
-        val viewNumber = msg.message.viewNumber
-
-        profile match {
-          case _: Postgres =>
-            sqlu"""insert into ord_pbft_messages_in_progress(block_number, epoch_number, view_number, message, discriminator, from_sequencer_id)
-                   values ($blockNumber, $epochNumber, $viewNumber, $msg, $discriminator, $from)
+  private def runInsertInProgressPbftMessages[M <: PbftNetworkMessage](
+      messages: Seq[SignedMessage[M]],
+      functionName: String,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    profile match {
+      case _: Postgres =>
+        val insertSql =
+          """insert into ord_pbft_messages_in_progress(block_number, epoch_number, view_number, message, discriminator, from_sequencer_id)
+                   values (?, ?, ?, ?, ?, ?)
                    on conflict (block_number, view_number, discriminator, from_sequencer_id) do nothing
                 """
-          case _: H2 =>
-            sqlu"""merge into ord_pbft_messages_in_progress
+        storage
+          .runWrite(
+            DbStorage
+              .bulkOperation_(insertSql, messages, storage.profile) { pp => msg =>
+                pp >> msg.message.blockMetadata.blockNumber
+                pp >> msg.message.blockMetadata.epochNumber
+                pp >> msg.message.viewNumber
+                pp >> msg
+                pp >> getDiscriminator(msg.message)
+                pp >> msg.from
+              },
+            functionName,
+            1,
+          )
+          .map(_ => ())
+      case _: H2 =>
+        storage.update_(
+          DBIOAction
+            .sequence(
+              messages.map { msg =>
+                val blockNumber = msg.message.blockMetadata.blockNumber
+                val epochNumber = msg.message.blockMetadata.epochNumber
+                val viewNumber = msg.message.viewNumber
+                val discriminator = getDiscriminator(msg.message)
+                val from = msg.from
+
+                sqlu"""merge into ord_pbft_messages_in_progress
                    using dual on (ord_pbft_messages_in_progress.block_number = $blockNumber
                      and ord_pbft_messages_in_progress.epoch_number = $epochNumber
                      and ord_pbft_messages_in_progress.view_number = $viewNumber
@@ -302,39 +301,64 @@ class DbEpochStore(
                      insert (block_number, epoch_number, view_number, message, discriminator, from_sequencer_id)
                      values ($blockNumber, $epochNumber, $viewNumber, $msg, $discriminator, $from)
                 """
-        }
-      }
+              }
+            )
+            .transactionally,
+          functionName,
+        )
     }
 
-  private def insertFinalPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[SignedMessage[M]]
-  ): Seq[DbAction.WriteOnly[Int]] =
-    messages.headOption.fold(Seq.empty[DbAction.WriteOnly[Int]]) { head =>
-      val discriminator = getDiscriminator(head.message)
-      messages.map { msg =>
-        val sequencerId = msg.from
-        val blockNumber = msg.message.blockMetadata.blockNumber
-        val epochNumber = msg.message.blockMetadata.epochNumber
-
-        profile match {
-          case _: Postgres =>
-            sqlu"""insert into ord_pbft_messages_completed(block_number, epoch_number, message, discriminator, from_sequencer_id)
-                   values ($blockNumber, $epochNumber, $msg, $discriminator, $sequencerId)
+  private def runInsertFinalPbftMessages[M <: PbftNetworkMessage](
+      messages: Seq[SignedMessage[M]],
+      functionName: String,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
+  ): FutureUnlessShutdown[Unit] =
+    profile match {
+      case _: Postgres =>
+        val insertSql =
+          """insert into ord_pbft_messages_completed(block_number, epoch_number, message, discriminator, from_sequencer_id)
+                   values (?, ?, ?, ?, ?)
                    on conflict (block_number, epoch_number, discriminator, from_sequencer_id) do nothing
                 """
-          case _: H2 =>
-            sqlu"""merge into ord_pbft_messages_completed
-                   using dual on (ord_pbft_messages_completed.block_number = $blockNumber
-                     and ord_pbft_messages_completed.epoch_number = $epochNumber
-                     and ord_pbft_messages_completed.discriminator = $discriminator
-                     and ord_pbft_messages_completed.from_sequencer_id = $sequencerId
-                   )
-                   when not matched then
-                     insert (block_number, epoch_number, message, discriminator, from_sequencer_id)
-                     values ($blockNumber, $epochNumber, $msg, $discriminator, $sequencerId)
-                """
-        }
-      }
+        storage
+          .runWrite(
+            DbStorage
+              .bulkOperation_(insertSql, messages, storage.profile) { pp => msg =>
+                pp >> msg.message.blockMetadata.blockNumber
+                pp >> msg.message.blockMetadata.epochNumber
+                pp >> msg
+                pp >> getDiscriminator(msg.message)
+                pp >> msg.from
+              },
+            functionName,
+            1,
+          )
+          .map(_ => ())
+      case _: H2 =>
+        storage.update_(
+          DBIOAction
+            .sequence(messages.map { msg =>
+              val sequencerId = msg.from
+              val blockNumber = msg.message.blockMetadata.blockNumber
+              val epochNumber = msg.message.blockMetadata.epochNumber
+              val discriminator = getDiscriminator(msg.message)
+
+              sqlu"""merge into ord_pbft_messages_completed
+                 using dual on (ord_pbft_messages_completed.block_number = $blockNumber
+                   and ord_pbft_messages_completed.epoch_number = $epochNumber
+                   and ord_pbft_messages_completed.discriminator = $discriminator
+                   and ord_pbft_messages_completed.from_sequencer_id = $sequencerId
+                 )
+                 when not matched then
+                   insert (block_number, epoch_number, message, discriminator, from_sequencer_id)
+                   values ($blockNumber, $epochNumber, $msg, $discriminator, $sequencerId)
+              """
+            })
+            .transactionally,
+          functionName,
+        )
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

@@ -64,10 +64,7 @@ object TopologyChangeOp {
     }
 
   implicit val setParameterTopologyChangeOp: SetParameter[TopologyChangeOp] = (v, pp) =>
-    v match {
-      case Remove => pp.setInt(1)
-      case Replace => pp.setInt(2)
-    }
+    pp.setInt(v.toProto.value)
 
 }
 

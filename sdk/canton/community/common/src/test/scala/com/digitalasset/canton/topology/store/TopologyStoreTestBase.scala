@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.store
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -78,8 +79,8 @@ private[store] trait TopologyStoreTestBase extends BaseTest with HasExecutionCon
       asOfInclusive: Boolean = false,
       isProposal: Boolean = false,
       types: Seq[TopologyMapping.Code] = TopologyMapping.Code.all,
-      filterUid: Option[Seq[UniqueIdentifier]] = None,
-      filterNamespace: Option[Seq[Namespace]] = None,
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[PositiveStoredTopologyTransactions] =
     store.findPositiveTransactions(
       asOf,

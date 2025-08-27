@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.block.data
 
 import cats.data.EitherT
-import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -114,6 +114,7 @@ object SequencerBlockStore {
       sequencerStore: SequencerStore,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
+      batchingConfig: BatchingConfig,
   )(implicit
       executionContext: ExecutionContext
   ): SequencerBlockStore =
@@ -126,6 +127,7 @@ object SequencerBlockStore {
           protocolVersion,
           timeouts,
           loggerFactory,
+          batchingConfig,
         )
       case otherwise =>
         sys.error(s"Invalid combination of stores: $otherwise")

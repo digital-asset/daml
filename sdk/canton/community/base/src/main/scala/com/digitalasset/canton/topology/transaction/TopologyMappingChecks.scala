@@ -78,6 +78,13 @@ class ValidatingTopologyMappingChecks(
         !(toValidate.operation == TopologyChangeOp.Remove && inStore.isEmpty),
         TopologyTransactionRejection.NoCorrespondingActiveTxToRevoke(toValidate.mapping),
       )
+    val checkReplaceIsNotMaxSerial = EitherTUtil.condUnitET[FutureUnlessShutdown](
+      toValidate.operation == TopologyChangeOp.Remove ||
+        (toValidate.operation == TopologyChangeOp.Replace && toValidate.serial < PositiveInt.MaxValue),
+      TopologyTransactionRejection.InvalidTopologyMapping(
+        s"The serial for a REPLACE must be less than ${PositiveInt.MaxValue}."
+      ),
+    )
     val checkRemoveDoesNotChangeMapping = EitherT.fromEither[FutureUnlessShutdown](
       inStore
         .collect {
@@ -206,6 +213,7 @@ class ValidatingTopologyMappingChecks(
 
     for {
       _ <- checkFirstIsNotRemove
+      _ <- checkReplaceIsNotMaxSerial
       _ <- checkRemoveDoesNotChangeMapping
       _ <- checkNoOngoingSynchronizerUpgrade(effective, toValidate, pendingChangesLookup)
       _ <- checkOpt.getOrElse(EitherTUtil.unitUS)
@@ -291,8 +299,8 @@ class ValidatingTopologyMappingChecks(
       effective: EffectiveTime,
       codes: Set[Code],
       pendingChangesLookup: PendingChangesLookup,
-      filterUid: Option[Seq[UniqueIdentifier]] = None,
-      filterNamespace: Option[Seq[Namespace]] = None,
+      filterUid: Option[NonEmpty[Seq[UniqueIdentifier]]] = None,
+      filterNamespace: Option[NonEmpty[Seq[Namespace]]] = None,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Seq[
@@ -448,7 +456,7 @@ class ValidatingTopologyMappingChecks(
           effective,
           Set(Code.ParticipantSynchronizerPermission),
           pendingChangesLookup,
-          filterUid = Some(Seq(toValidate.mapping.participantId.uid)),
+          filterUid = Some(NonEmpty(Seq, toValidate.mapping.participantId.uid)),
         ).subflatMap { storedPermissions =>
           val isAllowlisted = storedPermissions.view
             .flatMap(_.selectMapping[ParticipantSynchronizerPermission])
@@ -493,7 +501,7 @@ class ValidatingTopologyMappingChecks(
         effective,
         Set(Code.PartyToParticipant),
         pendingChangesLookup,
-        filterUid = Some(Seq(participantId.uid)),
+        filterUid = Some(NonEmpty(Seq, participantId.uid)),
       )
       conflictingPartyIdO = ptps
         .flatMap(_.selectMapping[PartyToParticipant])
@@ -551,7 +559,7 @@ class ValidatingTopologyMappingChecks(
           effective,
           Set(Code.SynchronizerTrustCertificate, Code.OwnerToKeyMapping),
           pendingChangesLookup,
-          filterUid = Some(newParticipants.toSeq.map(_.uid) :+ mapping.partyId.uid),
+          filterUid = Some(NonEmpty(Seq, mapping.partyId.uid) ++ newParticipants.toSeq.map(_.uid)),
         )
 
         // if we found a DTC with the same uid as the partyId,
@@ -793,7 +801,7 @@ class ValidatingTopologyMappingChecks(
         Set(Code.NamespaceDelegation),
         pendingChangesLookup,
         filterUid = None,
-        filterNamespace = Some(Seq(toValidate.mapping.namespace)),
+        filterNamespace = Some(NonEmpty(Seq, toValidate.mapping.namespace)),
       ).flatMap { namespaceDelegations =>
         EitherTUtil.condUnitET(
           namespaceDelegations.isEmpty,
@@ -850,7 +858,7 @@ class ValidatingTopologyMappingChecks(
         Set(Code.DecentralizedNamespaceDefinition),
         pendingChangesLookup,
         filterUid = None,
-        filterNamespace = Some(Seq(toValidate.mapping.namespace)),
+        filterNamespace = Some(NonEmpty(Seq, toValidate.mapping.namespace)),
       ).flatMap { dns =>
         val foundDecentralizedNamespaceWithSameNamespace = dns.nonEmpty
         EitherTUtil.condUnitET(

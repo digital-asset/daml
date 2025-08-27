@@ -19,9 +19,6 @@ object PostgresQueryStrategy extends QueryStrategy {
       s.setObject(index, v)
   }
 
-  override def arrayContains(arrayColumnName: String, elementColumnName: String): String =
-    s"$elementColumnName = any($arrayColumnName)"
-
   override def anyOf(longs: Iterable[Long]): CompositeSql = {
     val longArray: Array[java.lang.Long] =
       longs.view.map(Long.box).toArray

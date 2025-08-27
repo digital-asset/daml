@@ -435,7 +435,6 @@ class CantonSyncService(
   override def prune(
       pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
-      _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
     withNewTrace("CantonSyncService.prune") { implicit traceContext => span =>
       span.setAttribute("submission_id", submissionId)
@@ -1167,7 +1166,7 @@ class CantonSyncService(
       repairService,
       commitmentsService,
       pruningProcessor,
-    ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ Seq(
+      syncCrypto,
       connectionsManager,
       transactionRoutingProcessor,
       synchronizerRegistry,

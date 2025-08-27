@@ -178,8 +178,8 @@ object StoredTopologyTransactions
       .map(StoredTopologyTransactions(_))
   }
 
-  def empty: GenericStoredTopologyTransactions =
-    StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](Seq())
+  def empty[Op <: TopologyChangeOp]: StoredTopologyTransactions[Op, TopologyMapping] =
+    StoredTopologyTransactions[Op, TopologyMapping](Seq.empty)
 
   override def name: String = "topology transactions"
 }

@@ -685,7 +685,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               ts6,
               filterUid = Some(
-                Seq(
+                NonEmpty(
+                  Seq,
                   ptp_fred_p1.mapping.partyId.uid,
                   dtc_p2_synchronizer1.mapping.participantId.uid,
                 )
@@ -695,7 +696,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               store,
               ts6,
               filterNamespace = Some(
-                Seq(dns_p1seq, p2Namespace)
+                NonEmpty(Seq, dns_p1seq, p2Namespace)
               ),
             )
 

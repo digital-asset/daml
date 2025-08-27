@@ -1448,17 +1448,19 @@ class IssSegmentModuleTest
           baseCommit(from = otherIds(1)),
           baseCommit(from = myId),
         )
-        context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
-          completedBlocks = Seq[EpochStore.Block](
-            EpochStore.Block(
-              epochNumber = epochInfo.number,
-              blockNumber = epochInfo.startBlockNumber,
-              CommitCertificate(prePrepare = remotePrePrepare, commits = commits),
-            )
-          ),
-          pbftMessagesForIncompleteBlocks = Seq.empty,
-        )
-
+        context.blockingAwait(store.loadEpochProgress(epochInfo)) should matchPattern {
+          case EpochInProgress(
+                completedBlocks,
+                _, // pbftMessagesForIncompleteBlocks
+              )
+              if completedBlocks == Seq[EpochStore.Block](
+                EpochStore.Block(
+                  epochNumber = epochInfo.number,
+                  blockNumber = epochInfo.startBlockNumber,
+                  CommitCertificate(prePrepare = remotePrePrepare, commits = commits),
+                )
+              ) =>
+        }
         // Execute the self-addressed internal OrderedBlockStored event
         val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
         events should have size 1

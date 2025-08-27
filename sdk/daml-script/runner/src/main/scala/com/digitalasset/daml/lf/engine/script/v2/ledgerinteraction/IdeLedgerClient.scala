@@ -200,7 +200,7 @@ class IdeLedgerClient(
       requireContractIdSuffix = false,
     )
 
-    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
       case Left(e) =>
         sys.error(s"computeView: translateValue failed: $e")
 

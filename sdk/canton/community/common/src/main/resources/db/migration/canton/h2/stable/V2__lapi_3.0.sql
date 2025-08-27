@@ -18,8 +18,7 @@ CREATE TABLE lapi_parameters (
   ledger_end_sequential_id BIGINT,
   ledger_end_string_interning_id INTEGER,
   ledger_end_publication_time BIGINT,
-  participant_pruned_up_to_inclusive BIGINT,
-  participant_all_divulged_contracts_pruned_up_to_inclusive BIGINT
+  participant_pruned_up_to_inclusive BIGINT
 );
 
 CREATE TABLE lapi_post_processing_end (
