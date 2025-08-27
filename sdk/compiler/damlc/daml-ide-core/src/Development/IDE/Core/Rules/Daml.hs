@@ -433,7 +433,6 @@ generateSerializedDalfRule options =
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    --TODO[RB]: what kind of package is this??
                                     let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps Set.empty
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
@@ -835,14 +834,11 @@ writeDalfFile dalfFile mod = do
                 Proto.toLazyByteString $
                     encodeSinglePackageModule lfVersion mod
 
--- this is a lot of qualification, which to import?
 convertUnitId :: Map.Map GHC.UnitId LF.DalfPackage -> GHC.InstalledUnitId -> LF.PackageId
 convertUnitId pkgMap id =
-  --TODO: should we handle the case where lookup fails?
   let LF.DalfPackage { dalfPackageId } = fromJust (Map.lookup (DefiniteUnitId (DefUnitId id)) pkgMap)
   in dalfPackageId
 
--- this is a lot of qualification, which to import?
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
 
