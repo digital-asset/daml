@@ -608,7 +608,7 @@ class Engine(val config: EngineConfig) {
                 ResultError(Error.Interpretation.Internal(loc, errMsg, None))
 
               case None =>
-                ResultDone((tx, meta, machine.getMetrics))
+                ResultDone((tx, meta, machine.metrics))
             }
           }
         case Left(err) =>

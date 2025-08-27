@@ -437,7 +437,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
-    val Right((tx, txMeta, _)) = interpretResult
+    val Right((tx, txMeta, metrics)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
@@ -482,6 +482,19 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         case Left(e) =>
           fail(e.message)
         case Right(()) => ()
+      }
+    }
+
+    "be validated with no change in metrics" in {
+      val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
+      val validated = suffixLenientEngine
+        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+      validated match {
+        case Left(e) =>
+          fail(e.message)
+        case Right(actual) =>
+          actual.totalStepCount shouldBe metrics.totalStepCount
       }
     }
   }

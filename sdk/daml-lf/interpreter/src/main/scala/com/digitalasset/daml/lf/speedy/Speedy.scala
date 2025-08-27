@@ -47,12 +47,18 @@ private[lf] object Speedy {
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
 
-  final class Metrics() {
-    private[this] var stepCount: Int = 0
+  final class Metrics(val batchSize: Long) {
+    // Speedy evaluates in steps which are grouped into batches of batchSize
+    private[this] var stepBatchCount: Long = 0
+    private[this] var stepCount: Long = 0
 
     private[speedy] def incrStepCount(): Unit = stepCount += 1
+    private[speedy] def incrStepBatchCount(): Unit = {
+      stepBatchCount += 1
+      stepCount = 0
+    }
 
-    private[lf] def getStepCount(): Int = stepCount
+    private[lf] def totalStepCount: (Long, Long) = (stepBatchCount, stepCount)
   }
 
   /** Instrumentation counters. */
@@ -207,10 +213,6 @@ private[lf] object Speedy {
 
     private[this] var contractLookupCache =
       Map.empty[V.ContractId, (FatContractInstance, Hash.HashingMethod, Hash => Boolean)]
-
-    private[this] val metrics = new Speedy.Metrics()
-
-    private[lf] def getMetrics: Speedy.Metrics = metrics
 
     // To handle continuation exceptions, as continuations run outside the interpreter loop.
     // Here we delay the throw to the interpreter loop, but it would be probably better
@@ -870,6 +872,8 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    private[lf] lazy val metrics = new Speedy.Metrics(iterationsBetweenInterruptions)
+
     /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
@@ -1160,11 +1164,13 @@ private[lf] object Speedy {
             Classify.classifyMachine(this, track.classifyCounts)
           if (interruptionCountDown == 0) {
             interruptionCountDown = iterationsBetweenInterruptions
+            metrics.incrStepBatchCount()
             SResultInterruption
           } else {
             val thisControl = control
             setControl(Control.WeAreUnset)
             interruptionCountDown -= 1
+            metrics.incrStepCount()
             thisControl match {
               case Control.Value(value) =>
                 popTempStackToBase()
