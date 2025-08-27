@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.value.Value.{
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.annotation.tailrec
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.{HashMap, TreeSet}
 import scala.language.implicitConversions
 
 object TransactionBuilder {
@@ -218,4 +218,32 @@ object TransactionBuilder {
   def valueRecord(id: Option[Ref.Identifier], fields: (Option[Ref.Name], Value)*) =
     Value.ValueRecord(id, fields.to(ImmArray))
 
+  private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
+  private[this] val DummyParties = List(Ref.Party.assertFromString("DummyParty"))
+
+  /** Creates a FatContractInstance with dummy contract ID, signatories, observers, creation time and authentication
+    * data. The signatories and observers may be overridden with non-dummy values if necessary. For testing purposes
+    * only.
+    */
+  def fatContractInstanceWithDummyDefaults(
+      version: TransactionVersion,
+      packageName: Ref.PackageName,
+      template: Ref.Identifier,
+      arg: Value,
+      signatories: Iterable[Ref.Party] = DummyParties,
+      observers: Iterable[Ref.Party] = List.empty,
+      contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers] = None,
+  ): FatContractInstance =
+    FatContractInstanceImpl(
+      version = version,
+      contractId = DummyCid,
+      packageName = packageName,
+      templateId = template,
+      createArg = arg,
+      signatories = TreeSet.from(signatories),
+      stakeholders = TreeSet.from(observers ++ signatories),
+      contractKeyWithMaintainers = contractKeyWithMaintainers,
+      createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
+      authenticationData = Bytes.Empty,
+    )
 }

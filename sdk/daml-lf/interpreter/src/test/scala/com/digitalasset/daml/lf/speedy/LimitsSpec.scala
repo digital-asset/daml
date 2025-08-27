@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   SubmittedTransaction,
@@ -542,7 +543,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val aCid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("a contract ID"))
   private[this] def mkContract(signatories: Iterable[Ref.Party], observers: Iterable[Ref.Party]) = {
 
-    FatContractInstance.fromThinInstance(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
       TransactionVersion.StableVersions.max,
       pkg.pkgName,
       T,

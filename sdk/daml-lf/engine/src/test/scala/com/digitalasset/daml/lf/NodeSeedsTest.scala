@@ -4,14 +4,15 @@
 package com.digitalasset.daml.lf
 
 import com.daml.bazeltools.BazelRunfiles
+import com.daml.logging.LoggingContext
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, NodeId}
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
+import com.digitalasset.daml.lf.transaction.{Node, NodeId}
 import com.digitalasset.daml.lf.value.Value
-import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -48,25 +49,28 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     "001000000000000000000000000000000000000000000000000000000000000000"
   )
   val requestContract =
-    FatContractInstance.fromThinInstance(
-      transaction.TransactionVersion.VDev,
-      mainPkg.pkgName,
-      requestTmplId,
-      Value.ValueRecord(
+    TransactionBuilder.fatContractInstanceWithDummyDefaults(
+      version = transaction.TransactionVersion.VDev,
+      packageName = mainPkg.pkgName,
+      template = requestTmplId,
+      arg = Value.ValueRecord(
         None,
         ImmArray(None -> Value.ValueParty(operator), None -> Value.ValueParty(investor)),
       ),
+      signatories = List(operator),
+      observers = List(investor),
     )
   val roleTmplId =
     Ref.Identifier(mainPkgId, Ref.QualifiedName.assertFromString("Demonstrator:RegistrarRole"))
   val roleCid: Value.ContractId = Value.ContractId.V1.assertFromString(
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
-  val roleContract = FatContractInstance.fromThinInstance(
-    transaction.TransactionVersion.VDev,
-    mainPkg.pkgName,
-    roleTmplId,
-    Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
+  val roleContract = TransactionBuilder.fatContractInstanceWithDummyDefaults(
+    version = transaction.TransactionVersion.VDev,
+    packageName = mainPkg.pkgName,
+    template = roleTmplId,
+    arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
+    signatories = List(operator),
   )
   val contracts = Map(requestCid -> requestContract, roleCid -> roleContract)
 

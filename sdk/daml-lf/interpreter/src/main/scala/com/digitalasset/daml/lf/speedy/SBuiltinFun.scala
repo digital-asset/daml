@@ -1551,7 +1551,7 @@ private[lf] object SBuiltinFun {
         // This isn't ideal as its a large uncached computation in a non Update primative.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, dstTplId, srcArg.toUnnormalizedValue) { templateArg =>
+        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toUnnormalizedValue) { templateArg =>
           k(Some(templateArg))
         }
       } else {
@@ -2436,7 +2436,7 @@ private[lf] object SBuiltinFun {
             ) { () =>
               importValue(
                 machine,
-                dstTmplId,
+                Ast.TTyCon(dstTmplId),
                 srcContract.arg,
               )(dstArg =>
                 fetchValidateDstContract(machine, coid, srcTmplId, srcContract, dstTmplId, dstArg)({
@@ -2498,23 +2498,79 @@ private[lf] object SBuiltinFun {
           )(f(Some(templateArg), _))
         }
       case None =>
-        machine.lookupContract(coid)(coinst =>
+        machine.lookupContract(coid)((coinst, _, _) =>
           machine.ensurePackageIsLoaded(
             NameOf.qualifiedNameOfCurrentFunc,
-            coinst.template.packageId,
-            language.Reference.Template(coinst.template.toRef),
+            coinst.templateId.packageId,
+            language.Reference.Template(coinst.templateId.toRef),
           ) { () =>
-            importValue(machine, coinst.template, coinst.arg) { templateArg =>
-              getContractInfo(
-                machine,
-                coid,
-                coinst.template,
-                templateArg,
-                allowCatchingContractInfoErrors = false,
-              )(f(None, _))
-            }
+            importContractInfo(machine, coinst)(f(None, _))
           }
         )
+    }
+  }
+
+  private def importContractInfo[Q](machine: Machine[Q], coinst: FatContractInstance)(
+      f: ContractInfo => Control[Q]
+  ): Control[Q] =
+    importValue(machine, Ast.TTyCon(coinst.templateId), coinst.createArg) { createArgSValue =>
+      def cont(mbCachedKey: Option[CachedKey]): Control[Q] = {
+        f(
+          ContractInfo(
+            version = coinst.version,
+            packageName = coinst.packageName,
+            templateId = coinst.templateId,
+            value = createArgSValue,
+            signatories = coinst.signatories,
+            observers = coinst.nonSignatoryStakeholders,
+            keyOpt = mbCachedKey,
+          )
+        )
+      }
+      coinst.contractKeyWithMaintainers match {
+        case None => cont(None)
+        case Some(key) =>
+          importKey(machine, coinst.version, key)(cachedKey => cont(Some(cachedKey)))
+      }
+    }
+
+  private def importKey[Q](
+      machine: Machine[Q],
+      version: TransactionVersion,
+      key: GlobalKeyWithMaintainers,
+  )(
+      f: CachedKey => Control[Q]
+  ): Control[Q] = {
+    // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
+    //     we can no longer assume that key.globalKey.templateId resolves to a template, or that this template defines
+    //     a key. For now, we assume that all fat contract instances coming from ResultNeedContract are well-typed and
+    //     thus it is ok to crash when that isn't the case.
+    val keyType =
+      machine.compiledPackages
+        .signatures(key.globalKey.templateId.packageId)
+        .modules(key.globalKey.qualifiedName.module)
+        .templates(key.globalKey.qualifiedName.name)
+        .key
+        .getOrElse(
+          throw SErrorCrash(
+            NameOf.qualifiedNameOfCurrentFunc,
+            s"template ${key.globalKey.templateId} does not define a key",
+          )
+        )
+        .typ
+    importValue(machine, keyType, key.globalKey.key) { keySValue =>
+      f(
+        CachedKey(
+          packageName = key.globalKey.packageName,
+          // The IDE ledger does not normalize keys in fat contract instances, which breaks the upgrade check when
+          // comparing them against the recomputed ones. So we normalize them on import for now.
+          globalKeyWithMaintainers = key.copy(globalKey =
+            GlobalKey
+              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue(version))
+          ),
+          key = keySValue,
+        )
+      )
     }
   }
 
@@ -2558,13 +2614,11 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importValue[Q](machine: Machine[Q], templateId: TypeConId, coinstArg: V)(
+  private def importValue[Q](machine: Machine[Q], typ: Ast.Type, value: V)(
       f: SValue => Control[Q]
   ): Control[Q] = {
-    val e = SEImportValue(Ast.TTyCon(templateId), coinstArg)
-    executeExpression(machine, e) { contractInfoStruct =>
-      f(contractInfoStruct)
-    }
+    val e = SEImportValue(typ, value)
+    executeExpression(machine, e)(f)
   }
 
   // Get the contract info for a contract, computing if not in our cache

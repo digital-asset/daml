@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.speedy.SExpr._
 import com.digitalasset.daml.lf.speedy.SValue.{SValue => _, _}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
+import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
@@ -147,11 +148,12 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
     val tplPayload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
     val contracts = Map[Value.ContractId, FatContractInstance](
       cid ->
-        FatContractInstance.fromThinInstance(
-          TransactionVersion.StableVersions.max,
-          implemPkgName,
-          tplId,
-          tplPayload,
+        TransactionBuilder.fatContractInstanceWithDummyDefaults(
+          version = TransactionVersion.StableVersions.max,
+          packageName = implemPkgName,
+          template = tplId,
+          arg = tplPayload,
+          signatories = List(alice),
         )
     )
 
@@ -293,11 +295,12 @@ class SBuiltinInterfaceUpgradeViewTest extends AnyFreeSpec with Matchers with In
   val Ast.TTyCon(tplV1Id) = t"Mod:T" (implemParserParams(1))
   val tplV1Payload = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice)))
   val contracts = Map[Value.ContractId, FatContractInstance](
-    cid -> FatContractInstance.fromThinInstance(
-      TransactionVersion.StableVersions.max,
-      implemPkgName,
-      tplV1Id,
-      tplV1Payload,
+    cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
+      version = TransactionVersion.StableVersions.max,
+      packageName = implemPkgName,
+      template = tplV1Id,
+      arg = tplV1Payload,
+      signatories = List(alice),
     )
   )
 
@@ -410,7 +413,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 basePkg.pkgName,
                 tplId,
@@ -439,7 +442,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 basePkg.pkgName,
                 tplId,
@@ -465,7 +468,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 packageName = basePkg.pkgName,
                 template = iouId,
@@ -486,7 +489,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 extraPkg.pkgName,
                 extraIouId,
@@ -507,7 +510,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
             ArraySeq(SContractId(cid), SToken),
             packageResolution = pkgNameMap,
             getContract = Map(
-              cid -> FatContractInstance.fromThinInstance(
+              cid -> TransactionBuilder.fatContractInstanceWithDummyDefaults(
                 TransactionVersion.StableVersions.max,
                 extraPkg.pkgName,
                 extraIouId,
