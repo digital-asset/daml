@@ -36,7 +36,7 @@ class ExtractSnapshotChoices extends AsyncWordSpec with Matchers {
     snapshotFiles.size() should be(1)
 
     val snapshotFile = snapshotFiles.get(0)
-    val choiceNames = TransactionSnapshot.getAllChoiceNames(snapshotFile)
+    val choiceNames = TransactionSnapshot.getAllTopLevelChoiceNames(snapshotFile)
 
     noException should be thrownBy {
       Files.writeString(
