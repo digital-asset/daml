@@ -5,20 +5,27 @@ module DA.Daml.Helper.New
     ( runListTemplates
     , runNew
     , defaultProjectTemplate
+    , ociMain
     ) where
 
+import Control.Exception (IOException, try)
 import Control.Monad.Extra
 import DA.Directory
+import Data.Either.Extra
+import Data.Foldable
 import Data.List.Extra
 import Data.Maybe
+import Options.Applicative
 import System.Directory.Extra
 import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process (showCommandForUser)
 
+import DA.Bazel.Runfiles
 import DA.Daml.Project.Consts
-import DA.Daml.Helper.Util
+import DA.Daml.Project.Util
+import DA.Signals (installSignalHandlers)
 
 -- | Create a Daml project in a new directory, based on a project template packaged
 -- with the SDK. Special care has been taken to avoid:
@@ -31,7 +38,11 @@ import DA.Daml.Helper.Util
 -- * Creation of a project inside another project.
 --
 runNew :: FilePath -> Maybe String -> IO ()
-runNew targetFolder templateNameM = do
+runNew = runNewInternal "daml"
+
+-- | Called for both Daml Assistant and DPM
+runNewInternal :: String -> FilePath -> Maybe String -> IO ()
+runNewInternal assistantName targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -41,7 +52,7 @@ runNew targetFolder templateNameM = do
     unlessM (doesDirectoryExist templateFolder) $ do
         hPutStr stderr $ unlines
             [ "Template " <> show templateName <> " does not exist."
-            , "Use `daml new --list` to see a list of available templates"
+            , "Use `" <> assistantName <> " new --list` to see a list of available templates"
             ]
         exitFailure
 
@@ -51,7 +62,7 @@ runNew targetFolder templateNameM = do
             [ "Directory " <> show targetFolder <> " already exists."
             , "Please specify a new directory, or use 'daml init' instead:"
             , ""
-            , "    " <> showCommandForUser "daml" ["init", targetFolder]
+            , "    " <> showCommandForUser assistantName ["init", targetFolder]
             , ""
             ]
         exitFailure
@@ -68,7 +79,7 @@ runNew targetFolder templateNameM = do
                 [ "Template name " <> projectName <> " was given as project name."
                 , "Please specify a project name separately, for example:"
                 , ""
-                , "    " <> showCommandForUser "daml" ["new", "myproject", "--template", projectName]
+                , "    " <> showCommandForUser assistantName ["new", "myproject", "--template", projectName]
                 , ""
                 ]
             exitFailure
@@ -108,7 +119,13 @@ runNew targetFolder templateNameM = do
         "\" based on the template \"" <> templateName <> "\"."
 
 getTemplatesFolder :: IO FilePath
-getTemplatesFolder = fmap (</> "templates") getSdkPath
+getTemplatesFolder = do
+  mSdkPath <- eitherToMaybe <$> try @IOException getSdkPath
+  case mSdkPath of
+    Just sdkPath -> pure $ sdkPath </> "templates"
+    Nothing ->
+      -- Templates are stored at root in resources, so locate empty resource to get root resources directory
+      locateResource $ Resource "" ""
 
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
@@ -130,3 +147,33 @@ setWritable f = do
     p <- getPermissions f
     setPermissions f p { writable = True }
 
+-- Copied from Helper.Util to avoid its much larger dependency set. To be cleaned up once Daml Helper is removed.
+findDamlProjectRoot :: FilePath -> IO (Maybe FilePath)
+findDamlProjectRoot = findAscendantWithFile projectConfigName
+
+findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
+findAscendantWithFile filename path =
+    findM (\p -> doesFileExist (p </> filename)) (ascendants path)
+
+ociMain :: IO ()
+ociMain = do
+    -- Save the runfiles environment to work around
+    forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
+    -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
+    setRunfilesEnv
+    installSignalHandlers
+    join $ customExecParser (prefs showHelpOnError) (info (commandParser <**> helper) idm)
+  where
+    commandParser :: Parser (IO ())
+    commandParser = 
+      let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
+          appTemplateFlag = asum
+            [ Just <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
+            , pure Nothing
+            ]
+      in asum
+        [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
+        , runNewInternal "dpm"
+            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
+            <*> appTemplateFlag
+        ]

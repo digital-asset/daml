@@ -58,6 +58,7 @@ copy_oci damlc bazel-bin/compiler/damlc/damlc-oci.tar.gz
 copy_oci daml-script bazel-bin/daml-script/runner/daml-script-oci.tar.gz
 copy_oci daml2js bazel-bin/language-support/ts/codegen/daml2js-oci.tar.gz
 copy_oci codegen bazel-bin/language-support/java/codegen/codegen-oci.tar.gz
+copy_oci daml-new bazel-bin/daml-assistant/daml-helper/daml-new-oci.tar.gz
 
 # Platform independent artifacts are only built on Linux.
 if [[ "${NAME}" == "linux-intel" ]]; then

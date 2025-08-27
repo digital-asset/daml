@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//bazel_tools/packaging:packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app", "package_oci_component")
 load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load("//rules_daml:daml.bzl", "daml_compile")
 
@@ -256,4 +256,46 @@ daml_compile(
     srcs = glob(["test-data/upgrade-test-v2/Main.daml"]),
     project_name = "some-package",
     version = "2.0.0",
+)
+
+da_haskell_binary(
+    name = "daml-new",
+    srcs = glob(["src/DA/Daml/Helper/New.hs"]),
+    hackage_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "optparse-applicative",
+        "process",
+    ],
+    src_strip_prefix = "src",
+    main_function = "DA.Daml.Helper.New.ociMain",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+        "//sdk-version/hs:sdk-version-class-lib",
+    ],
+)
+
+package_app(
+    name = "daml-new-dpm",
+    binary = ":daml-new",
+    resources = [
+        "//templates:templates-tarball.tar.gz"
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+package_oci_component(
+    name = "daml-new-oci",
+    component_manifest = ":component.yaml",
+    resources = [
+        ":daml-new-dpm",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
 )
