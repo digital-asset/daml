@@ -56,6 +56,7 @@ class ReplayBenchmark {
       benchmark = benchmark.copy(pkgs = loadedPackages)
     }
 
+    // TODO: do something with returned metric data - e.g. expose via JMH AuxCounters
     assert(benchmark.validate().isRight)
   }
 

@@ -46,6 +46,14 @@ private[lf] object Speedy {
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
 
+  final class Metrics() {
+    private[this] var stepCount: Int = 0
+
+    private[speedy] def incrStepCount(): Unit = stepCount += 1
+
+    private[lf] def getStepCount(): Int = stepCount
+  }
+
   /** Instrumentation counters. */
   final class Instrumentation() {
     private[this] var countPushesKont: Int = 0
@@ -197,6 +205,10 @@ private[lf] object Speedy {
       ) {
 
     private[this] var contractsCache = Map.empty[V.ContractId, V.ThinContractInstance]
+
+    private[this] val metrics = new Speedy.Metrics()
+
+    private[lf] def getMetrics: Speedy.Metrics = metrics
 
     // To handle continuation exceptions, as continuations run outside the interpreter loop.
     // Here we delay the throw to the interpreter loop, but it would be probably better
@@ -947,7 +959,7 @@ private[lf] object Speedy {
     }
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
-    /* Used when enableLightweightStepTracing is true */
+
     private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
 
     /* Used when enableInstrumentation is true */

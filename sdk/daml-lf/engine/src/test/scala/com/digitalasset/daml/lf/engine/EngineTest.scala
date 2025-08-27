@@ -436,7 +436,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
-    val Right((tx, txMeta)) = interpretResult
+    val Right((tx, txMeta, _)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
@@ -568,7 +568,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
-    val Right((tx, txMeta)) = result
+    val Right((tx, txMeta, _)) = result
 
     "be translated" in {
       val Right((rtx, _)) = suffixLenientEngine
@@ -697,7 +697,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         )
         .consume(lookupContract, lookupPackage, lookupKey)
 
-      inside(result) { case Right((tx, _)) =>
+      inside(result) { case Right((tx, _, _)) =>
         inside(tx.roots.map(tx.nodes)) { case ImmArray(create: Node.Create, exe: Node.Exercise) =>
           create.templateId shouldBe tmplId
           exe.templateId shouldBe tmplId
@@ -1032,7 +1032,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             .consume(lookupContract, lookupPackage, lookupKey)
         }
 
-    val Right((tx, txMeta)) = interpretResult
+    val Right((tx, txMeta, _)) = interpretResult
     val Right(submitter) = tx.guessSubmitter
 
     "be translated" in {
@@ -1074,7 +1074,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     }
 
     "not mark any node as byKey" in {
-      interpretResult.map { case (tx, _) => byKeyNodes(tx).size } shouldBe Right(0)
+      interpretResult.map { case (tx, _, _) => byKeyNodes(tx).size } shouldBe Right(0)
     }
   }
 
@@ -1303,7 +1303,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val Right(cmds) = preprocessor
       .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
-    val Right((rtx, _)) = suffixLenientEngine
+    val Right((rtx, _, _)) = suffixLenientEngine
       .interpretCommands(
         validating = false,
         submitters = submitters,
@@ -1474,7 +1474,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             )
             .consume(lookupContract, lookupPackage, lookupKey)
         }
-
+        .map { case (tx, meta, _) =>
+          (tx, meta)
+        }
     }
 
     "propagate the parent's signatories and actors (but not observers) when stakeholders" taggedAs SecurityTest(
@@ -1923,7 +1925,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
       val submitters = Set(alice)
 
-      val Right((tx, _)) = suffixLenientEngine
+      val Right((tx, _, _)) = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -1987,7 +1989,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
 
-      val Right((tx, _)) = suffixLenientEngine
+      val Right((tx, _, _)) = suffixLenientEngine
         .interpretCommands(
           validating = false,
           submitters = submitters,
@@ -2398,7 +2400,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         "CreateAllTypes",
         ValueRecord(None, ImmArray((None, ValueContractId(cid)))),
       )
-      inside(run(command)) { case Right((tx, meta)) =>
+      inside(run(command)) { case Right((tx, meta, _)) =>
         tx.nodes.size shouldBe 9
         tx.nodes(NodeId(0)) shouldBe a[Node.Create]
         tx.nodes(NodeId(1)) shouldBe a[Node.Exercise]
@@ -2874,7 +2876,7 @@ class EngineTestHelpers(
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
 
-      inside(result) { case Right((transaction, metadata)) =>
+      inside(result) { case Right((transaction, metadata, _)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
         metadata should haveDisclosedEvents(usedDisclosedContract.contract.toCreateNode)
       }
