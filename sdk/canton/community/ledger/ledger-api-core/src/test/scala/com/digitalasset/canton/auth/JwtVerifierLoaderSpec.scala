@@ -17,6 +17,7 @@ import org.scalatest.matchers.should.Matchers
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
 import java.security.{KeyPairGenerator, PrivateKey, PublicKey}
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success, Try}
 
 trait JwtVerifierLoaderSpec
@@ -26,7 +27,11 @@ trait JwtVerifierLoaderSpec
     with BaseTest { self: JwtVerifierLoaderSpecKeys =>
 
   protected val verifierLoader: CachedJwtVerifierLoader = new CachedJwtVerifierLoader(
-    loggerFactory = loggerFactory
+    1000,
+    10.minutes,
+    10.seconds,
+    10.seconds,
+    loggerFactory = loggerFactory,
   )
 
   val securityAsset: SecurityTest =
@@ -109,7 +114,7 @@ trait JwtVerifierLoaderSpecKeys {
   private val server = SimpleHttpServer.start(jwks)
   protected val url: String = SimpleHttpServer.responseUrl(server)
 
-  protected val verifier: JwksVerifier = JwksVerifier(url)
+  protected val verifier: JwksVerifier = JwksVerifier(url, 1000, 10.minutes, 10.seconds, 10.seconds)
 }
 
 class JwtVerifierLoaderSpecRSA extends JwtVerifierLoaderSpec with JwtVerifierLoaderSpecKeys {

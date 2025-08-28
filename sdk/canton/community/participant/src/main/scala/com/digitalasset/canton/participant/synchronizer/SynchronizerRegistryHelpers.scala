@@ -113,10 +113,12 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         SynchronizerRegistryError.SynchronizerRegistryInternalError.InvalidState(error.toString)
       )
 
+    val useNewConnectionPool = participantNodeParameters.sequencerClient.useNewConnectionPool
+
     val synchronizerHandleET = for {
       connectionPool <- connectionPoolE.toEitherT[FutureUnlessShutdown]
       _ <-
-        if (participantNodeParameters.sequencerClient.useNewConnectionPool) {
+        if (useNewConnectionPool) {
           connectionPool.start().leftMap { error =>
             SynchronizerRegistryError.ConnectionErrors.FailedToConnectToSequencers.Error(
               error.toString
@@ -308,7 +310,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
           ),
           sequencerAggregatedInfo.sequencerConnections,
           synchronizerPredecessor,
-          sequencerAggregatedInfo.expectedSequencers,
+          Option.when(!useNewConnectionPool)(sequencerAggregatedInfo.expectedSequencers),
           connectionPool,
         )
         .leftMap[SynchronizerRegistryError](

@@ -243,6 +243,7 @@ final case class LedgerApiServerConfig(
     topologyAwarePackageSelection: TopologyAwarePackageSelectionConfig =
       TopologyAwarePackageSelectionConfig.Default,
     maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
+    jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
 ) extends ServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 

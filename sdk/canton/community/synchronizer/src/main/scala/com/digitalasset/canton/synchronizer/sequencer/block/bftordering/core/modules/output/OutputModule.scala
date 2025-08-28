@@ -923,7 +923,7 @@ object OutputModule {
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
       // TODO(#21615) we should avoid a further deserialization downstream, which would also eliminate
-      //  a zip bomb vulnerability in the BUG that could be triggered by byzantine sequencers (#10428)
+      //  a zip bomb vulnerability in the BUG that could be triggered by byzantine sequencers (#26169)
       deserializeSignedOrderingRequest(synchronizerProtocolVersion, maxRequestSizeToDeserialize)(
         request.payload
       ) match {

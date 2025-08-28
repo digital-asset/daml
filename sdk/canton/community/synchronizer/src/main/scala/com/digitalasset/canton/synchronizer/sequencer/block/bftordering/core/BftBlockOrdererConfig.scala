@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{
   CantonConfigValidator,
   CantonConfigValidatorInstances,
   ClientConfig,
+  JwksCacheConfig,
   KeepAliveClientConfig,
   PemFileOrString,
   ServerConfig,
@@ -182,6 +183,7 @@ object BftBlockOrdererConfig {
       with UniformCantonConfigValidation {
     override val maxTokenLifetime: config.NonNegativeDuration =
       config.NonNegativeDuration(Duration.Inf)
+    override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
     override val jwtTimestampLeeway: Option[JwtTimestampLeeway] = None
     override val keepAliveServer: Option[BasicKeepAliveServerConfig] = None
     override val authServices: Seq[AuthServiceConfig] = Seq.empty

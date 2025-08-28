@@ -4,7 +4,7 @@
 package com.digitalasset.canton.integration.bootstrap
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   InstanceReference,
   LocalInstanceReference,
@@ -39,7 +39,7 @@ class NetworkBootstrapper(networks: NetworkTopologyDescription*)(implicit
   private def bootstrapSynchronizer(desc: NetworkTopologyDescription): Unit = {
     val mediatorsToSequencers =
       desc.overrideMediatorToSequencers.getOrElse(
-        desc.mediators.map(_ -> (desc.sequencers, PositiveInt.one)).toMap
+        desc.mediators.map(_ -> (desc.sequencers, PositiveInt.one, NonNegativeInt.zero)).toMap
       )
 
     val synchronizerId = env.bootstrap.synchronizer(
@@ -84,7 +84,7 @@ final case class NetworkTopologyDescription(
     staticSynchronizerParameters: StaticSynchronizerParameters,
     mediatorRequestAmplification: SubmissionRequestAmplification,
     overrideMediatorToSequencers: Option[
-      Map[MediatorReference, (Seq[SequencerReference], PositiveInt)]
+      Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
     ],
     mediatorThreshold: PositiveInt,
 )
@@ -101,7 +101,7 @@ object NetworkTopologyDescription {
       mediatorRequestAmplification: SubmissionRequestAmplification =
         SubmissionRequestAmplification.NoAmplification,
       overrideMediatorToSequencers: Option[
-        Map[MediatorReference, (Seq[SequencerReference], PositiveInt)]
+        Map[MediatorReference, (Seq[SequencerReference], PositiveInt, NonNegativeInt)]
       ] = None,
       mediatorThreshold: PositiveInt = PositiveInt.one,
   ): NetworkTopologyDescription =

@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
@@ -400,6 +400,7 @@ sealed trait SynchronizerConnectivityIntegrationTest
                 sequencer2.config.publicApi.clientConfig.asSequencerConnection(seq2Alias),
               ),
               sequencerTrustThreshold = PositiveInt.one,
+              sequencerLivenessMargin = NonNegativeInt.zero,
               SubmissionRequestAmplification.NoAmplification,
             ),
           ),

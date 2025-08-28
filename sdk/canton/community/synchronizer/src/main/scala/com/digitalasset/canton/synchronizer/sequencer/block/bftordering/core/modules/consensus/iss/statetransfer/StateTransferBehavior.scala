@@ -268,12 +268,12 @@ final class StateTransferBehavior[E <: Env[E]](
       case _ =>
         postponedConsensusMessages.enqueue(BftNodeId.Empty, message) match {
           case EnqueueResult.PerNodeQuotaExceeded(_) =>
-            logger.info(
+            logger.trace(
               s"Postponed messages without an originating node exceeded their quota on `$messageType` " +
                 s"(likely a late internal message)"
             )
           case EnqueueResult.TotalCapacityExceeded =>
-            logger.info(
+            logger.trace(
               s"Postponed message queue total capacity has been exceeded by a message without an originating node " +
                 s"(`$messageType`, likely a late internal message)"
             )
@@ -406,9 +406,9 @@ final class StateTransferBehavior[E <: Env[E]](
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
     postponedConsensusMessages.enqueue(from, message) match {
       case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>
-        logger.info(s"Node `$nodeId` exceeded its postponed message queue quota")
+        logger.trace(s"Node `$nodeId` exceeded its postponed message queue quota")
       case EnqueueResult.TotalCapacityExceeded =>
-        logger.info("Postponed message queue total capacity has been exceeded")
+        logger.trace("Postponed message queue total capacity has been exceeded")
       case EnqueueResult.Success =>
         logger.trace("Successfully postponed a message")
       case FairBoundedQueue.EnqueueResult.Duplicate(_) =>

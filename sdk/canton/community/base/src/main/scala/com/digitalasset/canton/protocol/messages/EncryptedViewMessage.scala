@@ -19,6 +19,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.{v30, *}
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
@@ -96,21 +97,35 @@ object EncryptedView {
       encryptionOps: EncryptionOps,
       viewKey: SymmetricKey,
       aViewType: VT,
-  )(aViewTree: aViewType.View): Either[EncryptionError, EncryptedView[VT]] =
-    encryptionOps
-      .encryptSymmetricWith(CompressedView(aViewTree), viewKey)
-      .map(apply(aViewType))
+  )(
+      aViewTree: aViewType.View,
+      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize.Limit,
+  ): Either[EncryptionError, EncryptedView[VT]] = {
+    val viewSize = aViewTree.toByteString.size()
+    for {
+      _ <- Either.cond(
+        maxRequestSizeToDeserialize.value.value >= viewSize,
+        (),
+        EncryptionError.MaxViewSizeExceeded(viewSize, maxRequestSizeToDeserialize),
+      )
+      encryptedView <- encryptionOps
+        .encryptSymmetricWith(CompressedView(aViewTree), viewKey)
+        .map(apply(aViewType))
+    } yield encryptedView
+  }
 
   def decrypt[VT <: ViewType](
       encryptionOps: EncryptionOps,
       viewKey: SymmetricKey,
       encrypted: EncryptedView[VT],
   )(
-      deserialize: ByteString => Either[DeserializationError, encrypted.viewType.View]
+      deserialize: ByteString => Either[DeserializationError, encrypted.viewType.View],
+      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize.Limit,
   ): Either[DecryptionError, encrypted.viewType.View] =
     encryptionOps
       .decryptWith(encrypted.viewTree, viewKey)(
-        CompressedView.fromByteString[encrypted.viewType.View](deserialize)(_)
+        CompressedView
+          .fromByteString[encrypted.viewType.View](deserialize)(_, maxRequestSizeToDeserialize)
       )
       .map(_.value)
 
@@ -133,10 +148,12 @@ object EncryptedView {
 
     private[EncryptedView] def fromByteString[V <: HasToByteString](
         deserialize: ByteString => Either[DeserializationError, V]
-    )(bytes: ByteString): Either[DeserializationError, CompressedView[V]] =
-      // TODO(i10428) Make sure that this view does not explode into an arbitrarily large object
+    )(
+        bytes: ByteString,
+        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+    ): Either[DeserializationError, CompressedView[V]] =
       ByteStringUtil
-        .decompressGzip(bytes, maxBytesLimit = None)
+        .decompressGzip(bytes, maxBytesLimit = maxRequestSizeToDeserialize.toOption.map(_.value))
         .flatMap(deserialize)
         .map(CompressedView(_))
   }
@@ -387,7 +404,9 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
       encrypted: EncryptedViewMessage[VT],
       viewRandomness: SecureRandomness,
   )(deserialize: ByteString => Either[DeserializationError, encrypted.encryptedView.viewType.View])(
-      implicit ec: ExecutionContext
+      implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, VT#View] = {
 
     val pureCrypto = snapshot.pureCrypto
@@ -410,9 +429,19 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
               .SessionKeyCreationError(err)
           )
       )
+
+      maxRequestSize <- EitherT(snapshot.ipsSnapshot.findDynamicSynchronizerParameters())
+        .leftMap(error =>
+          EncryptedViewMessageError.UnableToGetDynamicSynchronizerParameters(error, snapshot.psid)
+        )
+        .map(_.parameters.maxRequestSize)
+
       decrypted <- eitherT(
         EncryptedView
-          .decrypt(pureCrypto, viewKey, encrypted.encryptedView)(deserialize)
+          .decrypt(pureCrypto, viewKey, encrypted.encryptedView)(
+            deserialize,
+            maxRequestSizeToDeserialize = MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
+          )
           .leftMap(EncryptedViewMessageError.SymmetricDecryptError.apply)
       )
       _ <- eitherT(
@@ -499,4 +528,10 @@ object EncryptedViewMessageError {
   final case class PrivateKeyStoreVerificationError(
       privatekeyStoreError: CryptoPrivateStoreError
   ) extends EncryptedViewMessageError
+
+  final case class UnableToGetDynamicSynchronizerParameters(
+      error: String,
+      synchronizerId: PhysicalSynchronizerId,
+  ) extends EncryptedViewMessageError
+
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.topology.GeneratorsTopology
 import com.digitalasset.canton.{Generators, SequencerAlias}
@@ -43,10 +43,14 @@ final class GeneratorsSequencing(generatorsTopology: GeneratorsTopology) {
         .map(_.toSeq)
         .map(_.distinctBy(_.sequencerAlias))
       sequencerTrustThreshold <- Gen.choose(1, connections.size).map(PositiveInt.tryCreate)
+      sequencerLivenessMargin <- Gen
+        .choose(0, connections.size - sequencerTrustThreshold.unwrap)
+        .map(NonNegativeInt.tryCreate)
       submissionRequestAmplification <- submissionRequestAmplificationArb.arbitrary
     } yield SequencerConnections.tryMany(
       connections,
       sequencerTrustThreshold,
+      sequencerLivenessMargin,
       submissionRequestAmplification,
     )
   )

@@ -483,6 +483,7 @@ class DatabaseSequencer(
       reader,
       eventSignaller,
       sequencerStore,
+      cryptoApi,
     )(logger)
 
   override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit

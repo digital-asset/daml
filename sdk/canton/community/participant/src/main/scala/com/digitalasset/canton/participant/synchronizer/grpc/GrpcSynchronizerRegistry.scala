@@ -171,6 +171,7 @@ class GrpcSynchronizerRegistry(
           .many(
             updatedConnections,
             config.sequencerConnections.sequencerTrustThreshold,
+            config.sequencerConnections.sequencerLivenessMargin,
             config.sequencerConnections.submissionRequestAmplification,
           )
           .map(connections => config.copy(sequencerConnections = connections))

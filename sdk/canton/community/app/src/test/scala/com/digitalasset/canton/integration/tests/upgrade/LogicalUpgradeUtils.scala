@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests.upgrade
 import better.files.File
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{
   InstanceReference,
   LocalInstanceReference,
@@ -115,6 +115,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
       synchronizerId: SynchronizerId,
       newSequencers: Seq[SequencerReference],
       sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+      sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
       exportDirectory: File,
       sourceNodeNames: Map[String, String] = Map.empty,
   ): Unit = {
@@ -146,6 +147,7 @@ trait LogicalUpgradeUtils { self: BaseTest =>
             newSequencers
               .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
             sequencerTrustThreshold,
+            sequencerLivenessMargin,
             SubmissionRequestAmplification.NoAmplification,
           ),
         )

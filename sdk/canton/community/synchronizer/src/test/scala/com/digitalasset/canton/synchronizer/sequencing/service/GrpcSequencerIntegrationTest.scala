@@ -9,7 +9,12 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.{Port, PositiveDouble, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  Port,
+  PositiveDouble,
+  PositiveInt,
+}
 import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   LoggingConfig,
@@ -379,7 +384,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
           },
           connections,
           synchronizerPredecessor = None,
-          expectedSequencers,
+          Option.when(!useNewConnectionPool)(expectedSequencers),
           connectionPool = connectionPool,
         )
     } yield {
@@ -570,6 +575,7 @@ class GrpcSequencerIntegrationTest
             .many(
               NonEmpty.mk(Seq, connection, makeConnection(port2, sequencerAlias2)),
               sequencerTrustThreshold = PositiveInt.two,
+              sequencerLivenessMargin = NonNegativeInt.zero,
               submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
             )
             .value,

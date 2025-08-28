@@ -660,6 +660,7 @@ class BlockSequencer(
       ),
       AsyncCloseable("done", done, timeouts.shutdownProcessing), // Close the consumer first
       SyncCloseable("blockOrderer.close()", blockOrderer.close()),
+      SyncCloseable("cryptoApi.close()", cryptoApi.close()),
     )
   }
 

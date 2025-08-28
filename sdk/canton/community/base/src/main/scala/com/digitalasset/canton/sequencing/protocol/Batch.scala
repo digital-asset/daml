@@ -89,7 +89,7 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
       ProtocolVersion.v34
     )(v30.CompressedBatch)(
       supportedProtoVersion(_)(
-        // TODO(i10428) Prevent zip bombing when decompressing the request
+        // TODO(i26169) Prevent zip bombing when decompressing the request
         Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
       ),
       _.toProtoV30,

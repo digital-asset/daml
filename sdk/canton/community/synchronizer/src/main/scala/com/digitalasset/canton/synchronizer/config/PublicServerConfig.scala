@@ -49,6 +49,7 @@ final case class PublicServerConfig(
     useExponentialRandomTokenExpiration: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     override val maxTokenLifetime: NonNegativeDuration = config.NonNegativeDuration(Duration.Inf),
+    override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig(),
 ) extends ServerConfig
     with UniformCantonConfigValidation {
 

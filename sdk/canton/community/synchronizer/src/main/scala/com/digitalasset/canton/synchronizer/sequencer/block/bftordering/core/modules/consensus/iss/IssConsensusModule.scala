@@ -86,7 +86,7 @@ final class IssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    private val futurePbftMessageQueue: FairBoundedQueue[
+    @VisibleForTesting private[iss] val futurePbftMessageQueue: FairBoundedQueue[
       Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage
     ],
     private val postponedConsensusMessageQueue: Option[FairBoundedQueue[Consensus.Message[E]]] =
@@ -426,18 +426,18 @@ final class IssConsensusModule[E <: Env[E]](
           // fill up the other node's quota in this queue.
           futurePbftMessageQueue.enqueue(msg.actualSender, msg) match {
             case FairBoundedQueue.EnqueueResult.Success =>
-              logger.debug(
+              logger.trace(
                 s"Queued PBFT message $pbftMessageType from future epoch $epochNumber " +
                   s"as we're still in epoch $thisNodeEpochNumber"
               )
             case FairBoundedQueue.EnqueueResult.TotalCapacityExceeded =>
-              logger.info(
+              logger.trace(
                 s"Dropped PBFT message $pbftMessageType from future epoch $epochNumber " +
                   s"as we're still in epoch $thisNodeEpochNumber and " +
                   s"total capacity for queueing future messages has been reached"
               )
             case FairBoundedQueue.EnqueueResult.PerNodeQuotaExceeded(node) =>
-              logger.info(
+              logger.trace(
                 s"Dropped PBFT message $pbftMessageType from future epoch $epochNumber " +
                   s"as we're still in epoch $thisNodeEpochNumber and " +
                   s"the quota for node $node for queueing future messages has been reached"

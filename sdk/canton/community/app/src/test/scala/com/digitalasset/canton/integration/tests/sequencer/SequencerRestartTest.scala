@@ -30,7 +30,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import org.scalactic.source.Position
 import org.scalatest.Assertion
 import org.scalatest.concurrent.PatienceConfiguration.Timeout
-import org.scalatest.time.{Minutes, Span}
+import org.scalatest.time.{Minutes, Seconds, Span}
 import org.slf4j.event.Level
 
 import scala.concurrent.Future
@@ -42,6 +42,10 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
   // Some of the submissions, which started as part of one test case, may time out as part of the next one.
   private val optionalManySubmissionTimedOut: LogEntry => Assertion =
     _.warningMessage should include("Submission timed out at")
+
+  // Due to sequencer restart time proof requests get retried, and may get logged as warning after reaching a threshold.
+  private val optionalManyRequestCurrentTime: LogEntry => Assertion =
+    _.warningMessage should include("Now retrying operation 'request current time'")
 
   protected def name: String
 
@@ -166,9 +170,12 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
 
       def sendAndWait(participant: LocalParticipantReference): Unit = {
         implicit val metricsContext: MetricsContext = MetricsContext.Empty
-        val syncService = participant.underlying.value.sync
-        utils.retry_until_true(syncService.readyConnectedSynchronizerById(daId).nonEmpty)
-        val client = syncService
+        utils.retry_until_true(
+          participant.underlying.value.sync
+            .readyConnectedSynchronizerById(daId)
+            .nonEmpty
+        )
+        val client = participant.underlying.value.sync
           .readyConnectedSynchronizerById(daId)
           .value
           .sequencerClient
@@ -181,7 +188,9 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
           callback = callback,
         )
         sendAsync.valueOrFailShutdown("Participant send").futureValue
-        callback.future.onShutdown(fail("shutdown")).futureValue should matchPattern {
+        callback.future
+          .onShutdown(fail("shutdown"))
+          .futureValue(Timeout(Span(45, Seconds))) should matchPattern {
           case SendResult.Success(_) =>
         }
       }
@@ -215,8 +224,10 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
               "with an unknown request id"
             )),
           )
-          if (logs.sizeIs > 3)
+          if (logs.sizeIs > 3) {
             forAtMost(logs.size - 3, logs)(optionalManySubmissionTimedOut)
+            forAtMost(logs.size - 3, logs)(optionalManyRequestCurrentTime)
+          }
           forAtLeast(1, logs)(assertSyncServiceAlarm)
           forAtLeast(1, logs)(assertBadRootHashMessages)
           forAtLeast(1, logs)(assertInvalidMessage)

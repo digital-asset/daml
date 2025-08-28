@@ -117,14 +117,15 @@ class SequencedEventTestFixture(
     ).onShutdown(throw new RuntimeException("failed to create carlos event")).futureValue
   )
 
+  // TODO(i26481): adjust when the new connection pool is stable
+  private val useNewConnectionPool = testedProtocolVersion >= ProtocolVersion.dev
+
   def mkAggregator(
       config: MessageAggregationConfig = MessageAggregationConfig(
-        NonEmptyUtil.fromUnsafe(Set(sequencerAlice)),
+        Option.when(!useNewConnectionPool)(NonEmptyUtil.fromUnsafe(Set(sequencerAlice))),
         PositiveInt.tryCreate(1),
       )
   ) = {
-    val useNewConnectionPool = testedProtocolVersion >= ProtocolVersion.dev
-
     val aggregator = new SequencerAggregator(
       cryptoPureApi = subscriberCryptoApi.pureCrypto,
       eventInboxSize = PositiveInt.tryCreate(2),
@@ -151,7 +152,7 @@ class SequencedEventTestFixture(
       sequencerTrustThreshold: Int = 1,
   ): MessageAggregationConfig =
     MessageAggregationConfig(
-      NonEmptyUtil.fromUnsafe(expectedSequencers),
+      Option.when(!useNewConnectionPool)(NonEmptyUtil.fromUnsafe(expectedSequencers)),
       PositiveInt.tryCreate(sequencerTrustThreshold),
     )
 

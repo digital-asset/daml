@@ -151,7 +151,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
     def set(client: RichSequencerClient): Unit
   }
 
-  def setup[C](member: Member)(
+  def setup[C](member: Member, useNewConnectionPool: Boolean)(
       registry: CantonMutableHandlerRegistry,
       fetchConfig: () => FutureUnlessShutdown[Option[C]],
       saveConfig: C => FutureUnlessShutdown[Unit],
@@ -192,20 +192,23 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                 )
                 .leftMap(_.cause)
 
-              sequencerTransportsMap = transportFactory
-                .makeTransport(
-                  newEndpointsInfo.sequencerConnections,
-                  member,
-                  requestSigner,
-                  // We are not interested in replay for the connection service.
-                  allowReplay = false,
-                )
+              sequencerTransportsMapO = Option.when(!useNewConnectionPool)(
+                transportFactory
+                  .makeTransport(
+                    newEndpointsInfo.sequencerConnections,
+                    member,
+                    requestSigner,
+                    // We are not interested in replay for the connection service.
+                    allowReplay = false,
+                  )
+              )
 
               sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
                 SequencerTransports.from(
-                  sequencerTransportsMap,
-                  newEndpointsInfo.expectedSequencers,
+                  sequencerTransportsMapO,
+                  Option.when(!useNewConnectionPool)(newEndpointsInfo.expectedSequencers),
                   newEndpointsInfo.sequencerConnections.sequencerTrustThreshold,
+                  newEndpointsInfo.sequencerConnections.sequencerLivenessMargin,
                   newEndpointsInfo.sequencerConnections.submissionRequestAmplification,
                 )
               )
@@ -218,7 +221,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
                     .get()
                     .fold {
                       // need to close here
-                      sequencerTransportsMap.values.foreach(_.close())
+                      sequencerTransportsMapO.foreach(_.values.foreach(_.close()))
                       FutureUnlessShutdown.unit
                     }(_.changeTransport(sequencerTransports))
                 )

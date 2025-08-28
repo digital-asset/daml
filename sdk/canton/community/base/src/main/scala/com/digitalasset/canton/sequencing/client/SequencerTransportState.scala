@@ -120,13 +120,15 @@ class SequencersTransportState(
   def getSubmissionRequestAmplification: SubmissionRequestAmplification =
     submissionRequestAmplification.get()
 
-  blocking(lock.synchronized {
-    val sequencerIdToTransportStateMap = initialSequencerTransports.sequencerIdToTransportMap.map {
-      case (sequencerId, transport) =>
-        (sequencerId, SequencerTransportState(transport))
-    }
-    states.addAll(sequencerIdToTransportStateMap).discard
-  })
+  initialSequencerTransports.sequencerIdToTransportMapO.foreach { sequencerIdToTransportMap =>
+    blocking(lock.synchronized {
+      val sequencerIdToTransportStateMap = sequencerIdToTransportMap.map {
+        case (sequencerId, transport) =>
+          (sequencerId, SequencerTransportState(transport))
+      }
+      states.addAll(sequencerIdToTransportStateMap).discard
+    })
+  }
 
   private def transportState(
       sequencerId: SequencerId
@@ -264,31 +266,39 @@ class SequencersTransportState(
     val transportCloseFutures = Future.fromTry(Try(blocking(lock.synchronized {
       sequencerTrustThreshold.set(sequencerTransports.sequencerTrustThreshold)
       submissionRequestAmplification.set(sequencerTransports.submissionRequestAmplification)
-      val oldSequencerIds = states.keySet.toSet
-      val newSequencerIds = sequencerTransports.sequencerIdToTransportMap.keySet
 
-      val newValues: Set[SequencerId] = newSequencerIds.diff(oldSequencerIds)
-      val removedValues: Set[SequencerId] = oldSequencerIds.diff(newSequencerIds)
-      val keptValues: Set[SequencerId] = oldSequencerIds.intersect(newSequencerIds)
+      sequencerTransports.sequencerIdToTransportMapO match {
+        case Some(sequencerIdToTransportMap) =>
+          val oldSequencerIds = states.keySet.toSet
+          val newSequencerIds = sequencerIdToTransportMap.keySet
 
-      if (newValues.nonEmpty || removedValues.nonEmpty) {
-        ErrorUtil.internalError(
-          new IllegalArgumentException(
-            "Adding or removing sequencer subscriptions is not supported at the moment"
-          )
-        )
-      } else {
-        keptValues.toSeq.map(sequencerId =>
-          updateTransport(sequencerId, sequencerTransports.sequencerIdToTransportMap(sequencerId))
-            .map { transportStateBefore =>
-              transportStateBefore.transport -> transportStateBefore.subscription.map(
-                // ResubscribeOnTransportChange synchronously completes the previous subscription
-                // and returns the Future of the close reason. Therefore, it is safe to combine
-                // the futures outside of the synchronized block
-                _.resilientSequencerSubscription.resubscribeOnTransportChange()
+          val newValues: Set[SequencerId] = newSequencerIds.diff(oldSequencerIds)
+          val removedValues: Set[SequencerId] = oldSequencerIds.diff(newSequencerIds)
+          val keptValues: Set[SequencerId] = oldSequencerIds.intersect(newSequencerIds)
+
+          if (newValues.nonEmpty || removedValues.nonEmpty) {
+            ErrorUtil.internalError(
+              new IllegalArgumentException(
+                "Adding or removing sequencer subscriptions is not supported at the moment"
               )
-            }
-        )
+            )
+          } else {
+            keptValues.toSeq.map(sequencerId =>
+              updateTransport(
+                sequencerId,
+                sequencerIdToTransportMap(sequencerId),
+              )
+                .map { transportStateBefore =>
+                  transportStateBefore.transport -> transportStateBefore.subscription.map(
+                    // ResubscribeOnTransportChange synchronously completes the previous subscription
+                    // and returns the Future of the close reason. Therefore, it is safe to combine
+                    // the futures outside of the synchronized block
+                    _.resilientSequencerSubscription.resubscribeOnTransportChange()
+                  )
+                }
+            )
+          }
+        case None => Seq.empty
       }
     })))
 

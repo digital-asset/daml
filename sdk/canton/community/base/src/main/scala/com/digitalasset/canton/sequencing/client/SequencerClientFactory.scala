@@ -54,7 +54,7 @@ trait SequencerClientFactory {
       requestSigner: RequestSigner,
       sequencerConnections: SequencerConnections,
       synchronizerPredecessor: Option[SynchronizerPredecessor],
-      expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
+      expectedSequencersO: Option[NonEmpty[Map[SequencerAlias, SequencerId]]],
       connectionPool: SequencerConnectionXPool,
   )(implicit
       executionContext: ExecutionContextExecutor,
@@ -98,7 +98,7 @@ object SequencerClientFactory {
           requestSigner: RequestSigner,
           sequencerConnections: SequencerConnections,
           synchronizerPredecessor: Option[SynchronizerPredecessor],
-          expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
+          expectedSequencersO: Option[NonEmpty[Map[SequencerAlias, SequencerId]]],
           connectionPool: SequencerConnectionXPool,
       )(implicit
           executionContext: ExecutionContextExecutor,
@@ -123,10 +123,12 @@ object SequencerClientFactory {
             loggerFactory,
           )
 
-        val sequencerTransportsMap = makeTransport(
-          sequencerConnections,
-          member,
-          requestSigner,
+        val sequencerTransportsMapO = Option.when(!config.useNewConnectionPool)(
+          makeTransport(
+            sequencerConnections,
+            member,
+            requestSigner,
+          )
         )
 
         def getTrafficStateWithTransports(
@@ -137,7 +139,11 @@ object SequencerClientFactory {
               s"Retrieving traffic state from synchronizer for $member at $ts",
               futureSupervisor,
               logger,
-              sequencerTransportsMap,
+              sequencerTransportsMapO.getOrElse(
+                throw new IllegalStateException(
+                  "sequencerTransportsMap undefined while using transports"
+                )
+              ),
               sequencerConnections.sequencerTrustThreshold,
             )(
               _.getTrafficStateForMember(
@@ -199,9 +205,10 @@ object SequencerClientFactory {
         for {
           sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
             SequencerTransports.from(
-              sequencerTransportsMap,
-              expectedSequencers,
+              sequencerTransportsMapO,
+              expectedSequencersO,
               sequencerConnections.sequencerTrustThreshold,
+              sequencerConnections.sequencerLivenessMargin,
               sequencerConnections.submissionRequestAmplification,
             )
           )

@@ -751,7 +751,6 @@ abstract class ProtocolProcessor[
           logger.warn(s"Request $rc: Decryption error: $decryptionError")
         }
         decryptionErrors = rawDecryptionErrors.map(ViewMessageError(_))
-
         (incorrectRootHashes, viewsWithCorrectRootHash) = checkRootHash(
           decryptedViewsWithSignatures
         )

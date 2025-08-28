@@ -819,30 +819,14 @@ class IssConsensusModuleTest
         consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign))
 
         // we can only take 1 future messages per node, so the second one is refused
-        assertLogs(
-          consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign)),
-          (logEntry: LogEntry) => {
-            logEntry.level shouldBe Level.INFO
-            logEntry.message should include("Dropped PBFT message")
-            logEntry.message should include(
-              s"from future epoch 10 as we're still in epoch -1 and the quota for node self for queueing future messages has been reached"
-            )
-          },
-        )
+        consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign))
+        consensus.futurePbftMessageQueue.size shouldBe 1
 
         consensus.receive(PbftUnverifiedNetworkMessage(otherIds(0), underlyingMessage.fakeSign))
 
         // we can only take 2 future messages in total, so the third one is refused
-        assertLogs(
-          consensus.receive(PbftUnverifiedNetworkMessage(otherIds(1), underlyingMessage.fakeSign)),
-          (logEntry: LogEntry) => {
-            logEntry.level shouldBe Level.INFO
-            logEntry.message should include("Dropped PBFT message")
-            logEntry.message should include(
-              s"from future epoch 10 as we're still in epoch -1 and total capacity for queueing future messages has been reached"
-            )
-          },
-        )
+        consensus.receive(PbftUnverifiedNetworkMessage(otherIds(1), underlyingMessage.fakeSign))
+        consensus.futurePbftMessageQueue.size shouldBe 2
 
         succeed
       }

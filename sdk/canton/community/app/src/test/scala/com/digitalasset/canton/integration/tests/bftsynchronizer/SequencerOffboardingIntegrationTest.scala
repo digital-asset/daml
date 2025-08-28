@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.bftsynchronizer
 
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
@@ -64,7 +64,8 @@ trait SequencerOffboardingIntegrationTest
         // Bootstrapping the synchronizer with the mediator only connected to sequencer1
         //  because changing a mediator's connection is currently unsupported and
         //  the goal of this test is not to check sequencer connection fail-over.
-        mediatorsToSequencers = Map(mediator1 -> (Seq(sequencer1), PositiveInt.one)),
+        mediatorsToSequencers =
+          Map(mediator1 -> (Seq(sequencer1), PositiveInt.one, NonNegativeInt.zero)),
         synchronizerOwners = synchronizerOwners,
         synchronizerThreshold = PositiveInt.two,
         staticParameters,

@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.ViewHash
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMessage}
-import com.digitalasset.canton.sequencing.protocol.Recipients
+import com.digitalasset.canton.sequencing.protocol.{MaxRequestSizeToDeserialize, Recipients}
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
@@ -65,9 +65,18 @@ object EncryptedViewMessageFactory {
             )
           )
       )
+      maxRequestSize <- EitherT(
+        cryptoSnapshot.ipsSnapshot
+          .findDynamicSynchronizerParameters()
+      ).map(_.parameters.maxRequestSize)
+        .leftMap(error => UnableToGetDynamicSynchronizerParameters(error, cryptoSnapshot.psid))
+
       encryptedView <- EitherT.fromEither[FutureUnlessShutdown](
         EncryptedView
-          .compressed[VT](cryptoSnapshot.pureCrypto, sessionKey, viewType)(viewTree)
+          .compressed[VT](cryptoSnapshot.pureCrypto, sessionKey, viewType)(
+            viewTree,
+            MaxRequestSizeToDeserialize.Limit(maxRequestSize.value),
+          )
           .leftMap[EncryptedViewMessageCreationError](FailedToEncryptViewMessage.apply)
       )
     } yield EncryptedViewMessage[VT](
@@ -451,6 +460,7 @@ object EncryptedViewMessageFactory {
     override protected def pretty: Pretty[UnableToDetermineKey] = prettyOfClass(
       param("participant", _.participant),
       param("cause", _.cause),
+      param("physical synchronizer id", _.physicalSynchronizerId),
     )
   }
 
@@ -481,6 +491,16 @@ object EncryptedViewMessageFactory {
       extends EncryptedViewMessageCreationError {
     override protected def pretty: Pretty[UnableToDetermineSessionKeyRandomness] = prettyOfClass(
       param("cause", _.cause.unquoted)
+    )
+  }
+
+  final case class UnableToGetDynamicSynchronizerParameters(
+      error: String,
+      synchronizerId: PhysicalSynchronizerId,
+  ) extends EncryptedViewMessageCreationError {
+    override protected def pretty: Pretty[UnableToGetDynamicSynchronizerParameters] = prettyOfClass(
+      param("error", _.error.unquoted),
+      param("physical synchronizer id", _.synchronizerId),
     )
   }
 }

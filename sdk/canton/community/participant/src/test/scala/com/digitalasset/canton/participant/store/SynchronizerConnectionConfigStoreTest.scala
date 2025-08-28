@@ -151,6 +151,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
               ),
             ),
             sequencerTrustThreshold = PositiveInt.one,
+            sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
           )
         )

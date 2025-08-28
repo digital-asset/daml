@@ -49,10 +49,17 @@ message SequencerConnections {
 
   // This field determines the minimum level of agreement, or consensus, required among the sequencers before a message
   // is considered reliable and accepted by the system.
+  //
   // This value must be positive.
   uint32 sequencer_trust_threshold = 2;
 
   SubmissionRequestAmplification submission_request_amplification = 3;
+
+  // This field determines the number of extra subscriptions to maintain beyond `sequencer_trust_threshold` in order
+  // to ensure liveness. This is only used when the new connection pool is enabled, and is ignored otherwise.
+  //
+  // This value must be non-negative.
+  uint32 sequencer_liveness_margin = 4;
 }
 
 message SubmissionRequestAmplification {
