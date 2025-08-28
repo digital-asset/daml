@@ -175,6 +175,7 @@ object CantonServerBuilder {
         adminTokenDispenser,
         config.jwtTimestampLeeway,
         config.adminTokenConfig,
+        config.jwksCacheConfig,
         telemetry,
         additionalInterceptors,
       ),

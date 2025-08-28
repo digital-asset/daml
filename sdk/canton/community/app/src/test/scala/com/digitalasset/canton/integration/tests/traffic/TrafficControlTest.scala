@@ -6,7 +6,10 @@ package com.digitalasset.canton.integration.tests.traffic
 import cats.syntax.functor.*
 import com.daml.ledger.api.v2.commands.Command
 import com.digitalasset.canton.admin.api.client.data.ParticipantStatus.SubmissionReady
-import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
+import com.digitalasset.canton.admin.api.client.data.{
+  ComponentHealthState,
+  TrafficControlParameters,
+}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{
   NonNegativeLong,
@@ -30,6 +33,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseH2,
   UsePostgres,
 }
+import com.digitalasset.canton.integration.tests.TrafficBalanceSupport
 import com.digitalasset.canton.integration.util.OnboardsNewSequencerNode
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -56,6 +60,7 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSig
 import com.digitalasset.canton.topology.{Member, PartyId}
 import com.digitalasset.canton.{ProtocolVersionChecksFixtureAnyWordSpec, config}
 import monocle.macros.syntax.lens.*
+import org.scalatest.Assertion
 
 import java.time.Duration
 import scala.util.Random
@@ -64,7 +69,8 @@ trait TrafficControlTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with OnboardsNewSequencerNode
-    with ProtocolVersionChecksFixtureAnyWordSpec {
+    with ProtocolVersionChecksFixtureAnyWordSpec
+    with TrafficBalanceSupport {
 
   private val baseEventCost = 500L
   private val trafficControlParameters = TrafficControlParameters(
@@ -79,49 +85,18 @@ trait TrafficControlTest
 
   protected val pruningWindow = config.NonNegativeFiniteDuration.ofSeconds(5)
 
-  private def getTrafficForMember(
-      member: Member
-  )(implicit env: TestConsoleEnvironment): Option[TrafficState] = {
-    import env.*
-
-    sequencer1.traffic_control
-      .traffic_state_of_members_approximate(Seq(member))
-      .trafficStates
-      .get(member)
-  }
-
   private def updateBalanceForMember(
       instance: LocalInstanceReference,
       newBalance: PositiveLong,
-  )(implicit env: TestConsoleEnvironment) = {
-    val member = instance.id.member
-
-    sendTopUp(member, newBalance.toNonNegative)
-
-    eventually() {
-      // Advance the clock just slightly so we can observe the new balance be effective
-      env.environment.simClock.value.advance(Duration.ofMillis(1))
-      getTrafficForMember(member).value.extraTrafficPurchased.value shouldBe newBalance.value
-    }
-  }
-
-  private def sendTopUp(
-      member: Member,
-      newBalance: NonNegativeLong,
-      serialO: Option[PositiveInt] = None,
-  )(implicit
-      env: TestConsoleEnvironment
-  ): PositiveInt = {
-    import env.*
-
-    val serial = serialO
-      .orElse(getTrafficForMember(member).flatMap(_.serial).map(_.increment))
-      .getOrElse(PositiveInt.one)
-
-    sequencer1.traffic_control.set_traffic_balance(member, serial, newBalance)
-
-    serial
-  }
+  )(implicit env: TestConsoleEnvironment): Assertion =
+    updateBalanceForMember(
+      instance,
+      newBalance,
+      () => {
+        // Advance the clock just slightly so we can observe the new balance be effective
+        env.environment.simClock.value.advance(Duration.ofMillis(1))
+      },
+    )
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition
@@ -393,15 +368,20 @@ trait TrafficControlTest
     trafficStateBeforeRestart.trafficStates should
       contain theSameElementsAs trafficStateAfterRestart.trafficStates
 
-    clue("advance clock sequencer pool") {
+    clue("advance clock for sequencer pool connection restart") {
       eventually() {
         val clock = env.environment.simClock.value
         // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
-        clock.advance(
-          Duration.ofSeconds(1)
-        ) // 1 second is the default subscription pool retry delay
+        // 1 second is the default subscription pool retry delay.
+        clock.advance(Duration.ofSeconds(1))
+
         participant1.health.status.trySuccess.connectedSynchronizers
           .get(daId) should contain(SubmissionReady(true))
+
+        mediator1.health.status.trySuccess.components
+          .filter(_.name == "sequencer-client")
+          .loneElement
+          .state shouldBe ComponentHealthState.Ok(None)
       }
     }
 

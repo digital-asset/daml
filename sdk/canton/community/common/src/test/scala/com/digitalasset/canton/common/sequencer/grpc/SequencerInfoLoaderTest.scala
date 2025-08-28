@@ -306,6 +306,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       SequencerInfoLoader.aggregateBootstrapInfo(
         logger,
         sequencerTrustThreshold = PositiveInt.tryCreate(2),
+        sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
         SequencerConnectionValidation.All,
         None,

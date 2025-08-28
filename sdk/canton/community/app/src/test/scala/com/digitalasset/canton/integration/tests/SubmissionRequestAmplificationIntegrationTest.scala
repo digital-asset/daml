@@ -7,6 +7,7 @@ import com.daml.metrics.api.testing.MetricValues.*
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
   NonNegativeLong,
   NonNegativeNumeric,
   PositiveInt,
@@ -65,8 +66,8 @@ abstract class SubmissionRequestAmplificationIntegrationTest
               Map(
                 // A threshold of two ensures that the mediators connect to both sequencers.
                 // TODO(#19911) Make this properly configurable
-                mediator1 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
-                mediator2 -> (Seq(sequencer1, sequencer2), PositiveInt.two),
+                mediator1 -> (Seq(sequencer1, sequencer2), PositiveInt.two, NonNegativeInt.zero),
+                mediator2 -> (Seq(sequencer1, sequencer2), PositiveInt.two, NonNegativeInt.zero),
               )
             )
           )
@@ -81,6 +82,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
         SequencerConnections.tryMany(
           old.connections,
           old.sequencerTrustThreshold,
+          old.sequencerLivenessMargin,
           SubmissionRequestAmplification(
             PositiveInt.tryCreate(2),
             config.NonNegativeFiniteDuration.Zero,

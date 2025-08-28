@@ -23,6 +23,7 @@ import scala.concurrent.duration.Duration
 sealed trait AuthServiceConfig extends UniformCantonConfigValidation {
 
   def create(
+      jwksCacheConfig: JwksCacheConfig,
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       loggerFactory: NamedLoggerFactory,
       maxTokenLife: NonNegativeDuration = NonNegativeDuration(Duration.Inf),
@@ -46,6 +47,7 @@ object AuthServiceConfig {
   case object Wildcard extends AuthServiceConfig {
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         maxTokenLife: NonNegativeDuration,
@@ -78,6 +80,7 @@ object AuthServiceConfig {
       )
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         globalMaxTokenLife: NonNegativeDuration,
@@ -120,6 +123,7 @@ object AuthServiceConfig {
       )
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         globalMaxTokenLife: NonNegativeDuration,
@@ -162,6 +166,7 @@ object AuthServiceConfig {
       )
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         globalMaxTokenLife: NonNegativeDuration,
@@ -204,6 +209,7 @@ object AuthServiceConfig {
       )
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         globalMaxTokenLife: NonNegativeDuration,
@@ -235,18 +241,29 @@ object AuthServiceConfig {
       override val users: Seq[AuthorizedUser] = Seq.empty,
   ) extends AuthServiceConfig {
     private def verifier(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         maxTokenLife: Option[Long],
     ) =
-      JwksVerifier(url.unwrap, jwtTimestampLeeway, maxTokenLife)
+      JwksVerifier(
+        url.unwrap,
+        jwksCacheConfig.cacheMaxSize,
+        jwksCacheConfig.cacheExpiration.underlying,
+        jwksCacheConfig.connectionTimeout.underlying,
+        jwksCacheConfig.readTimeout.underlying,
+        jwtTimestampLeeway,
+        maxTokenLife,
+      )
 
     override def create(
+        jwksCacheConfig: JwksCacheConfig,
         jwtTimestampLeeway: Option[JwtTimestampLeeway],
         loggerFactory: NamedLoggerFactory,
         globalMaxTokenLife: NonNegativeDuration,
     ): AuthService =
       AuthServiceJWT(
         verifier(
+          jwksCacheConfig,
           jwtTimestampLeeway,
           maxTokenLife.toMillisOrNone().orElse(globalMaxTokenLife.toMillisOrNone()),
         ),

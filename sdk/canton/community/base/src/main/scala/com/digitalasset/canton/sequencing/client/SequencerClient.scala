@@ -1042,7 +1042,7 @@ class RichSequencerClientImpl(
       config.eventInboxSize,
       loggerFactory,
       MessageAggregationConfig(
-        sequencerTransports.expectedSequencers,
+        sequencerTransports.expectedSequencersO,
         sequencerTransports.sequencerTrustThreshold,
       ),
       updateSendTracker = sendTracker.update,
@@ -1189,8 +1189,7 @@ class RichSequencerClientImpl(
         if (config.useNewConnectionPool) {
           val subscriptionPoolConfig = SequencerSubscriptionPoolConfig(
             trustThreshold = sequencerTransports.sequencerTrustThreshold,
-            livenessMargin =
-              NonNegativeInt.tryCreate(0), // TODO(i27209): wire in sequencer connections config
+            livenessMargin = sequencerTransports.sequencerLivenessMargin,
           )
           val eventBatchProcessor = new EventBatchProcessor {
             override def process(
@@ -1258,15 +1257,19 @@ class RichSequencerClientImpl(
 
           sequencerSubscriptionPool.start()
         } else {
-          val subscriptionsMap = sequencerTransports.sequencerToTransportMap.forgetNE.map {
-            case (sequencerAlias, sequencerTransport) =>
+          val subscriptionsMap = sequencerTransports.sequencerToTransportMapO
+            .getOrElse(
+              ErrorUtil.invalidState("sequencerToTransportMapO undefined while using transports")
+            )
+            .forgetNE
+            .map { case (sequencerAlias, sequencerTransport) =>
               sequencerTransport.sequencerId -> createSubscription(
                 sequencerAlias,
                 sequencerTransport.sequencerId,
                 preSubscriptionEvent,
                 applicationHandler,
               )
-          }
+            }
 
           // Set all the health dependencies subscriptions in one go to avoid going through intermediate failed states
           // for being under the threshold which would happen if the subscriptions where added one by one
@@ -1689,7 +1692,7 @@ class RichSequencerClientImpl(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     sequencerAggregator.changeMessageAggregationConfig(
       MessageAggregationConfig(
-        sequencerTransports.expectedSequencers,
+        sequencerTransports.expectedSequencersO,
         sequencerTransports.sequencerTrustThreshold,
       )
     )
@@ -1984,14 +1987,22 @@ class SequencerClientImplPekko[E: Pretty](
         val sequencerConnectionConfig =
           OrderedBucketMergeConfig[SequencerId, HasSequencerSubscriptionFactoryPekko[E]](
             sequencerTransports.sequencerTrustThreshold,
-            sequencerTransports.sequencerIdToTransportMap.toNEF.fmap { transportContainer =>
-              SequencerSubscriptionFactoryPekko.fromTransport(
-                transportContainer.sequencerId,
-                transportContainer.clientTransport,
-                member,
-                protocolVersion,
+            sequencerTransports.sequencerIdToTransportMapO
+              .getOrElse(
+                ErrorUtil.invalidState(
+                  "sequencerIdToTransportMapO undefined while using transports"
+                )
               )
-            }.fromNEF,
+              .toNEF
+              .fmap { transportContainer =>
+                SequencerSubscriptionFactoryPekko.fromTransport(
+                  transportContainer.sequencerId,
+                  transportContainer.clientTransport,
+                  member,
+                  protocolVersion,
+                )
+              }
+              .fromNEF,
           )
 
         val configSource = Source
@@ -2227,37 +2238,43 @@ object SequencerClient {
   )
 
   final case class SequencerTransports[E](
-      sequencerToTransportMap: NonEmpty[Map[SequencerAlias, SequencerTransportContainer[E]]],
+      sequencerToTransportMapO: Option[
+        NonEmpty[Map[SequencerAlias, SequencerTransportContainer[E]]]
+      ],
       sequencerTrustThreshold: PositiveInt,
+      sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
   ) {
-    def expectedSequencers: NonEmpty[Set[SequencerId]] =
-      sequencerToTransportMap.map(_._2.sequencerId).toSet
+    def expectedSequencersO: Option[NonEmpty[Set[SequencerId]]] =
+      sequencerToTransportMapO.map(_.map(_._2.sequencerId).toSet)
 
-    def sequencerIdToTransportMap: NonEmpty[Map[SequencerId, SequencerTransportContainer[E]]] =
-      sequencerToTransportMap.map { case (_, transport) =>
+    def sequencerIdToTransportMapO
+        : Option[NonEmpty[Map[SequencerId, SequencerTransportContainer[E]]]] =
+      sequencerToTransportMapO.map(_.map { case (_, transport) =>
         transport.sequencerId -> transport
-      }.toMap
+      }.toMap)
 
-    def transports: Set[SequencerClientTransport] =
-      sequencerToTransportMap.values.map(_.clientTransport).toSet
+    def transportsO: Option[Set[SequencerClientTransport]] =
+      sequencerToTransportMapO.map(_.values.map(_.clientTransport).toSet)
   }
 
   object SequencerTransports {
     def from[E](
-        sequencerTransportsMap: NonEmpty[
+        sequencerTransportsMapO: Option[NonEmpty[
           Map[SequencerAlias, SequencerClientTransport & SequencerClientTransportPekko.Aux[E]]
-        ],
-        expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
+        ]],
+        expectedSequencersO: Option[NonEmpty[Map[SequencerAlias, SequencerId]]],
         sequencerSignatureThreshold: PositiveInt,
+        sequencerLivenessMargin: NonNegativeInt,
         submissionRequestAmplification: SubmissionRequestAmplification,
     ): Either[String, SequencerTransports[E]] =
-      if (sequencerTransportsMap.keySet != expectedSequencers.keySet) {
-        Left("Inconsistent map of sequencer transports and their ids.")
-      } else
-        Right(
-          SequencerTransports(
-            sequencerToTransportMap =
+      sequencerTransportsMapO
+        .zip(expectedSequencersO)
+        .traverse { case (sequencerTransportsMap, expectedSequencers) =>
+          if (sequencerTransportsMap.keySet != expectedSequencers.keySet) {
+            Left("Inconsistent map of sequencer transports and their ids.")
+          } else
+            Right(
               sequencerTransportsMap.map { case (sequencerAlias, transport) =>
                 val sequencerId = expectedSequencers(sequencerAlias)
                 sequencerAlias -> SequencerTransportContainer(
@@ -2265,8 +2282,14 @@ object SequencerClient {
                   sequencerId,
                   transport,
                 )
-              }.toMap,
+              }.toMap
+            )
+        }
+        .map(
+          SequencerTransports(
+            _,
             sequencerTrustThreshold = sequencerSignatureThreshold,
+            sequencerLivenessMargin = sequencerLivenessMargin,
             submissionRequestAmplification = submissionRequestAmplification,
           )
         )
@@ -2278,8 +2301,9 @@ object SequencerClient {
     ): SequencerTransports[E] = {
       val container = SequencerTransportContainer(sequencerAlias, sequencerId, transport)
       SequencerTransports(
-        NonEmpty.mk(Seq, sequencerAlias -> container).toMap,
-        PositiveInt.one,
+        Some(NonEmpty.mk(Seq, sequencerAlias -> container).toMap),
+        sequencerTrustThreshold = PositiveInt.one,
+        sequencerLivenessMargin = NonNegativeInt.zero,
         SubmissionRequestAmplification.NoAmplification,
       )
     }

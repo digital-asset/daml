@@ -31,7 +31,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.data.CantonTimestamp
@@ -671,7 +671,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         synchronizerOwners: Seq[InstanceReference],
         synchronizerThreshold: PositiveInt,
         sequencers: Seq[SequencerReference],
-        mediatorsToSequencers: Map[MediatorReference, (Seq[SequencerReference], PositiveInt)],
+        mediatorsToSequencers: Map[
+          MediatorReference,
+          (Seq[SequencerReference], PositiveInt, NonNegativeInt),
+        ],
         mediatorRequestAmplification: SubmissionRequestAmplification,
         mediatorThreshold: PositiveInt,
     )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId = {
@@ -756,20 +759,22 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
 
       mediatorsToSequencers
         .filter(!_._1.health.initialized())
-        .foreach { case (mediator, (mediatorSequencers, sequencerTrustThreshold)) =>
-          mediator.setup.assign(
-            synchronizerId,
-            SequencerConnections.tryMany(
-              mediatorSequencers
-                .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
-              sequencerTrustThreshold,
-              mediatorRequestAmplification,
-            ),
-            // if we run bootstrap ourselves, we should have been able to reach the nodes
-            // so we don't want the bootstrapping to fail spuriously here in the middle of
-            // the setup
-            SequencerConnectionValidation.Disabled,
-          )
+        .foreach {
+          case (mediator, (mediatorSequencers, sequencerTrustThreshold, sequencerLivenessMargin)) =>
+            mediator.setup.assign(
+              synchronizerId,
+              SequencerConnections.tryMany(
+                mediatorSequencers
+                  .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
+                sequencerTrustThreshold,
+                sequencerLivenessMargin,
+                mediatorRequestAmplification,
+              ),
+              // if we run bootstrap ourselves, we should have been able to reach the nodes
+              // so we don't want the bootstrapping to fail spuriously here in the middle of
+              // the setup
+              SequencerConnectionValidation.Disabled,
+            )
         }
 
       synchronizerOwners.foreach(
@@ -801,7 +806,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       synchronizer(
         synchronizerName,
         sequencers,
-        mediators.map(_ -> (sequencers, PositiveInt.one)).toMap,
+        mediators.map(_ -> (sequencers, PositiveInt.one, NonNegativeInt.zero)).toMap,
         synchronizerOwners,
         synchronizerThreshold,
         staticSynchronizerParameters,
@@ -817,14 +822,17 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
         |
         |Parameters:
-        |  mediatorsToSequencers: map of mediator reference to a tuple of a sequence of sequencer references and
-        |                         the sequencer trust threshold for the given mediator.
+        |  mediatorsToSequencers: map of mediator reference to a tuple of a sequence of sequencer references,
+        |                         the sequencer trust threshold and the liveness margin for the given mediator.
         """
     )
     def synchronizer(
         synchronizerName: String,
         sequencers: Seq[SequencerReference],
-        mediatorsToSequencers: Map[MediatorReference, (Seq[SequencerReference], PositiveInt)],
+        mediatorsToSequencers: Map[
+          MediatorReference,
+          (Seq[SequencerReference], PositiveInt, NonNegativeInt),
+        ],
         synchronizerOwners: Seq[InstanceReference],
         synchronizerThreshold: PositiveInt,
         staticSynchronizerParameters: data.StaticSynchronizerParameters,

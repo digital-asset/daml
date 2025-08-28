@@ -338,11 +338,11 @@ class SegmentState(
       )
       futureViewMessagesQueue.enqueue(msg.from, msg) match {
         case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>
-          logger.info(s"Node `$nodeId` exceeded its future view message queue quota")
+          logger.trace(s"Node `$nodeId` exceeded its future view message queue quota")
         case EnqueueResult.TotalCapacityExceeded =>
-          logger.info("Future view message queue total capacity has been exceeded")
+          logger.trace("Future view message queue total capacity has been exceeded")
         case EnqueueResult.Duplicate(nodeId) =>
-          logger.info(s"Duplicate future view message for node `$nodeId` has been dropped")
+          logger.trace(s"Duplicate future view message for node `$nodeId` has been dropped")
         case EnqueueResult.Success =>
           logger.trace("Successfully postponed PbftNormalCaseMessage")
       }

@@ -845,6 +845,7 @@ class ParticipantNodeBootstrap(
             )
           )
 
+        addCloseable(syncCryptoSignerWithSessionKeys)
         addCloseable(sync)
         addCloseable(synchronizerConnectionConfigStore)
         addCloseable(synchronizerAliasManager)

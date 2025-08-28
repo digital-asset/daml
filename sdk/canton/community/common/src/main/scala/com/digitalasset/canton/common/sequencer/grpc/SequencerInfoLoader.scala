@@ -219,6 +219,7 @@ class SequencerInfoLoader(
       SequencerInfoLoader.aggregateBootstrapInfo(
         logger,
         sequencerTrustThreshold = sequencerConnections.sequencerTrustThreshold,
+        sequencerLivenessMargin = sequencerConnections.sequencerLivenessMargin,
         submissionRequestAmplification = sequencerConnections.submissionRequestAmplification,
         sequencerConnectionValidation = sequencerConnectionValidation,
         expectedSynchronizerId = expectedSynchronizerId,
@@ -630,6 +631,7 @@ object SequencerInfoLoader {
   private[grpc] def aggregateBootstrapInfo(
       logger: TracedLogger,
       sequencerTrustThreshold: PositiveInt,
+      sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
       sequencerConnectionValidation: SequencerConnectionValidation,
       expectedSynchronizerId: Option[PhysicalSynchronizerId],
@@ -670,6 +672,7 @@ object SequencerInfoLoader {
                 valid.connection.withSequencerId(valid.synchronizerClientBootstrapInfo.sequencerId)
               ),
               sequencerTrustThreshold,
+              sequencerLivenessMargin,
               submissionRequestAmplification,
             )
             .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)

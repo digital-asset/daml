@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests.sequencer
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.SequencerReference
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
@@ -82,7 +82,9 @@ abstract class ToxiproxyIntegrationTest
           overrideMediatorToSequencers =
             // Use a threshold of two to ensure that the mediator connects to all sequencers.
             // TODO(#19911) Reduce to one again once this can be configured independently.
-            Some(testMediators.map(_ -> (testSequencers, PositiveInt.two)).toMap),
+            Some(
+              testMediators.map(_ -> (testSequencers, PositiveInt.two, NonNegativeInt.zero)).toMap
+            ),
         )
         NetworkBootstrapper(Seq(description))
       }

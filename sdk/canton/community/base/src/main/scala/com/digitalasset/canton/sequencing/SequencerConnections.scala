@@ -8,7 +8,7 @@ import cats.syntax.foldable.*
 import cats.{Id, Monad}
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.admin.sequencer.v30
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -28,6 +28,7 @@ import java.net.URI
 final case class SequencerConnections private (
     aliasToConnection: NonEmpty[Map[SequencerAlias, SequencerConnection]],
     sequencerTrustThreshold: PositiveInt,
+    sequencerLivenessMargin: NonNegativeInt,
     submissionRequestAmplification: SubmissionRequestAmplification,
 ) extends HasVersionedWrapper[SequencerConnections]
     with PrettyPrinting {
@@ -112,6 +113,7 @@ final case class SequencerConnections private (
     prettyOfClass(
       param("connections", _.aliasToConnection.forgetNE),
       param("sequencer trust threshold", _.sequencerTrustThreshold),
+      param("sequencer liveness margin", _.sequencerLivenessMargin),
       param("submission request amplification", _.submissionRequestAmplification),
     )
 
@@ -120,6 +122,7 @@ final case class SequencerConnections private (
       connections.map(_.toProtoV30),
       sequencerTrustThreshold.unwrap,
       Some(submissionRequestAmplification.toProtoV30),
+      sequencerLivenessMargin.unwrap,
     )
 
   @transient override protected lazy val companionObj
@@ -137,12 +140,14 @@ object SequencerConnections
     new SequencerConnections(
       aliasToConnection = NonEmpty(Map, connection.sequencerAlias -> connection),
       sequencerTrustThreshold = PositiveInt.one,
+      sequencerLivenessMargin = NonNegativeInt.zero,
       submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
     )
 
   def many(
       connections: NonEmpty[Seq[SequencerConnection]],
       sequencerTrustThreshold: PositiveInt,
+      sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
   ): Either[String, SequencerConnections] = {
     val repeatedAliases = connections.groupBy(_.sequencerAlias).filter { case (_, connections) =>
@@ -159,6 +164,7 @@ object SequencerConnections
           new SequencerConnections(
             connections.map(conn => (conn.sequencerAlias, conn)).toMap,
             sequencerTrustThreshold,
+            sequencerLivenessMargin,
             submissionRequestAmplification,
           )
         )
@@ -169,11 +175,13 @@ object SequencerConnections
   def tryMany(
       connections: Seq[SequencerConnection],
       sequencerTrustThreshold: PositiveInt,
+      sequencerLivenessMargin: NonNegativeInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
   ): SequencerConnections =
     many(
       NonEmptyUtil.fromUnsafe(connections),
       sequencerTrustThreshold,
+      sequencerLivenessMargin,
       submissionRequestAmplification,
     ).valueOr(err => throw new IllegalArgumentException(err))
 
@@ -184,11 +192,16 @@ object SequencerConnections
       sequencerConnectionsP,
       sequencerTrustThresholdP,
       submissionRequestAmplificationP,
+      sequencerLivenessMarginP,
     ) = sequencerConnectionsProto
     for {
       sequencerTrustThreshold <- ProtoConverter.parsePositiveInt(
         "sequencer_trust_threshold",
         sequencerTrustThresholdP,
+      )
+      sequencerLivenessMargin <- ProtoConverter.parseNonNegativeInt(
+        "sequencer_liveness_margin",
+        sequencerLivenessMarginP,
       )
       submissionRequestAmplification <- ProtoConverter.parseRequired(
         SubmissionRequestAmplification.fromProtoV30,
@@ -211,6 +224,7 @@ object SequencerConnections
       sequencerConnections <- many(
         sequencerConnectionsNes,
         sequencerTrustThreshold,
+        sequencerLivenessMargin,
         submissionRequestAmplification,
       ).leftMap(ProtoDeserializationError.InvariantViolation(field = None, _))
     } yield sequencerConnections

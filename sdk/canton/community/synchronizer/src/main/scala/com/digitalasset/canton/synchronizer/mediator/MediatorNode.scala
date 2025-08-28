@@ -587,6 +587,8 @@ class MediatorNodeBootstrap(
       )
     } yield connectionPool
 
+    val useNewConnectionPool = parameters.sequencerClient.useNewConnectionPool
+
     val mediatorRuntimeET = for {
       physicalSynchronizerIdx <- EitherT
         .right(IndexedPhysicalSynchronizer.indexed(indexedStringStore)(synchronizerId))
@@ -673,7 +675,7 @@ class MediatorNodeBootstrap(
 
       connectionPool <- connectionPoolET
       _ <-
-        if (parameters.sequencerClient.useNewConnectionPool) {
+        if (useNewConnectionPool) {
           connectionPool.start().leftMap(error => error.toString)
         } else EitherTUtil.unitUS
 
@@ -689,30 +691,31 @@ class MediatorNodeBootstrap(
           ),
           info.sequencerConnections,
           synchronizerPredecessor = None,
-          info.expectedSequencers,
+          Option.when(!useNewConnectionPool)(info.expectedSequencers),
           connectionPool,
         )
 
       sequencerClientRef =
-        GrpcSequencerConnectionService.setup[MediatorSynchronizerConfiguration](mediatorId)(
-          adminServerRegistry,
-          () => synchronizerConfigurationStore.fetchConfiguration(),
-          config => synchronizerConfigurationStore.saveConfiguration(config),
-          Lens[MediatorSynchronizerConfiguration, SequencerConnections](_.sequencerConnections)(
-            connection => conf => conf.copy(sequencerConnections = connection)
-          ),
-          RequestSigner(
-            syncCryptoWithOptionalSessionKeys,
-            staticSynchronizerParameters.protocolVersion,
+        GrpcSequencerConnectionService
+          .setup[MediatorSynchronizerConfiguration](mediatorId, useNewConnectionPool)(
+            adminServerRegistry,
+            () => synchronizerConfigurationStore.fetchConfiguration(),
+            config => synchronizerConfigurationStore.saveConfiguration(config),
+            Lens[MediatorSynchronizerConfiguration, SequencerConnections](_.sequencerConnections)(
+              connection => conf => conf.copy(sequencerConnections = connection)
+            ),
+            RequestSigner(
+              syncCryptoWithOptionalSessionKeys,
+              staticSynchronizerParameters.protocolVersion,
+              loggerFactory,
+            ),
+            sequencerClientFactory,
+            sequencerInfoLoader,
+            synchronizerAlias,
+            synchronizerId,
+            sequencerClient,
             loggerFactory,
-          ),
-          sequencerClientFactory,
-          sequencerInfoLoader,
-          synchronizerAlias,
-          synchronizerId,
-          sequencerClient,
-          loggerFactory,
-        )
+          )
 
       _ = sequencerClientRef.set(sequencerClient)
       _ = deferredSequencerClientHealth.set(sequencerClient.healthComponent)

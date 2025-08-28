@@ -107,7 +107,7 @@ object SequencedEvent
         "SequencedEvent.physical_synchronizer_id",
       )
       mbBatch <- mbBatchP.traverse(
-        // TODO(i10428) Prevent zip bombing when decompressing the request
+        // TODO(i26169) Prevent zip bombing when decompressing the request
         Batch.fromProtoV30(_, maxRequestSize = MaxRequestSizeToDeserialize.NoLimit)
       )
       trafficConsumed <- trafficConsumedP.traverse(TrafficReceipt.fromProtoV30)

@@ -178,6 +178,7 @@ private[console] object ParticipantCommands {
         maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
         priority: Int = 0,
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
     ): SynchronizerConnectionConfig =
@@ -188,6 +189,7 @@ private[console] object ParticipantCommands {
             sequencer.sequencerConnection.withAlias(SequencerAlias.tryCreate(sequencer.name))
           },
           sequencerTrustThreshold,
+          sequencerLivenessMargin,
           submissionRequestAmplification,
         ),
         manualConnect = manualConnect,

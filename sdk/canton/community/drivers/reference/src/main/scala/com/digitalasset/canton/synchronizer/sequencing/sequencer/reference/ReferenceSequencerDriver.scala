@@ -106,7 +106,7 @@ class ReferenceSequencerDriver(
       traceContext: TraceContext
   ): Source[RawLedgerBlock, KillSwitch] =
     ReferenceSequencerDriver
-      .subscribe(firstBlockHeight)(store, config.pollInterval, logger)
+      .subscribe(firstBlockHeight)(store, config.pollInterval, config.maxQueryBlockCount, logger)
       .map { block =>
         block.requests
           .foreach(r => logger.trace(s"Subscription to driver providing request")(r.traceContext))
@@ -203,6 +203,7 @@ object ReferenceSequencerDriver {
       logQueryCost: Option[QueryCostMonitoringConfig] = None,
       maxBlockSize: Int = 500,
       maxBlockCutMillis: Int = 1,
+      maxQueryBlockCount: Int = 100,
   )
 
   final case class TimestampedRequest(tag: String, body: ByteString, microsecondsSinceEpoch: Long)
@@ -237,6 +238,7 @@ object ReferenceSequencerDriver {
   def subscribe(fromHeight: Long)(
       store: ReferenceBlockOrderingStore,
       pollInterval: config.NonNegativeFiniteDuration,
+      maxQueryBlockCount: Int,
       logger: TracedLogger,
   )(implicit
       executionContext: ExecutionContext,
@@ -257,7 +259,7 @@ object ReferenceSequencerDriver {
       ) { case ((nextFromHeight, _), _) =>
         (for {
           newBlocks <-
-            store.queryBlocks(nextFromHeight).map { timestampedBlocks =>
+            store.queryBlocks(nextFromHeight, maxQueryBlockCount).map { timestampedBlocks =>
               val blocks = timestampedBlocks.map(_.block)
               if (logger.underlying.isDebugEnabled() && blocks.nonEmpty) {
                 logger.debug(

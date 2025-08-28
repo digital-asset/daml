@@ -60,7 +60,14 @@ class SequencerAggregator(
 
   private val configRef: AtomicReference[MessageAggregationConfig] =
     new AtomicReference[MessageAggregationConfig](initialConfig)
-  def expectedSequencers: NonEmpty[Set[SequencerId]] = configRef.get().expectedSequencers
+  def expectedSequencers: NonEmpty[Set[SequencerId]] = configRef
+    .get()
+    .expectedSequencersO
+    .getOrElse(
+      throw new IllegalStateException(
+        "Missing `expectedSequencers`: called while using the connection pool?"
+      )
+    )
 
   def sequencerTrustThreshold: PositiveInt = configRef.get().sequencerTrustThreshold
 
@@ -264,7 +271,7 @@ class SequencerAggregator(
 }
 object SequencerAggregator {
   final case class MessageAggregationConfig(
-      expectedSequencers: NonEmpty[Set[SequencerId]],
+      expectedSequencersO: Option[NonEmpty[Set[SequencerId]]],
       sequencerTrustThreshold: PositiveInt,
   )
   sealed trait SequencerAggregatorError extends Product with Serializable with PrettyPrinting

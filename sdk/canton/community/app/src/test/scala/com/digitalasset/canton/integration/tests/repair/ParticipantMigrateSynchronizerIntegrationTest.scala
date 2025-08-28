@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -197,9 +196,12 @@ final class ParticipantMigrateSynchronizerIntegrationTest
       submissionId = submissionId,
     )
     // The command should be now in-flight because the submit_async returns only after in-flight submission checking
-    // Let's nevertheless wait a bit so that it's more likely that the transaction actually gets sent to the sequencer and back
-    Threading.sleep(500)
+    utils.retry_until_true(
+      participant2.health.count_in_flight(daName).exists
+    )
+
     participant2.synchronizers.disconnect(daName)
+
   }
 
   // TODO(#17334): unignore

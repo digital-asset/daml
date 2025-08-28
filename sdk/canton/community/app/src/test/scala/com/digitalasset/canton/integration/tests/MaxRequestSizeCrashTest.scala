@@ -20,7 +20,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
-import com.digitalasset.canton.participant.protocol.TransactionProcessor
+import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.MalformedRequest
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import monocle.macros.syntax.lens.*
@@ -127,8 +127,7 @@ sealed abstract class MaxRequestSizeCrashTest
 
       val commandId = s"submit-async-dummy-${UUID.randomUUID().toString}"
       val matchError =
-        s"RequestInvalid\\(Batch size \\(\\d+ bytes\\) is exceeding maximum size \\(MaxRequestSize\\(${lowMaxRequestSize.unwrap}\\) bytes\\) for synchronizer .*\\)"
-      val matchLog = s"Failed to submit submission due to Error\\($matchError\\)"
+        s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
 
       loggerFactory.assertLogs(
         {
@@ -149,12 +148,11 @@ sealed abstract class MaxRequestSizeCrashTest
               .value
             val status = completion.status.value
             val deserializedError = DecodedCantonError.fromGrpcStatus(status).value
-            val sendError = deserializedError.context.get("sendError").value
-            deserializedError.code.id shouldBe TransactionProcessor.SubmissionErrors.SequencerRequest.id
-            sendError should fullyMatch regex matchError
+            val reason = deserializedError.context.get("reason").value
+            deserializedError.code.id shouldBe MalformedRequest.id
+            reason should include regex matchError
           }
-        },
-        _.warningMessage should include regex matchLog,
+        }
       )
 
       // restart Canton with overrideMaxRequestSize
@@ -166,6 +164,19 @@ sealed abstract class MaxRequestSizeCrashTest
             _ == lowMaxRequestSize
           )
         }
+
+        val newMaxRequestSize = NonNegativeInt.tryCreate(60_000)
+        synchronizerOwners1.foreach {
+          _.topology.synchronizer_parameters
+            .propose_update(synchronizerId = daId, _.update(maxRequestSize = newMaxRequestSize))
+        }
+
+        forAll(Seq(sequencer1, sequencer2) ++ participants.all) { owner =>
+          forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
+            _ == MaxRequestSize(newMaxRequestSize)
+          )
+        }
+
         // we verify that this time the dynamic parameter is ignored
         participant1.ledger_api.javaapi.commands
           .submit(

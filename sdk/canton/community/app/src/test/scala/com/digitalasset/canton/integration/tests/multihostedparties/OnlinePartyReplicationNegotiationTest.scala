@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.value.Value.Sum.Party
 import com.daml.ledger.api.v2.value.{RecordField, Value}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, TemplateId}
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -151,6 +151,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
             // A threshold of 2 ensures that each participant connects to all the three sequencers in the connectivity map
             // TODO(#19911) Make this properly configurable
             sequencerTrustThreshold = PositiveInt.two,
+            sequencerLivenessMargin = NonNegativeInt.zero,
             submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
           )
           participant.synchronizers.connect_by_config(

@@ -338,7 +338,7 @@ private[mediator] class Mediator(
         "mediator",
         LifeCycle.close(
           topologyTransactionProcessor,
-          syncCrypto.ips,
+          syncCrypto,
           timeTracker,
           processor,
           sequencerClient,

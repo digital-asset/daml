@@ -17,6 +17,7 @@ import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPriv
 import com.digitalasset.canton.error.{CantonBaseError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   CryptoParseAndValidationError,
@@ -924,6 +925,21 @@ object EncryptionError {
   final case class InvalidEncryptionKey(error: String) extends EncryptionError {
     override protected def pretty: Pretty[InvalidEncryptionKey] = prettyOfClass(
       unnamedParam(_.error.unquoted)
+    )
+  }
+  @Explanation(
+    """This error means that the view size has exceeded the configured value for its size."""
+  )
+  @Resolution(
+    """Reduce the size of the payloads or increase the max request size in the dynamic synchronizer parameters."""
+  )
+  final case class MaxViewSizeExceeded(
+      viewSize: Int,
+      maxRequestSize: MaxRequestSizeToDeserialize.Limit,
+  ) extends EncryptionError {
+    override protected def pretty: Pretty[MaxViewSizeExceeded] = prettyOfClass(
+      param("view size", _.viewSize),
+      param("max request size configured", _.maxRequestSize.value),
     )
   }
 }

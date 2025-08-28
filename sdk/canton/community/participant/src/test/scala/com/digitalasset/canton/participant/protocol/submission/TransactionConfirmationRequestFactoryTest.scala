@@ -35,6 +35,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.protocol.{
+  MaxRequestSizeToDeserialize,
   MediatorGroupRecipient,
   MemberRecipient,
   OpenEnvelope,
@@ -325,7 +326,12 @@ class TransactionConfirmationRequestFactoryTest
             cryptoPureApi,
             sessionKey,
             TransactionViewType,
-          )(ltvt)
+          )(
+            ltvt,
+            MaxRequestSizeToDeserialize.Limit(
+              DynamicSynchronizerParameters.defaultMaxRequestSize.value
+            ),
+          )
           .valueOr(err => fail(s"fail to encrypt view tree: $err"))
 
         val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] = {

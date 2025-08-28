@@ -8,7 +8,7 @@ import cats.syntax.either.*
 import com.daml.jwt.JwksUrl
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
@@ -274,6 +274,7 @@ final case class DeclarativeConnectionConfig(
     priority: Int = 0,
     initializeFromTrustedSynchronizer: Boolean = false,
     trustThreshold: PositiveInt = PositiveInt.one,
+    livenessMargin: NonNegativeInt = NonNegativeInt.zero,
 ) extends UniformCantonConfigValidation {
 
   def isEquivalent(other: DeclarativeConnectionConfig): Boolean = {
@@ -300,6 +301,7 @@ final case class DeclarativeConnectionConfig(
           )
         }.toSeq,
         sequencerTrustThreshold = trustThreshold,
+        sequencerLivenessMargin = livenessMargin,
         submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
       )
 

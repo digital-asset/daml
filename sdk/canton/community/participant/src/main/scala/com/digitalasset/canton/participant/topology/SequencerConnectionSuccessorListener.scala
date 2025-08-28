@@ -126,6 +126,7 @@ class SequencerConnectionSuccessorListener(
           .many(
             connections = successorConnections,
             activeConfig.config.sequencerConnections.sequencerTrustThreshold,
+            activeConfig.config.sequencerConnections.sequencerLivenessMargin,
             activeConfig.config.sequencerConnections.submissionRequestAmplification,
           )
           .toOption

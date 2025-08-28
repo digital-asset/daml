@@ -21,6 +21,7 @@ import com.google.common.cache.{Cache, CacheBuilder}
 import java.net.{URI, URL}
 import java.security.interfaces.{ECPublicKey, RSAPublicKey}
 import java.util.concurrent.TimeUnit
+import scala.concurrent.duration.FiniteDuration
 
 /** A JWK verifier, where the public keys are automatically fetched from the given JWKS URL.
   *
@@ -46,13 +47,10 @@ class JwksVerifier(
     url: URL,
     // Large enough such that malicious users can't cycle through all keys from reasonably sized JWKS,
     // forcing cache eviction and thus introducing additional latency.
-    cacheMaxSize: Long = 1000,
-    cacheExpirationTime: Long = 10,
-    cacheExpirationUnit: TimeUnit = TimeUnit.HOURS,
-    connectionTimeout: Long = 10,
-    connectionTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
-    readTimeout: Long = 10,
-    readTimeoutUnit: TimeUnit = TimeUnit.SECONDS,
+    cacheMaxSize: Long,
+    cacheExpiration: FiniteDuration,
+    connectionTimeout: FiniteDuration,
+    readTimeout: FiniteDuration,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
     maxTokenLife: Option[Long] = None,
 ) extends JwtVerifierBase
@@ -61,14 +59,14 @@ class JwksVerifier(
   private[this] val http =
     new UrlJwkProvider(
       url,
-      Integer.valueOf(connectionTimeoutUnit.toMillis(connectionTimeout).toInt),
-      Integer.valueOf(readTimeoutUnit.toMillis(readTimeout).toInt),
+      connectionTimeout.toMillis.toInt,
+      readTimeout.toMillis.toInt,
     )
 
   private[this] val cache: Cache[String, JwtVerifier] = CacheBuilder
     .newBuilder()
     .maximumSize(cacheMaxSize)
-    .expireAfterWrite(cacheExpirationTime, cacheExpirationUnit)
+    .expireAfterWrite(cacheExpiration.toSeconds, TimeUnit.SECONDS)
     .build()
 
   @SuppressWarnings(
@@ -127,11 +125,19 @@ class JwksVerifier(
 object JwksVerifier {
   def apply(
       url: String,
+      cacheMaxSize: Long,
+      cacheExpiration: FiniteDuration,
+      connectionTimeout: FiniteDuration,
+      readTimeout: FiniteDuration,
       jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
       maxTokenLife: Option[Long] = None,
   ) =
     new JwksVerifier(
       new URI(url).toURL,
+      cacheMaxSize = cacheMaxSize,
+      cacheExpiration = cacheExpiration,
+      connectionTimeout = connectionTimeout,
+      readTimeout = readTimeout,
       jwtTimestampLeeway = jwtTimestampLeeway,
       maxTokenLife = maxTokenLife,
     )

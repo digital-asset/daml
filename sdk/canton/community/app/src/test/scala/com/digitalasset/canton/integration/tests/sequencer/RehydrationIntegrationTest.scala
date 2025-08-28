@@ -13,7 +13,7 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig.Postgres
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{InstanceReference, ParticipantReference}
 import com.digitalasset.canton.examples.java.{cycle as C, iou}
 import com.digitalasset.canton.integration.plugins.{
@@ -195,7 +195,8 @@ abstract class RehydrationIntegrationTest
           SequencerAlias.tryCreate(sequencer2.name)
         )
       ),
-      PositiveInt.one,
+      sequencerTrustThreshold = PositiveInt.one,
+      sequencerLivenessMargin = NonNegativeInt.zero,
       SubmissionRequestAmplification.NoAmplification,
     )
 
@@ -294,7 +295,8 @@ abstract class RehydrationIntegrationTest
           SequencerAlias.tryCreate(sequencer2.name)
         )
       ),
-      PositiveInt.one,
+      sequencerTrustThreshold = PositiveInt.one,
+      sequencerLivenessMargin = NonNegativeInt.zero,
       SubmissionRequestAmplification.NoAmplification,
     )
 

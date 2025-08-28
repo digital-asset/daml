@@ -30,6 +30,7 @@ final case class GrpcHealthServerConfig(
   override val serverCertChainFile: Option[PemFileOrString] = None
   override def maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize
   override val maxTokenLifetime: NonNegativeDuration = NonNegativeDuration(Duration.Inf)
+  override val jwksCacheConfig: JwksCacheConfig = JwksCacheConfig()
   def toRemoteConfig: FullClientConfig =
     FullClientConfig(address, port, keepAliveClient = keepAliveServer.map(_.clientConfigFor))
 }

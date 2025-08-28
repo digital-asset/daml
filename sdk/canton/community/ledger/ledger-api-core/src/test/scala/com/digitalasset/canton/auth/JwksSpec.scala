@@ -15,6 +15,7 @@ import org.scalatest.matchers.should.Matchers
 import java.security.interfaces.{ECPrivateKey, ECPublicKey, RSAPrivateKey, RSAPublicKey}
 import java.security.spec.ECGenParameterSpec
 import java.security.{KeyPairGenerator, PrivateKey, PublicKey}
+import scala.concurrent.duration.DurationInt
 
 trait JwksSpec extends AnyFlatSpec with Matchers { self: JwksSpecKeys =>
 
@@ -90,7 +91,7 @@ trait JwksSpecKeys {
   private val server = SimpleHttpServer.start(jwks)
   private val url = SimpleHttpServer.responseUrl(server)
 
-  protected val verifier: JwksVerifier = JwksVerifier(url)
+  protected val verifier: JwksVerifier = JwksVerifier(url, 1000, 10.minutes, 10.seconds, 10.seconds)
 }
 
 class JwksSpecRSA extends JwksSpec with JwksSpecKeys {

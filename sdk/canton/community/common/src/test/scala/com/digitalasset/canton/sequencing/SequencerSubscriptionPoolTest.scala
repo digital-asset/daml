@@ -137,7 +137,8 @@ class SequencerSubscriptionPoolTest
 
           // Subscription pool gets closed because the threshold is no longer reachable
           listener.shouldStabilizeOn(ComponentHealthState.failed("Component is closed"))
-          subscriptionPool.nbSubscriptions shouldBe NonNegativeInt.tryCreate(4)
+          // It does not make sense to check for the number of remaining subscriptions in the pool at this point
+          // since the pool has been closed.
         }
       }
     }
