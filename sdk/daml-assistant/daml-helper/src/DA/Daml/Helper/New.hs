@@ -8,10 +8,8 @@ module DA.Daml.Helper.New
     , ociMain
     ) where
 
-import Control.Exception (IOException, try)
 import Control.Monad.Extra
 import DA.Directory
-import Data.Either.Extra
 import Data.Foldable
 import Data.List.Extra
 import Data.Maybe
@@ -121,7 +119,7 @@ runNewInternal assistantName sdkVersion targetFolder templateNameM = do
 
 getTemplatesFolder :: IO FilePath
 getTemplatesFolder = do
-  mSdkPath <- eitherToMaybe <$> try @IOException getSdkPath
+  mSdkPath <- tryGetSdkPath
   case mSdkPath of
     Just sdkPath -> pure $ sdkPath </> "templates"
     Nothing ->
@@ -158,8 +156,8 @@ findAscendantWithFile filename path =
 
 ociMain :: IO ()
 ociMain = do
-    -- Save the runfiles environment to work around
     forM_ [stdout, stderr] $ \h -> hSetBuffering h LineBuffering
+    -- Save the runfiles environment to work around
     -- https://gitlab.haskell.org/ghc/ghc/-/issues/18418.
     setRunfilesEnv
     installSignalHandlers

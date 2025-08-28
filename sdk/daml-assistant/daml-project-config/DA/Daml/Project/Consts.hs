@@ -19,6 +19,7 @@ module DA.Daml.Project.Consts
     , getDamlPath
     , getProjectPath
     , getSdkPath
+    , tryGetSdkPath
     , getSdkVersion
     , getSdkVersionDpm
     , getSdkVersionMaybe
@@ -144,6 +145,10 @@ getProjectPath = do
 -- the assistant.
 getSdkPath :: IO FilePath
 getSdkPath = getEnv sdkPathEnvVar
+
+-- | getSdkPath but can fail
+tryGetSdkPath :: IO (Maybe FilePath)
+tryGetSdkPath = lookupEnv sdkPathEnvVar
 
 -- | Returns the current SDK version.
 --
