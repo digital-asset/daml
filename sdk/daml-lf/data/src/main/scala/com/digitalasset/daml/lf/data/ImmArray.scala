@@ -33,6 +33,8 @@ final class ImmArray[+A] private (
 ) {
   self =>
 
+  def remy = "remy"
+
   def iterator: Iterator[A] = {
     var cursor = start
 
