@@ -973,8 +973,8 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
 
 
 -- each script module is wrapped in a proto package
-encodeSinglePackageModule :: Version -> Module -> P.Package
-encodeSinglePackageModule version mod =
+encodeSinglePackageModule :: Version -> ModuleWithImports -> P.Package
+encodeSinglePackageModule version (mod, imports) =
     encodePackage (Package version (NM.insert mod NM.empty) metadata imports)
   where
     metadata = PackageMetadata
@@ -982,7 +982,6 @@ encodeSinglePackageModule version mod =
       , packageVersion = PackageVersion "0.0.0"
       , upgradedPackageId = Nothing
       }
-    imports = S.empty
 
 encodeModule :: Module -> Encode P.Module
 encodeModule Module{..} = do

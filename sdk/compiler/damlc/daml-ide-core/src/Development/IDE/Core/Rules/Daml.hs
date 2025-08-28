@@ -378,6 +378,9 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], LF.PackageIds)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `Set.union` imps)) ([], Set.empty)
+
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
 -- TypeCheckedModules or CoreModules. In addition to that, making this too fine-grained would probably also incur a performance penalty.
@@ -403,7 +406,7 @@ generateSerializedDalfRule options =
             lfVersion <- getDamlLfVersion
             -- build dependencies
             files <- discardInternalModules (optUnitId options) . transitiveModuleDeps =<< use_ GetDependencies file
-            dalfDeps <- uses_ ReadSerializedDalf files
+            dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
             deps <- uses_ ReadInterface files
@@ -424,6 +427,7 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
+                            imports <- use_ GeneratePackageImports file
                             DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
@@ -433,7 +437,11 @@ generateSerializedDalfRule options =
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
                                     pkgs <- getExternalPackages file
-                                    let selfPkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfDeps Set.empty
+                                    let selfPkg = buildPackage
+                                                    (packageMetadataFromOptions options)
+                                                    lfVersion
+                                                    dalfDeps
+                                                    Set.empty --dummy set since it doesn't matter
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -448,7 +456,7 @@ generateSerializedDalfRule options =
                                             fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
-                                                    writeDalfFile (dalfFileName file) dalf
+                                                    writeDalfFile (dalfFileName file) (dalf, imports)
                                                     pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
@@ -459,6 +467,7 @@ readSerializedDalfRule =
       needOnDisk GenerateSerializedDalf file
       dalf <- readDalfFromFile dalfFile
       (_, iface) <- use_ ReadInterface file
+      --TODO[RB] ask Remy if we should do some fingerprintToBS magic
       pure (Just $ fingerprintToBS $ mi_mod_hash iface, ([], Just dalf))
 
 readInterfaceRule :: Rules ()
@@ -781,11 +790,11 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    dalfs <- usesE' ReadSerializedDalf files
+    (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     --TODO: we are not inside action and have multiple files, so IDK how to
     --obtain the deps here?
-    pure $ buildPackage meta lfVersion dalfs Set.empty
+    pure $ buildPackage meta lfVersion dalfs imports
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -801,7 +810,7 @@ hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
     toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
-readDalfFromFile :: NormalizedFilePath -> Action LF.Module
+readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -817,7 +826,7 @@ readDalfFromFile dalfFile = do
             Left err -> fail (show err)
             Right mod -> pure mod
 
-writeDalfFile :: NormalizedFilePath -> LF.Module -> Action ()
+writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -842,15 +851,25 @@ convertUnitId pkgMap id =
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
 
+generatePackageImports :: Rules ()
+generatePackageImports =
+    define $ \GeneratePackageImports file -> do
+      PackageMap pkgMap <- use_ GeneratePackageMap file
+      deps <- depPkgDeps <$> use_ GetDependencyInformation file
+      return ([]{-list of diagnostics-}, Just $ depsToIds pkgMap deps)
+
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
 generateRawPackageRule :: Options -> Rules ()
 generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
-        PackageMap pkgMap <- use_ GeneratePackageMap file
-        deps <- depPkgDeps <$> use_ GetDependencyInformation file
-        let ids = depsToIds pkgMap deps
+
+        -- PackageMap pkgMap <- use_ GeneratePackageMap file
+        -- deps <- depPkgDeps <$> use_ GetDependencyInformation file
+        -- let ids = depsToIds pkgMap deps
+        ids <- use_ GeneratePackageImports file
+
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
