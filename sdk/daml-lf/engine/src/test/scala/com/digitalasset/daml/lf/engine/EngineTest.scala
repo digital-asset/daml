@@ -486,15 +486,55 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     }
 
     "be validated with no change in metrics" in {
+      val sharedEngine = suffixLenientEngine
+      val freshEngine1 = newEngine()
+      val freshEngine2 = newEngine()
+      val interpretResultWithCaching =
+        res
+          .flatMap { cmds =>
+            sharedEngine
+              .interpretCommands(
+                validating = false,
+                submitters = submitters,
+                readAs = readAs,
+                commands = cmds,
+                ledgerTime = let,
+                preparationTime = let,
+                seeding = seeding,
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          }
+      val Right((_, _, expectedWithCaching)) = interpretResultWithCaching
+      val interpretResultNoCaching =
+        res
+          .flatMap { cmds =>
+            freshEngine1
+              .interpretCommands(
+                validating = false,
+                submitters = submitters,
+                readAs = readAs,
+                commands = cmds,
+                ledgerTime = let,
+                preparationTime = let,
+                seeding = seeding,
+              )
+              .consume(lookupContract, lookupPackage, lookupKey)
+          }
+      val Right((_, _, expectedNoCaching)) = interpretResultNoCaching
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
-      val validated = suffixLenientEngine
+      val validatedWithCaching = sharedEngine
         .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
-      validated match {
-        case Left(e) =>
-          fail(e.message)
-        case Right(actual) =>
-          actual.totalStepCount shouldBe metrics.totalStepCount
+      val validatedNoCaching = freshEngine2
+        .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
+        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+
+      inside((validatedWithCaching, validatedNoCaching)) {
+        case (Right(actualWithCaching), Right(actualNoCaching)) =>
+          // SEVal and SDefinition caching effects impact Speedy machine step counts
+          actualWithCaching.totalStepCount shouldBe expectedWithCaching.totalStepCount
+          actualWithCaching.totalStepCount should be <= actualNoCaching.totalStepCount
+          actualNoCaching.totalStepCount should be <= expectedNoCaching.totalStepCount
       }
     }
   }
