@@ -45,9 +45,9 @@ final case class TransactionSnapshot(
 
   private[this] lazy val engine = TransactionSnapshot.compile(pkgs, profileDir)
 
-  def replay(): Either[Error, Unit] =
+  def replay(): Either[Error, Speedy.Metrics] =
     engine
-      .replay(
+      .replayAndCollectMetrics(
         submitters,
         transaction,
         ledgerTime,
@@ -56,11 +56,11 @@ final case class TransactionSnapshot(
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
-      .map(_ => ())
+      .map { case (_, _, metrics) => metrics }
 
-  def validate(): Either[Error, Speedy.Metrics] =
+  def validate(): Either[Error, Unit] =
     engine
-      .validateAndCollectMetrics(
+      .validate(
         submitters,
         transaction,
         ledgerTime,
