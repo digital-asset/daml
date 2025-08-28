@@ -693,6 +693,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
             val kArrow = lfKind.getArrow
             val params = kArrow.getParamsList.asScala
             assertNonEmpty(params, "params")
+            assertSingletonIfSupportsFlatArchive(params, "params")
             Work.bind(decodeKind(kArrow.getResult)) { base =>
               Work.sequence(params.view.map(decodeKind)) { kinds =>
                 Ret((kinds foldRight base)(KArrow))
@@ -744,7 +745,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Type.SumCase.VAR =>
           val tvar = lfType.getVar
           val varName = internedName(tvar.getVarInternedStr)
-          Work.sequence(tvar.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = tvar.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "tvar.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft[Type](TVar(varName))(TApp))
           }
         case PLF.Type.SumCase.NAT =>
@@ -761,7 +764,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           )
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
-          Work.sequence(tcon.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = tcon.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "tcon.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft[Type](TTyCon(decodeTypeConId(tcon.getTycon)))(TApp))
           }
         case PLF.Type.SumCase.SYN =>
@@ -774,13 +779,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val info = builtinTypeInfoMap(builtin.getBuiltin)
           assertSince(info.minVersion, builtin.getBuiltin.getValueDescriptor.getFullName)
           val baseType: Type = info.typ
-          Work.sequence(builtin.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
+          val args = builtin.getArgsList.asScala
+          assertNullIfSupportsFlatArchive(args, "builtin.getArgsList")
+          Work.sequence(args.view.map(uncheckedDecodeType)) { types =>
             Ret(types.foldLeft(baseType)(TApp))
           }
         case PLF.Type.SumCase.FORALL =>
           val tForall = lfType.getForall
           val vars = tForall.getVarsList.asScala
           assertNonEmpty(vars, "vars")
+          assertSingletonIfSupportsFlatArchive(vars, "builtin.getArgsList")
           Work.bind(uncheckedDecodeType(tForall.getBody)) { base =>
             Work.sequence(vars.view.map(decodeTypeVarWithKind)) { binders =>
               Ret((binders foldRight base)(TForall))
@@ -810,6 +818,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
               (index: Int) => throw Error.Parsing(s"invalid internedTypes table index $index"),
             )
           )
+        case PLF.Type.SumCase.TAPP =>
+          if (!(languageVersion >= LV.Features.flatArchive))
+            throw Error.Parsing(
+              s"Illegal case: TApp not supported in version ${languageVersion}, since this version has local flattening"
+            )
+          val tapp = lfType.getTapp
+          Work.bind(uncheckedDecodeType(tapp.getLhs())) { lhs =>
+            Work.bind(uncheckedDecodeType(tapp.getRhs())) { rhs =>
+              Ret(TApp(lhs, rhs))
+            }
+          }
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw Error.Parsing("Type.SUM_NOT_SET")
       }
@@ -983,6 +1002,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val lfAbs = lfExpr.getAbs
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
+          assertSingletonIfSupportsFlatArchive(params, "params")
           decodeExpr(lfAbs.getBody, definition) { base =>
             Work.sequence(params.view.map(decodeBinder)) { binders =>
               Ret((binders foldRight base)((binder, e) => EAbs(binder, e)))
@@ -992,6 +1012,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
+          assertSingletonIfSupportsFlatArchive(args, "params")
           assertNonEmpty(args, "args")
           decodeExpr(tyapp.getExpr, definition) { base =>
             Work.sequence(args.view.map(decodeType(_)(Ret(_)))) { types =>
@@ -1003,6 +1024,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
+          assertSingletonIfSupportsFlatArchive(params, "params")
           decodeExpr(lfTyAbs.getBody, definition) { base =>
             Work.sequence(params.view.map(decodeTypeVarWithKind)) { binders =>
               Ret((binders foldRight base)(ETyAbs))
@@ -1564,6 +1586,24 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private def assertNonEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.isEmpty) throw Error.Parsing(s"Unexpected empty $description")
+
+  private def assertSingletonIfSupportsFlatArchive(
+      s: collection.Seq[_],
+      description: => String,
+  ): Unit =
+    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 1)
+      throw Error.Parsing(
+        s"Illegal local flattening: since lf flattening is supported, expected a single element for $description, but found ${s.length}, version ${languageVersion}"
+      )
+
+  private def assertNullIfSupportsFlatArchive(
+      s: collection.Seq[_],
+      description: => String,
+  ): Unit =
+    if ((!versionIsOlderThan(LV.Features.flatArchive)) && s.length != 0)
+      throw Error.Parsing(
+        s"Illegal local flattening: Since lf flattening is supported, expected a null list $description, but found ${s.length}, version ${languageVersion}"
+      )
 
   private[this] def assertEmpty(s: collection.Seq[_], description: => String): Unit =
     if (s.nonEmpty) throw Error.Parsing(s"Unexpected non-empty $description")

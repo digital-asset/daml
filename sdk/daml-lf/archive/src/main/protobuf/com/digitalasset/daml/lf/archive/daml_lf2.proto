@@ -258,6 +258,17 @@ message Type {
     repeated FieldWithType fields = 1;
   }
 
+  // Type Application
+  message TApp {
+    //type applications of shape "t1 t2"
+
+    // t1 in "t1 t2"
+    Type lhs = 1;
+
+    // t2 in "t1 t2"
+    Type rhs = 2;
+  }
+
   oneof Sum {
     Var var = 1;
     Con con = 2;
@@ -269,6 +280,10 @@ message Type {
     sint64 nat = 6;
     Syn syn = 7;
     int32 interned_type = 8;
+
+    // added in 2.dev, to replace local flattening (the lists of types on other
+    // nodes)
+    TApp tapp = 9;
   }
 
 }
