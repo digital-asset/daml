@@ -133,7 +133,6 @@ class Bench {
   @Param(
     Array(
       "Bench:benchFib",
-      "Bench:benchFibTail",
       "Bench:benchSumFoldlBuiltin",
       "Bench:bnechSumFoldrBuiltin",
       "Bench:benchSumFoldlCustom",
