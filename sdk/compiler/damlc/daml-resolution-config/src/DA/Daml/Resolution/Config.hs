@@ -134,6 +134,9 @@ unsupportedAsDataDep = ["daml-script"]
 
 data ExpandedSdkPackages = ExpandedSdkPackages
   { espRegularDeps :: [FilePath]
+  , -- For deps that shouldn't check the SDK version, i.e. deps from DPM that cannot be data deps
+    -- currently this is just daml-script
+    espRegularUncheckedDeps :: [FilePath]
   , espDataDeps :: [FilePath]
   }
 
@@ -149,7 +152,7 @@ expandSdkPackagesDpm cachePath pkgResolution lfVersion paths = do
     Left err -> throwIO $ ResolutionError $ T.unpack err
     Right resolvedSdkPackages -> do
       let (asDataDeps, asDeps) = partition snd resolvedSdkPackages
-      pure $ ExpandedSdkPackages (purePaths <> fmap fst asDeps) (fmap fst asDataDeps)
+      pure $ ExpandedSdkPackages purePaths (fmap fst asDeps) (fmap fst asDataDeps)
 
 -- Returns the path to the dar found, as well as a bool for whether this dar can be a data-dep (see `unsupportedAsDataDep`)
 findDarInDarInfos :: Map.Map FilePath DalfInfoCacheEntry -> T.Text -> LF.Version -> Either T.Text (FilePath, Bool)

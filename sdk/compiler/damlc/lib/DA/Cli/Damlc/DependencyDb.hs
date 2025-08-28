@@ -130,19 +130,19 @@ installDependencies ::
 installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
     logger <- getLogger opts "install-dependencies"
     let sdkPackages = filter (`notElem` basePackages) pDeps
-    ExpandedSdkPackages deps additionalDataDeps <-
+    ExpandedSdkPackages deps uncheckedDeps additionalDataDeps <-
       case optResolutionData opts of
         Just resolutionData -> do
           let rootPath = fromNormalizedFilePath projRoot
           pkgResolution <- either throwIO pure $ findPackageResolutionData rootPath resolutionData
           cachePath <- getCachePath
           expandSdkPackagesDpm cachePath pkgResolution (optDamlLfVersion opts) sdkPackages
-        Nothing -> (`ExpandedSdkPackages` []) <$> expandSdkPackages logger (optDamlLfVersion opts) sdkPackages
+        Nothing -> (\deps -> ExpandedSdkPackages deps [] []) <$> expandSdkPackages logger (optDamlLfVersion opts) sdkPackages
     DataDeps {dataDepsDars, dataDepsDalfs, dataDepsPkgIds, dataDepsNameVersion} <- readDataDeps $ pDataDeps <> additionalDataDeps
     (needsUpdate, newFingerprint) <-
         depsNeedUpdate
             depsDir
-            (deps ++ dataDepsDars ++ dataDepsDalfs)
+            (deps ++ uncheckedDeps ++ dataDepsDars ++ dataDepsDalfs)
             dataDepsPkgIds
             dataDepsNameVersion
             releaseVersion
@@ -155,9 +155,11 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
         -----------------------
         Logger.logDebug logger "Extracting dependencies"
         depsExtracted <- mapM extractDar deps
+        uncheckedDepsExtracted <- mapM extractDar uncheckedDeps
         checkSdkVersions releaseVersion depsExtracted
         Logger.logDebug logger "Installing dependencies"
         forM_ depsExtracted $ installDar depsDir False
+        forM_ uncheckedDepsExtracted $ installDar depsDir False
         -- install data-dependencies
         ----------------------------
         Logger.logDebug logger "Extracting & installing data-dependency DARs"
