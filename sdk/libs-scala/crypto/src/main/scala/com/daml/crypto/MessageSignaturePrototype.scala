@@ -35,5 +35,5 @@ final class MessageSignaturePrototype(val algorithm: String) {
 }
 
 object MessageSignaturePrototype {
-  val Secp256k1 = new MessageSignaturePrototype("ECDSA")
+  val Secp256k1 = new MessageSignaturePrototype("NONEwithECDSA")
 }
