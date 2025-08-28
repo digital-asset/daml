@@ -6,18 +6,6 @@ load(
     "da_scala_benchmark_jmh",
  )
 
-[
-genrule(
-  name = "benchs-dar-%s" % target,
-  srcs = glob(["src/lf/**/*.lf"]),
-  outs = ["benchs-%s.dar" % target],
-  cmd = "$(location //daml-lf/encoder:encoder_binary) $(SRCS) --output $@ --target %s" % target,
-  tools = ["//daml-lf/encoder:encoder_binary"],
-)
-for target in ["2.1", "2.dev"]
-]
-
-
 da_scala_benchmark_jmh(
     name = "speedy-bench",
     srcs = glob(["src/**/Bench.scala"]),
