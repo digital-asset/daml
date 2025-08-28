@@ -10,6 +10,6 @@ class MessageSignaturePrototypeSpec extends AnyFlatSpec with Matchers {
   behavior of MessageSignaturePrototype.getClass.getSimpleName
 
   it should "expose algorithm" in {
-    MessageSignaturePrototype.Secp256k1.algorithm shouldBe "ECDSA"
+    MessageSignaturePrototype.Secp256k1.algorithm shouldBe "NONEwithECDSA"
   }
 }

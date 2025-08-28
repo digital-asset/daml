@@ -27,5 +27,5 @@ class MessageSignaturePrototypeUtil(val algorithm: String) {
 }
 
 object MessageSignaturePrototypeUtil {
-  val Secp256k1 = new MessageSignaturePrototypeUtil("ECDSA")
+  val Secp256k1 = new MessageSignaturePrototypeUtil("NONEwithECDSA")
 }
