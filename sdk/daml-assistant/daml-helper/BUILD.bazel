@@ -269,8 +269,8 @@ da_haskell_binary(
         "optparse-applicative",
         "process",
     ],
-    src_strip_prefix = "src",
     main_function = "DA.Daml.Helper.New.ociMain",
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",
@@ -284,7 +284,7 @@ package_app(
     name = "daml-new-dpm",
     binary = ":daml-new",
     resources = [
-        "//templates:templates-tarball.tar.gz"
+        "//templates:templates-tarball.tar.gz",
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],
