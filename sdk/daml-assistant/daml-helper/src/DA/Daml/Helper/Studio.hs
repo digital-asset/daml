@@ -6,13 +6,11 @@ module DA.Daml.Helper.Studio
     , ReplaceExtension(..)
     ) where
 
-import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Daml.Resolution.Config (resolutionFileEnvVar)
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import Data.Char (toLower)
-import Data.Either.Extra (eitherToMaybe)
 import Data.Function (on)
 import Data.Maybe
 import System.Directory.Extra
@@ -29,7 +27,7 @@ import DA.Daml.Project.Consts
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do
-    mSdkPath <- eitherToMaybe <$> try @IOException getSdkPath
+    mSdkPath <- tryGetSdkPath
     InstalledExtensions {..} <- getInstalledExtensions
 
     bundledExtensionVsix <-

@@ -38,7 +38,7 @@ DPM_REGISTRY=$3
 # DPM_REGISTRY="europe-docker.pkg.dev/da-images-dev/oci-playground"
 
 # Should match the tars copied into /release/oci during copy-{OS}-release-artifacts.sh
-declare -a components=(damlc daml-script daml2js codegen)
+declare -a components=(damlc daml-script daml2js codegen daml-new)
 
 if [[ x"$DEBUG" != x ]]; then
   unarchive="tar -x -v -z -f"
