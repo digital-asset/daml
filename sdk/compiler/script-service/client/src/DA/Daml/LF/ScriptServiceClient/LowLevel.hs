@@ -52,6 +52,7 @@ import qualified Data.Conduit as C
 import Data.Conduit.Process
 import qualified Data.Conduit.Text as C.T
 import Data.Int (Int64)
+import qualified Data.Set as S
 import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -111,7 +112,7 @@ data ContextUpdate = ContextUpdate
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeSinglePackageModule version m =
-    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version m))
+    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version (m, S.empty)))
 
 data BackendError
   = BErrorClient ClientError
