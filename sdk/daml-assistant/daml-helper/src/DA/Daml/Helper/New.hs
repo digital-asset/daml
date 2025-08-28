@@ -38,11 +38,13 @@ import DA.Signals (installSignalHandlers)
 -- * Creation of a project inside another project.
 --
 runNew :: FilePath -> Maybe String -> IO ()
-runNew = runNewInternal "daml"
+runNew targetFolder templateNameM = do
+  sdkVersion <- getSdkVersion
+  runNewInternal "daml" sdkVersion targetFolder templateNameM
 
 -- | Called for both Daml Assistant and DPM
-runNewInternal :: String -> FilePath -> Maybe String -> IO ()
-runNewInternal assistantName targetFolder templateNameM = do
+runNewInternal :: String -> String -> FilePath -> Maybe String -> IO ()
+runNewInternal assistantName sdkVersion targetFolder templateNameM = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -105,7 +107,6 @@ runNewInternal assistantName targetFolder templateNameM = do
     let templateFiles = filter (".template" `isExtensionOf`) files
     forM_ templateFiles $ \templateFile -> do
         templateContent <- readFileUTF8 templateFile
-        sdkVersion <- getSdkVersion
         let content = replace "__VERSION__"  sdkVersion
                     . replace "__PROJECT_NAME__" projectName
                     $ templateContent
@@ -171,9 +172,13 @@ ociMain = do
             [ Just <$> strOption (long "template" <> metavar "TEMPLATE" <> help templateHelpStr)
             , pure Nothing
             ]
+          runNewDpm :: FilePath -> Maybe String -> IO ()
+          runNewDpm targetFolder templateNameM = do
+            sdkVersion <- getSdkVersionDpm
+            runNewInternal "dpm" sdkVersion targetFolder templateNameM
       in asum
         [ runListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
-        , runNewInternal "dpm"
+        , runNewDpm
             <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
             <*> appTemplateFlag
         ]

@@ -20,6 +20,7 @@ module DA.Daml.Project.Consts
     , getProjectPath
     , getSdkPath
     , getSdkVersion
+    , getSdkVersionDpm
     , getSdkVersionMaybe
     , getDamlAssistant
     , ProjectCheck(..)
@@ -74,6 +75,9 @@ sdkPathEnvVar = "DAML_SDK"
 -- 3. the latest stable SDK version available in $DAML_HOME/sdk.
 sdkVersionEnvVar :: String
 sdkVersionEnvVar = "DAML_SDK_VERSION"
+
+sdkVersionDpmEnvVar :: String
+sdkVersionDpmEnvVar = "DPM_SDK_VERSION"
 
 -- | Latest stable version available from GitHub. Note that this is
 -- updated based on the update-check property in the user's daml-config.yaml
@@ -147,6 +151,13 @@ getSdkPath = getEnv sdkPathEnvVar
 -- the assistant.
 getSdkVersion :: IO String
 getSdkVersion = getEnv sdkVersionEnvVar
+
+-- | Returns the current SDK version via DPM.
+--
+-- This will throw an `IOException` if the environment has not been setup by
+-- the assistant.
+getSdkVersionDpm :: IO String
+getSdkVersionDpm = getEnv sdkVersionDpmEnvVar
 
 -- | Returns the current SDK version if set, or Nothing.
 getSdkVersionMaybe :: IO (Maybe (Either InvalidVersion UnresolvedReleaseVersion))
