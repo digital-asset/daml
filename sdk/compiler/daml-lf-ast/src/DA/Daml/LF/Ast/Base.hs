@@ -1001,6 +1001,7 @@ newtype UpgradedPackageId = UpgradedPackageId
   deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
 type PackageIds = S.Set PackageId
+type ModuleWithImports = (Module, PackageIds)
 
 -- | A package.
 data Package = Package
