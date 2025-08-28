@@ -9,7 +9,7 @@ module DA.Daml.LF.Proto3.EncodeV2 (
   module DA.Daml.LF.Proto3.EncodeV2
 ) where
 
-import           Control.Lens ((^.), matching, makeLensesFor, zoom)
+import           Control.Lens ((^.), matching, makeLensesFor, zoom, at, use)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 import           Control.Monad.Extra (ifM)
@@ -24,6 +24,7 @@ import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
+import qualified Data.Map            as M
 import           Data.Int
 
 import           DA.Pretty
@@ -47,6 +48,8 @@ type InternedExprsMap = InternedArr P.ExprSum
 
 type Encode a = State EncodeEnv a
 
+type ImportMap = M.Map PackageId Int32
+
 data EncodeEnv = EncodeEnv
     { version :: !Version
     , internedStrings :: !(HMS.HashMap T.Text Int32)
@@ -58,11 +61,13 @@ data EncodeEnv = EncodeEnv
     , internedKindsMap :: InternedKindsMap
     , internedTypesMap :: InternedTypesMap
     , internedExprsMap :: InternedExprsMap
+    , importMap :: ImportMap
     }
 
 makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
               , ("internedTypesMap", "internedTypesMapLens")
-              , ("internedExprsMap", "internedExprsMapLens")] ''EncodeEnv
+              , ("internedExprsMap", "internedExprsMapLens")
+              , ("importMap", "importMapLens")] ''EncodeEnv
 
 ifSupportsFlattening :: a -> a -> Encode a
 ifSupportsFlattening b1 b2 = ifSupportsFlatteningM (return b1) (return b2)
@@ -74,8 +79,8 @@ assertSupportsFlattening :: Encode ()
 assertSupportsFlattening =
   ifSupportsFlattening () (error "assertion failiure: version does not support flattening")
 
-initEncodeEnv :: Version -> EncodeEnv
-initEncodeEnv version =
+initEncodeEnv :: Version -> ImportMap -> EncodeEnv
+initEncodeEnv version im =
     EncodeEnv
     { nextInternedStringId = 0
     , internedStrings = HMS.empty
@@ -84,8 +89,12 @@ initEncodeEnv version =
     , internedKindsMap = I.empty
     , internedTypesMap = I.empty
     , internedExprsMap = I.empty
+    , importMap = im
     , ..
     }
+
+initTestEncodeEnv :: Version -> EncodeEnv
+initTestEncodeEnv = flip initEncodeEnv M.empty
 
 -- | Find or allocate a string in the interning table. Return the index of
 -- the string in the resulting interning table.
@@ -184,8 +193,9 @@ encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPacka
 encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
     SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-    ImportedPackageId (PackageId pkgId) ->
-        P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId
+    ImportedPackageId pkgId -> do
+      id <- fromJust <$> use (importMapLens . at pkgId)
+      return $ P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr id
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -1037,15 +1047,19 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
-encodeImports :: Maybe PackageIds -> Maybe P.PackageImports
+encodeImports :: [PackageIds] -> Maybe P.PackageImports
 encodeImports = fmap $ P.PackageImports . V.fromList . S.toList . S.map toTlText
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
 
+mkImportMap :: [PackageId] -> ImportMap
+mkImportMap = M.fromList . flip zip [0..]
+
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata imports) =
-    let env = initEncodeEnv version
+    let importList = S.toList imports
+        env = initEncodeEnv version $ mkImportMap importList
         ( (packageModules, packageMetadata),
           EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
             runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
@@ -1055,7 +1069,7 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportedPackages = encodeImports imports
+        packageImportedPackages = encodeImports importList
     in
     P.Package{..}
 

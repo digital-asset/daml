@@ -268,7 +268,7 @@ encodeKindAssert k pk =
   let (pk', _) = runState (encodeKind k) env
   in  pk' @?= pk
     where
-      env = initEncodeEnv testVersion
+      env = initTestEncodeEnv testVersion
 
 encodeKindTest :: String -> Kind -> P.Kind -> TestTree
 encodeKindTest str k pk = testCase str $ encodeKindAssert k pk
@@ -281,7 +281,7 @@ kindTests = testGroup "Kind tests"
   ]
 
 runEncodeKindTest :: Kind -> (P.Kind, EncodeTestEnv)
-runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initEncodeEnv testVersion)
+runEncodeKindTest k = envToTestEnv <$> runState (encodeKind k) (initTestEncodeEnv testVersion)
 
 kindInterningStarToStar :: TestTree
 kindInterningStarToStar =
@@ -332,7 +332,7 @@ typeInterningTests = testGroup "Type tests (interning)"
 
 
 runEncodeTypeTest :: Type -> (P.Type, EncodeTestEnv)
-runEncodeTypeTest k = envToTestEnv <$> runState (encodeType' k) (initEncodeEnv testVersion)
+runEncodeTypeTest k = envToTestEnv <$> runState (encodeType' k) (initTestEncodeEnv testVersion)
 
 typeInterningVar :: TestTree
 typeInterningVar =
@@ -449,7 +449,7 @@ exprInterningTests = testGroup "Expr tests (interning)"
   ]
 
 runEncodeExprTest :: Expr -> (P.Expr, EncodeTestEnv)
-runEncodeExprTest k = envToTestEnv <$> runState (encodeExpr' k) (initEncodeEnv testVersion)
+runEncodeExprTest k = envToTestEnv <$> runState (encodeExpr' k) (initTestEncodeEnv testVersion)
 
 exprInterningVar :: TestTree
 exprInterningVar =
