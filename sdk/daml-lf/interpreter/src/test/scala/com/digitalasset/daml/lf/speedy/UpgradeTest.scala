@@ -535,10 +535,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List.empty,
           contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
-      ) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra template field type encountered during upgrading"
-        )
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "cannot upgrade non-optional fields"
+          )
       }
     }
 
@@ -574,10 +582,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       forEvery(positiveTestCases) { tyCon =>
         inside(
           go(e"'-pkg3-':M:do_fetch", pkgName, tyCon, v, List(alice), List(bob), Some(key(tyCon)))
-        ) { case Left(e) =>
-          // TODO(https://github.com/DACH-NY/canton/issues/23879): do better than a crash once we typecheck values
-          //    on import.
-          e shouldBe a[SError.SErrorCrash]
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(
+                    _,
+                    IE.Dev.TranslationError(error),
+                  )
+                )
+              ) =>
+            error shouldBe a[IE.Dev.TranslationError.LookupError]
         }
       }
     }
@@ -603,7 +617,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "extra field (text) - something is very wrong" in {
+    "extra field (text)" in {
       // should be caught by package upgradability check
 
       val v1_extraText =
@@ -631,10 +645,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v1_extraTextKey),
         )
 
-      inside(res) { case Left(SError.SErrorCrash(_, reason)) =>
-        reason should include(
-          "Unexpected non-optional extra contract field encountered during downgrading"
-        )
+      inside(res) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "Found non-optional extra field, cannot remove for downgrading"
+          )
       }
     }
 
@@ -664,8 +686,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         Some(v1_extraSomeKey),
       )
 
-      inside(res) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeDropDefinedField(t"'-pkg2-':M:T", 3, v1_extraSome)
+      inside(res) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(IE.Dev.TranslationError.TypeMismatch(_, _, reason)),
+                )
+              )
+            ) =>
+          reason should include(
+            "An optional contract field with a value of Some may not be dropped during downgrading"
+          )
       }
     }
 
@@ -719,8 +751,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeFailed(t"'-variant-v2-':M:D", tag)
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(error),
+                )
+              )
+            ) =>
+          error shouldBe a[IE.Dev.TranslationError.LookupError]
       }
     }
 
@@ -742,8 +782,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = None,
         )
-      ) { case Left(SError.SErrorDamlException(IE.Upgrade(e))) =>
-        e shouldBe IE.Upgrade.DowngradeFailed(t"'-enum-v2-':M:D", black)
+      ) {
+        case Left(
+              SError.SErrorDamlException(
+                IE.Dev(
+                  _,
+                  IE.Dev.TranslationError(error),
+                )
+              )
+            ) =>
+          error shouldBe a[IE.Dev.TranslationError.LookupError]
       }
     }
   }
