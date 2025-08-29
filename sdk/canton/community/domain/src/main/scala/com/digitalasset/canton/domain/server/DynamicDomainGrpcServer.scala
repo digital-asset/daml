@@ -19,7 +19,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.MetricHandle
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
 
 import scala.annotation.nowarn
 import scala.concurrent.ExecutionContextExecutorService
@@ -80,7 +80,7 @@ class DynamicDomainGrpcServer(
 
     serverBuilder
       .addService(grpcDomainHealthManager.manager.getHealthService.bindService())
-      .addService(ProtoReflectionService.newInstance(), withLogging = false)
+      .addService(ProtoReflectionServiceV1.newInstance(), withLogging = false)
       .discard[CantonServerBuilder]
 
     (toCloseableServer(serverBuilder.build.start(), logger, "PublicServer"), registry)

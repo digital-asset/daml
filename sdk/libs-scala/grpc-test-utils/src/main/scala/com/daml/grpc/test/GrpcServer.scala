@@ -7,7 +7,7 @@ import com.daml.resources.grpc.{GrpcResourceOwnerFactories => Resources}
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
 import io.grpc.reflection.v1alpha.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
@@ -56,7 +56,7 @@ trait GrpcServer { this: AsyncFlatSpec =>
 
       val Name: String = ServerReflectionGrpc.SERVICE_NAME
 
-      def newInstance: BindableService = ProtoReflectionService.newInstance()
+      def newInstance: BindableService = ProtoReflectionServiceV1.newInstance()
 
       def listServices(channel: Channel, interceptors: ClientInterceptor*): Iterable[String] = {
         val response = Promise[Iterable[String]]()
