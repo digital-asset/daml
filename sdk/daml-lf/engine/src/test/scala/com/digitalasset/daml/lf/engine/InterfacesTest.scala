@@ -106,7 +106,8 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             seeding = seeding,
             packageResolution = packageNameMap,
           )
-      } yield result
+        (tx, meta, _) = result
+      } yield (tx, meta)
     def runApi(cmd: ApiCommand): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
       consume(run(cmd)(preprocessor.preprocessApiCommand(Map.empty, _)))
 

@@ -8,6 +8,7 @@ import com.digitalasset.daml.lf.archive.{ArchiveDecoder, UniversalArchiveDecoder
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig, Error}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
+import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{
@@ -44,9 +45,9 @@ final case class TransactionSnapshot(
 
   private[this] lazy val engine = TransactionSnapshot.compile(pkgs, profileDir)
 
-  def replay(): Either[Error, Unit] =
+  def replay(): Either[Error, Speedy.Metrics] =
     engine
-      .replay(
+      .replayAndCollectMetrics(
         submitters,
         transaction,
         ledgerTime,
@@ -55,7 +56,7 @@ final case class TransactionSnapshot(
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
-      .map(_ => ())
+      .map { case (_, _, metrics) => metrics }
 
   def validate(): Either[Error, Unit] =
     engine

@@ -47,6 +47,20 @@ private[lf] object Speedy {
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
 
+  final class Metrics(val batchSize: Long) {
+    // Speedy evaluates in steps which are grouped into batches of batchSize
+    private[this] var stepBatchCount: Long = 0
+    private[this] var stepCount: Long = 0
+
+    private[speedy] def incrStepCount(): Unit = stepCount += 1
+    private[speedy] def incrStepBatchCount(): Unit = {
+      stepBatchCount += 1
+      stepCount = 0
+    }
+
+    private[lf] def totalStepCount: (Long, Long) = (stepBatchCount, stepCount)
+  }
+
   /** Instrumentation counters. */
   final class Instrumentation() {
     private[this] var countPushesKont: Int = 0
@@ -858,6 +872,8 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    private[lf] lazy val metrics = new Speedy.Metrics(iterationsBetweenInterruptions)
+
     /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
@@ -957,7 +973,7 @@ private[lf] object Speedy {
     }
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
-    /* Used when enableLightweightStepTracing is true */
+
     private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
 
     /* Used when enableInstrumentation is true */
@@ -1148,11 +1164,13 @@ private[lf] object Speedy {
             Classify.classifyMachine(this, track.classifyCounts)
           if (interruptionCountDown == 0) {
             interruptionCountDown = iterationsBetweenInterruptions
+            metrics.incrStepBatchCount()
             SResultInterruption
           } else {
             val thisControl = control
             setControl(Control.WeAreUnset)
             interruptionCountDown -= 1
+            metrics.incrStepCount()
             thisControl match {
               case Control.Value(value) =>
                 popTempStackToBase()
