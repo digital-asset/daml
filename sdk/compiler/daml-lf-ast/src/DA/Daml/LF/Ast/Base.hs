@@ -1000,11 +1000,15 @@ newtype UpgradedPackageId = UpgradedPackageId
   deriving stock (Eq, Data, Generic, Ord, Show)
   deriving newtype (Hashable, NFData, ToJSON, ToJSONKey, FromJSON)
 
+type PackageIds = S.Set PackageId
+type ModuleWithImports = (Module, PackageIds)
+
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     , packageMetadata :: PackageMetadata
+    , importedPackages :: PackageIds
     }
   deriving (Eq, Data, Generic, NFData, Show)
 

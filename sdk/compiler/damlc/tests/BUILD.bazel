@@ -1090,6 +1090,7 @@ da_haskell_binary(
     hackage_deps = [
         "base",
         "bytestring",
+        "containers",
         "optparse-applicative",
         "text",
     ],
