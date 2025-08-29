@@ -195,6 +195,13 @@ featureFlatArchive = Feature
     , featureCppFlag = Just "DAML_FLATARCHIVE"
     }
 
+featurePackageImports :: Feature
+featurePackageImports = Feature
+    { featureName = "Explicit package imports"
+    , featureVersionReq = devOnly
+    , featureCppFlag = Just "DAML_PackageImports"
+    }
+
 featureComplexAnyType :: Feature
 featureComplexAnyType = Feature
     { featureName = "Complex Any type"

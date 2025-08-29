@@ -23,7 +23,6 @@ import HscTypes
 import MkIface
 import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
-
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import Control.Concurrent.Extra
 import Control.DeepSeq (NFData())
@@ -32,7 +31,8 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
+-- import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor), supports, featurePackageImports, version2_dev )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
@@ -378,8 +378,8 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
-extractImports :: [LF.ModuleWithImports] -> ([LF.Module], LF.PackageIds)
-extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `Set.union` imps)) ([], Set.empty)
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
@@ -441,7 +441,7 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    Set.empty --dummy set since it doesn't matter
+                                                    Nothing
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -580,7 +580,7 @@ getUpgradedPackageErrs opts file mainPkg
     -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
     packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
-     
+
     lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
     lfVersionMinorLt = (<) `on` LF.versionMinor
 
@@ -851,12 +851,26 @@ convertUnitId pkgMap id =
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
 
+-- generatePackageImports :: Rules ()
+-- generatePackageImports =
+--     define $ \GeneratePackageImports file -> do
+--         -- lfVersion <- getDamlLfVersion
+--         -- imports <- if lfVersion `supports` featurePackageImports
+--         imports <- if version2_dev `supports` featurePackageImports
+--           then do
+--             PackageMap pkgMap <- use_ GeneratePackageMap file
+--             deps <- depPkgDeps <$> use_ GetDependencyInformation file
+--             return (Just $ depsToIds pkgMap deps)
+--           else return Nothing
+--         return ([]{-list of diagnostics-}, Just imports)
+
 generatePackageImports :: Rules ()
 generatePackageImports =
     define $ \GeneratePackageImports file -> do
       PackageMap pkgMap <- use_ GeneratePackageMap file
       deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      return ([]{-list of diagnostics-}, Just $ depsToIds pkgMap deps)
+      return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
+
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
@@ -1026,7 +1040,7 @@ runScriptsPkg damlFile extPkg = do
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
     liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert damlFile ctxId
-    results <- forM scripts $ \(modName, script) -> 
+    results <- forM scripts $ \(modName, script) ->
         runScript scriptService Nothing ctxId modName script
     -- modify result to map back to PackageId
     pure $ Just results
