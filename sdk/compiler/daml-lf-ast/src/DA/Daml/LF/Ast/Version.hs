@@ -20,6 +20,10 @@ import           Text.ParserCombinators.ReadP (ReadP, pfail, readP_to_S, (+++), 
 import qualified Text.ParserCombinators.ReadP as ReadP
 import qualified Data.Map.Strict as MS
 
+import Control.Lens (Getting, view)
+import Control.Monad.Extra (ifM)
+import Control.Monad.Reader.Class
+
 -- | Daml-LF version of an archive payload.
 data Version = Version
     { versionMajor :: MajorVersion
@@ -385,3 +389,25 @@ instance Pretty Version where
 
 instance Pretty VersionReq where
   pPrint = string . renderFeatureVersionReq
+
+ifVersionM :: MonadReader r m
+           => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
+           -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
+           -> m a                       -- ^ The action to run if the predicate is True
+           -> m a                       -- ^ The action to run if the predicate is False
+           -> m a
+ifVersionM p versionLens = ifM (p <$> view versionLens)
+
+ifVersion :: MonadReader r m
+          => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
+          -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
+          -> a                       -- ^ The action to run if the predicate is True
+          -> a                       -- ^ The action to run if the predicate is False
+          -> m a
+ifVersion p versionLens b1 b2 = ifVersionM p versionLens (return b1) (return b2)
+
+ifSupportsM :: MonadReader r m => Feature -> Getting Version r Version -> m a -> m a -> m a
+ifSupportsM f = ifVersionM (`supports` f)
+
+ifSupports :: MonadReader r m => Feature -> Getting Version r Version -> a -> a -> m a
+ifSupports f = ifVersion (`supports` f)

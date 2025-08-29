@@ -9,13 +9,13 @@ module DA.Daml.LF.Proto3.EncodeV2 (
   module DA.Daml.LF.Proto3.EncodeV2
 ) where
 
-import           Control.Lens ((^.), matching, makeLensesFor, zoom, at, use)
+import           Control.Lens
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
-import           Control.Monad.Extra (ifM)
+import           Control.Monad.Reader
+-- import           Control.Monad.Extra (ifM)
 
 import           Data.Coerce
-import           Data.Functor.Identity
 import qualified Data.HashMap.Strict as HMS
 import qualified Data.List as L
 import qualified Data.Set as S
@@ -46,13 +46,8 @@ type InternedKindsMap = InternedMap P.KindSum
 type InternedTypesMap = InternedMap P.TypeSum
 type InternedExprsMap = InternedArr P.ExprSum
 
-type Encode a = State EncodeEnv a
-
-type ImportMap = M.Map PackageId Int32
-
-data EncodeEnv = EncodeEnv
-    { version :: !Version
-    , internedStrings :: !(HMS.HashMap T.Text Int32)
+data EncodeState = EncodeState
+    { internedStrings :: !(HMS.HashMap T.Text Int32)
     , nextInternedStringId :: !Int32
       -- ^ We track the size of `internedStrings` explicitly since `HMS.size` is `O(n)`.
     , internedDottedNames :: !(HMS.HashMap [Int32] Int32)
@@ -61,27 +56,37 @@ data EncodeEnv = EncodeEnv
     , internedKindsMap :: InternedKindsMap
     , internedTypesMap :: InternedTypesMap
     , internedExprsMap :: InternedExprsMap
-    , importMap :: ImportMap
     }
 
 makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
               , ("internedTypesMap", "internedTypesMapLens")
-              , ("internedExprsMap", "internedExprsMapLens")
-              , ("importMap", "importMapLens")] ''EncodeEnv
+              , ("internedExprsMap", "internedExprsMapLens")] ''EncodeState
+
+type ImportMap = M.Map PackageId Int32
+data EncodeConfig = EncodeConfig
+    { _version :: !Version
+    , _importMap :: Maybe ImportMap
+    }
+makeLenses ''EncodeConfig
+
+type Encode a = ReaderT EncodeConfig (StateT EncodeState Identity) a
+
+-- ifSupportsEncodeM :: Feature -> Encode a -> Encode a -> Encode a
+-- ifSupportsEncodeM f = ifSupportsM version
+
+ifSupportsEncode :: Feature -> a -> a -> Encode a
+ifSupportsEncode = flip ifSupports version
 
 ifSupportsFlattening :: a -> a -> Encode a
-ifSupportsFlattening b1 b2 = ifSupportsFlatteningM (return b1) (return b2)
-  where
-    ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
-    ifSupportsFlatteningM = ifM (gets (flip supports featureFlatArchive . version))
+ifSupportsFlattening = ifSupportsEncode featureFlatArchive
 
 assertSupportsFlattening :: Encode ()
 assertSupportsFlattening =
   ifSupportsFlattening () (error "assertion failiure: version does not support flattening")
 
-initEncodeEnv :: Version -> ImportMap -> EncodeEnv
-initEncodeEnv version im =
-    EncodeEnv
+initEncodeState :: EncodeState
+initEncodeState =
+    EncodeState
     { nextInternedStringId = 0
     , internedStrings = HMS.empty
     , internedDottedNames = HMS.empty
@@ -89,18 +94,23 @@ initEncodeEnv version im =
     , internedKindsMap = I.empty
     , internedTypesMap = I.empty
     , internedExprsMap = I.empty
-    , importMap = im
     , ..
     }
 
-initTestEncodeEnv :: Version -> EncodeEnv
-initTestEncodeEnv = flip initEncodeEnv M.empty
+initTestEncodeConfig :: Version -> EncodeConfig
+initTestEncodeConfig = flip EncodeConfig Nothing
+
+runEncode :: EncodeConfig           -- The read-only config.
+          -> EncodeState            -- The initial state.
+          -> Encode a               -- The computation to run.
+          -> (a, EncodeState)       -- The final result and the final state.
+runEncode config initialState computation = runIdentity $ runStateT (runReaderT computation config) initialState
 
 -- | Find or allocate a string in the interning table. Return the index of
 -- the string in the resulting interning table.
 allocString :: T.Text -> Encode Int32
 allocString t = do
-    env@EncodeEnv{internedStrings, nextInternedStringId = n} <- get
+    env@EncodeState{internedStrings, nextInternedStringId = n} <- get
     case t `HMS.lookup` internedStrings of
         Just n -> pure n
         Nothing -> do
@@ -114,7 +124,7 @@ allocString t = do
 
 allocDottedName :: [Int32] -> Encode Int32
 allocDottedName ids = do
-    env@EncodeEnv{internedDottedNames, nextInternedDottedNameId = n} <- get
+    env@EncodeState{internedDottedNames, nextInternedDottedNameId = n} <- get
     case ids `HMS.lookup` internedDottedNames of
         Just n -> pure n
         Nothing -> do
@@ -193,9 +203,10 @@ encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPacka
 encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
     SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-    ImportedPackageId pkgId -> do
-      id <- fromJust <$> use (importMapLens . at pkgId)
-      return $ P.SelfOrImportedPackageIdSumPackageImportId id
+    ImportedPackageId _pkgId -> do
+      undefined
+      -- id <- fromJust <$> use (importMapLens . at pkgId)
+      -- return $ P.SelfOrImportedPackageIdSumPackageImportId id
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -289,12 +300,13 @@ encodeKind k = do
 internKind :: P.Kind -> Encode P.Kind
 internKind k =
   do
-    EncodeEnv{version} <- get
+    version <- asks (view version)
     if version `supports` featureFlatArchive
       then case k of
-        (P.Kind (Just k')) -> do
-            n <- zoom internedKindsMapLens $ I.internState k'
-            return $ (P.Kind . Just . P.KindSumInternedKind) n
+        (P.Kind (Just _k')) -> do
+            undefined
+            -- n <- zoom internedKindsMapLens $ I.internState k'
+            -- return $ (P.Kind . Just . P.KindSumInternedKind) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
 
@@ -389,9 +401,10 @@ allocType = internType . P.Type . Just
 
 internType :: P.Type -> Encode P.Type
 internType = \case
-  (P.Type (Just t')) -> do
-    n <- zoom internedTypesMapLens $ I.internState t'
-    return $ (P.Type . Just . P.TypeSumInternedType) n
+  (P.Type (Just _t')) -> do
+    undefined
+    -- n <- zoom internedTypesMapLens $ I.internState t'
+    -- return $ (P.Type . Just . P.TypeSumInternedType) n
   (P.Type Nothing) -> error "nothing type during encoding"
 
 ------------------------------------------------------------------------
@@ -741,14 +754,15 @@ encodeExpr' e = case e of
 internExpr :: Encode P.Expr -> Encode P.Expr
 internExpr f = do
   e <- f
-  EncodeEnv{version} <- get
+  version <- asks (view version)
   if version `supports` featureFlatArchive
     then case e of
       (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
           error "not allowed to add interned to interning table"
-      (P.Expr l (Just e')) -> do
-          n <- zoom internedExprsMapLens $ I.internState e'
-          return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
+      (P.Expr _l (Just _e')) -> do
+          undefined
+          -- n <- zoom internedExprsMapLens $ I.internState e'
+          -- return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
       (P.Expr _ Nothing) -> error "nothing expr during encoding"
     else return e
 
@@ -1047,8 +1061,8 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
-encodeImports :: [PackageIds] -> Maybe P.PackageImports
-encodeImports = fmap $ P.PackageImports . V.fromList . S.toList . S.map toTlText
+encodeImports :: [PackageId] -> P.PackageImports
+encodeImports = P.PackageImports . V.fromList . map toTlText
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
@@ -1058,18 +1072,19 @@ mkImportMap = M.fromList . flip zip [0..]
 
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata imports) =
-    let importList = S.toList imports
-        env = initEncodeEnv version $ mkImportMap importList
+    let importList = S.toList <$> imports
+        st = initEncodeState
+        conf = EncodeConfig version $ mkImportMap <$> importList
         ( (packageModules, packageMetadata),
-          EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
-            runState ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata)) env
+          EncodeState{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
+            runEncode conf st ((,) <$> encodeNameMap encodeModule mods <*> fmap Just (encodePackageMetadata metadata))
         packageInternedStrings = packInternedStrings internedStrings
         packageInternedDottedNames =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportedPackages = encodeImports importList
+        packageImportedPackages = encodeImports <$> importList
     in
     P.Package{..}
 
