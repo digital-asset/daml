@@ -864,32 +864,25 @@ generateRawPackageRule :: Options -> Rules ()
 generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
-
-        -- PackageMap pkgMap <- use_ GeneratePackageMap file
-        -- deps <- depPkgDeps <$> use_ GetDependencyInformation file
-        -- let ids = depsToIds pkgMap deps
-        ids <- use_ GeneratePackageImports file
-
+        imports <- use_ GeneratePackageImports file
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
         -- build package
-        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs ids
+        let pkg = buildPackage (packageMetadataFromOptions options) lfVersion dalfs imports
         return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
 generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
-        PackageMap pkgMap <- use_ GeneratePackageMap file
-        deps <- depPkgDeps <$> use_ GetDependencyInformation file
-        let ids = depsToIds pkgMap deps
+        imports <- use_ GeneratePackageImports file
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (optUnitId options) fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs ids)
+        return ([], Just $ WhnfPackage $ buildPackage (packageMetadataFromOptions options) lfVersion dalfs imports)
 
 contextForModule :: NormalizedFilePath -> Action SS.Context
 contextForModule modFile = do
