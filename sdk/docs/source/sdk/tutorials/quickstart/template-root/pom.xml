@@ -21,7 +21,7 @@
     <dependencies>
         <dependency>
             <groupId>com.daml</groupId>
-            <artifactId>bindings-rxjava</artifactId>
+            <artifactId>bindings-java</artifactId>
             <version>__VERSION__</version>
             <exclusions>
                 <exclusion>

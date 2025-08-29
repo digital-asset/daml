@@ -7,8 +7,6 @@ import static java.util.UUID.randomUUID;
 
 import com.daml.ledger.javaapi.data.*;
 import com.daml.ledger.javaapi.data.codegen.Update;
-import com.daml.ledger.rxjava.DamlLedgerClient;
-import com.daml.ledger.rxjava.LedgerClient;
 import com.daml.quickstart.model.iou.Iou;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -39,59 +37,36 @@ public class IouMain {
     int ledgerport = Integer.valueOf(args[1]);
     String party = args[2];
     int restport = Integer.valueOf(args[3]);
-
-    // Create a client object to access services on the ledger.
-    DamlLedgerClient client = DamlLedgerClient.newBuilder(ledgerhost, ledgerport).build();
-
-    // Connects to the ledger and runs initial validation.
-    client.connect();
+    Optional<Set<String>> partyFilter = Optional.of(Collections.singleton(party));
 
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
 
-    Long ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
+    // Connect to gRPC services
+    Channel channel = NettyChannelBuilder
+            .forAddress(ledgerhost, ledgerport)
+            .maxInboundMessageSize(10485760)
+            .usePlaintext()
+            .build();
 
-    client
-        .getStateClient()
-        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true, ledgerEnd)
-        .blockingForEach(
-            response -> {
-              response.activeContracts.forEach(
-                  contract -> {
-                    long id = idCounter.getAndIncrement();
-                    contracts.put(id, contract.data);
-                    idMap.put(id, contract.id);
-                  });
-            });
+    StateServiceGrpc.StateServiceBlockingStub stateServiceBlockingStub = StateServiceGrpc.newBlockingStub(channel);
+    long ledgerEnd =
+            stateServiceBlockingStub.getLedgerEnd(StateServiceOuterClass.GetLedgerEndRequest.newBuilder().build()).getOffset();
 
-    Disposable ignore =
-        client
-            .getTransactionsClient()
-            .getTransactions(
-                Iou.contractFilter(),
-                ledgerEnd,
-                Optional.of(ledgerEnd),
-                Collections.singleton(party),
-                true)
-            .forEach(
-                t -> {
-                  for (Event event : t.getEvents()) {
-                    if (event instanceof CreatedEvent) {
-                      CreatedEvent createdEvent = (CreatedEvent) event;
-                      long id = idCounter.getAndIncrement();
-                      Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent);
-                      contracts.put(id, contract.data);
-                      idMap.put(id, contract.id);
-                    } else if (event instanceof ArchivedEvent) {
-                      ArchivedEvent archivedEvent = (ArchivedEvent) event;
-                      long id =
-                          idMap.inverse().get(new Iou.ContractId(archivedEvent.getContractId()));
-                      contracts.remove(id);
-                      idMap.remove(id);
-                    }
-                  }
-                });
+    var contractFilter = Iou.contractFilter();
+    var eventFormat = contractFilter.eventFormat(partyFilter);
+    GetActiveContractsRequest request = new GetActiveContractsRequest(eventFormat, ledgerEnd);
+    Iterator<StateServiceOuterClass.GetActiveContractsResponse> activeContracts =
+            stateServiceBlockingStub.getActiveContracts(request.toProto());
+
+    activeContracts.forEachRemaining(r -> {
+      GetActiveContractsResponse response = GetActiveContractsResponse.fromProto(r);
+      long id = idCounter.getAndIncrement();
+      var contract = contractFilter.toContract(response.getContractEntry().get().getCreatedEvent());
+      contracts.put(id, contract.data);
+      idMap.put(id, contract.id);
+    });
 
     Gson g = new Gson();
     Spark.port(restport);
@@ -105,7 +80,7 @@ public class IouMain {
         (req, res) -> {
           Iou iou = g.fromJson(req.body(), Iou.class);
           var iouCreate = iou.create();
-          var createdContractId = submit(client, party, iouCreate);
+          var createdContractId = submitCreate(commandService, party, iouCreate, Iou.ContractId::new);
           return "Iou creation submitted: " + createdContractId;
         },
         g::toJson);
@@ -116,7 +91,7 @@ public class IouMain {
           Map m = g.fromJson(req.body(), Map.class);
           Iou.ContractId contractId = idMap.get(Long.parseLong(req.params("id")));
           var update = contractId.exerciseIou_Transfer(m.get("newOwner").toString());
-          var result = submit(client, party, update);
+          var result = submitExercise(commandService, party, update, Iou.CHOICE_Iou_Transfer);
           return "Iou transfer submitted with exercise result: " + result;
         },
         g::toJson);
@@ -130,22 +105,34 @@ public class IouMain {
       }
   }
 
-  private static <U> U submit(LedgerClient client, String party, Update<U> update) {
-    var updateSubmission =
-        UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
+  private static <T> Created<T> submitCreate(CommandServiceGrpc.CommandServiceBlockingStub commandService,
+                                             String party,
+                                             Update<Created<T>> update, Function<String, T> convertContractId) {
+    var updateSubmission = UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
+    var request = new SubmitAndWaitForTransactionRequest(updateSubmission.toCommandsSubmission());
+    SubmitAndWaitForTransactionResponse response =
+            SubmitAndWaitForTransactionResponse.fromProto(commandService.submitAndWaitForTransaction(request.toProto()));
+    Event event = EventUtils.singleCreatedEvent(response.getTransaction().getEvents());
+    return Created.fromEvent(convertContractId, (CreatedEvent) event);
+  }
 
-    Map<String, Filter> partyFilters =
-        Map.of(
-            party,
-            new CumulativeFilter(
-                Map.of(), Map.of(), Optional.of(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB)));
-    EventFormat eventFormat = new EventFormat(partyFilters, Optional.empty(), true);
-    TransactionFormat transactionFormat =
-        new TransactionFormat(eventFormat, TransactionShape.ACS_DELTA);
+  private static <T> Exercised<T> submitExercise(CommandServiceGrpc.CommandServiceBlockingStub commandService,
+                                                 String party, Update<Exercised<T>> update,
+                                                 Choice<?, ?, T> choice) {
+    var updateSubmission = UpdateSubmission.create(APP_ID, randomUUID().toString(), update).withActAs(party);
 
-    return client
-        .getCommandClient()
-        .submitAndWaitForResult(updateSubmission, transactionFormat)
-        .blockingGet();
+    var contractFilter = Iou.contractFilter();
+    var eventFormar = contractFilter.eventFormat(Optional.of(Collections.singleton(party)));
+    var format = new TransactionFormat(eventFormar, TransactionShape.LEDGER_EFFECTS);
+    var request = new SubmitAndWaitForTransactionRequest(updateSubmission.toCommandsSubmission(), format);
+    SubmitAndWaitForTransactionResponse response =
+            SubmitAndWaitForTransactionResponse.fromProto(commandService.submitAndWaitForTransaction(request.toProto()));
+    Transaction transaction = response.getTransaction();
+    Optional<Event> exercisedOpt = transaction.getEvents().stream().filter(e -> e instanceof ExercisedEvent).findFirst();
+    if (exercisedOpt.isEmpty()) {
+      throw new RuntimeException("No exercised event found in transaction");
+    }
+    ExercisedEvent event = (ExercisedEvent)exercisedOpt.get();
+    return Exercised.fromEvent(choice.returnTypeDecoder, event);
   }
 }
