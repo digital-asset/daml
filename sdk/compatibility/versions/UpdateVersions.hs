@@ -76,7 +76,6 @@ renderVersionsFile (Versions (Set.toAscList -> versions)) checksums =
         , "        \"windows\": " <> renderDigest windowsHash <> ","
         , "        \"daml_types\": " <> renderDigest damlTypesHash <> ","
         , "        \"daml_ledger\": " <> renderDigest damlLedgerHash <> ","
-        , "        \"daml_react\": " <> renderDigest damlReactHash <> ","
         ]
       , [ "    }," ]
       ]
@@ -95,7 +94,6 @@ data Checksums = Checksums
   , windowsHash :: Digest SHA256
   , damlTypesHash :: Digest SHA256
   , damlLedgerHash :: Digest SHA256
-  , damlReactHash :: Digest SHA256
   -- ^ Nothing for older versions
   }
 
@@ -111,11 +109,10 @@ getChecksums ver = do
             (base16Hash : _) <- find (\line -> path == line !! 1) lines
             byteHash <- (eitherToMaybe . convertFromBase Base16 . T.encodeUtf8) base16Hash
             digestFromByteString @SHA256 @ByteString byteHash
-    [ damlTypesHash, damlLedgerHash, damlReactHash] <-
+    [ damlTypesHash, damlLedgerHash] <-
         forConcurrently
             [ tsLib "types"
             , tsLib "ledger"
-            , tsLib "react"
             ] getHash
     pure Checksums {..}
   where sdkFilePath platform = T.pack $

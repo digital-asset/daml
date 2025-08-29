@@ -17,10 +17,6 @@ Comprehensive documentation for `@daml/ledger` can be found
 
 ## Usage
 
-We recommend to use the [React](https://reactjs.org) framework and the `@daml/react` library to
-build frontends for Daml applications. If you choose a different Javascript based framework, please
-take a look at the source of `@daml/react` and it's usage of the `@daml/ledger` library.
-
 The main export of `@daml/ledger` is the `Ledger` class. It's constructor takes an authentication
 token used to communicate with the [JSON API](https://docs.daml.com/json-api/index.html), an HTTP
 base URL and a websocket base URL.
