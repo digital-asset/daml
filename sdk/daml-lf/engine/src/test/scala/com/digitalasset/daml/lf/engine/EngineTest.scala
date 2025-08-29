@@ -531,6 +531,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
       inside((validatedWithCaching, validatedNoCaching)) {
         case (Right(actualWithCaching), Right(actualNoCaching)) =>
+          actualWithCaching.transactionNodeCount shouldBe expectedWithCaching.transactionNodeCount
+          actualNoCaching.transactionNodeCount shouldBe expectedNoCaching.transactionNodeCount
+          actualWithCaching.transactionNodeCount shouldBe actualNoCaching.transactionNodeCount
           // SEVal and SDefinition caching effects impact Speedy machine step counts
           actualWithCaching.totalStepCount shouldBe expectedWithCaching.totalStepCount
           actualWithCaching.totalStepCount should be <= actualNoCaching.totalStepCount

@@ -100,10 +100,20 @@ SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
 # Warmup Iteration   4: 0.027 ms/op
 # Warmup Iteration   5: 0.027 ms/op
 Iteration   1: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   2: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   3: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   4: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   5: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 
 # Run progress: 20.00% complete, ETA 00:06:48
 # Fork: 2 of 5
@@ -119,10 +129,20 @@ SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
 # Warmup Iteration   4: 0.028 ms/op
 # Warmup Iteration   5: 0.028 ms/op
 Iteration   1: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   2: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   3: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   4: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   5: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 
 # Run progress: 40.00% complete, ETA 00:05:06
 # Fork: 3 of 5
@@ -138,10 +158,20 @@ SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
 # Warmup Iteration   4: 0.027 ms/op
 # Warmup Iteration   5: 0.027 ms/op
 Iteration   1: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   2: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   3: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   4: 0.027 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   5: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 
 # Run progress: 60.00% complete, ETA 00:03:24
 # Fork: 4 of 5
@@ -157,10 +187,20 @@ SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
 # Warmup Iteration   4: 0.028 ms/op
 # Warmup Iteration   5: 0.028 ms/op
 Iteration   1: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   2: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   3: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   4: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   5: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 
 # Run progress: 80.00% complete, ETA 00:01:42
 # Fork: 5 of 5
@@ -176,16 +216,36 @@ SLF4J: See https://www.slf4j.org/codes.html#noProviders for further details.
 # Warmup Iteration   4: 0.028 ms/op
 # Warmup Iteration   5: 0.028 ms/op
 Iteration   1: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   2: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   3: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   4: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 Iteration   5: 0.028 ms/op
+                 stepCount:            194.000 #
+                 transactionNodeCount: 2.000 #
 
 
 Result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench":
   0.028 ±(99.9%) 0.001 ms/op [Average]
   (min, avg, max) = (0.027, 0.028, 0.028), stdev = 0.001
   CI (99.9%): [0.028, 0.028] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:stepCount":
+  4850.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (194.000, 194.000, 194.000), stdev = 0.001
+  CI (99.9%): [4850.000, 4850.000] (assumes normal distribution)
+
+Secondary result "com.digitalasset.daml.lf.testing.snapshot.ReplayBenchmark.bench:transactionNodeCount":
+  50.000 ±(99.9%) 0.001 # [Sum]
+  (min, avg, max) = (2.000, 2.000, 2.000), stdev = 0.001
+  CI (99.9%): [50.000, 50.000] (assumes normal distribution)
 
 
 # Run complete. Total time: 00:08:30
@@ -202,8 +262,10 @@ works, and factor in a small probability of new VM bugs. Additionally, while com
 different JVMs are already problematic, the performance difference caused by different Blackhole
 modes can be very significant. Please make sure you use the consistent Blackhole mode for comparisons.
 
-Benchmark              (choiceIndex)           (choiceName)                      (darFile)                    (entriesFile)  Mode  Cnt  Score    Error  Units
-ReplayBenchmark.bench              0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark-v2.dar  $SAVED/snapshot-participant.bin  avgt   25  0.028 ±  0.001  ms/op
+Benchmark                      (choiceIndex)           (choiceName)                      (darFile)                    (entriesFile)  Mode  Cnt  Score    Error  Units
+ReplayBenchmark.bench                      0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark-v2.dar  $SAVED/snapshot-participant.bin  avgt   25  0.028 ±  0.001  ms/op
+ReplayBenchmark.bench:stepCount            0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark-v2.dar  $SAVED/snapshot-participant.bin  avgt   25  4850.000        #
+ReplayBenchmark.bench:transactionNodeCount 0  ReplayBenchmark:T:Add  $SAVED/ReplayBenchmark-v2.dar  $SAVED/snapshot-participant.bin  avgt   25  50.000          #
 ```
 
 # `replay-profile`
