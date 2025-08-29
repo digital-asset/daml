@@ -206,12 +206,9 @@ jobs:
         az extension add --name azure-devops --allow-preview true || true
         echo ${AZURE_DEVOPS_EXT_PAT} | az devops login --organization="https://dev.azure.com/digitalasset"
         trap "az devops logout" EXIT
-        open_pr "$branch" "bump blackduck script to ${latest:0:8}"
         
-        az pipelines build queue --branch "$branch" \
-                                 --definition-name "PRs" \
-                                 --org "https://dev.azure.com/digitalasset" \
-                                 --project daml
+        open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)"
+        trigger_azure $(System.AccessToken) "PRs" --branch $branch
       fi
     displayName: 'Bump Blackduck Script if needed'
     env:
