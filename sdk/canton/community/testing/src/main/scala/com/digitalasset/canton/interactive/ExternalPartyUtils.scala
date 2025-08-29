@@ -12,16 +12,14 @@ import com.digitalasset.canton.config.{CachingConfigs, CryptoConfig, ProcessingT
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
-import com.digitalasset.canton.interactive.ExternalPartyUtils.{
-  ExternalParty,
-  OnboardingTransactions,
-}
+import com.digitalasset.canton.interactive.ExternalPartyUtils.OnboardingTransactions
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.resource.MemoryStorage
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
+import com.digitalasset.canton.topology.{ExternalParty, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import com.google.protobuf.ByteString
 import org.scalatest.EitherValues
@@ -29,17 +27,14 @@ import org.scalatest.EitherValues
 import scala.concurrent.ExecutionContext
 
 object ExternalPartyUtils {
-  final case class ExternalParty(
-      partyId: PartyId,
-      signingFingerprints: NonEmpty[Seq[Fingerprint]],
-  ) {
-    def primitiveId: String = partyId.toProtoPrimitive
-  }
   final case class OnboardingTransactions(
       namespaceDelegation: SignedTopologyTransaction[TopologyChangeOp.Replace, NamespaceDelegation],
       partyToParticipant: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToParticipant],
       partyToKeyMapping: SignedTopologyTransaction[TopologyChangeOp.Replace, PartyToKeyMapping],
-  )
+  ) {
+    def toSeq: Seq[SignedTopologyTransaction[Replace, TopologyMapping]] =
+      Seq(namespaceDelegation, partyToParticipant, partyToKeyMapping)
+  }
 }
 
 trait ExternalPartyUtils extends FutureHelpers with EitherValues {
@@ -177,11 +172,11 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
         .value
     }
 
-    val multiTxSignatures: NonEmpty[Set[TopologyTransactionSignature]] =
-      NonEmpty.mk(Set, MultiTransactionSignature(transactionHashes, namespaceSignature))
+    val multiTxSignatures =
+      NonEmpty.mk(Seq, MultiTransactionSignature(transactionHashes, namespaceSignature))
 
     val signedNamespaceDelegation = SignedTopologyTransaction
-      .tryCreate(
+      .withTopologySignatures(
         namespaceDelegationTx,
         multiTxSignatures,
         isProposal = false,
@@ -189,7 +184,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       )
 
     val signedPartyToParticipant = SignedTopologyTransaction
-      .tryCreate(
+      .withTopologySignatures(
         partyToParticipantTx,
         multiTxSignatures,
         isProposal = true,
@@ -197,7 +192,7 @@ trait ExternalPartyUtils extends FutureHelpers with EitherValues {
       )
 
     val signedPartyToKey = SignedTopologyTransaction
-      .tryCreate(
+      .withTopologySignatures(
         partyToKeyTx,
         multiTxSignatures,
         isProposal = false,

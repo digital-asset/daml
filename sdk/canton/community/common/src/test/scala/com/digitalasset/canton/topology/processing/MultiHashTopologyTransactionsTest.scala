@@ -50,12 +50,11 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
       )
 
       val signedTx = SignedTopologyTransaction
-        .tryCreate(
+        .withSignatures(
           Factory.dns1.transaction,
-          NonEmpty.mk(Set, signature1, Signature.noSignature),
+          NonEmpty.mk(Seq, signature1, Signature.noSignature),
           isProposal = false,
-        )(
-          SignedTopologyTransaction.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion)
+          testedProtocolVersion,
         )
         .addSignatures(NonEmpty.mk(Set, multiHash))
 
@@ -69,42 +68,43 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
     }
 
     "successfully merge single into single signature" in {
-      val signedTx = SignedTopologyTransaction.tryCreate(
+      val signedTx = SignedTopologyTransaction.withSignatures(
         Factory.dns1.transaction,
-        NonEmpty.mk(Set, Signature.noSignature),
+        NonEmpty.mk(Seq, Signature.noSignature),
         isProposal = false,
-      )(SignedTopologyTransaction.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion))
+        testedProtocolVersion,
+      )
 
       val newSingleSignature = makeSig("new_sig", "no-fingerprint-2")
 
       signedTx.addSingleSignatures(
         NonEmpty.mk(Set, newSingleSignature)
-      ) shouldBe SignedTopologyTransaction.tryCreate(
+      ) shouldBe SignedTopologyTransaction.withSignatures(
         Factory.dns1.transaction,
         NonEmpty.mk(
-          Set,
+          Seq,
           Signature.noSignature,
           newSingleSignature,
         ),
         isProposal = false,
-      )(
-        SignedTopologyTransaction.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion)
+        testedProtocolVersion,
       )
     }
 
     "successfully merge multi into single signature" in {
-      val signedTx = SignedTopologyTransaction.tryCreate(
+      val signedTx = SignedTopologyTransaction.withSignatures(
         Factory.dns1.transaction,
-        NonEmpty.mk(Set, Signature.noSignature),
+        NonEmpty.mk(Seq, Signature.noSignature),
         isProposal = false,
-      )(SignedTopologyTransaction.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion))
+        testedProtocolVersion,
+      )
 
       signedTx
         .addSignatures(NonEmpty.mk(Set, multiHash)) shouldBe SignedTopologyTransaction
-        .tryCreate(
+        .withTopologySignatures(
           Factory.dns1.transaction,
           NonEmpty.mk(
-            Set,
+            Seq,
             multiHash,
             SingleTransactionSignature(Factory.dns1.transaction.hash, Signature.noSignature),
           ),
@@ -115,9 +115,9 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
     "successfully merge single into multi signature" in {
       val signedTx = SignedTopologyTransaction
-        .tryCreate(
+        .withTopologySignatures(
           Factory.dns1.transaction,
-          NonEmpty.mk(Set, multiHash),
+          NonEmpty.mk(Seq, multiHash),
           isProposal = false,
           BaseTest.testedProtocolVersion,
         )
@@ -127,10 +127,10 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
       signedTx.addSingleSignatures(
         NonEmpty.mk(Set, newSingleSignature)
       ) shouldBe SignedTopologyTransaction
-        .tryCreate(
+        .withTopologySignatures(
           Factory.dns1.transaction,
           NonEmpty.mk(
-            Set,
+            Seq,
             multiHash,
             SingleTransactionSignature(Factory.dns1.transaction.hash, newSingleSignature),
           ),
@@ -141,9 +141,9 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
     "successfully merge multi into multi signature" in {
       val signedTx = SignedTopologyTransaction
-        .tryCreate(
+        .withTopologySignatures(
           Factory.dns1.transaction,
-          NonEmpty.mk(Set, multiHash),
+          NonEmpty.mk(Seq, multiHash),
           isProposal = false,
           BaseTest.testedProtocolVersion,
         )
@@ -158,9 +158,9 @@ class MultiHashTopologyTransactionsTest extends AnyWordSpec with BaseTest with H
 
       signedTx
         .addSignatures(NonEmpty.mk(Set, multiHash2)) shouldBe SignedTopologyTransaction
-        .tryCreate(
+        .withTopologySignatures(
           Factory.dns1.transaction,
-          NonEmpty.mk(Set, multiHash, multiHash2),
+          NonEmpty.mk(Seq, multiHash, multiHash2),
           isProposal = false,
           BaseTest.testedProtocolVersion,
         )

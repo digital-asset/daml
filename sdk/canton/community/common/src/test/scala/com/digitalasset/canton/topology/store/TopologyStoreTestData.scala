@@ -64,17 +64,12 @@ class TopologyStoreTestData(
         }
       )
       .getOrElse(fail("no keys provided"))
-      .toSet
 
-    SignedTopologyTransaction.tryCreate[Op, M](
+    SignedTopologyTransaction.withSignatures[Op, M](
       tx,
       signatures = signatures,
       isProposal = isProposal,
-    )(
-      SignedTopologyTransaction.versioningTable
-        .protocolVersionRepresentativeFor(
-          ProtocolVersion.v34
-        )
+      ProtocolVersion.v34,
     )
   }
 
