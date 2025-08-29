@@ -67,7 +67,7 @@ private[compiler] object SExpr1 {
     * This form only exists *during* the ANF transformation, but not when the ANF
     * transformation is finished.
     */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals
+  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr
 
   /** A non-recursive, non-parallel let block.
     * It is used as an intermediary data structure by the compiler to

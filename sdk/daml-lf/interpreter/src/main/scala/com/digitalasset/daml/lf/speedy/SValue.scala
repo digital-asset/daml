@@ -133,17 +133,14 @@ object SValue {
     * left, we write a "close event" with the same label.
     */
   final case class PClosure(label: Profile.Label, expr: SExpr, frame: ArraySeq[SValue])
-      extends Prim
-      with SomeArrayEquals {
+      extends Prim {
     override def toString: String = s"PClosure($expr, ${frame.mkString("[", ",", "]")})"
   }
 
   /** A partially applied primitive.
     * An SPAP is *never* fully applied. This is asserted on construction.
     */
-  final case class SPAP(prim: Prim, actuals: ArraySeq[SValue], arity: Int)
-      extends SValue
-      with SomeArrayEquals {
+  final case class SPAP(prim: Prim, actuals: ArraySeq[SValue], arity: Int) extends SValue {
     if (actuals.size >= arity) {
       throw SError.SErrorCrash(
         NameOf.qualifiedNameOf(SPAP),
@@ -181,13 +178,10 @@ object SValue {
 
   final case class SRecord(id: Identifier, fields: ImmArray[Name], values: ArraySeq[SValue])
       extends SValue
-      with SomeArrayEquals
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames
-  final case class SStruct(fieldNames: Struct[Unit], values: ArraySeq[SValue])
-      extends SValue
-      with SomeArrayEquals
+  final case class SStruct(fieldNames: Struct[Unit], values: ArraySeq[SValue]) extends SValue
 
   final case class SVariant(
       id: Identifier,
