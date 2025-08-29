@@ -57,7 +57,7 @@ object TypeDestructor {
       private[this] lazy val consRankMap = cons.view.zipWithIndex.toMap
 
       def consRank(cons: Ref.Name): Either[LookupError, Int] = {
-        def ref = Reference.DataEnumConstructor(tyCon, cons)
+        def ref = Reference.DataVariantConstructor(tyCon, cons)
 
         consRankMap.get(cons).toRight(LookupError.NotFound(ref, ref))
       }
@@ -145,7 +145,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
           subst <- Either.cond(
             params.length == args.length,
             params.toSeq.view.map(_._1) zip args.view,
-            TypeDestructor.Error.TypeError(s"wrong number of argument for $tycon"),
+            TypeDestructor.Error.TypeError(s"wrong number of argument for $tycon ($params): $args"),
           )
           destructed <- dataDef.cons match {
             case Ast.DataRecord(fields) =>

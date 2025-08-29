@@ -265,6 +265,8 @@ private[lf] object Pretty {
                 text("non-suffixed V1 Contract IDs are forbidden")
               case TranslationError.NonSuffixedV2ContractId(_) =>
                 text("non-suffixed V2 Contract IDs are forbidden")
+              case TranslationError.InvalidValue(value, message) =>
+                text("invalid value") & prettyValue(verbose = true)(value) / text(message)
             }
         }
     }
