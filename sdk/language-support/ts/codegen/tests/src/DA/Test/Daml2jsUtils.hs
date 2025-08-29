@@ -21,7 +21,6 @@ import System.FilePath
 
 data TsLibrary
     = DamlLedger
-    | DamlReact
     | DamlTypes
     deriving (Bounded, Enum)
 
@@ -33,7 +32,6 @@ allTsLibraries = [minBound .. maxBound]
 tsLibraryName :: TsLibrary -> String
 tsLibraryName = \case
     DamlLedger -> "daml-ledger"
-    DamlReact -> "daml-react"
     DamlTypes -> "daml-types"
 
 -- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in

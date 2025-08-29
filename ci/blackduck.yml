@@ -93,9 +93,9 @@ jobs:
       --detect.included.detector.types=YARN,NPM,CLANG \
       --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
-      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
-      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_npm \
       --detect.timeout=1500

@@ -48,7 +48,6 @@ Cheat Sheet
 .. include:: cheat-sheet/includes/choices.rst.inc
 .. include:: cheat-sheet/includes/updates.rst.inc
 .. include:: cheat-sheet/includes/scripts.rst.inc
-.. include:: cheat-sheet/includes/javascript.rst.inc
 .. include:: cheat-sheet/includes/daml-resources.rst.inc
 
 .. raw:: html

@@ -18,8 +18,7 @@ This library contains TypeScript types corresponding to primitive Daml data type
 the [JSON API](https://docs.daml.com/json-api/index.html) of a Daml ledger.
 
 For creating a Daml distributed application, you'll most likely want to use the
-[@daml/react](https://www.npmjs.com/package/@daml/react) and
-[@daml/ledger](https://www.npmjs.com/package/@daml/ledger) packages. 
+[@daml/ledger](https://www.npmjs.com/package/@daml/ledger) package. 
 
 ## Source
 https://github.com/digital-asset/daml.

@@ -20,8 +20,6 @@ import _, { isUndefined } from "lodash";
 /**
  * The result of a ``query`` against the ledger.
  *
- * Note: this is meant to be used by @daml/react.
- *
  * @typeparam T The contract template type of the query.
  * @typeparam K The contract key type of the query.
  * @typeparam I The template id type.
