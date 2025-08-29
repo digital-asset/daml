@@ -251,6 +251,8 @@ object Error {
       final case class NonSuffixedV1ContractId(cid: Value.ContractId.V1) extends Error
 
       final case class NonSuffixedV2ContractId(cid: Value.ContractId.V2) extends Error
+
+      final case class InvalidValue(value: Value, message: String) extends Error
     }
 
     final case class Limit(error: Limit.Error) extends Error

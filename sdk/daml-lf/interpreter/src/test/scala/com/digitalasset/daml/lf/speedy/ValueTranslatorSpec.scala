@@ -150,7 +150,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (
         t"Mod:Tuple Int64 Text",
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
         SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a"))),
       ),
       (
@@ -181,54 +181,23 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ),
     )
 
-    "succeeds on well type values" in {
+    "succeeds on well typed values" in {
       forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
         Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue)
       }
     }
 
-    "handle different representation of the same record" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a")))
-
-      forEvery(testCases)(testCase =>
-        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
-      )
-    }
-
-    "handle different representation of the same static record with upgrades enabled" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArraySeq(SInt64(33), SText("a")))
-
-      forEvery(testCases)(testCase =>
-        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
-      )
-    }
-
-    val TRecordUpgradable =
-      t"Mod:Record Int64 Text Party Unit"
-
-    val TVariantUpgradable =
-      t"Mod:Variant Int64 Text"
-
-    val TEnumUpgradable =
-      t"Mod:Enum"
-
     "return proper mismatch error for upgrades" in {
+
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+
+      val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
+
+      val TVariantUpgradable = t"Mod:Variant Int64 Text Unit"
+
+      val TEnumUpgradable = t"Mod:Enum"
+
       val testCases = Table[Ast.Type, Value, PartialFunction[TranslationError.Error, _]](
         ("type", "value", "error"),
         (
@@ -236,28 +205,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ValueRecord(
             "",
             ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someParty, // Here the field has type Party instead of Text
-              "fieldC" -> none,
+              "" -> aInt,
+              "" -> someParty, // Here the field has type Party instead of Text
+              "" -> none,
             ),
           ),
           { case TranslationError.TypeMismatch(typ, value, _) =>
             typ shouldBe t"Text"
             value shouldBe aParty
-          },
-        ),
-        (
-          TRecordUpgradable,
-          ValueRecord(
-            "",
-            ImmArray( // fields non-order and non fully labelled.
-              "fieldA" -> aInt,
-              "" -> none,
-              "fieldB" -> someText,
-            ),
-          ),
-          { case TranslationError.TypeMismatch(typ, _, _) =>
-            typ shouldBe TRecordUpgradable
           },
         ),
         (
@@ -275,10 +230,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ValueRecord(
             "",
             ImmArray(
-              "fieldA" -> aInt,
-              "fieldB" -> someText,
-              "fieldC" -> someParty,
-              "fieldD" -> aInt, // extra non-optional field
+              "" -> aInt,
+              "" -> someText,
+              "" -> someParty,
+              "" -> aInt, // extra non-optional field
             ),
           ),
           { case TranslationError.TypeMismatch(typ, _, _) =>
@@ -346,10 +301,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           },
         ),
       )
-      forEvery(testCases)((typ, value, _) =>
-        inside(Try(unsafeTranslateValue(typ, value))) { case Failure(_: TranslationError.Error) =>
-          ()
-        // checkError(error)
+      forEvery(testCases)((typ, value, checkError) =>
+        inside(Try(unsafeTranslateValue(typ, value))) {
+          case Failure(error: TranslationError.Error) =>
+            checkError(error)
         }
       )
     }
@@ -380,11 +335,11 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           true,
           true,
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "extraField" -> ValueOptional(Some(ValueText("a"))),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(Some(ValueText("a"))),
+              "" -> ValueOptional(Some(ValueText("b"))),
             ),
           ),
         ),
@@ -392,34 +347,11 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           false,
           true,
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "extraField" -> ValueOptional(None),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-              "extraField" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(Some(ValueText("b"))),
             ),
           ),
         ),
@@ -427,9 +359,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           false,
           false,
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1)
+              "" -> ValueInt64(1)
             ),
           ),
         ),
@@ -437,48 +369,65 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           false,
           false,
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(None),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
             ),
           ),
         ),
         upgradeCaseSuccess(
           false,
-          true,
+          false,
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(None),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        upgradeCaseSuccess(
+          false,
+          false,
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
             ),
           ),
         ),
         upgradeCaseFailure(
-          "An optional contract field (\"bonusField\") with a value of Some may not be dropped during downgrading.",
+          "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading.",
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(Some(ValueText("bad"))),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(Some(ValueText("bad"))),
             ),
           ),
         ),
         upgradeCaseFailure(
-          "Found non-optional extra field \"bonusField\", cannot remove for downgrading.",
+          "Found non-optional extra field at index 3, cannot remove for downgrading.",
           ValueRecord(
-            "Mod:Upgradeable",
+            "",
             ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueText("bad"),
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+              "" -> ValueText("bad"),
             ),
           ),
         ),
         upgradeCaseFailure(
-          "Missing non-optional field \"field\", cannot upgrade non-optional fields.",
-          ValueRecord("Mod:Upgradeable", ImmArray()),
+          "Unexpected non-optional extra template field type encountered during upgrading.",
+          ValueRecord("", ImmArray()),
         ),
       )
 
@@ -511,8 +460,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           ValueRecord(
             "",
             ImmArray(
-              "x" -> ValueInt64(33),
-              "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
+              "" -> ValueInt64(33),
+              "" -> ValueParty("Alice"), // Here the field has type Party instead of Text
             ),
           ),
         )
@@ -523,7 +472,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "fails on non-well type values" in {
+    "fails on non-well typed values" in {
       forAll(testCases) { (typ1, value1, _) =>
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
@@ -642,6 +591,92 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-  }
+    "reject records with typeCon IDs" in {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
 
+      val testCases = Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          t"Mod:Record Int64 Text Party Unit",
+          ValueRecord(
+            "Mod:Upgradeable",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        (
+          t"Mod:Record (Mod:Record Int64 Text Party Unit) Text Party Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueRecord(
+                "Mod:Upgradeable", // outer record is fine but the nested record has a typeCon ID
+                ImmArray(
+                  "" -> ValueInt64(1),
+                  "" -> ValueOptional(None),
+                  "" -> ValueOptional(None),
+                ),
+              ),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+      )
+      forAll(testCases) { (typ, value) =>
+        a[TranslationError.InvalidValue] shouldBe thrownBy(
+          unsafeTranslateValue(typ, value)
+        )
+      }
+    }
+
+    "reject records with labels" in {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+
+      val testCases = Table[Ast.Type, Value](
+        ("type", "value"),
+        (
+          t"Mod:Record Int64 Text Party Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueInt64(1),
+              "fieldB" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+        (
+          t"Mod:Record (Mod:Record Int64 Text Party Unit) Text Party Unit",
+          ValueRecord(
+            "",
+            ImmArray(
+              "" -> ValueRecord(
+                "",
+                ImmArray(
+                  "" -> ValueInt64(1),
+                  "fieldB" -> ValueOptional(
+                    None
+                  ), // outer record is fine but the nested record has a label
+                  "" -> ValueOptional(None),
+                ),
+              ),
+              "" -> ValueOptional(None),
+              "" -> ValueOptional(None),
+            ),
+          ),
+        ),
+      )
+      forAll(testCases) { (typ, value) =>
+        a[TranslationError.InvalidValue] shouldBe thrownBy(
+          unsafeTranslateValue(typ, value)
+        )
+      }
+    }
+  }
 }
