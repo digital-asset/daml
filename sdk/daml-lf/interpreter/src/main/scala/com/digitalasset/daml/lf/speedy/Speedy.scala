@@ -1675,7 +1675,6 @@ private[lf] object Speedy {
       actuals: Actuals,
       newArgs: ArraySeq[SExprAtomic],
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
       machine.restoreBase(savedBase);
@@ -1792,7 +1791,6 @@ private[lf] object Speedy {
       base: Int,
       next: SExpr,
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
       machine.restoreBase(savedBase);
@@ -1820,7 +1818,6 @@ private[lf] object Speedy {
       func: SValue,
       var list: FrontStack[SValue],
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       list.pop match {
@@ -1849,7 +1846,6 @@ private[lf] object Speedy {
       list: ImmArray[SValue],
       var lastIndex: Int,
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       if (lastIndex > 0) {
@@ -1885,7 +1881,6 @@ private[lf] object Speedy {
       var revClosures: FrontStack[SValue],
       init: SValue,
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], closure: SValue): Control[Q] = {
       revClosures = closure +: revClosures
@@ -1927,7 +1922,6 @@ private[lf] object Speedy {
       actuals: Actuals,
       var revClosures: FrontStack[SValue],
   ) extends Kont[Q]
-      with SomeArrayEquals
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
       revClosures.pop match {
@@ -1994,7 +1988,6 @@ private[lf] object Speedy {
       actuals: Actuals,
       handler: SExpr,
   ) extends Kont[Question.Update]
-      with SomeArrayEquals
       with NoCopy {
     // we must restore when catching a throw, or for normal execution
     def restore(): Unit = {
