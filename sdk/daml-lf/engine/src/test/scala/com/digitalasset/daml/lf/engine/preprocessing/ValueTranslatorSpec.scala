@@ -223,16 +223,17 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-    val TRecordUpgradable =
-      t"Mod:Record Int64 Text Party Unit"
-
-    val TVariantUpgradable =
-      t"Mod:Variant Int64 Text"
-
-    val TEnumUpgradable =
-      t"Mod:Enum"
-
     "return proper mismatch error for upgrades" in {
+
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(upgradablePkgId, LanguageVersion.v2_1)
+
+      val TRecordUpgradable = t"Mod:Record Int64 Text Party Unit"
+
+      val TVariantUpgradable = t"Mod:Variant Int64 Text Unit"
+
+      val TEnumUpgradable = t"Mod:Enum"
+
       val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
         ("type", "value", "error"),
         (
@@ -350,11 +351,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           },
         ),
       )
-      forEvery(testCases)((typ, value, _) =>
+      forEvery(testCases)((typ, value, checkError) =>
         inside(Try(unsafeTranslateValue(typ, value))) {
-          case Failure(_: Error.Preprocessing.Error) =>
-            ()
-          // checkError(error)
+          case Failure(error: Error.Preprocessing.Error) =>
+            checkError(error)
         }
       )
     }
