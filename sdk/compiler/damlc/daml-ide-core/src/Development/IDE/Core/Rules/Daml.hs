@@ -1542,6 +1542,7 @@ damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule opts
     generateDalfRule opts
+    generatePackageImports
     generateSerializedDalfRule opts
     readSerializedDalfRule
     readInterfaceRule
