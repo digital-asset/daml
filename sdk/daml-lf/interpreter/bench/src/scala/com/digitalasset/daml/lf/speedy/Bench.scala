@@ -151,12 +151,12 @@ class Bench {
       .copy(packageValidation = Compiler.NoPackageValidation)
     compiledPackages = PureCompiledPackages.assertBuild(Map(defaultPackageId -> pkg), config)
     sexpr = SExpr.SEApp(compiledPackages.compiler.unsafeCompile(e"$b"), ArraySeq(SValue.SUnit))
-    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
   }
 
   @Benchmark
   def bench(counters: Bench.EventCounter): SValue = {
     counters.reset()
+    machine = Speedy.Machine.fromPureSExpr(compiledPackages, sexpr)
     machine.setExpressionToEvaluate(sexpr)
     machine.run() match {
       case SResult.SResultFinal(v) =>
