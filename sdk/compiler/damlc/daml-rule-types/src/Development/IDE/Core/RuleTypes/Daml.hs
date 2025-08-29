@@ -57,7 +57,7 @@ instance NFData WhnfPackage where
 type instance RuleResult GeneratePackage = WhnfPackage
 type instance RuleResult GenerateRawPackage = WhnfPackage
 type instance RuleResult GeneratePackageDeps = WhnfPackage
-type instance RuleResult GeneratePackageImports = LF.PackageIds
+type instance RuleResult GeneratePackageImports = Maybe LF.PackageIds
 
 newtype GeneratePackageMapFun = GeneratePackageMapFun (FilePath -> Action ([FileDiagnostic], Map UnitId LF.DalfPackage))
 instance Show GeneratePackageMapFun where show _ = "GeneratePackageMapFun"
