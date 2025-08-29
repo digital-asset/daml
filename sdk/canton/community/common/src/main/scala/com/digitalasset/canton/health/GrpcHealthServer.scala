@@ -11,7 +11,7 @@ import com.digitalasset.canton.lifecycle.LifeCycle.toCloseableServer
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.tracing.TracingConfig
-import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
 
 import java.util.concurrent.ExecutorService
 
@@ -37,7 +37,7 @@ class GrpcHealthServer(
       grpcMetrics,
       NoOpTelemetry,
     )
-    .addService(ProtoReflectionService.newInstance(), withLogging = false)
+    .addService(ProtoReflectionServiceV1.newInstance(), withLogging = false)
     .addService(healthManager.getHealthService.bindService())
     .build
     .start()

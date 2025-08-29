@@ -12,10 +12,12 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawAssignEvent,
   RawUnassignEvent,
+  SequentialIdBatch,
 }
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.ReassignmentStreamReader.{
@@ -135,7 +137,7 @@ class ReassignmentStreamReader(
                         .fold(0L)(_.unwrap)}",
                 ) {
                   payloadDbQuery.fetchPayloads(
-                    eventSequentialIds = ids,
+                    eventSequentialIds = Ids(ids),
                     allFilterParties = filteringConstraints.allFilterParties,
                   )(connection)
                 }
@@ -244,7 +246,7 @@ object ReassignmentStreamReader {
   @FunctionalInterface
   trait PayloadDbQuery[T] {
     def fetchPayloads(
-        eventSequentialIds: Iterable[Long],
+        eventSequentialIds: SequentialIdBatch,
         allFilterParties: Option[Set[Ref.Party]],
     ): Connection => Vector[T]
   }

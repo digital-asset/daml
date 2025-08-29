@@ -18,8 +18,8 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils.ExternalParty
 import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.topology.ExternalParty
 import io.grpc.Status
 
 /** Test and demonstrates onboarding of a multi hosted external party

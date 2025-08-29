@@ -11,7 +11,11 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  RawParticipantAuthorization,
+  SequentialIdBatch,
+}
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.events.TopologyTransactionsStreamReader.{
@@ -124,7 +128,7 @@ class TopologyTransactionsStreamReader(
                     s"Topology events request from ${queryRange.startInclusiveOffset.unwrap} to ${queryRange.endInclusiveOffset.unwrap} is beyond ledger end offset ${ledgerEndOffset
                         .fold(0L)(_.unwrap)}",
                 ) {
-                  payloadDbQuery.fetchPayloads(eventSequentialIds = ids)(connection)
+                  payloadDbQuery.fetchPayloads(eventSequentialIds = Ids(ids))(connection)
                 }
               }
             }
@@ -180,7 +184,7 @@ object TopologyTransactionsStreamReader {
   @FunctionalInterface
   trait PayloadDbQuery {
     def fetchPayloads(
-        eventSequentialIds: Iterable[Long]
+        eventSequentialIds: SequentialIdBatch
     ): Connection => Vector[RawParticipantAuthorization]
   }
 }

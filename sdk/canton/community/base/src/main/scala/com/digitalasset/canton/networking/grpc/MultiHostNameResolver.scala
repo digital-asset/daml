@@ -55,7 +55,10 @@ class MultiHostNameResolver(endpoints: NonEmpty[Seq[Endpoint]], args: NameResolv
           if (resolvedAddresses.sizeIs == endpoints.size) {
             val addresses = resolvedAddresses.values.flatten.toList
             val resolutionResult =
-              NameResolver.ResolutionResult.newBuilder().setAddresses(addresses.asJava).build()
+              NameResolver.ResolutionResult
+                .newBuilder()
+                .setAddressesOrError(StatusOr.fromValue(addresses.asJava))
+                .build()
             announceOnce(() => listener.onResult(resolutionResult))
           }
       }
@@ -67,26 +70,31 @@ class MultiHostNameResolver(endpoints: NonEmpty[Seq[Endpoint]], args: NameResolv
           // i'm pretty sure it only makes sense to result 0 or 1 address groups
           // but we'll attempt to support more in case there is some valid situation for this and is only encountered
           // in a different environment away from our tests
-          val addresses =
-            resolutionResult.getAddresses.asScala.toList.map { providedAddressGroup =>
-              // set the ATTR_AUTHORITY_OVERRIDE attribute to ensure that this hostname is always used for certificate
-              // checks against this endpoint
-              new EquivalentAddressGroup(
-                providedAddressGroup.getAddresses,
-                Attributes
-                  .newBuilder()
-                  .setAll(providedAddressGroup.getAttributes)
-                  .set(EquivalentAddressGroup.ATTR_AUTHORITY_OVERRIDE, endpoint.host)
-                  // the endpoint object is passed as an attribute, which gets used by SequencerClientTokenAuthentication
-                  // in order to pick the right connection to fetch tokens from for the current call
-                  .set(Endpoint.ATTR_ENDPOINT, endpoint)
-                  .build(),
-              )
-            }
+          val addressesOrError = resolutionResult.getAddressesOrError
+          if (addressesOrError.hasValue) {
+            val addresses =
+              addressesOrError.getValue.asScala.toList.map { providedAddressGroup =>
+                // set the ATTR_AUTHORITY_OVERRIDE attribute to ensure that this hostname is always used for certificate
+                // checks against this endpoint
+                new EquivalentAddressGroup(
+                  providedAddressGroup.getAddresses,
+                  Attributes
+                    .newBuilder()
+                    .setAll(providedAddressGroup.getAttributes)
+                    .set(EquivalentAddressGroup.ATTR_AUTHORITY_OVERRIDE, endpoint.host)
+                    // the endpoint object is passed as an attribute, which gets used by SequencerClientTokenAuthentication
+                    // in order to pick the right connection to fetch tokens from for the current call
+                    .set(Endpoint.ATTR_ENDPOINT, endpoint)
+                    .build(),
+                )
+              }
 
-          updateResults {
-            case Right(results) => Right(results + (index -> addresses))
-            case other => other // don't bother adding anything if we've already failed
+            updateResults {
+              case Right(results) => Right(results + (index -> addresses))
+              case other => other // don't bother adding anything if we've already failed
+            }
+          } else {
+            updateResults(_ => Left(addressesOrError.getStatus))
           }
         }
         override def onError(error: Status): Unit =

@@ -18,7 +18,7 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.synchronizer.config.PublicServerConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerRuntime
-import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
 
 import scala.concurrent.ExecutionContextExecutorService
 
@@ -73,7 +73,7 @@ class DynamicGrpcServer(
 
     serverBuilder
       .addService(grpcHealthManager.manager.getHealthService.bindService())
-      .addService(ProtoReflectionService.newInstance(), withLogging = false)
+      .addService(ProtoReflectionServiceV1.newInstance(), withLogging = false)
       .discard[CantonServerBuilder]
 
     (toCloseableServer(serverBuilder.build.start(), logger, "PublicServer"), registry)

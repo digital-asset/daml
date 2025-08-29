@@ -4,15 +4,18 @@
 package com.digitalasset.canton.console
 
 import cats.Monad
+import cats.data.EitherT
 import cats.syntax.alternative.*
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.CommandErrorGroup
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.util.ErrorUtil
 import org.slf4j.event.Level
 
 import java.time.Duration
+import scala.concurrent.Await
 import scala.util.{Failure, Success, Try}
 
 /** Response from a console command.
@@ -58,6 +61,18 @@ object ConsoleCommandResult {
       case Left(err) => GenericCommandError(err)
       case Right(value) => CommandSuccessful(value)
     }
+
+  def fromEitherTUS[A](
+      eitherT: EitherT[FutureUnlessShutdown, String, A]
+  )(implicit consoleEnvironment: ConsoleEnvironment): ConsoleCommandResult[A] =
+    fromEither(
+      Await
+        .result(
+          eitherT.value,
+          consoleEnvironment.commandTimeouts.unbounded.duration,
+        )
+        .onShutdown(Left("Aborted due to shutdown"))
+    )
 
   private[console] def runAll[Instance <: InstanceReference, Result](
       instances: Seq[Instance]

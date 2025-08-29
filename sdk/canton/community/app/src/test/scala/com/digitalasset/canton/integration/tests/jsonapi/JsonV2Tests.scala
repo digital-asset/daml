@@ -1163,6 +1163,48 @@ class JsonV2Tests
           (_, offset) <- createCommand(fixture, alice, headers)
           (updateId, _, alternateParty) <- {
             val webSocketFlow =
+              websocket(fixture.uri.withPath(Uri.Path("/v2/updates")), jwt)
+            Source
+              .single(
+                TextMessage(
+                  updatesRequest.asJson.noSpaces
+                )
+              )
+              .concatMat(Source.maybe[Message])(Keep.left)
+              .via(webSocketFlow)
+              .take(2)
+              .collect { case m: TextMessage =>
+                m.getStrictText
+              }
+              .toMat(Sink.seq)(Keep.right)
+              .run()
+              .map { updates =>
+                updates
+                  .map(decode[JsGetUpdatesResponse])
+                  .collect { case Right(JsGetUpdatesResponse(JsUpdate.Transaction(tx))) =>
+                    inside(tx.events.head) { case event: JsEvent.CreatedEvent =>
+                      (tx.updateId, event.nodeId, event.signatories.head)
+                    }
+                  }
+                  .head
+              }
+          }
+          _ <- {
+            fixture
+              .postJsonStringRequest(
+                fixture.uri withPath Uri.Path("/v2/updates") withQuery Query(("wait", "500")),
+                updatesRequest.asJson.toString(),
+                headers,
+              )
+              .map { case (status, result) =>
+                status should be(StatusCodes.OK)
+
+                val responses = decode[Seq[JsGetUpdatesResponse]](result.toString()).value
+                responses.size should be >= 1
+              }
+          }
+          _ <- {
+            val webSocketFlow =
               websocket(fixture.uri.withPath(Uri.Path("/v2/updates/flats")), jwt)
             Source
               .single(

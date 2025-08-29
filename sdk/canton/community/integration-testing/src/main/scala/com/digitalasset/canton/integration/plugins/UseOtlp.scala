@@ -63,7 +63,7 @@ class OtlpGrpcServer(protected val loggerFactory: NamedLoggerFactory)
       synchronized(
         traceSpans.addAll(
           request.getResourceSpansList.asScala
-            .flatMap(_.getInstrumentationLibrarySpansList.asScala)
+            .flatMap(_.getScopeSpansList.asScala)
             .flatMap(_.getSpansList.asScala)
         )
       )

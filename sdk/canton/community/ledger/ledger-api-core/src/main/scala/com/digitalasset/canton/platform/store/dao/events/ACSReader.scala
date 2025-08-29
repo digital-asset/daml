@@ -22,6 +22,7 @@ import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.Aborted
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawActiveContract,
@@ -306,7 +307,7 @@ class ACSReader(
             ) { implicit connection =>
               val result = withValidatedActiveAt(
                 eventStorageBackend.assignEventBatch(
-                  eventSequentialIds = ids,
+                  eventSequentialIds = Ids(ids),
                   allFilterParties = allFilterParties,
                 )(connection)
               )
@@ -330,7 +331,7 @@ class ACSReader(
           ) { implicit connection =>
             val result = withValidatedActiveAt(
               eventStorageBackend.unassignEventBatch(
-                eventSequentialIds = ids,
+                eventSequentialIds = Ids(ids),
                 allFilterParties = allFilterParties,
               )(connection)
             )
@@ -393,7 +394,7 @@ class ACSReader(
                   eventStorageBackend.fetchEventPayloadsAcsDelta(
                     EventPayloadSourceForUpdatesAcsDelta.Create
                   )(
-                    eventSequentialIds = ids,
+                    eventSequentialIds = Ids(ids),
                     requestingParties = allFilterParties,
                   )(connection)
                 )

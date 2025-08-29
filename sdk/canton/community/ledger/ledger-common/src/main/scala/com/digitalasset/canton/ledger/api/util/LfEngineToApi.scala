@@ -6,6 +6,7 @@ package com.digitalasset.canton.ledger.api.util
 import com.daml.ledger.api.v2.value as api
 import com.digitalasset.daml.lf.data.{Numeric, Ref}
 import com.digitalasset.daml.lf.value.Value as Lf
+import com.digitalasset.daml.lf.value.Value.ValueOptional
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.std.either.*
@@ -45,21 +46,8 @@ object LfEngineToApi {
       recordValue: LfValue,
   ): Either[String, api.Record] =
     recordValue match {
-      case Lf.ValueRecord(tycon, fields) =>
-        val fs = fields.foldLeft[Either[String, Vector[api.RecordField]]](Right(Vector.empty)) {
-          case (Left(e), _) => Left(e)
-          case (Right(acc), (mbLabel, value)) =>
-            lfValueToApiValue(verbose, value)
-              .map(v => api.RecordField(if (verbose) mbLabel.getOrElse("") else "", Some(v)))
-              .map(acc :+ _)
-        }
-        val mbId = if (verbose) {
-          tycon.map(toApiIdentifier)
-        } else {
-          None
-        }
-
-        fs.map(api.Record(mbId, _))
+      case recordLfValue: Lf.ValueRecord =>
+        lfValueToApiValue(verbose, recordLfValue).map(_.getRecord)
       case other =>
         Left(s"Expected value to be record, but got $other")
     }
@@ -142,29 +130,38 @@ object LfEngineToApi {
           )
         )
       case Lf.ValueRecord(tycon, fields) =>
-        fields.toList.traverseU { field =>
-          lfValueToApiValue(verbose, field._2) map { x =>
-            api.RecordField(
-              if (verbose)
-                field._1.getOrElse("")
-              else
-                "",
-              Some(x),
-            )
+        val trailingNonesSize = fields.reverseIterator.takeWhile {
+          case (_, ValueOptional(None)) => true
+          case _ => false
+        }.size
+
+        fields.iterator
+          // Since Canton 3.3, trailing None Optionals are omitted in LF normalization.
+          // For consistency, omit trailing None Optionals on all value reads
+          // to ensure that pre-Canton 3.3 values are normalized as well
+          .take(fields.length - trailingNonesSize)
+          .toList
+          .traverseU { case (mbLabel, value) =>
+            lfValueToApiValue(verbose, value) map { x =>
+              api.RecordField(
+                label = if (verbose) mbLabel.getOrElse("") else "",
+                value = Some(x),
+              )
+            }
           }
-        } map { apiFields =>
-          api.Value(
-            api.Value.Sum.Record(
-              api.Record(
-                if (verbose)
-                  tycon.map(toApiIdentifier)
-                else
-                  None,
-                apiFields,
+          .map { apiFields =>
+            api.Value(
+              api.Value.Sum.Record(
+                api.Record(
+                  if (verbose)
+                    tycon.map(toApiIdentifier)
+                  else
+                    None,
+                  apiFields,
+                )
               )
             )
-          )
-        }
+          }
     }
 
   @throws[RuntimeException]

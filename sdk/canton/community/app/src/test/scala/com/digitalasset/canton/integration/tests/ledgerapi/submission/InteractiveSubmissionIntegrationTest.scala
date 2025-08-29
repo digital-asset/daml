@@ -33,8 +33,8 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils.ExternalParty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.topology.ExternalParty
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import monocle.Optional
@@ -44,7 +44,7 @@ import org.slf4j.event.Level
 
 import java.util.UUID
 
-trait InteractiveSubmissionIntegrationTestSetup
+sealed trait InteractiveSubmissionIntegrationTestSetup
     extends CommunityIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest {
@@ -184,7 +184,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
     "create a transaction with multiple nodes" in { implicit env =>
       val createdEvent = externalSubmit(
-        DummyFactory.create(aliceE.primitiveId),
+        DummyFactory.create(aliceE.toProtoPrimitive),
         aliceE,
         epn(env),
       ).events.loneElement.getCreated
@@ -264,7 +264,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
           val pn = if (epnIsCpn) cpn(env) else epn(env)
           val expectedSize = if (expectsEvents) 1L else 0L
           val transaction = pn.ledger_api.interactive_submission
-            .executeAndWaitForTransaction(
+            .execute_and_wait_for_transaction(
               prepared.preparedTransaction.value,
               signTxAs(prepared, aliceE),
               UUID.randomUUID().toString,
@@ -367,7 +367,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
       // Now exercise the archiveMe choice with explicit disclosure using contract1
       val archiveCmd = new T.TrailingNone.ContractId(contract1.contractId)
-        .exerciseArchiveMe(aliceE.primitiveId)
+        .exerciseArchiveMe(aliceE.toProtoPrimitive)
 
       externalSubmit(
         archiveCmd,
@@ -386,7 +386,7 @@ class InteractiveSubmissionIntegrationTest extends InteractiveSubmissionIntegrat
 
       // And now with contract2, using the cpn to prepare as well so we don't need to explicitly disclose the contract
       val archiveCmd2 = new T.TrailingNone.ContractId(contract2.contractId)
-        .exerciseArchiveMe(aliceE.primitiveId)
+        .exerciseArchiveMe(aliceE.toProtoPrimitive)
 
       externalSubmit(
         archiveCmd2,

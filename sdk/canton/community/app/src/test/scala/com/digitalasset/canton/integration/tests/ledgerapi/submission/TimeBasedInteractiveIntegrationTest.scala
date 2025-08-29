@@ -23,9 +23,8 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils.ExternalParty
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.topology.{ForceFlags, PartyId}
+import com.digitalasset.canton.topology.{ExternalParty, ForceFlags, PartyId}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.Status
 import scalapb.TimestampConverters
@@ -61,7 +60,7 @@ class TimeBasedInteractiveIntegrationTest
   private var danE: ExternalParty = _
 
   def createPassCmd(ownerE: ExternalParty, id: String = "test-external-signing-id"): Command = {
-    val pass = new Pass(id, ownerE.primitiveId, Instant.now()) // This time is not used
+    val pass = new Pass(id, ownerE.toProtoPrimitive, Instant.now()) // This time is not used
     Command.fromJavaProto(pass.create.commands.loneElement.toProtoCommand)
   }
 
@@ -128,7 +127,7 @@ class TimeBasedInteractiveIntegrationTest
     def createPassContract(implicit env: FixtureParam): (Pass.ContractId, DisclosedContract) = {
       val id = s"pass-${Random.nextLong()}"
       val event = externalSubmit(
-        new Pass(id, aliceE.primitiveId, Instant.now()).create(),
+        new Pass(id, aliceE.toProtoPrimitive, Instant.now()).create(),
         aliceE,
         cpn(env),
       ).events.loneElement.getCreated

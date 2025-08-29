@@ -430,7 +430,7 @@ class ExternalLedgerApiClient(
     consoleEnvironment.grpcLedgerCommandRunner
       .runCommand("sourceLedger", command, FullClientConfig(hostname, port, tls), token)
 
-  override protected def optionallyAwait[Tx](
+  override private[canton] def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
       txSynchronizerId: String,

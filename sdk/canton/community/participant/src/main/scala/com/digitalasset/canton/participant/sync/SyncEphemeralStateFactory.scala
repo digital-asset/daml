@@ -23,7 +23,7 @@ import com.digitalasset.canton.participant.store.{
   RequestJournalStore,
   SyncPersistentState,
 }
-import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
+import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
@@ -316,51 +316,6 @@ object SyncEphemeralStateFactory {
         }
       )
       .getOrElse(RepairCounter.Genesis)
-
-  /** Returns an upper bound for the timestamps up to which pruning may remove data from the stores
-    * (inclusive) so that crash recovery will still work.
-    */
-  def crashRecoveryPruningBoundInclusive(
-      requestJournalStore: RequestJournalStore,
-      cleanSynchronizerIndexO: Option[SynchronizerIndex],
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[CantonTimestamp] =
-    // Crash recovery cleans up the stores before replay starts,
-    // however we may have used some of the deleted information to determine the starting points for the replay.
-    // So if a crash occurs during crash recovery, we may start again and come up with an earlier processing starting point.
-    // We want to make sure that crash recovery access only data whose timestamps comes after what pruning is allowed to delete.
-    // This method returns a timestamp that is before the data that crash recovery accesses after any number of iterating
-    // the computation of starting points and crash recovery clean-ups.
-    //
-    // The earliest possible starting point is the earlier of the following:
-    // * The first request whose commit time is after the clean synchronizer index timestamp
-    // * The clean sequencer counter prehead timestamp
-    for {
-      cleanTimeOfRequest <- cleanSynchronizerIndexO
-        .fold[FutureUnlessShutdown[Option[TimeOfRequest]]](FutureUnlessShutdown.pure(None))(
-          synchronizerIndex =>
-            requestJournalStore
-              .lastRequestTimeWithRequestTimestampBeforeOrAt(synchronizerIndex.recordTime)
-        )
-      requestReplayTs <- cleanTimeOfRequest match {
-        case None =>
-          // No request is known to be clean, nothing can be pruned
-          FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
-        case Some(timeOfRequest) =>
-          requestJournalStore.firstRequestWithCommitTimeAfter(timeOfRequest.timestamp).map { res =>
-            val ts = res.fold(timeOfRequest.timestamp)(_.requestTimestamp)
-            // If the only processed requests so far are repair requests, it can happen that `ts == CantonTimestamp.MinValue`.
-            // Taking the predecessor throws an exception.
-            if (ts == CantonTimestamp.MinValue) ts else ts.immediatePredecessor
-          }
-      }
-      // TODO(i21246): Note for unifying crashRecoveryPruningBoundInclusive and startingPoints: This minimum building is not needed anymore, as the request timestamp is also smaller than the sequencer timestamp.
-      cleanSequencerIndexTs = cleanSynchronizerIndexO
-        .flatMap(_.sequencerIndex)
-        .fold(CantonTimestamp.MinValue)(_.sequencerTimestamp.immediatePredecessor)
-    } yield requestReplayTs.min(cleanSequencerIndexTs)
 
   def cleanupPersistentState(
       persistentState: SyncPersistentState,

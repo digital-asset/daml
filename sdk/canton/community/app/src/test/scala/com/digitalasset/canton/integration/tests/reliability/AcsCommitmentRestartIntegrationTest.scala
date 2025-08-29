@@ -215,8 +215,10 @@ trait AcsCommitmentRestartIntegrationTest
 
 //class AcsCommitmentRestartIntegrationTestH2 extends AcsCommitmentRestartIntegrationTest {
 //  registerPlugin(new UseH2(loggerFactory))
-//  registerPlugin(new UseReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+//  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 //}
+
 class AcsCommitmentRestartIntegrationTestPostgres extends AcsCommitmentRestartIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))

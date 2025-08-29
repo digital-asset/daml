@@ -20,6 +20,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawParticipantAuthorization,
   RawTreeEvent,
   RawUnassignEvent,
+  SequentialIdBatch,
   SynchronizerOffset,
   UnassignProperties,
 }
@@ -308,12 +309,12 @@ trait EventStorageBackend {
   )(connection: Connection): Vector[Long]
 
   def assignEventBatch(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawAssignEvent]]
 
   def unassignEventBatch(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawUnassignEvent]]
 
@@ -375,7 +376,7 @@ trait EventStorageBackend {
   )(connection: Connection): Vector[Long]
 
   def topologyPartyEventBatch(
-      eventSequentialIds: Iterable[Long]
+      eventSequentialIds: SequentialIdBatch
   )(connection: Connection): Vector[RawParticipantAuthorization]
 
   def topologyEventOffsetPublishedOnRecordTime(
@@ -384,12 +385,12 @@ trait EventStorageBackend {
   )(connection: Connection): Option[Offset]
 
   def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]]
 
   def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]]
 
@@ -525,6 +526,12 @@ object EventStorageBackend {
       synchronizerId: String,
       sequentialId: Long,
   )
+
+  sealed trait SequentialIdBatch
+  object SequentialIdBatch {
+    final case class IdRange(fromInclusive: Long, toInclusive: Long) extends SequentialIdBatch
+    final case class Ids(ids: Iterable[Long]) extends SequentialIdBatch
+  }
 }
 
 trait DataSourceStorageBackend {
