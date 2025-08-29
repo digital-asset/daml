@@ -138,8 +138,8 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
-decodeImports :: V.Vector TL.Text -> PackageIds
-decodeImports = S.fromList . V.toList . V.map (PackageId . TL.toStrict)
+decodeImports :: Maybe LF2.PackageImports -> Maybe PackageIds
+decodeImports = fmap (S.fromList . V.toList . V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages)
 
 decodeInternedDottedName :: LF2.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF2.InternedDottedName ids) = do
