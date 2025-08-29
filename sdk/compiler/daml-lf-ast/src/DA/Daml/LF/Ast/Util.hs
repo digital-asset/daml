@@ -18,7 +18,6 @@ import           Data.Functor.Foldable
 import qualified Data.Graph as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
-import qualified Data.Set     as S
 import           GHC.Generics (Generic)
 
 import Module (UnitId, unitIdString, stringToUnitId)
@@ -524,8 +523,8 @@ mkOneModulePackage m = Package{..}
     packageLfVersion = Version V2 PointDev
     packageModules :: NM.NameMap Module
     packageModules = NM.fromList [m]
-    importedPackages :: S.Set PackageId
-    importedPackages = S.empty
+    importedPackages :: Maybe PackageIds
+    importedPackages = Nothing --since used for testing
     packageMetadata :: PackageMetadata
     packageMetadata = PackageMetadata{..}
       where

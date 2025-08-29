@@ -1038,8 +1038,8 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
-encodeImports :: S.Set PackageId -> V.Vector TL.Text
-encodeImports = V.fromList . S.toList . S.map toTlText
+encodeImports :: Maybe PackageIds -> Maybe P.PackageImports
+encodeImports = fmap $ P.PackageImports . V.fromList . S.toList . S.map toTlText
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
