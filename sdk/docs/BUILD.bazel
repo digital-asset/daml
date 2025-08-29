@@ -392,7 +392,8 @@ java_binary(
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_sparkjava_spark_core",
-        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
