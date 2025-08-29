@@ -506,14 +506,14 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
       val (_, refMsgs) = evalUpdateApp(
         pkgs,
-        e"""Test:testFold M:foldl @Text @Text""",
+        e"""Test:testFold (M:foldl @Text @Text)""",
         ArraySeq.empty,
         Set.empty,
       )
 
       val (_, msgs) = evalUpdateApp(
         pkgs,
-        e"""Test:testFold FOLDL @Text @Text""",
+        e"""Test:testFold (FOLDL @Text @Text)""",
         ArraySeq.empty,
         Set.empty,
       )
@@ -526,14 +526,14 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
       val (_, refMsgs) = evalUpdateApp(
         pkgs,
-        e"""Test:testFold M:foldr @Text @Text""",
+        e"""Test:testFold (M:foldr @Text @Text)""",
         ArraySeq.empty,
         Set.empty,
       )
 
       val (_, msgs) = evalUpdateApp(
         pkgs,
-        e"""Test:testFold FOLDR @Text @Text""",
+        e"""Test:testFold (FOLDR @Text @Text)""",
         ArraySeq.empty,
         Set.empty,
       )
