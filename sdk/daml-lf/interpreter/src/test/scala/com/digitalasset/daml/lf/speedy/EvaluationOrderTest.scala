@@ -156,6 +156,19 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
           controllers Cons @Party [M:Dummy {signatory} this] (Nil @Party)
           to upure @Unit ();
       };
+
+      val foldl: forall (a: *) (b: *). (a -> b -> a) -> a -> List b -> a = /\ (a: *) (b: *).
+        \(f: a -> b -> a) (acc: a) (xs: List b) ->
+          case xs of
+            Nil -> acc
+          | Cons x xs -> M:foldl @a @b f (f acc x) xs;
+
+      val foldr: forall (a: *) (b: *). (b -> a -> a) -> a -> List b -> a = /\ (a: *) (b: *).
+        \(f: b -> a -> a) (acc: a) (xs: List b) ->
+          case xs of
+            Nil -> acc
+         | Cons x xs -> f x (M:foldr @a @b f acc xs);
+
     }
 
     module Test {
@@ -293,6 +306,14 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
              in Test:run @(Option (ContractId M:T)) (lookup_by_key @M:T key);
       };
 
+      val f: Text -> Text -> Text =
+        \(x: Text) -> TRACE @(Text -> Text) x \(y: Text) -> TRACE @Text y (APPEND_TEXT x y);
+
+      val testFold: ((Text -> Text -> Text) -> Text -> List Text -> Text) -> Update Unit =
+        \(fold: (Text -> Text -> Text) -> Text -> List Text -> Text)  ->
+          ubind x:Unit <- upure @Unit (TRACE @Unit "starts test" ())
+          in ubind y:Text <- upure @Text (fold Test:f "0" (Cons @Text ["1", "2", "3"] (Nil @Text)))
+          in upure @Unit (TRACE @Unit "ends test" ());
     }
   """
 
@@ -480,6 +501,46 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
   // need to check ordering of non-catchable errors relative to other non-catchable errors.
 
   "evaluation order" - {
+
+    "native foldl match LF implementation" in {
+
+      val (_, refMsgs) = evalUpdateApp(
+        pkgs,
+        e"""Test:testFold M:foldl @Text @Text""",
+        ArraySeq.empty,
+        Set.empty,
+      )
+
+      val (_, msgs) = evalUpdateApp(
+        pkgs,
+        e"""Test:testFold FOLDL @Text @Text""",
+        ArraySeq.empty,
+        Set.empty,
+      )
+
+      refMsgs shouldBe List("starts test", "0", "1", "01", "2", "012", "3", "ends test")
+      msgs shouldBe refMsgs
+    }
+
+    "native foldr match LF implementation" in {
+
+      val (_, refMsgs) = evalUpdateApp(
+        pkgs,
+        e"""Test:testFold M:foldr @Text @Text""",
+        ArraySeq.empty,
+        Set.empty,
+      )
+
+      val (_, msgs) = evalUpdateApp(
+        pkgs,
+        e"""Test:testFold FOLDR @Text @Text""",
+        ArraySeq.empty,
+        Set.empty,
+      )
+
+      refMsgs shouldBe List("starts test", "3", "0", "2", "30", "1", "230", "ends test")
+      msgs shouldBe refMsgs
+    }
 
     "create" - {
 

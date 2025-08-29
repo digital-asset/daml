@@ -787,34 +787,6 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  // NOTE: Past implementations of `foldr` have used the semantics given by the
-  // recursive definition
-  // ```
-  // foldr f z [] = z
-  // foldr f z (x::xs) = f x (foldr f z xs)
-  // ```
-  // When the PAP for `f` expects at least two more arguments, this leads to the
-  // expected right-to-left evaluation order. However, if the PAP `f` is missing
-  // only one argument, the evaluation order suddenly changes. First, `f` is
-  // applied to all the elements of `xs` in left-to-right order, then the
-  // resulting list of PAPs is reduced from right-to-left by application, using
-  // `z` as the initial value argument.
-  //
-  // For this reason, we need three different continuations for `foldr`:
-  // 1. `KFoldr` is for the case where `f` expects at least two more arguments.
-  // 2. `KFoldr1Map` is for the first mapping from left-to-right stage when `f`
-  //    is missing only one argument.
-  // 3. `KFoldr1Reduce` is for the second reduce from right-to-left stage when
-  //    `f` is missing only one argument.
-  //
-  // We could have omitted the special casse for `f` missing only one argument,
-  // if the semantics of `foldr` had been implemented as
-  // ```
-  // foldr f z [] = z
-  // foldr f z (x:xs) = let y = foldr f z xs in f x y
-  // ```
-  // However, this would be a breaking change compared to the aforementioned
-  // implementation of `foldr`.
   final case object SBFoldr extends SBuiltinFun(3) {
     override private[speedy] def execute[Q](
         args: ArraySeq[SValue],
@@ -823,20 +795,9 @@ private[lf] object SBuiltinFun {
       val func = args(0).asInstanceOf[SPAP]
       val init = args(1)
       val list = getSList(args, 2)
-      if (func.arity - func.actuals.size >= 2) {
-        val array = list.toImmArray
-        machine.pushKont(KFoldr(machine, func, array, array.length))
-        Control.Value(init)
-      } else {
-        val stack = list
-        stack.pop match {
-          case None =>
-            Control.Value(init)
-          case Some((head, tail)) =>
-            machine.pushKont(KFoldr1Map(machine, func, tail, FrontStack.empty, init))
-            machine.enterApplication(func, ArraySeq(SEValue(head)))
-        }
-      }
+      val array = list.toImmArray
+      machine.pushKont(KFoldr(machine, func, array, array.length))
+      Control.Value(init)
     }
   }
 
