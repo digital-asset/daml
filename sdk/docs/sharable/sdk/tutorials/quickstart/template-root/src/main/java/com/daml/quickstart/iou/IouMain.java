@@ -18,7 +18,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import io.grpc.Channel;
-import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.ManagedChannelBuilder;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -51,7 +51,7 @@ public class IouMain {
 
     // Connect to gRPC services
     Channel channel =
-        NettyChannelBuilder.forAddress(ledgerhost, ledgerport)
+        ManagedChannelBuilder.forAddress(ledgerhost, ledgerport)
             .maxInboundMessageSize(10485760)
             .usePlaintext()
             .build();
