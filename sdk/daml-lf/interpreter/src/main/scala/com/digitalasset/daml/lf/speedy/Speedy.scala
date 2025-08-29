@@ -51,14 +51,18 @@ private[lf] object Speedy {
     // Speedy evaluates in steps which are grouped into batches of batchSize
     private[this] var stepBatchCount: Long = 0
     private[this] var stepCount: Long = 0
+    private[this] var txNodeCount: Long = 0
 
     private[speedy] def incrStepCount(): Unit = stepCount += 1
     private[speedy] def incrStepBatchCount(): Unit = {
       stepBatchCount += 1
       stepCount = 0
     }
+    private[speedy] def incrTransactionNodeCount(): Unit = txNodeCount += 1
 
     private[lf] def totalStepCount: (Long, Long) = (stepBatchCount, stepCount)
+
+    private[lf] def transactionNodeCount: Long = txNodeCount
   }
 
   /** Instrumentation counters. */

@@ -41,6 +41,7 @@ class ReplayBenchmark {
       val (stepBatchCount, stepCount) = metrics.totalStepCount
       stepBatchCount * metrics.batchSize + stepCount
     }
+    counters.transactionNodeCount += metrics.transactionNodeCount
   }
 
   @Setup(Level.Trial)
@@ -75,8 +76,11 @@ object ReplayBenchmark {
   class EventCounter {
     var stepCount: Long = 0
 
+    var transactionNodeCount: Long = 0
+
     def reset(): Unit = {
       stepCount = 0
+      transactionNodeCount = 0
     }
   }
 }
