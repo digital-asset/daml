@@ -214,3 +214,5 @@ jobs:
                                  --project daml
       fi
     displayName: 'Bump Blackduck Script if needed'
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)
