@@ -37,9 +37,9 @@ version_specific = {
 #
 # 2. As recommended by https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty we use
 # grpc-netty-shaded than embedded netty and netty-boringssl-tcnative (shaded)
-grpc_version = "1.67.1"
+grpc_version = "1.75.0"
 protobuf_version = "3.25.5"
-pekko_version = "1.1.2"
+pekko_version = "1.1.5"
 pekko_http_version = "1.1.0"
 
 #gatling_version = "3.5.1"
@@ -48,7 +48,7 @@ guava_version = "33.3.0-jre"
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
 dropwizard_version = "4.1.33"
-opentelemetry_version = "1.12.0"
+opentelemetry_version = "1.36.0"
 prometheus_version = "0.14.1"
 
 # group libraries controlled by the same org
