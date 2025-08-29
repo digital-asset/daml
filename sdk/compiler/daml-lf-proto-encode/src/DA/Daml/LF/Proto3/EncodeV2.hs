@@ -195,7 +195,7 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
     ImportedPackageId pkgId -> do
       id <- fromJust <$> use (importMapLens . at pkgId)
-      return $ P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr id
+      return $ P.SelfOrImportedPackageIdSumPackageImportId id
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.

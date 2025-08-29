@@ -37,10 +37,13 @@ message SelfOrImportedPackageId {
     // belongs.
     Unit self_package_id = 1;
 
-    // An index into `interned_package_ids` of the Package containing
-    // this reference.
     // *Must be a valid interned package Id string*
     int32 imported_package_id_interned_str = 3;
+
+    // a sort of return to what was before under name `interned_package_ids`: an
+    // index in the package's explicit import table versus the general interned
+    // string table
+    int32 package_import_id = 4;
   }
 }
 

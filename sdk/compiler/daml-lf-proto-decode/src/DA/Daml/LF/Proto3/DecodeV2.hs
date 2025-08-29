@@ -134,6 +134,8 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
     mayDecode "packageRefSum" pref $ \case
         LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
         LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
+        LF2.SelfOrImportedPackageIdSumPackageImportId strId -> do
+          asks (ImportedPackageId . PackageId . fromJust . \config -> importedPackages config V.!? strId)
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
