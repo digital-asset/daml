@@ -58,6 +58,15 @@ class JsUpdateService(
 
   def endpoints() = List(
     websocket(
+      JsUpdateService.getUpdatesEndpoint,
+      getFlats,
+    ),
+    asList(
+      JsUpdateService.getUpdatesListEndpoint,
+      getFlats,
+      timeoutOpenEndedStream = true,
+    ),
+    websocket(
       JsUpdateService.getUpdatesFlatEndpoint,
       getFlats,
     ),
@@ -228,6 +237,25 @@ object JsUpdateService extends DocumentationEndpoints {
   import JsSchema.JsServicesCommonCodecs.*
 
   private lazy val updates = v2Endpoint.in(sttp.tapir.stringToPath("updates"))
+
+  val getUpdatesEndpoint = updates.get
+    .out(
+      webSocketBody[
+        update_service.GetUpdatesRequest,
+        CodecFormat.Json,
+        Either[JsCantonError, JsGetUpdatesResponse],
+        CodecFormat.Json,
+      ](PekkoStreams)
+    )
+    .description("Get updates stream")
+
+  val getUpdatesListEndpoint =
+    updates.post
+      .in(jsonBody[update_service.GetUpdatesRequest])
+      .out(jsonBody[Seq[JsGetUpdatesResponse]])
+      .description("Query updates list (blocking call)")
+      .inStreamListParamsAndDescription()
+
   val getUpdatesFlatEndpoint = updates.get
     .in(sttp.tapir.stringToPath("flats"))
     .out(
@@ -238,14 +266,16 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get flat transactions update stream")
+    .description("Get flat transactions update stream (deprecated: use v2/updates instead)")
 
   val getUpdatesFlatListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("flats"))
       .in(jsonBody[update_service.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdatesResponse]])
-      .description("Query flat transactions update list (blocking call)")
+      .description(
+        "Query flat transactions update list (blocking call, deprecated: use v2/updates instead)"
+      )
       .inStreamListParamsAndDescription()
 
   val getUpdatesTreeEndpoint = updates.get
@@ -258,14 +288,16 @@ object JsUpdateService extends DocumentationEndpoints {
         CodecFormat.Json,
       ](PekkoStreams)
     )
-    .description("Get update transactions tree stream")
+    .description("Get update transactions tree stream (deprecated: use v2/updates instead)")
 
   val getUpdatesTreeListEndpoint =
     updates.post
       .in(sttp.tapir.stringToPath("trees"))
       .in(jsonBody[update_service.GetUpdatesRequest])
       .out(jsonBody[Seq[JsGetUpdateTreesResponse]])
-      .description("Query update transactions tree list (blocking call)")
+      .description(
+        "Query update transactions tree list (blocking call, deprecated: use v2/updates instead)"
+      )
       .inStreamListParamsAndDescription()
 
   val getTransactionTreeByOffsetEndpoint = updates.get
@@ -311,6 +343,8 @@ object JsUpdateService extends DocumentationEndpoints {
       .description("Get update by id")
 
   override def documentation: Seq[AnyEndpoint] = List(
+    getUpdatesEndpoint,
+    getUpdatesListEndpoint,
     getUpdatesFlatEndpoint,
     getUpdatesFlatListEndpoint,
     getUpdatesTreeEndpoint,

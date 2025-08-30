@@ -9,6 +9,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.IdRange
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawAssignEvent,
@@ -35,8 +36,7 @@ final class ReassignmentPointwiseReader(
   val directEC: DirectExecutionContext = DirectExecutionContext(logger)
 
   private def fetchRawReassignmentEvents(
-      firstEventSequentialId: Long,
-      lastEventSequentialId: Long,
+      eventSeqIdRange: IdRange,
       requestingParties: Option[Set[Party]],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -46,7 +46,7 @@ final class ReassignmentPointwiseReader(
         dbMetrics.reassignmentPointwise.fetchEventAssignPayloads
       )(
         eventStorageBackend.assignEventBatch(
-          firstEventSequentialId to lastEventSequentialId,
+          eventSeqIdRange,
           requestingParties,
         )
       )
@@ -56,7 +56,7 @@ final class ReassignmentPointwiseReader(
         dbMetrics.reassignmentPointwise.fetchEventUnassignPayloads
       )(
         eventStorageBackend.unassignEventBatch(
-          firstEventSequentialId to lastEventSequentialId,
+          eventSeqIdRange,
           requestingParties,
         )
       )
@@ -131,8 +131,7 @@ final class ReassignmentPointwiseReader(
 
     fetchAndFilterEvents[RawReassignmentEvent](
       fetchRawEvents = fetchRawReassignmentEvents(
-        firstEventSequentialId = firstEventSeqId,
-        lastEventSequentialId = lastEventSeqId,
+        eventSeqIdRange = IdRange(firstEventSeqId, lastEventSeqId),
         requestingParties = requestingParties,
       ),
       templatePartiesFilter = templatePartiesFilter,

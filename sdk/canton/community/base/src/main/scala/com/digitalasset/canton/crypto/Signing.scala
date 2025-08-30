@@ -311,7 +311,7 @@ object Signature
       Fingerprint.tryFromString("no-fingerprint"),
       None,
     )
-  val noSignatures: NonEmpty[Set[Signature]] = NonEmpty(Set, noSignature)
+  val noSignatures: NonEmpty[Seq[Signature]] = NonEmpty(Seq, noSignature)
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(

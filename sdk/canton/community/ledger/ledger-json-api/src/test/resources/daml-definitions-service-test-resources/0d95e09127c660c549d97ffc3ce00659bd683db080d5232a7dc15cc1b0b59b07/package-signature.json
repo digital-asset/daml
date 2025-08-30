@@ -6,7 +6,7 @@
 
   },
   "recordDefs": {
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:AllBuiltinTypesTemplate": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:AllBuiltinTypesTemplate": {
       "fields": {
         "relTime": {
           "Record": {
@@ -57,13 +57,13 @@
       },
       "params": []
     },
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:MainTemplate": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:MainTemplate": {
       "fields": {
         "externalInterface": {
           "ContractId": {
             "typeId": {
               "Interface": {
-                "tycon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:MyInterface"
+                "tycon": "d06376c032025a1a16d0effa739b2df3da88fd027a7c8207a4244c5ecf8b7f06:ExternalDep:MyInterface"
               }
             }
           }
@@ -71,7 +71,7 @@
         "externalRecord": {
           "Variant": {
             "params": [],
-            "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:SomeVariant"
+            "tyCon": "d06376c032025a1a16d0effa739b2df3da88fd027a7c8207a4244c5ecf8b7f06:ExternalDep:SomeVariant"
           }
         },
         "owner": {
@@ -84,7 +84,7 @@
             "typ": {
               "Record": {
                 "params": [],
-                "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:AnotherRecord"
+                "tyCon": "d06376c032025a1a16d0effa739b2df3da88fd027a7c8207a4244c5ecf8b7f06:ExternalDep:AnotherRecord"
               }
             }
           }
@@ -99,7 +99,7 @@
             "v": {
               "Record": {
                 "params": [],
-                "tyCon": "181b6cf59465b6c951422b98b9ef2573568690eee2f8921c6c375fbbdf15820f:ExternalDep:AnotherRecord"
+                "tyCon": "d06376c032025a1a16d0effa739b2df3da88fd027a7c8207a4244c5ecf8b7f06:ExternalDep:AnotherRecord"
               }
             }
           }
@@ -107,13 +107,13 @@
       },
       "params": []
     },
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:MainTemplate_Choice": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:MainTemplate_Choice": {
       "fields": {
 
       },
       "params": []
     },
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:RecordInMain": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:RecordInMain": {
       "fields": {
         "someInt": {
           "Int64": {
@@ -125,7 +125,7 @@
     }
   },
   "templateDefs": {
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:AllBuiltinTypesTemplate": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:AllBuiltinTypesTemplate": {
       "choices": {
         "Archive": {
           "argType": {
@@ -145,7 +145,7 @@
       "implements": [],
       "key": null
     },
-    "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:MainTemplate": {
+    "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:MainTemplate": {
       "choices": {
         "Archive": {
           "argType": {
@@ -165,14 +165,14 @@
           "argType": {
             "Record": {
               "params": [],
-              "tyCon": "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:MainTemplate_Choice"
+              "tyCon": "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:MainTemplate_Choice"
             }
           },
           "consuming": true,
           "returnType": {
             "Record": {
               "params": [],
-              "tyCon": "247565f7a6b92f915b44301fdaf9f0b9aed0f426794d3106ffb27a7aecbb6b56:MainApp:RecordInMain"
+              "tyCon": "0d95e09127c660c549d97ffc3ce00659bd683db080d5232a7dc15cc1b0b59b07:MainApp:RecordInMain"
             }
           }
         }

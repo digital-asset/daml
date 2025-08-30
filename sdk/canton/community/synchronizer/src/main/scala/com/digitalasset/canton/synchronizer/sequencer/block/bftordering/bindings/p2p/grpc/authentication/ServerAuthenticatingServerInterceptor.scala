@@ -13,6 +13,7 @@ import com.digitalasset.canton.lifecycle.{
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder.createChannelBuilder
 import com.digitalasset.canton.networking.grpc.GrpcManagedChannel
 import com.digitalasset.canton.sequencing.authentication.grpc.SequencerClientTokenAuthentication
@@ -68,7 +69,7 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
         logger.debug(s"Found endpoint header and adding it to the gRPC server context: $endpoint")
         implicit val executor: Executor = (command: Runnable) => ec.execute(command)
         val authenticationServiceChannel = GrpcManagedChannel(
-          s"server-authenticationServiceChannel-${endpoint.address}:${endpoint.port}",
+          s"server-authenticationServiceChannel-$endpoint",
           createChannelBuilder(endpoint.endpointConfig).build(),
           this,
           loggerFactory.getTracedLogger(getClass),
@@ -88,6 +89,7 @@ private[bftordering] class ServerAuthenticatingServerInterceptor(
           new ServerAuthenticatingSimpleForwardingServerCall(
             call,
             tokenProvider,
+            endpoint,
             authenticationServiceChannel,
             synchronizerId,
             member,
@@ -117,6 +119,7 @@ object ServerAuthenticatingServerInterceptor {
   private class ServerAuthenticatingSimpleForwardingServerCall[ReqT, RespT](
       call: ServerCall[ReqT, RespT],
       tokenProvider: AuthenticationTokenProvider,
+      p2pEndpoint: P2PEndpoint,
       authenticationServiceChannel: GrpcManagedChannel,
       synchronizerId: PhysicalSynchronizerId,
       member: Member,
@@ -130,7 +133,11 @@ object ServerAuthenticatingServerInterceptor {
       implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
       val tokenFetcher =
-        new ChannelTokenFetcher(tokenProvider, authenticationServiceChannel)
+        new ChannelTokenFetcher(
+          tokenProvider,
+          Endpoint(p2pEndpoint.address, p2pEndpoint.port),
+          authenticationServiceChannel,
+        )
 
       logger.debug("Retrieving token to authenticate P2P server")
 

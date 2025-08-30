@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.data.{EitherT, NonEmptyChain}
 import cats.syntax.either.*
+import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -14,6 +15,8 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
+import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.ReplicatedContract
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.protocol.LfContractId
@@ -284,6 +287,27 @@ private[participant] class NaiveRequestTracker(
       result <- tryAddCommitSet(data.commitSetPromise, finData.result)
     } yield result
   }
+
+  override def addReplicatedContracts(
+      addPartyRequestId: AddPartyRequestId,
+      addPartyEffectiveTime: CantonTimestamp,
+      replicatedContracts: Seq[ReplicatedContract],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, NonEmptyChain[AcsError], Unit] = for {
+    // If necessary, first wait until the conflict detector has processed all requests up to the
+    // add-party effective time, so that requests that happen at the same timestamp are already
+    // recorded before we add the replicated contracts. Use the immediate successor as
+    // the task scheduler barrier used by awaitTimestampUS is exclusive.
+    // (In practice using the immediateSuccessor does not matter in the context of replication,
+    // as changes in contract activeness at precisely addPartyEffectiveTime would be reflected
+    // in the set of replicated active contracts. Nevertheless, use the successor for simplicity.)
+    _ <- EitherT.right(awaitTimestampUS(addPartyEffectiveTime.immediateSuccessor).sequence)
+
+    _ <- conflictDetector
+      .addReplicatedContracts(addPartyRequestId, replicatedContracts)
+      .leftMap(_.map(AcsError.apply))
+  } yield ()
 
   override def getApproximateStates(coids: Seq[LfContractId])(implicit
       traceContext: TraceContext

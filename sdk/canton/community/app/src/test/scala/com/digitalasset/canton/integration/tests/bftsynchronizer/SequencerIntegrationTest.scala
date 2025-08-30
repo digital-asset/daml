@@ -9,7 +9,6 @@ import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.crypto.SigningKeyUsage
-import com.digitalasset.canton.error.MediatorError.MalformedMessage
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -216,31 +215,26 @@ trait SequencerIntegrationTest
           }
         },
         // expect warnings about invalid envelopes from all nodes
-        LogEntry.assertLogSeq(
-          Seq(
-            (
-              entry => {
-                entry.shouldBeCantonErrorCode(EnvelopeOpenerDeserializationError)
-                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
-              },
-              "sequencer deserialization warning",
-            ),
-            (
-              entry => {
-                entry.shouldBeCantonErrorCode(SyncServiceAlarm)
-                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
-              },
-              "participant deserialization warning",
-            ),
-            (
-              entry => {
-                entry.shouldBeCantonErrorCode(MalformedMessage)
-                entry.warningMessage should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r)
-              },
-              "mediator deserialization warning",
-            ),
-          )
-        ),
+        logs => {
+          val assertSequencerDeserializationWarning: LogEntry => Assertion =
+            _.shouldBeCantonError(
+              EnvelopeOpenerDeserializationError,
+              _ should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r),
+            )
+          val assertParticipantDeserializationWarning: LogEntry => Assertion =
+            _.shouldBeCantonError(
+              SyncServiceAlarm,
+              _ should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r),
+            )
+          val assertMediatorDeserializationWarning: LogEntry => Assertion =
+            _.shouldBeCantonError(
+              SyncServiceAlarm,
+              _ should include regex (s"InvariantViolation.*${rootKey.fingerprint}".r),
+            )
+          forAtLeast(2, logs)(assertSequencerDeserializationWarning)
+          forAtLeast(1, logs)(assertParticipantDeserializationWarning)
+          forAtLeast(1, logs)(assertMediatorDeserializationWarning)
+        },
       )
 
     // create a valid root certificate
@@ -256,20 +250,23 @@ trait SequencerIntegrationTest
 
     // check that a batch with a single invalid envelope still gets processed by the sequencer
     // topology processing pipeline, even if it's just an empty Deliver that simply moves the approximate time forward.
-    submitInvalidEnvelopeAndAssertWarnings(broadcasts = Seq(mkBroadcast(invalidRootCert)))
-
+    clue("check that a batch with a single invalid envelope still gets processed by the sequencer")(
+      submitInvalidEnvelopeAndAssertWarnings(broadcasts = Seq(mkBroadcast(invalidRootCert)))
+    )
     // submit the invalid root cert together with a valid root cert.
     // we expect that the invalid envelope gets dropped, and the valid envelope
     // gets processed.
-    submitInvalidEnvelopeAndAssertWarnings(
-      broadcasts = Seq(invalidRootCert, rootCert).map(mkBroadcast),
-      assertEventually = Some(() =>
-        participant3.topology.namespace_delegations
-          .list(
-            synchronizerId,
-            filterNamespace = rootKey.fingerprint.toProtoPrimitive,
-          ) should not be empty
-      ),
+    clue("submit the invalid root cert together with a valid root cert")(
+      submitInvalidEnvelopeAndAssertWarnings(
+        broadcasts = Seq(invalidRootCert, rootCert).map(mkBroadcast),
+        assertEventually = Some(() =>
+          participant3.topology.namespace_delegations
+            .list(
+              synchronizerId,
+              filterNamespace = rootKey.fingerprint.toProtoPrimitive,
+            ) should not be empty
+        ),
+      )
     )
 
   }

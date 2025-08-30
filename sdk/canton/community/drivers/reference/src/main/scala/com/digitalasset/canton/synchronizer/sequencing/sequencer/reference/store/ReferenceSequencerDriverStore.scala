@@ -12,20 +12,24 @@ private[reference] object ReferenceSequencerDriverStore {
   def sequencedSend(
       payload: ByteString,
       microsecondsSinceEpoch: Long,
+      sequencerId: String,
   ): BlockFormat.OrderedRequest =
     BlockFormat.OrderedRequest(
       microsecondsSinceEpoch,
       SendTag,
       payload,
+      sequencerId,
     )
 
   def sequencedAcknowledgement(
       payload: ByteString,
       microsecondsSinceEpoch: Long,
+      sequencerId: String,
   ): BlockFormat.OrderedRequest =
     BlockFormat.OrderedRequest(
       microsecondsSinceEpoch,
       AcknowledgeTag,
       payload,
+      sequencerId,
     )
 }

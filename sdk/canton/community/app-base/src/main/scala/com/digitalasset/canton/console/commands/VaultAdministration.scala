@@ -11,6 +11,7 @@ import com.digitalasset.canton.admin.api.client.data.ListKeyOwnersResult
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
+  ConsoleCommandResult,
   ConsoleEnvironment,
   FeatureFlag,
   FeatureFlagFilter,
@@ -558,18 +559,6 @@ class LocalSecretKeyAdministration(
 )(implicit executionContext: ExecutionContext)
     extends SecretKeyAdministration(instance, runner, consoleEnvironment, loggerFactory) {
 
-  private def run[V](eitherT: EitherT[FutureUnlessShutdown, String, V], action: String): V = {
-    import TraceContext.Implicits.Empty.*
-    consoleEnvironment.environment.config.parameters.timeouts.processing.default
-      .await(action)(
-        eitherT.onShutdown(throw new RuntimeException("aborted due to shutdown.")).value
-      ) match {
-      case Left(error) =>
-        throw new IllegalArgumentException(s"Problem while $action. Error: $error")
-      case Right(value) => value
-    }
-  }
-
   @Help.Summary("Download key pair")
   override def download(
       fingerprint: Fingerprint,
@@ -577,41 +566,10 @@ class LocalSecretKeyAdministration(
       password: Option[String] = None,
   ): ByteString =
     TraceContext.withNewTraceContext("download_key_pair") { implicit traceContext =>
-      val cmd = for {
-        cryptoPrivateStore <- crypto.cryptoPrivateStore.toExtended
-          .toRight(
-            "The selected crypto provider does not support exporting of private keys."
-          )
-          .toEitherT[FutureUnlessShutdown]
-        privateKey <- cryptoPrivateStore
-          .exportPrivateKey(fingerprint)
-          .leftMap(_.toString)
-          .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
-          .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
-        publicKey <- crypto.cryptoPublicStore
-          .publicKey(fingerprint)
-          .toRight(s"Error retrieving public key [$fingerprint]: no public key found")
-        keyPair: CryptoKeyPair[PublicKey, PrivateKey] = (publicKey, privateKey) match {
-          case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
-            SigningKeyPair.create(pub, pkey)
-          case (pub: EncryptionPublicKey, pkey: EncryptionPrivateKey) =>
-            EncryptionKeyPair.create(pub, pkey)
-          case _ => sys.error("public and private keys must have same purpose")
-        }
+      val cmd =
+        LocalSecretKeyAdministration.download(crypto, fingerprint, protocolVersion, password)
 
-        // Encrypt the keypair if a password is provided
-        keyPairBytes = password match {
-          case Some(password) =>
-            crypto.pureCrypto
-              .encryptWithPassword(keyPair.toByteString(protocolVersion), password)
-              .fold(
-                err => sys.error(s"Failed to encrypt key pair for export: $err"),
-                _.toByteString(protocolVersion),
-              )
-          case None => keyPair.toByteString(protocolVersion)
-        }
-      } yield keyPairBytes
-      run(cmd, "exporting key pair")
+      consoleEnvironment.run(ConsoleCommandResult.fromEitherTUS(cmd)(consoleEnvironment))
     }
 
   @Help.Summary("Download key pair and save it to a file", FeatureFlag.Preview)
@@ -620,12 +578,53 @@ class LocalSecretKeyAdministration(
       outputFile: String,
       protocolVersion: ProtocolVersion = ProtocolVersion.latest,
       password: Option[String] = None,
-  ): Unit =
-    run(
-      EitherT.rightT(writeToFile(outputFile, download(fingerprint, protocolVersion, password))),
-      "saving key pair to file",
-    )
+  ): Unit = writeToFile(outputFile, download(fingerprint, protocolVersion, password))
+}
 
+object LocalSecretKeyAdministration {
+  def download(
+      crypto: Crypto,
+      fingerprint: Fingerprint,
+      protocolVersion: ProtocolVersion = ProtocolVersion.latest,
+      password: Option[String] = None,
+  )(implicit
+      executionContext: ExecutionContext,
+      traceContext: TraceContext,
+  ): EitherT[FutureUnlessShutdown, String, ByteString] =
+    for {
+      cryptoPrivateStore <- crypto.cryptoPrivateStore.toExtended
+        .toRight(
+          "The selected crypto provider does not support exporting of private keys."
+        )
+        .toEitherT[FutureUnlessShutdown]
+      privateKey <- cryptoPrivateStore
+        .exportPrivateKey(fingerprint)
+        .leftMap(_.toString)
+        .subflatMap(_.toRight(s"no private key found for [$fingerprint]"))
+        .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
+      publicKey <- crypto.cryptoPublicStore
+        .publicKey(fingerprint)
+        .toRight(s"Error retrieving public key [$fingerprint]: no public key found")
+      keyPair: CryptoKeyPair[PublicKey, PrivateKey] = (publicKey, privateKey) match {
+        case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
+          SigningKeyPair.create(pub, pkey)
+        case (pub: EncryptionPublicKey, pkey: EncryptionPrivateKey) =>
+          EncryptionKeyPair.create(pub, pkey)
+        case _ => sys.error("public and private keys must have same purpose")
+      }
+
+      // Encrypt the keypair if a password is provided
+      keyPairBytes = password match {
+        case Some(password) =>
+          crypto.pureCrypto
+            .encryptWithPassword(keyPair.toByteString(protocolVersion), password)
+            .fold(
+              err => sys.error(s"Failed to encrypt key pair for export: $err"),
+              _.toByteString(protocolVersion),
+            )
+        case None => keyPair.toByteString(protocolVersion)
+      }
+    } yield keyPairBytes
 }
 
 class LocalKeyAdministrationGroup(

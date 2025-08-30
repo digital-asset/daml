@@ -21,6 +21,7 @@ import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.SilentLogPolicy
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcClient}
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
@@ -81,19 +82,20 @@ class AuthenticationTokenProvider(
     with FlagCloseable {
 
   def generateToken(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
     def generateTokenET: FutureUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]] =
       synchronizeWithClosing(functionFullName) {
         (for {
-          challenge <- getChallenge(authenticationClient)
+          challenge <- getChallenge(endpoint, authenticationClient)
           nonce <- Nonce
             .fromProtoPrimitive(challenge.nonce)
             .leftMap(err => Status.INVALID_ARGUMENT.withDescription(s"Invalid nonce: $err"))
             .toEitherT[FutureUnlessShutdown]
-          token <- authenticate(authenticationClient, nonce, challenge.fingerprints)
+          token <- authenticate(endpoint, authenticationClient, nonce, challenge.fingerprints)
         } yield token).value
       }
 
@@ -109,12 +111,13 @@ class AuthenticationTokenProvider(
   }
 
   private def getChallenge(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, ChallengeResponse] =
     CantonGrpcUtil
-      .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+      .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
         _.challenge(
           ChallengeRequest(
             member.toProtoPrimitive,
@@ -130,6 +133,7 @@ class AuthenticationTokenProvider(
       .leftMap(_.status)
 
   private def authenticate(
+      endpoint: Endpoint,
       authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
       nonce: Nonce,
       fingerprintsP: Seq[String],
@@ -158,7 +162,7 @@ class AuthenticationTokenProvider(
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))
       response <- CantonGrpcUtil
-        .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+        .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.authenticate(
             AuthenticateRequest(
               member = member.toProtoPrimitive,
@@ -187,14 +191,15 @@ class AuthenticationTokenProvider(
     } yield token
 
   def logout(
-      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub]
+      endpoint: Endpoint,
+      authenticationClient: GrpcClient[SequencerAuthenticationServiceStub],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     for {
       // Generate a new token to use as "entry point" to invalidate all tokens
-      tokenWithExpiry <- generateToken(authenticationClient)
+      tokenWithExpiry <- generateToken(endpoint, authenticationClient)
       token = tokenWithExpiry.token
       _ <- CantonGrpcUtil
-        .sendGrpcRequest(authenticationClient, "sequencer-authentication-channel")(
+        .sendGrpcRequest(authenticationClient, s"sequencer-authentication-channel-$endpoint")(
           _.logout(LogoutRequest(token.toProtoPrimitive)),
           "logout from sequencer",
           timeouts.network.duration,

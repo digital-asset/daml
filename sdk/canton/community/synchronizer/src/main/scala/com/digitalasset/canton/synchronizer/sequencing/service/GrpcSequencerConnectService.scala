@@ -207,7 +207,7 @@ class GrpcSequencerConnectService(
       )
       _ <- EitherTUtil.condUnitET[Future](
         unexpectedProposals.isEmpty,
-        s"Unexpected proposals for onboarding $member: $missingMappings",
+        s"Unexpected proposals for onboarding $member: $unexpectedMappings",
       )
     } yield ()
 

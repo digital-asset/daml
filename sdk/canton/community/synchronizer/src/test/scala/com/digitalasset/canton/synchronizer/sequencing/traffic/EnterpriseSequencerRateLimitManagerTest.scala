@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencing.traffic
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
-import com.digitalasset.canton.crypto.Signature
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.SynchronizerParameters
@@ -81,7 +81,7 @@ class EnterpriseSequencerRateLimitManagerTest
       Some(trafficConfig.copy(readVsWriteScalingFactor = sequencingFactor))
     )
 
-  override lazy val cryptoClient =
+  override lazy val cryptoClient: SynchronizerCryptoClient =
     TestingTopology()
       .copy(
         synchronizerParameters = List(
@@ -250,7 +250,7 @@ class EnterpriseSequencerRateLimitManagerTest
         submissionTimestamp = submissionTimestamp,
         None,
         warnIfApproximate = false,
-        sequencerSignature = Signature.noSignature,
+        orderingSequencerId = sequencerId,
       )
       .value
       .map { errorOrReceiptO =>
@@ -498,7 +498,7 @@ class EnterpriseSequencerRateLimitManagerTest
               None,
               Some(incorrectSubmissionCostNN),
               sequencerTs,
-              sequencerProcessingSubmissionRequest = None,
+              orderingSequencerId = None,
               trafficReceipt = None,
               correctCostDetails = EventCostDetails(
                 trafficConfig.readVsWriteScalingFactor,
@@ -794,7 +794,7 @@ class EnterpriseSequencerRateLimitManagerTest
               Some(senderTs),
               Some(incorrectSubmissionCostNN),
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.authorizingLongTermKey),
+              Some(sequencerId),
               Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,
@@ -860,7 +860,7 @@ class EnterpriseSequencerRateLimitManagerTest
               None,
               Some(submissionCostNN),
               cryptoClient.headSnapshot.ipsSnapshot.timestamp,
-              Some(Signature.noSignature.authorizingLongTermKey),
+              Some(sequencerId),
               Some(
                 TrafficReceipt(
                   consumedCost = NonNegativeLong.zero,

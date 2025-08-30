@@ -594,15 +594,12 @@ class TestingIdentityFactory(
         throw new IllegalStateException(s"Multiple synchronizer parameters are valid at $ts")
     }
 
-  private val signedTxProtocolRepresentative =
-    SignedTopologyTransaction.protocolVersionRepresentativeFor(defaultProtocolVersion)
-
   private def mkAdd(
       mapping: TopologyMapping,
       serial: PositiveInt = PositiveInt.one,
       isProposal: Boolean = false,
   ): SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping] =
-    SignedTopologyTransaction.tryCreate(
+    SignedTopologyTransaction.withSignatures(
       TopologyTransaction(
         TopologyChangeOp.Replace,
         serial,
@@ -611,7 +608,8 @@ class TestingIdentityFactory(
       ),
       Signature.noSignatures,
       isProposal,
-    )(signedTxProtocolRepresentative)
+      defaultProtocolVersion,
+    )
 
   private def genKeyCollection(
       owner: Member

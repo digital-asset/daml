@@ -838,7 +838,7 @@ class AvailabilityModuleOutputFetchTest
               ),
               ViewNumber.First,
               isLastInEpoch = false, // Irrelevant for availability
-              from = Node0,
+              originalLeader = Node0,
               mode = blockMode,
             ),
             mutable.SortedSet(ABatchId),

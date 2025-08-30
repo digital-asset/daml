@@ -199,7 +199,7 @@ private[conflictdetection] class MutableLockableState[Status <: PrettyPrinting](
   private[conflictdetection] def approximateState: Future[Option[StateChange[Status]]] =
     internalVersionedState.get.fold(_.future, Future.successful)
 
-  /** Registers one pending activeness checks.
+  /** Registers one pending activeness check.
     *
     * @return
     *   [[scala.None$]] if the state is unknown. The caller must fetch the latest state from the
@@ -266,6 +266,10 @@ private[conflictdetection] class MutableLockableState[Status <: PrettyPrinting](
     */
   def setStatePendingWrite(newState: StateChange[Status]): Unit = {
     unlock()
+    setStatePendingWriteWithoutLocking(newState)
+  }
+
+  def setStatePendingWriteWithoutLocking(newState: StateChange[Status]): Unit = {
     pendingWritesVar = PendingWriteCounter.acquire(pendingWritesVar)
     updateStateIfNew(Some(newState))
   }

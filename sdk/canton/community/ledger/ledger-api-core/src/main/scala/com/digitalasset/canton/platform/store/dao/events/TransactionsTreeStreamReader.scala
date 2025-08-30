@@ -17,6 +17,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.TransactionTreeStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawTreeEvent}
 import com.digitalasset.canton.platform.store.backend.common.{
   EventIdSource,
@@ -210,7 +211,7 @@ class TransactionsTreeStreamReader(
                   eventStorageBackend.fetchEventPayloadsLedgerEffects(
                     target = target
                   )(
-                    eventSequentialIds = ids,
+                    eventSequentialIds = Ids(ids),
                     requestingParties = requestingParties,
                   )(connection)
                 }

@@ -27,6 +27,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawReassignmentEvent,
   RawTreeEvent,
   RawUnassignEvent,
+  SequentialIdBatch,
   SynchronizerOffset,
   UnassignProperties,
 }
@@ -1340,7 +1341,7 @@ abstract class EventStorageBackendTemplate(
   }
 
   override def assignEventBatch(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawAssignEvent]] = {
     val allInternedFilterParties =
@@ -1354,15 +1355,15 @@ abstract class EventStorageBackendTemplate(
     SQL"""
         SELECT *
         FROM lapi_events_assign assign_evs
-        WHERE assign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+        WHERE ${queryStrategy.inBatch("assign_evs.event_sequential_id", eventSequentialIds)}
         ORDER BY assign_evs.event_sequential_id -- deliver in index order
         """
-      .withFetchSize(Some(eventSequentialIds.size))
+      .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(assignEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
   override def unassignEventBatch(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Party]],
   )(connection: Connection): Vector[Entry[RawUnassignEvent]] = {
     val allInternedFilterParties = allFilterParties
@@ -1375,10 +1376,10 @@ abstract class EventStorageBackendTemplate(
     SQL"""
           SELECT *
           FROM lapi_events_unassign unassign_evs
-          WHERE unassign_evs.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+          WHERE ${queryStrategy.inBatch("unassign_evs.event_sequential_id", eventSequentialIds)}
           ORDER BY unassign_evs.event_sequential_id -- deliver in index order
           """
-      .withFetchSize(Some(eventSequentialIds.size))
+      .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(unassignEventParser(allInternedFilterParties, stringInterning))(connection)
   }
 
@@ -1783,15 +1784,15 @@ abstract class EventStorageBackendTemplate(
     )(connection)
 
   override def topologyPartyEventBatch(
-      eventSequentialIds: Iterable[Long]
+      eventSequentialIds: SequentialIdBatch
   )(connection: Connection): Vector[EventStorageBackend.RawParticipantAuthorization] =
     SQL"""
           SELECT *
           FROM lapi_events_party_to_participant e
-          WHERE e.event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+          WHERE ${queryStrategy.inBatch("e.event_sequential_id", eventSequentialIds)}
           ORDER BY e.event_sequential_id -- deliver in index order
           """
-      .withFetchSize(Some(eventSequentialIds.size))
+      .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(partyToParticipantEventParser(stringInterning))(connection)
 
   override def topologyEventOffsetPublishedOnRecordTime(
@@ -1817,7 +1818,7 @@ abstract class EventStorageBackendTemplate(
   private def fetchAcsDeltaEvents(
       tableName: String,
       selectColumns: String,
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]] = {
     val internedAllParties: Option[Set[Int]] = allFilterParties
@@ -1835,16 +1836,16 @@ abstract class EventStorageBackendTemplate(
         FROM
           #$tableName
         WHERE
-          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+          ${queryStrategy.inBatch("event_sequential_id", eventSequentialIds)}
         ORDER BY
           event_sequential_id
       """
-      .withFetchSize(Some(eventSequentialIds.size))
+      .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(rawAcsDeltaEventParser(internedAllParties, stringInterning))(connection)
   }
 
   override def fetchEventPayloadsAcsDelta(target: EventPayloadSourceForUpdatesAcsDelta)(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawFlatEvent]] =
     target match {
@@ -1867,7 +1868,7 @@ abstract class EventStorageBackendTemplate(
   private def fetchLedgerEffectsEvents(
       tableName: String,
       selectColumns: String,
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       allFilterParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] = {
     val internedAllParties: Option[Set[Int]] = allFilterParties
@@ -1885,16 +1886,16 @@ abstract class EventStorageBackendTemplate(
         FROM
           #$tableName
         WHERE
-          event_sequential_id ${queryStrategy.anyOf(eventSequentialIds)}
+          ${queryStrategy.inBatch("event_sequential_id", eventSequentialIds)}
         ORDER BY
           event_sequential_id
       """
-      .withFetchSize(Some(eventSequentialIds.size))
+      .withFetchSize(Some(fetchSize(eventSequentialIds)))
       .asVectorOf(rawTreeEventParser(internedAllParties, stringInterning))(connection)
   }
 
   override def fetchEventPayloadsLedgerEffects(target: EventPayloadSourceForUpdatesLedgerEffects)(
-      eventSequentialIds: Iterable[Long],
+      eventSequentialIds: SequentialIdBatch,
       requestingParties: Option[Set[Ref.Party]],
   )(connection: Connection): Vector[Entry[RawTreeEvent]] =
     target match {
@@ -1924,6 +1925,13 @@ abstract class EventStorageBackendTemplate(
           eventSequentialIds = eventSequentialIds,
           allFilterParties = requestingParties,
         )(connection)
+    }
+
+  private def fetchSize(eventSequentialIds: SequentialIdBatch): Int =
+    eventSequentialIds match {
+      case SequentialIdBatch.IdRange(fromInclusive, toInclusive) =>
+        Math.min(toInclusive - fromInclusive + 1, Int.MaxValue).toInt
+      case SequentialIdBatch.Ids(ids) => ids.size
     }
 
 }

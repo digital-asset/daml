@@ -10,7 +10,7 @@ import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{BatchAggregatorConfig, BatchingConfig, ProcessingTimeout}
-import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerCryptoClient}
+import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -888,9 +888,9 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
                                      |  trafficState = TrafficState(extraTrafficLimit = 0, extraTrafficConsumed = 0, baseTrafficRemainder = 0, lastConsumedCost = 0, timestamp = ${event.timestamp}, serial = 1, availableTraffic = 0)
                                      |)""".stripMargin
           }
-          // 259 == raw byte size of the signed submission request
+          // 134L == raw byte size of the signed submission request
           eventually() {
-            assertLongValue("daml.sequencer.traffic-control.wasted-sequencing", 259L)
+            assertLongValue("daml.sequencer.traffic-control.wasted-sequencing", 134L)
           }
           assertMemberIsInContext("daml.sequencer.traffic-control.wasted-sequencing", sender)
           assertInContext(
@@ -1206,7 +1206,7 @@ object ReferenceSequencerWithTrafficControlApiTestBase {
         submissionTimestamp: Option[CantonTimestamp],
         latestSequencerEventTimestamp: Option[CantonTimestamp],
         warnIfApproximate: Boolean,
-        sequencerSignature: Signature,
+        orderingSequencerId: SequencerId,
     )(implicit
         tc: TraceContext,
         closeContext: CloseContext,
@@ -1220,7 +1220,7 @@ object ReferenceSequencerWithTrafficControlApiTestBase {
             submissionTimestamp,
             latestSequencerEventTimestamp,
             warnIfApproximate,
-            sequencerSignature,
+            orderingSequencerId,
           )
         )
   }

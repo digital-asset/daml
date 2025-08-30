@@ -115,7 +115,7 @@ class PekkoBlockSubscription[E <: Env[E]](
       case Failure(exception) =>
         if (!isClosing) {
           // if this happens when we're not closing, it is most likely because the stream itself was closed by the BlockSequencer
-          logger.debug(
+          logger.info(
             s"Failure to add OutputBlock w/ height=${block.blockHeight} to block queue. Likely due to the stream being shutdown: $exception"
           )
         } else {

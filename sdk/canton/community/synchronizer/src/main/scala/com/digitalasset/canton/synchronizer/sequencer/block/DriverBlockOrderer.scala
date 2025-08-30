@@ -12,7 +12,7 @@ import com.digitalasset.canton.synchronizer.block.{
   SequencerDriver,
   SequencerDriverHealthStatus,
 }
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SenderSigned
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.ServerServiceDefinition
@@ -37,13 +37,13 @@ class DriverBlockOrderer(
     driver.subscribe()
 
   override def send(
-      signedOrderingRequest: SignedOrderingRequest
+      signedSubmissionRequest: SenderSigned[SubmissionRequest]
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
-    val submissionRequest = signedOrderingRequest.content.content.content
+    val submissionRequest = signedSubmissionRequest.content
     // The driver API doesn't provide error reporting, so we don't attempt to translate the exception
     EitherT.right(
       driver.send(
-        signedOrderingRequest = signedOrderingRequest.toByteString,
+        signedOrderingRequest = signedSubmissionRequest.toByteString,
         submissionId = submissionRequest.messageId.toProtoPrimitive,
         senderId = submissionRequest.sender.toProtoPrimitive,
       )

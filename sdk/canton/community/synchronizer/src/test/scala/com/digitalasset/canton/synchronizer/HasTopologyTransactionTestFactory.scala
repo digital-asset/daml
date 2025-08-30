@@ -3,13 +3,12 @@
 
 package com.digitalasset.canton.synchronizer
 
-import com.digitalasset.canton.crypto.{Fingerprint, HashPurpose, Signature, SigningKeyUsage}
+import com.digitalasset.canton.crypto.{Fingerprint, HashPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.synchronizer.sequencer.OrderingRequest
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
+import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.processing.TopologyTransactionTestFactory
-import com.digitalasset.canton.topology.{DefaultTestIdentities, Member}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorService}
 import com.google.protobuf.ByteString
 
@@ -27,12 +26,12 @@ trait HasTopologyTransactionTestFactory {
   protected final val ts0 = CantonTimestamp.Epoch
   protected final val ts1 = ts0.plusSeconds(10)
 
-  protected final def sequencerSignedAndSenderSignedSubmissionRequest(
+  protected final def senderSignedSubmissionRequest(
       sender: Member
-  ): Future[SignedOrderingRequest] =
-    sequencerSignedAndSenderSignedSubmissionRequest(sender, Recipients.cc(sender))
+  ): Future[SignedSubmissionRequest] =
+    senderSignedSubmissionRequest(sender, Recipients.cc(sender))
 
-  protected final def sequencerSignedAndSenderSignedSubmissionRequest(
+  protected final def senderSignedSubmissionRequest(
       sender: Member,
       recipients: Recipients,
       messageId: MessageId = MessageId.randomMessageId(),
@@ -41,7 +40,7 @@ trait HasTopologyTransactionTestFactory {
       signingKey: Fingerprint = participant1Key.fingerprint,
       maxSequencingTime: CantonTimestamp = CantonTimestamp.MaxValue,
       aggregationRule: Option[AggregationRule] = None,
-  ): Future[SignedOrderingRequest] =
+  ): Future[SignedSubmissionRequest] =
     for {
       request <- submissionRequest(
         sender,
@@ -72,12 +71,7 @@ trait HasTopologyTransactionTestFactory {
         .value
         .failOnShutdown
         .map(_.value)
-    } yield SignedContent(
-      OrderingRequest.create(DefaultTestIdentities.sequencerId, signed, testedProtocolVersion),
-      Signature.noSignature,
-      Some(ts0.immediateSuccessor),
-      testedProtocolVersion,
-    )
+    } yield signed
 
   protected final def senderSignedAcknowledgeRequest(
       sender: Member,

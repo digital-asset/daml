@@ -22,8 +22,8 @@ export async function createContract(userParty: string): Promise<components["sch
     };
 
     const command: components["schemas"]["CreateCommand"] = {
-        "createArguments": iou,
-        "templateId": Iou.Iou.templateId
+        createArguments: iou,
+        templateId: Iou.Iou.templateId
     };
 
     const jsCommands = makeCommands(userParty, [{CreateCommand: command}]);

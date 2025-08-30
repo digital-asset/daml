@@ -24,6 +24,7 @@ object BlockFormat {
       microsecondsSinceEpoch: Long,
       tag: String,
       body: ByteString,
+      orderingSequencerId: String,
   )
 
   def blockOrdererBlockToRawLedgerBlock(
@@ -33,19 +34,22 @@ object BlockFormat {
       case Block(blockHeight, requests, tickTopologyAtMicrosFromEpoch) =>
         RawLedgerBlock(
           blockHeight,
-          requests.map { case event @ Traced(OrderedRequest(orderingTime, tag, body)) =>
-            implicit val traceContext: TraceContext =
-              event.traceContext // Preserve the request trace ID in the log
-            tag match {
-              case AcknowledgeTag =>
-                Traced(RawLedgerBlock.RawBlockEvent.Acknowledgment(body, orderingTime))
-              case SendTag =>
-                Traced(RawLedgerBlock.RawBlockEvent.Send(body, orderingTime))
-              case _ =>
-                logger.error(s"Unexpected tag $tag")
-                // It's OK to crash b/c the reference block sequencer is only used for testing
-                sys.exit(1)
-            }
+          requests.map {
+            case event @ Traced(OrderedRequest(orderingTime, tag, body, orderingSequencerId)) =>
+              implicit val traceContext: TraceContext =
+                event.traceContext // Preserve the request trace ID in the log
+              tag match {
+                case AcknowledgeTag =>
+                  Traced(RawLedgerBlock.RawBlockEvent.Acknowledgment(body, orderingTime))
+                case SendTag =>
+                  Traced(
+                    RawLedgerBlock.RawBlockEvent.Send(body, orderingTime, orderingSequencerId)
+                  )
+                case _ =>
+                  logger.error(s"Unexpected tag $tag")
+                  // It's OK to crash b/c the reference block sequencer is only used for testing
+                  sys.exit(1)
+              }
           },
           tickTopologyAtMicrosFromEpoch,
         )

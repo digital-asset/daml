@@ -63,7 +63,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
         case request: StateTransferMessage.BlockTransferRequest =>
           validateBlockTransferRequest(request) match {
             case Left(error) =>
-              val reqError = s"State transfer: invalid BlockTransferRequest: $error, dropping..."
+              val reqError = s"Invalid block transfer request: $error, dropping..."
               InvalidResult(reqError, request.from)
             case Right(()) => ValidResult
           }
@@ -72,7 +72,8 @@ final class StateTransferMessageValidator[E <: Env[E]](
             case Some(cc)
                 if cc.prePrepare.message.blockMetadata.epochNumber <= latestLocallyCompletedEpoch =>
               val respReason =
-                s"State transfer: old BlockTransferResponse: from epoch ${cc.prePrepare.message.blockMetadata.epochNumber} we have completed epoch $latestLocallyCompletedEpoch, dropping..."
+                s"Old block transfer response from epoch ${cc.prePrepare.message.blockMetadata.epochNumber}, " +
+                  s"we have completed epoch $latestLocallyCompletedEpoch, dropping..."
               DropResult(respReason)
             case _ =>
               validateBlockTransferResponse(
@@ -81,12 +82,8 @@ final class StateTransferMessageValidator[E <: Env[E]](
                 orderingTopologyInfo.currentMembership,
               ) match {
                 case Left(error) =>
-                  val respError =
-                    s"State transfer: invalid BlockTransferResponse: $error, dropping..."
-                  InvalidResult(
-                    respError,
-                    response.from,
-                  )
+                  val respError = s"Invalid block transfer response: $error, dropping..."
+                  InvalidResult(respError, response.from)
                 case Right(()) => ValidResult
               }
           }
@@ -228,7 +225,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
       case Success(Left(errors)) =>
         val blockMetadata = commitCertificate.prePrepare.message.blockMetadata
         logger.warn(
-          s"State transfer: commit certificate ($blockMetadata) from '$from' failed signature verification, dropping: $errors"
+          s"Commit certificate ($blockMetadata) from '$from' failed signature verification, dropping: $errors"
         )
         emitNonCompliance(metrics)(
           from,
@@ -236,10 +233,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
         )
         None
       case Failure(exception) =>
-        logger.warn(
-          s"State transfer: commit certificate from '$from' could not be verified, dropping",
-          exception,
-        )
+        logger.warn(s"Commit certificate from '$from' could not be verified, dropping", exception)
         None
     }
 }

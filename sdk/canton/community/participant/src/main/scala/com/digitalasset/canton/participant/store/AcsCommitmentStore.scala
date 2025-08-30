@@ -396,15 +396,17 @@ object AcsCommitmentStore {
       beforeOrAt: CantonTimestamp,
       uncleanPeriods: Iterable[(CantonTimestamp, CantonTimestamp)],
   ): CantonTimestamp = {
-    val descendingPeriods = uncleanPeriods.toSeq.sortWith(_._2 > _._2)
-
+    val descendingPeriods = uncleanPeriods.toSeq.sortWith { case ((_, end1), (_, end2)) =>
+      // intentional reverse order
+      end1 > end2
+    }
     var startingClean = beforeOrAt
     breakable {
-      for (p <- descendingPeriods) {
-        if (p._2 < startingClean)
+      for ((startExclusive, endInclusive) <- descendingPeriods) {
+        if (endInclusive < startingClean)
           break()
-        if (p._1 < startingClean)
-          startingClean = p._1
+        if (startExclusive < startingClean)
+          startingClean = startExclusive
       }
     }
     startingClean

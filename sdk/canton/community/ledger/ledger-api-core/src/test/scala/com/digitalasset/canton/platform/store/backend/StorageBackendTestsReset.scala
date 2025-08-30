@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForUpdatesLedgerEffects
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -72,12 +73,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       executeSql(
         backend.event.fetchEventPayloadsLedgerEffects(
           EventPayloadSourceForUpdatesLedgerEffects.Create
-        )(List(1L), Some(Set.empty))
+        )(Ids(List(1L)), Some(Set.empty))
       ) ++
         executeSql(
           backend.event.fetchEventPayloadsLedgerEffects(
             EventPayloadSourceForUpdatesLedgerEffects.Consuming
-          )(List(2L), Some(Set.empty))
+          )(Ids(List(2L)), Some(Set.empty))
         )
 
     def parties = executeSql(backend.party.knownParties(None, 10))
@@ -98,14 +99,14 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def assignEvents = executeSql(
       backend.event.assignEventBatch(
-        eventSequentialIds = List(4),
+        eventSequentialIds = Ids(List(4)),
         allFilterParties = Some(Set.empty),
       )
     )
 
     def unassignEvents = executeSql(
       backend.event.unassignEventBatch(
-        eventSequentialIds = List(5),
+        eventSequentialIds = Ids(List(5)),
         allFilterParties = Some(Set.empty),
       )
     )

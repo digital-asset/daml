@@ -20,7 +20,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.console.LocalParticipantReference
+import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.examples.java.divulgence.DivulgeIouByExercise
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
@@ -344,6 +344,15 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
       bobStakeholderCreatedP2,
       aliceBobStakeholderCreatedP2,
       divulgeIouByExerciseP2,
+    )
+
+    // the divulged contract should not be visible by the event query service
+    loggerFactory.assertLogs(
+      a[CommandFailure] shouldBe thrownBy {
+        participant2.ledger_api.event_query
+          .by_contract_id(immediateDivulged1P1.contractId, Seq(alice, bob))
+      },
+      _.commandFailureMessage should include("Contract events not found, or not visible."),
     )
   }
 }

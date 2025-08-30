@@ -68,6 +68,7 @@ private[participant] final case class ActivenessCheck[Key] private (
   requireDisjoint(checkFresh -> "fresh", checkFree -> "free")
   requireDisjoint(checkFresh -> "fresh", checkActive -> "active")
   requireDisjoint(checkFree -> "free", checkActive -> "active")
+  requireDisjoint(checkActive -> "active", lockMaybeUnknown -> "lockMaybeUnknown")
   requireDisjoint(lock -> "lock", lockMaybeUnknown -> "lockMaybeUnknown")
 
   locally {

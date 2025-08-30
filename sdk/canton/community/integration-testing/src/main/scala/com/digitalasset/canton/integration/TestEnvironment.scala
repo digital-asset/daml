@@ -3,22 +3,37 @@
 
 package com.digitalasset.canton.integration
 
+import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.canton.BaseTest.testedReleaseProtocolVersion
 import com.digitalasset.canton.SynchronizerAlias
-import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.CantonConfig
+import com.digitalasset.canton.concurrent.{
+  ExecutionContextIdlenessExecutorService,
+  FutureSupervisor,
+}
+import com.digitalasset.canton.config.{CachingConfigs, CantonConfig, CryptoConfig}
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
   ConsoleEnvironmentTestHelpers,
   ConsoleMacros,
   InstanceReference,
   LocalInstanceReference,
+  ParticipantReference,
 }
+import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
+import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.resource.MemoryStorage
+import com.digitalasset.canton.tracing.{NoReportingTracerProvider, TraceContext}
 import org.apache.pekko.actor.ActorSystem
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
+import scala.concurrent.Await
+import scala.language.implicitConversions
 
 /** Type including all environment macros and utilities to appear as you're using canton console */
 trait TestEnvironment
@@ -37,6 +52,34 @@ trait TestEnvironment
 
   def actualConfig: CantonConfig = environment.config
 
+  private lazy val storage =
+    new MemoryStorage(loggerFactory, environmentTimeouts)
+
+  private lazy val cryptoET: EitherT[FutureUnlessShutdown, String, Crypto] = Crypto
+    .create(
+      CryptoConfig(),
+      CachingConfigs.defaultSessionEncryptionKeyCacheConfig,
+      CachingConfigs.defaultPublicKeyConversionCache,
+      storage,
+      CryptoPrivateStoreFactory.withoutKms(environment.clock, executionContext),
+      CommunityKmsFactory,
+      testedReleaseProtocolVersion,
+      FutureSupervisor.Noop,
+      environment.clock,
+      executionContext,
+      environmentTimeouts,
+      loggerFactory,
+      NoReportingTracerProvider,
+    )(executionContext, TraceContext.empty)
+
+  private lazy val crypto: Crypto =
+    Await
+      .result(cryptoET.value, environmentTimeouts.unbounded.duration)
+      .onShutdown(raiseError("Cannot create Crypto during shutdown"))
+      .valueOr(err => raiseError(s"Cannot create Crypto: $err"))
+
+  implicit def toParticipantWithExternalParties(p: ParticipantReference): ExternalPartiesCommands =
+    new ExternalPartiesCommands(p, crypto, this, loggerFactory)
 }
 
 trait EnvironmentTestHelpers {

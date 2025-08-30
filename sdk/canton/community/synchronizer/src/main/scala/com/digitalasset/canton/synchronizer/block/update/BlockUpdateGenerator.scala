@@ -15,10 +15,7 @@ import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.*
 import com.digitalasset.canton.synchronizer.block.data.{BlockEphemeralState, BlockInfo}
 import com.digitalasset.canton.synchronizer.block.{BlockEvents, LedgerBlockEvent, RawLedgerBlock}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.{
   InvalidLedgerEvent,
@@ -194,9 +191,9 @@ class BlockUpdateGeneratorImpl(
 
   private def isAddressingSequencers(event: LedgerBlockEvent): Boolean =
     event match {
-      case Send(_, signedOrderingRequest, _) =>
+      case Send(_, signedOrderingRequest, _, _) =>
         val allRecipients =
-          signedOrderingRequest.signedSubmissionRequest.content.batch.allRecipients
+          signedOrderingRequest.content.batch.allRecipients
         allRecipients.contains(AllMembersOfSynchronizer) ||
         allRecipients.contains(SequencersOfSynchronizer)
       case _ => false
@@ -232,7 +229,8 @@ object BlockUpdateGeneratorImpl {
 
   private[update] final case class SequencedValidatedSubmission(
       sequencingTimestamp: CantonTimestamp,
-      submissionRequest: SignedOrderingRequest,
+      submissionRequest: SignedSubmissionRequest,
+      orderingSequencerId: SequencerId,
       topologyOrSequencingSnapshot: SyncCryptoApi,
       topologyTimestampError: Option[SequencerDeliverError],
       consumeTraffic: SubmissionRequestValidator.TrafficConsumption,

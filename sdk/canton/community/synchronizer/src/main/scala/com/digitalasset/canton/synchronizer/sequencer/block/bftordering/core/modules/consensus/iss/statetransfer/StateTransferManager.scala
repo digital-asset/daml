@@ -90,11 +90,11 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     if (inStateTransfer) {
-      logger.debug("State transfer: already in progress")
+      logger.debug("State transfer already in progress")
     } else {
       val latestCompletedEpochNumber = latestCompletedEpoch.info.number
       logger.info(
-        s"State transfer: starting catch-up from epoch $startEpoch, latest completed epoch is $latestCompletedEpochNumber"
+        s"Starting catch-up from epoch $startEpoch, latest completed epoch is $latestCompletedEpochNumber"
       )
       initStateTransfer(startEpoch)(abort)
 
@@ -113,9 +113,9 @@ class StateTransferManager[E <: Env[E]](
       abort: String => Nothing
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
     if (inStateTransfer) {
-      logger.info(s"State transfer: requesting new epoch $newEpochNumber")
+      logger.debug(s"State transfer requesting new epoch $newEpochNumber")
     } else {
-      logger.info(s"State transfer: starting onboarding state transfer from epoch $newEpochNumber")
+      logger.info(s"Starting onboarding state transfer from epoch $newEpochNumber")
       initStateTransfer(newEpochNumber)(abort)
     }
     val blockTransferRequest =
@@ -154,6 +154,7 @@ class StateTransferManager[E <: Env[E]](
         handleStateTransferNetworkMessage(message, topologyInfo, latestCompletedEpoch)(abort)
 
       case StateTransferMessage.RetryBlockTransferRequest(request) =>
+        logger.info(s"Retrying block transfer request for epoch ${request.message.epoch}")
         sendBlockTransferRequest(request, topologyInfo.currentMembership)(abort)
         StateTransferMessageResult.Continue
 
@@ -168,8 +169,7 @@ class StateTransferManager[E <: Env[E]](
           handleStoredBlock(commitCert)
         } else {
           logger.info(
-            s"State transfer: stored block ${commitCert.prePrepare.message.blockMetadata} from '$from' " +
-              s"while not in state transfer"
+            s"Stored block ${commitCert.prePrepare.message.blockMetadata} from '$from' while not in state transfer"
           )
         }
         StateTransferMessageResult.Continue
@@ -178,7 +178,7 @@ class StateTransferManager[E <: Env[E]](
   def cancelTimeoutForEpoch(epochNumber: EpochNumber)(implicit
       traceContext: TraceContext
   ): Unit = {
-    logger.info(s"State transfer: cancelling a timeout for epoch $epochNumber")
+    logger.info(s"State transfer cancelling a timeout for epoch $epochNumber")
     timeoutManager.cancelTimeout()
   }
 
@@ -192,7 +192,7 @@ class StateTransferManager[E <: Env[E]](
   ): StateTransferMessageResult =
     message match {
       case request @ StateTransferMessage.BlockTransferRequest(epoch, from) =>
-        logger.info(s"State transfer: '$from' is requesting block transfer for epoch $epoch")
+        logger.info(s"'$from' is requesting block transfer for epoch $epoch")
         messageSender.sendBlockTransferResponses(
           orderingTopologyInfo.currentCryptoProvider,
           to = from,
@@ -211,7 +211,7 @@ class StateTransferManager[E <: Env[E]](
         } else {
           val blockMetadata = response.commitCertificate.map(_.prePrepare.message.blockMetadata)
           logger.info(
-            s"State transfer: received a block transfer response for block $blockMetadata " +
+            s"Received block transfer response for block $blockMetadata " +
               s"from ${response.from} while not in state transfer; ignoring unneeded response"
           )
           StateTransferMessageResult.Continue
@@ -241,13 +241,14 @@ class StateTransferManager[E <: Env[E]](
               "Internal inconsistency: there should be at least one serving node to send a block transfer request to"
             )
           )
+      logger.info(
+        s"Sending block transfer request for epoch ${request.message.epoch} to $servingNode"
+      )
       timeoutManager
         .scheduleTimeout(StateTransferMessage.RetryBlockTransferRequest(request))
       messageSender.sendBlockTransferRequest(request, servingNode)
     } else {
-      logger.info(
-        s"State transfer: not sending a block transfer request when not in state transfer (likely a race)"
-      )
+      logger.info("Not sending a block transfer request when not in state transfer (likely a race)")
     }
 
   private def handleBlockTransferResponse(
@@ -293,7 +294,7 @@ class StateTransferManager[E <: Env[E]](
 
     // Blocks within an epoch can be received and stored out of order, but that's fine because the Output module
     //  orders them (has a Peano queue).
-    logger.debug(s"State transfer: sending block $blockMetadata to Output")
+    logger.debug(s"State transfer sending block $blockMetadata to Output")
     messageSender.sendBlockToOutput(prePrepare, blockLastInEpoch)
   }
 }

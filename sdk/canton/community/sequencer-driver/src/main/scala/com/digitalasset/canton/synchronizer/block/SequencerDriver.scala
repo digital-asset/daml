@@ -72,6 +72,7 @@ trait SequencerDriverFactory {
       timeProvider: TimeProvider,
       firstBlockHeight: Option[Long],
       synchronizerId: String,
+      sequencerId: String,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
@@ -223,6 +224,7 @@ object RawLedgerBlock {
     final case class Send(
         request: ByteString,
         microsecondsSinceEpoch: Long,
+        orderingSequencerId: String,
     ) extends RawBlockEvent
 
     final case class Acknowledgment(acknowledgement: ByteString, microsecondsSinceEpoch: Long)

@@ -52,6 +52,7 @@ import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class ReferenceSequencerDriver(
+    sequencerId: String,
     store: ReferenceBlockOrderingStore,
     config: ReferenceSequencerDriver.Config[_ <: StorageConfig],
     timeProvider: TimeProvider,
@@ -79,6 +80,7 @@ class ReferenceSequencerDriver(
             TraceContext.ofBatch("reference-driver-requests-batch")(requests)(logger)
           logger.debug("Storing batch of requests")
           traceContext -> batchRequests(
+            sequencerId,
             timeProvider.nowInMicrosecondsSinceEpoch,
             CantonTimestamp.MinValue, // this value is ignored, because it is only used by the BFT block orderer currently
             requests,
@@ -89,7 +91,7 @@ class ReferenceSequencerDriver(
           implicit val traceContext: TraceContext = tc
           store
             .insertRequest(
-              BlockFormat.OrderedRequest(req.microsecondsSinceEpoch, req.tag, req.body)
+              BlockFormat.OrderedRequest(req.microsecondsSinceEpoch, req.tag, req.body, sequencerId)
             )
             .map(_ =>
               logger.debug(
@@ -209,6 +211,7 @@ object ReferenceSequencerDriver {
   final case class TimestampedRequest(tag: String, body: ByteString, microsecondsSinceEpoch: Long)
 
   private def batchRequests(
+      sequencerId: String,
       timestamp: Long,
       lastTopologyTimestamp: CantonTimestamp,
       requests: Seq[Traced[TimestampedRequest]],
@@ -226,13 +229,14 @@ object ReferenceSequencerDriver {
               requestTraceparent,
               request.tag,
               request.body,
+              sequencerId,
               request.microsecondsSinceEpoch,
             )
           },
           lastTopologyTimestamp.toMicros,
         )
         .checkedToByteString
-    BlockFormat.OrderedRequest(timestamp, BatchTag, body)
+    BlockFormat.OrderedRequest(timestamp, BatchTag, body, sequencerId)
   }
 
   def subscribe(fromHeight: Long)(

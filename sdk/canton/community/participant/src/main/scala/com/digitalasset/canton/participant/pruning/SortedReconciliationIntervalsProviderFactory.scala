@@ -25,26 +25,28 @@ class SortedReconciliationIntervalsProviderFactory(
     extends NamedLogging {
   def get(synchronizerId: PhysicalSynchronizerId, subscriptionTs: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] =
-    syncPersistentStateManager
+  ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] = for {
+    topologyFactory <- syncPersistentStateManager
       .topologyFactoryFor(synchronizerId)
       .toRight(s"Can not obtain topology factory for $synchronizerId")
       .toEitherT[FutureUnlessShutdown]
-      .map { topologyFactory =>
-        val topologyClient = topologyFactory.createTopologyClient(
-          StoreBasedSynchronizerTopologyClient.NoPackageDependencies
-        )
-        topologyClient.updateHead(
-          SequencedTime(subscriptionTs),
-          EffectiveTime(subscriptionTs),
-          ApproximateTime(subscriptionTs),
-          potentialTopologyChange = true,
-        )
+    topologyClient <- EitherT.right(
+      topologyFactory.createCachingTopologyClient(
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies
+      )
+    )
+  } yield {
+    topologyClient.updateHead(
+      SequencedTime(subscriptionTs),
+      EffectiveTime(subscriptionTs),
+      ApproximateTime(subscriptionTs),
+      potentialTopologyChange = true,
+    )
 
-        new SortedReconciliationIntervalsProvider(
-          topologyClient,
-          futureSupervisor,
-          loggerFactory,
-        )
-      }
+    new SortedReconciliationIntervalsProvider(
+      topologyClient,
+      futureSupervisor,
+      loggerFactory,
+    )
+  }
 }

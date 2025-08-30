@@ -69,7 +69,7 @@ class BlockUpdateGeneratorImplTest
             memberValidatorMock,
           )
 
-        val signedSubmissionRequest = sequencerSignedAndSenderSignedSubmissionRequest(
+        val signedSubmissionRequest = senderSignedSubmissionRequest(
           topologyTransactionFactory.participant1,
           Recipients.cc(AllMembersOfSynchronizer),
         ).futureValue
@@ -83,6 +83,7 @@ class BlockUpdateGeneratorImplTest
               RawBlockEvent.Send(
                 signedSubmissionRequest.toByteString,
                 sequencingTimeLowerBoundExclusive.minusSeconds(5).toMicros,
+                sequencerId.toProtoPrimitive,
               ),
               RawBlockEvent
                 .Acknowledgment(
@@ -107,6 +108,7 @@ class BlockUpdateGeneratorImplTest
                 .Send(
                   signedSubmissionRequest.toByteString,
                   sequencingTimeLowerBoundExclusive.immediateSuccessor.toMicros,
+                  sequencerId.toProtoPrimitive,
                 ),
               RawBlockEvent
                 .Acknowledgment(
@@ -122,6 +124,7 @@ class BlockUpdateGeneratorImplTest
             Send(
               sequencingTimeLowerBoundExclusive.immediateSuccessor,
               signedSubmissionRequest,
+              sequencerId,
               signedSubmissionRequest.toByteString.size(),
             ),
             Acknowledgment(
@@ -207,7 +210,7 @@ class BlockUpdateGeneratorImplTest
 
         for {
           signedSubmissionRequest <- FutureUnlessShutdown.outcomeF(
-            sequencerSignedAndSenderSignedSubmissionRequest(
+            senderSignedSubmissionRequest(
               topologyTransactionFactory.participant1,
               Recipients.cc(AllMembersOfSynchronizer),
             )
@@ -217,7 +220,11 @@ class BlockUpdateGeneratorImplTest
               height = 1L,
               Seq(
                 Traced(
-                  LedgerBlockEvent.Send(sequencerAddressedEventTimestamp, signedSubmissionRequest)
+                  LedgerBlockEvent.Send(
+                    sequencerAddressedEventTimestamp,
+                    signedSubmissionRequest,
+                    sequencerId,
+                  )
                 )(TraceContext.empty)
               ),
               tickTopologyAtLeastAt = Some(topologyTickEventTimestamp),
@@ -233,7 +240,7 @@ class BlockUpdateGeneratorImplTest
               chunkEvents.forgetNE should matchPattern {
                 case Seq(
                       Traced(
-                        LedgerBlockEvent.Send(`sequencerAddressedEventTimestamp`, _, _)
+                        LedgerBlockEvent.Send(`sequencerAddressedEventTimestamp`, _, _, _)
                       )
                     ) =>
               }

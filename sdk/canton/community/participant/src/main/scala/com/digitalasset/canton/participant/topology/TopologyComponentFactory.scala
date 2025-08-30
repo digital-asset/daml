@@ -120,18 +120,6 @@ class TopologyComponentFactory(
       loggerFactory,
     )
 
-  def createTopologyClient(
-      packageDependencyResolver: PackageDependencyResolverUS
-  )(implicit executionContext: ExecutionContext): SynchronizerTopologyClientWithInit =
-    new StoreBasedSynchronizerTopologyClient(
-      clock,
-      topologyStore,
-      packageDependencyResolver,
-      timeouts,
-      futureSupervisor,
-      loggerFactory,
-    )
-
   def createCachingTopologyClient(
       packageDependencyResolver: PackageDependencyResolverUS
   )(implicit

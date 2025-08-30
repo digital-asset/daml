@@ -9,6 +9,8 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
+import scala.annotation.tailrec
+
 sealed trait ReassignmentCommandsBatch
 
 object ReassignmentCommandsBatch {
@@ -49,11 +51,12 @@ object ReassignmentCommandsBatch {
       case _ => Left(MixedAssignWithOtherCommands)
     }
 
+  @tailrec
   private def validateUnassigns(
       soFar: Unassignments,
       rest: Seq[ReassignmentCommand],
   ): Either[InvalidBatch, Unassignments] = rest match {
-    case Nil => Right(soFar.copy(contractIds = reverse1(soFar.contractIds)))
+    case Nil => Right(soFar.copy(contractIds = soFar.contractIds.reverse))
     case (head: Unassign) +: tail =>
       if (head.sourceSynchronizer == soFar.source && head.targetSynchronizer == soFar.target)
         validateUnassigns(soFar.copy(contractIds = head.contractId +: soFar.contractIds), tail)
@@ -61,9 +64,4 @@ object ReassignmentCommandsBatch {
         Left(DifferingSynchronizers)
     case _ => Left(MixedAssignWithOtherCommands)
   }
-
-  // Reversing a sequence does not change its cardinality, so is safe on a NonEmpty.
-  // However, there isn't currently an appropriate method on the NonEmpty type.
-  private def reverse1[T](items: NonEmpty[Seq[T]]): NonEmpty[Seq[T]] =
-    NonEmpty.from(items.toSeq.reverse).getOrElse(???)
 }

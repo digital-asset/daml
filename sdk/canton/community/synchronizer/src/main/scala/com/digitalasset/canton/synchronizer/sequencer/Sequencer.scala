@@ -280,45 +280,19 @@ object Sequencer extends HasLoggerName {
     */
   type SenderSigned[A <: HasCryptographicEvidence] = SignedContent[A]
 
-  /** Type alias for content that has been signed by the sequencer. The purpose of this is to
-    * identify which sequencer has processed a submission request, such that after the request is
-    * ordered and processed by all sequencers, each sequencer knows which sequencer received the
-    * submission request. The signature here will always be one of a sequencer.
-    */
-  type SequencerSigned[A <: HasCryptographicEvidence] =
-    SignedContent[OrderingRequest[SenderSigned[A]]]
-
-  /** Ordering request signed by the sequencer. Outer signature is the signature of the sequencer
-    * that received the submission request. Inner signature is the signature of the member from
-    * which the submission request originated.
+  /** An ordering request wraps a sender-signed submission request, adding the receiving Sequencer
+    * ID.
     *
     * {{{
     *                            ┌─────────────────┐       ┌────────────┐
     *                            │SenderSigned     │       │Sequencer   │
-    * ┌─────────────────┐        │  ┌──────────────┤       │            │
-    * │Sender           │signs   │  │Submission    │sends  │            │
-    * │(e.g participant)├───────►│  │Request       ├──────►│            │
-    * └─────────────────┘        └──┴──────────────┘       └─────┬──────┘
-    *                                                            │
-    *                                                            │signs
-    *                                                            ▼
-    *                                                 ┌──────────────────────┐
-    *                                                 │SequencerSigned       │
-    *                                                 │ ┌────────────────────┤
-    *                                         send to │ │SenderSigned        │
-    *                                         ordering│ │ ┌──────────────────┤
-    *                                        ◄────────┤ │ │Submission        │
-    *                                                 │ │ │Request           │
-    *                                                 └─┴─┴──────────────────┘
+    * ┌─────────────────┐        │  ┌──────────────┤       │            │ pass to
+    * │Sender           │signs   │  │Submission    │sends  │            │ ordering
+    * │(e.g participant)├───────►│  │Request       ├──────►│            │──────────►
+    * └─────────────────┘        └──┴──────────────┘       └────────────┘
     * }}}
     */
-  type SignedOrderingRequest = SequencerSigned[SubmissionRequest]
-
-  implicit class SignedOrderingRequestOps(val value: SignedOrderingRequest) extends AnyVal {
-    def signedSubmissionRequest: SignedContent[SubmissionRequest] =
-      value.content.content
-    def submissionRequest: SubmissionRequest = signedSubmissionRequest.content
-  }
+  type SignedSubmissionRequest = SenderSigned[SubmissionRequest]
 
   type RegisterError = SequencerWriteError[RegisterMemberError]
 }

@@ -45,7 +45,7 @@ class BlacklistLeaderSelectionInitializer[E <: Env[E]](
   )(implicit traceContext: TraceContext): BlacklistLeaderSelectionPolicyState =
     value match {
       case Some(snapshot) =>
-        computeStateFromSnapshot(snapshot)
+        computeStateFromSnapshot(moduleSystem, snapshot)
 
       case None =>
         stateFromStore(moduleSystem, epochNumber)
@@ -73,7 +73,8 @@ class BlacklistLeaderSelectionInitializer[E <: Env[E]](
   )
 
   private def computeStateFromSnapshot(
-      snapshot: SequencerSnapshotAdditionalInfo
+      moduleSystem: ModuleSystem[E],
+      snapshot: SequencerSnapshotAdditionalInfo,
   )(implicit traceContext: TraceContext): BlacklistLeaderSelectionPolicyState = {
     val nodeAt = snapshot.nodeActiveAt.getOrElse(
       thisNode,
@@ -82,11 +83,17 @@ class BlacklistLeaderSelectionInitializer[E <: Env[E]](
       ),
     )
 
-    nodeAt.leaderSelectionPolicyState.getOrElse(
+    val state = nodeAt.leaderSelectionPolicyState.getOrElse(
       failBootstrap(
         "Leader selection policy state is required when onboarding but it's empty"
       )(traceContext)
     )
+    awaitFuture(
+      moduleSystem,
+      store.insertLeaderSelectionPolicyState(state.epochNumber, state),
+      "store leader selection policy state from snapshot",
+    )
+    state
   }
 
   private def stateFromStore(

@@ -147,6 +147,7 @@ object BftBlockOrdererConfig {
   final case class P2PNetworkConfig(
       serverEndpoint: P2PServerConfig,
       endpointAuthentication: P2PNetworkAuthenticationConfig = P2PNetworkAuthenticationConfig(),
+      connectionManagementConfig: P2PConnectionManagementConfig = P2PConnectionManagementConfig(),
       peerEndpoints: Seq[P2PEndpointConfig] = Seq.empty,
       overwriteStoredEndpoints: Boolean = false,
   ) extends UniformCantonConfigValidation
@@ -160,9 +161,31 @@ object BftBlockOrdererConfig {
       enabled: Boolean = true,
   ) extends UniformCantonConfigValidation
   object P2PNetworkAuthenticationConfig {
-    implicit val bftNetworAuthenticationCantonConfigValidator
+    implicit val bftNetworkAuthenticationCantonConfigValidator
         : CantonConfigValidator[P2PNetworkAuthenticationConfig] =
       CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
+  }
+
+  final case class P2PConnectionManagementConfig(
+      // The maximum number of connection attempts before we log a warning.
+      //  Together with the retry delays, it limits the maximum time spent trying to connect to a peer before
+      //  failure is logged at as a warning.
+      //  This time must be long enough to allow the sequencer to start up and shut down gracefully.
+      maxConnectionAttemptsBeforeWarning: NonNegativeInt = NonNegativeInt.tryCreate(30),
+      initialConnectionMaxDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMillis(500),
+      initialConnectionRetryDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMillis(500),
+      maxConnectionRetryDelay: config.NonNegativeFiniteDuration =
+        config.NonNegativeFiniteDuration.ofMinutes(2),
+      connectionRetryDelayMultiplier: NonNegativeInt = NonNegativeInt.two,
+  ) extends UniformCantonConfigValidation
+  object P2PConnectionManagementConfig {
+    implicit val bftNetworkP2PConnectionManagementConfig
+        : CantonConfigValidator[P2PConnectionManagementConfig] = {
+      import CantonConfigValidatorInstances.*
+      CantonConfigValidatorDerivation[P2PConnectionManagementConfig]
+    }
   }
 
   /** The [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured

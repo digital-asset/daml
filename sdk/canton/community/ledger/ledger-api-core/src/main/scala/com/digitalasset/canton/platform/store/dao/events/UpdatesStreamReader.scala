@@ -18,6 +18,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.UpdatesStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.Ids
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawFlatEvent,
@@ -328,7 +329,7 @@ class UpdatesStreamReader(
           eventStorageBackend.fetchEventPayloadsAcsDelta(target =
             EventPayloadSourceForUpdatesAcsDelta.Create
           )(
-            eventSequentialIds = ids,
+            eventSequentialIds = Ids(ids),
             requestingParties = txFilteringConstraints.allFilterParties,
           )(connection),
         maxParallelPayloadQueries = maxParallelPayloadCreateQueries,
@@ -342,7 +343,7 @@ class UpdatesStreamReader(
         fetchEvents = (ids, connection) =>
           eventStorageBackend
             .fetchEventPayloadsAcsDelta(target = EventPayloadSourceForUpdatesAcsDelta.Consuming)(
-              eventSequentialIds = ids,
+              eventSequentialIds = Ids(ids),
               requestingParties = txFilteringConstraints.allFilterParties,
             )(connection),
         maxParallelPayloadQueries = maxParallelPayloadConsumingQueries,
@@ -459,7 +460,7 @@ class UpdatesStreamReader(
       eventStorageBackend.fetchEventPayloadsLedgerEffects(
         target = target
       )(
-        eventSequentialIds = ids,
+        eventSequentialIds = Ids(ids),
         requestingParties = txFilteringConstraints.allFilterParties,
       )(connection)
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -17,7 +18,7 @@ import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPru
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutorService, RepairCounter, RequestCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -372,7 +373,7 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
     }
   }
 
-  "setStatusPendingWrite" should {
+  "setStatePendingWrite" should {
     "release the lock and set the pending write" in {
       val sut = mkSut(preload)
       val lock = Map(freshId -> Status(0), freeId -> Status(100), activeId -> Status(-100))
@@ -509,6 +510,98 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
         )
         sut.getInternalState(free2Id) should contain(
           mkState(state = Some(stateChange2), locks = 1)
+        )
+      }
+    }
+  }
+
+  "setStatePendingWriteNonRequest" should {
+    "add unknown contract" in {
+      val sut = mkSut(preload)
+      val previouslyUnknownId = "PREVIOUSLY_UNKNOWN"
+      val toc = TimeOfChange(CantonTimestamp.Epoch, Some(RepairCounter(10L)))
+      val newStateChange = StateChange(Status(0), toc)
+      sut.setStatePendingWriteNonRequest(previouslyUnknownId, newStateChange)
+      sut.getInternalState(previouslyUnknownId) should contain(
+        mkState(state = Some(newStateChange), writes = 1)
+      )
+    }
+
+    "not modify state if newer state change exists" in {
+      val sut = mkSut(preload)
+      val alreadyKnownId = "ALREADY_KNOWN"
+      val toc = TimeOfChange(CantonTimestamp.Epoch, Some(RepairCounter(10L)))
+      val tocNewer: TimeOfChange = tor1
+      val existingStateChange = StateChange(Status(0), tocNewer)
+      val olderStateChangeArrivingLater = StateChange(Status(1), toc)
+
+      for {
+        _ <- pendingAndCheck(sut, tor1.rc, mkActivenessCheck(lock = Set(alreadyKnownId)))
+        _ = sut.setStatePendingWrite(tor1.rc, alreadyKnownId, existingStateChange)
+        _ = sut.setStatePendingWriteNonRequest(alreadyKnownId, olderStateChangeArrivingLater)
+      } yield {
+        sut.getInternalState(alreadyKnownId) should contain(
+          mkState(state = Some(existingStateChange), writes = 2)
+        )
+      }
+    }
+
+    "modify state if older state change exists" in {
+      val sut = mkSut(preload)
+      val alreadyKnownId = "ALREADY_KNOWN"
+      val toc = TimeOfChange(CantonTimestamp.Epoch, Some(RepairCounter(10L)))
+      val tocOlder = TimeOfChange(toc.timestamp)
+      val existingStateChange = StateChange(Status(0), tocOlder)
+      val newStateChange = StateChange(Status(1), toc)
+
+      for {
+        _ <- pendingAndCheck(sut, tor1.rc, mkActivenessCheck(lock = Set(alreadyKnownId)))
+        _ = sut.setStatePendingWrite(tor1.rc, alreadyKnownId, existingStateChange)
+        _ = sut.setStatePendingWriteNonRequest(alreadyKnownId, newStateChange)
+      } yield {
+        sut.getInternalState(alreadyKnownId) should contain(
+          mkState(state = Some(newStateChange), writes = 2)
+        )
+      }
+    }
+  }
+
+  "signalWriteAndTryEvictNonRequest" should {
+    val addPartyRequestId = TestHash.digest(0)
+
+    "evict a previously unknown non-request key" in {
+      val sut = mkSut(preload)
+      val previouslyUnknownId = "PREVIOUSLY_UNKNOWN"
+      val toc = TimeOfChange(CantonTimestamp.Epoch, Some(RepairCounter(10L)))
+      val newStateChange = StateChange(Status(0), toc)
+      sut.setStatePendingWriteNonRequest(previouslyUnknownId, newStateChange)
+
+      val expectedStateBeforeEvict = mkState(state = Some(newStateChange), writes = 1)
+      sut.getInternalState(previouslyUnknownId) should contain(expectedStateBeforeEvict)
+
+      sut.signalWriteAndTryEvictNonRequest(addPartyRequestId, previouslyUnknownId)
+
+      sut.getInternalState(previouslyUnknownId) shouldBe empty
+    }
+
+    "not evict a non-request key still needed for a request" in {
+      val sut = mkSut(preload)
+      val alreadyKnownId = "ALREADY_KNOWN"
+      val toc = TimeOfChange(CantonTimestamp.Epoch, Some(RepairCounter(10L)))
+      val tocRequest = TimeOfChange(toc.timestamp)
+      val requestStateState = StateChange(Status(0), tocRequest)
+      val nonRequestStateChange = StateChange(Status(1), toc)
+
+      for {
+        _ <- pendingAndCheck(sut, tor1.rc, mkActivenessCheck(lock = Set(alreadyKnownId)))
+        _ = sut.setStatePendingWrite(tor1.rc, alreadyKnownId, requestStateState)
+        _ = sut.setStatePendingWriteNonRequest(alreadyKnownId, nonRequestStateChange)
+        stateBeforeTryEvict = sut.getInternalState(alreadyKnownId)
+        _ = sut.signalWriteAndTryEvictNonRequest(addPartyRequestId, alreadyKnownId)
+      } yield {
+        stateBeforeTryEvict should contain(mkState(state = Some(nonRequestStateChange), writes = 2))
+        sut.getInternalState(alreadyKnownId) should contain(
+          mkState(state = Some(nonRequestStateChange), writes = 1)
         )
       }
     }

@@ -46,7 +46,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
 import io.grpc.BindableService
-import io.grpc.protobuf.services.ProtoReflectionService
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -207,7 +207,7 @@ object ApiServices {
         services -> apiUpdateService
       }
 
-      val apiReflectionService = ProtoReflectionService.newInstance()
+      val apiReflectionService = ProtoReflectionServiceV1.newInstance()
 
       val apiHealthService = new GrpcHealthService(healthChecks, telemetry, loggerFactory)
 

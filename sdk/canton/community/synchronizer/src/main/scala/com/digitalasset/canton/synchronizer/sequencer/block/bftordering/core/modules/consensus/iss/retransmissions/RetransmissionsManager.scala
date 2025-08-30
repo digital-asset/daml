@@ -256,7 +256,7 @@ class RetransmissionsManager[E <: Env[E]](
 
   private def validateUnverifiedNetworkMessage(
       msg: RetransmissionsNetworkMessage
-  ): Either[String, Unit] =
+  )(implicit traceContext: TraceContext): Either[String, Unit] =
     msg match {
       case req @ Consensus.RetransmissionsMessage.RetransmissionRequest(status) =>
         incomingRetransmissionsRequestCount += 1
@@ -281,7 +281,8 @@ class RetransmissionsManager[E <: Env[E]](
           case Some(validator) =>
             val validationResult = validator.validateRetransmissionResponse(response)
             validationResult match {
-              case Left(_: RetransmissionResponseValidationError.MalformedMessage) =>
+              case Left(error: RetransmissionResponseValidationError.MalformedMessage) =>
+                logger.warn(error.errorMsg)
                 emitNonCompliance(metrics)(
                   response.from,
                   metrics.security.noncompliant.labels.violationType.values.RetransmissionResponseInvalidMessage,

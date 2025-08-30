@@ -13,7 +13,7 @@ import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{Hash, HashPurpose}
+import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.{CantonTimestamp, ContractReassignment}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
@@ -21,6 +21,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
+import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
 import com.digitalasset.canton.participant.event.AcsChangeSupport
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
@@ -49,6 +50,8 @@ import scala.util.chaining.scalaUtilChainingOps
   *
   * @param partyId
   *   The party id of the party to replicate active contracts for.
+  * @param requestId
+  *   The "add party" request id that this replication is associated with.
   * @param partyToParticipantEffectiveAt
   *   The timestamp immediately on which the ACS snapshot is based.
   * @param onAcsFullyReplicated
@@ -62,6 +65,7 @@ import scala.util.chaining.scalaUtilChainingOps
   */
 final class PartyReplicationTargetParticipantProcessor(
     partyId: PartyId,
+    requestId: AddPartyRequestId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     protected val onAcsFullyReplicated: TraceContext => Unit,
     protected val onError: String => Unit,
@@ -145,9 +149,8 @@ final class PartyReplicationTargetParticipantProcessor(
                   toc,
                 )
             }
-            _ <- connectedSynchronizer.synchronizerHandle.syncPersistentState.activeContractStore
-              .assignContracts(contractAssignments)
-              .toEitherTWithNonaborts
+            _ <- connectedSynchronizer.ephemeral.requestTracker
+              .addReplicatedContracts(requestId, partyToParticipantEffectiveAt, contractAssignments)
               .leftMap(e =>
                 s"Failed to assign contracts $contractAssignments in ActiveContractStore: $e"
               )
@@ -331,7 +334,7 @@ final class PartyReplicationTargetParticipantProcessor(
 object PartyReplicationTargetParticipantProcessor {
   def apply(
       partyId: PartyId,
-      requestId: Hash,
+      requestId: AddPartyRequestId,
       partyToParticipantEffectiveAt: CantonTimestamp,
       onComplete: TraceContext => Unit,
       onError: String => Unit,
@@ -347,6 +350,7 @@ object PartyReplicationTargetParticipantProcessor {
   )(implicit executionContext: ExecutionContext): PartyReplicationTargetParticipantProcessor =
     new PartyReplicationTargetParticipantProcessor(
       partyId,
+      requestId,
       partyToParticipantEffectiveAt,
       onComplete,
       onError,

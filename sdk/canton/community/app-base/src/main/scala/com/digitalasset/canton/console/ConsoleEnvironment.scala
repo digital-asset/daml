@@ -171,12 +171,11 @@ class ConsoleEnvironment(
   /** returns the currently enabled feature sets */
   def featureSet: Set[FeatureFlag] = featureSetReference.get().scope
 
-  def updateFeatureSet(flag: FeatureFlag, include: Boolean): Unit = {
-    val _ = featureSetReference.updateAndGet { x =>
+  def updateFeatureSet(flag: FeatureFlag, include: Boolean): Unit =
+    featureSetReference.updateAndGet { x =>
       val scope = if (include) x.scope + flag else x.scope - flag
       HelperItems(scope)
-    }
-  }
+    }.discard
 
   /** Holder for top level values including their name, their value, and a description to display
     * when `help` is printed.
@@ -197,19 +196,6 @@ class ConsoleEnvironment(
 
     lazy val asHelpItem: Help.Item =
       Help.Item(nameUnsafe, None, Help.Summary(summary), Help.Description(""), Help.Topic(topic))
-  }
-
-  object TopLevelValue {
-
-    /** Provide all details but the value itself. A subsequent call can then specify the value from
-      * another location. This oddness is to allow the ConsoleEnvironment implementations to specify
-      * the values of node instances they use as scala's runtime reflection can't easily take
-      * advantage of the type members we have available here.
-      */
-    case class Partial(name: String, summary: String, topics: Seq[String] = Seq.empty) {
-      def apply[T: universe.TypeTag](value: T): TopLevelValue[T] =
-        TopLevelValue(name, summary, value, topics)
-    }
   }
 
   // lazy to prevent publication of this before this has been fully initialized

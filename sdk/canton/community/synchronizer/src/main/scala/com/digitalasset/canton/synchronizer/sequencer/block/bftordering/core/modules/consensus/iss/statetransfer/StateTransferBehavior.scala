@@ -381,7 +381,7 @@ final class StateTransferBehavior[E <: Env[E]](
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
     val currentEpochNumber = currentEpochInfo.number
     val newEpochNumber = newEpochInfo.number
-    logger.debug(
+    logger.info(
       s"$messageType: storing completed epoch $currentEpochNumber and new epoch $newEpochNumber"
     )
     pipeToSelf(
