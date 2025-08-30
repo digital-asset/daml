@@ -72,13 +72,13 @@ Obtaining The Enterprise Edition
 
 Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
 respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
-our Canton Enterprise Docker images as described in our `Docker instructions <https://docs.digitalasset.com/operate/3.3/howtos/install/docker.html>`.
+our Canton Enterprise Docker images as described in our :externalref:`Docker instructions <install-with-docker>`.
 
 
 Downloading the Open Source Edition
 ***********************************
 
 The Open Source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
-You can also use our Canton Docker images by following our `Docker instructions <https://docs.digitalasset.com/operate/3.3/howtos/install/docker.html>`.
+You can also use our Canton Docker images by following our :externalref:`Docker instructions <install-with-docker>`.
 
 
