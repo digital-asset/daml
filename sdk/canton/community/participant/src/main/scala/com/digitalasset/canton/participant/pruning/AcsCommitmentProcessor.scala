@@ -367,7 +367,13 @@ class AcsCommitmentProcessor private (
       sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
     )
 
-  @volatile private[this] var lastPublished: Option[RecordTime] = None
+  // If we previously published anything that changed commitments, then last published should be Some, rather than None.
+  // This is necessary because otherwise we might skip processing topology ticks, which is not good when the topology
+  // changes and it affects the commitment periods and whom we send them to.
+  // The init goes for the minimum value because otherwise we risk misleading the processor to believe that publishing
+  // is not monotonic.
+  @volatile private[this] var lastPublished: Option[RecordTime] =
+    if (endLastProcessedPeriod.nonEmpty) Some(RecordTime(CantonTimestamp.MinValue, 0)) else None
 
   /** Indicates what timestamp the participant catches up to. */
   @volatile private[this] var catchUpToTimestamp = CantonTimestamp.MinValue

@@ -19,7 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 final case class OrderedBlockForOutput(
     orderedBlock: OrderedBlock,
     viewNumber: ViewNumber,
-    from: BftNodeId, // Only used for metrics
+    originalLeader: BftNodeId,
     isLastInEpoch: Boolean,
     mode: OrderedBlockForOutput.Mode,
 )

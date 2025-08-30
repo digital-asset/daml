@@ -19,13 +19,22 @@ import org.scalatest.wordspec.AsyncWordSpec
 trait ReferenceBlockOrderingStoreTest extends AsyncWordSpec with BaseTest with FailOnShutdown {
 
   private val event1 =
-    sequencedSend(payload = ByteString.copyFromUtf8("payload1"), microsecondsSinceEpoch = 0)
+    sequencedSend(
+      payload = ByteString.copyFromUtf8("payload1"),
+      microsecondsSinceEpoch = 0,
+      sequencerId = "aSequencerId",
+    )
   private val event2 =
-    sequencedSend(payload = ByteString.copyFromUtf8("payload2"), microsecondsSinceEpoch = 1)
+    sequencedSend(
+      payload = ByteString.copyFromUtf8("payload2"),
+      microsecondsSinceEpoch = 1,
+      sequencerId = "aSequencerId",
+    )
   private val event3 =
     sequencedAcknowledgement(
       payload = ByteString.copyFromUtf8("acknowledge"),
       microsecondsSinceEpoch = 1,
+      sequencerId = "aSequencerId",
     )
 
   val traceContext1: TraceContext =

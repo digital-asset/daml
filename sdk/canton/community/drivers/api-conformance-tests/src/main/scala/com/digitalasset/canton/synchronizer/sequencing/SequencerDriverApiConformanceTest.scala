@@ -66,7 +66,7 @@ abstract class SequencerDriverApiConformanceTest[ConfigType]
   private def blockContainsSendEvent(rawBlock: RawLedgerBlock) =
     rawBlock.events.exists(tracedEv =>
       tracedEv.value match {
-        case Send(request, _) =>
+        case Send(request, _, _) =>
           request.toStringUtf8 == "event" && tracedEv.traceContext == traceContext
         case _ => false
       }

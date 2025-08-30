@@ -9,7 +9,6 @@ import com.digitalasset.canton.crypto.GeneratorsCrypto.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.GeneratorsDataTime.*
-import com.digitalasset.canton.protocol.messages.GeneratorsMessages
 import com.digitalasset.canton.protocol.{GeneratorsProtocol, StaticSynchronizerParameters}
 import com.digitalasset.canton.sequencing.protocol.{
   AggregationId,
@@ -17,17 +16,13 @@ import com.digitalasset.canton.sequencing.protocol.{
   GeneratorsProtocol as GeneratorsProtocolSeq,
 }
 import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficPurchased}
-import com.digitalasset.canton.serialization.{
-  BytestringWithCryptographicEvidence,
-  HasCryptographicEvidence,
-}
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.synchronizer.sequencer.store.VersionedStatus
 import com.digitalasset.canton.synchronizer.sequencing.integrations.state.DbSequencerStateManagerStore.AggregatedSignaturesOfSender
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.GeneratorsTransaction
-import com.digitalasset.canton.topology.{GeneratorsTopology, Member, SequencerId}
+import com.digitalasset.canton.topology.{GeneratorsTopology, Member}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.rpc.status.Status
 import magnolify.scalacheck.auto.*
@@ -42,7 +37,6 @@ final class GeneratorsSequencer(
     generatorsTransaction: GeneratorsTransaction,
     generatorsProtocolSeq: GeneratorsProtocolSeq,
     generatorsProtocol: GeneratorsProtocol,
-    generatorsMessages: GeneratorsMessages,
 ) {
   import generatorsTopology.*
   import generatorsTransaction.*
@@ -140,23 +134,6 @@ final class GeneratorsSequencer(
       }
     )
   }
-
-  implicit val orderingRequestArb: Arbitrary[OrderingRequest[HasCryptographicEvidence]] =
-    Arbitrary(
-      for {
-        sequencerId <- implicitly[Arbitrary[SequencerId]].arbitrary
-        content <- generatorsMessages.signedProtocolMessageContentArb.arbitrary
-      } yield {
-        val byteStringWithEvidence = BytestringWithCryptographicEvidence(
-          content.getCryptographicEvidence
-        )
-        OrderingRequest.create(
-          sequencerId,
-          byteStringWithEvidence,
-          protocolVersion,
-        )
-      }
-    )
 
   implicit val aggregatedSignaturesOfSenderArb: Arbitrary[AggregatedSignaturesOfSender] = Arbitrary(
     boundedListGen[List[Signature]](boundedListGen[Signature]).map(

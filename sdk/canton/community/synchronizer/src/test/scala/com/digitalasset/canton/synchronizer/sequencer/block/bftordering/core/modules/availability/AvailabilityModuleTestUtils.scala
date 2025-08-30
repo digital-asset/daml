@@ -120,7 +120,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
     ViewNumber.First,
     isLastInEpoch = false, // Irrelevant for availability
     mode = OrderedBlockForOutput.Mode.FromConsensus,
-    from = Node0,
+    originalLeader = Node0,
   )
   protected val AnotherOrderedBlockForOutput = OrderedBlockForOutput(
     OrderedBlock(
@@ -134,7 +134,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
     ViewNumber.First,
     isLastInEpoch = false, // Irrelevant for availability
     mode = OrderedBlockForOutput.Mode.FromConsensus,
-    from = Node0,
+    originalLeader = Node0,
   )
   protected val ACompleteBlock = CompleteBlockData(
     AnOrderedBlockForOutput,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
 import cats.Monad
-import cats.data.{Chain, NonEmptyChain}
+import cats.data.{Chain, EitherT, NonEmptyChain}
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -15,6 +15,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.admin.party.PartyReplicator.AddPartyRequestId
 import com.digitalasset.canton.participant.protocol.conflictdetection.LockableStates.LockableStatesCheckHandle
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker.{
   InvalidCommitSet,
@@ -31,9 +32,16 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{
+  CheckedT,
+  ErrorUtil,
+  MonadUtil,
+  ReassignmentTag,
+  SimpleExecutionQueue,
+}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.google.common.annotations.VisibleForTesting
 
@@ -112,6 +120,14 @@ private[participant] class ConflictDetector(
     * The eviction strategy is defined via [[LockableStatus.shouldEvict]].
     */
   private[this] val pendingEvictions: TrieMap[RequestCounter, PendingEvictions] = new TrieMap()
+
+  /** Contains the [[PendingReplicatedContractsEvictions]] for each "add party" request ACS batch
+    * tracked in-memory and whose changes are being persisted to the stores. The entries are only
+    * needed for invariant checking and debugging. Follows the same eviction strategy as regular
+    * request pendingEvictions.
+    */
+  private[this] val pendingReplicatedContractsEvictions
+      : TrieMap[AddPartyRequestId, PendingReplicatedContractsEvictions] = new TrieMap()
 
   private[this] val directExecutionContext: DirectExecutionContext =
     DirectExecutionContext(noTracingLogger)
@@ -580,6 +596,56 @@ private[participant] class ConflictDetector(
   ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     contractStates.getApproximateStates(coids)
 
+  /** Add contracts on behalf of an "add party" replication request. Must not be called concurrently
+    * on behalf of the same request id.
+    */
+  def addReplicatedContracts(
+      addPartyRequestId: AddPartyRequestId,
+      contracts: Seq[ReplicatedContract],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, NonEmptyChain[AcsBaseError], Unit] = {
+    implicit val ec: ExecutionContext = executionContext
+    for {
+      _ <- EitherT.right[NonEmptyChain[AcsBaseError]](
+        runSequentially(s"add replicated contracts") {
+          checkInvariant()
+          val contractIds = contracts.map { case (coid, _, reassignmentCounter, toc) =>
+            contractStates.setStatePendingWriteNonRequest(
+              coid,
+              StateChange(Active(reassignmentCounter), toc),
+            )
+            coid
+          }
+          pendingReplicatedContractsEvictions
+            .putIfAbsent(addPartyRequestId, contractIds)
+            .foreach(unexpectedEvictions =>
+              throw new IllegalStateException(
+                show"Add party request id $addPartyRequestId still tracks evictions ${unexpectedEvictions
+                    .mkString(",")} when adding ${contractIds.mkString(",")}. Has addReplicatedContracts been called concurrently on the same request id?"
+              )
+            )
+          checkInvariant()
+        }
+      )
+
+      // TODO(#23097): Do not activate contract multiple times if already active due to
+      //  concurrent OnPR party replications.
+      _ <- acs.assignContracts(contracts).toEitherTWithNonaborts
+
+      _ <- EitherT.right[NonEmptyChain[AcsBaseError]](
+        runSequentially(s"signal replicated contracts writes and try to evict") {
+          checkInvariant()
+          contracts.foreach { case (coid, _, _, _) =>
+            contractStates.signalWriteAndTryEvictNonRequest(addPartyRequestId, coid)
+          }
+          pendingReplicatedContractsEvictions.remove(addPartyRequestId).discard
+          checkInvariant()
+        }
+      )
+    } yield ()
+  }
+
   /** Ensures that the thunk `x` executes in the `executionQueue`,
     * i.e., is sequentialized w.r.t. all other calls to `runSequentially`.
     *
@@ -649,6 +715,7 @@ private[participant] class ConflictDetector(
       pendingActivenessChecks,
       reassignmentsAndLockedStates,
       pendingEvictions,
+      pendingReplicatedContractsEvictions,
     )(
       _.contracts.affected,
       _.contracts,
@@ -665,6 +732,11 @@ private[conflictdetection] object ConflictDetector {
       commitSet: CommitSet,
       pendingContracts: Seq[LfContractId],
   )
+
+  // Replicated contracts are represented as assignments.
+  private[conflictdetection] type ReplicatedContract =
+    (LfContractId, ReassignmentTag.Source[SynchronizerId], ReassignmentCounter, TimeOfChange)
+  private[ConflictDetector] type PendingReplicatedContractsEvictions = Seq[LfContractId]
 
   type ImmutableContractState = ImmutableLockableState[ActiveContractStore.Status]
   val ImmutableContractState: ImmutableLockableState.type = ImmutableLockableState

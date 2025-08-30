@@ -783,10 +783,69 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
+  /v2/updates:
+    post:
+      description: |-
+        Query updates list (blocking call)
+        Notice: This endpoint should be used for small results set.
+        When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
+        there will be an error (`413 Content Too Large`) returned.
+        Increasing this limit may lead to performance issues and high memory consumption.
+        Consider using websockets (asyncapi) for better efficiency with larger results.
+      operationId: postV2Updates
+      parameters:
+      - name: limit
+        in: query
+        description: maximum number of elements to return, this param is ignored if
+          is bigger than server setting
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: stream_idle_timeout_ms
+        in: query
+        description: timeout to complete and send result if no new elements are received
+          (for open ended streams)
+        required: false
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetUpdatesRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JsGetUpdatesResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: query parameter
+            limit, Invalid value for: query parameter stream_idle_timeout_ms, Invalid
+            value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
   /v2/updates/flats:
     post:
       description: |-
-        Query flat transactions update list (blocking call)
+        Query flat transactions update list (blocking call, deprecated: use v2/updates instead)
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.
@@ -845,7 +904,7 @@ paths:
   /v2/updates/trees:
     post:
       description: |-
-        Query update transactions tree list (blocking call)
+        Query update transactions tree list (blocking call, deprecated: use v2/updates instead)
         Notice: This endpoint should be used for small results set.
         When number of results exceeded node configuration limit (`http-list-max-elements-limit`)
         there will be an error (`413 Content Too Large`) returned.

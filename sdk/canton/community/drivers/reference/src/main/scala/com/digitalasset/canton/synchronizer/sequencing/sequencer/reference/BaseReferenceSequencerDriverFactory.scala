@@ -76,6 +76,7 @@ abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactor
       timeProvider: TimeProvider,
       firstBlockHeight: Option[Long],
       synchronizerId: String,
+      sequencerId: String,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): SequencerDriver = {
     val processingTimeout = ProcessingTimeout()
@@ -95,6 +96,7 @@ abstract class BaseReferenceSequencerDriverFactory extends SequencerDriverFactor
     val store =
       ReferenceBlockOrderingStore(storage, processingTimeout, loggerFactory)
     new ReferenceSequencerDriver(
+      sequencerId,
       store,
       config,
       timeProvider,

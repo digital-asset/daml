@@ -14,7 +14,12 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.InternalEventFormat
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawArchivedEvent,
+  RawCreatedEvent,
+  RawFlatEvent,
+}
 import com.digitalasset.canton.platform.store.backend.{EventStorageBackend, ParameterStorageBackend}
 import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, LedgerDaoEventsReader}
@@ -54,14 +59,33 @@ private[dao] sealed class EventsReader(
               endEventSequentialId = ledgerEndCache().map(_.lastEventSeqId).getOrElse(0L),
             )
           )
-          rawCreatedEvent = rawEvents.view.map(_.event).collectFirst {
-            case created: RawCreatedEvent => created
+          rawCreatedEvent: Option[Entry[RawCreatedEvent]] = rawEvents.view.collectFirst { entry =>
+            entry.event match {
+              case created: RawCreatedEvent =>
+                entry.copy(event = created)
+            }
           }
+          rawArchivedEvent: Option[Entry[RawArchivedEvent]] = rawEvents.view.collectFirst { entry =>
+            entry.event match {
+              case archived: RawArchivedEvent => entry.copy(event = archived)
+            }
+          }
+
+          rawEventsRestoredWitnesses = restoreWitnessesForTransient(
+            rawCreatedEvent,
+            rawArchivedEvent,
+          )
+
+          rawCreatedEventRestoredWitnesses = rawEventsRestoredWitnesses.view
+            .map(_.event)
+            .collectFirst { case created: RawCreatedEvent =>
+              created
+            }
 
           deserialized <- Future.delegate {
             implicit val ec: ExecutionContext =
               directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
-            MonadUtil.sequentialTraverse(rawEvents) { event =>
+            MonadUtil.sequentialTraverse(rawEventsRestoredWitnesses) { event =>
               UpdateReader
                 .deserializeRawFlatEvent(
                   internalEventFormat.eventProjectionProperties,
@@ -79,13 +103,16 @@ private[dao] sealed class EventsReader(
           }.headOption
         } yield {
           Option.when(
-            rawCreatedEvent
+            rawCreatedEventRestoredWitnesses
               .exists { createEvent =>
-                def witnessesMatch(filter: Option[Set[Party]]): Boolean = filter match {
-                  case None => true // wildcard party
-                  case Some(filterParties) =>
-                    filterParties.view.map(_.toString).exists(createEvent.witnessParties)
-                }
+                def witnessesMatch(filter: Option[Set[Party]]): Boolean =
+                  filter match {
+                    case None =>
+                      // wildcard party
+                      createEvent.witnessParties.nonEmpty
+                    case Some(filterParties) =>
+                      filterParties.view.map(_.toString).exists(createEvent.witnessParties)
+                  }
                 val wildcardPartiesMatch =
                   witnessesMatch(internalEventFormat.templatePartiesFilter.templateWildcardParties)
                 def templatePartiesFilterMatch: Boolean =
@@ -94,7 +121,9 @@ private[dao] sealed class EventsReader(
                     .exists(witnessesMatch)
                 wildcardPartiesMatch || templatePartiesFilterMatch
               }
-          )(GetEventsByContractIdResponse(createEvent, archiveEvent))
+          )(
+            GetEventsByContractIdResponse(createEvent, archiveEvent)
+          )
         }
       }
       .getOrElse(Future.successful(None))
@@ -108,6 +137,21 @@ private[dao] sealed class EventsReader(
           )
       }
   }
+
+  // transient events have empty witnesses, so we need to restore them from the created event
+  private def restoreWitnessesForTransient(
+      createdEventO: Option[Entry[RawCreatedEvent]],
+      archivedEventO: Option[Entry[RawArchivedEvent]],
+  ): Seq[Entry[RawFlatEvent]] =
+    (createdEventO, archivedEventO) match {
+      case (Some(created), Some(archived)) if created.offset == archived.offset =>
+        val witnesses = created.event.signatories ++ created.event.observers
+        val newCreated = created.copy(event = created.event.copy(witnessParties = witnesses))
+        val newArchived = archived.copy(event = archived.event.copy(witnessParties = witnesses))
+
+        Seq(newCreated: Entry[RawFlatEvent], newArchived)
+      case _ => (createdEventO.toList: Seq[Entry[RawFlatEvent]]) ++ archivedEventO.toList
+    }
 
   // TODO(i16065): Re-enable getEventsByContractKey tests
 //  override def getEventsByContractKey(

@@ -34,7 +34,7 @@ class JsonDamlDefinitionsServiceTest
     with HttpServiceUserFixture.UserToken {
 
   private val RootTestResources =
-    "community/ledger/ledger-json-api/target/scala-2.13/test-classes/daml-definitions-service-test-resources"
+    "community/ledger/ledger-json-api/target/scala-2.13/resource_managed/test"
 
   private val GoldenTestResources =
     "community/ledger/ledger-json-api/src/test/resources/daml-definitions-service-test-resources"

@@ -41,7 +41,9 @@ import scala.reflect.ClassTag
   * such an authorization, where there is a signature of a given key of the given topology
   * transaction.
   *
-  * Whether the key is eligible to authorize the topology transaction depends on the topology state
+  * Whether the key is eligible to authorize the topology transaction depends on the topology state.
+  *
+  * Invariant: All `signatures` have a different fingerprint.
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapping] private (
@@ -115,6 +117,15 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       isProposal,
     )(representativeProtocolVersion)
   }
+
+  /** Add new signature into the existing ones. Important: this method DOES NOT check that the added
+    * signatures are consistent with this transaction, and specifically does not check that
+    * multi-transaction signatures cover this transaction hash. New signatures from signing keys,
+    * which have already signed the transaction, are discarded.
+    */
+  def addSingleSignature(
+      newSignature: Signature
+  ): SignedTopologyTransaction[Op, M] = addSingleSignatures(NonEmpty.mk(Set, newSignature))
 
   /** Add new signatures into the existing ones. Important: this method DOES NOT check that the
     * added signatures are consistent with this transaction, and specifically does not check that
@@ -232,35 +243,30 @@ object SignedTopologyTransaction
 
   import com.digitalasset.canton.resource.DbStorage.Implicits.*
 
-  @VisibleForTesting
-  def tryCreate[Op <: TopologyChangeOp, M <: TopologyMapping](
+  def withTopologySignatures[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
-      signatures: NonEmpty[Set[TopologyTransactionSignature]],
+      signatures: NonEmpty[Seq[TopologyTransactionSignature]],
       isProposal: Boolean,
       protocolVersion: ProtocolVersion,
   ): SignedTopologyTransaction[Op, M] = SignedTopologyTransaction(
     transaction = transaction,
-    signatures = signatures,
+    signatures = TopologyTransactionSignature.distinctSignatures(signatures),
     isProposal = isProposal,
-  )(
-    versioningTable.protocolVersionRepresentativeFor(
-      protocolVersion
-    )
-  )
+  )(protocolVersionRepresentativeFor(protocolVersion))
 
-  @VisibleForTesting
-  def tryCreate[Op <: TopologyChangeOp, M <: TopologyMapping](
+  def withSignatures[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],
-      signatures: NonEmpty[Set[Signature]],
+      signatures: NonEmpty[Seq[Signature]],
       isProposal: Boolean,
-  )(
-      representativeProtocolVersion: RepresentativeProtocolVersion[SignedTopologyTransaction.type]
+      protocolVersion: ProtocolVersion,
   ): SignedTopologyTransaction[Op, M] =
     SignedTopologyTransaction(
       transaction = transaction,
-      signatures = signatures.map(SingleTransactionSignature(transaction.hash, _)),
+      signatures = TopologyTransactionSignature.distinctSignatures(
+        signatures.map(SingleTransactionSignature(transaction.hash, _))
+      ),
       isProposal = isProposal,
-    )(representativeProtocolVersion)
+    )(protocolVersionRepresentativeFor(protocolVersion))
 
   private def signAndCreateWithAssignedKeyUsages[Op <: TopologyChangeOp, M <: TopologyMapping](
       transaction: TopologyTransaction[Op, M],

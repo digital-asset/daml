@@ -70,8 +70,8 @@ class GrpcSequencerClientAuth(
     )
 
   private val obtainTokenPerEndpoint: NonEmpty[Map[Endpoint, ChannelTokenFetcher]] =
-    grpcChannelPerEndpoint.transform { (_, channel) =>
-      new ChannelTokenFetcher(tokenProvider, channel)
+    grpcChannelPerEndpoint.transform { (endpoint, channel) =>
+      new ChannelTokenFetcher(tokenProvider, endpoint, channel)
     }
 
   private val clientAuthentication =
@@ -86,10 +86,10 @@ class GrpcSequencerClientAuth(
     )
 
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
-    grpcChannelPerEndpoint.forgetNE.toSeq.parTraverse_ { case (_, channel) =>
+    grpcChannelPerEndpoint.forgetNE.toSeq.parTraverse_ { case (endpoint, channel) =>
       val authenticationClient =
         GrpcClient.create(channel, new SequencerAuthenticationServiceStub(_))
-      tokenProvider.logout(authenticationClient)
+      tokenProvider.logout(endpoint, authenticationClient)
     }
 
   /** Wrap a grpc client with components to appropriately perform authentication */
@@ -110,6 +110,7 @@ object GrpcSequencerClientAuth {
 
   final class ChannelTokenFetcher(
       tokenProvider: AuthenticationTokenProvider,
+      endpoint: Endpoint,
       channel: GrpcManagedChannel,
   ) extends TokenFetcher {
 
@@ -118,7 +119,7 @@ object GrpcSequencerClientAuth {
     ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
       val authenticationClient =
         GrpcClient.create(channel, new SequencerAuthenticationServiceStub(_))
-      tokenProvider.generateToken(authenticationClient)
+      tokenProvider.generateToken(endpoint, authenticationClient)
     }
   }
 }
