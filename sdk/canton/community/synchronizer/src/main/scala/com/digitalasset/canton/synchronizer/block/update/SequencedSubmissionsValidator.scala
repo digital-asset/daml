@@ -8,7 +8,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.*
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
@@ -19,7 +18,9 @@ import BlockUpdateGeneratorImpl.{SequencedValidatedSubmission, State}
 import SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 import SubmissionRequestValidator.SubmissionRequestValidationResult
 
-/** Validates a list of [[SequencedSubmission]]s corresponding to a chunk.
+/** Validates a list of
+  * [[com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest]]s
+  * corresponding to a chunk.
   */
 private[update] final class SequencedSubmissionsValidator(
     override val loggerFactory: NamedLoggerFactory,
@@ -58,7 +59,8 @@ private[update] final class SequencedSubmissionsValidator(
 
     val SequencedValidatedSubmission(
       sequencingTimestamp,
-      signedOrderingRequest,
+      signedSubmissionRequest,
+      orderingSequencerId,
       _,
       _,
       trafficConsumption,
@@ -77,7 +79,8 @@ private[update] final class SequencedSubmissionsValidator(
         submissionRequestValidator.applyAggregationAndTrafficControlAndGenerateOutcomes(
           inFlightAggregations,
           sequencingTimestamp,
-          signedOrderingRequest,
+          signedSubmissionRequest,
+          orderingSequencerId,
           trafficConsumption,
           errorOrResolvedGroups,
           latestSequencerEventTimestamp,
@@ -94,7 +97,7 @@ private[update] final class SequencedSubmissionsValidator(
           remainingReversedOutcomes = reversedOutcomes,
         )
       _ = logger.debug(
-        s"At block $height, the submission request ${signedOrderingRequest.submissionRequest.messageId} " +
+        s"At block $height, the submission request ${signedSubmissionRequest.content.messageId} " +
           s"at $sequencingTimestamp validated to: ${SubmissionOutcome.prettyString(outcome)}"
       )
     } yield result

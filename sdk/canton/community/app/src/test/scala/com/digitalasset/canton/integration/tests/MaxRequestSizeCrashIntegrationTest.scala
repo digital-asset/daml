@@ -6,6 +6,7 @@ package com.digitalasset.canton.integration.tests
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
 import com.digitalasset.canton.integration.plugins.{
@@ -21,14 +22,14 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.MalformedRequest
-import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import monocle.macros.syntax.lens.*
 
 import java.util.UUID
+import scala.concurrent.Future
 import scala.jdk.CollectionConverters.*
 
-sealed abstract class MaxRequestSizeCrashTest
+sealed abstract class MaxRequestSizeCrashIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
@@ -98,7 +99,7 @@ sealed abstract class MaxRequestSizeCrashTest
   // High request size
   private val overrideMaxRequestSize = NonNegativeInt.tryCreate(30_000)
   // Request size chosen so that even TimeProof requests are rejected
-  private val lowMaxRequestSize = MaxRequestSize(NonNegativeInt.zero)
+  private val lowMaxRequestSize = NonNegativeInt.zero
 
   "Canton" should {
     "recover from failure due to too small request size " in { implicit env =>
@@ -106,36 +107,47 @@ sealed abstract class MaxRequestSizeCrashTest
       participant1.dars.upload(CantonTestsPath)
 
       // verify the ping is successful
-      assertPingSucceeds(participant1, participant1)
+      participant1.health.ping(participant1)
+
       // change maxRequestSize
-      for (owner <- synchronizerOwners1) {
-        owner.topology.synchronizer_parameters
+      synchronizerOwners1.foreach(
+        _.topology.synchronizer_parameters
           .propose_update(
             synchronizerId = daId,
             _.update(maxRequestSize = lowMaxRequestSize.unwrap),
           )
-      }
+      )
 
       eventually() {
-        forAll(Seq(sequencer1, sequencer2) ++ participants.all) {
+        forAll(nodes.all) {
           _.topology.synchronizer_parameters
-            .get_dynamic_synchronizer_parameters(daId)
+            .latest(daId)
             .maxRequestSize
             .value shouldBe lowMaxRequestSize.unwrap
         }
       }
 
-      val commandId = s"submit-async-dummy-${UUID.randomUUID().toString}"
       val matchError =
         s"MaxViewSizeExceeded\\(view size = .*, max request size configured = .*\\)."
 
-      loggerFactory.assertLogs(
-        {
-          participant1.ledger_api.javaapi.commands.submit_async(
-            Seq(participant1.adminParty),
-            new Dummy(participant1.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
+      def submitCommand(p: ParticipantReference) = {
+        val commandId = s"submit-async-dummy-${UUID.randomUUID().toString}"
+
+        val commandF = Future {
+          p.ledger_api.javaapi.commands.submit(
+            Seq(p.adminParty),
+            new Dummy(p.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
             commandId = commandId,
           )
+        }
+
+        (commandId, commandF)
+      }
+
+      loggerFactory.assertLogs(
+        {
+          val (commandId, _) = submitCommand(env.participant1)
+
           eventually() {
             val completion = participant1.ledger_api.completions
               .list(
@@ -152,49 +164,51 @@ sealed abstract class MaxRequestSizeCrashTest
             deserializedError.code.id shouldBe MalformedRequest.id
             reason should include regex matchError
           }
-        }
+        },
+        _.errorMessage should include("INVALID_ARGUMENT/MALFORMED_REQUEST"),
       )
 
       // restart Canton with overrideMaxRequestSize
       setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
         import newEnv.*
         // we verify that the dynamic parameter is still set to the low value
-        forAll(synchronizerOwners1) { owner =>
-          forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
-            _ == lowMaxRequestSize
-          )
-        }
+
+        forAll(nodes.all)(
+          _.topology.synchronizer_parameters.latest(daId).maxRequestSize == lowMaxRequestSize
+        )
 
         val newMaxRequestSize = NonNegativeInt.tryCreate(60_000)
-        synchronizerOwners1.foreach {
+        newMaxRequestSize should not be lowMaxRequestSize
+
+        synchronizerOwners1.foreach(
           _.topology.synchronizer_parameters
             .propose_update(synchronizerId = daId, _.update(maxRequestSize = newMaxRequestSize))
+        )
+
+        eventually() {
+          forAll(nodes.all) { member =>
+            member.topology.synchronizer_parameters
+              .latest(daId)
+              .maxRequestSize shouldBe newMaxRequestSize
+          }
         }
 
-        forAll(Seq(sequencer1, sequencer2) ++ participants.all) { owner =>
-          forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
-            _ == MaxRequestSize(newMaxRequestSize)
-          )
-        }
-
-        // we verify that this time the dynamic parameter is ignored
-        participant1.ledger_api.javaapi.commands
-          .submit(
-            Seq(participant1.adminParty),
-            new Dummy(participant1.adminParty.toProtoPrimitive).create.commands.asScala.toSeq,
-          )
-          .discard
+        // submission works now
+        val (_, submissionF) = submitCommand(newEnv.participant1)
+        submissionF.futureValue.discard
       }
     }
   }
 }
 
-class MaxRequestSizeCrashReferenceIntegrationTestPostgres extends MaxRequestSizeCrashTest {
+class MaxRequestSizeCrashReferenceIntegrationIntegrationTestPostgres
+    extends MaxRequestSizeCrashIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
-class MaxRequestSizeCrashBftOrderingIntegrationTestPostgres extends MaxRequestSizeCrashTest {
+class MaxRequestSizeCrashBftOrderingIntegrationIntegrationTestPostgres
+    extends MaxRequestSizeCrashIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseBftSequencer(loggerFactory))
 }

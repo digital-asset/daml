@@ -101,6 +101,7 @@ class DriverBlockSequencerFactory[C](
           driverClock,
           initialBlockHeight,
           cryptoApi.psid.toString,
+          sequencerId.toProtoPrimitive,
           synchronizerLoggerFactory,
         ),
         orderingTimeFixMode,

@@ -187,7 +187,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
       ),
       logLine => {
         logLine.level shouldBe Level.INFO
-        logLine.message shouldBe "State transfer: old BlockTransferResponse: from epoch 1 we have completed epoch 1, dropping..."
+        logLine.message shouldBe "Old block transfer response from epoch 1, we have completed epoch 1, dropping..."
       },
     )
 

@@ -266,16 +266,11 @@ final class GeneratorsTransaction(
       signatures <- {
         implicit val localSignatureArb: Arbitrary[TopologyTransactionSignature] =
           topologyTransactionSignatureArb(transaction.hash)
-        Generators.nonEmptySetGen[TopologyTransactionSignature]
+        Generators.nonEmptyListGen[TopologyTransactionSignature]
       }
-      // multiple signatures by the same signing key are not allowed.
-      // therefore, ensure that we don't create flakes here.
-      signaturesWithoutDuplicates = TopologyTransactionSignature.distinctSignatures(
-        signatures.toSeq
-      )
 
     } yield SignedTopologyTransaction
-      .tryCreate(transaction, signaturesWithoutDuplicates, proposal, protocolVersion)
+      .withTopologySignatures(transaction, signatures, proposal, protocolVersion)
   )
 
   implicit val signedTopologyTransactionsArb

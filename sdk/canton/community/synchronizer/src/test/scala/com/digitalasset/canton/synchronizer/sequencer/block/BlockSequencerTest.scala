@@ -34,7 +34,7 @@ import com.digitalasset.canton.synchronizer.block.update.{
   OrderedBlockUpdate,
 }
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedOrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeParameterConfig
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
@@ -230,7 +230,7 @@ class BlockSequencerTest
     override def close(): Unit = ()
 
     // No need to implement these methods for the test
-    override def send(signedOrderingRequest: SignedOrderingRequest)(implicit
+    override def send(signedSubmissionRequest: SignedSubmissionRequest)(implicit
         traceContext: TraceContext
     ): EitherT[Future, SequencerDeliverError, Unit] = ???
     override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] =

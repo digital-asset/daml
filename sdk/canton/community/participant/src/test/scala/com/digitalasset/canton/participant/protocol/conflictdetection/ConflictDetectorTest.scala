@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
+import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.CantonTimestamp.{Epoch, ofEpochMilli}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
@@ -56,6 +57,7 @@ import com.digitalasset.canton.{
   HasExecutorService,
   InUS,
   ReassignmentCounter,
+  RepairCounter,
   RequestCounter,
 }
 import org.scalactic.source
@@ -1612,7 +1614,7 @@ final class ConflictDetectorTest
         )
         ts = ofEpochMilli(1000)
         // tor1 and tor2 are at different timestamps as the request counter does not affect
-        // the order in the backing active contract store and because the canton protorol
+        // the order in the backing active contract store and because in the canton protocol
         // timestamps and request counters are mutually strictly monotonic.
         tor2 = TimeOfRequest(RequestCounter(2), ts.immediateSuccessor)
         tor1 = TimeOfRequest(RequestCounter(1), ts)
@@ -1865,6 +1867,36 @@ final class ConflictDetectorTest
             },
           )
         )
+      } yield succeed
+    }
+
+    "record replicated contract during a request archiving it" inUS {
+      val toc0 = TimeOfChange(Epoch, Some(RepairCounter(10)))
+      val tor1 = TimeOfRequest(RequestCounter(1), Epoch.plusSeconds(1))
+      val addPartyRequestId = TestHash.digest(0)
+      for {
+        acs <- mkAcs()
+        cd = mkCd(acs)
+
+        // Initiate an archive of an unknown contract absent from the ACS.
+        cr1 <- prefetchAndCheck(
+          cd,
+          tor1.rc,
+          ActivenessSet(mkActivenessCheck(lockMaybeUnknown = Set(coid00)), Set.empty),
+        )
+        // Contract is locked and not flagged as unknown as it is legitimately unknown.
+        _ = assert(cr1 == mkActivenessResult())
+        _ = checkContractState(cd, coid00, 0, 1, 0)(s"Unknown contract $coid00 is locked.")
+        // Contract becomes known before its archive is finalized.
+        _ = cd.addReplicatedContracts(
+          addPartyRequestId,
+          Seq((coid00, sourceSynchronizer1, initialReassignmentCounter, toc0)),
+        )
+        // Finalizing the result succeeds without internal consistency errors.
+        finalizeResult <- cd.finalizeRequest(mkCommitSet(arch = Set(coid00)), tor1).flatten
+        _ = assert(finalizeResult == Either.unit)
+        // And contract is archived.
+        _ <- checkContractState(acs, coid00, (Archived, tor1))(s"contract $coid00 gets archived")
       } yield succeed
     }
   }

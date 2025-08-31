@@ -114,12 +114,10 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
   protected val name: String
 
-  protected lazy val userId: String = token
+  private[canton] lazy val userId: String = token
     .flatMap(encodedToken => JwtDecoder.decode(Jwt(encodedToken)).toOption)
     .flatMap(decodedToken => AuthServiceJWTCodec.readFromString(decodedToken.payload).toOption)
-    .map { case s: StandardJWTPayload =>
-      s.userId
-    }
+    .map { case s: StandardJWTPayload => s.userId }
     .getOrElse(LedgerApiCommands.defaultUserId)
 
   private val eventFormatAllParties: Option[EventFormat] = Some(
@@ -130,7 +128,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
     )
   )
 
-  protected def optionallyAwait[Tx](
+  private[canton] def optionallyAwait[Tx](
       tx: Tx,
       txId: String,
       txSynchronizerId: String,
@@ -717,7 +715,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           A dishonest executing participant could incorrectly respond that the command failed even though it succeeded.
           """
       )
-      def executeAndWaitForTransaction(
+      def execute_and_wait_for_transaction(
           preparedTransaction: PreparedTransaction,
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
@@ -2699,7 +2697,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
 
   }
 
-  private[console] def involvedParticipants(
+  private[canton] def involvedParticipants(
       updateId: String,
       txSynchronizerId: String,
   ): Map[ParticipantReference, PartyId] = {
@@ -2775,7 +2773,7 @@ trait LedgerApiAdministration extends BaseLedgerApiAdministration {
     }
   }
 
-  protected def optionallyAwait[T](
+  override private[canton] def optionallyAwait[T](
       update: T,
       updateId: String,
       txSynchronizerId: String,

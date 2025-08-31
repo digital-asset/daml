@@ -9,7 +9,8 @@ message TracedBlockOrderingRequest {
   string traceparent = 1;
   string tag = 2;
   bytes body = 3;
-  int64 microseconds_since_epoch = 4;
+  string ordering_sequencer_id = 4;
+  int64 microseconds_since_epoch = 5;
 }
 
 // Currently only used by the output module of the BFT sequencer

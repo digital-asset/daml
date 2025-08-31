@@ -128,7 +128,7 @@ final class IssConsensusModule[E <: Env[E]](
 
   private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
-  logger.debug(
+  logger.info(
     "Starting with " +
       s"membership = ${initialState.topologyInfo.currentMembership}, " +
       s"latest completed epoch = ${initialState.latestCompletedEpoch.info}, " +
@@ -195,7 +195,7 @@ final class IssConsensusModule[E <: Env[E]](
             )
 
           case BootstrapKind.RegularStartup =>
-            logger.debug(
+            logger.info(
               s"(Re)starting node from epoch ${initialState.epochState.epoch.info.number}"
             )
             startConsensusForCurrentEpoch()
@@ -255,8 +255,9 @@ final class IssConsensusModule[E <: Env[E]](
           setNewEpochState(newEpochInfo, Some(newMembership -> newCryptoProvider))
 
           startConsensusForCurrentEpoch()
-          logger.debug(
-            s"New epoch: ${epochState.epoch.info.number} has started with ordering topology ${newMembership.orderingTopology}"
+          logger.info(
+            s"New epoch ${epochState.epoch.info.number} has started with leaders = ${newMembership.leaders}; " +
+              s"ordering topology = ${newMembership.orderingTopology}"
           )
 
           processQueuedPbftMessages()
@@ -454,6 +455,9 @@ final class IssConsensusModule[E <: Env[E]](
             commitCertificate: CommitCertificate,
             hasCompletedLedSegment,
           ) =>
+        // Note that (hopefully) the below message is the only block-level INFO log in the BFT Orderer.
+        //  We intend to minimize the number of logs on the hot path.
+        logger.info(s"Block ${orderedBlock.metadata} has been ordered")
         emitConsensusLatencyStats(metrics)
 
         if (hasCompletedLedSegment)

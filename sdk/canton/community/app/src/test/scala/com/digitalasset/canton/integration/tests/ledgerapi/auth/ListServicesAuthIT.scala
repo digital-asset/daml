@@ -7,7 +7,7 @@ import com.daml.grpc.test.StreamConsumer
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
-import io.grpc.reflection.v1alpha.{ServerReflectionGrpc, ServerReflectionResponse}
+import io.grpc.reflection.v1.{ServerReflectionGrpc, ServerReflectionResponse}
 
 import scala.concurrent.Future
 

@@ -10,7 +10,6 @@ import com.digitalasset.canton.synchronizer.block.SequencerDriver
 import com.digitalasset.canton.synchronizer.sequencing.BaseSequencerDriverApiTest.CompletionTimeout
 import com.digitalasset.canton.time.TimeProvider
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
@@ -48,6 +47,9 @@ trait BaseSequencerDriverApiTest[ConfigType]
 
   protected final def synchronizerId: PhysicalSynchronizerId =
     DefaultTestIdentities.physicalSynchronizerId
+
+  protected final def sequencerId: SequencerId =
+    DefaultTestIdentities.sequencerId
 
   protected final def mediatorId: MediatorId = DefaultTestIdentities.daMediator
 

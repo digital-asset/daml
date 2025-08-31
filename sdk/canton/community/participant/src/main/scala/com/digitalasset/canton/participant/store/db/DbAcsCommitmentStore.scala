@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store.db
 
+import cats.syntax.apply.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf
 import com.daml.nameof.NameOf.functionFullName
@@ -33,10 +34,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
-  mergeBuildersIntoChain,
-  toSQLActionBuilderChain,
-}
+import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.toSQLActionBuilderChain
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.serialization.DeterministicEncoding
@@ -49,6 +47,7 @@ import com.digitalasset.canton.util.collection.IterableUtil.Ops
 import com.digitalasset.canton.version.ProtocolVersionValidation
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
+import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{
   GetResult,
   GetTupleResult,
@@ -218,6 +217,17 @@ class DbAcsCommitmentStore(
     storage.update_(upsertQuery, operationName = "commitments: markComputedAndSent")
   }
 
+  private def buildParticipantFilter(
+      column: String,
+      participants: Option[NonEmpty[Seq[ParticipantId]]],
+      in: Boolean = true,
+  ): SQLActionBuilderChain = participants match {
+    case None => sql""
+    case Some(filter) =>
+      val not = if (in) sql"" else sql"NOT "
+      sql" AND " ++ not ++ DbStorage.toInClause(column, filter)
+  }
+
   override def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
@@ -226,13 +236,7 @@ class DbAcsCommitmentStore(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] = {
-    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
-      case None => sql""
-      case Some(list) =>
-        sql" AND counter_participant IN (" ++ list.forgetNE
-          .map(part => sql"$part")
-          .intercalate(sql", ") ++ sql")"
-    }
+    val participantFilter = buildParticipantFilter("counter_participant", counterParticipantsFilter)
 
     import DbStorage.Implicits.BuilderChain.*
     val query =
@@ -381,32 +385,26 @@ class DbAcsCommitmentStore(
           Seq(indexedSynchronizer.synchronizerId),
           Seq.empty,
         )
+      participantFilter = buildParticipantFilter(
+        "counter_participant",
+        NonEmpty.from(ignores.map(_.participantId)),
+        in = false,
+      )
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
-        storage.query(
-          sql"""select from_exclusive, to_inclusive, counter_participant, multi_hosted_cleared from par_outstanding_acs_commitments
+        val query: SQLActionBuilder =
+          (sql"""select from_exclusive, to_inclusive from par_outstanding_acs_commitments
                where synchronizer_idx=$indexedSynchronizer
                and from_exclusive < $ts
                and matching_state != ${CommitmentPeriodState.Matched}
-               and multi_hosted_cleared = false"""
-            .as[(CantonTimestamp, CantonTimestamp, ParticipantId, Boolean)]
+               and multi_hosted_cleared = false""" ++ participantFilter).toActionBuilder
+        storage.query(
+          query
+            .as[(CantonTimestamp, CantonTimestamp)]
             .withTransactionIsolation(Serializable),
           operationName = "commitments: compute no outstanding",
         )
       }
-    } yield {
-      for {
-        ts <- adjustedTsOpt
-        outstanding <- outstandingOpt.map { vector =>
-          vector
-            .filter { case (_, _, participantId, _) =>
-              !ignores.exists(config => config.participantId == participantId)
-            }
-            .map { case (start, end, _, _) =>
-              (start, end)
-            }
-        }
-      } yield AcsCommitmentStore.latestCleanPeriod(ts, outstanding)
-    }
+    } yield (adjustedTsOpt, outstandingOpt).mapN(AcsCommitmentStore.latestCleanPeriod)
 
   override def searchComputedBetween(
       start: CantonTimestamp,
@@ -418,13 +416,7 @@ class DbAcsCommitmentStore(
     Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ] = {
 
-    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
-      case None => sql""
-      case Some(list) =>
-        sql" AND counter_participant IN (" ++ list.forgetNE
-          .map(part => sql"$part")
-          .intercalate(sql", ") ++ sql")"
-    }
+    val participantFilter = buildParticipantFilter("counter_participant", counterParticipantsFilter)
 
     import DbStorage.Implicits.BuilderChain.*
     val query =
@@ -446,13 +438,7 @@ class DbAcsCommitmentStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
 
-    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
-      case None => sql""
-      case Some(list) =>
-        sql" AND sender IN (" ++ list.forgetNE
-          .map(part => sql"$part")
-          .intercalate(sql", ") ++ sql")"
-    }
+    val participantFilter = buildParticipantFilter("sender", counterParticipantsFilter)
 
     import DbStorage.Implicits.BuilderChain.*
     val query =

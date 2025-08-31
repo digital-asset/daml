@@ -23,10 +23,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.*
 import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.AggregationBySender
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
 import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
@@ -72,7 +69,8 @@ private[update] final class SubmissionRequestValidator(
   def applyAggregationAndTrafficControlAndGenerateOutcomes(
       inFlightAggregations: InFlightAggregations,
       sequencingTimestamp: CantonTimestamp,
-      signedOrderingRequest: SignedOrderingRequest,
+      signedSubmissionRequest: SignedSubmissionRequest,
+      orderingSequencerId: SequencerId,
       trafficConsumption: TrafficConsumption,
       errorOrResolvedGroups: Either[SubmissionOutcome, Map[GroupRecipient, Set[Member]]],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
@@ -87,7 +85,7 @@ private[update] final class SubmissionRequestValidator(
             groupToMembers,
             inFlightAggregations,
             sequencingTimestamp,
-            signedOrderingRequest.submissionRequest,
+            signedSubmissionRequest.content,
           ).recover { errorSubmissionOutcome =>
             // Use the traffic updated ephemeral state in the response even if the rest of the processing stopped
             SubmissionRequestValidationResult(inFlightAggregations, errorSubmissionOutcome, None)
@@ -107,7 +105,8 @@ private[update] final class SubmissionRequestValidator(
     trafficControlValidator.applyTrafficControl(
       trafficConsumption,
       processingResult,
-      signedOrderingRequest,
+      signedSubmissionRequest,
+      orderingSequencerId,
       sequencingTimestamp,
       latestSequencerEventTimestamp,
     )

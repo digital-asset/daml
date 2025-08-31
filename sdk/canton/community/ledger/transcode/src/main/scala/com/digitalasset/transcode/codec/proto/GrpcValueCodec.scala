@@ -32,17 +32,15 @@ object GrpcValueCodec extends SchemaVisitor {
     }
 
     override def toDynamicValue(a: value.Value): DynamicValue =
-      DynamicValue
-        .Record(
-          a.getRecord.fields.view zip codecs map { case (f, c) =>
-            if (f.label.isEmpty) {
-              (Option.empty[String], c.toDynamicValue(f.getValue))
-            } else {
-              (Some(f.label), c.toDynamicValue(f.getValue))
-            }
+      DynamicValue.Record(
+        a.getRecord.fields.view zip codecs map { case (f, c) =>
+          if (f.label.isEmpty) {
+            (Option.empty[String], c.toDynamicValue(f.getValue))
+          } else {
+            (Some(f.label), c.toDynamicValue(f.getValue))
           }
-        )
-        .normalized()
+        }
+      )
   }
 
   override def variant(

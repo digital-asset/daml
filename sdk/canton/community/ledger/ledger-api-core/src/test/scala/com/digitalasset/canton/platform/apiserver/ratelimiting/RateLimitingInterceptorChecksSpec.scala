@@ -26,8 +26,8 @@ import io.grpc.*
 import io.grpc.Status.Code
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
-import io.grpc.protobuf.services.ProtoReflectionService
-import io.grpc.reflection.v1alpha.{
+import io.grpc.protobuf.services.ProtoReflectionServiceV1
+import io.grpc.reflection.v1.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse,
@@ -109,7 +109,7 @@ final class RateLimitingInterceptorChecksSpec
       )(MetricsContext.Empty)
       .mark(config.maxApiServicesQueueSize.toLong + 1)(MetricsContext.Empty) // Over limit
 
-    val protoService = ProtoReflectionService.newInstance()
+    val protoService = ProtoReflectionServiceV1.newInstance()
 
     withChannel(metrics, protoService, config, loggerFactory).use { channel =>
       val methodDescriptor: MethodDescriptor[ServerReflectionRequest, ServerReflectionResponse] =

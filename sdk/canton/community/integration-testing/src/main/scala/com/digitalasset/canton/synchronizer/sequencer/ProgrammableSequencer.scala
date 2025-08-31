@@ -486,6 +486,7 @@ trait HasProgrammableSequencer {
 
 object ProgrammableSequencer {
   import org.scalatest.EitherValues.*
+  import org.scalatest.LoneElement.*
 
   private[ProgrammableSequencer] val sequencers
       : concurrent.Map[(String, String), ProgrammableSequencer] =
@@ -536,7 +537,7 @@ object ProgrammableSequencer {
               s"Found more than one verdict for confirmation response $submissionRequest"
             )
 
-          Some(localVerdicts(0))
+          Some(localVerdicts.loneElement)
 
         } else None
 

@@ -3,6 +3,10 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.{
+  IdRange,
+  Ids,
+}
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   Entry,
   RawCreatedEvent,
@@ -281,25 +285,12 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
     val result = executeSql(
       backend.event.assignEventBatch(
-        eventSequentialIds = List(1L, 2L),
+        eventSequentialIds = Ids(List(1L, 2L)),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
-    )
+    ).map(sanitize)
 
-    result
-      .map(original =>
-        original.copy(
-          event = original.event.copy(
-            rawCreatedEvent = rawCreatedEventHasExpectedCreateArgumentAndAuthenticationData(
-              original.event.rawCreatedEvent,
-              someSerializedDamlLfValue,
-              someAuthenticationDataBytes,
-            )
-          ),
-          traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
-          eventSequentialId = 0L,
-        )
-      ) shouldBe (
+    result shouldBe (
       Vector(
         Entry(
           commandId = Some("command id 1"),
@@ -379,6 +370,15 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         ),
       )
     )
+
+    val resultRange = executeSql(
+      backend.event.assignEventBatch(
+        eventSequentialIds = IdRange(1L, 2L),
+        allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
+      )
+    )
+    resultRange.map(sanitize) shouldBe result
+
   }
 
   it should "return the correct unassign events" in {
@@ -403,9 +403,9 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     executeSql(ingest(dbDtos, _))
     executeSql(updateLedgerEnd(offset(2), 2L))
 
-    executeSql(
+    val result = executeSql(
       backend.event.unassignEventBatch(
-        eventSequentialIds = List(1L, 2L),
+        eventSequentialIds = Ids(List(1L, 2L)),
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
     ).map(original =>
@@ -413,7 +413,8 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
         eventSequentialId = 0L,
       )
-    ) shouldBe Vector(
+    )
+    result shouldBe Vector(
       Entry(
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
@@ -463,6 +464,20 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         externalTransactionHash = None,
       ),
     )
+
+    val resultRange = executeSql(
+      backend.event.unassignEventBatch(
+        eventSequentialIds = IdRange(1L, 2L),
+        allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
+      )
+    ).map(original =>
+      original.copy(
+        traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
+        eventSequentialId = 0L,
+      )
+    )
+    resultRange shouldBe result
+
   }
 
   it should "return the correct trace context for assign events" in {
@@ -491,7 +506,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
       val assignments = executeSql(
         backend.event.assignEventBatch(
-          eventSequentialIds = List(1L, 2L),
+          eventSequentialIds = Ids(List(1L, 2L)),
           allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
         )
       )
@@ -526,7 +541,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
 
       val unassignments = executeSql(
         backend.event.unassignEventBatch(
-          eventSequentialIds = List(1L, 2L),
+          eventSequentialIds = Ids(List(1L, 2L)),
           allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
         )
       )
@@ -1021,6 +1036,21 @@ private[backend] trait StorageBackendTestsReassignmentEvents
       authenticationData = authenticationData,
     )
   }
+
+  private def sanitize(
+      original: Entry[EventStorageBackend.RawAssignEvent]
+  ): Entry[EventStorageBackend.RawAssignEvent] =
+    original.copy(
+      event = original.event.copy(
+        rawCreatedEvent = rawCreatedEventHasExpectedCreateArgumentAndAuthenticationData(
+          original.event.rawCreatedEvent,
+          someSerializedDamlLfValue,
+          someAuthenticationDataBytes,
+        )
+      ),
+      traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
+      eventSequentialId = 0L,
+    )
 
   def hasSameTraceContext(
       actual: Option[Array[Byte]],

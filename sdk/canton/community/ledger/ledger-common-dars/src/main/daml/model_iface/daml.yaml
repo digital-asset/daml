@@ -1,0 +1,9 @@
+sdk-version: 3.4.0-adhoc.20250828.14144.0.va77a3d96
+build-options: 
+- --enable-interfaces=yes
+name: model-iface-tests
+source: .
+version: 3.1.0
+dependencies: 
+- daml-prim
+- daml-stdlib

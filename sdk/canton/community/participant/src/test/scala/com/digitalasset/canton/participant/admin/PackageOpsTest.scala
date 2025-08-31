@@ -352,7 +352,7 @@ class PackageOpsTest extends PackageOpsTestBase {
       )
 
     private def signedTopologyTransaction(vettedPackages: List[LfPackageId]) =
-      SignedTopologyTransaction.tryCreate(
+      SignedTopologyTransaction.withSignatures(
         transaction = TopologyTransaction(
           op = TopologyChangeOp.Replace,
           serial = txSerial,
@@ -362,10 +362,7 @@ class PackageOpsTest extends PackageOpsTestBase {
         ),
         signatures = Signature.noSignatures,
         isProposal = false,
-      )(
-        SignedTopologyTransaction.versioningTable.protocolVersionRepresentativeFor(
-          testedProtocolVersion
-        )
+        testedProtocolVersion,
       )
   }
 }

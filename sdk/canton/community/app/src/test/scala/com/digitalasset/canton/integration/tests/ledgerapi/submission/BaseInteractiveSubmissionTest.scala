@@ -25,7 +25,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   CommandFailure,
@@ -48,22 +47,20 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.interactive.ExternalPartyUtils
-import com.digitalasset.canton.interactive.ExternalPartyUtils.{
-  ExternalParty,
-  OnboardingTransactions,
-}
+import com.digitalasset.canton.interactive.ExternalPartyUtils.OnboardingTransactions
 import com.digitalasset.canton.logging.{LogEntry, NamedLogging}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.{
+  ExternalParty,
   ForceFlags,
   PartyId,
   PhysicalSynchronizerId,
   SynchronizerId,
 }
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, config}
 import com.google.protobuf.ByteString
 import monocle.Monocle.toAppliedFocusOps
 import org.scalatest.Suite
@@ -81,6 +78,7 @@ object BaseInteractiveSubmissionTest {
 
 }
 
+// TODO(#27482) Simplify this trait by introducing more console commands
 trait BaseInteractiveSubmissionTest
     extends ExternalPartyUtils
     with BaseTest
@@ -94,6 +92,7 @@ trait BaseInteractiveSubmissionTest
   protected val cpn = defaultConfirmingParticipant
   protected val epn = defaultExecutingParticipant
 
+  // TODO(#27482) Check whether this can be removed and unified with local parties case
   protected val defaultTransactionFormat = TransactionFormat(
     eventFormat = Some(
       EventFormat(
@@ -200,11 +199,7 @@ trait BaseInteractiveSubmissionTest
   )(implicit env: TestConsoleEnvironment) = {
     // Start by loading the transactions signed by the party
     confirming.topology.transactions.load(
-      Seq(
-        onboardingTransactions.namespaceDelegation,
-        onboardingTransactions.partyToKeyMapping,
-        onboardingTransactions.partyToParticipant,
-      ),
+      onboardingTransactions.toSeq,
       store = synchronizerId,
     )
 
@@ -288,10 +283,10 @@ trait BaseInteractiveSubmissionTest
           .value
       }.forgetNE
     } else Seq.empty
-    val signedTopologyTransaction = SignedTopologyTransaction.tryCreate(
+    val signedTopologyTransaction = SignedTopologyTransaction.withTopologySignatures(
       updatedTransaction,
       NonEmpty
-        .mk(Set, namespaceSignature, protocolSignatures*)
+        .mk(Seq, namespaceSignature, protocolSignatures*)
         .map(SingleTransactionSignature(updatedTransaction.hash, _)),
       isProposal = false,
       protocolVersion = testedProtocolVersion,
@@ -299,7 +294,7 @@ trait BaseInteractiveSubmissionTest
     participant.topology.transactions.load(
       Seq(signedTopologyTransaction),
       store,
-      synchronize = Some(NonNegativeDuration.ofSeconds(10)),
+      synchronize = Some(config.NonNegativeDuration.ofSeconds(10)),
     )
     keys
   }
@@ -308,7 +303,7 @@ trait BaseInteractiveSubmissionTest
       partyE: ExternalParty
   )(implicit env: TestConsoleEnvironment): CreatedEvent =
     externalSubmit(
-      new Cycle("test-external-signing", partyE.primitiveId).create(),
+      new Cycle("test-external-signing", partyE.toProtoPrimitive).create(),
       partyE,
       epn(env),
     ).events.loneElement.getCreated
@@ -375,7 +370,7 @@ trait BaseInteractiveSubmissionTest
     val hostingParticipantIds = executingParticipant.topology.party_to_participant_mappings
       .list(
         synchronizerId = SynchronizerId.tryFromString(transaction.synchronizerId),
-        filterParty = as.primitiveId,
+        filterParty = as.toProtoPrimitive,
       )
       .loneElement
       .item
@@ -505,7 +500,7 @@ trait BaseInteractiveSubmissionTest
   ): Transaction = {
     val submissionId = UUID.randomUUID().toString
     execParticipant(env).ledger_api.interactive_submission
-      .executeAndWaitForTransaction(
+      .execute_and_wait_for_transaction(
         prepared.preparedTransaction.value,
         signatures,
         submissionId,
@@ -636,6 +631,6 @@ trait BaseInteractiveSubmissionTest
     protoCmd(createCycleCommand(ownerE))
 
   def createCycleCommand(ownerE: ExternalParty): Update[Created[Cycle.ContractId]] =
-    new Cycle("test-external-signing", ownerE.primitiveId).create()
+    new Cycle("test-external-signing", ownerE.toProtoPrimitive).create()
 
 }

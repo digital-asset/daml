@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology
 
 import cats.kernel.Order
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ValueConversionError}
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String3, String300}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -364,10 +365,22 @@ object ParticipantId {
     (p: ParticipantId, pp: PositionedParameters) => pp >> p.uid.toLengthLimitedString
 }
 
+sealed trait Party extends Identity with Product with Serializable {
+  override def uid: UniqueIdentifier
+  def partyId: PartyId
+}
+
+final case class ExternalParty(
+    partyId: PartyId,
+    signingFingerprints: NonEmpty[Seq[Fingerprint]],
+) extends Party {
+  override def uid: UniqueIdentifier = partyId.uid
+}
+
 /** A party identifier based on a unique identifier
   */
-final case class PartyId(uid: UniqueIdentifier) extends Identity {
-
+final case class PartyId(uid: UniqueIdentifier) extends Party {
+  def partyId: PartyId = this
   def toLf: LfPartyId = LfPartyId.assertFromString(uid.toProtoPrimitive)
 }
 
