@@ -44,8 +44,7 @@ daml_compile(
 #  json-api connected to the ledger.
 #
 #  The main inputs to 'build-and-lint' are:
-#     - Bazel artifacts : '@daml/types' and '@daml/ledger' (these are
-#       npm packages);
+#     - Bazel artifacts : '@daml/types' (this is an npm packages);
 #     - Source artifacts:
 #       - 'ts/codegen/tests/daml/*'
 #         The Daml that goes into the DAR ('build-and-lint-1.0.0.dar');

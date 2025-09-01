@@ -322,7 +322,7 @@ export interface Unit {
   // `Unit extends {[key: string]: string} ? true : false` is `false`,
   // whereas `{} extends {[key: string]: string} ? true : false` is `true`.
   // This might become important for defining a better version of the
-  // `Query<T>` type in @daml/ledger.
+  // `Query<T>` type.
 }
 
 /**
@@ -495,6 +495,64 @@ export const ContractId = <T>(
   decoder: jtv.string() as jtv.Decoder<ContractId<T>>,
   encode: (c: ContractId<T>): unknown => c,
 });
+
+/**
+ * A newly created contract.
+ *
+ * @typeparam T The contract payload type.
+ * @typeparam K The contract key type.
+ * @typeparam I The contract type id.
+ *
+ */
+export type CreateEvent<
+  T extends object,
+  K = unknown,
+  I extends string = string,
+> = {
+  templateId: I;
+  contractId: ContractId<T>;
+  signatories: List<Party>;
+  observers: List<Party>;
+  key: K;
+  payload: T;
+};
+
+/**
+ * An archived contract.
+ *
+ * @typeparam T The contract template or interface type.
+ * @typeparam I The template or interface id.
+ */
+export type ArchiveEvent<T extends object, I extends string = string> = {
+  templateId: I;
+  contractId: ContractId<T>;
+};
+
+/**
+ * An event is either the creation or archival of a contract.
+ *
+ * @typeparam T The contract template type.
+ * @typeparam K The contract key type.
+ * @typeparam I The contract id type.
+ */
+export type Event<T extends object, K = unknown, I extends string = string> =
+  | { created: CreateEvent<T, K, I>; matchedQueries: number[] }
+  | { created: CreateEvent<T, K, I> }
+  | { archived: ArchiveEvent<T, I> };
+
+/**
+ * The result of a ``query`` against the ledger.
+ *
+ * @typeparam T The contract template type of the query.
+ * @typeparam K The contract key type of the query.
+ * @typeparam I The template id type.
+ */
+export type QueryResult<T extends object, K, I extends string> = {
+  /** Contracts matching the query. */
+  contracts: readonly CreateEvent<T, K, I>[];
+  /** Indicator for whether the query is executing. */
+  loading: boolean;
+};
 
 /**
  * The counterpart of Daml's `Optional T` type.
