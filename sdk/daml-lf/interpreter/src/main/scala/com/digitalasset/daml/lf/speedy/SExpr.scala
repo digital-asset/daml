@@ -111,9 +111,7 @@ private[lf] object SExpr {
   }
 
   /** Function application: ANF case: 'fun' and 'args' are atomic expressions */
-  final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic])
-      extends SExpr
-      with SomeArrayEquals {
+  final case class SEAppAtomicGeneral(fun: SExprAtomic, args: ArraySeq[SExprAtomic]) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
       val vfun = fun.lookupValue(machine)
       machine.enterApplication(vfun, args)
@@ -124,8 +122,7 @@ private[lf] object SExpr {
     * of `args' matches the builtin arity.
     */
   final case class SEAppAtomicSaturatedBuiltin(builtin: SBuiltinFun, args: ArraySeq[SExprAtomic])
-      extends SExpr
-      with SomeArrayEquals {
+      extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Q] = {
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))
@@ -148,9 +145,7 @@ private[lf] object SExpr {
   /** Closure creation. Create a new closure object storing the free variables
     * in 'body'.
     */
-  final case class SEMakeClo(fvs: ArraySeq[SELoc], arity: Int, body: SExpr)
-      extends SExpr
-      with SomeArrayEquals {
+  final case class SEMakeClo(fvs: ArraySeq[SELoc], arity: Int, body: SExpr) extends SExpr {
 
     override def execute[Q](machine: Machine[Q]): Control.Value = {
       val sValues = fvs.map(_.lookupValue(machine))
@@ -188,9 +183,7 @@ private[lf] object SExpr {
   }
 
   /** (Atomic) Pattern match. */
-  final case class SECaseAtomic(scrut: SExprAtomic, alts: ArraySeq[SCaseAlt])
-      extends SExpr
-      with SomeArrayEquals {
+  final case class SECaseAtomic(scrut: SExprAtomic, alts: ArraySeq[SCaseAlt]) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
       val vscrut = scrut.lookupValue(machine)
       executeMatchAlts(machine, alts, vscrut)
@@ -198,7 +191,7 @@ private[lf] object SExpr {
   }
 
   /** A let-expression with a single RHS */
-  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr with SomeArrayEquals {
+  final case class SELet1General(rhs: SExpr, body: SExpr) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       machine.pushKont(KPushTo(machine, body))
       Control.Expression(rhs)
@@ -207,8 +200,7 @@ private[lf] object SExpr {
 
   /** A (single) let-expression with an unhungry,saturated builtin-application as RHS */
   final case class SELet1Builtin(builtin: SBuiltinPure, args: ArraySeq[SExprAtomic], body: SExpr)
-      extends SExpr
-      with SomeArrayEquals {
+      extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control.Expression = {
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))
@@ -223,8 +215,7 @@ private[lf] object SExpr {
       builtin: SBuiltinArithmetic,
       args: ArraySeq[SExprAtomic],
       body: SExpr,
-  ) extends SExpr
-      with SomeArrayEquals {
+  ) extends SExpr {
     override def execute[Q](machine: Machine[Q]): Control[Nothing] = {
       assert(args.length == builtin.arity)
       val actuals = args.map(_.lookupValue(machine))

@@ -13,9 +13,13 @@ import           DA.Pretty (renderPretty)
 
 import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
+
+import Data.Maybe ( isNothing )
+
 import           GHC.Stack                  (HasCallStack)
 import Language.LSP.Types
 import           Outputable (Outputable(..), text)
+import Text.Printf (printf)
 
 mkVar :: T.Text -> ExprVarName
 mkVar = ExprVarName
@@ -80,9 +84,11 @@ synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
 synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
 
 -- | Fails if there are any duplicate module names
-buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Package
-buildPackage meta version mods =
-    Package version (NM.fromList mods) meta
+buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Maybe PackageIds -> Package
+buildPackage meta version mods imports =
+  if version `supports` featurePackageImports && isNothing imports
+    then error $ printf "version %s supports explicit package imports, but found Nothing" $ show version
+    else Package version (NM.fromList mods) meta imports
 
 instance Outputable Expr where
     ppr = text . renderPretty

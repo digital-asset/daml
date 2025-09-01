@@ -172,7 +172,7 @@ evExpFoldrErr2 : Script Int
 evExpFoldrErr2 = script do
   pure (foldr f 0 [1, 2])
   where
-    f 1 = error "EvExpFoldrErr2 OK"
+    f 2 = error "EvExpFoldrErr2 OK"
     f _ = error "EvExpFoldrErr2 failed"
 
 -- @ERROR EvExpFoldrErr3 OK
