@@ -177,13 +177,13 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             packageName = basicTestsPkg.pkgName,
             templateId = templateId,
             arg = ValueRecord(
-              Some(templateId),
+              None /* templateId */,
               ImmArray(
-                Some[Name]("p") -> ValueParty(party),
+                None /* p */ -> ValueParty(party),
                 // The static type of "num" is Numeric 4 but the value below only has 2 decimal places. Because
                 // numeric values in disclosures must be normalized, we expect this to disclosure to be rejected
                 // by the engine in SBImportInputContract with a conformance error.
-                Some[Name]("num") -> ValueNumeric(Numeric.assertFromString("12.12")),
+                None /* num */ -> ValueNumeric(Numeric.assertFromString("12.12")),
               ),
             ),
             signatories = Set(party),
@@ -239,13 +239,13 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             packageName = basicTestsPkg.pkgName,
             templateId = templateId,
             arg = ValueRecord(
-              Some(templateId),
+              None /* templateId */,
               ImmArray(
-                Some[Name]("p") -> ValueParty(party),
+                None /* p */ -> ValueParty(party),
                 // The engine will always produce transactions with no trailing Nones. But for backwards compatibility
                 // with version of Canton predating 3.3, SBImportInputContract should not reject disclosures with
                 // trailing Nones.
-                Some[Name]("opt") -> ValueOptional(None),
+                None /* opt */ -> ValueOptional(None),
               ),
             ),
             signatories = Set(party),
@@ -1440,9 +1440,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val fetchedCid = toContractId("1")
     val fetchedStrTid = "BasicTests:Fetched"
     val fetchedTArgs = ImmArray(
-      (Some[Name]("sig1"), ValueParty(alice)),
-      (Some[Name]("sig2"), ValueParty(bob)),
-      (Some[Name]("obs"), ValueParty(clara)),
+      (None /* sig1 */, ValueParty(alice)),
+      (None /* sig2 */, ValueParty(bob)),
+      (None /* obs */, ValueParty(clara)),
     )
     val fetchedSignatories = List(alice, bob)
     val fetchedObservers = List(clara)
@@ -1452,27 +1452,27 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
     val fetcher1Cid = toContractId("2")
     val fetcher1TArgs = ImmArray(
-      (Some[Name]("sig"), ValueParty(alice)),
-      (Some[Name]("obs"), ValueParty(bob)),
-      (Some[Name]("fetcher"), ValueParty(clara)),
+      (None /* sig */, ValueParty(alice)),
+      (None /* obs */, ValueParty(bob)),
+      (None /* fetcher */, ValueParty(clara)),
     )
     val fetcher1Signatories = List(alice)
     val fetcher1Observers = List(bob)
 
     val fetcher2Cid = toContractId("3")
     val fetcher2TArgs = ImmArray(
-      (Some[Name]("sig"), ValueParty(party)),
-      (Some[Name]("obs"), ValueParty(alice)),
-      (Some[Name]("fetcher"), ValueParty(clara)),
+      (None /* sig */, ValueParty(party)),
+      (None /* obs */, ValueParty(alice)),
+      (None /* fetcher */, ValueParty(clara)),
     )
     val fetcher2Signatories = List(party)
     val fetcher2Observers = List(alice)
 
     val fetcher3Cid = toContractId("4")
     val fetcher3TArgs = ImmArray(
-      (Some[Name]("sig"), ValueParty(clara)),
-      (Some[Name]("obs"), ValueParty(alice)),
-      (Some[Name]("fetcher"), ValueParty(party)),
+      (None /* sig */, ValueParty(clara)),
+      (None /* obs */, ValueParty(alice)),
+      (None /* fetcher */, ValueParty(party)),
     )
     val fetcher3Signatories = List(clara)
     val fetcher3Observers = List(alice)
@@ -1487,7 +1487,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, tid),
-        arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
+        arg = ValueRecord(None /* Identifier(basicTestsPkgId, tid) */, targs),
         signatories = signatories,
         observers = observers,
       )
@@ -1638,11 +1638,11 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetchedStrTid),
         arg = ValueRecord(
-          Some(Identifier(basicTestsPkgId, fetchedStrTid)),
+          None /* Identifier(basicTestsPkgId, fetchedStrTid) */,
           ImmArray(
-            (Some[Name]("sig1"), ValueParty(alice)),
-            (Some[Name]("sig2"), ValueParty(bob)),
-            (Some[Name]("obs"), ValueParty(clara)),
+            (None /* sig1 */, ValueParty(alice)),
+            (None /* sig2 */, ValueParty(bob)),
+            (None /* obs */, ValueParty(clara)),
           ),
         ),
         signatories = List(alice, bob),
@@ -1686,7 +1686,8 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, lookerUpTemplate),
-        arg = ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+        arg =
+          ValueRecord(None /* lookerUpTemplateId */, ImmArray((None /* p */, ValueParty(alice)))),
       )
 
     val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2031,7 +2032,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConId(basicTestsPkgId, fetcherTemplate),
-        arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
+        arg = ValueRecord(None /* fetcherTemplateId */, ImmArray((None /* p */, ValueParty(alice)))),
       )
 
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
@@ -2741,10 +2742,10 @@ class EngineTestHelpers(
       packageName = basicTestsPkg.pkgName,
       template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
-        Some(BasicTests_WithKey),
+        None /* BasicTests_WithKey */,
         ImmArray(
-          (Some[Name]("p"), ValueParty(alice)),
-          (Some[Name]("k"), ValueInt64(42)),
+          (None /* p */, ValueParty(alice)),
+          (None /* k */, ValueInt64(42)),
         ),
       ),
       signatories = List(alice),
@@ -2769,8 +2770,8 @@ class EngineTestHelpers(
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
-            ImmArray((Some[Name]("p"), ValueParty(party))),
+            None /* BasicTests:Simple */,
+            ImmArray((None /* p */, ValueParty(party))),
           ),
           signatories = List(party),
           observers = List.empty,
@@ -2781,10 +2782,10 @@ class EngineTestHelpers(
           packageName = basicTestsPkg.pkgName,
           template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+            None /* BasicTests:CallablePayout */,
             ImmArray(
-              (Some[Name]("giver"), ValueParty(alice)),
-              (Some[Name]("receiver"), ValueParty(bob)),
+              (None /* giver */, ValueParty(alice)),
+              (None /* receiver */, ValueParty(bob)),
             ),
           ),
           signatories = List(alice),
