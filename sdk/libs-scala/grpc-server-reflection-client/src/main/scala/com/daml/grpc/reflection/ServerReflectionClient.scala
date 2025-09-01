@@ -3,8 +3,8 @@
 
 package com.daml.grpc.reflection
 
-import io.grpc.reflection.v1alpha.ServerReflectionGrpc.ServerReflectionStub
-import io.grpc.reflection.v1alpha.ServerReflectionRequest
+import io.grpc.reflection.v1.ServerReflectionGrpc.ServerReflectionStub
+import io.grpc.reflection.v1.ServerReflectionRequest
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.Future
