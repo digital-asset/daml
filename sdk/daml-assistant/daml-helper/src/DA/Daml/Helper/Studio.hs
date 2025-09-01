@@ -13,6 +13,7 @@ import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import Data.Char (toLower)
 import Data.Function (on)
 import Data.Maybe
+import qualified Data.Text as T
 import System.Directory.Extra
 import System.Environment hiding (setEnv)
 import System.Exit
@@ -24,11 +25,17 @@ import System.Process.Internals (translate)
 import System.Process.Typed
 
 import DA.Daml.Project.Consts
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.IO as Logger
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do
+    loggerH <- Logger.newStderrLogger Logger.Info "studio"
+    Logger.logInfo loggerH "Starting Studio..."
     mSdkPath <- tryGetSdkPath
+    Logger.logInfo loggerH $ "Read environment, running with " <> maybe "DPM" (const "Daml") mSdkPath
     InstalledExtensions {..} <- getInstalledExtensions
+    Logger.logInfo loggerH "Installed extensions acquired"
 
     bundledExtensionVsix <-
       case mSdkPath of
@@ -43,6 +50,7 @@ runDamlStudio replaceExt remainingArguments = do
               -- See @bazel_tools/packaging/packaging.bzl@.
             , runfilesPathPrefix = mainWorkspace </> "compiler"
             }
+    Logger.logInfo loggerH "Extension vsix found"
 
     let removeOldBundledExtension = whenJust oldBundled removePathForcibly
         uninstall name = do
@@ -82,23 +90,33 @@ runDamlStudio replaceExt remainingArguments = do
     -- First, ensure extension is installed as requested.
     case replaceExt of
         ReplaceExtNever ->
-            when (not bundledInstalled && isNothing oldBundled)
+            when (not bundledInstalled && isNothing oldBundled) $ do
+                Logger.logInfo loggerH "Installing published extension"
                 installPublishedExtension
 
         ReplaceExtAlways -> do
+            Logger.logInfo loggerH "Removing published extension"
             removePublishedExtension
+            Logger.logInfo loggerH "Removing bundled extension"
             removeBundledExtension
+            Logger.logInfo loggerH "Removing legacy bundled extension"
             removeOldBundledExtension
+            Logger.logInfo loggerH "Installing bundled extension"
             installBundledExtension'
 
         ReplaceExtPublished -> do
+            Logger.logInfo loggerH "Removing bundled extension"
             removeBundledExtension
+            Logger.logInfo loggerH "Removing legacy bundled extension"
             removeOldBundledExtension
+            Logger.logInfo loggerH "Installing published extension"
             installPublishedExtension
 
     -- Then, open visual studio code.
+    Logger.logInfo loggerH "Getting package path"
     mPackagePath <- getPackagePath
     let path = fromMaybe "." mPackagePath
+    Logger.logInfo loggerH "Running VSCode"
     (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments)
     when (exitCode /= ExitSuccess) $ do
         hPutStrLn stderr . unlines $
@@ -107,6 +125,7 @@ runDamlStudio replaceExt remainingArguments = do
             , "See https://code.visualstudio.com/Download for installation instructions."
             ]
         exitWith exitCode
+    Logger.logInfo loggerH $ "Vscode returned " <> T.pack (show exitCode)
 
 data ReplaceExtension
     = ReplaceExtNever
