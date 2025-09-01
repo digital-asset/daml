@@ -304,7 +304,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
         prefetchKeys = Seq.empty,
       )
       .consume(
-        ledger.get(submitter, effectiveAt),
+        ledger.get(submitter, effectiveAt).andThen(_.withoutLabels),
         allPackages,
         { case _ =>
           sys.error("TODO keys for LargeTransactionTest")
