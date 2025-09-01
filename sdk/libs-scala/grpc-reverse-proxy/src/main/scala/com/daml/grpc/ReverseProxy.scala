@@ -7,7 +7,7 @@ import com.daml.grpc.reflection.{ServerReflectionClient, ServiceDescriptorInfo}
 import com.daml.resources.grpc.GrpcResourceOwnerFactories
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ResourceOwnerFactories}
 import io.grpc.{Channel, Server, ServerBuilder, ServerInterceptor, ServerInterceptors}
-import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.reflection.v1.ServerReflectionGrpc
 
 import scala.concurrent.duration.DurationInt
 

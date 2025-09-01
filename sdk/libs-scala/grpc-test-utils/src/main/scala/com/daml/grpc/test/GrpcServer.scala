@@ -8,7 +8,7 @@ import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.health.v1.{HealthCheckRequest, HealthGrpc}
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.protobuf.services.ProtoReflectionServiceV1
-import io.grpc.reflection.v1alpha.{
+import io.grpc.reflection.v1.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse,

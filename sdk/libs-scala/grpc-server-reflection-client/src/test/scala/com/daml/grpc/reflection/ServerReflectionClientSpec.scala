@@ -6,7 +6,7 @@ package com.daml.grpc.reflection
 import com.daml.grpc.test.GrpcServer
 import io.grpc.StatusRuntimeException
 import io.grpc.health.v1.HealthGrpc
-import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.reflection.v1.ServerReflectionGrpc
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 

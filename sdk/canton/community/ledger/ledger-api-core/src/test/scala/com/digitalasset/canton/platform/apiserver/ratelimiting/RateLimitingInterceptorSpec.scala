@@ -28,7 +28,7 @@ import io.grpc.*
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionServiceV1
-import io.grpc.reflection.v1alpha.{
+import io.grpc.reflection.v1.{
   ServerReflectionGrpc,
   ServerReflectionRequest,
   ServerReflectionResponse,
