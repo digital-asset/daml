@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.crypto.Hash.HashingMethod
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.transaction.{
   CreationTime,
@@ -22,7 +22,10 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class ContractValidationSpec extends AnyWordSpec with Matchers with EitherValues {
 
-  private val underTest = ContractValidation(Engine.DevEngine(LanguageMajorVersion.V2))
+  private val engine = new Engine(
+    EngineConfig(allowedLanguageVersions = LanguageVersion.StableVersions(LanguageMajorVersion.V2))
+  )
+  private val underTest = ContractValidation(engine)
   private val alice = Ref.Party.assertFromString("alice")
   private val create = Node.Create(
     coid = TransactionBuilder.newCid,

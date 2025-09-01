@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.engine.Error.Interpretation
 import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
 
-/** Methods to build and validate contract instances */
 trait ContractValidation {
 
   /** Validates the contract by performing the following checks
