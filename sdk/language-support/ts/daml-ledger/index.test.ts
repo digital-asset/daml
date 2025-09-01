@@ -6,12 +6,11 @@ import {
   Choice,
   ChoiceFrom,
   ContractId,
-  CreateEvent,
-  Event,
   registerTemplate,
 } from "@daml/types";
-import Ledger from "./index";
+import Ledger, { CreateEvent } from "./index";
 import { assert } from "./index";
+import { Event } from "./index";
 import * as jtv from "@mojotech/json-type-validation";
 import type { EventEmitter } from "events";
 import mockConsole from "jest-mock-console";

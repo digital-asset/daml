@@ -395,17 +395,8 @@ renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
     , [ "  export type Key = " <> tsTypeRef (genType keyDef) | Just keyDef <- [tnsMbKeyDef] ]
-    , [ "  export type CreateEvent = damlTypes.CreateEvent" <> tParams [tnsName, tK, tI]
-      , "  export type ArchiveEvent = damlTypes.ArchiveEvent" <> tParams [tnsName, tI]
-      , "  export type Event = damlTypes.Event" <> tParams [tnsName, tK, tI]
-      , "  export type QueryResult = damlTypes.QueryResult" <> tParams [tnsName, tK, tI]
-      , "}"
+    , [ "}" ]
     ]
-    ]
-  where
-    tK = maybe "undefined" (const (tnsName <.> "Key")) tnsMbKeyDef
-    tI = "typeof " <> tnsName <.> "templateId"
-    tParams xs = "<" <> T.intercalate ", " xs <> ">"
 
 data TemplateRegistration = TemplateRegistration T.Text PackageId PackageNameVersion
 
