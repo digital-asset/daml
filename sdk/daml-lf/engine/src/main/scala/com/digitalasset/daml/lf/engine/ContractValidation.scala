@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 trait ContractValidation {
 
   /** Validates the contract by performing the following checks
+    * - Verifies that the argument type checks against the target package
     * - Verifies that the ensures clause does not have assertion failures
     * - Check that the metadata in the contract is consistent with that produced by the target package
     * - Hashes the contract instance, after rewriting contract ids, using the specified hashing method
@@ -31,7 +32,7 @@ trait ContractValidation {
     * @param idValidator
     *   a function that checks if a given hash is valid
     * @return
-    *   a Result containing an optional error message if validation fails, or None if it succeeds
+    *   a Result containing an unit either on success and a string error message on failure
     */
   def validate(
       instance: FatContractInstance,
@@ -39,7 +40,7 @@ trait ContractValidation {
       hashingMethod: Hash.HashingMethod,
       contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
       idValidator: Hash => Boolean,
-  ): Result[Option[String]]
+  ): Result[Either[String, Unit]]
 
   /** This method is used to compute the hash of contract instances during transaction
     * interpretation. This is for cases where a hash is needed for adhoc reasons.
@@ -79,20 +80,20 @@ object ContractValidation {
         hashingMethod: Hash.HashingMethod,
         contractIdRewriter: ContractId => ContractId = (cid: ContractId) => cid,
         idValidator: Hash => Boolean,
-    ): Result[Option[String]] = {
+    ): Result[Either[String, Unit]] = {
 
       hashInternal(instance, hashingMethod) match {
         case Right(hash) if idValidator(hash) =>
           // Missing checks:
           // - Verification that the ensures clause does not have assertion failures
           // - Verification that the metadata in the contract is consistent with that produced by the target package
-          ResultDone(None)
+          ResultDone(Right(()))
 
         case Right(_) =>
-          ResultDone(Some(s"Contract did not validate"))
+          ResultDone(Left(s"Contract did not validate"))
 
         case Left(err) =>
-          ResultDone(Some(err))
+          ResultDone(Left(err))
       }
 
     }
