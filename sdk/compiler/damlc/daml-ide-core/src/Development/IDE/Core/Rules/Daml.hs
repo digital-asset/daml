@@ -378,11 +378,8 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
--- TODO[RB]: unomment
--- extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
--- extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
-extractImports :: [LF.ModuleWithImports] -> [LF.Module]
-extractImports = id
+extractImports :: [LF.ModuleWithImports'] -> ([LF.Module], Maybe LF.PackageIds)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
@@ -799,12 +796,11 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     --TODO[RB]: uncomment
-    -- (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
-    dalfs <- map fst <$> usesE' ReadSerializedDalf files
+    (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     --TODO: we are not inside action and have multiple files, so IDK how to
     --obtain the deps here?
-    pure $ buildPackage meta lfVersion dalfs mempty
+    pure $ buildPackage meta lfVersion dalfs imports
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
