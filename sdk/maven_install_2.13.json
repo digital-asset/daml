@@ -5991,7 +5991,6 @@
                     "io.grpc.protobuf.services",
                     "io.grpc.protobuf.services.internal",
                     "io.grpc.reflection.v1",
-                    "io.grpc.reflection.v1alpha",
                     "io.grpc.services"
                 ],
                 "sha256": "dff269bb14449e2cdce7b5d6af1e5ac395b29b77786adaab9e577b4653cacece",
