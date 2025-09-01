@@ -338,7 +338,7 @@ private[lf] object IdeLedgerRunner {
                 readAs,
                 (fcoinst: FatContractInstance) =>
                   callback(
-                    fcoinst,
+                    fcoinst.withoutLabels,
                     Hash.HashingMethod.TypedNormalForm,
                     _ => throw new NotImplementedError("authentication not implemented yet"),
                   ),
