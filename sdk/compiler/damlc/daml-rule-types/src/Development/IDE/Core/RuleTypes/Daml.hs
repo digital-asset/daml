@@ -129,7 +129,7 @@ type instance RuleResult GetScriptRoot = NormalizedFilePath
 type instance RuleResult GetOpenVirtualResources = HashSet VirtualResource
 
 -- | This is used for on-disk incremental builds
-type instance RuleResult ReadSerializedDalf = LF.ModuleWithImports
+type instance RuleResult ReadSerializedDalf = LF.ModuleWithImports'
 -- | Read the interface and the summary. This rule has a cutoff on the ABI hash of the interface.
 -- It is important to get the modsummary from this rule rather than depending on the parsed module.
 -- Otherwise you will always recompile module B if B depends on A and A changed even if A’s ABI stayed
