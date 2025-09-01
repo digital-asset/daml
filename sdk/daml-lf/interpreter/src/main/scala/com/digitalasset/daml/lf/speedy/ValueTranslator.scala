@@ -160,7 +160,10 @@ private[lf] final class ValueTranslator(
               ) =>
             // Fail if the record ID or any label is present in the record value.
             if (mbId.isDefined)
-              throw TranslationError.InvalidValue(value0, "Unexpected type id in record value.")
+              throw TranslationError.InvalidValue(
+                value0,
+                s"Unexpected type id ${mbId} in record value.",
+              )
             sourceElements.foreach { case (mbLabel, _) =>
               mbLabel.foreach(label =>
                 throw TranslationError.InvalidValue(
