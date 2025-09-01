@@ -140,7 +140,6 @@ main = do
             { packageLfVersion = optLfVersion
             , packageModules = NM.fromList [mod]
             , packageMetadata = PackageMetadata (PackageName "simple-dalf") (PackageVersion "1.0.0") Nothing
-            , importedPackages = Nothing
             }
     let (bytes, PackageId hash) = encodeArchiveAndHash pkg
     BSL.writeFile optFile bytes

@@ -971,11 +971,10 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
-
 -- each script module is wrapped in a proto package
-encodeSinglePackageModule :: Version -> ModuleWithImports -> P.Package
-encodeSinglePackageModule version (mod, imports) =
-    encodePackage (Package version (NM.insert mod NM.empty) metadata imports)
+encodeSinglePackageModule :: Version -> Module -> P.Package
+encodeSinglePackageModule version mod =
+    encodePackage (Package version (NM.insert mod NM.empty) metadata)
   where
     metadata = PackageMetadata
       { packageName = PackageName "single-module-package"
@@ -1038,14 +1037,8 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
-encodeImports :: Maybe PackageIds -> Maybe P.PackageImports
-encodeImports = fmap $ P.PackageImports . V.fromList . S.toList . S.map toTlText
-  where
-    toTlText :: PackageId -> TL.Text
-    toTlText = TL.fromStrict . unPackageId
-
 encodePackage :: Package -> P.Package
-encodePackage (Package version mods metadata imports) =
+encodePackage (Package version mods metadata) =
     let env = initEncodeEnv version
         ( (packageModules, packageMetadata),
           EncodeEnv{internedStrings, internedDottedNames, internedKindsMap, internedTypesMap, internedExprsMap}) =
@@ -1056,7 +1049,6 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportedPackages = encodeImports imports
     in
     P.Package{..}
 

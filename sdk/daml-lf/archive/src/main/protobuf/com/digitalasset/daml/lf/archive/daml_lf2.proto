@@ -1360,10 +1360,6 @@ message PackageMetadata {
   UpgradedPackageId upgraded_package_id = 3; // *optional*
 }
 
-message PackageImports {
-  repeated string imported_packages = 8;
-}
-
 message Package {
   repeated Module modules = 1;
   repeated string interned_strings = 2;
@@ -1375,7 +1371,4 @@ message Package {
   repeated Type interned_types = 5;
   repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
   repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
-
-  //indirection to PackageImports to get a Maybe wrapper
-  PackageImports imported_packages = 8;
 }

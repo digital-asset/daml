@@ -19,7 +19,6 @@ import qualified Data.Graph as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
 import           GHC.Generics (Generic)
-
 import Module (UnitId, unitIdString, stringToUnitId)
 import System.FilePath
 import Text.Read (readMaybe)
@@ -523,8 +522,6 @@ mkOneModulePackage m = Package{..}
     packageLfVersion = Version V2 PointDev
     packageModules :: NM.NameMap Module
     packageModules = NM.fromList [m]
-    importedPackages :: Maybe PackageIds
-    importedPackages = Nothing --since used for testing
     packageMetadata :: PackageMetadata
     packageMetadata = PackageMetadata{..}
       where
