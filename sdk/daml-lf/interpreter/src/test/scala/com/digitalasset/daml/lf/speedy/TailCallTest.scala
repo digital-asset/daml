@@ -61,14 +61,6 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
        case (EQUAL @Int64 x 0) of
            True -> acc
          | _    -> F:generate (Cons @Int64 [x] acc) (SUB_INT64 x 1);
-
-     val someOne: Option Int64 = Some @Int64 1;
-
-     val stupidLoop : Option Int64 -> Int64 =
-       \(x: Option Int64) -> case x of
-         Some z -> ADD_INT64 (F:stupidLoop F:someOme) z
-       | None -> 0;
-
    }
   """)
 
@@ -141,11 +133,6 @@ class TailCallTest(majorLanguageVersion: LanguageMajorVersion)
     val exp = e"F:triangle_viaFoldRight2 100"
     val expected = SValue.SInt64(5050)
     runExpr(exp, 12, costModelStack) shouldBe expected
-  }
-
-  "test " in {
-    val exp = e"F:stupidLoop F:some"
-    runExpr(exp, Long.MaxValue, costModelFreeStack) shouldBe SValue.SInt64
   }
 
   def crash[A](reason: String): A = throw new RuntimeException(reason)
