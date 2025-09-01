@@ -93,9 +93,9 @@ jobs:
       --detect.included.detector.types=YARN,NPM,CLANG \
       --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
-      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
-      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_npm \
       --detect.timeout=1500
@@ -202,13 +202,14 @@ jobs:
         echo "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|"
         sed -i "s|blackduck_script_sha: $current|blackduck_script_sha: $latest|" ../ci/blackduck.yml
         git add ../ci/blackduck.yml
-        open_pr "$branch" "bump blackduck script to ${latest:0:8}"
-        az extension add --name azure-devops
+        
+        az extension add --name azure-devops --allow-preview true || true
+        echo ${AZURE_DEVOPS_EXT_PAT} | az devops login --organization="https://dev.azure.com/digitalasset"
         trap "az devops logout" EXIT
-        echo "$(System.AccessToken)" | az devops login --org "https://dev.azure.com/digitalasset"
-        az pipelines build queue --branch "$branch" \
-                                 --definition-name "PRs" \
-                                 --org "https://dev.azure.com/digitalasset" \
-                                 --project daml
+        
+        open_pr "$branch" "bump blackduck script to ${latest:0:8}" "" "" "$(Build.SourceBranchName)"
+        trigger_azure $(System.AccessToken) "PRs" --branch $branch
       fi
     displayName: 'Bump Blackduck Script if needed'
+    env:
+      AZURE_DEVOPS_EXT_PAT: $(System.AccessToken)

@@ -235,7 +235,6 @@ genrule(
     srcs = [
         ":hoogle_db.tar.gz",
         "//language-support/java:javadoc",
-        "//language-support/ts/daml-react:docs",
         "//language-support/ts/daml-ledger:docs",
         "//language-support/ts/daml-types:docs",
         "@daml-cheat-sheet//:site",
@@ -255,10 +254,8 @@ genrule(
     rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/META-INF
 
     # Copy generated documentation for typescript libraries
-    mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-react
     mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-ledger
     mkdir -p $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types
-    tar -xzf $(location //language-support/ts/daml-react:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-react/
     tar -xzf $(location //language-support/ts/daml-ledger:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-ledger/
     tar -xzf $(location //language-support/ts/daml-types:docs) --strip-components 1 -C $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-ts/daml-types/
 

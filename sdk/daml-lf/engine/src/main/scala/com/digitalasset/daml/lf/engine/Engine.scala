@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, 
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, Question, SError, SResult, SValue, TraceLog}
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
+import com.digitalasset.daml.lf.speedy.Speedy
 import com.digitalasset.daml.lf.speedy.Speedy.{Machine, PureMachine, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.transaction.{
@@ -182,7 +183,8 @@ class Engine(val config: EngineConfig) {
           engineLogger = engineLogger,
           submissionInfo = Some(Engine.SubmissionInfo(participantId, submissionSeed, submitters)),
         )
-    } yield result
+      (tx, meta, _) = result
+    } yield (tx, meta)
   }
 
   /** Behaves like `submit`, but it takes a single `ReplayCommand` (instead of `ApiCommands`) as input.
@@ -226,7 +228,8 @@ class Engine(val config: EngineConfig) {
         engineLogger = engineLogger,
         submissionInfo = None,
       )
-    } yield result
+      (tx, meta, _) = result
+    } yield (tx, meta)
 
   def replay(
       submitters: Set[Party],
@@ -238,6 +241,29 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
+    replayAndCollectMetrics(
+      submitters,
+      tx,
+      ledgerEffectiveTime,
+      participantId,
+      preparationTime,
+      submissionSeed,
+      packageResolution,
+      engineLogger,
+    ).map { case (tx, meta, _) => (tx, meta) }
+
+  private[lf] def replayAndCollectMetrics(
+      submitters: Set[Party],
+      tx: SubmittedTransaction,
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      preparationTime: Time.Timestamp,
+      submissionSeed: crypto.Hash,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+      engineLogger: Option[EngineLogger] = None,
+  )(implicit
+      loggingContext: LoggingContext
+  ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
     for {
       commands <- preprocessor.translateTransactionRoots(tx)
       result <- interpretCommands(
@@ -277,9 +303,27 @@ class Engine(val config: EngineConfig) {
       preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
+    validateAndCollectMetrics(
+      submitters,
+      tx,
+      ledgerEffectiveTime,
+      participantId,
+      preparationTime,
+      submissionSeed,
+    ).map(_ => ())
+  }
+
+  private[lf] def validateAndCollectMetrics(
+      submitters: Set[Party],
+      tx: SubmittedTransaction,
+      ledgerEffectiveTime: Time.Timestamp,
+      participantId: Ref.ParticipantId,
+      preparationTime: Time.Timestamp,
+      submissionSeed: crypto.Hash,
+  )(implicit loggingContext: LoggingContext): Result[Speedy.Metrics] = {
     // reinterpret
     for {
-      result <- replay(
+      result <- replayAndCollectMetrics(
         submitters,
         tx,
         ledgerEffectiveTime,
@@ -287,13 +331,13 @@ class Engine(val config: EngineConfig) {
         preparationTime,
         submissionSeed,
       )
-      (rtx, _) = result
+      (rtx, _, metrics) = result
       validationResult <-
         transaction.Validation
           .isReplayedBy(tx, rtx)
           .fold(
             e => ResultError(Error.Validation.ReplayMismatch(e)),
-            _ => ResultDone.Unit,
+            _ => ResultDone(metrics),
           )
     } yield validationResult
   }
@@ -349,7 +393,9 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
-  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
+  )(implicit
+      loggingContext: LoggingContext
+  ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
     for {
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
@@ -388,7 +434,9 @@ class Engine(val config: EngineConfig) {
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
-  )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  )(implicit
+      loggingContext: LoggingContext
+  ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
 
     val machine = UpdateMachine(
       compiledPackages = compiledPackages,
@@ -452,13 +500,13 @@ class Engine(val config: EngineConfig) {
       machine: UpdateMachine,
       time: Time.Timestamp,
       submissionInfo: Option[Engine.SubmissionInfo] = None,
-  ): Result[(SubmittedTransaction, Tx.Metadata)] = {
+  ): Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
     val abort = () => {
       machine.abort()
       Some(machine.transactionTrace(config.transactionTraceMaxLength))
     }
 
-    def finish: Result[(SubmittedTransaction, Tx.Metadata)] =
+    def finish: Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] =
       machine.finish match {
         case Right(
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
@@ -560,7 +608,7 @@ class Engine(val config: EngineConfig) {
                 ResultError(Error.Interpretation.Internal(loc, errMsg, None))
 
               case None =>
-                ResultDone((tx, meta))
+                ResultDone((tx, meta, machine.metrics))
             }
           }
         case Left(err) =>
@@ -568,7 +616,7 @@ class Engine(val config: EngineConfig) {
       }
 
     @scala.annotation.tailrec
-    def loop: Result[(SubmittedTransaction, Tx.Metadata)] = {
+    def loop: Result[(SubmittedTransaction, Tx.Metadata, Speedy.Metrics)] = {
       machine.run() match {
 
         case SResultQuestion(question) =>

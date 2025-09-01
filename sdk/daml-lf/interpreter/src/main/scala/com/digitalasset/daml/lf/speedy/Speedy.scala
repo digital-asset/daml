@@ -47,6 +47,24 @@ private[lf] object Speedy {
   // These have zero cost when not enabled. But they are not switchable at runtime.
   private val enableInstrumentation: Boolean = false
 
+  final class Metrics(val batchSize: Long) {
+    // Speedy evaluates in steps which are grouped into batches of batchSize
+    private[this] var stepBatchCount: Long = 0
+    private[this] var stepCount: Long = 0
+    private[this] var txNodeCount: Long = 0
+
+    private[speedy] def incrStepCount(): Unit = stepCount += 1
+    private[speedy] def incrStepBatchCount(): Unit = {
+      stepBatchCount += 1
+      stepCount = 0
+    }
+    private[speedy] def incrTransactionNodeCount(): Unit = txNodeCount += 1
+
+    private[lf] def totalStepCount: (Long, Long) = (stepBatchCount, stepCount)
+
+    private[lf] def transactionNodeCount: Long = txNodeCount
+  }
+
   /** Instrumentation counters. */
   final class Instrumentation() {
     private[this] var countPushesKont: Int = 0
@@ -858,6 +876,8 @@ private[lf] object Speedy {
     /* number of iteration between cooperation interruption */
     val iterationsBetweenInterruptions: Long
 
+    private[lf] lazy val metrics = new Speedy.Metrics(iterationsBetweenInterruptions)
+
     /* Should Daml Exceptions be automatically converted to FailureStatus before throwing from the engine
        Daml-script needs to disable this behaviour in 3.3, thus the flag.
      */
@@ -957,7 +977,7 @@ private[lf] object Speedy {
     }
     /* The last encountered location */
     private[this] var lastLocation: Option[Location] = None
-    /* Used when enableLightweightStepTracing is true */
+
     private[this] var interruptionCountDown: Long = iterationsBetweenInterruptions
 
     /* Used when enableInstrumentation is true */
@@ -1148,11 +1168,13 @@ private[lf] object Speedy {
             Classify.classifyMachine(this, track.classifyCounts)
           if (interruptionCountDown == 0) {
             interruptionCountDown = iterationsBetweenInterruptions
+            metrics.incrStepBatchCount()
             SResultInterruption
           } else {
             val thisControl = control
             setControl(Control.WeAreUnset)
             interruptionCountDown -= 1
+            metrics.incrStepCount()
             thisControl match {
               case Control.Value(value) =>
                 popTempStackToBase()
@@ -1869,76 +1891,6 @@ private[lf] object Speedy {
         lastIndex: Int,
     ): KFoldr[Q] =
       KFoldr(machine.currentFrame, machine.currentActuals, func, list, lastIndex)
-  }
-
-  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
-  // this continuation and what it does.
-  private[speedy] final case class KFoldr1Map[Q] private (
-      frame: Frame,
-      actuals: Actuals,
-      func: SValue,
-      var list: FrontStack[SValue],
-      var revClosures: FrontStack[SValue],
-      init: SValue,
-  ) extends Kont[Q]
-      with NoCopy {
-    override def execute(machine: Machine[Q], closure: SValue): Control[Q] = {
-      revClosures = closure +: revClosures
-      list.pop match {
-        case None =>
-          machine.pushKont(KFoldr1Reduce(machine, revClosures))
-          Control.Value(init)
-        case Some((item, rest)) =>
-          machine.restoreFrameAndActuals(frame, actuals)
-          list = rest
-          machine.pushKont(this) // NOTE: We've updated `revClosures` and `list`.
-          machine.enterApplication(func, ArraySeq(SEValue(item)))
-      }
-    }
-  }
-
-  object KFoldr1Map {
-    def apply[Q](
-        machine: Machine[Q],
-        func: SValue,
-        list: FrontStack[SValue],
-        revClosures: FrontStack[SValue],
-        init: SValue,
-    ): KFoldr1Map[Q] =
-      KFoldr1Map(
-        machine.currentFrame,
-        machine.currentActuals,
-        func,
-        list,
-        revClosures,
-        init,
-      )
-  }
-
-  // NOTE: See the explanation above the definition of `SBFoldr` on why we need
-  // this continuation and what it does.
-  private[speedy] final case class KFoldr1Reduce[Q] private (
-      frame: Frame,
-      actuals: Actuals,
-      var revClosures: FrontStack[SValue],
-  ) extends Kont[Q]
-      with NoCopy {
-    override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
-      revClosures.pop match {
-        case None =>
-          Control.Value(acc)
-        case Some((closure, rest)) =>
-          machine.restoreFrameAndActuals(frame, actuals)
-          revClosures = rest
-          machine.pushKont(this) // NOTE: We've updated `revClosures`.
-          machine.enterApplication(closure, ArraySeq(SEValue(acc)))
-      }
-    }
-  }
-
-  object KFoldr1Reduce {
-    def apply[Q](machine: Machine[Q], revClosures: FrontStack[SValue]): KFoldr1Reduce[Q] =
-      KFoldr1Reduce(machine.currentFrame, machine.currentActuals, revClosures)
   }
 
   /** Store the evaluated value in the definition and in the 'SEVal' from which the

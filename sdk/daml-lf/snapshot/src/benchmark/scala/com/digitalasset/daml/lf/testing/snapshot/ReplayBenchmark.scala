@@ -32,8 +32,17 @@ class ReplayBenchmark {
   private var benchmark: TransactionSnapshot = _
 
   @Benchmark @BenchmarkMode(Array(Mode.AverageTime)) @OutputTimeUnit(TimeUnit.MILLISECONDS)
-  def bench(): Unit =
-    assert(benchmark.replay().isRight)
+  def bench(counters: ReplayBenchmark.EventCounter): Unit = {
+    counters.reset()
+    val result = benchmark.replay()
+    assert(result.isRight)
+    val Right(metrics) = result
+    counters.stepCount += {
+      val (stepBatchCount, stepCount) = metrics.totalStepCount
+      stepBatchCount * metrics.batchSize + stepCount
+    }
+    counters.transactionNodeCount += metrics.transactionNodeCount
+  }
 
   @Setup(Level.Trial)
   def init(): Unit = {
@@ -59,4 +68,19 @@ class ReplayBenchmark {
     assert(benchmark.validate().isRight)
   }
 
+}
+
+object ReplayBenchmark {
+  @State(Scope.Thread)
+  @AuxCounters(AuxCounters.Type.EVENTS)
+  class EventCounter {
+    var stepCount: Long = 0
+
+    var transactionNodeCount: Long = 0
+
+    def reset(): Unit = {
+      stepCount = 0
+      transactionNodeCount = 0
+    }
+  }
 }
