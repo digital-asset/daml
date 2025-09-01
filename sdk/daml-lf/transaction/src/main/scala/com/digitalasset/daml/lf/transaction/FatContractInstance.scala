@@ -54,23 +54,6 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     keyOpt = contractKeyWithMaintainers,
     version = version,
   )
-
-  private[lf] def toThinInstance: Value.ThinContractInstance =
-    Value.ThinContractInstance(
-      packageName,
-      templateId,
-      createArg,
-    )
-
-  private[lf] def toVersionedThinInstance: Value.VersionedThinContractInstance =
-    Versioned(
-      version,
-      Value.ThinContractInstance(
-        packageName,
-        templateId,
-        createArg,
-      ),
-    )
 }
 
 private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
