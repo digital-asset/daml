@@ -32,8 +32,8 @@ main = withSdkVersions $ do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
       let lfVersion = LF.defaultOrLatestStable LF.V2
       pure TestArgs{..}
-    -- let testTrees = [tests v2TestArgs]
-    let testTrees = []
+    let testTrees = [tests v2TestArgs]
+    -- let testTrees = []
     defaultMain (testGroup "Incremental builds" testTrees)
 
 data TestArgs = TestArgs
@@ -162,6 +162,7 @@ tests TestArgs{..} = testGroup ("LF " <> LF.renderVersion lfVersion)
       (ShouldSucceed True)
     ]
   where
+
       -- ShouldSucceed indicates if scenarios should still succeed after modifications.
       -- This is useful to make sure that modifications have propagated correctly into the DAR.
       test :: String -> [(FilePath, String)] -> [(FilePath, String)] -> [FilePath] -> ShouldSucceed -> TestTree

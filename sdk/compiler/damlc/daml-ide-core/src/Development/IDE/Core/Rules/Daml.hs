@@ -399,8 +399,12 @@ generateSerializedDalfRule options =
                   then do
                     hsc <- hscEnv <$> use_ GhcSession file
                     pm <- use_ GetParsedModule file
+                    liftIO $ putStrLn "Got parsed module"
                     iface <- liftIO $ loadIfaceFromFile hsc pm (hiFileName file)
-                    pure $ fingerprintToBS $ mi_mod_hash iface
+                    liftIO $ putStrLn "Got iface"
+                    let fp = fingerprintToBS $ mi_mod_hash iface
+                    liftIO $ putStrLn $ "getHash Iface: " ++ show fp
+                    pure fp
                   else pure ""
         , runRule = do
             lfVersion <- getDamlLfVersion
@@ -457,7 +461,9 @@ generateSerializedDalfRule options =
                                                 Nothing -> pure Nothing
                                                 Just () -> do
                                                     writeDalfFile (dalfFileName file) (dalf, imports)
-                                                    pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
+                                                    let fp = fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm
+                                                    liftIO $ putStrLn $ "runRule Iface: " ++ show fp
+                                                    pure (Just fp)
         }
 
 readSerializedDalfRule :: Rules ()
@@ -866,10 +872,11 @@ depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.ele
 
 generatePackageImports :: Rules ()
 generatePackageImports =
-    define $ \GeneratePackageImports file -> do
-      PackageMap pkgMap <- use_ GeneratePackageMap file
-      deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
+    define $ \GeneratePackageImports _file -> do
+      pure ([], Just $ Just Set.empty)
+      --PackageMap pkgMap <- use_ GeneratePackageMap file
+      --deps <- depPkgDeps <$> use_ GetDependencyInformation file
+      --return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
 
 
 -- Generates a Daml-LF archive without adding serializability information
