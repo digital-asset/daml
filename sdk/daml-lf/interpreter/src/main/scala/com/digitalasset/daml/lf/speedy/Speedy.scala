@@ -141,9 +141,9 @@ private[lf] object Speedy {
     def templateId: TypeConId = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
-    def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
+    def renormalizedGlobalKeyWithMaintainers: GlobalKeyWithMaintainers = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue)
       )
     }
   }
@@ -160,7 +160,7 @@ private[lf] object Speedy {
     val stakeholders: Set[Party] = signatories union observers
 
     private[speedy] val any = SValue.SAnyContract(templateId, value)
-    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def arg = value.toNormalizedValue
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
@@ -1455,31 +1455,20 @@ private[lf] object Speedy {
         contractKey: SValue,
     ): Option[GlobalKey] =
       globalKey(
-        packageTxVersion = tmplId2TxVersion(pkgInterface, templateId),
         pkgName = tmplId2PackageName(pkgInterface, templateId),
         templateId = templateId,
         keyValue = contractKey,
       )
 
-    private[lf] def globalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ): Option[GlobalKey] = {
-      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+    private[lf] def globalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) = {
+      val lfValue = keyValue.toNormalizedValue
       GlobalKey
         .build(templateId, lfValue, pkgName)
         .toOption
     }
 
-    private[lf] def assertGlobalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ) =
-      globalKey(packageTxVersion, pkgName, templateId, keyValue)
+    private[lf] def assertGlobalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) =
+      globalKey(pkgName, templateId, keyValue)
         .getOrElse(
           throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
         )
@@ -1745,7 +1734,7 @@ private[lf] object Speedy {
         exerciseResult: SValue,
     ): Control[Question.Update] =
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
-        machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
+        machine.ptx = machine.ptx.endExercises(_ => exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
   }

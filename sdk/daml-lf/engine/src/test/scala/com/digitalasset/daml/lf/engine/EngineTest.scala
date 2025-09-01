@@ -1003,13 +1003,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
     "unused disclosed contracts not saved to ledger" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
-      val txVersion = basicTestsPkg.languageVersion
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
         values = ArraySeq(SValue.SParty(alice), SValue.SInt64(42)),
       )
-      val usedContractKey = usedContractSKey.toNormalizedValue(txVersion)
+      val usedContractKey = usedContractSKey.toNormalizedValue
       val usedDisclosedContract = buildDisclosedContract(
         basicTestsPkg,
         templateId,
@@ -1038,7 +1037,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             ImmArray(Ref.Name.assertFromString("p"), Ref.Name.assertFromString("k")),
             ArraySeq(SValue.SParty(alice), SValue.SInt64(69)),
           ),
-          Some(unusedContractSKey.toNormalizedValue(txVersion)),
+          Some(unusedContractSKey.toNormalizedValue),
         )
       val fetchByKeyCommand = speedy.Command.FetchByKey(
         templateId = templateId,
@@ -3070,7 +3069,7 @@ class EngineTestHelpers(
           coid = coid,
           packageName = pkg.pkgName,
           templateId = templateId,
-          arg = arg.toNormalizedValue(version),
+          arg = arg.toNormalizedValue,
           signatories = Set(signatory),
           stakeholders = Set(signatory),
           keyOpt = keyOpt.map(key =>

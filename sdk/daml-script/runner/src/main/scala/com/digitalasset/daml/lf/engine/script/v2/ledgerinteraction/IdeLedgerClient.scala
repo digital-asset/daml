@@ -212,8 +212,7 @@ class IdeLedgerClient(
 
         machine.runPure() match {
           case Right(svalue) =>
-            val version = machine.tmplId2TxVersion(templateId)
-            Some(svalue.toNormalizedValue(version))
+            Some(svalue.toNormalizedValue)
 
           case Left(_) =>
             None

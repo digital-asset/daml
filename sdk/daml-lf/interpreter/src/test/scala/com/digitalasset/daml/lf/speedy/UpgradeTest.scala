@@ -369,7 +369,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
+        val v = sv.toNormalizedValue
         (sv, v, uvs)
       }
   }
@@ -410,7 +410,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
       .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
+        val v = sv.toNormalizedValue
         (sv, v, uvs)
       }
   }
@@ -445,7 +445,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(VDev)
+        val v = sv.toNormalizedValue
         (sv, v, uvs)
       }
   }

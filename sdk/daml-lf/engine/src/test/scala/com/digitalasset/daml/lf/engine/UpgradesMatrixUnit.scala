@@ -57,7 +57,7 @@ abstract class UpgradesMatrixUnit(n: Int, k: Int)
   def normalize(value: Value, typ: Ast.Type): Value = {
     Machine.fromPureSExpr(cases.compiledPackages, SEImportValue(typ, value)).runPure() match {
       case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-      case Right(sValue) => sValue.toNormalizedValue(cases.langVersion)
+      case Right(sValue) => sValue.toNormalizedValue
     }
   }
 

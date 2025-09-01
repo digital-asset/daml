@@ -1174,7 +1174,7 @@ private[lf] object SBuiltinFun {
         val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
-        val chosenValue = args(0).toNormalizedValue(exerciseVersion)
+        val chosenValue = args(0).toNormalizedValue
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args(2))
         machine.enforceChoiceControllersLimit(
           controllers,
@@ -1511,10 +1511,10 @@ private[lf] object SBuiltinFun {
       val srcPkgName = machine.tmplId2PackageName(dstTplId)
       val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
-        // This isn't ideal as its a large uncached computation in a non Update primative.
+        // This isn't ideal as it's a large uncached computation in a non Update primitive.
         // Ideally this would run in Update, and not iterate the value twice
         // i.e. using an upgrade transformation function directly on SValues
-        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toUnnormalizedValue) { templateArg =>
+        importValue(machine, Ast.TTyCon(dstTplId), srcArg.toNormalizedValue) { templateArg =>
           k(Some(templateArg))
         }
       } else {
@@ -1700,7 +1700,7 @@ private[lf] object SBuiltinFun {
       val keyVersion = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args(0))
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, args(0))
       val mbCoid = args(1) match {
         case SOptional(mb) =>
           mb.map {
@@ -1778,10 +1778,9 @@ private[lf] object SBuiltinFun {
       val templateId = operation.templateId
 
       val keyValue = args(0)
-      val version = machine.tmplId2TxVersion(templateId)
       val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
-        extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
+        extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
         Control.Error(
           IE.FetchEmptyContractKeyMaintainers(
@@ -2287,15 +2286,14 @@ private[lf] object SBuiltinFun {
 
   private[this] def extractKey(
       location: String,
-      packageTxVersion: TransactionVersion,
-      pkgName: Ref.PackageName,
-      templateId: Ref.TypeConId,
+      pkgName: PackageName,
+      templateId: TypeConId,
       v: SValue,
-  ): CachedKey =
+  ) =
     v match {
       case SStruct(_, vals) =>
         val keyValue = vals(keyIdx)
-        val gkey = Speedy.Machine.assertGlobalKey(packageTxVersion, pkgName, templateId, keyValue)
+        val gkey = Speedy.Machine.assertGlobalKey(pkgName, templateId, keyValue)
         CachedKey(
           packageName = pkgName,
           globalKeyWithMaintainers = GlobalKeyWithMaintainers(
@@ -2348,7 +2346,7 @@ private[lf] object SBuiltinFun {
         val mbKey = vals(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
-              extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, _)
+              extractKey(NameOf.qualifiedNameOfCurrentFunc, pkgName, templateId, _)
             )
           case v =>
             throw SErrorCrash(
@@ -2495,15 +2493,11 @@ private[lf] object SBuiltinFun {
       coinst.contractKeyWithMaintainers match {
         case None => cont(None)
         case Some(key) =>
-          importKey(machine, coinst.version, key)(cachedKey => cont(Some(cachedKey)))
+          importKey(machine, key)(cachedKey => cont(Some(cachedKey)))
       }
     }
 
-  private def importKey[Q](
-      machine: Machine[Q],
-      version: TransactionVersion,
-      key: GlobalKeyWithMaintainers,
-  )(
+  private def importKey[Q](machine: Machine[Q], key: GlobalKeyWithMaintainers)(
       f: CachedKey => Control[Q]
   ): Control[Q] = {
     // TODO(https://github.com/digital-asset/daml/issues/21667): once the engine is defensive about contract imports,
@@ -2531,7 +2525,7 @@ private[lf] object SBuiltinFun {
           // comparing them against the recomputed ones. So we normalize them on import for now.
           globalKeyWithMaintainers = key.copy(globalKey =
             GlobalKey
-              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue(version))
+              .assertWithRenormalizedValue(key.globalKey, keySValue.toNormalizedValue)
           ),
           key = keySValue,
         )

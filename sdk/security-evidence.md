@@ -138,7 +138,7 @@
 - Evaluation order of successful lookup_by_key of a local contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L3237)
 - Evaluation order of successful lookup_by_key of a non-cached global contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L3104)
 - Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L38)
-- Rollback creates cannot be exercise: [EngineTest.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/EngineTest.scala#L2375)
+- Rollback creates cannot be exercise: [EngineTest.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/EngineTest.scala#L2374)
 - Smart Contract Upgrade: Can catch different errors thrown by different choice version within Update, using AnyException: [Exceptions.daml](daml-script/test/daml/upgrades/stable/Exceptions.daml#L263)
 - Smart Contract Upgrade: Can catch different errors thrown by different choice version, where one is new to V2 within Update, using AnyException: [Exceptions.daml](daml-script/test/daml/upgrades/stable/Exceptions.daml#L267)
 - Smart Contract Upgrade: Can catch same errors thrown by different choice versions within Update: [Exceptions.daml](daml-script/test/daml/upgrades/stable/Exceptions.daml#L259)

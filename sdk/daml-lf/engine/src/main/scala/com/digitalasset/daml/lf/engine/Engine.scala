@@ -826,7 +826,7 @@ class Engine(val config: EngineConfig) {
       )
       r <- interpret(machine, () => { machine.abort(); None })
       version = machine.tmplId2TxVersion(interfaceId)
-    } yield Versioned(version, r.toNormalizedValue(version))
+    } yield Versioned(version, r.toNormalizedValue)
   }
 
 }
