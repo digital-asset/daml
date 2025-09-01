@@ -386,7 +386,6 @@ java_binary(
     deps = [
         "//canton:bindings-java",
         "//daml-lf/archive:daml_lf_archive_proto_java",
-        "//language-support/java/bindings-rxjava",
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:com_google_code_gson_gson",
         "@maven//:com_google_guava_guava",
