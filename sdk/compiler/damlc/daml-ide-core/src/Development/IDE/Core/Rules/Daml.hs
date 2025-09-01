@@ -378,8 +378,11 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
-extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
-extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
+-- TODO[RB]: unomment
+-- extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Maybe LF.PackageIds)
+-- extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
+extractImports :: [LF.ModuleWithImports] -> [LF.Module]
+extractImports = id
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
@@ -406,6 +409,8 @@ generateSerializedDalfRule options =
             lfVersion <- getDamlLfVersion
             -- build dependencies
             files <- discardInternalModules (optUnitId options) . transitiveModuleDeps =<< use_ GetDependencies file
+            -- TODO[RB]: unomment
+            -- dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
@@ -427,7 +432,8 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            imports <- use_ GeneratePackageImports file
+                            --TODO[RB]: uncomment
+                            -- imports <- use_ GeneratePackageImports file
                             DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
@@ -456,7 +462,9 @@ generateSerializedDalfRule options =
                                             fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
-                                                    writeDalfFile (dalfFileName file) (dalf, imports)
+                                                    --TODO[RB]: uncomment
+                                                    -- writeDalfFile (dalfFileName file) (dalf, imports)
+                                                    writeDalfFile (dalfFileName file) (dalf, mempty)
                                                     pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
@@ -790,11 +798,13 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
+    --TODO[RB]: uncomment
+    -- (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
+    dalfs <- map fst <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     --TODO: we are not inside action and have multiple files, so IDK how to
     --obtain the deps here?
-    pure $ buildPackage meta lfVersion dalfs imports
+    pure $ buildPackage meta lfVersion dalfs mempty
 
 -- | Artifact directory for incremental builds.
 buildDir :: FilePath
@@ -810,7 +820,7 @@ hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
     toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
-readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports
+readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports'
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -826,7 +836,7 @@ readDalfFromFile dalfFile = do
             Left err -> fail (show err)
             Right mod -> pure mod
 
-writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports -> Action ()
+writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports' -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $

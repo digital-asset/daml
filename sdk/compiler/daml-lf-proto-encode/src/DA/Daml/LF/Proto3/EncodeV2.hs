@@ -971,11 +971,14 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     , P.featureFlagsDontDiscloseNonConsumingChoicesToObservers = True
     }
 
-
 -- each script module is wrapped in a proto package
-encodeSinglePackageModule :: Version -> ModuleWithImports -> P.Package
+encodeSinglePackageModule :: Version -> ModuleWithImports' -> P.Package
 encodeSinglePackageModule version (mod, imports) =
     encodePackage (Package version (NM.insert mod NM.empty) metadata imports)
+--TODO[RB]: uncomment
+-- encodeSinglePackageModule :: Version -> ModuleWithImports -> P.Package
+-- encodeSinglePackageModule version mod =
+    -- encodePackage (Package version (NM.insert mod NM.empty) metadata mempty)
   where
     metadata = PackageMetadata
       { packageName = PackageName "single-module-package"
