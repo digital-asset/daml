@@ -76,9 +76,9 @@ final case class GlobalKeyWithMaintainers(
 ) {
   def value: Value = globalKey.key
 
-  def withoutLabels: GlobalKeyWithMaintainers =
+  def nonVerbose: GlobalKeyWithMaintainers =
     GlobalKeyWithMaintainers(
-      GlobalKey.assertWithRenormalizedValue(globalKey, globalKey.key.withoutLabels),
+      GlobalKey.assertWithRenormalizedValue(globalKey, globalKey.key.nonVerbose),
       maintainers,
     )
 }

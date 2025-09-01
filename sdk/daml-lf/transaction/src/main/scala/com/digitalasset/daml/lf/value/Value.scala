@@ -18,7 +18,7 @@ import java.nio.{ByteBuffer, ByteOrder}
 
 /** Values */
 sealed abstract class Value extends CidContainer[Value] with Product with Serializable {
-  def withoutLabels: Value
+  def nonVerbose: Value
 }
 
 object Value {
@@ -57,8 +57,8 @@ object Value {
         },
       )
 
-    override def withoutLabels: Value =
-      ValueRecord(None, fields.map { case (_, v) => (None, v.withoutLabels) })
+    override def nonVerbose: Value =
+      ValueRecord(None, fields.map { case (_, v) => (None, v.nonVerbose) })
   }
 
   class ValueArithmeticError(stablePackages: StablePackages) {
@@ -85,12 +85,12 @@ object Value {
     override def mapCid(f: ContractId => ContractId): ValueVariant =
       ValueVariant(tycon, variant, value.mapCid(f))
 
-    override def withoutLabels: Value = ValueVariant(tycon, variant, value.withoutLabels)
+    override def nonVerbose: Value = ValueVariant(tycon, variant, value.nonVerbose)
   }
   final case class ValueEnum(tycon: Option[Identifier], value: Name)
       extends ValueCidlessLeaf
       with CidContainer[ValueEnum] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
 
   final case class ValueContractId(value: ContractId)
@@ -98,7 +98,7 @@ object Value {
       with CidContainer[ValueContractId] {
     override def mapCid(f: ContractId => ContractId): ValueContractId = ValueContractId(f(value))
 
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
 
   /** Daml-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the Daml-LF
@@ -108,37 +108,37 @@ object Value {
     // TODO (FM) make this tail recursive
     override def mapCid(f: ContractId => ContractId): ValueList = ValueList(values.map(_.mapCid(f)))
 
-    override def withoutLabels: Value = ValueList(values.map(_.withoutLabels))
+    override def nonVerbose: Value = ValueList(values.map(_.nonVerbose))
   }
   final case class ValueInt64(value: Long) extends ValueCidlessLeaf with CidContainer[ValueInt64] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   final case class ValueNumeric(value: Numeric)
       extends ValueCidlessLeaf
       with CidContainer[ValueNumeric] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   // Note that Text are assume to be UTF8
   final case class ValueText(value: String) extends ValueCidlessLeaf with CidContainer[ValueText] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   final case class ValueTimestamp(value: Time.Timestamp)
       extends ValueCidlessLeaf
       with CidContainer[ValueTimestamp] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   final case class ValueDate(value: Time.Date)
       extends ValueCidlessLeaf
       with CidContainer[ValueDate] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   final case class ValueParty(value: Ref.Party)
       extends ValueCidlessLeaf
       with CidContainer[ValueParty] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   final case class ValueBool(value: Boolean) extends ValueCidlessLeaf with CidContainer[ValueBool] {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
   object ValueBool {
     val True = new ValueBool(true)
@@ -147,7 +147,7 @@ object Value {
       if (value) ValueTrue else ValueFalse
   }
   case object ValueUnit extends ValueCidlessLeaf {
-    override def withoutLabels: Value = this
+    override def nonVerbose: Value = this
   }
 
   final case class ValueOptional(value: Option[Value])
@@ -158,7 +158,7 @@ object Value {
       value.map(_.mapCid(f))
     )
 
-    override def withoutLabels: Value = ValueOptional(value.map(_.withoutLabels))
+    override def nonVerbose: Value = ValueOptional(value.map(_.nonVerbose))
   }
   final case class ValueTextMap(value: SortedLookupList[Value])
       extends Value
@@ -168,7 +168,7 @@ object Value {
       value.mapValue(_.mapCid(f))
     )
 
-    override def withoutLabels: Value = ValueTextMap(value.mapValue(_.withoutLabels))
+    override def nonVerbose: Value = ValueTextMap(value.mapValue(_.nonVerbose))
   }
   final case class ValueGenMap(entries: ImmArray[(Value, Value)])
       extends Value
@@ -179,8 +179,8 @@ object Value {
     })
     override def toString: String = entries.iterator.mkString("ValueGenMap(", ",", ")")
 
-    override def withoutLabels: Value = ValueGenMap(entries.map { case (k, v) =>
-      k.withoutLabels -> v.withoutLabels
+    override def nonVerbose: Value = ValueGenMap(entries.map { case (k, v) =>
+      k.nonVerbose -> v.nonVerbose
     })
   }
 
