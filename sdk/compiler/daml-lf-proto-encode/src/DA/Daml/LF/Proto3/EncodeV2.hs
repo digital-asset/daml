@@ -71,11 +71,14 @@ makeLenses ''EncodeConfig
 
 type Encode a = ReaderT EncodeConfig (StateT EncodeState Identity) a
 
--- ifSupportsEncodeM :: Feature -> Encode a -> Encode a -> Encode a
--- ifSupportsEncodeM f = ifSupportsM version
+ifSupportsEncodeM :: Feature -> Encode a -> Encode a -> Encode a
+ifSupportsEncodeM = flip ifSupportsM version
 
 ifSupportsEncode :: Feature -> a -> a -> Encode a
 ifSupportsEncode = flip ifSupports version
+
+ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
+ifSupportsFlatteningM = ifSupportsEncodeM featureFlatArchive
 
 ifSupportsFlattening :: a -> a -> Encode a
 ifSupportsFlattening = ifSupportsEncode featureFlatArchive
@@ -299,16 +302,15 @@ encodeKind k = do
 
 internKind :: P.Kind -> Encode P.Kind
 internKind k =
-  do
-    version <- asks (view version)
-    if version `supports` featureFlatArchive
-      then case k of
-        (P.Kind (Just _k')) -> do
-            undefined
-            -- n <- zoom internedKindsMapLens $ I.internState k'
-            -- return $ (P.Kind . Just . P.KindSumInternedKind) n
-        (P.Kind Nothing) -> error "nothing kind during encoding"
-      else return k
+    ifSupportsFlatteningM
+      {-then-}
+        (case k of
+            (P.Kind (Just k')) -> do
+                n <- lift $ zoom internedKindsMapLens $ I.internState k'
+                return $ (P.Kind . Just . P.KindSumInternedKind) n
+            (P.Kind Nothing) -> error "nothing kind during encoding")
+      {-then-}
+        (return k)
 
 
 ------------------------------------------------------------------------
@@ -401,10 +403,9 @@ allocType = internType . P.Type . Just
 
 internType :: P.Type -> Encode P.Type
 internType = \case
-  (P.Type (Just _t')) -> do
-    undefined
-    -- n <- zoom internedTypesMapLens $ I.internState t'
-    -- return $ (P.Type . Just . P.TypeSumInternedType) n
+  (P.Type (Just t')) -> do
+    n <- lift $ zoom internedTypesMapLens $ I.internState t'
+    return $ (P.Type . Just . P.TypeSumInternedType) n
   (P.Type Nothing) -> error "nothing type during encoding"
 
 ------------------------------------------------------------------------
@@ -754,17 +755,17 @@ encodeExpr' e = case e of
 internExpr :: Encode P.Expr -> Encode P.Expr
 internExpr f = do
   e <- f
-  version <- asks (view version)
-  if version `supports` featureFlatArchive
-    then case e of
-      (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
-          error "not allowed to add interned to interning table"
-      (P.Expr _l (Just _e')) -> do
-          undefined
-          -- n <- zoom internedExprsMapLens $ I.internState e'
-          -- return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
-      (P.Expr _ Nothing) -> error "nothing expr during encoding"
-    else return e
+  ifSupportsFlatteningM
+    {-then-}
+      (case e of
+        (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->
+            error "not allowed to add interned to interning table"
+        (P.Expr l (Just e')) -> do
+            n <- lift $ zoom internedExprsMapLens $ I.internState e'
+            return $ (P.Expr l . Just . P.ExprSumInternedExpr) n
+        (P.Expr _ Nothing) -> error "nothing expr during encoding")
+    {-else-}
+      (return e)
 
 encodeExpr :: Expr -> Encode (Just P.Expr)
 encodeExpr e = Just <$> encodeExpr' e
