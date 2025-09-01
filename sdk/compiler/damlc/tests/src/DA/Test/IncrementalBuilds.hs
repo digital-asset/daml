@@ -1,9 +1,5 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{- HLINT ignore "Avoid restricted flags" -}
-{-# OPTIONS_GHC -Wno-unused-top-binds #-}
-{-# OPTIONS_GHC -Wno-unused-matches #-}
-
 
 module DA.Test.IncrementalBuilds (main) where
 
@@ -32,8 +28,7 @@ main = withSdkVersions $ do
       scriptDar <- locateRunfiles (mainWorkspace </> "daml-script" </> "daml" </> "daml-script.dar")
       let lfVersion = LF.defaultOrLatestStable LF.V2
       pure TestArgs{..}
-    -- let testTrees = [tests v2TestArgs]
-    let testTrees = []
+    let testTrees = [tests v2TestArgs]
     defaultMain (testGroup "Incremental builds" testTrees)
 
 data TestArgs = TestArgs
