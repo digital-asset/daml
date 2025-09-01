@@ -321,10 +321,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     pkg1.pkgName
   }
 
-  val pkg1Ver = pkg1.metadata.version
-  val pkg2Ver = pkg2.metadata.version
-  val pkg3Ver = pkg3.metadata.version
-
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
       Map(
@@ -545,7 +541,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               )
             ) =>
           reason should include(
-            "cannot upgrade non-optional fields"
+            "Unexpected non-optional extra template field type encountered during upgrading."
           )
       }
     }
@@ -655,7 +651,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               )
             ) =>
           reason should include(
-            "Found non-optional extra field, cannot remove for downgrading"
+            "Found non-optional extra field at index 3, cannot remove for downgrading."
           )
       }
     }
@@ -696,7 +692,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
               )
             ) =>
           reason should include(
-            "An optional contract field with a value of Some may not be dropped during downgrading"
+            "Found an optional contract field with a value of Some at index 3, may not be dropped during downgrading."
           )
       }
     }
