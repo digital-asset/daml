@@ -30,6 +30,7 @@ import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.collection.immutable.{SortedMap, SortedSet}
+import scala.util.{Failure, Success, Try}
 import scala.util.control.NoStackTrace
 
 final class Hash private (val bytes: Bytes) {
@@ -1031,6 +1032,18 @@ object Hash {
       .addIdentifier(templateId)
       .addTypedValue(arg)
       .build
+  }
+
+  def hashContractInstance(
+      templateId: Ref.Identifier,
+      arg: Value,
+      packageName: Ref.PackageName,
+      upgradeFriendly: Boolean = false,
+  ): Either[String, Hash] = {
+    Try(assertHashContractInstance(templateId, arg, packageName, upgradeFriendly)) match {
+      case Success(hash) => Right(hash)
+      case Failure(exception) => Left(s"Failed to hash contract instance: ${exception}")
+    }
   }
 
   def hashContractInstance(
