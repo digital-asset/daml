@@ -429,8 +429,7 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            --TODO[RB]: uncomment
-                            -- imports <- use_ GeneratePackageImports file
+                            -- _imports <- use_ GeneratePackageImports file
                             DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
@@ -795,7 +794,6 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     fileDeps <- usesE' GetDependencies rootFiles
     let allFiles = nubSort $ rootFiles <> concatMap transitiveModuleDeps fileDeps
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
-    --TODO[RB]: uncomment
     (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
     --TODO: we are not inside action and have multiple files, so IDK how to
@@ -872,10 +870,11 @@ depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.ele
 
 generatePackageImports :: Rules ()
 generatePackageImports =
-    define $ \GeneratePackageImports file -> do
-      PackageMap pkgMap <- use_ GeneratePackageMap file
-      deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
+    define $ \GeneratePackageImports _file -> do
+      return ([], Just $ Just mempty)
+      -- PackageMap pkgMap <- use_ GeneratePackageMap file
+      -- deps <- depPkgDeps <$> use_ GetDependencyInformation file
+      -- return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
 
 
 -- Generates a Daml-LF archive without adding serializability information
