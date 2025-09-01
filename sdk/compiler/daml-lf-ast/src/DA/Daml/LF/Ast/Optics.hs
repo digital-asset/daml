@@ -147,7 +147,6 @@ instance MonoTraversable ModuleRef MethodName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprValName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ExprVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef FieldName where monoTraverse _ = pure
-instance MonoTraversable ModuleRef PackageId where monoTraverse _ = pure
 instance MonoTraversable ModuleRef ModuleName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeSynName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
