@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.traffic
 import cats.data.EitherT
 import com.digitalasset.base.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
-import com.digitalasset.canton.crypto.{Fingerprint, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
@@ -18,7 +17,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficConsumedManager.NotEnou
 import com.digitalasset.canton.sequencing.traffic.{TrafficPurchased, TrafficReceipt}
 import com.digitalasset.canton.synchronizer.sequencing.traffic.SequencerTrafficControlSubscriber
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
-import com.digitalasset.canton.topology.Member
+import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -100,7 +99,7 @@ trait SequencerRateLimitManager extends AutoCloseable {
       submissionTimestamp: Option[CantonTimestamp],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
-      sequencerSignature: Signature,
+      orderingSequencerId: SequencerId,
   )(implicit
       tc: TraceContext,
       closeContext: CloseContext,
@@ -216,13 +215,13 @@ object SequencerRateLimitError extends SequencerErrorGroup {
         submissionTimestamp: Option[CantonTimestamp],
         submittedEventCost: Option[NonNegativeLong],
         validationTimestamp: CantonTimestamp,
-        sequencerProcessingSubmissionRequest: Option[Fingerprint],
+        orderingSequencerId: Option[SequencerId],
         trafficReceipt: Option[TrafficReceipt] = None,
         correctCostDetails: EventCostDetails,
     ) extends Alarm(
           s"Missing or incorrect event cost provided by member $member at $submissionTimestamp." +
             s" Submitted: $submittedEventCost, valid: ${correctCostDetails.eventCost}, validationTimestamp: $validationTimestamp. " +
-            s"Processing sequencer: $sequencerProcessingSubmissionRequest"
+            s"Ordering sequencer: $orderingSequencerId"
         )
         with SequencingCostValidationError
         with PrettyPrinting {
@@ -232,9 +231,9 @@ object SequencerRateLimitError extends SequencerErrorGroup {
         param("submissionTimestamp", _.submissionTimestamp),
         paramIfDefined("submittedEventCost", _.submittedEventCost),
         param("validationTimestamp", _.validationTimestamp),
-        paramIfDefined(
-          "sequencerProcessingSubmissionRequest",
-          _.sequencerProcessingSubmissionRequest,
+        param(
+          "orderingSequencerId",
+          _.orderingSequencerId,
         ),
         paramIfDefined(
           "trafficReceipt",

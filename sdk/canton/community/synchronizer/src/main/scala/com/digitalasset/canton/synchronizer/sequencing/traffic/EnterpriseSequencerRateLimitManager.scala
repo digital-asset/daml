@@ -10,12 +10,7 @@ import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
-import com.digitalasset.canton.crypto.{
-  Signature,
-  SyncCryptoApi,
-  SyncCryptoClient,
-  SynchronizerCryptoClient,
-}
+import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
@@ -289,7 +284,7 @@ class EnterpriseSequencerRateLimitManager(
       request,
       submissionTimestampO,
       currentTopologySnapshot,
-      processingSequencerSignature = None,
+      orderingSequencerId = None,
       latestSequencerEventTimestamp = lastSequencerEventTimestamp,
       warnIfApproximate = true,
       lastSequencedTimestamp,
@@ -380,7 +375,7 @@ class EnterpriseSequencerRateLimitManager(
       request: SubmissionRequest,
       submissionTimestampO: Option[CantonTimestamp],
       validationSnapshot: TopologySnapshot,
-      processingSequencerSignature: Option[Signature],
+      orderingSequencerId: Option[SequencerId],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
       mostRecentKnownSynchronizerTimestamp: CantonTimestamp,
@@ -494,7 +489,7 @@ class EnterpriseSequencerRateLimitManager(
                 Some(submissionTimestamp),
                 submittedCost,
                 validationSnapshot.timestamp,
-                processingSequencerSignature.map(_.authorizingLongTermKey),
+                orderingSequencerId,
                 // this will be filled in at the end of the processing when we update the traffic consumed, even in case of failure
                 Option.empty[TrafficReceipt],
                 correctCostDetails,
@@ -531,7 +526,7 @@ class EnterpriseSequencerRateLimitManager(
             None,
             submittedCost,
             validationSnapshot.timestamp,
-            processingSequencerSignature.map(_.authorizingLongTermKey),
+            orderingSequencerId,
             // this will be filled in at the end of the processing when we update the traffic consumed, even in case of failure
             Option.empty[TrafficReceipt],
             correctCostDetails,
@@ -582,7 +577,7 @@ class EnterpriseSequencerRateLimitManager(
       submissionTimestampO: Option[CantonTimestamp],
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
-      sequencerSignature: Signature,
+      orderingSequencerId: SequencerId,
   )(implicit traceContext: TraceContext, closeContext: CloseContext): EitherT[
     FutureUnlessShutdown,
     SequencerRateLimitError,
@@ -653,7 +648,7 @@ class EnterpriseSequencerRateLimitManager(
           request,
           submissionTimestampO,
           snapshotAtSequencingTime,
-          Some(sequencerSignature),
+          Some(orderingSequencerId),
           latestSequencerEventTimestamp,
           warnIfApproximate,
           sequencingTime,

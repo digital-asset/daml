@@ -153,6 +153,97 @@ class ValueConversionRoundTripTest
         roundTrip(api.Value(Sum.Numeric(input))) shouldEqual Right(api.Value(Sum.Numeric(expected)))
       }
     }
-  }
 
+    "drop trailing Nones in LF -> API conversion" in {
+      def intValue(valO: Option[Long]): Option[api.Value] =
+        Some(
+          api.Value(Sum.Optional(api.Optional(valO.map(v => api.Value(api.Value.Sum.Int64(v))))))
+        )
+      val testCases = Table[Seq[api.RecordField], Seq[api.RecordField]](
+        "input" -> "expected",
+        // Single None dropped
+        Seq(
+          api.RecordField("label1", intValue(None))
+        ) -> Seq(),
+        // Single Some kept
+        Seq(
+          api.RecordField("label1", intValue(Some(1L)))
+        ) -> Seq(
+          api.RecordField("label1", intValue(Some(1L)))
+        ),
+        // None in head position kept
+        Seq(
+          api.RecordField("label1", intValue(None)),
+          api.RecordField("label2", intValue(Some(1L))),
+        ) -> Seq(
+          api.RecordField("label1", intValue(None)),
+          api.RecordField("label2", intValue(Some(1L))),
+        ),
+        // None in tail position dropped
+        Seq(
+          api.RecordField("label1", intValue(None)),
+          api.RecordField("label2", intValue(Some(1L))),
+          api.RecordField("label3", intValue(None)),
+        ) -> Seq(
+          api.RecordField("label1", intValue(None)),
+          api.RecordField("label2", intValue(Some(1L))),
+        ),
+        // Two nones in tail position dropped
+        Seq(
+          api.RecordField("label1", intValue(Some(1L))),
+          api.RecordField("label2", intValue(None)),
+          api.RecordField("label3", intValue(Some(3L))),
+          api.RecordField("label4", intValue(None)),
+          api.RecordField("label5", intValue(None)),
+        ) -> Seq(
+          api.RecordField("label1", intValue(Some(1L))),
+          api.RecordField("label2", intValue(None)),
+          api.RecordField("label3", intValue(Some(3L))),
+        ),
+        // Trailing None in nested record dropped
+        Seq(
+          api.RecordField(
+            "label1",
+            Some(
+              api.Value(
+                Sum.Record(
+                  api.Record(
+                    Some(recordId.copy(entityName = "nestedEntity")),
+                    Seq(
+                      api.RecordField("nestedLabel1", intValue(Some(1L))),
+                      api.RecordField("nestedLabel2", intValue(None)),
+                    ),
+                  )
+                )
+              )
+            ),
+          )
+        ) -> Seq(
+          api.RecordField(
+            "label1",
+            Some(
+              api.Value(
+                Sum.Record(
+                  api.Record(
+                    Some(recordId.copy(entityName = "nestedEntity")),
+                    Seq(
+                      api.RecordField("nestedLabel1", intValue(Some(1L)))
+                    ),
+                  )
+                )
+              )
+            ),
+          )
+        ),
+      )
+
+      forEvery(testCases) { case (inputVals, expectedVals) =>
+        val input = api.Value(Sum.Record(api.Record(Some(recordId), inputVals)))
+        val expected = api.Value(Sum.Record(api.Record(Some(recordId), expectedVals)))
+
+        roundTrip(input) shouldEqual Right(expected)
+        roundTrip(expected) shouldEqual Right(expected)
+      }
+    }
+  }
 }

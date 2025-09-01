@@ -507,7 +507,7 @@ class OutputModuleTest
         initialBlock.blockHeight shouldBe BlockNumber.First
         initialBlock.requests.size shouldBe 1
         initialBlock.requests.head shouldBe Traced(
-          OrderedRequest(aTimestamp.toMicros, aTag, ByteString.EMPTY)
+          OrderedRequest(aTimestamp.toMicros, aTag, ByteString.EMPTY, BftNodeId.Empty)
         )
         val nextBlock = blocks(1)
         nextBlock.blockHeight shouldBe secondBlockNumber

@@ -657,7 +657,7 @@ object EnvironmentDefinition extends LazyLogging {
   lazy val P3_S1M1_Manual: EnvironmentDefinition =
     P3_S1M1_Config.withManualStart
 
-  private lazy val P3S2M2_Config: EnvironmentDefinition =
+  lazy val P3S2M2_Config: EnvironmentDefinition =
     buildBaseEnvironmentDefinition(
       numParticipants = 3,
       numSequencers = 2,

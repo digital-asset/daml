@@ -18,6 +18,10 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   Submission,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SequentialIdBatch.{
+  IdRange,
+  Ids,
+}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -144,23 +148,33 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(singleDto, _))
     val payloadsForAll = executeSql(
-      backend.event.topologyPartyEventBatch(Vector(1L))
+      backend.event.topologyPartyEventBatch(Ids(Vector(1L)))
     )
 
     payloadsForAll should not be empty
     payloadsForAll.map(sanitize) should contain theSameElementsAs singleDto.map(toRaw).map(sanitize)
+
+    val payloadsForAllRange = executeSql(
+      backend.event.topologyPartyEventBatch(IdRange(1L, 1L))
+    )
+    payloadsForAllRange.map(sanitize) shouldBe payloadsForAll.map(sanitize)
   }
 
   it should "respond with payloads for a multiple party to participant mappings" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(ingest(multipleDtos, _))
     val payloadsForAll = executeSql(
-      backend.event.topologyPartyEventBatch(Vector(1L, 2L, 3L, 4L))
+      backend.event.topologyPartyEventBatch(Ids(Vector(1L, 2L, 3L, 4L)))
     )
 
     payloadsForAll should not be empty
     payloadsForAll
       .map(sanitize) should contain theSameElementsAs multipleDtos.map(toRaw).map(sanitize)
+
+    val payloadsForAllRange = executeSql(
+      backend.event.topologyPartyEventBatch(IdRange(1L, 4L))
+    )
+    payloadsForAllRange.map(sanitize) shouldBe payloadsForAll.map(sanitize)
   }
 
   it should "handle the different authorization events" in {
@@ -169,7 +183,7 @@ private[backend] trait StorageBackendTestsPartyToParticipant
 
     authorizationEventDtos.foreach { dto =>
       val payloads = executeSql(
-        backend.event.topologyPartyEventBatch(Vector(dto.event_sequential_id))
+        backend.event.topologyPartyEventBatch(Ids(Vector(dto.event_sequential_id)))
       )
 
       payloads should have size 1

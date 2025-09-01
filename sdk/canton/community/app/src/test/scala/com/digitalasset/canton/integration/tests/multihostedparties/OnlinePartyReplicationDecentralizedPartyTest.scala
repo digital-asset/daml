@@ -13,6 +13,7 @@ import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
+  UseProgrammableSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.{
@@ -22,7 +23,13 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
+import com.digitalasset.canton.participant.admin.party.PartyReplicationTestInterceptor
 import com.digitalasset.canton.participant.party.PartyReplicationTestInterceptorImpl
+import com.digitalasset.canton.synchronizer.sequencer.{
+  HasProgrammableSequencer,
+  ProgrammableSequencerPolicies,
+  SendDecision,
+}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -30,6 +37,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{config, integration}
 import monocle.macros.syntax.lens.*
 
+import scala.concurrent.Promise
 import scala.jdk.CollectionConverters.*
 
 /** Objective: Test party replication of non-local parties such as a decentralized party with
@@ -44,9 +52,11 @@ import scala.jdk.CollectionConverters.*
 sealed trait OnlinePartyReplicationDecentralizedPartyTest
     extends CommunityIntegrationTest
     with OnlinePartyReplicationTestHelpers
+    with HasProgrammableSequencer
     with SharedEnvironment {
 
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 
   private var alice: PartyId = _
   private var bob: PartyId = _
@@ -54,11 +64,33 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
   lazy val darPaths: Seq[String] = Seq(CantonLfV21, CantonExamplesPath)
 
   // false means to block OnPR (temporarily) the moment the SP connects to channel
+  private val numContractsInCreateBatch = 100
   private var canSourceProceedWithOnPR: Boolean = false
+  private val canApproveExercise = Promise[Unit]()
 
-  // Use the test interceptor to block OnPR until a concurrent exercise is processed by the SP.
-  private def createSourceParticipantTestInterceptor() =
-    PartyReplicationTestInterceptorImpl.sourceParticipantProceedsIf(_ => canSourceProceedWithOnPR)
+  // Use the test interceptor to block OnPR until a concurrent exercise is processed by the SP
+  // in such a way that the exercised contract is replicated between exercise phases 3 and 7
+  // to produce a race in the TP ConflictDetector in-memory state.
+  private def createSourceParticipantTestInterceptor(): PartyReplicationTestInterceptor =
+    PartyReplicationTestInterceptorImpl.sourceParticipantProceedsIf { state =>
+      // Allow replicating the first two batches, but stop before the third batch that contains the
+      // contract that this test exercises, so that we can ensure that the exercised contracts is
+      // replicated while the exercise is inflight.
+      val numContractsBeforeExercisedContract = 2 * numContractsInCreateBatch
+      val canProceed =
+        state.sentContractsCount.unwrap <= numContractsBeforeExercisedContract || canSourceProceedWithOnPR
+
+      // Let the exercise finish after the exercise contract has been replicated.
+      if (
+        canSourceProceedWithOnPR && state.sentContractsCount.unwrap > numContractsBeforeExercisedContract && !canApproveExercise.isCompleted
+      ) {
+        logger.info(
+          s"Unblocking exercise after sending ${state.sentContractsCount.unwrap} contracts"
+        )
+        canApproveExercise.trySuccess(())
+      }
+      canProceed
+    }
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -73,11 +105,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
           ConfigTransforms.updateParticipantConfig("participant1")(
             _.focus(_.parameters.journalGarbageCollectionDelay)
               .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-          ) :+
-          // TODO(#25744): PartyReplicationTargetParticipantProcessor needs to update the in-memory lock state
-          //   along with the ActiveContractStore to prevent racy LockableStates internal consistency check failures
-          //   such as #26384. Until then, disable the "additional consistency checks".
-          ConfigTransforms.disableAdditionalConsistencyChecks)*
+          ))*
       )
       .withSetup { implicit env =>
         import env.*
@@ -100,7 +128,6 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
   private var decentralizedParty: PartyId = _
   private var previousSerial: PositiveInt = _
   private var dpToAlice: Seq[Iou.Contract] = _
-  private val numContractsInCreateBatch = 100
 
   "Create decentralized party with contracts" onlyRunWith ProtocolVersion.dev in { implicit env =>
     import env.*
@@ -219,8 +246,23 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       }
       hasConnected shouldBe true
     }
-    val iouToExercise = dpToAlice.last
-    clue(s"exercise-iou ${iouToExercise.data.amount.value}") {
+    val sequencer = getProgrammableSequencer(sequencer1.name)
+    sequencer.setPolicy_("hold SP exercise confirmation until OnPR contract replicated") {
+      submissionRequest =>
+        if (
+          submissionRequest.sender == sourceParticipant.id &&
+          ProgrammableSequencerPolicies.isConfirmationResponse(submissionRequest)
+        ) {
+          logger.info(
+            s"Blocking exercise confirmation and unblocking OnPR progress on SP ${submissionRequest.messageId}"
+          )
+          canSourceProceedWithOnPR = true
+          SendDecision.HoldBack(canApproveExercise.future)
+        } else SendDecision.Process
+    }
+
+    val iouToExercise = dpToAlice.head
+    clue(s"exercise-iou ${iouToExercise.id.contractId}, ${iouToExercise.data.amount.value}") {
       sourceParticipant.ledger_api.javaapi.commands
         .submit(
           Seq(alice),
@@ -229,8 +271,10 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
         )
         .discard
     }
-    logger.info("Unblocking progress on SP")
-    canSourceProceedWithOnPR = true
+
+    sequencer.resetPolicy()
+
+    logger.info("Exercise completed. Waiting for OnPR to complete.")
 
     // Expect three batches owned by decentralizedParty:
     // 1. all coins plus the coin factory contract (hence the +1 below)

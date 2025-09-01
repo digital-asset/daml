@@ -26,10 +26,7 @@ import com.digitalasset.canton.synchronizer.block.{
   SequencerDriverHealthStatus,
 }
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.Sequencer.{
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer.SignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer
 import com.digitalasset.canton.synchronizer.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.{
@@ -56,7 +53,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.bindings
   CloseableActorSystem,
   PekkoModuleSystem,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.DefaultAuthenticationTokenManagerConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig.{
+  DefaultAuthenticationTokenManagerConfig,
+  P2PConnectionManagementConfig,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.topology.OrderingTopologyProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
@@ -401,6 +401,9 @@ final class BftBlockOrderer(
       }
     new P2PGrpcConnectionManager(
       thisNode,
+      config.initialNetwork
+        .map(_.connectionManagementConfig)
+        .getOrElse(P2PConnectionManagementConfig()),
       p2pGrpcConnectionState,
       maybeGrpcNetworkingAuthenticationInitialState,
       getServerToClientAuthenticationEndpoint(config),
@@ -477,13 +480,13 @@ final class BftBlockOrderer(
   }
 
   override def send(
-      signedOrderingRequest: SignedOrderingRequest
+      signedSubmissionRequest: SignedSubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
     logger.debug(s"sending submission")
     sendToMempool(
       SendTag,
-      signedOrderingRequest.submissionRequest.sender,
-      signedOrderingRequest.toByteString,
+      signedSubmissionRequest.content.sender,
+      signedSubmissionRequest.toByteString,
     )
   }
 

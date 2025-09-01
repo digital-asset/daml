@@ -18,6 +18,7 @@ import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
   SharedEnvironment,
+  TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
@@ -108,7 +109,9 @@ private sealed trait OfflinePartyReplicationIntegrationTest
       ),
     )
 
-  protected def assertAcsAndContinuedOperation(participant: LocalParticipantReference): Unit = {
+  protected def assertAcsAndContinuedOperation(
+      participant: LocalParticipantReference
+  )(implicit env: TestConsoleEnvironment): Unit = {
     participant.ledger_api.state.acs.active_contracts_of_party(alice) should have size 5
 
     // Archive contract and create another one to assert regular operation after the completed party replication

@@ -69,13 +69,9 @@ sealed trait OnlinePartyReplicationRecoverFromDisruptionsTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1
       .addConfigTransforms(
-        (ConfigTransforms.unsafeEnableOnlinePartyReplication(
+        ConfigTransforms.unsafeEnableOnlinePartyReplication(
           Map("participant1" -> (() => createSourceParticipantTestInterceptor()))
-        ) :+
-          // TODO(#25744): PartyReplicationTargetParticipantProcessor needs to update the in-memory lock state
-          //   along with the ActiveContractStore to prevent racy LockableStates internal consistency check failures
-          //   such as #26384. Until then, disable the "additional consistency checks".
-          ConfigTransforms.disableAdditionalConsistencyChecks)*
+        )*
       )
       .withSetup { implicit env =>
         import env.*

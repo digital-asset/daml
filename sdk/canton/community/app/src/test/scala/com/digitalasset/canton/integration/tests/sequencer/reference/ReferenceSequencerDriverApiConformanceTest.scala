@@ -54,7 +54,8 @@ class ReferenceSequencerDriverApiConformanceTest
       nonStandardConfig = false,
       timeProvider,
       firstBlockHeight,
-      synchronizerId.toString,
+      synchronizerId.toProtoPrimitive,
+      sequencerId.toProtoPrimitive,
       loggerFactory,
     )
 }

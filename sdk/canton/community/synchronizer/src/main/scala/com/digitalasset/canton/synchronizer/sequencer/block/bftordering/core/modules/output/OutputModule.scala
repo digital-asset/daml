@@ -14,7 +14,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
-import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
+import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedSubmissionRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.integration.canton.crypto.CryptoProvider
@@ -272,12 +272,12 @@ class OutputModule[E <: Env[E]](
             new PeanoQueue(
               if (startupState.previousBftTimeForOnboarding.isDefined) {
                 val initialHeight = startupState.initialHeightToProvide
-                logger.debug(
+                logger.info(
                   s"Output module bootstrap: onboarding, providing blocks from initial height $initialHeight"
                 )
                 initialHeight
               } else {
-                logger.debug(
+                logger.info(
                   s"Output module bootstrap: [re-]starting, providing blocks from $recoverFromBlockNumber"
                 )
                 recoverFromBlockNumber
@@ -286,7 +286,7 @@ class OutputModule[E <: Env[E]](
           )
           .foreach(_ => abort("Completed block processing Peano Queue has already been set"))
         if (startupState.previousBftTimeForOnboarding.isEmpty) {
-          logger.debug(
+          logger.info(
             s"Output module bootstrap: [re-]starting, [re-]processing blocks from $recoverFromBlockNumber"
           )
           val orderedBlocksToProcess =
@@ -343,7 +343,7 @@ class OutputModule[E <: Env[E]](
                 )
               ) =>
             logger.debug(
-              s"output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
+              s"Output received from local consensus ordered block (mode = $mode) with batch IDs ${orderedBlock.batchRefs}"
             )
             val blockNumber = orderedBlock.metadata.blockNumber
             if (completedBlocksPeanoQueue.alreadyInserted(blockNumber)) {
@@ -380,7 +380,7 @@ class OutputModule[E <: Env[E]](
               .remove(blockNumber)
               .foreach(emitFetchLatency)
             logger.debug(
-              s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
+              s"Output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
                 s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"
             )
             logger.debug(
@@ -777,14 +777,11 @@ class OutputModule[E <: Env[E]](
 
     val orderingTopology =
       newOrderingTopologyAndCryptoProvider.fold(currentEpochOrderingTopology)(_._1)
-    val newEpochLeaders = leaderSelectionPolicy.getLeaders(
-      orderingTopology,
-      newEpochNumber,
-    )
-
+    val newEpochLeaders = leaderSelectionPolicy.getLeaders(orderingTopology, newEpochNumber)
     val newMembership = Membership(thisNode, orderingTopology, newEpochLeaders)
     val cryptoProvider =
       newOrderingTopologyAndCryptoProvider.fold(currentEpochCryptoProvider)(_._2)
+
     logger.debug(
       s"Inserting NewEpochTopology message for epoch $newEpochNumber into Peano queue, " +
         s"(head=$newEpochTopologyMessagePeanoQueue)"
@@ -844,7 +841,20 @@ class OutputModule[E <: Env[E]](
     blockData.requestsView.zipWithIndex.map {
       case (tracedRequest @ Traced(OrderingRequest(tag, body, _)), index) =>
         val timestamp = BftTime.requestBftTime(blockBftTime, index)
-        Traced(OrderedRequest(timestamp.toMicros, tag, body))(tracedRequest.traceContext)
+        // "You [were supposed to] propose for ordering, you are responsible for the traffic" policy: all
+        //  requests in a block are marked, for accounting purposes, as having gone through ordering because of the
+        //  block's originally assigned consensus leader ordering node (which is also the disseminator of the batches
+        //  in the block).
+        Traced(
+          OrderedRequest(
+            timestamp.toMicros,
+            tag,
+            body,
+            blockData.orderedBlockForOutput.originalLeader,
+          )
+        )(
+          tracedRequest.traceContext
+        )
     }.toSeq
 
   private def setEpochMetadataStoredCache(newEpochNumber: EpochNumber): Unit =
@@ -924,11 +934,11 @@ object OutputModule {
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
       // TODO(#21615) we should avoid a further deserialization downstream, which would also eliminate
       //  a zip bomb vulnerability in the BUG that could be triggered by byzantine sequencers (#26169)
-      deserializeSignedOrderingRequest(synchronizerProtocolVersion, maxRequestSizeToDeserialize)(
+      deserializeSignedSubmissionRequest(synchronizerProtocolVersion, maxRequestSizeToDeserialize)(
         request.payload
       ) match {
         case Right(signedSubmissionRequest) =>
-          signedSubmissionRequest.content.content.content.batch.allRecipients
+          signedSubmissionRequest.content.batch.allRecipients
             .contains(AllMembersOfSynchronizer)
         case Left(error) =>
           logger.debug(

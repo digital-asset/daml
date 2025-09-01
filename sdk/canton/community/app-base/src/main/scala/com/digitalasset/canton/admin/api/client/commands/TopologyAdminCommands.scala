@@ -350,7 +350,7 @@ object TopologyAdminCommands {
       override protected def createRequest()
           : Either[String, v30.ListSynchronizerParametersStateRequest] =
         Right(
-          new v30.ListSynchronizerParametersStateRequest(
+          v30.ListSynchronizerParametersStateRequest(
             baseQuery = Some(query.toProtoV1),
             filterSynchronizerId = filterSynchronizerId,
           )

@@ -24,7 +24,6 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
-import com.digitalasset.canton.interactive.ExternalPartyUtils.ExternalParty
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.logging.SuppressionRule.LevelAndAbove
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, LoggingContextWithTrace}
@@ -33,7 +32,7 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.c
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.sequencing.protocol.MemberRecipient
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
-import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.{ExternalParty, PartyId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{SubmissionId, UserId}
@@ -231,7 +230,7 @@ class InteractiveSubmissionConfirmationIntegrationTest
     "fail if there is an externally signed tx with more than a single view" in { implicit env =>
       // Use create-and-execute to create a multi view request
       val pass =
-        new Pass("create-and-exe", aliceE.primitiveId, env.environment.clock.now.toInstant)
+        new Pass("create-and-exe", aliceE.toProtoPrimitive, env.environment.clock.now.toInstant)
           .createAnd()
           .exerciseGetTime()
       val command = Command.fromJavaProto(pass.commands.loneElement.toProtoCommand)
