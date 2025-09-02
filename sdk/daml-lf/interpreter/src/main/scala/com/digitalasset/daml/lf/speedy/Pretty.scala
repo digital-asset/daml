@@ -242,19 +242,6 @@ private[lf] object Pretty {
                 case None => text("by template")
                 case Some(interfaceId) => text("by interface") & prettyTypeConId(interfaceId)
               })
-          case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
-            text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-              text("Expected contract of type") & prettyTypeConId(expected) & (
-                if (accepted.nonEmpty)
-                  intercalate(comma + lineOrSpace, accepted.map(prettyTypeConId))
-                    .tightBracketBy(text("or one of its ancestors: ("), char(')'))
-                else
-                  Doc.empty
-              ) & text(
-                "but got"
-              ) & prettyTypeConId(
-                actual
-              )
           case Dev.TranslationError(translationError) =>
             translationError match {
               case TranslationError.LookupError(lookupError) => text(lookupError.pretty)
