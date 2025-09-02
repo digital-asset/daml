@@ -34,8 +34,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).map(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).map(f))
-    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).map(f))
     case ResultPrefetch(contractIds, keys, resume) =>
       ResultPrefetch(contractIds, keys, () => resume().map(f))
   }
@@ -51,8 +49,6 @@ sealed trait Result[+A] extends Product with Serializable {
       ResultNeedPackage(pkgId, mbPkg => resume(mbPkg).flatMap(f))
     case ResultNeedKey(gk, resume) =>
       ResultNeedKey(gk, mbAcoid => resume(mbAcoid).flatMap(f))
-    case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-      ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, x => resume(x).flatMap(f))
     case ResultPrefetch(contractIds, keys, resume) =>
       ResultPrefetch(contractIds, keys, () => resume().flatMap(f))
   }
@@ -61,7 +57,6 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: PartialFunction[ContractId, FatContractInstance] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
-      grantUpgradeVerification: Option[String] = Some("not validated!"),
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -73,8 +68,6 @@ sealed trait Result[+A] extends Product with Serializable {
           go(resume(ResultNeedContract.wrapLegacyResponse(pcs.lift(acoid))))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
-        case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
-          go(resume(grantUpgradeVerification))
         case ResultPrefetch(_, _, result) => go(result())
       }
     go(this)
@@ -191,29 +184,6 @@ final case class ResultNeedKey[A](
     resume: Option[ContractId] => Result[A],
 ) extends Result[A]
 
-/** After computing the immutable contact data associated with a contract, (for a specific template
-  * type, which may be an upgrade/downgrade of the type at which the contract was created), the
-  * engine will call `ResultNeedUpgradeVerification` to allow the ledger to validate that the
-  * immutable contract data has not changed.
-  *
-  * The ledger will callback `resume` with `None` if everything is fine, or callback with
-  * `Some(helpfulErrorInfo)` otherwise.
-  *
-  * During submission this callback should only be called where the target template id is different
-  * from the contract template id. During reinterpretation this callback is also used for model conformance
-  * so should be called once for all used contracts even if they are not being upgraded.
-  *
-  * TODO: https://github.com/digital-asset/daml/issues/17082
-  * - The engine must be extended to call `ResultNeedUpgradeVerification`
-  */
-final case class ResultNeedUpgradeVerification[A](
-    coid: ContractId,
-    signatories: Set[Party],
-    observers: Set[Party],
-    keyOpt: Option[GlobalKeyWithMaintainers],
-    resume: Option[String] => Result[A],
-) extends Result[A]
-
 /** Indicates that the interpretation will likely need to resolve the given contract keys.
   * The caller may resolve the keys in parallel to the interpretation, but does not have to.
   */
@@ -277,19 +247,6 @@ object Result {
                 packageId,
                 pkg =>
                   resume(pkg).flatMap(x =>
-                    Result
-                      .sequence(results_)
-                      .map(otherResults => (okResults :+ x) :++ otherResults)
-                  ),
-              )
-            case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
-              ResultNeedUpgradeVerification(
-                coid,
-                signatories,
-                observers,
-                keyOpt,
-                res =>
-                  resume(res).flatMap(x =>
                     Result
                       .sequence(results_)
                       .map(otherResults => (okResults :+ x) :++ otherResults)

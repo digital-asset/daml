@@ -70,7 +70,6 @@ import com.digitalasset.daml.lf.engine.{
   ResultNeedContract,
   ResultNeedKey,
   ResultNeedPackage,
-  ResultNeedUpgradeVerification,
   ResultPrefetch,
 }
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -370,11 +369,6 @@ class TestSubmissionService(
 
       case ResultInterruption(continue, _) =>
         resolve(iterateOverInterrupts(continue))
-
-      case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
-        throw new UnsupportedOperationException(
-          s"This callback is no longer used and will be removed in a future release [$unexpected]"
-        )
 
       case ResultPrefetch(_, _, resume) => resolve(resume())
     }

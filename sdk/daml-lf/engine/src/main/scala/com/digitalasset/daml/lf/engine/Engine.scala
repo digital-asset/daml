@@ -647,24 +647,6 @@ class Engine(val config: EngineConfig) {
                 },
               )
 
-            case Question.Update.NeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  callback,
-                ) =>
-              ResultNeedUpgradeVerification(
-                coid,
-                signatories,
-                observers,
-                keyOpt,
-                { x =>
-                  callback(x)
-                  interpretLoop(machine, time, submissionInfo)
-                },
-              )
-
             case Question.Update.NeedKey(gk, _, callback) =>
               ResultNeedKey(
                 gk,

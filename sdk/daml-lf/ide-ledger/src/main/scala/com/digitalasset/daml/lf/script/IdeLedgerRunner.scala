@@ -19,10 +19,7 @@ import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
   FatContractInstance,
   GlobalKey,
-  GlobalKeyWithMaintainers,
   NodeId,
-  TransactionVersion,
-  Versioned,
   VersionedTransaction,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -346,15 +343,6 @@ private[lf] object IdeLedgerRunner {
                 case Left(err) => SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(_) => go()
               }
-            case Question.Update.NeedUpgradeVerification(
-                  coid,
-                  signatories,
-                  observers,
-                  keyOpt,
-                  callback,
-                ) =>
-              checkContractUpgradable(coid, signatories, observers, keyOpt, callback, ledger)
-              go()
             case Question.Update.NeedKey(keyWithMaintainers, committers, callback) =>
               ledger.lookupKey(
                 keyWithMaintainers.globalKey,
@@ -394,57 +382,6 @@ private[lf] object IdeLedgerRunner {
       }
     }
     go()
-  }
-
-  private[lf] def checkContractUpgradable[R](
-      coid: ContractId,
-      signatories: Set[Ref.Party],
-      observers: Set[Ref.Party],
-      keyWithMaintainers: Option[GlobalKeyWithMaintainers],
-      callback: Option[String] => Unit,
-      ledger: LedgerApi[R],
-  ) = {
-    val stakeholders = signatories ++ observers
-    val maybeKeyWithMaintainers =
-      keyWithMaintainers.map(Versioned(TransactionVersion.StableVersions.max, _))
-
-    // Mostly copied from StoreBackedCommandExecutor
-    def checkProvidedContractMetadataAgainstRecomputed(
-        original: FatContractInstance
-    ): Either[String, Unit] = {
-      def check[T](recomputed: T, original: T)(desc: String): Either[String, Unit] =
-        Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
-
-      val originalSignatories = original.signatories.toSet
-      val originalStakeholders = original.stakeholders.toSet
-
-      for {
-        _ <- check(signatories, originalSignatories)("signatories")
-        recomputedObservers = stakeholders -- signatories
-        originalObservers = originalStakeholders -- originalSignatories
-        _ <- check(recomputedObservers, originalObservers)("observers")
-        _ <- check(keyWithMaintainers, original.contractKeyWithMaintainers)(
-          "key value and maintainers"
-        )
-      } yield ()
-    }
-
-    ledger.lookupContract(
-      coid,
-      signatories,
-      observers,
-      (fcoinst: FatContractInstance) => {
-        callback(checkProvidedContractMetadataAgainstRecomputed(fcoinst).left.toOption)
-      },
-    ) match {
-      case Left(err) =>
-        callback(
-          Some(
-            s"Failed to recompute contract metadata from ($signatories, $stakeholders, $maybeKeyWithMaintainers): $err"
-          )
-        )
-      case Right(_) => ()
-    }
   }
 
   private[lf] def nextSeed(submissionSeed: crypto.Hash): crypto.Hash =

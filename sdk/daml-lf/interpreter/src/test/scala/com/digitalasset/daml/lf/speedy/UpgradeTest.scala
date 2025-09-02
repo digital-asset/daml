@@ -37,8 +37,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
 
-  import SpeedyTestLib.UpgradeVerificationRequest
-
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
@@ -343,7 +341,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  type Success = (SValue, Value, List[UpgradeVerificationRequest])
+  type Success = (SValue, Value)
 
   def go(
       e: Expr,
@@ -363,11 +361,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     )
 
     SpeedyTestLib
-      .runCollectRequests(machine)
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue
-        (sv, v, uvs)
-      }
+      .run(machine)
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
@@ -390,7 +385,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(
+      .run(
         machine,
         getContract = Map(
           theCid -> TransactionBuilder
@@ -405,10 +400,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             )
         ),
       )
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue
-        (sv, v, uvs)
-      }
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   // The given contractSValue is wrapped as a disclosedContract
@@ -439,11 +431,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     machine.addDisclosedContracts(theCid, contractInfo)
 
     SpeedyTestLib
-      .runCollectRequests(machine)
-      .map { case (sv, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue
-        (sv, v, uvs)
-      }
+      .run(machine)
+      .map(sv => (sv, sv.toNormalizedValue))
   }
 
   def makeRecord(fields: Value*): Value = {
@@ -505,7 +494,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           observers = List(bob),
           contractKeyWithMaintainers = Some(v_missingFieldKey),
         )
-      ) { case Right((sv, v, _)) =>
+      ) { case Right((sv, v)) =>
         sv shouldBe sv_extendedWithNone
         v shouldBe v_missingField
       }
@@ -608,7 +597,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v2_key),
         )
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }
@@ -724,7 +713,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           contractKeyWithMaintainers = Some(v1_extraNoneKey),
         )
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe v1_base
       }
     }
@@ -820,7 +809,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -834,7 +823,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -847,7 +836,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -861,7 +850,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
@@ -879,14 +868,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, v, List())) =>
+      inside(res) { case Right((_, v)) =>
         v shouldBe a[ValueContractId]
       }
     }
 
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (SValue, Value, List[UpgradeVerificationRequest])] = go(
+      val res: Either[SError, (SValue, Value)] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
@@ -924,9 +913,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((_, v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+        v shouldBe v1_base
       }
     }
 
@@ -947,9 +935,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) {
-        case Right((_, v, _)) =>
-          v shouldBe v1_base
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", i"'-pkg1-':M:T", sv1_base)) { case Right((_, v)) =>
+        v shouldBe v1_base
       }
     }
   }

@@ -92,7 +92,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         time,
         time,
       )
-      .consume(pcs = defaultContracts, pkgs = allPackages, grantUpgradeVerification = None)
+      .consume(pcs = defaultContracts, pkgs = allPackages)
     res match {
       case Right((tx, _)) => Right(tx)
       case Left(e) => Left(e)
