@@ -532,13 +532,13 @@ private[speedy] case class PartialTransaction(
   /** Close normally an exercise context.
     * Must match a `beginExercises`.
     */
-  def endExercises(result: TxVersion => Value): PartialTransaction =
+  def endExercises(result: Value): PartialTransaction =
     context.info match {
       case ec: ExercisesContextInfo =>
         val exerciseNode =
           makeExNode(ec).copy(
             children = context.children.toImmArray,
-            exerciseResult = Some(result(ec.version)),
+            exerciseResult = Some(result),
           )
         val nodeId = ec.nodeId
         copy(

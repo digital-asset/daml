@@ -1734,7 +1734,7 @@ private[lf] object Speedy {
         exerciseResult: SValue,
     ): Control[Question.Update] =
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
-        machine.ptx = machine.ptx.endExercises(_ => exerciseResult.toNormalizedValue)
+        machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
         Control.Value(exerciseResult)
       }
   }

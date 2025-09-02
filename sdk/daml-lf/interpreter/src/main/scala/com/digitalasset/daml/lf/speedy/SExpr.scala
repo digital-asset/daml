@@ -274,7 +274,7 @@ private[lf] object SExpr {
     * loaded in `machine`.
     */
   final case class SEImportValue(typ: Ast.Type, value: V) extends SExpr {
-    override def execute[Q](machine: Machine[Q]): Control[Q] =
+    override def execute[Q](machine: Machine[Q]): Control[Nothing] =
       machine.importValue(typ, value)
   }
 
