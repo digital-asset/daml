@@ -7,6 +7,7 @@ package engine
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
+import com.digitalasset.daml.lf.engine.ResultNeedContract.Response
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
@@ -57,6 +58,9 @@ sealed trait Result[+A] extends Product with Serializable {
       pcs: PartialFunction[ContractId, FatContractInstance] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
+      // TODO(https://github.com/digital-asset/daml/issues/21667): change default to TypedNormalForm
+      hashingMethod: ContractId => Hash.HashingMethod = _ => Hash.HashingMethod.UpgradeFriendly,
+      idValidator: (ContractId, Hash) => Boolean = (_, _) => true,
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -65,7 +69,11 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultInterruption(continue, _) => go(continue())
         case ResultError(err) => Left(err)
         case ResultNeedContract(acoid, resume) =>
-          go(resume(ResultNeedContract.wrapLegacyResponse(pcs.lift(acoid))))
+          go(resume(pcs.lift(acoid) match {
+            case None => ResultNeedContract.Response.ContractNotFound
+            case Some(coInst) =>
+              Response.ContractFound(coInst, hashingMethod(acoid), idValidator(acoid, _))
+          }))
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultPrefetch(_, _, result) => go(result())
@@ -136,20 +144,6 @@ object ResultNeedContract {
     final case object ContractNotFound extends Response
 
     final case object UnsupportedContractIdVersion extends Response
-  }
-
-  // TODO(https://github.com/digital-asset/daml/issues/21667): remove all usages of this method
-  def wrapLegacyResponse(mbContractInstance: Option[FatContractInstance]): Response = {
-    mbContractInstance match {
-      case Some(contractInstance) =>
-        Response.ContractFound(
-          contractInstance,
-          Hash.HashingMethod.UpgradeFriendly,
-          _ => throw new NotImplementedError("Contract authentication is not yet supported"),
-        )
-      case None =>
-        Response.ContractNotFound
-    }
   }
 }
 
