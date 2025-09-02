@@ -6,6 +6,7 @@ module DA.Daml.StablePackages
     , allStablePackagesForVersion
     , numStablePackagesForVersion
     , stablePackageByModuleName
+    , stableIds
     ) where
 
 import Data.Bifunctor
@@ -887,3 +888,4 @@ daInternalFailTypes version = Package
       , (mkField "message", TText)
       , (mkField "meta", TTextMap TText)
       ]
+

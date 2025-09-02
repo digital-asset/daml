@@ -27,6 +27,8 @@ import qualified Data.Vector         as V
 import qualified Data.Map            as M
 import           Data.Int
 
+import           Text.Printf (printf)
+
 import           DA.Pretty
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Mangling
@@ -71,21 +73,16 @@ makeLenses ''EncodeConfig
 
 type Encode a = ReaderT EncodeConfig (StateT EncodeState Identity) a
 
-ifSupportsEncodeM :: Feature -> Encode a -> Encode a -> Encode a
-ifSupportsEncodeM = flip ifSupportsM version
+ifSupportsFlattening :: Encode a -> Encode a -> Encode a
+ifSupportsFlattening = ifSupports featureFlatArchive version
 
-ifSupportsEncode :: Feature -> a -> a -> Encode a
-ifSupportsEncode = flip ifSupports version
-
-ifSupportsFlatteningM :: Encode a -> Encode a -> Encode a
-ifSupportsFlatteningM = ifSupportsEncodeM featureFlatArchive
-
-ifSupportsFlattening :: a -> a -> Encode a
-ifSupportsFlattening = ifSupportsEncode featureFlatArchive
+ifSupportsFlattening_ :: a -> a -> Encode a
+ifSupportsFlattening_ b1 b2 = ifSupports featureFlatArchive version (return b1) (return b2)
 
 assertSupportsFlattening :: Encode ()
 assertSupportsFlattening =
-  ifSupportsFlattening () (error "assertion failiure: version does not support flattening")
+  assertSupports featureFlatArchive version $ \v ->
+    error $ printf "assertion failiure: lf version %s does not support flattening" (show v)
 
 initEncodeState :: EncodeState
 initEncodeState =
@@ -207,9 +204,11 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
     SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
     ImportedPackageId p@(PackageId pkgId) ->
-      ifSupportsFlatteningM
+      ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
         {-then-}
-          (asks (P.SelfOrImportedPackageIdSumPackageImportId . (M.! p) . fromJust . view importMap))
+          (do
+              (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
+              return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
         {-else-}
           (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
@@ -304,7 +303,7 @@ encodeKind k = do
 
 internKind :: P.Kind -> Encode P.Kind
 internKind k =
-    ifSupportsFlatteningM
+    ifSupportsFlattening
       {-then-}
         (case k of
             (P.Kind (Just k')) -> do
@@ -349,7 +348,7 @@ encodeBuiltinType = P.Enumerated . Right . \case
  expression as lhs and empty arg list as rhs. -}
 encodeType' :: Type -> Encode P.Type
 encodeType' typ = do
-  pat <- ifSupportsFlattening
+  pat <- ifSupportsFlattening_
     {-then-} (typ, [])
     {-else-} (typ ^. _TApps)
   ptyp <- case pat of
@@ -370,7 +369,7 @@ encodeType' typ = do
         type_BuiltinArgs <- encodeList encodeType' args
         pure $ P.TypeSumBuiltin P.Type_Builtin{..}
     (t@(TForall bn bdy), []) -> do
-        (binders, body) <- ifSupportsFlattening
+        (binders, body) <- ifSupportsFlattening_
             {-then-} ([bn], bdy)
             {-else-} (t ^. _TForalls)
         type_ForallVars <- encodeTypeVarsWithKinds binders
@@ -602,28 +601,28 @@ encodeExpr' e = case e of
         expr_StructUpdUpdate <- encodeExpr structUpdate
         pureExpr $ P.ExprSumStructUpd P.Expr_StructUpd{..}
     e@(ETmApp e1 e2) -> do
-        (fun, args) <- ifSupportsFlattening
+        (fun, args) <- ifSupportsFlattening_
             {-then-} (e1, [e2])
             {-else-} (e ^. _ETmApps)
         expr_AppFun <- encodeExpr fun
         expr_AppArgs <- encodeList encodeExpr' args
         pureExpr $ P.ExprSumApp P.Expr_App{..}
     e@(ETyApp inner t) -> do
-        (fun, args) <- ifSupportsFlattening
+        (fun, args) <- ifSupportsFlattening_
             {-then-} (inner, [t])
             {-else-} (e ^. _ETyApps)
         expr_TyAppExpr <- encodeExpr fun
         expr_TyAppTypes <- encodeList encodeType' args
         pureExpr $ P.ExprSumTyApp P.Expr_TyApp{..}
     e@(ETmLam bnd bdy) -> do
-        (params, body) <- ifSupportsFlattening
+        (params, body) <- ifSupportsFlattening_
             {-then-} ([bnd], bdy)
             {-else-} (e ^. _ETmLams)
         expr_AbsParam <- encodeList encodeExprVarWithType params
         expr_AbsBody <- encodeExpr body
         pureExpr $ P.ExprSumAbs P.Expr_Abs{..}
     e@(ETyLam bnd bdy) -> do
-        (params, body) <- ifSupportsFlattening
+        (params, body) <- ifSupportsFlattening_
             {-then-} ([bnd], bdy)
             {-else-} (e ^. _ETyLams)
         expr_TyAbsParam <- encodeTypeVarsWithKinds params
@@ -757,7 +756,7 @@ encodeExpr' e = case e of
 internExpr :: Encode P.Expr -> Encode P.Expr
 internExpr f = do
   e <- f
-  ifSupportsFlatteningM
+  ifSupportsFlattening
     {-then-}
       (case e of
         (P.Expr _ (Just (P.ExprSumInternedExpr _))) ->

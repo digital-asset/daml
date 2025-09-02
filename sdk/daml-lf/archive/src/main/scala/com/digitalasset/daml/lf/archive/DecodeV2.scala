@@ -60,6 +60,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optModuleName = None,
       onlySerializableDataDefs = onlySerializableDataDefs,
       currentInternedExprId = None,
+      imports = None,
     )
 
     val internedKinds = decodeKindsTable(env0, lfPackage)
@@ -67,7 +68,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedTypes = decodeTypesTable(env1, lfPackage)
     val env2 = env1.copy(internedTypes = internedTypes)
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
-    val env = env2.copy(internedExprs = internedExprs)
+    val env3 = env2.copy(internedExprs = internedExprs)
+    val imports = None
+    val env = env3.copy(imports = imports)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -132,6 +135,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optModuleName = None,
       onlySerializableDataDefs = false,
       currentInternedExprId = None,
+      imports = None,
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
@@ -217,6 +221,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optModuleName: Option[ModuleName],
       onlySerializableDataDefs: Boolean,
       currentInternedExprId: Option[Int] = None,
+      imports: Option[collection.IndexedSeq[String]],
   ) {
 
     // decode*ForTest -- test entry points
@@ -360,6 +365,20 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def getInternedPackageId(id: Int): PackageId =
       eitherToParseError(PackageId.fromString(getInternedStr(id)))
+
+    private[this] def getImportedPackage(id: Int) =
+      imports
+        .map { seq =>
+          seq.lift(id).getOrElse {
+            throw Error.Parsing(s"Index out of bounds: invalid imported package index $id")
+          }
+        }
+        .getOrElse {
+          throw Error.Parsing("Imports table None")
+        }
+
+    private[this] def getImportedPackageId(id: Int): PackageId =
+      eitherToParseError(PackageId.fromString(getImportedPackage(id)))
 
     private def getInternedName(id: Int) = {
       eitherToParseError(Name.fromString(getInternedStr(id)))
@@ -843,6 +862,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           this.packageId
         case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
           getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
+        case SC.PACKAGE_IMPORT_ID =>
+          getImportedPackageId(lfId.getPackageId.getPackageImportId())
         case SC.SUM_NOT_SET =>
           throw Error.Parsing("PackageId.SUM_NOT_SET")
       }

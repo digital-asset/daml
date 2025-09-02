@@ -31,7 +31,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
-import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion )
+import DA.Daml.LF.Ast.Version ( Version(versionMajor), renderMajorVersion, featurePackageImports, supports )
 -- import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor), supports, featurePackageImports, version2_dev )
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
@@ -855,27 +855,25 @@ convertUnitId pkgMap id =
 depsToIds :: Map.Map GHC.UnitId LF.DalfPackage -> IntMap.IntMap (Set.Set GHC.InstalledUnitId) -> LF.PackageIds
 depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.elems unitMap
 
+generatePackageImports :: Rules ()
+generatePackageImports =
+    define $ \GeneratePackageImports file -> do
+        lfVersion <- getDamlLfVersion
+        imports <- if lfVersion `supports` featurePackageImports
+        -- imports <- if version2_dev `supports` featurePackageImports
+          then do
+            PackageMap pkgMap <- use_ GeneratePackageMap file
+            deps <- depPkgDeps <$> use_ GetDependencyInformation file
+            return (Just $ depsToIds pkgMap deps)
+          else return Nothing
+        return ([]{-list of diagnostics-}, Just imports)
+
 -- generatePackageImports :: Rules ()
 -- generatePackageImports =
 --     define $ \GeneratePackageImports file -> do
---         -- lfVersion <- getDamlLfVersion
---         -- imports <- if lfVersion `supports` featurePackageImports
---         imports <- if version2_dev `supports` featurePackageImports
---           then do
---             PackageMap pkgMap <- use_ GeneratePackageMap file
---             deps <- depPkgDeps <$> use_ GetDependencyInformation file
---             return (Just $ depsToIds pkgMap deps)
---           else return Nothing
---         return ([]{-list of diagnostics-}, Just imports)
-
-generatePackageImports :: Rules ()
-generatePackageImports =
-    define $ \GeneratePackageImports _file -> do
-      return ([], Just $ Just mempty)
-      -- PackageMap pkgMap <- use_ GeneratePackageMap file
-      -- deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      -- return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
-
+--       PackageMap pkgMap <- use_ GeneratePackageMap file
+--       deps <- depPkgDeps <$> use_ GetDependencyInformation file
+--       return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
 
 -- Generates a Daml-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.

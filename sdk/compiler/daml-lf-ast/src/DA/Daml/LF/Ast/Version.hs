@@ -21,7 +21,6 @@ import qualified Text.ParserCombinators.ReadP as ReadP
 import qualified Data.Map.Strict as MS
 
 import Control.Lens (Getting, view)
-import Control.Monad.Extra (ifM)
 import Control.Monad.Reader.Class
 
 -- | Daml-LF version of an archive payload.
@@ -390,24 +389,35 @@ instance Pretty Version where
 instance Pretty VersionReq where
   pPrint = string . renderFeatureVersionReq
 
-ifVersionM :: MonadReader r m
-           => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
-           -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
-           -> m a                       -- ^ The action to run if the predicate is True
-           -> m a                       -- ^ The action to run if the predicate is False
-           -> m a
-ifVersionM p versionLens = ifM (p <$> view versionLens)
+
+-- The extended implementation
+ifVersionWith :: MonadReader r m
+              => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
+              -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
+              -> (Version -> m a)          -- ^ The action to run if the predicate is True
+              -> (Version -> m a)          -- ^ The action to run if the predicate is False
+              -> m a
+ifVersionWith p l b1 b2 = do
+    v <- view l
+    if p v
+      then b1 v
+      else b2 v
 
 ifVersion :: MonadReader r m
           => (Version -> Bool)         -- ^ The predicate to apply to the 'Version'
           -> Getting Version r Version -- ^ A lens for the 'Version' in the environment
-          -> a                       -- ^ The action to run if the predicate is True
-          -> a                       -- ^ The action to run if the predicate is False
+          -> m a                       -- ^ The action to run if the predicate is True
+          -> m a                       -- ^ The action to run if the predicate is False
           -> m a
-ifVersion p versionLens b1 b2 = ifVersionM p versionLens (return b1) (return b2)
+ifVersion p l b1 b2 = ifVersionWith p l (const b1) (const b2)
 
-ifSupportsM :: MonadReader r m => Feature -> Getting Version r Version -> m a -> m a -> m a
-ifSupportsM f = ifVersionM (`supports` f)
-
-ifSupports :: MonadReader r m => Feature -> Getting Version r Version -> a -> a -> m a
+ifSupports :: MonadReader r m => Feature -> Getting Version r Version -> m a -> m a -> m a
 ifSupports f = ifVersion (`supports` f)
+
+assertSupports :: MonadReader r m => Feature -> Getting Version r Version -> (Version -> m ()) -> m ()
+assertSupports f l b = do
+  ifVersionWith (`supports` f) l (const $ return ()) b
+
+assertSupportsNot :: MonadReader r m => Feature -> Getting Version r Version -> (Version -> m ()) -> m ()
+assertSupportsNot f l b = do
+  ifVersionWith (`supports` f) l b (const $ return ())
