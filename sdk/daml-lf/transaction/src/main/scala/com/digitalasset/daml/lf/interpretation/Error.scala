@@ -243,6 +243,9 @@ object Error {
       final case class InvalidValue(value: Value, message: String) extends Error
     }
 
+    final case class AuthenticationError(coid: ContractId, value: Value, message: String)
+        extends Error
+
     final case class Limit(error: Limit.Error) extends Error
 
     object Limit {

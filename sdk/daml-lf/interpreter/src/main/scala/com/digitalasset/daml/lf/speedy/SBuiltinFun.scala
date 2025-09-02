@@ -6,7 +6,8 @@ package speedy
 
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
+import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.crypto.Hash.{HashingMethod, hashContractInstance}
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -2461,15 +2462,73 @@ private[lf] object SBuiltinFun {
           )(f(Some(templateArg), _))
         }
       case None =>
-        machine.lookupContract(coid)((coinst, _, _) =>
-          machine.ensurePackageIsLoaded(
-            NameOf.qualifiedNameOfCurrentFunc,
-            coinst.templateId.packageId,
-            language.Reference.Template(coinst.templateId.toRef),
-          ) { () =>
-            importContractInfo(machine, coinst)(f(None, _))
+        machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
+            machine.ensurePackageIsLoaded(
+              NameOf.qualifiedNameOfCurrentFunc,
+              coinst.templateId.packageId,
+              language.Reference.Template(coinst.templateId.toRef),
+            ) { () =>
+              importContractInfo(machine, coinst)(f(None, _))
+            }
           }
         )
+    }
+  }
+
+  private def authenticateIfLegacyContract(
+      coid: V.ContractId,
+      coinst: FatContractInstance,
+      hashingMethod: Hash.HashingMethod,
+      authenticator: Hash => Boolean,
+  )(k: () => Control[Question.Update]): Control[Question.Update] = {
+    val mbValueHash = hashingMethod match {
+      case HashingMethod.Legacy =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = false,
+          )
+        )
+      case HashingMethod.UpgradeFriendly =>
+        Some(
+          hashContractInstance(
+            coinst.templateId,
+            coinst.createArg,
+            coinst.packageName,
+            upgradeFriendly = true,
+          )
+        )
+      case HashingMethod.TypedNormalForm =>
+        None
+    }
+    mbValueHash match {
+      case Some(errorOrHash) =>
+        errorOrHash match {
+          case Right(hash) =>
+            if (authenticator(hash)) {
+              k()
+            } else {
+              Control.Error(
+                IE.Dev(
+                  NameOf.qualifiedNameOfCurrentFunc,
+                  IE.Dev
+                    .AuthenticationError(coid, coinst.createArg, s"failed to authenticate contract"),
+                )
+              )
+            }
+          case Left(msg) =>
+            Control.Error(
+              IE.Dev(
+                NameOf.qualifiedNameOfCurrentFunc,
+                IE.Dev.AuthenticationError(coid, coinst.createArg, msg),
+              )
+            )
+        }
+      // This is not a legacy contract, we do nothing. It will be authenticated after translation to SValue.
+      case None => k()
     }
   }
 
