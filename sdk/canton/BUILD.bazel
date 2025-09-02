@@ -84,6 +84,7 @@ da_scala_library(
     ],
     deps = [
         ":ledger_api_proto_scala",
+        "@maven//:com_google_guava_guava",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
@@ -890,6 +891,7 @@ scala_library(
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_google_protobuf_protobuf_java_util",
         "@maven//:com_lihaoyi_geny_2_13",
+        "@maven//:com_lihaoyi_pprint_2_13",
         "@maven//:com_lihaoyi_ujson_2_13",
         "@maven//:com_lihaoyi_ujson_circe_2_13",
         "@maven//:com_lihaoyi_upickle_core_2_13",
@@ -913,6 +915,7 @@ scala_library(
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
         "@maven//:com_typesafe_config",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
         "@maven//:io_circe_circe_generic_extras_2_13",
