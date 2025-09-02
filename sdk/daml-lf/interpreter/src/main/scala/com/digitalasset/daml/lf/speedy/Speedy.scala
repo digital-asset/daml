@@ -4,12 +4,16 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.daml.nameof.NameOf
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, NoCopy, Ref, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{PackageInterface, TypeDestructor}
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
+import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
 import com.digitalasset.daml.lf.speedy.SError._
@@ -33,10 +37,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
 import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
-import com.daml.nameof.NameOf
-import com.daml.scalautil.Statement.discard
-import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.annotation.{nowarn, tailrec}
 import scala.collection.immutable.ArraySeq
@@ -141,9 +141,9 @@ private[lf] object Speedy {
     def templateId: TypeConId = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
-    def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
+    def renormalizedGlobalKeyWithMaintainers: GlobalKeyWithMaintainers = {
       globalKeyWithMaintainers.copy(
-        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue(version))
+        globalKey = GlobalKey.assertWithRenormalizedValue(globalKey, key.toNormalizedValue)
       )
     }
   }
@@ -160,7 +160,7 @@ private[lf] object Speedy {
     val stakeholders: Set[Party] = signatories union observers
 
     private[speedy] val any = SValue.SAnyContract(templateId, value)
-    private[speedy] def arg = value.toNormalizedValue(version)
+    private[speedy] def arg = value.toNormalizedValue
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
@@ -1303,196 +1303,18 @@ private[lf] object Speedy {
       }
     }
 
-    // This translates a well-typed LF value (typically coming from the ledger)
+    // This translates and type-checks an LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
-    // Note the method does not check the value is well-typed as opposed as
-    // com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator.translateValue.
-    // All the contract IDs contained in the value are considered global.
-    // Raises an exception if missing a package.
-    private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
-
-      import TypeDestructor.SerializableTypeF._
-      val Destructor = TypeDestructor(compiledPackages.pkgInterface)
-
-      def go(ty: Type, value: V): SValue = {
-        def typeMismatch = throw SErrorCrash(
-          NameOf.qualifiedNameOfCurrentFunc,
-          s"mismatching type: $ty and value: $value",
+    private[speedy] final def importValue(typ: Type, value: V): Control[Nothing] =
+      new ValueTranslator(compiledPackages.pkgInterface, requireContractIdSuffix = true)
+        .translateValue(typ, value)
+        .fold(
+          error =>
+            Control.Error(
+              IError.Dev(NameOf.qualifiedNameOfCurrentFunc, IError.Dev.TranslationError(error))
+            ),
+          svalue => Control.Value(svalue),
         )
-
-        value match {
-          case leaf: V.ValueCidlessLeaf =>
-            leaf match {
-              case V.ValueEnum(_, consName) =>
-                Destructor.destruct(ty) match {
-                  case Right(enumF: EnumF) =>
-                    val rank =
-                      enumF
-                        .consRank(consName)
-                        .getOrElse(
-                          throw SErrorDamlException(
-                            IError.Upgrade(
-                              IError.Upgrade.DowngradeFailed(ty, value)
-                            )
-                          )
-                        )
-                    SValue.SEnum(enumF.tyCon, consName, rank)
-                  case _ =>
-                    typeMismatch
-                }
-              case V.ValueInt64(value) =>
-                SValue.SInt64(value)
-              case V.ValueNumeric(value) =>
-                SValue.SNumeric(value)
-              case V.ValueText(value) =>
-                SValue.SText(value)
-              case V.ValueTimestamp(value) =>
-                SValue.STimestamp(value)
-              case V.ValueDate(value) =>
-                SValue.SDate(value)
-              case V.ValueParty(value) =>
-                SValue.SParty(value)
-              case V.ValueBool(value) =>
-                if (value) SValue.SValue.True else SValue.SValue.False
-              case V.ValueUnit =>
-                SValue.SUnit
-            }
-          case V.ValueRecord(_, sourceElements) =>
-            Destructor.destruct(ty) match {
-              case Right(recordF: RecordF[_]) =>
-                // This code implements the compatibility transformation used for up/down-grading
-                // And handles the cases:
-                // - UPGRADE:   numT > numS : creates a None for each missing fields.
-                // - DOWNGRADE: numS > numT : drops each extra field, ensuring it is None.
-                //
-                // When numS == numT, we wont hit the code marked either as UPGRADE or DOWNGRADE,
-                // although it is still possible that the source and target types are different,
-                // but since we don't consult the source type (may be unavailable), we wont know.
-
-                val numS: Int = sourceElements.length
-                val numT: Int = recordF.fieldTypes.length
-
-                // traverse the sourceElements, "get"ing the corresponding target type
-                // when there is no corresponding type, we must be downgrading, and so we insist the value is None
-                val values0: List[SValue] =
-                  sourceElements.toSeq.view.zipWithIndex.flatMap { case ((_, v), i) =>
-                    recordF.fieldTypes.lift(i) match {
-                      case Some(targetFieldType) =>
-                        val sv: SValue = go(targetFieldType, v)
-                        List(sv)
-                      case None => { // DOWNGRADE
-                        // i ranges from 0 to numS-1. So i >= numT implies numS > numT
-                        assert((numS > i) && (i >= numT))
-                        v match {
-                          case V.ValueOptional(None) =>
-                            List.empty // ok, drop
-                          case V.ValueOptional(Some(_)) =>
-                            throw SErrorDamlException(
-                              IError.Upgrade(
-                                IError.Upgrade.DowngradeDropDefinedField(ty, i.toLong, value)
-                              )
-                            )
-                          case _ =>
-                            throw SErrorCrash(
-                              NameOf.qualifiedNameOfCurrentFunc,
-                              "Unexpected non-optional extra contract field encountered during downgrading.",
-                            )
-                        }
-                      }
-                    }
-                  }.toList
-
-                val values: ArraySeq[SValue] = {
-                  if (numT > numS) {
-                    // UPGRADE
-
-                    recordF.fieldTypes.view.drop(numS).map(Destructor.destruct(_)).foreach {
-                      case Right(OptionalF(_)) =>
-                      case _ =>
-                        throw SErrorCrash(
-                          NameOf.qualifiedNameOfCurrentFunc,
-                          "Unexpected non-optional extra template field type encountered during upgrading.",
-                        )
-                    }
-
-                    values0.padTo(numT, SValue.SValue.None)
-                  } else {
-                    values0
-                  }
-                }.to(ArraySeq)
-
-                SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
-
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueVariant(_, variant, value) =>
-            Destructor.destruct(ty) match {
-              case Right(variantF: VariantF[_]) =>
-                val rank =
-                  variantF
-                    .consRank(variant)
-                    .getOrElse(
-                      throw SErrorDamlException(
-                        IError.Upgrade(
-                          IError.Upgrade.DowngradeFailed(ty, value)
-                        )
-                      )
-                    )
-                val a = variantF.consTypes(rank)
-                SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueContractId(value) =>
-            SValue.SContractId(value)
-          case V.ValueList(values) =>
-            Destructor.destruct(ty) match {
-              case Right(ListF(a)) =>
-                SValue.SList(values.map(go(a, _)))
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueOptional(value) =>
-            value match {
-              case Some(value) =>
-                Destructor.destruct(ty) match {
-                  case Right(OptionalF(a)) =>
-                    SValue.SOptional(Some(go(a, value)))
-                  case _ =>
-                    typeMismatch
-                }
-              case None =>
-                SValue.SValue.None
-            }
-          case V.ValueTextMap(entries) =>
-            Destructor.destruct(ty) match {
-              case Right(TextMapF(a)) =>
-                SValue.SMap.fromOrderedEntries(
-                  isTextMap = true,
-                  entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                    SValue.SText(k) -> go(a, v)
-                  },
-                )
-              case _ =>
-                typeMismatch
-            }
-          case V.ValueGenMap(entries) =>
-            Destructor.destruct(ty) match {
-              case Right(MapF(a, b)) =>
-                SValue.SMap.fromOrderedEntries(
-                  isTextMap = false,
-                  entries = entries.toSeq.view.map { case (k, v) =>
-                    go(a, k) -> go(b, v)
-                  },
-                )
-              case _ =>
-                typeMismatch
-            }
-        }
-      }
-      Control.Value(go(typ0, value0))
-    }
   }
 
   object Machine {
@@ -1633,31 +1455,20 @@ private[lf] object Speedy {
         contractKey: SValue,
     ): Option[GlobalKey] =
       globalKey(
-        packageTxVersion = tmplId2TxVersion(pkgInterface, templateId),
         pkgName = tmplId2PackageName(pkgInterface, templateId),
         templateId = templateId,
         keyValue = contractKey,
       )
 
-    private[lf] def globalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ): Option[GlobalKey] = {
-      val lfValue = keyValue.toNormalizedValue(packageTxVersion)
+    private[lf] def globalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) = {
+      val lfValue = keyValue.toNormalizedValue
       GlobalKey
         .build(templateId, lfValue, pkgName)
         .toOption
     }
 
-    private[lf] def assertGlobalKey(
-        packageTxVersion: TxVersion,
-        pkgName: PackageName,
-        templateId: TypeConId,
-        keyValue: SValue,
-    ) =
-      globalKey(packageTxVersion, pkgName, templateId, keyValue)
+    private[lf] def assertGlobalKey(pkgName: PackageName, templateId: TypeConId, keyValue: SValue) =
+      globalKey(pkgName, templateId, keyValue)
         .getOrElse(
           throw SErrorDamlException(IError.ContractIdInContractKey(keyValue.toUnnormalizedValue))
         )

@@ -1324,7 +1324,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               )
               val globalKey = GlobalKeyWithMaintainers.assertBuild(
                 templateId,
-                key.toNormalizedValue(TransactionVersion.StableVersions.max),
+                key.toNormalizedValue,
                 Set(alice),
                 templateDefsPkgName,
               )

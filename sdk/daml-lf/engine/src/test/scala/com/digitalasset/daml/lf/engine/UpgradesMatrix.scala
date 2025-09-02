@@ -896,11 +896,11 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
     override def choiceArgValue: ImmArray[(Option[Name], Value)] =
       ImmArray(
-        Some("r": Name) -> ValueRecord(
+        None /* r */ -> ValueRecord(
           None,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0),
-            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+            None /* n */ -> ValueInt64(0),
+            None /* extra */ -> ValueOptional(Some(ValueUnit)),
           ),
         )
       )
@@ -922,11 +922,11 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
     override def choiceArgValue: ImmArray[(Option[Name], Value)] =
       ImmArray(
-        Some("r": Name) -> ValueRecord(
+        None /* r */ -> ValueRecord(
           None,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0),
-            Some("extra": Name) -> ValueOptional(None),
+            None /* n */ -> ValueInt64(0),
+            None /* extra */ -> ValueOptional(None),
           ),
         )
       )
@@ -951,11 +951,11 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
     override def choiceArgValue: ImmArray[(Option[Name], Value)] =
       ImmArray(
-        Some("r": Name) -> ValueRecord(
+        None /* r */ -> ValueRecord(
           None,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0),
-            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+            None /* n */ -> ValueInt64(0),
+            None /* extra */ -> ValueOptional(Some(ValueUnit)),
           ),
         )
       )
@@ -1150,13 +1150,11 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1RecordId =
-        Identifier(v1PkgId, s"Mod:$recordName")
       ImmArray(
-        Some("r": Name) -> ValueRecord(
-          Some(v1RecordId),
+        None /* r */ -> ValueRecord(
+          None /* Mod:$recordName */,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0)
+            None /* n */ -> ValueInt64(0)
           ),
         )
       )
@@ -1186,7 +1184,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       val v1VariantId =
         Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
-        Some("v": Name) -> ValueVariant(
+        None /* v */ -> ValueVariant(
           Some(v1VariantId),
           "Ctor1",
           ValueInt64(0),
@@ -1217,7 +1215,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
       val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
-        Some("e": Name) -> ValueEnum(
+        None /* e */ -> ValueEnum(
           Some(v1EnumId),
           "Ctor1",
         )
@@ -1266,14 +1264,14 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
       ImmArray(
-        Some("extra": Name) -> ValueOptional(None)
+        None /* extra */ -> ValueOptional(None)
       )
     }
   }
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional template parameter, None arg, downgrade succeeds
   case object InvalidDowngradeAdditionalTemplateArg
-      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectUpgradeError) {
+      extends TestCase("InvalidDowngradeAdditionalTemplateArg", ExpectRuntimeTypeMismatchError) {
     override def v1AdditionalFields = ", extra: Option Unit"
     override def v2AdditionalFields = ""
 
@@ -1282,7 +1280,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
       ImmArray(
-        Some("extra": Name) -> ValueOptional(Some(ValueUnit))
+        None /* extra */ -> ValueOptional(Some(ValueUnit))
       )
     }
   }
@@ -1307,14 +1305,12 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1RecordId =
-        Identifier(v1PkgId, s"Mod:$recordName")
       ImmArray(
-        Some("r": Name) -> ValueRecord(
-          Some(v1RecordId),
+        None /* r */ -> ValueRecord(
+          None /* Mod:$recordName */,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0),
-            Some("extra": Name) -> ValueOptional(None),
+            None /* n */ -> ValueInt64(0),
+            None /* extra */ -> ValueOptional(None),
           ),
         )
       )
@@ -1323,7 +1319,10 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: additional optional field in record used as template parameter, Some value, downgrade fails
   case object InvalidDowngradeAdditionalFieldInRecordArg
-      extends TestCase("InvalidDowngradeAdditionalFieldInRecordArg", ExpectUpgradeError) {
+      extends TestCase(
+        "InvalidDowngradeAdditionalFieldInRecordArg",
+        ExpectRuntimeTypeMismatchError,
+      ) {
 
     val recordName = s"${templateName}Record"
 
@@ -1341,14 +1340,12 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     }
 
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
-      val v1RecordId =
-        Identifier(v1PkgId, s"Mod:$recordName")
       ImmArray(
-        Some("r": Name) -> ValueRecord(
-          Some(v1RecordId),
+        None /* r */ -> ValueRecord(
+          None /* Mod:$recordName */,
           ImmArray(
-            Some("n": Name) -> ValueInt64(0),
-            Some("extra": Name) -> ValueOptional(Some(ValueUnit)),
+            None /* n */ -> ValueInt64(0),
+            None /* extra */ -> ValueOptional(Some(ValueUnit)),
           ),
         )
       )
@@ -1378,7 +1375,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       val v1VariantId =
         Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
-        Some("v": Name) -> ValueVariant(
+        None /* v */ -> ValueVariant(
           Some(v1VariantId),
           "Ctor1",
           ValueInt64(0),
@@ -1391,7 +1388,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
   case object InvalidDowngradeAdditionalConstructorInVariantArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInVariantArg",
-        ExpectUpgradeError,
+        ExpectRuntimeTypeMismatchError,
       ) {
 
     val variantName = s"${templateName}Variant"
@@ -1413,7 +1410,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       val v1VariantId =
         Identifier(v1PkgId, s"Mod:$variantName")
       ImmArray(
-        Some("v": Name) -> ValueVariant(
+        None /* v */ -> ValueVariant(
           Some(v1VariantId),
           "Ctor2",
           ValueUnit,
@@ -1444,7 +1441,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
       val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
-        Some("e": Name) -> ValueEnum(
+        None /* e */ -> ValueEnum(
           Some(v1EnumId),
           "Ctor1",
         )
@@ -1456,7 +1453,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
   case object InvalidDowngradeAdditionalConstructorInEnumArg
       extends TestCase(
         "InvalidDowngradeAdditionalConstructorInEnumArg",
-        ExpectUpgradeError,
+        ExpectRuntimeTypeMismatchError,
       ) {
 
     val enumName = s"${templateName}Enum"
@@ -1477,7 +1474,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     override def additionalCreateArgsValue(v1PkgId: PackageId) = {
       val v1EnumId = Identifier(v1PkgId, s"Mod:$enumName")
       ImmArray(
-        Some("e": Name) -> ValueEnum(
+        None /* e */ -> ValueEnum(
           Some(v1EnumId),
           "Ctor2",
         )
@@ -1495,7 +1492,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       s", extra = None @Unit"
     override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
       ImmArray(
-        Some("extra": Name) -> ValueOptional(None)
+        None /* extra */ -> ValueOptional(None)
       )
 
     override def v1Key = s"""
@@ -1521,7 +1518,7 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
       s", extra = None @Unit"
     override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
       ImmArray(
-        Some("extra": Name) -> ValueOptional(None)
+        None /* extra */ -> ValueOptional(None)
       )
 
     override def v1Key = s"""
@@ -1774,18 +1771,18 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     val v1TplId: Identifier = Identifier(templateDefsV1PkgId, tplQualifiedName)
 
     def clientContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
-      Some(clientTplId),
+      None /* clientTplId */,
       ImmArray(
-        Some("alice": Name) -> ValueParty(alice),
-        Some("bob": Name) -> ValueParty(bob),
+        None /* alice */ -> ValueParty(alice),
+        None /* bob */ -> ValueParty(bob),
       ),
     )
 
     def globalContractArg(alice: Party, bob: Party): ValueRecord = ValueRecord(
-      Some(v1TplId),
+      None /* v1TplId */,
       ImmArray(
-        Some("p1": Name) -> ValueParty(alice),
-        Some("p2": Name) -> ValueParty(bob),
+        None /* p1 */ -> ValueParty(alice),
+        None /* p2 */ -> ValueParty(bob),
       ).slowAppend(testCase.additionalCreateArgsValue(templateDefsV1PkgId)),
     )
 
@@ -1800,8 +1797,8 @@ class UpgradesMatrixCases(val langVersion: LanguageVersion) {
     def globalContractv2Key(setupData: SetupData): ValueRecord = ValueRecord(
       None,
       ImmArray(
-        Some("label": Name) -> ValueText("test-key"),
-        Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
+        None /* label */ -> ValueText("test-key"),
+        None /* maintainers */ -> ValueList(FrontStack(ValueParty(setupData.alice))),
       ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId, setupData)),
     )
 
@@ -1959,6 +1956,8 @@ object UpgradesMatrixCases {
   case object ExpectSuccess extends ExpectedOutcome("should succeed")
   case object ExpectPreconditionViolated
       extends ExpectedOutcome("should fail with a precondition violated error")
+  case object ExpectRuntimeTypeMismatchError
+      extends ExpectedOutcome("should fail with a runtime type mismatch error")
   case object ExpectUpgradeError extends ExpectedOutcome("should fail with an upgrade error")
   case object ExpectPreprocessingError
       extends ExpectedOutcome("should fail with a preprocessing error")

@@ -75,6 +75,12 @@ final case class GlobalKeyWithMaintainers(
     maintainers: Set[Ref.Party],
 ) {
   def value: Value = globalKey.key
+
+  def nonVerbose: GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers(
+      GlobalKey.assertWithRenormalizedValue(globalKey, globalKey.key.nonVerbose),
+      maintainers,
+    )
 }
 
 object GlobalKeyWithMaintainers {
