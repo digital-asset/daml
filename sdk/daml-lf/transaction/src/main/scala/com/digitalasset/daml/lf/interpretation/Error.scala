@@ -219,18 +219,6 @@ object Error {
         byInterface: Option[TypeConId],
     ) extends Error
 
-    // TODO https://github.com/digital-asset/daml/issues/16151
-    // Move outside Dev when the feature goes GA.
-    /** We tried to soft fetch / soft exercise a contract of the wrong type --
-      * see <https://github.com/digital-asset/daml/issues/16151>.
-      */
-    final case class WronglyTypedContractSoft(
-        coid: ContractId,
-        expected: TypeConId,
-        accepted: List[TypeConId],
-        actual: TypeConId,
-    ) extends Error
-
     final case class TranslationError(error: TranslationError.Error) extends Error
 
     object TranslationError {

@@ -446,18 +446,6 @@ prettyScriptErrorError lvl (Just err) =  do
         , label_ "Expected type: "
             $ prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_WronglyTypedContractExpected
         ]
-    ScriptErrorErrorWronglyTypedContractSoft ScriptError_WronglyTypedContractSoft{..} ->
-      pure $ vcat
-        [ "Attempt to fetch or exercise a wrongly typed contract."
-        , label_ "Contract: "
-            $ prettyMay "<missing contract>"
-                (prettyContractRef lvl world)
-                scriptError_WronglyTypedContractSoftContractRef
-        , label_ "Expected type: "
-            $ prettyMay "<missing template id>" (prettyDefName lvl world) scriptError_WronglyTypedContractSoftExpected
-        , label_ "Accepted types (ancestors): "
-            $ vcat $ mapV (prettyDefName lvl world) scriptError_WronglyTypedContractSoftAccepted
-        ]
     ScriptErrorErrorContractIdInContractKey ScriptError_ContractIdInContractKey{..} ->
       pure $ "Contract IDs are not supported in contract key:" <->
         prettyMay "<missing contract key>"
