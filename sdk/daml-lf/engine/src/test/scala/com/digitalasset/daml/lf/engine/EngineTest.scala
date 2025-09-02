@@ -2635,6 +2635,201 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       }
     }
   }
+
+  "wrongly typed contract" should {
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
+    val cid = toContractId("simple")
+    val fetcherCid = toContractId("fetcher")
+    val contracts =
+      Map(
+        cid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = simpleId,
+            arg = ValueRecord(
+              None /* BasicTests:Simple */,
+              ImmArray((None /* p */, ValueInt64(0))), // value is wrongly-typed: p has type Party
+            ),
+            signatories = List(party),
+            observers = List.empty,
+          ),
+        fetcherCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = fetcherId,
+            arg = ValueRecord(
+              None,
+              ImmArray(
+                (None, ValueParty(alice)),
+                (None, ValueParty(alice)),
+                (None, ValueParty(alice)),
+              ),
+            ),
+          ),
+      )
+
+    def run(cmds: ImmArray[ApiCommand]) =
+      suffixLenientEngine
+        .submit(
+          submitters = Set(alice),
+          readAs = Set.empty: Set[Party],
+          cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = hash("wrongly-typed contract"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(contracts, lookupPackage, lookupKey)
+
+    "error on fetch" in {
+      val result = run(
+        ImmArray(
+          ApiCommand.Exercise(
+            fetcherId.toRef,
+            fetcherCid,
+            "DoFetch",
+            ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(cid)))),
+          )
+        )
+      )
+      inside(result) {
+        case Left(
+              Interpretation(
+                DamlException(
+                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+      }
+    }
+
+    "error on exercise" in {
+      val result = run(
+        ImmArray(
+          ApiCommand.Exercise(
+            simpleId.toRef,
+            cid,
+            "Hello",
+            ValueRecord(None, ImmArray.empty),
+          )
+        )
+      )
+      inside(result) {
+        case Left(
+              Interpretation(
+                DamlException(
+                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Dev.TranslationError.TypeMismatch]
+      }
+    }
+  }
+
+  "ill-formed contract" should {
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
+    val cid = toContractId("simple")
+    val fetcherCid = toContractId("fetcher")
+    val contracts =
+      Map(
+        cid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = simpleId,
+            // ill-formed argument: values imported by the engine cannot contain labels
+            arg = ValueRecord(
+              None,
+              ImmArray((Some[Name]("p"), ValueParty(alice))),
+            ),
+            signatories = List(party),
+            observers = List.empty,
+          ),
+        fetcherCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = fetcherId,
+            arg = ValueRecord(
+              None,
+              ImmArray(
+                (None, ValueParty(alice)),
+                (None, ValueParty(alice)),
+                (None, ValueParty(alice)),
+              ),
+            ),
+          ),
+      )
+
+    def run(cmds: ImmArray[ApiCommand]) =
+      suffixLenientEngine
+        .submit(
+          submitters = Set(alice),
+          readAs = Set.empty: Set[Party],
+          cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = hash("ill-formed contract"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(contracts, lookupPackage, lookupKey)
+
+    "error on fetch" in {
+      val result = run(
+        ImmArray(
+          ApiCommand.Exercise(
+            fetcherId.toRef,
+            fetcherCid,
+            "DoFetch",
+            ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(cid)))),
+          )
+        )
+      )
+      inside(result) {
+        case Left(
+              Interpretation(
+                DamlException(
+                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+      }
+    }
+
+    "error on exercise" in {
+      val result = run(
+        ImmArray(
+          ApiCommand.Exercise(
+            simpleId.toRef,
+            cid,
+            "Hello",
+            ValueRecord(None, ImmArray.empty),
+          )
+        )
+      )
+      inside(result) {
+        case Left(
+              Interpretation(
+                DamlException(
+                  interpretation.Error.Dev(_, interpretation.Error.Dev.TranslationError(error))
+                ),
+                _,
+              )
+            ) =>
+          error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+      }
+    }
+  }
 }
 
 class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPropertyChecks {
