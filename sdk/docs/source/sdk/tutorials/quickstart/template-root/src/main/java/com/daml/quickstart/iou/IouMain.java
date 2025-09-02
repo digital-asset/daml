@@ -19,6 +19,7 @@ import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import io.grpc.Channel;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.StreamObserver;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -72,11 +73,58 @@ public class IouMain {
     activeContracts.forEachRemaining(
         r -> {
           GetActiveContractsResponse response = GetActiveContractsResponse.fromProto(r);
-          long id = idCounter.getAndIncrement();
-          var contract =
-              contractFilter.toContract(response.getContractEntry().get().getCreatedEvent());
-          contracts.put(id, contract.data);
-          idMap.put(id, contract.id);
+          response
+              .getContractEntry()
+              .ifPresent(
+                  ce -> {
+                    long id = idCounter.getAndIncrement();
+                    var contract = contractFilter.toContract(ce.getCreatedEvent());
+                    contracts.put(id, contract.data);
+                    idMap.put(id, contract.id);
+                  });
+        });
+
+    UpdateServiceGrpc.UpdateServiceStub updateServiceStub = UpdateServiceGrpc.newStub(channel);
+    GetUpdatesRequest getUpdatesRequest =
+        new GetUpdatesRequest(
+            ledgerEnd, Optional.empty(), contractFilter.updateFormat(partyFilter));
+    updateServiceStub.getUpdates(
+        getUpdatesRequest.toProto(),
+        new StreamObserver<>() {
+          public void onNext(UpdateServiceOuterClass.GetUpdatesResponse r) {
+            GetUpdatesResponse response = GetUpdatesResponse.fromProto(r);
+            response
+                .getTransaction()
+                .ifPresent(
+                    transaction -> {
+                      for (Event event : transaction.getEvents()) {
+                        if (event instanceof CreatedEvent) {
+                          CreatedEvent createdEvent = (CreatedEvent) event;
+                          long id = idCounter.getAndIncrement();
+                          Iou.Contract contract = Iou.Contract.fromCreatedEvent(createdEvent);
+                          contracts.put(id, contract.data);
+                          idMap.put(id, contract.id);
+                        } else if (event instanceof ArchivedEvent) {
+                          ArchivedEvent archivedEvent = (ArchivedEvent) event;
+                          long id =
+                              idMap
+                                  .inverse()
+                                  .get(new Iou.ContractId(archivedEvent.getContractId()));
+                          contracts.remove(id);
+                          idMap.remove(id);
+                        }
+                      }
+                    });
+          }
+
+          public void onError(Throwable throwable) {
+            System.out.println("ERROR while waiting for updates: " + throwable.getMessage());
+            throwable.printStackTrace();
+          }
+
+          public void onCompleted() {
+            // nothing to do
+          }
         });
 
     CommandServiceGrpc.CommandServiceBlockingStub commandService =
