@@ -1327,7 +1327,7 @@ private[lf] object Speedy {
           if (gasBudget < 0)
             throw SErrorCrash(
               getClass.getCanonicalName,
-              s"No more gas",
+              "No more gas",
             )
         }
       }
