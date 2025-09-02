@@ -317,7 +317,8 @@ final class BftBlockOrderer(
         logger.info("BFT P2P endpoints from configuration written to the store (overwriting mode)")
       } else {
         logger.info(
-          "Using initial BFT network endpoints already present in the store instead of the configuration"
+          "Using initial BFT network endpoints already present in the store (populated with the configuration " +
+            "if the store is empty) instead of the configuration"
         )
       }
     }

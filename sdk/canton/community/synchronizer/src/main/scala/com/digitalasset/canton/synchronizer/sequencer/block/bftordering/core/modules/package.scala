@@ -9,5 +9,12 @@ package object modules {
     * `Availability.Dissemination.MempoolCreatedBatch`.
     */
   private[modules] def shortType(o: Object): String =
-    o.getClass.getName.split('.').toSeq.reverse.headOption.map(_.replace("$", ".")).getOrElse("")
+    o.getClass.getName
+      .split('.')
+      .view
+      .reverse
+      .headOption
+      .map(_.replace("$", "."))
+      .map(x => if (x.endsWith(".")) x.dropRight(1) else x)
+      .getOrElse("")
 }

@@ -90,7 +90,6 @@ class TopologyComponentFactory(
 
       terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
         val processor = new TopologyTransactionProcessor(
-          psid,
           crypto.pureCrypto,
           topologyStore,
           acsCommitmentScheduleEffectiveTime,
@@ -121,7 +120,8 @@ class TopologyComponentFactory(
     )
 
   def createCachingTopologyClient(
-      packageDependencyResolver: PackageDependencyResolverUS
+      packageDependencyResolver: PackageDependencyResolverUS,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -129,6 +129,7 @@ class TopologyComponentFactory(
     CachingSynchronizerTopologyClient.create(
       clock,
       topologyStore,
+      synchronizerPredecessor,
       packageDependencyResolver,
       caching,
       batching,

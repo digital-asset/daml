@@ -34,6 +34,7 @@ Participant:
 - Register callback to perform the upgrade when upgrade time is reached.
 - Upgrade is performed.
 - In-flight requests around the upgrade time out.
+- Reassignments work across upgrades
 
 ### WIP
 
@@ -45,6 +46,5 @@ Participant:
 - Upgrade is resilient to crashes
 - Disaster recovery
 - Purge data related to old synchronizer in the stores
-- Reassignments work across upgrades
 - UX improvements
 - More test coverage

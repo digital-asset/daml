@@ -17,6 +17,23 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
   "Errors specific for Json Ledger API."
 )
 object JsonApiErrors extends JsonApiErrorGroup {
+  @Explanation(
+    "This error occurs when the Ledger JSON API server fails to find a suitable set of package-ids for decoding a given set of commands in a request."
+  )
+  @Resolution(
+    """Inspect the error message and ensure that:
+      |1. The requested packages are uploaded on the participant node.
+      |2. The topology state satisfies the required vetting for the interested parties"""
+  )
+  object JsonApiPackageSelectionFailed
+      extends ErrorCode(
+        id = "JSON_API_PACKAGE_SELECTION_FAILED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(override val cause: String)(implicit
+        errorLogger: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(cause = cause)
+  }
 
   @Explanation(
     s"""This happens when the number of returned elements is equal or greater to the node limit.

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.topology
 
+import com.digitalasset.canton.data.SynchronizerPredecessor
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.store.SequencedEventStore.SearchCriterion
@@ -25,7 +26,10 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
     topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
 ) extends SynchronizerTopologyClientHeadStateInitializer {
 
-  override def initialize(client: SynchronizerTopologyClientWithInit)(implicit
+  override def initialize(
+      client: SynchronizerTopologyClientWithInit,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
+  )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
@@ -51,7 +55,11 @@ final class SequencedEventStoreBasedTopologyHeadInitializer(
         case (_, effectiveTime: EffectiveTime) => effectiveTime
       }
 
-      maxTimestampsO
+      SynchronizerTopologyClientHeadStateInitializer
+        .computeInitialHeadUpdate(
+          maxTimestampsO,
+          synchronizerPredecessor,
+        )
         .foreach { case (maxSequencedTime, maxEffectiveTime) =>
           client.updateHead(
             maxSequencedTime,

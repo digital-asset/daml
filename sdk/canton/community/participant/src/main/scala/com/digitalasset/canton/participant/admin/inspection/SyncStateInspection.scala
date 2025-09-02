@@ -111,6 +111,7 @@ object JournalGarbageCollectorControl {
 final class SyncStateInspection(
     val syncPersistentStateManager: SyncPersistentStateManager,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
+    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     timeouts: ProcessingTimeout,
     journalCleaningControl: JournalGarbageCollectorControl,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
@@ -898,20 +899,34 @@ final class SyncStateInspection(
         .flatten
         .toSeq
 
+      synchronizerPredecessor <- synchronizerConnectionConfigStore
+        .get(syncPersistentState.psid)
+        .map(_.predecessor)
+        .bimap(
+          err =>
+            FutureUnlessShutdown.failed(
+              new IllegalStateException(
+                s"Failed to retrieve configuration for ${syncPersistentState.psid}: $err"
+              )
+            ),
+          FutureUnlessShutdown.pure,
+        )
+        .merge
+
       sortedReconciliationProvider <- EitherTUtil.toFutureUnlessShutdown(
         sortedReconciliationIntervalsProviderFactory
-          .get(syncPersistentState.psid, lastSentFinal)
+          .get(syncPersistentState.psid, lastSentFinal, synchronizerPredecessor)
           .leftMap(string =>
             new IllegalStateException(
               s"failed to retrieve reconciliationIntervalProvider: $string"
             )
           )
       )
+
       oldestOutstandingTimeOption = outstanding
         .filter { case (_, _, state) => state != CommitmentPeriodState.Matched }
-        .minByOption { case (period, _, _) =>
-          period.toInclusive
-        }
+        .minByOption { case (period, _, _) => period.toInclusive }
+
       allCoveredTimePeriods <-
         sortedReconciliationProvider
           .computeReconciliationIntervalsCovering(

@@ -18,6 +18,7 @@ import com.digitalasset.base.error.{
   Grouping,
   NoBaseLogging,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
 import com.google.rpc.status.Status as RpcStatus
@@ -122,6 +123,13 @@ object DecodedCantonError {
       correlationId = correlationId,
       traceId = traceId,
     )
+
+  @VisibleForTesting
+  def unapply(throwable: Throwable): Option[DecodedCantonError] = throwable match {
+    case statusRuntimeException: StatusRuntimeException =>
+      fromStatusRuntimeException(statusRuntimeException).toOption
+    case _other => None
+  }
 
   private def extractCause(status: RpcStatus) =
     ErrorCodeMsg

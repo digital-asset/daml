@@ -5,13 +5,23 @@ package com.digitalasset.canton.http.json
 
 import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.value.{Identifier, Record, Value}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.http.json.v2.{
   ProtocolConverter,
   ProtocolConverters,
   SchemaProcessors,
+  TranscodePackageIdResolver,
 }
-import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutionContext,
+  LfPackageId,
+  LfPackageName,
+  LfPartyId,
+}
 import com.digitalasset.daml.lf.data.Ref.IdString
 import magnolify.scalacheck.semiauto.ArbitraryDerivation
 import org.scalacheck.Arbitrary
@@ -36,7 +46,20 @@ class ProtocolConvertersTest extends AnyWordSpec with BaseTest with HasExecution
   }
 
   private val mockSchemaProcessor = new MockSchemaProcessor()
-  private val converters = new ProtocolConverters(mockSchemaProcessor)
+  private val packageNameResolver = new TranscodePackageIdResolver {
+    implicit def ec: ExecutionContext = executorService
+    override def loggerFactory: NamedLoggerFactory = ProtocolConvertersTest.this.loggerFactory
+    override def resolvePackageNamesInternal(
+        packageNames: NonEmpty[Set[LfPackageName]],
+        party: LfPartyId,
+        packageIdSelectionPreferences: Set[LfPackageId],
+        synchronizerIdO: Option[String],
+    )(implicit
+        traceContext: TraceContext
+    ): FutureUnlessShutdown[Map[LfPackageName, LfPackageId]] =
+      FutureUnlessShutdown.pure(Map.empty)
+  }
+  private val converters = new ProtocolConverters(mockSchemaProcessor, packageNameResolver)
 
   import magnolify.scalacheck.auto.*
   private val mappings: Seq[JsMapping[_, _]] = Seq(
@@ -145,44 +168,44 @@ class MockSchemaProcessor()(implicit val executionContext: ExecutionContext)
   val simpleLapiValue =
     Future.successful(Arbitraries.defaultLapiRecord)
   override def contractArgFromJsonToProto(template: Identifier, jsonArgsValue: ujson.Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] = simpleLapiValue
 
   override def contractArgFromProtoToJson(template: Identifier, protoArgs: Record)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] = simpleJsValue
 
   override def choiceArgsFromJsonToProto(
       template: Identifier,
       choiceName: IdString.Name,
       jsonArgsValue: ujson.Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[Value] = simpleLapiValue
+  )(implicit traceContext: TraceContext): Future[Value] = simpleLapiValue
 
   override def choiceArgsFromProtoToJson(
       template: Identifier,
       choiceName: IdString.Name,
       protoArgs: Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[ujson.Value] = simpleJsValue
+  )(implicit traceContext: TraceContext): Future[ujson.Value] = simpleJsValue
 
   override def keyArgFromProtoToJson(template: Identifier, protoArgs: Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value] = simpleJsValue
 
   override def keyArgFromJsonToProto(template: Identifier, protoArgs: ujson.Value)(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[Value] = simpleLapiValue
 
   override def exerciseResultFromProtoToJson(
       template: Identifier,
       choiceName: IdString.Name,
       v: Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[ujson.Value] = simpleJsValue
+  )(implicit traceContext: TraceContext): Future[ujson.Value] = simpleJsValue
 
   override def exerciseResultFromJsonToProto(
       template: Identifier,
       choiceName: IdString.Name,
       value: ujson.Value,
-  )(implicit errorLoggingContext: ErrorLoggingContext): Future[Option[Value]] =
+  )(implicit traceContext: TraceContext): Future[Option[Value]] =
     simpleLapiValue.map(Some(_))
 }
 final case class JsMapping[LAPI, JS](converter: ProtocolConverter[LAPI, JS])(implicit
@@ -190,7 +213,7 @@ final case class JsMapping[LAPI, JS](converter: ProtocolConverter[LAPI, JS])(imp
     lapClassTag: ClassTag[LAPI],
 ) {
   def check()(implicit
-      errorLoggingContext: ErrorLoggingContext,
+      traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): Unit =
     arb.arbitrary.sample

@@ -233,7 +233,7 @@ final case class JsSubmitAndWaitForReassignmentResponse(
 )
 
 object JsCommand {
-  sealed trait Command
+  sealed trait Command extends Product with Serializable
   final case class CreateCommand(
       templateId: Identifier,
       createArguments: Json,

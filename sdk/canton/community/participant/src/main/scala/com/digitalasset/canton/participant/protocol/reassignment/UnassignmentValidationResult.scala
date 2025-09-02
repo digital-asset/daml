@@ -44,8 +44,8 @@ final case class UnassignmentValidationResult(
 ) extends ReassignmentValidationResult {
   val submitterMetadata: ReassignmentSubmitterMetadata = unassignmentData.submitterMetadata
   val sourceSynchronizer: ReassignmentTag.Source[PhysicalSynchronizerId] =
-    unassignmentData.sourceSynchronizer
-  val targetSynchronizer: Target[PhysicalSynchronizerId] = unassignmentData.targetSynchronizer
+    unassignmentData.sourcePSId
+  val targetSynchronizer: Target[PhysicalSynchronizerId] = unassignmentData.targetPSId
   val stakeholders: Set[LfPartyId] = unassignmentData.stakeholders.all
   val targetTimestamp: CantonTimestamp = unassignmentData.targetTimestamp
 

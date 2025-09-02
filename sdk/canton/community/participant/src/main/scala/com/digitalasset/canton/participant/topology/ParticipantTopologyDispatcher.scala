@@ -228,6 +228,7 @@ class ParticipantTopologyDispatcher(
           participantId,
           sequencerConnectClient,
           manager.store,
+          topologyConfig,
           timeouts,
           loggerFactory
             .append("synchronizerId", psid.toString)
@@ -270,7 +271,7 @@ class ParticipantTopologyDispatcher(
               timeouts = timeouts,
               loggerFactory = synchronizerLoggerFactory,
               crypto = SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
-              broadcastBatchSize = topologyConfig.broadcastBatchSize,
+              topologyConfig = topologyConfig,
             )
 
             val storeBasedSynchronizerOutbox = new StoreBasedSynchronizerOutbox(
@@ -283,7 +284,7 @@ class ParticipantTopologyDispatcher(
               timeouts = timeouts,
               loggerFactory = loggerFactory,
               crypto = SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
-              broadcastBatchSize = topologyConfig.broadcastBatchSize,
+              topologyConfig = topologyConfig,
               futureSupervisor = futureSupervisor,
             )
             val psid = client.psid
@@ -335,6 +336,7 @@ private class SynchronizerOnboardingOutbox(
     participantId: ParticipantId,
     sequencerConnectClient: SequencerConnectClient,
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+    override protected val topologyConfig: TopologyConfig,
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: SynchronizerCrypto,
@@ -431,6 +433,7 @@ object SynchronizerOnboardingOutbox {
       participantId: ParticipantId,
       sequencerConnectClient: SequencerConnectClient,
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
+      topologyConfig: TopologyConfig,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       crypto: SynchronizerCrypto,
@@ -444,6 +447,7 @@ object SynchronizerOnboardingOutbox {
       participantId,
       sequencerConnectClient,
       authorizedStore,
+      topologyConfig,
       timeouts,
       loggerFactory,
       crypto,

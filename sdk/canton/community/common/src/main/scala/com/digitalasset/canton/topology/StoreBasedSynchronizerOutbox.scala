@@ -12,7 +12,6 @@ import com.digitalasset.canton.common.sequencer.{
   SequencerBasedRegisterTopologyTransactionHandle,
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TopologyConfig}
 import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.CantonTimestamp
@@ -56,7 +55,7 @@ class StoreBasedSynchronizerOutbox(
     override protected val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     override protected val crypto: SynchronizerCrypto,
-    broadcastBatchSize: PositiveInt,
+    override protected val topologyConfig: TopologyConfig,
     maybeObserverCloseable: Option[AutoCloseable] = None,
     override protected val futureSupervisor: FutureSupervisor,
 )(implicit override protected val executionContext: ExecutionContext)
@@ -220,7 +219,10 @@ class StoreBasedSynchronizerOutbox(
       if (updated.hasPending) {
         if (delayRetry) {
           // kick off new flush in the background
-          DelayUtil.delay(functionFullName, 10.seconds, this).map(_ => kickOffFlush()).discard
+          DelayUtil
+            .delay(functionFullName, topologyConfig.broadcastRetryDelay.toInternal.toScala, this)
+            .map(_ => kickOffFlush())
+            .discard
         } else {
           kickOffFlush()
         }
@@ -255,16 +257,23 @@ class StoreBasedSynchronizerOutbox(
           responses <- dispatch(synchronizerAlias, transactions = convertedTxs)
           observed <- EitherT.right(
             // we either receive accepted or failed for all transactions in a submission batch.
-            // failed submissions are turned into a Left in dispatch. Therefore it's safe to await without additional checks.
+            // failed submissions are turned into a Left in dispatch. Therefore, it's safe to await without additional checks.
             convertedTxs.headOption
-              .map(awaitTransactionObserved(_, timeouts.unbounded.duration))
+              .map(
+                awaitTransactionObserved(
+                  _,
+                  topologyConfig.topologyTransactionObservationTimeout.asFiniteApproximation,
+                )
+              )
               // there were no transactions to wait for
               .getOrElse(FutureUnlessShutdown.pure(true))
           )
-          _ =
-            if (!observed) {
-              logger.warn("Did not observe transactions in target synchronizer store.")
-            }
+          // If the topology transactions weren't observed within the topologyTransactionObservationTimeout timeout,
+          // fail the cycle. The topology transactions will be requeued and resubmitted after a retry delay.
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+            observed,
+            "Did not observe transactions in target synchronizer store.",
+          )
           // update watermark according to responses
           _ <- EitherT.right[String](
             updateWatermark(pending, applicable, responses)
@@ -338,7 +347,7 @@ class StoreBasedSynchronizerOutbox(
     authorizedStore
       .findDispatchingTransactionsAfter(
         timestampExclusive = watermarks.dispatched,
-        limit = Some(broadcastBatchSize.value),
+        limit = Some(topologyConfig.broadcastBatchSize.value),
       )
       .map(storedTransactions =>
         PendingTransactions(
@@ -464,7 +473,7 @@ class SynchronizerOutboxFactory(
       timeouts = timeouts,
       loggerFactory = synchronizerLoggerFactory,
       crypto = crypto,
-      broadcastBatchSize = topologyConfig.broadcastBatchSize,
+      topologyConfig = topologyConfig,
       maybeObserverCloseable = new AutoCloseable {
         override def close(): Unit = authorizedObserver.removeObserver()
       }.some,
@@ -494,7 +503,7 @@ class SynchronizerOutboxFactory(
         timeouts = timeouts,
         loggerFactory = synchronizerLoggerFactory,
         crypto = crypto,
-        broadcastBatchSize = topologyConfig.broadcastBatchSize,
+        topologyConfig = topologyConfig,
         maybeObserverCloseable = new AutoCloseable {
           override def close(): Unit = authorizedObserver.removeObserver()
         }.some,
