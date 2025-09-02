@@ -246,8 +246,6 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
       , "var jtv = require('@mojotech/json-type-validation');"
       , "/* eslint-disable-next-line no-unused-vars */"
       , "var damlTypes = require('@daml/types');"
-      , "/* eslint-disable-next-line no-unused-vars */"
-      , "var damlLedger = require('@daml/ledger');"
       ]
     modHeader ES6 =
       [ "// Generated from " <> modPath (unModuleName modName) <> ".daml"
@@ -256,8 +254,6 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
       , "/* eslint-disable @typescript-eslint/no-use-before-define */"
       , "import * as jtv from '@mojotech/json-type-validation';"
       , "import * as damlTypes from '@daml/types';"
-      , "/* eslint-disable-next-line @typescript-eslint/no-unused-vars */"
-      , "import * as damlLedger from '@daml/ledger';"
       ]
 
     -- Split the imports into those from the same package and those
@@ -399,17 +395,8 @@ renderTemplateNamespace :: TemplateNamespace -> T.Text
 renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     [ [ "export declare namespace " <> tnsName <> " {" ]
     , [ "  export type Key = " <> tsTypeRef (genType keyDef) | Just keyDef <- [tnsMbKeyDef] ]
-    , [ "  export type CreateEvent = damlLedger.CreateEvent" <> tParams [tnsName, tK, tI]
-      , "  export type ArchiveEvent = damlLedger.ArchiveEvent" <> tParams [tnsName, tI]
-      , "  export type Event = damlLedger.Event" <> tParams [tnsName, tK, tI]
-      , "  export type QueryResult = damlLedger.QueryResult" <> tParams [tnsName, tK, tI]
-      , "}"
-      ]
+    , [ "}" ]
     ]
-  where
-    tK = maybe "undefined" (const (tnsName <.> "Key")) tnsMbKeyDef
-    tI = "typeof " <> tnsName <.> "templateId"
-    tParams xs = "<" <> T.intercalate ", " xs <> ">"
 
 data TemplateRegistration = TemplateRegistration T.Text PackageId PackageNameVersion
 
@@ -1033,7 +1020,6 @@ packageJsonDependencies (Scope scope) dependencies = object $
 packageJsonPeerDependencies:: ReleaseVersion ->  Value
 packageJsonPeerDependencies releaseVersion = object
     [ "@daml/types" .= sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
-    , "@daml/ledger" .= sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
     ]
 
 writePackageJson :: FilePath -> ReleaseVersion -> Scope -> [Dependency] -> IO ()
