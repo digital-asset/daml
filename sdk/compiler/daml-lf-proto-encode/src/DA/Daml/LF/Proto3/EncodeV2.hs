@@ -206,10 +206,12 @@ encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPacka
 encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
     SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-    ImportedPackageId _pkgId -> do
-      undefined
-      -- id <- fromJust <$> use (importMapLens . at pkgId)
-      -- return $ P.SelfOrImportedPackageIdSumPackageImportId id
+    ImportedPackageId p@(PackageId pkgId) ->
+      ifSupportsFlatteningM
+        {-then-}
+          (asks (P.SelfOrImportedPackageIdSumPackageImportId . (M.! p) . fromJust . view importMap))
+        {-else-}
+          (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
