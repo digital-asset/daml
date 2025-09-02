@@ -611,7 +611,7 @@ class MediatorNodeBootstrap(
           .right(
             TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
               synchronizerTopologyStore,
-              synchronizerId,
+              synchronizerPredecessor = None,
               crypto.pureCrypto,
               arguments.parameterConfig,
               arguments.clock,

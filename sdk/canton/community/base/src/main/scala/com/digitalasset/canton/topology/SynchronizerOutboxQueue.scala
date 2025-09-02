@@ -80,20 +80,10 @@ class SynchronizerOutboxQueue(
 
   /** Clears the currently pending transactions.
     */
-  def completeCycle(observed: Boolean)(implicit traceContext: TraceContext): Unit = blocking(
+  def completeCycle()(implicit traceContext: TraceContext): Unit = blocking(
     synchronized {
       inProcessQueue.foreach { case (_, promise) =>
-        promise
-          .tryComplete(
-            Either
-              .cond(
-                observed,
-                (),
-                TopologyManagerError.TimeoutWaitingForTransaction.Failure().asGrpcError,
-              )
-              .toTry
-          )
-          .discard
+        promise.trySuccess(()).discard
       }
       logger.debug(s"completeCycle $inProcessQueue")
       inProcessQueue.clear()

@@ -210,22 +210,35 @@ private[bftordering] final class P2PGrpcConnectionManager(
           val peerSenderOT =
             createPeerSender(p2pEndpoint, channel, asyncStub, sequencerIdUS)
           // Add the connection to the state asynchronously as soon as a sequencer ID is available
-          Some(channel -> sequencerIdUS.futureUS.flatMap { sequencerId =>
-            toUnitFutureUS(
-              peerSenderOT
-                .map { case (_, peerSender) =>
-                  // We don't care about the communicated sequencer ID if authentication is enabled
-                  logger.info(
-                    s"P2P endpoint $p2pEndpointId successfully authenticated as ${sequencerId.toProtoPrimitive}"
-                  )
-                  addPeerEndpoint(
-                    sequencerId,
-                    peerSender,
-                    p2pEndpoint.id,
+          Some(
+            channel ->
+              sequencerIdUS.futureUS
+                .flatMap { sequencerId =>
+                  toUnitFutureUS(
+                    peerSenderOT
+                      .map { peerSender =>
+                        logger.info(
+                          s"P2P endpoint $p2pEndpointId successfully connected and authenticated as ${sequencerId.toProtoPrimitive}"
+                        )
+                        addPeerEndpoint(
+                          sequencerId,
+                          peerSender,
+                          p2pEndpoint.id,
+                        )
+                      }
                   )
                 }
-            )
-          })
+                .transform {
+                  case f @ Failure(exception) =>
+                    logger.info(
+                      s"Failed connecting to and authenticating P2P endpoint $p2pEndpointId, shutting down the gRPC channel",
+                      exception,
+                    )
+                    channel.shutdown().discard
+                    f
+                  case s: Success[_] => s
+                }
+          )
       }
     } else {
       logger.info(
@@ -358,7 +371,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
       attemptNumber: Int = 1,
   )(implicit traceContext: TraceContext): OptionT[
     FutureUnlessShutdown,
-    (SequencerId, StreamObserver[BftOrderingMessage]),
+    StreamObserver[BftOrderingMessage],
   ] =
     synchronizeWithClosing("p2p-create-peer-sender") {
       val p2pEndpointId = p2pEndpoint.id
@@ -369,7 +382,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
           attemptNumber: Int,
       ): OptionT[
         FutureUnlessShutdown,
-        (SequencerId, StreamObserver[BftOrderingMessage]),
+        StreamObserver[BftOrderingMessage],
       ] = {
         def log(msg: => String, exc: Throwable): Unit =
           if (
@@ -424,7 +437,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
               OptionT
                 .none[
                   FutureUnlessShutdown,
-                  (SequencerId, StreamObserver[BftOrderingMessage]),
+                  StreamObserver[BftOrderingMessage],
                 ]
             }
         } yield result
@@ -507,7 +520,7 @@ private[bftordering] final class P2PGrpcConnectionManager(
                           logger.info(
                             s"P2P endpoint $p2pEndpointId successfully authenticated as ${sequencerId.toProtoPrimitive}"
                           )
-                          Option(sequencerId -> peerSender)
+                          Option(peerSender)
                         }
 
                       case Failure(exception) =>

@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.pruning
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerPredecessor}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
@@ -23,7 +23,11 @@ class SortedReconciliationIntervalsProviderFactory(
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
-  def get(synchronizerId: PhysicalSynchronizerId, subscriptionTs: CantonTimestamp)(implicit
+  def get(
+      synchronizerId: PhysicalSynchronizerId,
+      subscriptionTs: CantonTimestamp,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, SortedReconciliationIntervalsProvider] = for {
     topologyFactory <- syncPersistentStateManager
@@ -32,7 +36,8 @@ class SortedReconciliationIntervalsProviderFactory(
       .toEitherT[FutureUnlessShutdown]
     topologyClient <- EitherT.right(
       topologyFactory.createCachingTopologyClient(
-        StoreBasedSynchronizerTopologyClient.NoPackageDependencies
+        StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+        synchronizerPredecessor,
       )
     )
   } yield {

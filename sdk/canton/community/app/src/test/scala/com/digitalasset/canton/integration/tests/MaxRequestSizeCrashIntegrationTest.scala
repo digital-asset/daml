@@ -168,7 +168,9 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
         _.errorMessage should include("INVALID_ARGUMENT/MALFORMED_REQUEST"),
       )
 
-      // restart Canton with overrideMaxRequestSize
+      /*
+       restart Canton with overrideMaxRequestSize, so that max request size can be increased
+       */
       setOverrideMaxRequestSizeWithNewEnv(env, overrideMaxRequestSize) { implicit newEnv =>
         import newEnv.*
         // we verify that the dynamic parameter is still set to the low value
@@ -193,10 +195,14 @@ sealed abstract class MaxRequestSizeCrashIntegrationTest
           }
         }
 
-        // submission works now
-        val (_, submissionF) = submitCommand(newEnv.participant1)
-        submissionF.futureValue.discard
+        stop(newEnv)
       }
+
+      restart
+
+      // Use the old env (without the override), submission should work
+      val (_, submissionF) = submitCommand(participant1)
+      submissionF.futureValue.discard
     }
   }
 }

@@ -408,6 +408,7 @@ class CantonSyncService(
   lazy val stateInspection = new SyncStateInspection(
     syncPersistentStateManager,
     participantNodePersistentState,
+    synchronizerConnectionConfigStore,
     parameters.processingTimeouts,
     new JournalGarbageCollectorControl {
       override def disable(
@@ -945,7 +946,7 @@ class CantonSyncService(
             .migrateSynchronizer(
               source,
               target,
-              targetSynchronizerInfo.map(_.synchronizerId),
+              targetSynchronizerInfo.map(_.psid),
             )
             .leftMap[SyncServiceError](
               SyncServiceError.SyncServiceMigrationError(source, target.map(_.synchronizerAlias), _)

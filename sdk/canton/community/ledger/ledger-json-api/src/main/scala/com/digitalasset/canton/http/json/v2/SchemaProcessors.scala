@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 
 import scala.concurrent.Future
@@ -15,14 +15,14 @@ trait SchemaProcessors {
       template: v2.value.Identifier,
       jsonArgsValue: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[v2.value.Value]
 
   def contractArgFromProtoToJson(
       template: v2.value.Identifier,
       protoArgs: v2.value.Record,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value]
 
   def choiceArgsFromJsonToProto(
@@ -30,7 +30,7 @@ trait SchemaProcessors {
       choiceName: Ref.IdString.Name,
       jsonArgsValue: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[v2.value.Value]
 
   def choiceArgsFromProtoToJson(
@@ -38,21 +38,21 @@ trait SchemaProcessors {
       choiceName: Ref.IdString.Name,
       protoArgs: v2.value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value]
 
   def keyArgFromProtoToJson(
       template: v2.value.Identifier,
       protoArgs: v2.value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value]
 
   def keyArgFromJsonToProto(
       template: v2.value.Identifier,
       protoArgs: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[v2.value.Value]
 
   def exerciseResultFromProtoToJson(
@@ -60,7 +60,7 @@ trait SchemaProcessors {
       choiceName: Ref.IdString.Name,
       v: v2.value.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[ujson.Value]
 
   def exerciseResultFromJsonToProto(
@@ -68,6 +68,6 @@ trait SchemaProcessors {
       choiceName: Ref.IdString.Name,
       value: ujson.Value,
   )(implicit
-      errorLoggingContext: ErrorLoggingContext
+      traceContext: TraceContext
   ): Future[scala.Option[v2.value.Value]]
 }

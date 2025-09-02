@@ -224,8 +224,8 @@ class MaliciousParticipantNode(
     logger.info(
       s"Malicious participant $participantId submitting assignment request for $reassignmentId"
     )
-    val sourceSynchronizer = reassignmentData.sourceSynchronizer
-    val targetSynchronizer = reassignmentData.targetSynchronizer
+    val sourceSynchronizer = reassignmentData.sourcePSId
+    val targetSynchronizer = reassignmentData.targetPSId
 
     val stakeholders = reassignmentData.contractsBatch.stakeholders
 

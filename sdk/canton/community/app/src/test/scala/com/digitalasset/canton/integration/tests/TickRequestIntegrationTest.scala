@@ -58,7 +58,7 @@ sealed trait TickRequestIntegrationTest
     patienceDuration = patienceDuration,
     minObservationDuration = minObservationDuration,
   )
-  private val topologyTransactionRegistrationTimeout = config.NonNegativeDuration.ofMinutes(1)
+  private val topologyTransactionRegistrationTimeout = config.NonNegativeFiniteDuration.ofMinutes(1)
 
   private val setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L)
   private lazy val trafficControlParameters = TrafficControlParameters(

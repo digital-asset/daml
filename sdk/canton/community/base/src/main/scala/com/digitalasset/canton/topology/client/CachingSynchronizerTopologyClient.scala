@@ -8,7 +8,11 @@ import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.data.{CantonTimestamp, SynchronizerSuccessor}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  SynchronizerPredecessor,
+  SynchronizerSuccessor,
+}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle, PromiseUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -240,6 +244,7 @@ object CachingSynchronizerTopologyClient {
   def create(
       clock: Clock,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       packageDependenciesResolver: PackageDependencyResolverUS,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
@@ -271,7 +276,7 @@ object CachingSynchronizerTopologyClient {
         futureSupervisor,
         loggerFactory,
       )
-    headStateInitializer.initialize(caching)
+    headStateInitializer.initialize(caching, synchronizerPredecessor)
   }
 }
 

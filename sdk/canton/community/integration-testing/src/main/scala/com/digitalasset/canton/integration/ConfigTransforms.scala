@@ -805,7 +805,7 @@ object ConfigTransforms {
       ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v34)
 
   def setTopologyTransactionRegistrationTimeout(
-      timeout: config.NonNegativeDuration
+      timeout: config.NonNegativeFiniteDuration
   ): Seq[ConfigTransform] = Seq(
     updateAllParticipantConfigs_(
       _.focus(_.topology.topologyTransactionRegistrationTimeout).replace(timeout)

@@ -41,7 +41,7 @@ import com.digitalasset.canton.util.ReassignmentTag.Target
 import scala.concurrent.ExecutionContext
 
 private[reassignment] class AssignmentValidation(
-    synchronizerId: Target[PhysicalSynchronizerId],
+    targetPSId: Target[PhysicalSynchronizerId],
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
@@ -195,7 +195,7 @@ private[reassignment] class AssignmentValidation(
       // TODO(i26479): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       exclusivityTimeoutError <- AssignmentValidation.checkExclusivityTimeout(
         reassignmentCoordination,
-        synchronizerId,
+        targetPSId,
         staticSynchronizerParameters,
         unassignmentData,
         assignmentRequestTs,
@@ -291,7 +291,7 @@ object AssignmentValidation {
     */
   def checkExclusivityTimeout(
       reassignmentCoordination: ReassignmentCoordination,
-      synchronizerId: Target[PhysicalSynchronizerId],
+      targetPSId: Target[PhysicalSynchronizerId],
       staticSynchronizerParameters: Target[StaticSynchronizerParameters],
       unassignmentData: UnassignmentData,
       requestTimestamp: CantonTimestamp,
@@ -308,7 +308,11 @@ object AssignmentValidation {
       // TODO(i26479): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       cryptoSnapshotTargetTs <- reassignmentCoordination
         .cryptoSnapshot(
-          unassignmentData.targetSynchronizer,
+          /*
+          `targetPSId` can differ from `unassignmentData.targetPSId` in the target synchronizer is upgraded
+          between unassignment and assignment.
+           */
+          targetPSId,
           staticSynchronizerParameters,
           targetTimeProof,
         )
@@ -320,7 +324,7 @@ object AssignmentValidation {
           targetTimeProof,
         )
         .leftMap[ReassignmentProcessorError](
-          ReassignmentParametersError(synchronizerId.unwrap, _)
+          ReassignmentParametersError(targetPSId.unwrap, _)
         )
 
       validationError = Option.when(

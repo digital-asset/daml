@@ -593,7 +593,7 @@ class SequencerNodeBootstrap(
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
                 synchronizerTopologyStore,
-                psid,
+                synchronizerPredecessor = None,
                 crypto.pureCrypto,
                 parameters,
                 clock,

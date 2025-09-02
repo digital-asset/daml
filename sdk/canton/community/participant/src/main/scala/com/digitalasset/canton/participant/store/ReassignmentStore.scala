@@ -287,7 +287,7 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         unassignmentData.reassignmentId,
-        unassignmentData.sourceSynchronizer.map(_.logical),
+        unassignmentData.sourcePSId.map(_.logical),
         unassignmentData.contractsBatch.contracts.map(_.contract),
         Some(unassignmentData),
         reassignmentGlobalOffset,

@@ -24,17 +24,18 @@ export async function allocateParty(user: string): Promise<string | undefined> {
     const party = await getParty(`${user}::${namespace}`);
 
     if (party !== undefined) {
-        Promise.resolve(party.party);
+        return Promise.resolve(party.party);
+    } else {
+        const resp = await client.POST("/v2/parties", {
+            body: {
+                partyIdHint: user,
+                identityProviderId: "",
+                synchronizerId: "",
+                userId: "",
+            }
+        });
+        return valueOrError(resp).then(data => data.partyDetails?.party);
     }
-    const resp = await client.POST("/v2/parties", {
-        body: {
-            partyIdHint: user,
-            identityProviderId: "",
-            synchronizerId: "",
-            userId: "",
-        }
-    });
-    return valueOrError(resp).then(data => data.partyDetails?.party);
 }
 
 export async function getParty(user: string): Promise<components["schemas"]["PartyDetails"] | undefined> {

@@ -164,8 +164,8 @@ class DbReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      unassignmentData.targetSynchronizer.map(_.logical) == targetSynchronizerId,
-      s"Synchronizer $targetSynchronizerId: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetSynchronizer
+      unassignmentData.targetPSId.map(_.logical) == targetSynchronizerId,
+      s"Synchronizer $targetSynchronizerId: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetPSId
           .map(_.logical)}",
     )
 
@@ -203,7 +203,7 @@ class DbReassignmentStore(
 
     for {
       indexedSourceSynchronizer <- indexedSynchronizerET(
-        unassignmentData.sourceSynchronizer.map(_.logical)
+        unassignmentData.sourcePSId.map(_.logical)
       )
       _ <- EitherT.right(
         storage.update(

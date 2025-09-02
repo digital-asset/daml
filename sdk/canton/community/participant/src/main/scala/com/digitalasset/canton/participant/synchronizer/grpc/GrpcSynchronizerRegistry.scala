@@ -153,7 +153,7 @@ class GrpcSynchronizerRegistry(
         .toEitherT[FutureUnlessShutdown]
 
       _ <- aliasManager
-        .processHandshake(config.synchronizerAlias, info.synchronizerId)
+        .processHandshake(config.synchronizerAlias, info.psid)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
 
       updatedConfigE = {

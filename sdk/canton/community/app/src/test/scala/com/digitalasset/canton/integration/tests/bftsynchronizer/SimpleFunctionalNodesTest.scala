@@ -31,7 +31,7 @@ trait SimpleFunctionalNodesTest
     with NodeTestingUtils {
 
   private val topologyTransactionRegistrationTimeout =
-    config.NonNegativeDuration.tryFromDuration(5.seconds)
+    config.NonNegativeFiniteDuration.tryFromDuration(5.seconds)
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
