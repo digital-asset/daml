@@ -389,11 +389,6 @@ final class StoreBackedCommandInterpreter(
               } else resume()
           }
 
-        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
-          throw new UnsupportedOperationException(
-            s"This callback is no longer used and will be removed in a future release [$unexpected]"
-          )
-
         case ResultPrefetch(coids, keys, resume) =>
           // Trigger loading through the state cache and the batch aggregator.
           // Loading of contracts is a multi-stage process.

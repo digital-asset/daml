@@ -167,7 +167,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
           time,
           time,
         )(LoggingContext.empty)
-        .consume(pcs = contracts, pkgs = packages, grantUpgradeVerification = None)
+        .consume(pcs = contracts, pkgs = packages)
     rTx.nodes.values.collect { case create: Node.Create => create }.toSet
   }
 

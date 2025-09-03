@@ -287,24 +287,6 @@ private[lf] object Speedy {
         )
       )
 
-    final private[speedy] def needUpgradeVerification(
-        location: => String,
-        coid: V.ContractId,
-        signatories: Set[Party],
-        observers: Set[Party],
-        keyOpt: Option[GlobalKeyWithMaintainers],
-        continue: Option[String] => Control[Question.Update],
-    ): Control.Question[Question.Update] =
-      Control.Question(
-        Question.Update.NeedUpgradeVerification(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-          x => safelyContinue(location, "NeedUpgradeVerification", continue(x)),
-        )
-      )
-
     final private[speedy] def needPackage(
         location: => String,
         packageId: PackageId,

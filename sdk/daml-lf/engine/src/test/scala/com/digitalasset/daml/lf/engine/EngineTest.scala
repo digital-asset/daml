@@ -376,7 +376,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             preparationTime = let,
             submissionSeed = submissionSeed,
           )
-          .consume(grantUpgradeVerification = None)
+          .consume()
 
         replayResult shouldBe a[Right[_, _]]
       }
@@ -468,7 +468,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           let,
           lookupPackage,
           defaultContracts,
-          grantUpgradeVerification = None,
         )
       isReplayedBy(stx, rtx) shouldBe Right(())
     }
@@ -477,7 +476,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -524,10 +523,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validatedWithCaching = sharedEngine
         .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
       val validatedNoCaching = freshEngine2
         .validateAndCollectMetrics(Set(submitter), ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
 
       inside((validatedWithCaching, validatedNoCaching)) {
         case (Right(actualWithCaching), Right(actualNoCaching)) =>
@@ -666,7 +665,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
         .validate(submitters, ntx, let, participant, let, submissionSeed)
-        .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+        .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
           fail(e.message)
@@ -1111,7 +1110,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           txMeta,
           let,
           lookupPackage,
-          grantUpgradeVerification = None,
         )
 
       isReplayedBy(stx, rtx) shouldBe Right(())
@@ -1390,7 +1388,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           let,
           lookupPackage,
           defaultContracts,
-          grantUpgradeVerification = None,
         )
 
       isReplayedBy(rtx, stx) shouldBe Right(())
@@ -1614,7 +1611,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               txMeta.preparationTime,
               let,
             )
-            .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+            .consume(lookupContract, lookupPackage, lookupKey)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
       }
     }
@@ -1669,7 +1666,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       val reinterpreted =
         engine
           .reinterpret(submitters, fetchNode, None, let, let)
-          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       reinterpreted shouldBe a[Right[_, _]]
     }
@@ -1777,7 +1774,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             txMeta.preparationTime,
             now,
           )
-          .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
+          .consume(lookupContract, lookupPackage, lookupKey)
 
       firstLookupNode(reinterpreted.transaction).map(_._2) shouldEqual Some(lookupNode)
     }
@@ -2257,7 +2254,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
         txMeta,
         let,
         lookupPackage,
-        grantUpgradeVerification = None,
       ) shouldBe a[Right[_, _]]
 
     }
@@ -3061,7 +3057,6 @@ class EngineTestHelpers(
       lookupPackages: PartialFunction[PackageId, Package],
       contracts: Map[ContractId, FatContractInstance] = Map.empty,
       keys: Map[GlobalKeyWithMaintainers, ContractId] = Map.empty,
-      grantUpgradeVerification: Option[String] = None,
   ): Either[Error, (VersionedTransaction, Tx.Metadata)] = {
 
     val nodeSeedMap = txMeta.nodeSeeds.toSeq.toMap
@@ -3112,7 +3107,6 @@ class EngineTestHelpers(
                 state.contracts,
                 lookupPackages,
                 state.keys,
-                grantUpgradeVerification = grantUpgradeVerification,
               )
             (tr0, meta0) = currentStep
             tr1 = suffix(tr0)
