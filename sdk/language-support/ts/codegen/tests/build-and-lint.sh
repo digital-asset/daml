@@ -43,22 +43,18 @@ PACKAGE_JSON=$(rlocation "$TEST_WORKSPACE/$6")
 # language-support/ts/codegen/tests/ts
 TS_DIR=$(dirname $PACKAGE_JSON)
 DAML_TYPES=$(rlocation "$TEST_WORKSPACE/$7")
-DAML_LEDGER=$(rlocation "$TEST_WORKSPACE/$8")
-SDK_VERSION=${9}
-UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${10}")
-HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
-GRPCURL=$(rlocation "$TEST_WORKSPACE/${12}" | xargs dirname)
-DIFF="${13}"
+SDK_VERSION=${8}
+UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${9}")
+HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${10}")
+GRPCURL=$(rlocation "$TEST_WORKSPACE/${11}" | xargs dirname)
+DIFF="${12}"
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
-TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
 
 mkdir -p $TMP_DAML_TYPES
-mkdir -p $TMP_DAML_LEDGER
 
 cp -rL $TS_DIR/* $TMP_DIR
 cp -rL $DAML_TYPES/* $TMP_DAML_TYPES
-cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
 
 cd $TMP_DIR
 

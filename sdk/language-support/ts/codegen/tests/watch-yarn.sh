@@ -9,5 +9,4 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 pushd $DIR/ts
 yarn install
 yarn workspace "@daml/daml-types" run build
-yarn workspace "@daml/daml-ledger" run build
 yarn workspace generated run build:watch
