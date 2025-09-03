@@ -299,31 +299,33 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "reject non suffixed Contract IDs when requireContractIdSuffix is true" in {
+    "reject non suffixed and relative Contract IDs when requireContractIdSuffix is true" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
         requireContractIdSuffix = true,
       )
-      val List(aLegalCidV1, anotherLegalCidV1) =
-        List("a legal Contract ID", "another legal Contract ID").map(s =>
-          ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
-        )
-      val aLegalCidV2 = ContractId.V2.assertBuild(
-        Bytes.fromByteArray(Array.fill[Byte](ContractId.V2.localSize)(0x12.toByte)),
+      val discriminator = crypto.Hash.hashPrivateKey("a discriminator")
+      val aLegalCidV1 = ContractId.V1.assertBuild(discriminator, Bytes.assertFromString("00"))
+      val anotherLegalCidV1 = ContractId.V1.assertBuild(discriminator, Bytes.assertFromString("01"))
+      val aLegalCidV2 = ContractId.V2.assertSuffixed(
+        Time.Timestamp.Epoch,
+        discriminator,
+        Bytes.assertFromString("80"),
+      )
+      val illegalCidV1 = ContractId.V1.assertBuild(discriminator, Bytes.Empty)
+      val illegalCidV2 = ContractId.V2.unsuffixed(Time.Timestamp.Epoch, discriminator)
+      val relativeCidV2 = ContractId.V2.assertSuffixed(
+        Time.Timestamp.Epoch,
+        discriminator,
         Bytes.assertFromString("00"),
       )
-      val illegalCidV1 =
-        ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val illegalCidV2 =
-        ContractId.V2.unsuffixed(
-          Time.Timestamp.Epoch,
-          crypto.Hash.hashPrivateKey("an illegal Contract ID"),
-        )
       val failureV1 =
         Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCidV1))
       val failureV2 =
         Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
+      val failureRelative =
+        Failure(Error.Preprocessing.IllegalContractId.RelativeContractId(relativeCidV2))
 
       forEvery(contractIdTestCases(aLegalCidV1, anotherLegalCidV1)) { cmd =>
         Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe a[Success[_]]
@@ -336,6 +338,9 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       }
       forEvery(contractIdTestCases(illegalCidV2, aLegalCidV2)) { cmd =>
         Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failureV2
+      }
+      forEvery(contractIdTestCases(relativeCidV2, aLegalCidV2)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failureRelative
       }
     }
 

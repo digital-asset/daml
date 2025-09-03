@@ -347,7 +347,7 @@ class Engine(val config: EngineConfig) {
     * @param key - a representation of the key that may be un-normalized
     */
   def buildGlobalKey(templateId: Identifier, key: Value): Result[GlobalKey] = {
-    preprocessor.buildGlobalKey(templateId: Identifier, key: Value)
+    preprocessor.buildGlobalKey(templateId: Identifier, key: Value, allowRelativeContractIds = true)
   }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =

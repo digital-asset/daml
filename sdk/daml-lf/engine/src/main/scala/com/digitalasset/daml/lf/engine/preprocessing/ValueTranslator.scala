@@ -46,22 +46,30 @@ private[lf] final class ValueTranslator(
     go(fields.toFrontStack, Map.empty)
   }
 
-  val validateCid: ContractId => Unit =
-    if (requireContractIdSuffix) {
-      case cid: ContractId.V1 =>
-        if (cid.suffix.isEmpty)
-          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
-      case cid: ContractId.V2 =>
-        // We forbid only local contract IDs in Engine commands, but not relative contract IDs
-        // because relative contract IDs may appear in reinterpretation of projections
-        if (cid.suffix.isEmpty)
-          throw Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(cid)
-    }
-    else { _ => () }
+  private val validateCid: (ContractId, Boolean) => Unit =
+    if (requireContractIdSuffix) { (cid, allowRelative) =>
+      cid match {
+        case cid: ContractId.V1 =>
+          if (cid.suffix.isEmpty)
+            throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
+        case cid: ContractId.V2 =>
+          // We forbid only local contract IDs in Engine commands, but not relative contract IDs
+          // because relative contract IDs may appear in reinterpretation of projections
+          // Relative contract IDs are forbidden in API commands though.
+          if (cid.suffix.isEmpty)
+            throw Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(cid)
+          if (!allowRelative && cid.isRelative)
+            throw Error.Preprocessing.IllegalContractId.RelativeContractId(cid)
+
+      }
+    } else { (_, _) => () }
 
   @throws[Error.Preprocessing.Error]
-  private[preprocessing] def unsafeTranslateCid(cid: ContractId): SValue.SContractId = {
-    validateCid(cid)
+  private[preprocessing] def unsafeTranslateCid(
+      cid: ContractId,
+      allowRelative: Boolean,
+  ): SValue.SContractId = {
+    validateCid(cid, allowRelative)
     SValue.SContractId(cid)
   }
 
@@ -71,6 +79,7 @@ private[lf] final class ValueTranslator(
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
+      allowRelativeContractIds: Boolean,
   ): SValue = {
     import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
@@ -123,7 +132,7 @@ private[lf] final class ValueTranslator(
               case Left(message) => typeError(message)
             }
           case (ContractIdF(_), ValueContractId(c)) =>
-            unsafeTranslateCid(c)
+            unsafeTranslateCid(c, allowRelativeContractIds)
           case (OptionalF(a), ValueOptional(mbValue)) =>
             mbValue match {
               case Some(v) =>
@@ -279,7 +288,7 @@ private[lf] final class ValueTranslator(
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value)
+      unsafeTranslateValue(ty, value, allowRelativeContractIds = true)
     )
 
 }

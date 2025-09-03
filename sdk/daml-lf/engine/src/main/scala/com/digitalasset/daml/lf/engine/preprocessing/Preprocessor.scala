@@ -160,7 +160,7 @@ private[engine] final class Preprocessor(
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
       // this is used only by the value enricher, strict translation is the way to go
-      commandPreprocessor.unsafeTranslateValue(ty0, v0)
+      commandPreprocessor.unsafeTranslateValue(ty0, v0, allowRelativeContractIds = true)
     }
 
   private[engine] def preprocessApiCommand(
@@ -204,9 +204,14 @@ private[engine] final class Preprocessor(
   def buildGlobalKey(
       templateId: Ref.TypeConId,
       contractKey: Value,
+      allowRelativeContractIds: Boolean,
   ): Result[GlobalKey] = {
     safelyRun(pullPackage(Seq(templateId))) {
-      commandPreprocessor.unsafePreprocessContractKey(contractKey, templateId)
+      commandPreprocessor.unsafePreprocessContractKey(
+        contractKey,
+        templateId,
+        allowRelativeContractIds,
+      )
     }
   }
 

@@ -150,6 +150,12 @@ object Error {
 
         def apply(cid: Value.ContractId.V2): IllegalContractId = IllegalContractId(cid, this)
       }
+
+      case object RelativeContractId extends Reason {
+        def details = "relative Contract IDs are forbidden"
+
+        def apply(cid: Value.ContractId): IllegalContractId = IllegalContractId(cid, this)
+      }
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error
