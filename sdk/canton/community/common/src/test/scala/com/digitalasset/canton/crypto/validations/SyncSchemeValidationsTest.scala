@@ -69,7 +69,6 @@ class SyncSchemeValidationsTest extends AnyWordSpec with BaseTest with HasExecut
       requiredEncryptionSpecs = RequiredEncryptionSpecs(
         NonEmpty.mk(
           Set,
-          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
           EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
         ),
         NonEmpty.mk(

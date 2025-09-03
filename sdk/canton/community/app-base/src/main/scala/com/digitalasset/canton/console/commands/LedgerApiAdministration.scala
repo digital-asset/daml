@@ -47,6 +47,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   TransactionFormat as TransactionFormatProto,
   TransactionShape,
   UpdateFormat,
+  WildcardFilter,
 }
 import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.{
@@ -120,13 +121,26 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
     .map { case s: StandardJWTPayload => s.userId }
     .getOrElse(LedgerApiCommands.defaultUserId)
 
-  private val eventFormatAllParties: Option[EventFormat] = Some(
-    EventFormat(
-      filtersByParty = Map.empty,
-      filtersForAnyParty = Some(Filters(Nil)),
-      verbose = true,
+  private def eventFormatAllParties(includeCreatedEventBlob: Boolean = false): Option[EventFormat] =
+    Some(
+      EventFormat(
+        filtersByParty = Map.empty,
+        filtersForAnyParty = Some(
+          Filters(
+            Seq(
+              CumulativeFilter(
+                IdentifierFilter.WildcardFilter(
+                  WildcardFilter(
+                    includeCreatedEventBlob = includeCreatedEventBlob
+                  )
+                )
+              )
+            )
+          )
+        ),
+        verbose = true,
+      )
     )
-  )
 
   private[canton] def optionallyAwait[Tx](
       tx: Tx,
@@ -210,6 +224,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
           transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+          includeCreatedEventBlob: Boolean = false,
       ): Seq[TransactionWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
@@ -225,7 +240,19 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         val transactionFormat = TransactionFormatProto(
           eventFormat = Some(
             EventFormat(
-              filtersByParty = partyIds.map(_.toLf -> Filters(Nil)).toMap,
+              filtersByParty = partyIds
+                .map(
+                  _.toLf -> Filters(
+                    Seq(
+                      CumulativeFilter.of(
+                        IdentifierFilter.WildcardFilter(
+                          WildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)
+                        )
+                      )
+                    )
+                  )
+                )
+                .toMap,
               filtersForAnyParty = None,
               verbose = verbose,
             )
@@ -273,6 +300,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
           synchronizerFilter: Option[SynchronizerId] = None,
+          includeCreatedEventBlob: Boolean = false,
       ): Seq[ReassignmentWrapper] = {
 
         val resultFilterWithSynchronizer = synchronizerFilter match {
@@ -291,13 +319,25 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithSynchronizer)
 
         val filters: Filters = Filters(
-          filterTemplates.map(templateId =>
-            CumulativeFilter(
-              IdentifierFilter.TemplateFilter(
-                TemplateFilter(Some(templateId.toIdentifier), includeCreatedEventBlob = false)
+          if (filterTemplates.isEmpty)
+            Seq(
+              CumulativeFilter(
+                IdentifierFilter.WildcardFilter(
+                  WildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)
+                )
               )
             )
-          )
+          else
+            filterTemplates.map(templateId =>
+              CumulativeFilter(
+                IdentifierFilter.TemplateFilter(
+                  TemplateFilter(
+                    Some(templateId.toIdentifier),
+                    includeCreatedEventBlob = includeCreatedEventBlob,
+                  )
+                )
+              )
+            )
         )
 
         val updateFormat = UpdateFormat(
@@ -847,6 +887,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           userId: String = userId,
           userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
           transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+          includeCreatedEventBlob: Boolean = false,
       ): ApiTransaction = {
         val tx = consoleEnvironment.run {
           ledgerApiCommand(
@@ -864,6 +905,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               userId,
               userPackageSelectionPreference,
               transactionShape,
+              includeCreatedEventBlob = includeCreatedEventBlob,
             )
           )
         }
@@ -966,7 +1008,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           workflowId = workflowId,
           userId = userId,
           submissionId = submissionId,
-          eventFormat = eventFormatAllParties,
+          eventFormat = eventFormatAllParties(),
           timeout = timeout,
         ).assignedWrapper
 
@@ -1038,7 +1080,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           workflowId = workflowId,
           userId = userId,
           submissionId = submissionId,
-          eventFormat = eventFormatAllParties,
+          eventFormat = eventFormatAllParties(),
           timeout = timeout,
         ).unassignedWrapper
 
@@ -2243,6 +2285,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userId: String = userId,
             userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
             transactionShape: TransactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+            includeCreatedEventBlob: Boolean = false,
         ): Transaction = {
           val tx = consoleEnvironment.run {
             ledgerApiCommand(
@@ -2260,6 +2303,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 userId,
                 userPackageSelectionPreference,
                 transactionShape,
+                includeCreatedEventBlob = includeCreatedEventBlob,
               )
             )
           }
@@ -2359,9 +2403,10 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             userId: String = userId,
             submissionId: String = UUID.randomUUID().toString,
             timeout: Option[config.NonNegativeDuration] = Some(timeouts.ledgerCommand),
+            includeCreatedEventBlob: Boolean = false,
         ): Reassignment =
           ledger_api.commands
-            .submit_assign(
+            .submit_assign_with_format(
               submitter,
               reassignmentId,
               source,
@@ -2369,6 +2414,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               workflowId,
               userId,
               submissionId,
+              eventFormat = eventFormatAllParties(includeCreatedEventBlob),
               timeout,
             )
             .reassignment

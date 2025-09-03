@@ -105,6 +105,7 @@ class BftSequencerFactory(
         initialHeight,
         orderingTimeFixMode,
         sequencerSnapshot.flatMap(_.additional),
+        nodeParameters.exitOnFatalFailures,
         metrics.bftOrdering,
         synchronizerLoggerFactory,
         storageSetup,

@@ -321,9 +321,18 @@ class BlockSequencer(
     }
   }
 
-  private def rejectSubmissionsIfOverloaded()
+  private def rejectSubmissionsIfOverloaded(
+      submission: SubmissionRequest
+  ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
+    if (circuitBreaker.shouldRejectRequests(submission))
+      EitherT.leftT(
+        Overloaded("Sequencer can't take requests because it is behind on processing events")
+      )
+    else EitherT.rightT(())
+
+  private def rejectAcknowledgementIfOverloaded()
       : EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
-    if (circuitBreaker.shouldRejectRequests)
+    if (circuitBreaker.shouldRejectAcknowledgements)
       EitherT.leftT(
         Overloaded("Sequencer can't take requests because it is behind on processing events")
       )
@@ -352,7 +361,7 @@ class BlockSequencer(
 
       _ <- rejectSubmissionsBeforeOrAtSequencingTimeLowerBound()
       _ <-
-        if (submission.isConfirmationRequest) rejectSubmissionsIfOverloaded()
+        if (submission.isConfirmationRequest) rejectSubmissionsIfOverloaded(submission)
         else EitherT.rightT[FutureUnlessShutdown, SequencerDeliverError](())
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
@@ -389,7 +398,7 @@ class BlockSequencer(
     logger.debug(s"Request for member ${req.member} to acknowledge timestamp ${req.timestamp}")
     for {
       _ <- EitherTUtil.toFutureUnlessShutdown(
-        rejectSubmissionsIfOverloaded().leftMap(_.asGrpcError)
+        rejectAcknowledgementIfOverloaded().leftMap(_.asGrpcError)
       )
       _ <- EitherTUtil.toFutureUnlessShutdown(
         rejectSubmissionsBeforeOrAtSequencingTimeLowerBound().leftMap(_.asGrpcError)
@@ -612,7 +621,7 @@ class BlockSequencer(
       if (!ledgerStatus.isActive) SequencerHealthStatus(isActive = false, ledgerStatus.description)
       else if (!isStorageActive)
         SequencerHealthStatus(isActive = false, Some("Can't connect to database"))
-      else if (circuitBreaker.shouldRejectRequests)
+      else if (circuitBreaker.shouldRejectRequests(SubmissionRequestType.ConfirmationRequest))
         SequencerHealthStatus(
           isActive = false,
           Some("Overloaded. Can't receive requests at the moment"),

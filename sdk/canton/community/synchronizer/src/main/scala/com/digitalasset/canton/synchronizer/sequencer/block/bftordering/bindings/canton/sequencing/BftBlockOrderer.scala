@@ -106,6 +106,7 @@ import org.apache.pekko.stream.{KillSwitch, Materializer}
 
 import java.security.SecureRandom
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Random
 
@@ -123,6 +124,7 @@ final class BftBlockOrderer(
     sequencerSubscriptionInitialHeight: Long,
     override val orderingTimeFixMode: OrderingTimeFixMode,
     sequencerSnapshotInfo: Option[SequencerSnapshot.ImplementationSpecificInfo],
+    exitOnFatalFailures: Boolean,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
     dedicatedStorageSetup: StorageSetup,
@@ -258,6 +260,8 @@ final class BftBlockOrderer(
       )
   }
 
+  private val isOrdererHealthy = new AtomicBoolean(true)
+
   private val PekkoModuleSystem.PekkoModuleSystemInitResult(
     actorSystem,
     initResult,
@@ -279,6 +283,8 @@ final class BftBlockOrderer(
       "bftOrderingPekkoModuleSystem",
       createSystemInitializer(),
       createNetworkManager,
+      exitOnFatalFailures,
+      isOrdererHealthy,
       metrics,
       loggerFactory,
     )
@@ -483,7 +489,12 @@ final class BftBlockOrderer(
   override def send(
       signedSubmissionRequest: SignedSubmissionRequest
   )(implicit traceContext: TraceContext): EitherT[Future, SequencerDeliverError, Unit] = {
-    logger.debug(s"sending submission")
+    logger.debug(
+      "sending submission " +
+        s"with message ID ${signedSubmissionRequest.content.sender} " +
+        s"from ${signedSubmissionRequest.content.sender} " +
+        s"to ${signedSubmissionRequest.content.batch.allRecipients} "
+    )
     sendToMempool(
       SendTag,
       signedSubmissionRequest.content.sender,
@@ -504,11 +515,18 @@ final class BftBlockOrderer(
   }
 
   override def health(implicit traceContext: TraceContext): Future[SequencerDriverHealthStatus] = {
-    val isStorageActive = localStorage.isActive
-    val description = if (isStorageActive) None else Some("BFT orderer can't connect to database")
+    val isStorageInactive = !localStorage.isActive
+    val isOrdererUnhealthy = !isOrdererHealthy.get
+
+    val description =
+      if (isStorageInactive) Some("BFT orderer can't connect to database")
+      else if (isOrdererUnhealthy)
+        Some("BFT orderer encountered a problem, check the logs for errors")
+      else None
+
     Future.successful(
       SequencerDriverHealthStatus(
-        isActive = isStorageActive,
+        isActive = description.isEmpty,
         description,
       )
     )

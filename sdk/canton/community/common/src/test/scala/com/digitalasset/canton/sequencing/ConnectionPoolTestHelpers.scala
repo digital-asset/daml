@@ -53,10 +53,11 @@ import io.grpc.{CallOptions, Channel, Status}
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalatest.Assertion
+import org.scalatest.Assertions.fail
 import org.scalatest.matchers.should.Matchers
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, blocking}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future, Promise, blocking}
 import scala.util.Random
 
 trait ConnectionPoolTestHelpers {
@@ -163,11 +164,15 @@ trait ConnectionPoolTestHelpers {
       attributesForConnection: Int => ConnectionAttributes,
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
       testTimeouts: ProcessingTimeout = timeouts,
-  )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener) => V): V = {
+      blockValidation: Int => Boolean = _ => false,
+  )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener, Int => Unit) => V): V = {
     val config = mkPoolConfig(nbConnections, trustThreshold, expectedSynchronizerIdO)
+
+    val validationBlocker = new TestValidationBlocker(blockValidation)
 
     val poolFactory = new TestSequencerConnectionXPoolFactory(
       attributesForConnection,
+      validationBlocker,
       authConfig,
       testMember,
       wallClock,
@@ -182,7 +187,11 @@ trait ConnectionPoolTestHelpers {
     val listener = new TestHealthListener(pool.health)
     pool.health.registerOnHealthChange(listener)
 
-    ResourceUtil.withResource(pool)(f(_, poolFactory.createdConnections, listener))
+    ResourceUtil.withResource(validationBlocker)(blocker =>
+      ResourceUtil.withResource(pool)(
+        f(_, poolFactory.createdConnections, listener, blocker.unblock)
+      )
+    )
   }
 
   protected def mkSubscriptionPoolConfig(
@@ -231,7 +240,7 @@ trait ConnectionPoolTestHelpers {
       trustThreshold,
       attributesForConnection,
       expectedSynchronizerIdO,
-    ) { case (connectionPool, _createdConnections, _connectionPoolListener) =>
+    ) { (connectionPool, _, _, _) =>
       connectionPool.start().futureValueUS.valueOrFail("initialization")
 
       withSubscriptionPool(trustThreshold, livenessMargin, connectionPool) {
@@ -357,6 +366,7 @@ private object ConnectionPoolTestHelpers {
 
   private class TestSequencerConnectionXPoolFactory(
       attributesForConnection: Int => ConnectionAttributes,
+      validationBlocker: TestValidationBlocker,
       authConfig: AuthenticationTokenManagerConfig,
       member: Member,
       clock: Clock,
@@ -371,6 +381,7 @@ private object ConnectionPoolTestHelpers {
 
     private val connectionFactory = new TestInternalSequencerConnectionXFactory(
       attributesForConnection,
+      validationBlocker,
       futureSupervisor,
       timeouts,
       loggerFactory,
@@ -416,6 +427,7 @@ private object ConnectionPoolTestHelpers {
 
   protected class TestInternalSequencerConnectionXFactory(
       attributesForConnection: Int => ConnectionAttributes,
+      validationBlocker: TestValidationBlocker,
       futureSupervisor: FutureSupervisor,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -444,6 +456,7 @@ private object ConnectionPoolTestHelpers {
         synchronizerAndSeqIdResponses = Iterator.continually(correctSynchronizerIdResponse),
         staticParametersResponses = Iterator.continually(correctStaticParametersResponse),
         acknowledgeResponses = Iterator.continually(positiveAcknowledgeResponse),
+        validationBlocker.delayF(index),
       )
 
       val stubFactory = new TestSequencerConnectionXStubFactory(responses, loggerFactory)
@@ -503,7 +516,9 @@ private object ConnectionPoolTestHelpers {
       acknowledgeResponses: Iterator[
         Either[Exception, SequencerService.AcknowledgeSignedResponse]
       ] = Iterator.empty,
-  ) extends Matchers {
+      delayF: Future[Unit] = Future.unit,
+  )(implicit ec: ExecutionContext)
+      extends Matchers {
     private class TestApiInfoServiceStub(
         channel: Channel,
         options: CallOptions = CallOptions.DEFAULT,
@@ -590,9 +605,13 @@ private object ConnectionPoolTestHelpers {
     def sequencerSvcFactory(channel: Channel): SequencerServiceStub =
       new TestSequencerServiceStub(channel)
 
-    private def nextResponse[T](responses: Iterator[Either[Exception, T]]): Future[T] =
-      if (responses.hasNext) responses.next().fold(Future.failed, Future.successful)
-      else Future.failed(Status.UNAVAILABLE.asRuntimeException())
+    private def nextResponse[T](responses: Iterator[Either[Exception, T]]): Future[T] = {
+      val f: Future[T] =
+        if (responses.hasNext) responses.next().fold(Future.failed, Future.successful)
+        else Future.failed(Status.UNAVAILABLE.asRuntimeException())
+
+      delayF.flatMap(_ => f)
+    }
 
     def assertAllResponsesSent(): Assertion = {
       withClue("API responses:")(apiResponses shouldBe empty)
@@ -622,12 +641,14 @@ private object ConnectionPoolTestHelpers {
         acknowledgeResponses: Seq[
           Either[Exception, SequencerService.AcknowledgeSignedResponse]
         ] = Seq.empty,
-    ): TestResponses = new TestResponses(
+        delayF: Future[Unit] = Future.unit,
+    )(implicit ec: ExecutionContext): TestResponses = new TestResponses(
       apiResponses.iterator,
       handshakeResponses.iterator,
       synchronizerAndSeqIdResponses.iterator,
       staticParametersResponses.iterator,
       acknowledgeResponses.iterator,
+      delayF,
     )
   }
 
@@ -670,5 +691,22 @@ private object ConnectionPoolTestHelpers {
 
         case _ => throw new IllegalStateException(s"Connection type not supported: $connection")
       }
+  }
+
+  private class TestValidationBlocker(private val blockValidation: Int => Boolean)
+      extends AutoCloseable {
+    private val promises = TrieMap[Int, Promise[Unit]]()
+
+    def delayF(index: Int): Future[Unit] =
+      if (blockValidation(index)) {
+        val p = Promise[Unit]()
+        promises.put(index, p).foreach(_ => fail(s"Connection #$index was already blocked"))
+        p.future
+      } else Future.unit
+
+    def unblock(index: Int): Unit =
+      promises.getOrElse(index, fail(s"Connection #$index was not blocked")).trySuccess(())
+
+    override def close(): Unit = promises.values.foreach(_.trySuccess(()))
   }
 }

@@ -75,7 +75,7 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
     */
   def start()(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError.TimeoutError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXPoolError, Unit]
 
   /** Return the current configuration of the pool.
     */
@@ -125,12 +125,14 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX]
 
   /** Determine whether the connection pool can still reach the given threshold, ignoring the
-    * `ignored` connections.
+    * `ignored` connections and considering an additional `extraUndecided` number of undecided
+    * connections.
     */
   def isThresholdStillReachable(
       threshold: PositiveInt,
       ignored: Set[ConnectionXConfig] = Set.empty,
-  ): Boolean
+      extraUndecided: NonNegativeInt = NonNegativeInt.zero,
+  )(implicit traceContext: TraceContext): Boolean
 
   @VisibleForTesting
   def contents: Map[SequencerId, Set[SequencerConnectionX]]
@@ -286,6 +288,7 @@ object SequencerConnectionXPool {
   object SequencerConnectionXPoolError {
     final case class InvalidConfigurationError(error: String) extends SequencerConnectionXPoolError
     final case class TimeoutError(error: String) extends SequencerConnectionXPoolError
+    final case class ThresholdUnreachableError(error: String) extends SequencerConnectionXPoolError
   }
 }
 

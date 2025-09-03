@@ -45,8 +45,8 @@ class SymbolicPrivateCrypto(
     CryptoScheme(SigningKeySpec.EcCurve25519, NonEmpty.mk(Set, SigningKeySpec.EcCurve25519))
   override val encryptionAlgorithmSpecs: CryptoScheme[EncryptionAlgorithmSpec] =
     CryptoScheme(
-      EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
-      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm),
+      EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
+      NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc),
     )
   override val encryptionKeySpecs: CryptoScheme[EncryptionKeySpec] =
     CryptoScheme(EncryptionKeySpec.EcP256, NonEmpty.mk(Set, EncryptionKeySpec.EcP256))

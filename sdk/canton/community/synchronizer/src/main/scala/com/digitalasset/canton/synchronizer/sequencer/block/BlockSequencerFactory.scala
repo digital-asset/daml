@@ -64,6 +64,7 @@ abstract class BlockSequencerFactory(
       protocolVersion,
       sequencerId,
       blockSequencerMode = true,
+      metrics,
     )
     with NamedLogging {
 

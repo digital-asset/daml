@@ -58,6 +58,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(),
+      sequencerMetrics = metrics,
     )
 
     DatabaseSequencer.single(

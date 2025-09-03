@@ -1946,6 +1946,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
+          sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
@@ -1960,6 +1961,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -1972,6 +1974,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         maxRetryDelay = maxRetryDelayMillis.map(NonNegativeFiniteDuration.tryOfMillis),
         priority = priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
+        sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
       )
       connect_by_config(config, validation, synchronize)
@@ -1989,6 +1992,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
           sequencerTrustThreshold - Set the minimum number of sequencers that must agree before a message is considered valid.
+          sequencerLivenessMargin - Set the number of extra subscriptions to maintain beyond `sequencerTrustThreshold` in order to ensure liveness.
           submissionRequestAmplification - Define how often client should try to send a submission request that is eligible for deduplication.
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
         """)
@@ -2002,6 +2006,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           consoleEnvironment.commandTimeouts.bounded
         ),
         sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+        sequencerLivenessMargin: NonNegativeInt = NonNegativeInt.zero,
         submissionRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
@@ -2013,6 +2018,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         psid = physicalSynchronizerId,
         priority,
         sequencerTrustThreshold = sequencerTrustThreshold,
+        sequencerLivenessMargin = sequencerLivenessMargin,
         submissionRequestAmplification = submissionRequestAmplification,
       )
       connect_by_config(config, validation, synchronize)

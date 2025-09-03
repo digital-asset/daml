@@ -283,17 +283,13 @@ message EncryptionKeyPair {
 enum EncryptionAlgorithmSpec {
   ENCRYPTION_ALGORITHM_SPEC_UNSPECIFIED = 0;
 
-  /* ECIES with ECDH, AES128 GCM, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
-     because we use SHA256 and we need to align the lengths of the curve and the hash function. */
-  ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128GCM = 1;
-
   /* ECIES with ECDH, AES128 CBC, and HKDF and authentication (MAC) with HMAC-SHA256. This requires a P-256 key
      because we use SHA256 and we need to align the lengths of the curve the and hash function. */
-  ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 2;
+  ENCRYPTION_ALGORITHM_SPEC_ECIES_HKDF_HMAC_SHA256_AES128CBC = 1;
 
   /* RSA with OAEP Padding,
      using SHA-256 for both the hash and in the MGF1 mask generation function along with an empty label. */
-  ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 3;
+  ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 2;
 }
 
 // @deprecated

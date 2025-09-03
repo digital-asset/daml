@@ -105,7 +105,7 @@ final class PreIssConsensusModule[E <: Env[E]](
         initCompleted(consensus.receive(_))
       case message =>
         ifInitCompleted(message) { _ =>
-          abortInit(s"${this.getClass.toString} shouldn't receive any messages after init")
+          abort(s"${this.getClass.toString} shouldn't receive any messages after init")
         }
     }
 
@@ -162,7 +162,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     new EpochState(
       epoch,
       clock,
-      abortInit,
+      abort(_)(context, TraceContext.empty),
       metrics,
       segmentModuleRefFactory(
         context,

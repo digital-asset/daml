@@ -68,7 +68,7 @@ def build_signed_topology_transaction(
                 transaction_hashes=hashes,
                 signatures=[
                     crypto_pb2.Signature(
-                        format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_RAW,
+                        format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
                         signature=signature,
                         signed_by=signed_by,
                         signing_algorithm_spec=crypto_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
@@ -148,7 +148,7 @@ def onboard_external_party(
     # Wrap the public key in a Canton protobuf message
     signing_public_key = crypto_pb2.SigningPublicKey(
         # Must match the format to which the key was exported to above
-        format=crypto_pb2.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER,
+        format=crypto_pb2.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO,
         public_key=public_key_bytes,
         # Must match the scheme of the key
         scheme=crypto_pb2.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P256,

@@ -18,7 +18,7 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionShape.{
 import com.daml.ledger.api.v2.value.Value
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.javaapi.data.codegen.ContractId as CodeGenCID
-import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage
@@ -44,7 +44,7 @@ import org.slf4j.event.Level
 
 import java.util.UUID
 
-sealed trait InteractiveSubmissionIntegrationTestSetup
+trait InteractiveSubmissionIntegrationTestSetup
     extends CommunityIntegrationTest
     with SharedEnvironment
     with BaseInteractiveSubmissionTest {
@@ -58,11 +58,13 @@ sealed trait InteractiveSubmissionIntegrationTestSetup
       res => res.copy(preparedTransaction = Some(tx))
     )
 
-  protected val preparedTxResponseInputContractsOpt = preparedSubmissionResponseOpt
-    .andThen(preparedTxMetadataOpt)
-    .andThen(
-      GenLens[Metadata](_.inputContracts)
-    )
+  protected val preparedTxResponseInputContractsOpt
+      : Optional[PrepareSubmissionResponse, Seq[Metadata.InputContract]] =
+    preparedSubmissionResponseOpt
+      .andThen(preparedTxMetadataOpt)
+      .andThen(
+        GenLens[Metadata]((m: Metadata) => m.inputContracts)
+      )
 
   protected var aliceE: ExternalParty = _
 
@@ -659,8 +661,8 @@ class InteractiveSubmissionIntegrationTestTimeouts
     env.sequencer1.topology.synchronizer_parameters.propose_update(
       env.sequencer1.synchronizer_id,
       _.update(
-        confirmationResponseTimeout = NonNegativeFiniteDuration.ofSeconds(2),
-        mediatorReactionTimeout = NonNegativeFiniteDuration.ofSeconds(2),
+        confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(2),
+        mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(2),
       ),
     )
 

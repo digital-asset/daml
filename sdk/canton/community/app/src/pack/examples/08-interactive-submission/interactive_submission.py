@@ -163,7 +163,7 @@ def execute_and_get_contract_id(
                     party=party,
                     signatures=[
                         interactive_submission_service_pb2.Signature(
-                            format=interactive_submission_service_pb2.SignatureFormat.SIGNATURE_FORMAT_RAW,
+                            format=interactive_submission_service_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
                             signature=signature,
                             signed_by=pub_fingerprint,
                             signing_algorithm_spec=interactive_submission_service_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
