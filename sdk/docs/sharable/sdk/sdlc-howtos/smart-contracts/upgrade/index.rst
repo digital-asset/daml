@@ -1383,7 +1383,7 @@ Dependencies
 
 Package authors may upgrade the dependencies of a package as well as the
 package itself. A new version of a package may add new dependencies, and
-must have all the (non-:brokenref:`utility-package <upgrades-utility-package>`)
+must have all the (non-utility-package)
 dependencies of the old version. If these dependencies are used in ways that are
 checked for upgrades, each existing dependency must be either
 unchanged from the old DAR or an upgrade of its previous version.
@@ -1673,7 +1673,7 @@ There are two ways to work around this:
   - restart the participant after each rebuild
   - change the version name of the package before each rebuild
 
-:brokenref:`Environment variable interpolation <environment-variable-interpolation>`
+:ref:`Environment variable interpolation <environment-variable-interpolation>`
 in the Daml Assistant can help with the latter. In the ``daml.yaml`` file of each
 of your packages, append an environment variable to the name of the package:
 
@@ -1706,12 +1706,6 @@ There are two ways to work around this:
   - change the version name of your packages after each rebuild, as outlined in
     the previous section
 
-
-The Upgrade Model in Depth - Reference
---------------------------------------
-
-You can find the in-depth upgrading model, which can be used as a reference
-for valid upgrades, :brokenref:`here <upgrade-model-reference>`.
 
 Package Selection in the Ledger API
 ===================================
@@ -1772,7 +1766,7 @@ Dynamic Package Resolution in Command Submission
 Dynamic package resolution can happen in two cases during command submission:
 
 -  For command submissions that use a `by-package-name template ID`
-   in the command’s templateId field (e.g. in a
+   in the command's templateId field (e.g. in a
    create command :subsiteref:`here <com.daml.ledger.api.v2.CreateCommand>`)
 
 -  For command submissions whose Daml interpretation requires the execution of
@@ -1788,7 +1782,7 @@ When subscribing for :brokenref:`transaction <transaction-trees>`
 or :brokenref:`active contract streams <state-service>`,
 users can now use the `by-package-name template ID` format
 in the :subsiteref:`template-id request filter field <com.daml.ledger.api.v2.TemplateFilter.template_id>`.
-to specify that they’re interested in fetching events for all templates
+to specify that they are interested in fetching events for all templates
 pertaining to the specified package-name. This template selection set is
 dynamic and it widens with each uploaded template/package.
 
@@ -2185,7 +2179,7 @@ cannot be fully removed (as with any package), and may not be uploadable to the
 ledger in future versions (Daml 3). More information about this limitation :ref:`here <upgrade-dont-upload-daml-script>`.
 
 Depending on multiple versions of the same package does however face ambiguity issues with
-imports. You can resolve these issues using :brokenref:`module prefixes <module_prefixes>`:
+imports. You can resolve these issues using :ref:`module prefixes <daml-yaml-module-prefixes>`:
 
 .. code:: yaml
 
