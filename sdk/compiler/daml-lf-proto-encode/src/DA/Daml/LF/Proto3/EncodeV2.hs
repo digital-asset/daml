@@ -68,7 +68,7 @@ makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
 type ImportMap = M.Map PackageId Int32
 data EncodeConfig = EncodeConfig
     { _version :: !Version
-    , _importMap :: Maybe ImportMap
+    , _importMap :: Either String ImportMap
     }
 makeLenses ''EncodeConfig
 
@@ -99,7 +99,7 @@ initEncodeState =
     }
 
 initTestEncodeConfig :: Version -> EncodeConfig
-initTestEncodeConfig = flip EncodeConfig Nothing
+initTestEncodeConfig = flip EncodeConfig $ Left "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
 
 runEncode :: EncodeConfig           -- The read-only config.
           -> EncodeState            -- The initial state.
@@ -201,17 +201,26 @@ encodeValueName valName = do
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
 encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPackageId)
-encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
-    SelfPackageId ->
+encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
+  where
+    go :: SelfOrImportedPackageId -> Encode P.SelfOrImportedPackageIdSum
+    go = \case
+      SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-    ImportedPackageId p@(PackageId pkgId) ->
-      ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
-        {-then-}
-          (do
-              (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
-              return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
-        {-else-}
-          (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
+      ImportedPackageId p@(PackageId pkgId) ->
+        ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
+          {-then-}
+            (do
+              -- (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
+              (eMap :: Either String ImportMap) <- asks (view importMap)
+              case eMap of
+                  Left str ->
+                    error $ printf "Expected an ImportMap but did not find it, reason: %s" str
+                  Right mp -> do
+                    let (mID :: Maybe Int32) = M.lookup p mp
+                    return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
+          {-else-}
+            (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -999,7 +1008,7 @@ encodeFeatureFlags FeatureFlags = Just P.FeatureFlags
     }
 
 -- each script module is wrapped in a proto package
-encodeSinglePackageModule :: Version -> ModuleWithImports' -> P.Package
+encodeSinglePackageModule :: Version -> ModuleWithImports -> P.Package
 encodeSinglePackageModule version (mod, imports) =
     encodePackage (Package version (NM.insert mod NM.empty) metadata imports)
   where
@@ -1090,7 +1099,7 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportedPackages = encodeImports <$> importList
+        packageImportedPackages = either (const Nothing) (Just . encodeImports) importList
     in
     P.Package{..}
 

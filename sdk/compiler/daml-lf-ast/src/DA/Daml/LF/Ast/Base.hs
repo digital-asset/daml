@@ -1002,15 +1002,16 @@ newtype UpgradedPackageId = UpgradedPackageId
 
 type PackageIds = S.Set PackageId
 -- type ModuleWithImports = (Module, Maybe PackageIds)
-type ModuleWithImports = Module
+type ModuleWithImports = (Module, Either String PackageIds)
 type ModuleWithImports' = (Module, Maybe PackageIds)
+type ImportedPackages = Either String PackageIds
 
 -- | A package.
 data Package = Package
     { packageLfVersion :: Version
     , packageModules :: NM.NameMap Module
     , packageMetadata :: PackageMetadata
-    , importedPackages :: Maybe PackageIds
+    , importedPackages :: ImportedPackages
     }
   deriving (Eq, Data, Generic, NFData, Show)
 

@@ -208,7 +208,7 @@ decodePackage version selfPackageRef (LF2.Package
           runDecode env3{internedExprs = prefix} $ decodeExpr (internedExprsV V.! i)
       let env4 = env3{internedExprs}
       runDecode env4 $ do
-        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (S.fromList . V.toList <$> imports)
+        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (S.fromList . V.toList <$> maybe (Left "DA.Daml.LF.Proto3.DecodeV2:decodePackage") Right imports)
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =
@@ -221,7 +221,7 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
     upgradedPackageId <- traverse decodeUpgradedPackageId packageMetadataUpgradedPackageId
     pure (PackageMetadata pkgName pkgVersion upgradedPackageId)
 
-decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error ModuleWithImports'
+decodeSinglePackageModule :: LF.Version -> LF2.Package -> Either Error ModuleWithImports
 decodeSinglePackageModule version protoPkg = do
     Package { packageModules = modules, importedPackages = imports } <- decodePackage version SelfPackageId protoPkg
     pure (head $ NM.toList modules, imports)

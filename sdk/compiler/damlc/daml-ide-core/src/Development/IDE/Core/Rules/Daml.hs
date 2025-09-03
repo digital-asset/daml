@@ -378,8 +378,11 @@ packageMetadataFromOptions options = LF.PackageMetadata
     , upgradedPackageId = Nothing -- set by daml build
     }
 
-extractImports :: [LF.ModuleWithImports'] -> ([LF.Module], Maybe LF.PackageIds)
-extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp <> imps)) ([], Just Set.empty)
+extractImports :: [LF.ModuleWithImports] -> ([LF.Module], Either String LF.PackageIds)
+extractImports = foldr (\(mod, imp) (mods, imps) -> (mod:mods, imp `merge` imps)) ([], Right Set.empty)
+  where
+    merge = LF.mergeImportedPackages "Development.IDE.Core.Rules.Daml:extractImports"
+
 
 -- This rule is for on-disk incremental builds. We cannot use the fine-grained rules that we have for
 -- in-memory builds since we need to be able to serialize intermediate results. GHC doesn’t provide a way to serialize
@@ -443,7 +446,7 @@ generateSerializedDalfRule options =
                                                     (packageMetadataFromOptions options)
                                                     lfVersion
                                                     dalfDeps
-                                                    Nothing
+                                                    (Left "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule (selfPkg)")
                                         world = LF.initWorldSelf pkgs selfPkg
                                         simplified = LF.simplifyModule (LF.initWorld [] lfVersion) lfVersion rawDalf
                                         -- NOTE (SF): We pass a dummy LF.World to the simplifier because we don't want inlining
@@ -460,7 +463,7 @@ generateSerializedDalfRule options =
                                                 Just () -> do
                                                     --TODO[RB]: uncomment
                                                     -- writeDalfFile (dalfFileName file) (dalf, imports)
-                                                    writeDalfFile (dalfFileName file) (dalf, mempty)
+                                                    writeDalfFile (dalfFileName file) (dalf, Left "Development.IDE.Core.Rules.Daml:generateSerializedDalfRule (writeDalfFile)")
                                                     pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
@@ -814,7 +817,7 @@ hiFileName :: NormalizedFilePath -> NormalizedFilePath
 hiFileName file =
     toNormalizedFilePath' $ buildDir </> fromNormalizedFilePath file -<.> "hi"
 
-readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports'
+readDalfFromFile :: NormalizedFilePath -> Action LF.ModuleWithImports
 readDalfFromFile dalfFile = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -830,7 +833,7 @@ readDalfFromFile dalfFile = do
             Left err -> fail (show err)
             Right mod -> pure mod
 
-writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports' -> Action ()
+writeDalfFile :: NormalizedFilePath -> LF.ModuleWithImports -> Action ()
 writeDalfFile dalfFile mod = do
     lfVersion <- getDamlLfVersion
     liftIO $
@@ -864,8 +867,8 @@ generatePackageImports =
           then do
             PackageMap pkgMap <- use_ GeneratePackageMap file
             deps <- depPkgDeps <$> use_ GetDependencyInformation file
-            return (Just $ depsToIds pkgMap deps)
-          else return Nothing
+            return (Right $ depsToIds pkgMap deps)
+          else return $ Left "Rule GeneratePackageImports (lf does not support featurePackageImports)"
         return ([]{-list of diagnostics-}, Just imports)
 
 -- generatePackageImports :: Rules ()
