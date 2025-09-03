@@ -20,8 +20,7 @@ import qualified Data.Aeson.Key as Aeson
 import System.FilePath
 
 data TsLibrary
-    = DamlLedger
-    | DamlTypes
+    = DamlTypes
     deriving (Bounded, Enum)
 
 newtype Workspaces = Workspaces [FilePath]
@@ -31,7 +30,6 @@ allTsLibraries = [minBound .. maxBound]
 
 tsLibraryName :: TsLibrary -> String
 tsLibraryName = \case
-    DamlLedger -> "daml-ledger"
     DamlTypes -> "daml-types"
 
 -- NOTE(MH): In some tests we need our TS libraries like `@daml/types` in

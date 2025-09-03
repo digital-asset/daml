@@ -568,7 +568,7 @@ codegenTests codegenDir = testGroup "daml codegen" (
                     outDir  = projectDir </> "generated" </> lang
                 when (lang == "js") $ do
                     let workspaces = Workspaces [makeRelative codegenDir outDir]
-                    setupYarnEnv codegenDir workspaces [DamlTypes, DamlLedger]
+                    setupYarnEnv codegenDir workspaces [DamlTypes]
                 callCommandSilentIn projectDir $
                     unwords [ "daml", "codegen", lang
                             , darFile ++ maybe "" ("=" ++) namespace
