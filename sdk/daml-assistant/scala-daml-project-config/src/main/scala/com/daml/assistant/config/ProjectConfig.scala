@@ -122,7 +122,11 @@ object ProjectConfig {
     sys.env
       .get(envVarPackagePath)
       .orElse(sys.env.get(envVarProjectPath))
-      .toRight(ConfigMissing(s"Neither $envVarPackagePath or $envVarProjectPath set, could not find package."))
+      .toRight(
+        ConfigMissing(
+          s"Neither $envVarPackagePath or $envVarProjectPath set, could not find package."
+        )
+      )
 
   /** Returns the path of the current daml project config file, if any.
     * The path is given by environment variables set by the SDK Assistant.

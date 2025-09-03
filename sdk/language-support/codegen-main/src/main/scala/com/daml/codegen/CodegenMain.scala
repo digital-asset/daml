@@ -37,7 +37,11 @@ object CodegenMain {
     runCodegen(JavaCodegen.run, codegenConfig(args, Java, parserName), parserName)
   }
 
-  private def runCodegen(generate: Conf => Unit, configO: Option[Conf], parserName: String): ExitCode =
+  private def runCodegen(
+      generate: Conf => Unit,
+      configO: Option[Conf],
+      parserName: String,
+  ): ExitCode =
     configO match {
       case None =>
         println("\n")
@@ -53,7 +57,11 @@ object CodegenMain {
         }
     }
 
-  private def codegenConfig(args: Array[String], mode: CodegenDest, parserName: String): Option[Conf] =
+  private def codegenConfig(
+      args: Array[String],
+      mode: CodegenDest,
+      parserName: String,
+  ): Option[Conf] =
     if (args.nonEmpty) {
       println(s"Reading configuration from command line input: ${args.mkString(",")}")
       Conf.parse(args, parserName)
