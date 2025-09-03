@@ -32,14 +32,16 @@ object CodegenMain {
 
   private def javaCodegen(args: Array[String]): ExitCode = {
     println("Java codegen")
-    runCodegen(JavaCodegen.run, codegenConfig(args, Java))
+    // Check if we're running in daml-assistant or DPM
+    val parserName = sys.env.get("DAML_SDK").fold("codegen-java")(_ => "codegen")
+    runCodegen(JavaCodegen.run, codegenConfig(args, Java, parserName), parserName)
   }
 
-  private def runCodegen(generate: Conf => Unit, configO: Option[Conf]): ExitCode =
+  private def runCodegen(generate: Conf => Unit, configO: Option[Conf], parserName: String): ExitCode =
     configO match {
       case None =>
         println("\n")
-        Conf.parser.displayToOut(Conf.parser.usage)
+        Conf.parser(parserName).displayToOut(Conf.parser(parserName).usage)
         UsageError
       case Some(conf) =>
         Try(generate(conf)) match {
@@ -51,10 +53,10 @@ object CodegenMain {
         }
     }
 
-  private def codegenConfig(args: Array[String], mode: CodegenDest): Option[Conf] =
+  private def codegenConfig(args: Array[String], mode: CodegenDest, parserName: String): Option[Conf] =
     if (args.nonEmpty) {
       println(s"Reading configuration from command line input: ${args.mkString(",")}")
-      Conf.parse(args)
+      Conf.parse(args, parserName)
     } else {
       println(s"Reading configuration from project configuration file")
       CodegenConfigReader.readFromEnv(mode) match {
