@@ -65,26 +65,26 @@ overrideWithEnvVar envVar normalize parse calculate =
 
 -- | (internal) Same as overrideWithEnvVar but accepts "" as
 -- Nothing and throws exception on parse failure.
-overrideWithEnvVarMaybe
+overrideWithEnvVarsMaybe
     :: Exception e
-    => String                   -- ^ env var name
+    => [String]                 -- ^ env var names
     -> (String -> IO String)    -- ^ normalize env var
     -> (String -> Either e t)   -- ^ parser for env var
     -> IO (Maybe t)             -- ^ calculation to override
     -> IO (Maybe t)
-overrideWithEnvVarMaybe envVar normalize parse calculate = do
-  overrideWithEnvVarMaybeIO envVar normalize (pure . parse) calculate
+overrideWithEnvVarsMaybe envVars normalize parse calculate = do
+  overrideWithEnvVarsMaybeIO envVars normalize (pure . parse) calculate
 
--- | (internal) Same as overrideWithEnvVarMaybe but parser can run in IO
-overrideWithEnvVarMaybeIO
+-- | (internal) Same as overrideWithEnvVarsMaybe but parser can run in IO
+overrideWithEnvVarsMaybeIO
     :: Exception e
-    => String                      -- ^ env var name
+    => [String]                    -- ^ env var name
     -> (String -> IO String)       -- ^ normalize env var
     -> (String -> IO (Either e t)) -- ^ parser for env var
     -> IO (Maybe t)                -- ^ calculation to override
     -> IO (Maybe t)
-overrideWithEnvVarMaybeIO envVar normalize parse calculate = do
-    valueM <- getEnv envVar
+overrideWithEnvVarsMaybeIO envVars normalize parse calculate = do
+    valueM <- asum <$> traverse getEnv envVars
     case valueM of
         Nothing -> calculate
         Just "" -> pure Nothing
@@ -151,7 +151,7 @@ getDamlAssistantPathDefault (DamlPath damlPath) =
 -- with DAML_ASSISTANT_VERSION env var.
 getDamlAssistantSdkVersion :: UseCache -> IO (Maybe DamlAssistantSdkVersion)
 getDamlAssistantSdkVersion useCache =
-    overrideWithEnvVarMaybeIO damlAssistantVersionEnvVar pure
+    overrideWithEnvVarsMaybeIO [damlAssistantVersionEnvVar] pure
         (fmap (fmap DamlAssistantSdkVersion) . traverse (resolveReleaseVersionUnsafe useCache) . parseVersion . pack)
         (fmap DamlAssistantSdkVersion <$> tryAssistantM (getAssistantSdkVersion useCache))
 
@@ -203,7 +203,7 @@ getCachePath =
 getProjectPath :: LookForProjectPath -> IO (Maybe ProjectPath)
 getProjectPath (LookForProjectPath False) = pure Nothing
 getProjectPath (LookForProjectPath True) = wrapErr "Detecting daml project." $ do
-        pathM <- overrideWithEnvVarMaybe @SomeException projectPathEnvVar makeAbsolute Right $ do
+        pathM <- overrideWithEnvVarsMaybe @SomeException [packagePathEnvVar, projectPathEnvVar] makeAbsolute Right $ do
             cwd <- getCurrentDirectory
             findM hasProjectConfig (ascendants cwd)
         pure (ProjectPath <$> pathM)
@@ -226,8 +226,8 @@ getSdk useCache damlPath projectPathM =
         unresolvedVersion <-
             let parseAndResolve = pure . parseVersion . pack
             in
-            overrideWithEnvVarMaybeIO
-                sdkVersionEnvVar
+            overrideWithEnvVarsMaybeIO
+                [sdkVersionEnvVar]
                 pure
                 parseAndResolve $
                 firstJustM id
@@ -238,7 +238,7 @@ getSdk useCache damlPath projectPathM =
                     , (fmap . fmap) (UnresolvedReleaseVersion . releaseVersionFromReleaseVersion) $ tryAssistantM $ getDefaultSdkVersion damlPath
                     ]
 
-        sdkPath <- overrideWithEnvVarMaybe @SomeException sdkPathEnvVar makeAbsolute (Right . SdkPath) $
+        sdkPath <- overrideWithEnvVarsMaybe @SomeException [sdkPathEnvVar] makeAbsolute (Right . SdkPath) $
             useInstalledPath damlPath unresolvedVersion
 
         return (unresolvedVersion, sdkPath)
@@ -261,6 +261,7 @@ getDispatchEnv Env{..} = do
         ++ [ (damlPathEnvVar, unwrapDamlPath envDamlPath)
            , (damlCacheEnvVar, unwrapCachePath envCachePath)
            , (projectPathEnvVar, maybe "" unwrapProjectPath envProjectPath)
+           , (packagePathEnvVar, maybe "" unwrapProjectPath envProjectPath)
            , (sdkPathEnvVar, maybe "" unwrapSdkPath envSdkPath)
            , (sdkVersionEnvVar, maybe "" versionToString envSdkVersion)
            , (sdkVersionLatestEnvVar, maybe "" versionToString envFreshStableSdkVersionForCheck)
