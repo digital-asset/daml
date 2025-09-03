@@ -535,6 +535,15 @@ mkOneModulePackage m = Package{..}
         upgradedPackageId :: Maybe UpgradedPackageId
         upgradedPackageId = Nothing
 
+{-
+We put a list of stablepackages here, to be used by the proto encoder. These
+cannot get the genereated list by DA.Daml.StablePackages because that would
+introduce a circular dependency (DA.Daml.StablePackages depends on the encoder).
+If changes occur to the stablepackages, we can bootstrap this list: compile with
+current list of stable packages, observe hash, add has to list below. Since new
+stable packages will only depend on existing stable packages, adding its hash to
+this list won't change the hash.
+-}
 stableIds :: [PackageId]
 stableIds = map PackageId
       [ "54f85ebfc7dfae18f7d70370015dcc6c6792f60135ab369c44ae52c6fc17c274" -- daml-prim

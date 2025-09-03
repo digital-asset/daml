@@ -35,6 +35,7 @@ import           DA.Daml.LF.Mangling
 import           DA.Daml.LF.Proto3.Interned    as I
 import           DA.Daml.LF.Proto3.InternedMap
 import           DA.Daml.LF.Proto3.InternedArr
+
 import qualified Com.Digitalasset.Daml.Lf.Archive.DamlLf2 as P
 
 import qualified Proto3.Suite as P (Enumerated (..))
