@@ -255,6 +255,9 @@ private[lf] object Pretty {
               case TranslationError.InvalidValue(value, message) =>
                 text("invalid value") & prettyValue(verbose = true)(value) / text(message)
             }
+          case Dev.AuthenticationError(coid, value, message) =>
+            text("Authentication error for contract") & prettyContractId(coid) /
+              text("with argument") & prettyValue(verbose = false)(value) / text(message)
         }
     }
   }
