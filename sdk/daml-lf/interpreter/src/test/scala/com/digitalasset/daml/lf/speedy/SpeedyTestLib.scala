@@ -92,15 +92,8 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     run(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(_) =>
-        machine.finish.map(_.tx) match {
-          case Left(err) =>
-            Left(err)
-          case Right(tx) =>
-            Right(tx)
-        }
-      case Left(err) =>
-        Left(err)
+      case Right(_) => machine.finish.map(_.tx)
+      case Left(err) => Left(err)
     }
 
   @throws[SError.SErrorCrash]
@@ -112,15 +105,8 @@ private[speedy] object SpeedyTestLib {
       getTime: PartialFunction[Unit, Time.Timestamp] = PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] =
     run(machine, getPkg, getContract, getKey, getTime) match {
-      case Right(_) =>
-        machine.finish.map(_.tx) match {
-          case Left(err) =>
-            Left(err)
-          case Right(tx) =>
-            Right(tx)
-        }
-      case Left(err) =>
-        Left(err)
+      case Right(_) => machine.finish.map(_.tx)
+      case Left(err) => Left(err)
     }
 
   @throws[SError.SErrorCrash]
