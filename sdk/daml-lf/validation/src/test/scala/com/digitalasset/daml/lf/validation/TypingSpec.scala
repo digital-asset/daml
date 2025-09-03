@@ -1811,7 +1811,8 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type record definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1838,7 +1839,8 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type variant definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1865,7 +1867,8 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type synonym definitions" in {
 
       def checkModule(mod: Module) = {
-        val pkg = Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata)
+        val pkg =
+          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,

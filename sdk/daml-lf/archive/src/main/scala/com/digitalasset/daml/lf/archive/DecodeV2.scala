@@ -73,7 +73,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
-      imports = Some(imports.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+      imports = Some(imports.map(s => eitherToParseError(PackageId.fromString(s))).toSet),
     )
 
   }
@@ -205,14 +205,6 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         discard(deps += pkgId)
 
     def getDependencies: Set[PackageId] = deps.toSet
-      mImports match {
-        case Some(packageIds) => // This block only runs for a Some, binding its content to packageIds
-          packageIds.toList.sorted.foreach { sortedId =>
-            b += sortedId
-          }
-        case None => // Explicitly do nothing for the None case
-          () // The `()` value is called "Unit" and means "nothing"
-      }
   }
 
   private[archive] case class Env(

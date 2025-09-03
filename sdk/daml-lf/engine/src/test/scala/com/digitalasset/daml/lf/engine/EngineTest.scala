@@ -2663,6 +2663,7 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
           PackageVersion.assertFromString("0.0.0"),
           None,
         ),
+        None,
       )
 
     "reject disallowed packages" in {

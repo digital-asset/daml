@@ -93,8 +93,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       builder.build()
     }
 
-    private[this] def encodeImports(mImports : Option[Set[Ref.PackageId]]) : PLF.PackageImports = {
-      val b =  PLF.PackageImports.newBuilder()
+    private[this] def encodeImports(mImports: Option[Set[Ref.PackageId]]): PLF.PackageImports = {
+      val b = PLF.PackageImports.newBuilder()
 
       mImports.foreach { imports =>
         imports.toList.sorted.foreach { id =>
@@ -104,7 +104,6 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
 
       b.build()
     }
-
 
     private[this] def encodeModule(module: Module): PLF.Module = {
 

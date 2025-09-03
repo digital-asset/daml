@@ -185,6 +185,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
                 Ref.PackageVersion.assertFromString("0.0.0"),
                 None,
               ),
+              None,
             )
         ),
         compilerConfig,
@@ -210,6 +211,7 @@ class InterpreterTest(majorLanguageVersion: LanguageMajorVersion)
               Ref.PackageVersion.assertFromString("0.0.0"),
               None,
             ),
+            None,
           )
       ),
       compilerConfig,

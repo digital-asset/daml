@@ -196,6 +196,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
             PackageVersion.assertFromString("0.0.0"),
             None,
           ),
+          None,
         )
       var queriedPackageIds = Set.empty[Ref.PackageId]
       val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>

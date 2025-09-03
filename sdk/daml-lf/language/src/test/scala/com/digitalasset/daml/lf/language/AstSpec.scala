@@ -36,6 +36,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
           Ref.PackageVersion.assertFromString("0.0.0"),
           None,
         ),
+        None,
       )
       a[PackageError] shouldBe thrownBy(
         Package.build(
@@ -50,6 +51,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
             Ref.PackageVersion.assertFromString("0.0.0"),
             None,
           ),
+          None,
         )
       )
 

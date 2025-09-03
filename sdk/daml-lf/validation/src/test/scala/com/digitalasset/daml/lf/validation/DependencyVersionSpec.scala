@@ -55,6 +55,7 @@ class DependencyVersionSpec extends AnyWordSpec with TableDrivenPropertyChecks w
           Ref.PackageVersion.assertFromString("0.0.0"),
           None,
         ),
+        None,
       )
     }
 
