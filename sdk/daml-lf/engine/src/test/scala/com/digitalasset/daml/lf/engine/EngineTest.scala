@@ -2918,7 +2918,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             } else true
           },
         )
-        // idValidatorCalledWithExpectedHash shouldBe true
+        idValidatorCalledWithExpectedHash shouldBe true
         result shouldBe a[Right[_, _]]
       }
     }
