@@ -24,6 +24,16 @@ template Simple
       controller p
       do pure "hello"
 
+template SimpleFetcher
+  with
+    p : Party
+  where
+    signatory p
+    choice DoFetchSimple : Simple
+      with cid : ContractId Simple
+      controller p
+      do fetch cid
+
 template SimpleNumeric
   with
     p: Party
