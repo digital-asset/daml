@@ -20,6 +20,7 @@ import com.digitalasset.daml.lf.transaction.{
   Normalization,
   ReplayMismatch,
   SubmittedTransaction,
+  Transaction,
   Validation,
   VersionedTransaction,
   Transaction => Tx,
@@ -2634,7 +2635,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
   "wrongly typed contract" should {
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
-    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
     val cid = toContractId("simple")
     val fetcherCid = toContractId("fetcher")
     val contracts =
@@ -2657,11 +2658,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
-              None,
+              None /* BasicTests:SimpleFetcher */,
               ImmArray(
-                (None, ValueParty(alice)),
-                (None, ValueParty(alice)),
-                (None, ValueParty(alice)),
+                (None /* p */, ValueParty(alice))
               ),
             ),
           ),
@@ -2686,7 +2685,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ApiCommand.Exercise(
             fetcherId.toRef,
             fetcherCid,
-            "DoFetch",
+            "DoFetchSimple",
             ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(cid)))),
           )
         )
@@ -2731,7 +2730,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
 
   "ill-formed contract" should {
     val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
-    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:Fetcher")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
     val cid = toContractId("simple")
     val fetcherCid = toContractId("fetcher")
     val contracts =
@@ -2755,11 +2754,9 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             packageName = basicTestsPkg.pkgName,
             template = fetcherId,
             arg = ValueRecord(
-              None,
+              None /* BasicTests:SimpleFetcher */,
               ImmArray(
-                (None, ValueParty(alice)),
-                (None, ValueParty(alice)),
-                (None, ValueParty(alice)),
+                (None /* p */, ValueParty(alice))
               ),
             ),
           ),
@@ -2784,7 +2781,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
           ApiCommand.Exercise(
             fetcherId.toRef,
             fetcherCid,
-            "DoFetch",
+            "DoFetchSimple",
             ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(cid)))),
           )
         )
@@ -2823,6 +2820,133 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
               )
             ) =>
           error shouldBe a[interpretation.Error.Dev.TranslationError.InvalidValue]
+      }
+    }
+  }
+
+  "legacy contracts" should {
+    val simpleId = Identifier(basicTestsPkgId, "BasicTests:Simple")
+    val fetcherId = Identifier(basicTestsPkgId, "BasicTests:SimpleFetcher")
+    val simpleCid = toContractId("simple")
+    val fetcherCid = toContractId("fetcher")
+    val createArg = ValueRecord(
+      None /* BasicTests:Simple */,
+      ImmArray((None /* p */, ValueParty(alice))),
+    )
+    val contracts =
+      Map(
+        simpleCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = simpleId,
+            arg = createArg,
+            signatories = List(party),
+            observers = List.empty,
+          ),
+        fetcherCid ->
+          TransactionBuilder.fatContractInstanceWithDummyDefaults(
+            version = defaultLangVersion,
+            packageName = basicTestsPkg.pkgName,
+            template = fetcherId,
+            arg = ValueRecord(
+              None /* BasicTests:SimpleFetcher */,
+              ImmArray(
+                (None /* p */, ValueParty(alice))
+              ),
+            ),
+          ),
+      )
+
+    val expectedLegacyHash =
+      Hash
+        .hashContractInstance(simpleId, createArg, basicTestsPkg.pkgName, upgradeFriendly = false)
+        .value
+    val expectedUpgradeFriendlyHash =
+      Hash
+        .hashContractInstance(simpleId, createArg, basicTestsPkg.pkgName, upgradeFriendly = true)
+        .value
+
+    def run(
+        cmds: ImmArray[ApiCommand],
+        hashingMethod: ContractId => Hash.HashingMethod,
+        idValidator: (ContractId, Hash) => Boolean,
+    ): Either[Error, (SubmittedTransaction, Transaction.Metadata)] =
+      suffixLenientEngine
+        .submit(
+          submitters = Set(alice),
+          readAs = Set.empty: Set[Party],
+          cmds = ApiCommands(cmds, Time.Timestamp.now(), ""),
+          disclosures = ImmArray.empty,
+          participantId = participant,
+          submissionSeed = hash("ill-formed contract"),
+          prefetchKeys = Seq.empty,
+        )
+        .consume(
+          contracts,
+          lookupPackage,
+          lookupKey,
+          hashingMethod = hashingMethod,
+          idValidator = idValidator,
+        )
+
+    val cases = Table(
+      ("hashingMethod", "expectedHash"),
+      (Hash.HashingMethod.Legacy, expectedLegacyHash),
+      (Hash.HashingMethod.UpgradeFriendly, expectedUpgradeFriendlyHash),
+    )
+
+    "be authenticated on fetch" in {
+      forEvery(cases) { case (hashingMethod, expectedHash) =>
+        var idValidatorCalledWithExpectedHash = false
+        val result = run(
+          cmds = ImmArray(
+            ApiCommand.Exercise(
+              fetcherId.toRef,
+              fetcherCid,
+              "DoFetchSimple",
+              ValueRecord(None, ImmArray((Some[Name]("cid"), ValueContractId(simpleCid)))),
+            )
+          ),
+          hashingMethod = _ => hashingMethod,
+          idValidator = { (cid, h) =>
+            // We're only interested in fetches of mainCid, when fetcherCid is fetched we simply return true but
+            // do not record the call.
+            if (cid == simpleCid) {
+              idValidatorCalledWithExpectedHash = (h == expectedHash)
+              idValidatorCalledWithExpectedHash
+            } else true
+          },
+        )
+        // idValidatorCalledWithExpectedHash shouldBe true
+        result shouldBe a[Right[_, _]]
+      }
+    }
+
+    "be authenticated on exercise" in {
+      forEvery(cases) { case (hashingMethod, expectedHash) =>
+        var idValidatorCalledWithExpectedHash = false
+        val result = run(
+          cmds = ImmArray(
+            ApiCommand.Exercise(
+              simpleId.toRef,
+              simpleCid,
+              "Hello",
+              ValueRecord(None, ImmArray.empty),
+            )
+          ),
+          hashingMethod = _ => hashingMethod,
+          idValidator = { (cid, h) =>
+            // We're only interested in exercises of mainCid, when fetcherCid is exercised we simply return true but
+            // do not record the call.
+            if (cid == simpleCid) {
+              idValidatorCalledWithExpectedHash = (h == expectedHash)
+              idValidatorCalledWithExpectedHash
+            } else true
+          },
+        )
+        idValidatorCalledWithExpectedHash shouldBe true
+        result shouldBe a[Right[_, _]]
       }
     }
   }
