@@ -53,14 +53,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      internedKinds = IndexedSeq.empty,
-      internedTypes = IndexedSeq.empty,
-      internedExprs = IndexedSeq.empty,
       optDependencyTracker = Some(dependencyTracker),
-      optModuleName = None,
       onlySerializableDataDefs = onlySerializableDataDefs,
-      currentInternedExprId = None,
-      imports = None,
+      imports = decodePackageImports(lfPackage.getImportedPackages()),
     )
 
     val internedKinds = decodeKindsTable(env0, lfPackage)
@@ -68,9 +63,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedTypes = decodeTypesTable(env1, lfPackage)
     val env2 = env1.copy(internedTypes = internedTypes)
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
-    val env3 = env2.copy(internedExprs = internedExprs)
-    val imports = None
-    val env = env3.copy(imports = imports)
+    val env = env2.copy(internedExprs = internedExprs)
 
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
@@ -128,14 +121,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      internedKinds = IndexedSeq.empty,
-      internedTypes = IndexedSeq.empty,
-      internedExprs = IndexedSeq.empty,
-      optDependencyTracker = None,
-      optModuleName = None,
-      onlySerializableDataDefs = false,
-      currentInternedExprId = None,
-      imports = None,
+      imports = decodePackageImports(lfSingleModule.getImportedPackages()),
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
@@ -200,6 +186,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       .toIndexedSeq
   }
 
+  private[archive] def decodePackageImports(
+      imports: PLF.PackageImports
+  ): Option[collection.IndexedSeq[String]] = {
+    Some(imports.getImportedPackagesList().asScala.toIndexedSeq)
+  }
+
   private[archive] class PackageDependencyTracker(self: PackageId) {
     private val deps = mutable.Set.empty[PackageId]
 
@@ -212,16 +204,17 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private[archive] case class Env(
       packageId: PackageId,
-      internedStrings: ImmArraySeq[String],
-      internedDottedNames: ImmArraySeq[DottedName],
-      internedKinds: collection.IndexedSeq[Kind],
-      internedTypes: collection.IndexedSeq[Type],
-      internedExprs: collection.IndexedSeq[PLF.Expr],
-      optDependencyTracker: Option[PackageDependencyTracker],
-      optModuleName: Option[ModuleName],
-      onlySerializableDataDefs: Boolean,
+      internedStrings: ImmArraySeq[String] = ImmArraySeq.empty,
+      internedDottedNames: ImmArraySeq[DottedName] = ImmArraySeq.empty,
+      internedKinds: collection.IndexedSeq[Kind] = ImmArraySeq.empty,
+      internedTypes: collection.IndexedSeq[Type] = ImmArraySeq.empty,
+      internedExprs: collection.IndexedSeq[PLF.Expr] = ImmArraySeq.empty,
+      optDependencyTracker: Option[PackageDependencyTracker] = None,
+      optModuleName: Option[ModuleName] = None,
+      onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
-      imports: Option[collection.IndexedSeq[String]],
+      // imports: Option[collection.IndexedSeq[String]] = None,
+      imports: Option[collection.IndexedSeq[String]] = Some(ImmArraySeq.empty),
   ) {
 
     // decode*ForTest -- test entry points

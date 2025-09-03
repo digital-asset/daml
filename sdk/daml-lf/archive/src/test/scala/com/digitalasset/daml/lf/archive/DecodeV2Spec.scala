@@ -111,6 +111,7 @@ class DecodeV2Spec
       Some(dummyModuleName),
       onlySerializableDataDefs = false,
       None,
+      None,
     )
   }
 
@@ -200,16 +201,8 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ >= LV.Features.kindInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeKindsTable(env, pkg))
       }
@@ -514,16 +507,8 @@ class DecodeV2Spec
       forEveryVersion { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.IllegalInterning] shouldBe thrownBy(decoder.decodeTypesTable(env, pkg))
       }
@@ -1120,16 +1105,9 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ < LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq(unitExpr),
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedExprs = ImmArraySeq(unitExpr),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.Parsing] shouldBe thrownBy(env.decodeExprForTest(input, ""))
       }
@@ -1143,16 +1121,8 @@ class DecodeV2Spec
       forEveryVersion { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.Parsing] shouldBe thrownBy(env.decodeExprForTest(input, ""))
       }
@@ -1167,16 +1137,9 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq(unitExpr),
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedExprs = ImmArraySeq(unitExpr),
+          optModuleName = Some(dummyModuleName),
         )
         env.decodeExprForTest(input, "test") shouldBe EUnit
       }
@@ -1195,16 +1158,9 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq(unitExpr, internedZero),
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedExprs = ImmArraySeq(unitExpr, internedZero),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.IllegalInterning] shouldBe thrownBy(env.decodeExprForTest(internedOne, ""))
       }
@@ -1237,16 +1193,10 @@ class DecodeV2Spec
       forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
         val decoder = new DecodeV2(version.minor)
         val env = decoder.Env(
-          Ref.PackageId.assertFromString("noPkgId"),
-          ImmArraySeq("arg"),
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq.empty,
-          ImmArraySeq(ab2),
-          None,
-          Some(dummyModuleName),
-          onlySerializableDataDefs = false,
-          None,
+          packageId = Ref.PackageId.assertFromString("noPkgId"),
+          internedStrings = ImmArraySeq("arg"),
+          internedExprs = ImmArraySeq(ab2),
+          optModuleName = Some(dummyModuleName),
         )
         an[Error.IllegalInterning] shouldBe thrownBy(env.decodeExprForTest(internedZero, ""))
       }
@@ -1285,16 +1235,10 @@ class DecodeV2Spec
         forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
-            Ref.PackageId.assertFromString("noPkgId"),
-            ImmArraySeq("arg"),
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq(unitExpr, ab2),
-            None,
-            Some(dummyModuleName),
-            onlySerializableDataDefs = false,
-            None,
+            packageId = Ref.PackageId.assertFromString("noPkgId"),
+            internedStrings = ImmArraySeq("arg"),
+            internedExprs = ImmArraySeq(unitExpr, ab2),
+            optModuleName = Some(dummyModuleName),
           )
           inside(Try(env.decodeExprForTest(internedOne, ""))) {
             case Failure(Error.Parsing(message)) =>
@@ -1327,14 +1271,14 @@ class DecodeV2Spec
         forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
-            Ref.PackageId.assertFromString("noPkgId"),
+            packageId = Ref.PackageId.assertFromString("noPkgId"),
             ImmArraySeq("arg"),
             ImmArraySeq.empty,
             ImmArraySeq.empty,
             ImmArraySeq.empty,
             ImmArraySeq(unitExpr, tyapp),
             None,
-            Some(dummyModuleName),
+            optModuleName = Some(dummyModuleName),
             onlySerializableDataDefs = false,
             None,
           )
@@ -1373,16 +1317,10 @@ class DecodeV2Spec
         forEveryVersionSuchThat(_ >= LV.Features.exprInterning) { version =>
           val decoder = new DecodeV2(version.minor)
           val env = decoder.Env(
-            Ref.PackageId.assertFromString("noPkgId"),
-            stringTable,
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq.empty,
-            ImmArraySeq(unitExpr, tyabs),
-            None,
-            Some(dummyModuleName),
-            onlySerializableDataDefs = false,
-            None,
+            packageId = Ref.PackageId.assertFromString("noPkgId"),
+            internedStrings = stringTable,
+            internedExprs = ImmArraySeq(unitExpr, tyabs),
+            optModuleName = Some(dummyModuleName),
           )
           inside(Try(env.decodeExprForTest(internedOne, ""))) {
             case Failure(Error.Parsing(message)) =>

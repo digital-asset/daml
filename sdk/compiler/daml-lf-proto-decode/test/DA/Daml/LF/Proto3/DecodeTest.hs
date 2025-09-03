@@ -37,7 +37,7 @@ decTests = testGroup "decoding tests"
   ]
 
 emptyDecodeEnv :: DecodeEnv
-emptyDecodeEnv = DecodeEnv empty empty empty empty empty SelfPackageId testVersion
+emptyDecodeEnv = DecodeEnv empty empty empty empty empty SelfPackageId testVersion Nothing
 
 decodeKindAssert :: P.Kind -> Kind -> Assertion
 decodeKindAssert pk k =
