@@ -48,6 +48,8 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
           .toSet - parameters.defaultPackageId,
         languageVersion = parameters.languageVersion,
         metadata = metadata,
+        //TODO[RB]: delte this commment: blinly added None here since IDK what this is
+        imports = None,
       )
     }
 

@@ -49,13 +49,15 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       decodePackageMetadata(lfPackage.getMetadata, internedStrings)
     }
 
+    val imports = decodePackageImports(lfPackage.getImportedPackages())
+
     val env0 = Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
       optDependencyTracker = Some(dependencyTracker),
       onlySerializableDataDefs = onlySerializableDataDefs,
-      imports = decodePackageImports(lfPackage.getImportedPackages()),
+      imports = Some(imports),
     )
 
     val internedKinds = decodeKindsTable(env0, lfPackage)
@@ -71,6 +73,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
+      imports = Some(imports.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
     )
 
   }
@@ -117,11 +120,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         s"expected exactly one module in proto package, found ${lfSingleModule.getModulesCount} modules"
       )
 
+    val imports = decodePackageImports(lfSingleModule.getImportedPackages())
+
     val env0 = new Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      imports = decodePackageImports(lfSingleModule.getImportedPackages()),
+      imports = Some(imports),
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
@@ -188,8 +193,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
   private[archive] def decodePackageImports(
       imports: PLF.PackageImports
-  ): Option[collection.IndexedSeq[String]] = {
-    Some(imports.getImportedPackagesList().asScala.toIndexedSeq)
+  ): collection.IndexedSeq[String] = {
+    imports.getImportedPackagesList().asScala.toIndexedSeq
   }
 
   private[archive] class PackageDependencyTracker(self: PackageId) {
@@ -200,6 +205,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         discard(deps += pkgId)
 
     def getDependencies: Set[PackageId] = deps.toSet
+      mImports match {
+        case Some(packageIds) => // This block only runs for a Some, binding its content to packageIds
+          packageIds.toList.sorted.foreach { sortedId =>
+            b += sortedId
+          }
+        case None => // Explicitly do nothing for the None case
+          () // The `()` value is called "Unit" and means "nothing"
+      }
   }
 
   private[archive] case class Env(
@@ -213,8 +226,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optModuleName: Option[ModuleName] = None,
       onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
-      // imports: Option[collection.IndexedSeq[String]] = None,
-      imports: Option[collection.IndexedSeq[String]] = Some(ImmArraySeq.empty),
+      imports: Option[collection.IndexedSeq[String]] = None,
   ) {
 
     // decode*ForTest -- test entry points

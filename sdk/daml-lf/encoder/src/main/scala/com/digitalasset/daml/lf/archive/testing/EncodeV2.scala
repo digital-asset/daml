@@ -88,8 +88,23 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       dottedNameTable.build.foreach(builder.addInternedDottedNames)
       stringsTable.build.foreach(builder.addInternedStrings)
 
+      builder.setImportedPackages(encodeImports(pkg.imports))
+
       builder.build()
     }
+
+    private[this] def encodeImports(mImports : Option[Set[Ref.PackageId]]) : PLF.PackageImports = {
+      val b =  PLF.PackageImports.newBuilder()
+
+      mImports.foreach { imports =>
+        imports.toList.sorted.foreach { id =>
+          b.addImportedPackages(id)
+        }
+      }
+
+      b.build()
+    }
+
 
     private[this] def encodeModule(module: Module): PLF.Module = {
 

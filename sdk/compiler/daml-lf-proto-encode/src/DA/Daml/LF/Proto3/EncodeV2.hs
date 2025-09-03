@@ -1064,8 +1064,11 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
+-- Whenever we fix the order of the set of package imports, we always sort. This
+-- way, every list in the encode/decode chain (... -> set -> list -> set -> list
+-- -> ...) will always be in the same order
 encodeImports :: [PackageId] -> P.PackageImports
-encodeImports = P.PackageImports . V.fromList . map toTlText
+encodeImports = P.PackageImports . V.fromList . L.sort . map toTlText
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
