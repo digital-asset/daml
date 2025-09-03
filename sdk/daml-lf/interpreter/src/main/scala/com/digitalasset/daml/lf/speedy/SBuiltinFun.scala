@@ -2463,6 +2463,7 @@ private[lf] object SBuiltinFun {
         }
       case None =>
         machine.lookupContract(coid)((coinst, hashingMethod, authenticator) =>
+          // If hashingMethod is one of the legacy methods, we need to authenticate the contract before normalizing it.
           authenticateIfLegacyContract(coid, coinst, hashingMethod, authenticator) { () =>
             machine.ensurePackageIsLoaded(
               NameOf.qualifiedNameOfCurrentFunc,
@@ -2476,6 +2477,10 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  /** Authenticates the provided FatContractInstance using [hashingMethod] if [hashingMethod] is
+    * one of [[HashingMethod.Legacy]] or [[HashingMethod.UpgradeFriendly]]. Does nothing if the
+    * hashing method is [[HashingMethod.TypedNormalForm]].
+    */
   private def authenticateIfLegacyContract(
       coid: V.ContractId,
       coinst: FatContractInstance,
