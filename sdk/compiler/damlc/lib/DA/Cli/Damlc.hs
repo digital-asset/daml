@@ -146,7 +146,7 @@ import DA.Daml.Package.Config (MultiPackageConfigFields(..),
                                findMultiPackageConfig,
                                withPackageConfig,
                                withMultiPackageConfig)
-import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData, resolutionFileEnvVar)
+import DA.Daml.Resolution.Config (ValidPackageResolution (..), ResolutionError (..), DPMUnsupportedError (..), findPackageResolutionData, getResolutionData)
 import DA.Daml.Project.Config (queryProjectConfig, queryProjectConfigRequired, readProjectConfig)
 import DA.Daml.Project.Consts (ProjectCheck(..),
                                damlCacheEnvVar,
@@ -158,10 +158,9 @@ import DA.Daml.Project.Consts (ProjectCheck(..),
                                withExpectProjectRoot,
                                withProjectRoot,
                                damlAssistantIsSet,
-                               projectPathEnvVar
+                               projectPathEnvVar,
                                packagePathEnvVar)
 import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
-import qualified DA.Daml.Assistant.Env as AssistantEnv
 import DA.Daml.Assistant.Types (LookForProjectPath(..))
 import qualified DA.Pretty
 import qualified DA.Service.Logger as Logger
@@ -256,8 +255,7 @@ import qualified Options.Applicative.Types as Options.Applicative (readerAsk)
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import System.Directory.Extra
-import System.Environment hiding (setEnv)
-import System.Environment.Blank (setEnv)
+import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra

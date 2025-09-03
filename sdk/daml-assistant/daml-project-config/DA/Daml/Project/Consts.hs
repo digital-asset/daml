@@ -30,6 +30,7 @@ module DA.Daml.Project.Consts
     , withExpectProjectRoot
     ) where
 
+import Control.Applicative ((<|>))
 import Control.Monad
 import System.Directory
 import System.Environment
@@ -150,7 +151,7 @@ getProjectPath = do
     let nullToNothing p = if null p then Nothing else Just p
     mbPackagePath <- lookupEnv packagePathEnvVar
     mbProjectPath <- lookupEnv projectPathEnvVar
-    pure $ (mbPackagePath >>= nullToNothing) <|> (mbProject >>= nullToNothing)
+    pure $ (mbPackagePath >>= nullToNothing) <|> (mbProjectPath >>= nullToNothing)
 
 -- | Returns the path of the sdk folder.
 --

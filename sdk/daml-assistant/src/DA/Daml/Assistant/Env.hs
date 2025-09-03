@@ -30,6 +30,7 @@ import System.Environment.Blank
 import System.Info.Extra
 import Control.Monad.Extra
 import Control.Exception.Safe
+import Data.Foldable (asum)
 import Data.Maybe
 
 -- | Calculate the environment variables in which to run daml commands.
@@ -84,11 +85,11 @@ overrideWithEnvVarsMaybeIO
     -> IO (Maybe t)                -- ^ calculation to override
     -> IO (Maybe t)
 overrideWithEnvVarsMaybeIO envVars normalize parse calculate = do
-    valueM <- asum <$> traverse getEnv envVars
+    valueM <- asum <$> traverse (\varName -> fmap (varName,) <$> getEnv varName) envVars
     case valueM of
         Nothing -> calculate
-        Just "" -> pure Nothing
-        Just value -> do
+        Just (_, "") -> pure Nothing
+        Just (envVar, value) -> do
             value <- normalize value
             parsed <- parse value
             Just <$> requiredE
