@@ -17,6 +17,7 @@ parseOptions =
 
 data Options = Options
   { optsPerformUpload :: PerformUpload
+  , optsUploadToGoogleArtifactRegistry :: Bool
   , optsReleaseDir :: FilePath
   , optsLocallyInstallJars :: Bool
   , optIncludeTypescript :: IncludeTypescript
@@ -27,6 +28,7 @@ data Options = Options
 optsParser :: Parser Options
 optsParser = Options
   <$> (PerformUpload <$> switch (long "upload" <> help "upload java/scala artifacts to Maven Central and typescript artifacts to the npm registry."))
+  <*> switch (long "google-artifact-registry" <> help "in addition to Maven Central, also upload artifacts to Google Artifact Registry. Requires the --upload flag.")
   <*> option str (long "release-dir" <> help "specify full path to release directory")
   <*> switch (long "install-head-jars" <> help "install jars to ~/.m2")
   <*> fmap (IncludeTypescript . not) (switch (long "no-ts" <> help "Do not build and upload typescript packages"))

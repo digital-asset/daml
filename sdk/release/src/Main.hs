@@ -25,6 +25,7 @@ import qualified Data.Maybe as Maybe
 import qualified System.Directory as Dir
 import System.Exit
 import System.Process
+import System.Environment
 
 import DA.Test.Util (withEnv)
 
@@ -149,17 +150,20 @@ main = do
         liftIO $ callProcess "bazel" $ ["build"] ++ npmPackages
 
       if  | getPerformUpload optsPerformUpload -> do
-              $logInfo "Uploading to Maven Central"
-              mavenUploadConfig <- mavenConfigFromEnv
               if not (null mvnUploadArtifacts)
-                  then
-                    uploadToMavenCentral mavenUploadConfig releaseDir mvnUploadArtifacts
-                  else
-                    $logInfo "No artifacts to upload to Maven Central"
+                then do 
+                  when optsUploadToGoogleArtifactRegistry $ do
+                    $logInfo "Uploading to Google Artifact Registry"
+                    garConfig <- liftIO googleArtifactRegistryConfigFromEnv
+                    uploadToGoogleArtifactRegistry garConfig releaseDir mvnUploadArtifacts
+                  $logInfo "Uploading to Maven Central"
+                  mavenUploadConfig <- liftIO mavenConfigFromEnv
+                  uploadToMavenCentral mavenUploadConfig releaseDir mvnUploadArtifacts
+                else
+                  $logInfo "No artifacts to upload to Maven Central"
 
               when (getIncludeTypescript optIncludeTypescript) $ do
-
-                $logDebug "Uploading npm packages"
+                $logInfo "Uploading npm packages"
                 -- We can't put an .npmrc file in the root of the directory because other bazel npm
                 -- code picks it up and looks for the token which is not yet set before the release
                 -- phase.
@@ -191,3 +195,27 @@ main = do
 
 isSnapshot :: SemVer.Version -> Bool
 isSnapshot v = List.notNull (view SemVer.release v)
+
+mavenConfigFromEnv :: IO MavenUploadConfig
+mavenConfigFromEnv = do
+  url <- getEnv "MAVEN_URL"
+  user <- getEnv "MAVEN_USERNAME"
+  password <- getEnv "MAVEN_PASSWORD"
+  mbAllowUnsecureTls <- lookupEnv "MAVEN_UNSECURE_TLS"
+  signingKey <- getEnv "GPG_KEY"
+  return MavenUploadConfig
+    { mucUrl = T.pack url
+    , mucUser = T.pack user
+    , mucPassword = T.pack password
+    , mucAllowUnsecureTls = MavenAllowUnsecureTls $ mbAllowUnsecureTls == Just "True"
+    , mucSigningKey = signingKey
+    }
+
+googleArtifactRegistryConfigFromEnv :: IO GoogleArtifactRegistryConfig
+googleArtifactRegistryConfigFromEnv = do
+  url <- getEnv "GOOGLE_ARTIFACT_REGISTRY_URL"
+  key <- getEnv "GOOGLE_ARTIFACT_REGISTRY_KEY"
+  return GoogleArtifactRegistryConfig
+    { garUrl = T.pack url
+    , garKey = T.pack key
+    }
