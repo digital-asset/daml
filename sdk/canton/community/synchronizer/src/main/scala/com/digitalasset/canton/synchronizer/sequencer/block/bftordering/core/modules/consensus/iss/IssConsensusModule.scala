@@ -159,12 +159,12 @@ final class IssConsensusModule[E <: Env[E]](
     message match {
 
       case Consensus.Init =>
-        abortInit(
+        abort(
           s"${PreIssConsensusModule.getClass.getSimpleName} should be the only one receiving ${Consensus.Init.getClass.getSimpleName}"
         )
 
       case Consensus.SegmentCancelledEpoch =>
-        abortInit(
+        abort(
           s"${StateTransferBehavior.getClass.getSimpleName} should be the only one receiving ${Consensus.SegmentCancelledEpoch.getClass.getSimpleName}"
         )
 
@@ -259,6 +259,7 @@ final class IssConsensusModule[E <: Env[E]](
             s"New epoch ${epochState.epoch.info.number} has started with leaders = ${newMembership.leaders}; " +
               s"ordering topology = ${newMembership.orderingTopology}"
           )
+          metrics.topology.update(newMembership)
 
           processQueuedPbftMessages()
         }

@@ -269,7 +269,7 @@ def update_external_party_hosting(
         transaction=updated_party_to_participant_transaction,
         signatures=[
             crypto_pb2.Signature(
-                format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_RAW,
+                format=crypto_pb2.SignatureFormat.SIGNATURE_FORMAT_DER,
                 signature=signature,
                 signed_by=fingerprint,
                 signing_algorithm_spec=crypto_pb2.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256,
@@ -375,7 +375,7 @@ def read_id_from_file(file_path):
    Exemple script demonstrating how to onboard a multi hosted external party, and update the hosting relationships of an existing party.
    ATTENTION: Replicating an existing party to additional hosting nodes requires following a specific procedure.
    Check the offline party replication documentation for more details. This script simply demonstrates how to authorize changes
-   to the PartyToParticipant mapping for an external party.  
+   to the PartyToParticipant mapping for an external party.
 """
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Multi-Hosted external party")

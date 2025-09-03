@@ -92,6 +92,9 @@ abstract class LSUEndToEndIntegrationTest extends LSUBase {
 
       eventually() {
         participants.all.forall(_.synchronizers.is_connected(fixture.newPSId)) shouldBe true
+
+        // The sequencer connection pool internal mechanisms to restart connections rely on the clock time advancing.
+        environment.simClock.value.advance(Duration.ofSeconds(1))
       }
 
       oldSynchronizerNodes.all.stop()

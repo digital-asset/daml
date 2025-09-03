@@ -65,7 +65,7 @@ def run_demo(
     mapping = build_namespace_mapping(
         public_key_fingerprint,
         public_key_bytes,
-        crypto_pb2.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER,
+        crypto_pb2.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO,
         crypto_pb2.SigningKeyScheme.SIGNING_KEY_SCHEME_EC_DSA_P256,
     )
     # [end build mapping]

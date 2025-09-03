@@ -555,6 +555,7 @@ trait BaseInteractiveSubmissionTest
   def findTransactionByUpdateId(
       observingPartyE: ExternalParty,
       updateId: String,
+      verbose: Boolean = false,
       confirmingParticipant: ParticipantSelector = defaultConfirmingParticipant,
   )(implicit
       env: TestConsoleEnvironment
@@ -579,7 +580,7 @@ trait BaseInteractiveSubmissionTest
                       )
                     ),
                     filtersForAnyParty = None,
-                    verbose = false,
+                    verbose = verbose,
                   )
                 ),
                 transactionShape = TransactionShape.TRANSACTION_SHAPE_ACS_DELTA,

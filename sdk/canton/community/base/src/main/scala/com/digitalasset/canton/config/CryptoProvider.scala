@@ -80,10 +80,9 @@ object CryptoProvider {
 
     override def encryptionAlgorithms: CryptoProviderScheme[EncryptionAlgorithmSpec] =
       CryptoProviderScheme(
-        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
+        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
         NonEmpty.mk(
           Set,
-          EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
           EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
           EncryptionAlgorithmSpec.RsaOaepSha256,
         ),
@@ -188,7 +187,6 @@ object CryptoProvider {
     val pureEncryptionAlgorithms: NonEmpty[Set[EncryptionAlgorithmSpec]] =
       NonEmpty.mk(
         Set,
-        EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm,
         EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc,
       )
 

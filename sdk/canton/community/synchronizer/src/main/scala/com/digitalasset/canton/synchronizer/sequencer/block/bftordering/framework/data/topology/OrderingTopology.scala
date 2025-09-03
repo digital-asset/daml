@@ -45,6 +45,8 @@ final case class OrderingTopology(
 
   lazy val sortedNodes: Seq[BftNodeId] = nodes.toList.sorted
 
+  lazy val maxToleratedFaults: Int = numToleratedFaults(nodes.size)
+
   lazy val weakQuorum: Int = weakQuorumSize(nodes.size)
 
   lazy val strongQuorum: Int = strongQuorumSize(nodes.size)
@@ -144,7 +146,7 @@ object OrderingTopology {
     validVotes >= weakQuorumSize(nodes)
 
   // F as a function of Ns
-  private def numToleratedFaults(numberOfNodes: Int): Int =
+  def numToleratedFaults(numberOfNodes: Int): Int =
     // N = 3f + 1
     // f = (N - 1) int_div 3
     (numberOfNodes - 1) / 3

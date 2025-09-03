@@ -140,6 +140,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   TransactionFormat,
   TransactionShape,
   UpdateFormat,
+  WildcardFilter,
 }
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{
@@ -1747,6 +1748,7 @@ object LedgerApiCommands {
         override val userId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
         transactionShape: TransactionShape,
+        includeCreatedEventBlob: Boolean,
     ) extends SubmitCommand
         with BaseCommand[
           SubmitAndWaitForTransactionRequest,
@@ -1763,7 +1765,19 @@ object LedgerApiCommands {
                 TransactionFormat(
                   eventFormat = Some(
                     EventFormat(
-                      filtersByParty = actAs.map(_ -> Filters(Nil)).toMap,
+                      filtersByParty = actAs
+                        .map(
+                          _ -> Filters(
+                            Seq(
+                              CumulativeFilter(
+                                IdentifierFilter.WildcardFilter(
+                                  WildcardFilter(includeCreatedEventBlob = includeCreatedEventBlob)
+                                )
+                              )
+                            )
+                          )
+                        )
+                        .toMap,
                       filtersForAnyParty = None,
                       verbose = true,
                     )

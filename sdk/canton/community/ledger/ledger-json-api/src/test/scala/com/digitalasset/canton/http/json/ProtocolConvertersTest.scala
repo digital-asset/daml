@@ -24,7 +24,7 @@ import com.digitalasset.canton.{
 }
 import com.digitalasset.daml.lf.data.Ref.IdString
 import magnolify.scalacheck.semiauto.ArbitraryDerivation
-import org.scalacheck.Arbitrary
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.nowarn
@@ -111,6 +111,12 @@ object Arbitraries {
       )
     )
   )
+
+  implicit val arbIdentifier: Arbitrary[Option[Identifier]] = Arbitrary(for {
+    packageId <- Gen.stringOfN(8, Gen.alphaChar)
+    moduleName <- Gen.stringOfN(8, Gen.alphaChar)
+    scriptName <- Gen.stringOfN(8, Gen.alphaChar)
+  } yield Some(Identifier(packageId, moduleName, scriptName)))
 
   implicit val arbJsValue: Arbitrary[ujson.Value] = Arbitrary {
     defaultJsValue

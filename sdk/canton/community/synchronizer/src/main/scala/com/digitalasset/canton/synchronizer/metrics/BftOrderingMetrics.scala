@@ -17,7 +17,14 @@ import com.digitalasset.canton.metrics.{
   DeclarativeApiMetrics,
 }
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics.updateTimer
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
+  PeerConnectionStatus,
+  PeerEndpointHealth,
+  PeerEndpointHealthStatus,
+  PeerNetworkStatus,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   ModuleContext,
@@ -976,6 +983,110 @@ class BftOrderingMetrics private[metrics] (
 
     val queryLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.topology.queryLatency.info)
+
+    object labels {
+      val sequencerId: String = "sequencer-id"
+    }
+
+    // We assign different values to different nodes just to make it easier to distinguish them in Grafana
+    private val topologyGauges = mutable.Map[BftNodeId, Gauge[Int]]()
+    private val leadersGauges = mutable.Map[BftNodeId, Gauge[Int]]()
+
+    private val maxToleratedFaultsGauge =
+      openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "max-tolerated-faults",
+          "Maximum number of tolerated faults",
+          MetricQualification.Traffic,
+          "Maximum number of tolerated faults",
+        ),
+        0,
+      )
+    private val weakQuorumGauge =
+      openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "weak-quorum",
+          "Number of non-faulty nodes required for a weak quorum",
+          MetricQualification.Traffic,
+          "Number of non-faulty nodes required for a weak quorum, like for batch dissemination",
+        ),
+        0,
+      )
+    private val strongQuorumGauge = openTelemetryMetricsFactory.gauge(
+      MetricInfo(
+        prefix :+ "strong-quorum",
+        "Number of non-faulty nodes required for a strong quorum",
+        MetricQualification.Traffic,
+        "Number of non-faulty nodes required for a strong quorum, like for consensus",
+      ),
+      0,
+    )
+
+    def update(newMembership: Membership)(implicit metricsContext: MetricsContext): Unit =
+      blocking {
+        synchronized {
+          val orderingTopology = newMembership.orderingTopology
+          maxToleratedFaultsGauge.updateValue(orderingTopology.maxToleratedFaults)
+          weakQuorumGauge.updateValue(orderingTopology.weakQuorum)
+          strongQuorumGauge.updateValue(orderingTopology.strongQuorum)
+          val members = orderingTopology.nodes
+          cleanupNodeGauges(topologyGauges, members)
+          cleanupNodeGauges(leadersGauges, members)
+          val sortedMembersWithIndex = members.toSeq.sorted.zipWithIndex
+          updateNodeMetrics(
+            sortedMembersWithIndex,
+            topologyGauges,
+            "topology-member",
+            "Topology members",
+            "Topology members sorted by node ID with their index",
+          )
+          val sortedLeadersWithIndex = newMembership.leaders.toSeq.sorted.zipWithIndex
+          updateNodeMetrics(
+            sortedLeadersWithIndex,
+            leadersGauges,
+            "topology-leader",
+            "Topology leaders",
+            "Topology leaders sorted by node ID with their index",
+          )
+        }
+      }
+
+    private def updateNodeMetrics(
+        sortedMembersWithIndex: Seq[(BftNodeId, Int)],
+        gauges: mutable.Map[BftNodeId, Gauge[Int]],
+        metricName: String,
+        metricSummary: String,
+        metricDescription: String,
+    )(implicit metricsContext: MetricsContext): Unit =
+      sortedMembersWithIndex.foreach { case (nodeId, index) =>
+        val mc1 = metricsContext.withExtraLabels(labels.sequencerId -> nodeId)
+        locally {
+          implicit val metricsContext: MetricsContext = mc1
+          gauges
+            .getOrElseUpdate(
+              nodeId,
+              openTelemetryMetricsFactory.gauge(
+                MetricInfo(
+                  prefix :+ metricName,
+                  metricSummary,
+                  MetricQualification.Traffic,
+                  metricDescription,
+                ),
+                index + 1,
+              ),
+            )
+            .updateValue(index + 1)
+        }
+      }
+
+    private def cleanupNodeGauges(
+        nodeGauges: mutable.Map[BftNodeId, Gauge[Int]],
+        keepOnlyNodes: Set[BftNodeId],
+    ): Unit =
+      nodeGauges.view.filterKeys(!keepOnlyNodes.contains(_)).foreach { case (id, gauge) =>
+        gauge.close()
+        nodeGauges.remove(id).discard
+      }
   }
   val topology = new TopologyMetrics
 
@@ -1019,13 +1130,139 @@ class BftOrderingMetrics private[metrics] (
           }
         }
       }
-
   }
   val blacklistLeaderSelectionPolicyMetrics = new BlacklistLeaderSelectionPolicyMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class P2PMetrics private[BftOrderingMetrics] {
     private val p2pPrefix = histograms.p2p.p2pPrefix
+
+    object labels {
+      val endpoint: String = "endpoint"
+    }
+
+    // We assign different values to different endpoints just to make it easier to distinguish them in Grafana
+    private val authenticatedGauges = mutable.Map[String, Gauge[Int]]()
+    private val unauthenticatedGauges = mutable.Map[String, Gauge[Int]]()
+    private val disconnectedGauges = mutable.Map[String, Gauge[Int]]()
+
+    def update(status: PeerNetworkStatus)(implicit metricsContext: MetricsContext): Unit =
+      blocking {
+        synchronized {
+          val statusView = status.endpointStatuses.view
+          val authenticated =
+            statusView
+              .flatMap {
+                case PeerConnectionStatus.PeerIncomingConnection(sequencerId) =>
+                  Some(sequencerId.toProtoPrimitive)
+                case PeerConnectionStatus.PeerEndpointStatus(
+                      p2pEndpointId,
+                      isOutgoingConnection,
+                      PeerEndpointHealth(
+                        PeerEndpointHealthStatus.Authenticated(sequencerId),
+                        _description,
+                      ),
+                    ) =>
+                  Some(
+                    s"${p2pEndpointId.url} (${sequencerId.toProtoPrimitive}, outgoing = $isOutgoingConnection)"
+                  )
+                case _ => None
+              }
+          val unauthenticated =
+            statusView
+              .flatMap {
+                case PeerConnectionStatus.PeerEndpointStatus(
+                      p2pEndpointId,
+                      _isOutgoingConnection,
+                      PeerEndpointHealth(
+                        PeerEndpointHealthStatus.Unauthenticated,
+                        _description,
+                      ),
+                    ) =>
+                  Some(p2pEndpointId.url)
+                case _ => None
+              }
+          val disconnected =
+            statusView
+              .flatMap {
+                case PeerConnectionStatus.PeerEndpointStatus(
+                      p2pEndpointId,
+                      _isOutgoingConnection,
+                      PeerEndpointHealth(
+                        PeerEndpointHealthStatus.Disconnected,
+                        _description,
+                      ),
+                    ) =>
+                  Some(p2pEndpointId.url)
+                case _ => None
+              }
+          cleanupEndpointGauges(authenticatedGauges, authenticated.toSet)
+          cleanupEndpointGauges(unauthenticatedGauges, unauthenticated.toSet)
+          cleanupEndpointGauges(disconnectedGauges, disconnected.toSet)
+
+          val authenticatedSortedWithIndex = authenticated.toSeq.sorted.zipWithIndex
+          updateEndpointMetrics(
+            authenticatedSortedWithIndex,
+            authenticatedGauges,
+            "authenticated-endpoint",
+            "Authenticated P2P endpoints",
+            "P2P endpoints that are authenticated.",
+          )
+          val connectedSortedWithIndex = unauthenticated.toSeq.sorted.zipWithIndex
+          updateEndpointMetrics(
+            connectedSortedWithIndex,
+            unauthenticatedGauges,
+            "unauthenticated-endpoint",
+            "Connected but unauthenticated P2P endpoints",
+            "P2P endpoints that are connected but not yet authenticated.",
+          )
+          val disconnectedSortedWithIndex = disconnected.toSeq.sorted.zipWithIndex
+          updateEndpointMetrics(
+            disconnectedSortedWithIndex,
+            disconnectedGauges,
+            "disconnected-endpoint",
+            "Disconnected P2P endpoints",
+            "P2P endpoints that are disconnected.",
+          )
+        }
+      }
+
+    private def updateEndpointMetrics(
+        sortedEndpointsWithIndex: Seq[(String, Int)],
+        endpointGauges: mutable.Map[String, Gauge[Int]],
+        metricName: String,
+        metricSummary: String,
+        metricDescription: String,
+    )(implicit metricsContext: MetricsContext): Unit =
+      sortedEndpointsWithIndex.foreach { case (endpointId, index) =>
+        val mc1 = metricsContext.withExtraLabels(labels.endpoint -> endpointId)
+        locally {
+          implicit val metricsContext: MetricsContext = mc1
+          endpointGauges
+            .getOrElseUpdate(
+              endpointId,
+              openTelemetryMetricsFactory.gauge(
+                MetricInfo(
+                  p2pPrefix :+ metricName,
+                  metricSummary,
+                  MetricQualification.Traffic,
+                  metricDescription,
+                ),
+                index + 1,
+              ),
+            )
+            .updateValue(index + 1)
+        }
+      }
+
+    private def cleanupEndpointGauges(
+        endpointGauges: mutable.Map[String, Gauge[Int]],
+        keepOnlyEndpoints: Set[String],
+    ): Unit =
+      endpointGauges.view.filterKeys(!keepOnlyEndpoints.contains(_)).foreach { case (id, gauge) =>
+        gauge.close()
+        endpointGauges.remove(id).discard
+      }
 
     // Private constructor to avoid being instantiated multiple times by accident
     final class ConnectionsMetrics private[P2PMetrics] {

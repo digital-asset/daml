@@ -259,7 +259,7 @@ else
     # Encode the public key in base64
     NAMESPACE_PUBLIC_KEY_BASE64=$(encode_to_base64 < "$TARGET_PUB_KEY")
     # Build the namespace mapping
-    NAMESPACE_MAPPING=$(build_namespace_mapping "$ROOT_NAMESPACE_FINGERPRINT" "CRYPTO_KEY_FORMAT_DER" "$NAMESPACE_PUBLIC_KEY_BASE64" "$TARGET_KEY_SPEC" "$DELEGATION_RESTRICTIONS")
+    NAMESPACE_MAPPING=$(build_namespace_mapping "$ROOT_NAMESPACE_FINGERPRINT" "CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO" "$NAMESPACE_PUBLIC_KEY_BASE64" "$TARGET_KEY_SPEC" "$DELEGATION_RESTRICTIONS")
   else
     # Target pub key is a serialized "SigningPublicKey"
     if ! NAMESPACE_DELEGATION_KEY=$(serialized_versioned_message_to_json "$BUF_PROTO_IMAGE" "com.digitalasset.canton.crypto.v30.SigningPublicKey" < "$CANTON_TARGET_PUB_KEY"); then

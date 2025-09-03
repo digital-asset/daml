@@ -958,6 +958,12 @@ object CantonConfig {
       deriveReader[SequencerHighAvailabilityConfig]
     lazy implicit final val sequencerConfigDatabaseReader: ConfigReader[SequencerConfig.Database] =
       deriveReader[SequencerConfig.Database]
+    lazy implicit final val individualCircuitBreakerConfigReader
+        : ConfigReader[BlockSequencerConfig.IndividualCircuitBreakerConfig] =
+      deriveReader[BlockSequencerConfig.IndividualCircuitBreakerConfig]
+    lazy implicit final val circuitBreakerByMessageTypeConfigReader
+        : ConfigReader[BlockSequencerConfig.CircuitBreakerByMessageTypeConfig] =
+      deriveReader[BlockSequencerConfig.CircuitBreakerByMessageTypeConfig]
     lazy implicit final val circuitBreakerConfigReader
         : ConfigReader[BlockSequencerConfig.CircuitBreakerConfig] =
       deriveReader[BlockSequencerConfig.CircuitBreakerConfig]
@@ -1592,6 +1598,12 @@ object CantonConfig {
       deriveWriter[SequencerHighAvailabilityConfig]
     lazy implicit final val sequencerConfigDatabaseWriter: ConfigWriter[SequencerConfig.Database] =
       deriveWriter[SequencerConfig.Database]
+    lazy implicit final val individualCircuitBreakerConfigWriter
+        : ConfigWriter[BlockSequencerConfig.IndividualCircuitBreakerConfig] =
+      deriveWriter[BlockSequencerConfig.IndividualCircuitBreakerConfig]
+    lazy implicit final val circuitBreakerByMessageTypeConfigWriter
+        : ConfigWriter[BlockSequencerConfig.CircuitBreakerByMessageTypeConfig] =
+      deriveWriter[BlockSequencerConfig.CircuitBreakerByMessageTypeConfig]
     lazy implicit final val circuitBreakerConfigWriter
         : ConfigWriter[BlockSequencerConfig.CircuitBreakerConfig] =
       deriveWriter[BlockSequencerConfig.CircuitBreakerConfig]

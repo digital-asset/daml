@@ -75,6 +75,9 @@ final case class SubmissionRequest private (
     hasParticipantRecipient && hasMediatorRecipient
   }
 
+  lazy val requestType: SubmissionRequestType =
+    SubmissionRequestType.submissionRequestType(batch.allRecipients, sender)
+
   // Caches the serialized request to be able to do checks on its size without re-serializing
   lazy val toProtoV30: v30.SubmissionRequest = v30.SubmissionRequest(
     sender = sender.toProtoPrimitive,

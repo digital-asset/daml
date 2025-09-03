@@ -121,14 +121,14 @@ final class P2PNetworkOutModule[
         if (setConnected(p2pEndpointId, connected = true)) {
           emitConnectedCount(metrics, connectedCount)
           logger.info(s"P2P endpoint $p2pEndpointId is now connected")
-          logEndpointsStatus()
+          logAndEmitP2PStatus()
         }
 
       case P2PNetworkOut.Network.Disconnected(p2pEndpointId) =>
         if (setConnected(p2pEndpointId, connected = false)) {
           emitConnectedCount(metrics, p2pConnectionState.authenticatedCount)
           logger.info(s"P2P endpoint $p2pEndpointId is now disconnected")
-          logEndpointsStatus()
+          logAndEmitP2PStatus()
         }
 
       case P2PNetworkOut.Network.Authenticated(bftNodeId, p2pEndpointId) =>
@@ -403,7 +403,7 @@ final class P2PNetworkOutModule[
       p2pNetworkManager.createNetworkRef(context, P2PAddress.Endpoint(p2pEndpoint))
     p2pConnectionState.addNetworkRef(p2pEndpoint, networkRef)
     emitConnectedCount(metrics, connectedCount)
-    logEndpointsStatus()
+    logAndEmitP2PStatus()
     networkRef
   }
 
@@ -414,7 +414,7 @@ final class P2PNetworkOutModule[
     logger.debug(s"Registering '$bftNodeId' at P2P endpoint $p2pEndpointId")
     p2pConnectionState.setBftNodeId(p2pEndpointId, bftNodeId)
     emitAuthenticatedCount(metrics, p2pConnectionState.authenticatedCount)
-    logEndpointsStatus()
+    logAndEmitP2PStatus()
     maxNodesContemporarilyAuthenticated = Math.max(
       maxNodesContemporarilyAuthenticated,
       p2pConnectionState.authenticatedCount + 1,
@@ -431,14 +431,15 @@ final class P2PNetworkOutModule[
     p2pConnectionState.delete(p2pEndpointId)
     setConnected(p2pEndpointId = p2pEndpointId, connected = false).discard
     emitConnectedCount(metrics, connectedCount)
-    logEndpointsStatus()
+    logAndEmitP2PStatus()
   }
 
-  private def logEndpointsStatus()(implicit
+  private def logAndEmitP2PStatus()(implicit
       context: E#ActorContextT[P2PNetworkOut.Message],
       traceContext: TraceContext,
   ): Unit = {
-    val status = getStatus().toString
+    val status = getStatus()
+    metrics.p2p.update(status)
     logger.info(s"P2P endpoints status: $status")
   }
 }
