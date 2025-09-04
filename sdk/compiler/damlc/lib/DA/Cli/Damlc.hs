@@ -30,7 +30,7 @@ import DA.Cli.Options (Debug(..),
                        MultiPackageCleanAll(..),
                        MultiPackageLocation(..),
                        MultiPackageNoCache(..),
-                       ProjectOpts(..),
+                       PackageLocationOpts(..),
                        Style(..),
                        Telemetry(..),
                        cliOptDetailLevel,
@@ -310,7 +310,7 @@ data CommandName =
   | UpgradeCheck
   | Studio
   deriving (Ord, Show, Eq)
-data Command = Command CommandName (Maybe ProjectOpts) (IO ())
+data Command = Command CommandName (Maybe PackageLocationOpts) (IO ())
 
 cmdMultiIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdMultiIde _numProcessors =
@@ -476,7 +476,7 @@ cmdTest numProcessors =
 
 runTestsInProjectOrFiles ::
        SdkVersion.Class.SdkVersioned
-    => ProjectOpts
+    => PackageLocationOpts
     -> Maybe [FilePath]
     -> RunAllOption
     -> LoadCoverageOnly
@@ -502,7 +502,7 @@ runTestsInProjectOrFiles packageLocationOpts mbInFiles allTests (LoadCoverageOnl
             Nothing -> do
               loadAggregatePrintResults coveragePaths coverageFilters coverage Nothing
 runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
-  where effect = withExpectProjectRoot (projectRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
+  where effect = withExpectProjectRoot (packageRoot packageLocationOpts) "daml test" $ \pPath relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = Just $ ProjectPath pPath }
           installDepsAndInitPackageDb cliOptions initPkgDb
@@ -515,7 +515,7 @@ runTestsInProjectOrFiles packageLocationOpts Nothing allTests _ coverage color m
             files <- getDamlRootFiles pSrc
             execTest files allTests coverage color mbJUnitOutput (Just pkgConfig) cliOptions tableOutputPath transactionsOutputPath coveragePaths coverageFilters
 runTestsInProjectOrFiles packageLocationOpts (Just inFiles) allTests _ coverage color mbJUnitOutput cliOptions initPkgDb tableOutputPath transactionsOutputPath coveragePaths coverageFilters = Command Test (Just packageLocationOpts) effect
-  where effect = withProjectRoot (projectRoot packageLocationOpts) (projectCheck packageLocationOpts) $ \mProjectPath relativize -> do
+  where effect = withProjectRoot (packageRoot packageLocationOpts) (packageLocationCheck packageLocationOpts) $ \mProjectPath relativize -> do
           cliOptions <- addResolutionData cliOptions
           cliOptions <- pure $ cliOptions { optMbPackageConfigPath = ProjectPath <$> mProjectPath }
           -- Cannot run without package context as resolution provides no default/project level resolution, so we wouldn't be able to find script-service
@@ -740,7 +740,7 @@ execCompile :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options 
 execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir =
   Command Compile (Just packageLocationOpts) effect
   where
-    packageLocationOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    packageLocationOpts = PackageLocationOpts Nothing (ProjectCheck "" False)
     effect = withProjectRoot' packageLocationOpts $ \relativize -> do
       loggerH <- getLogger opts "compile"
       inputFile <- toNormalizedFilePath' <$> relativize inputFile
@@ -773,7 +773,7 @@ execCompile inputFile outputFile opts (WriteInterface writeInterface) mbIfaceDir
 execDesugar :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath -> Options -> Command
 execDesugar inputFile outputFile opts = Command Desugar (Just packageLocationOpts) effect
   where
-    packageLocationOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    packageLocationOpts = PackageLocationOpts Nothing (ProjectCheck "" False)
     effect = withProjectRoot' packageLocationOpts $ \relativize ->
       liftIO . write =<< desugar opts =<< relativize inputFile
     write s
@@ -786,7 +786,7 @@ execDebugIdeSpanInfo :: SdkVersion.Class.SdkVersioned => FilePath -> FilePath ->
 execDebugIdeSpanInfo inputFile outputFile opts =
   Command DebugIdeSpanInfo (Just packageLocationOpts) effect
   where
-    packageLocationOpts = ProjectOpts Nothing (ProjectCheck "" False)
+    packageLocationOpts = PackageLocationOpts Nothing (ProjectCheck "" False)
     effect =
       withProjectRoot' packageLocationOpts $ \relativize -> do
         loggerH <- getLogger opts "debug-ide-span-info"
@@ -807,7 +807,7 @@ execLint :: SdkVersion.Class.SdkVersioned => [FilePath] -> Options -> Command
 execLint inputFiles opts =
   Command Lint (Just packageLocationOpts) effect
   where
-     packageLocationOpts = ProjectOpts Nothing (ProjectCheck "" False)
+     packageLocationOpts = PackageLocationOpts Nothing (ProjectCheck "" False)
      effect =
        withProjectRoot' packageLocationOpts $ \relativize ->
        do
@@ -836,7 +836,7 @@ getCanonDefaultProjectPath = fmap ProjectPath $ canonicalizePath $ unwrapProject
 
 -- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
 -- project local package database. Otherwise do nothing.
-execInit :: SdkVersion.Class.SdkVersioned => Options -> ProjectOpts -> Command
+execInit :: SdkVersion.Class.SdkVersioned => Options -> PackageLocationOpts -> Command
 execInit opts packageLocationOpts =
   Command Init (Just packageLocationOpts) effect
   where effect = withProjectRoot' packageLocationOpts $ \_relativize ->
@@ -871,7 +871,7 @@ getMultiPackagePath multiPackageLocation searchPath =
 
 execBuild
   :: SdkVersion.Class.SdkVersioned
-  => ProjectOpts
+  => PackageLocationOpts
   -> Options
   -> Maybe FilePath
   -> IncrementalBuild
@@ -886,7 +886,7 @@ execBuild packageLocationOpts opts mbOutFile incrementalBuild initPkgDb enableMu
     -- Need exec path for `daml build --all`, where we don't want to be relativized to a package
     execPath <- liftIO getCurrentDirectory
 
-    relativize <- ContT $ withProjectRoot' (packageLocationOpts {projectCheck = ProjectCheck "" False})
+    relativize <- ContT $ withProjectRoot' (packageLocationOpts {packageLocationCheck = ProjectCheck "" False})
 
     opts <- liftIO $ addResolutionData opts
 
@@ -1328,7 +1328,7 @@ buildMultiRule damlcRunner buildableDataDeps (MultiPackageNoCache noCache) mRoot
             pure $ makeReturn ownPid True
 
 -- | Remove any build artifacts if they exist.
-execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
+execClean :: PackageLocationOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiPackageCleanAll -> Command
 execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
   Command Clean (Just packageLocationOpts) effect
   where
@@ -1337,7 +1337,7 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
       = do
         execPath <- liftIO getCurrentDirectory
         mMultiPackagePath <- getMultiPackagePath multiPackageLocation $ if getMultiPackageCleanAll cleanAll then Just execPath else Nothing
-        isProject <- withProjectRoot' (packageLocationOpts {projectCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
+        isProject <- withProjectRoot' (packageLocationOpts {packageLocationCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
         case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
           -- daml clean --all with no multi-package.yaml
           (Nothing, _, True) -> do
@@ -1348,7 +1348,7 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
             withMultiPackageConfig path $ \multiPackageConfig -> do
               hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
               forM_ (mpPackagePaths multiPackageConfig) $ \p ->
-                singleCleanEffect $ packageLocationOpts {projectRoot = Just $ ProjectPath p}
+                singleCleanEffect $ packageLocationOpts {packageRoot = Just $ ProjectPath p}
               hPutStrLn stderr "Removed build artifacts."
           -- daml clean in a package
           (_, True, False) -> do
@@ -1371,7 +1371,7 @@ execClean packageLocationOpts enableMultiPackage multiPackageLocation cleanAll =
         singleCleanEffect packageLocationOpts
         hPutStrLn stderr "Removed build artifacts."
 
-singleCleanEffect :: ProjectOpts -> IO ()
+singleCleanEffect :: PackageLocationOpts -> IO ()
 singleCleanEffect packageLocationOpts =
   withProjectRoot' packageLocationOpts $ \_relativize -> do
     isProject <- doesFileExist projectConfigName
@@ -1669,7 +1669,7 @@ darPathFromDamlYaml path = do
       ) mbProjectOpts
   deriveDarPath path name version mOutput
   where
-    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+    mbProjectOpts = Just $ PackageLocationOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
 -- | Subset of parseProjectConfig to get only what we need for deferring to the correct build call with multi-package build
 buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
@@ -1690,21 +1690,21 @@ buildMultiPackageConfigFromDamlYaml path =
     )
     mbProjectOpts
   where
-    mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
+    mbProjectOpts = Just $ PackageLocationOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe ProjectOpts -> IO t
+onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe PackageLocationOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
     mbEnvProjectPath <- fmap ProjectPath <$> getProjectPath
-    let mbProjectPath = projectRoot =<< mbProjectOpts
+    let mbProjectPath = packageRoot =<< mbProjectOpts
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
         project <- readProjectConfig projectPath
         either throwIO pure $ f project
 
-cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
+cliArgsFromDamlYaml :: Maybe PackageLocationOpts -> IO [String]
 cliArgsFromDamlYaml =
   onDamlYaml (const []) $ \project -> Right $ case queryProjectConfigRequired ["build-options"] project of
     Left _ -> []
@@ -1773,9 +1773,9 @@ cmdUseDamlYamlArgs = \case
   UpgradeCheck -> False -- just reads the DARs it is given
   Studio -> False
 
-withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
-withProjectRoot' ProjectOpts{..} act =
-    withProjectRoot projectRoot projectCheck (const act)
+withProjectRoot' :: PackageLocationOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
+withProjectRoot' PackageLocationOpts{..} act =
+    withProjectRoot packageRoot packageLocationCheck (const act)
 
 addResolutionData :: Options -> IO Options
 addResolutionData opts@Options{optResolutionData = Nothing} = do
