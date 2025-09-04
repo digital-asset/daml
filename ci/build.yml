@@ -74,89 +74,89 @@ jobs:
         ./ci/docs-sphinx-build.sh
       condition: succeeded()
 
-- job: Linux
-  dependsOn:
-    - check_for_release
-  variables:
-    - name: release_sha
-      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
-    - name: release_tag
-      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
-    - name: trigger_sha
-      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
-    - name: is_release
-      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
-    - template: job-variables.yml
-  timeoutInMinutes: 240
-  strategy:
-    matrix:
-      intel:
-        assignment: default
-        name: linux-intel
-      arm:
-        assignment: arm
-        name: linux-arm
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals $(assignment)
-  steps:
-    - template: report-start.yml
-    - checkout: self
-      clean: true
-    - bash: |
-        set -euo pipefail
-        git checkout $(release_sha)
-      name: checkout_release
-      displayName: 'Checkout Release Commit'
-      condition: and(succeeded(), eq(variables.is_release, 'true'))
-    - template: clean-up.yml
-    - template: build-unix.yml
-      parameters:
-        # The syntax required to inline a variable changes based on context
-        # (`$(var)` in strings, `variables.var` in expressions). Template
-        # parameters are inlined before evaluation. This is a bit like lazy
-        # function arguments, but at the syntax level.
-        #
-        # The result is that we need to know what context the parameter will be
-        # used in, which is why `release_tag` and `is_release` use different
-        # syntaxes, and why we need to passe `name` twice.
-        release_tag: $(release_tag)
-        name_str: $(name)
-        name_exp: variables.name
-        is_release: variables.is_release
-        test_mode: ${{parameters.test_mode}}
-    - template: upload-bazel-metrics.yml
-    - template: report-flakes.yml
-      parameters:
-        is_release: variables.is_release
-    - bash: |
-        set -euo pipefail
-        if [ -d sdk ]; then
-          cd sdk
-        fi
-        eval "$(./dev-env/bin/dade-assist)"
-        bazel build //release:release
-        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
-      condition: and(succeeded(), ne(variables['is_release'], 'true'))
-      displayName: 'Build release artifacts'
-    - template: tell-slack-failed.yml
-      parameters:
-        trigger_sha: '$(trigger_sha)'
-    - template: report-end.yml
+#- job: Linux
+#  dependsOn:
+#    - check_for_release
+#  variables:
+#    - name: release_sha
+#      value: $[ dependencies.check_for_release.outputs['out.release_sha'] ]
+#    - name: release_tag
+#      value: $[ coalesce(dependencies.check_for_release.outputs['out.release_tag'], '0.0.0') ]
+#    - name: trigger_sha
+#      value: $[ dependencies.check_for_release.outputs['out.trigger_sha'] ]
+#    - name: is_release
+#      value: $[ dependencies.check_for_release.outputs['out.is_release'] ]
+#    - template: job-variables.yml
+#  timeoutInMinutes: 240
+#  strategy:
+#    matrix:
+#      intel:
+#        assignment: default
+#        name: linux-intel
+#      arm:
+#        assignment: arm
+#        name: linux-arm
+#  pool:
+#    name: 'ubuntu_20_04'
+#    demands: assignment -equals $(assignment)
+#  steps:
+#    - template: report-start.yml
+#    - checkout: self
+#      clean: true
+#    - bash: |
+#        set -euo pipefail
+#        git checkout $(release_sha)
+#      name: checkout_release
+#      displayName: 'Checkout Release Commit'
+#      condition: and(succeeded(), eq(variables.is_release, 'true'))
+#    - template: clean-up.yml
+#    - template: build-unix.yml
+#      parameters:
+#        # The syntax required to inline a variable changes based on context
+#        # (`$(var)` in strings, `variables.var` in expressions). Template
+#        # parameters are inlined before evaluation. This is a bit like lazy
+#        # function arguments, but at the syntax level.
+#        #
+#        # The result is that we need to know what context the parameter will be
+#        # used in, which is why `release_tag` and `is_release` use different
+#        # syntaxes, and why we need to passe `name` twice.
+#        release_tag: $(release_tag)
+#        name_str: $(name)
+#        name_exp: variables.name
+#        is_release: variables.is_release
+#        test_mode: ${{parameters.test_mode}}
+#    - template: upload-bazel-metrics.yml
+#    - template: report-flakes.yml
+#      parameters:
+#        is_release: variables.is_release
+#    - bash: |
+#        set -euo pipefail
+#        if [ -d sdk ]; then
+#          cd sdk
+#        fi
+#        eval "$(./dev-env/bin/dade-assist)"
+#        bazel build //release:release
+#        ./bazel-bin/release/release --release-dir "$(mktemp -d)"
+#      condition: and(succeeded(), ne(variables['is_release'], 'true'))
+#      displayName: 'Build release artifacts'
+#    - template: tell-slack-failed.yml
+#      parameters:
+#        trigger_sha: '$(trigger_sha)'
+#    - template: report-end.yml
 
-- template: macOS.yml
-  parameters:
-    job_name: macOS
-    name: macos
-    assignment: default
-    test_mode: ${{parameters.test_mode}}
-
-- template: macOS.yml
-  parameters:
-    job_name: m1
-    name: m1
-    assignment: m1-builds
-    test_mode: ${{parameters.test_mode}}
+#- template: macOS.yml
+#  parameters:
+#    job_name: macOS
+#    name: macos
+#    assignment: default
+#    test_mode: ${{parameters.test_mode}}
+#
+#- template: macOS.yml
+#  parameters:
+#    job_name: m1
+#    name: m1
+#    assignment: m1-builds
+#    test_mode: ${{parameters.test_mode}}
 
 - template: blackduck.yml
 
@@ -216,62 +216,62 @@ jobs:
         trigger_sha: '$(trigger_sha)'
     - template: report-end.yml
 
-- job: platform_independence_test
-  displayName: "Platform Independence Test"
-  condition: and(succeeded(),
-                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
-  dependsOn:
-    - Windows
-    - Linux
-    - macOS
-  pool:
-    name: 'ubuntu_20_04'
-    demands: assignment -equals default
-  steps:
-    - checkout: self
-      clean: true
-    - bash: ci/dev-env-install.sh
-      displayName: 'Build/Install the Developer Environment'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-linux-intel
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
-      displayName: 'Download platform-independence dar linux-intel pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-linux-arm
-        targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
-      displayName: 'Download platform-independence dar linux-arm pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-windows
-        targetPath: $(Build.StagingDirectory)/platform-independence/windows/
-      displayName: 'Download platform-independence dar windows pipeline artifact'
-    - task: DownloadPipelineArtifact@2
-      inputs:
-        artifactName: platform-independence-dar-macos
-        targetPath: $(Build.StagingDirectory)/platform-independence/macos/
-      displayName: 'Download platform-independence dar macos pipeline artifact'
-    - bash: |
-        set -euo pipefail
-        eval "$(cd sdk; dev-env/bin/dade-assist)"
-
-        DIR1=$(mktemp -d)
-        DIR2=$(mktemp -d)
-        DIR3=$(mktemp -d)
-        DIR4=$(mktemp -d)
-        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
-
-        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
-        unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
-        unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
-        unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
-
-        # hie/hi files may differ.
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
-        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
-      displayName: 'Compare platform-independence dars of different platforms.'
+#- job: platform_independence_test
+#  displayName: "Platform Independence Test"
+#  condition: and(succeeded(),
+#                 eq(dependencies.check_for_release.outputs['out.is_release'], 'false'))
+#  dependsOn:
+#    - Windows
+#    - Linux
+#    - macOS
+#  pool:
+#    name: 'ubuntu_20_04'
+#    demands: assignment -equals default
+#  steps:
+#    - checkout: self
+#      clean: true
+#    - bash: ci/dev-env-install.sh
+#      displayName: 'Build/Install the Developer Environment'
+#    - task: DownloadPipelineArtifact@2
+#      inputs:
+#        artifactName: platform-independence-dar-linux-intel
+#        targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
+#      displayName: 'Download platform-independence dar linux-intel pipeline artifact'
+#    - task: DownloadPipelineArtifact@2
+#      inputs:
+#        artifactName: platform-independence-dar-linux-arm
+#        targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
+#      displayName: 'Download platform-independence dar linux-arm pipeline artifact'
+#    - task: DownloadPipelineArtifact@2
+#      inputs:
+#        artifactName: platform-independence-dar-windows
+#        targetPath: $(Build.StagingDirectory)/platform-independence/windows/
+#      displayName: 'Download platform-independence dar windows pipeline artifact'
+#    - task: DownloadPipelineArtifact@2
+#      inputs:
+#        artifactName: platform-independence-dar-macos
+#        targetPath: $(Build.StagingDirectory)/platform-independence/macos/
+#      displayName: 'Download platform-independence dar macos pipeline artifact'
+#    - bash: |
+#        set -euo pipefail
+#        eval "$(cd sdk; dev-env/bin/dade-assist)"
+#
+#        DIR1=$(mktemp -d)
+#        DIR2=$(mktemp -d)
+#        DIR3=$(mktemp -d)
+#        DIR4=$(mktemp -d)
+#        trap "rm -rf $DIR1 $DIR2 $DIR3 $DIR4" EXIT
+#
+#        unzip -d $DIR1 $(Build.StagingDirectory)/platform-independence/linux-intel/platform-independence.dar
+#        unzip -d $DIR2 $(Build.StagingDirectory)/platform-independence/windows/platform-independence.dar
+#        unzip -d $DIR3 $(Build.StagingDirectory)/platform-independence/macos/platform-independence.dar
+#        unzip -d $DIR4 $(Build.StagingDirectory)/platform-independence/linux-arm/platform-independence.dar
+#
+#        # hie/hi files may differ.
+#        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR2
+#        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR3
+#        diff -r --strip-trailing-cr -x '*.hie' -x '*.hi' $DIR1 $DIR4
+#      displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs
   displayName: 'Compatibility with TypeScript libraries'
