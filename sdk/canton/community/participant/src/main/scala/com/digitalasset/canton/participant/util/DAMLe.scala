@@ -394,11 +394,6 @@ class DAMLe(
             case Left(abort) => FutureUnlessShutdown.pure(Left(abort))
             case Right(result) => handleResultInternal(contracts, result)
           }
-        case unexpected @ ResultNeedUpgradeVerification(_, _, _, _, _) =>
-          throw new UnsupportedOperationException(
-            s"This callback is no longer used and will be removed in a future release [$unexpected]"
-          )
-
         case ResultPrefetch(_, _, resume) =>
           // we do not need to prefetch here as Canton includes the keys as a static map in Phase 3
           handleResultInternal(contracts, resume())
