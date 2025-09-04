@@ -48,7 +48,7 @@ data DecodeEnv = DecodeEnv
     , internedKinds       :: !(V.Vector Kind)
     , selfPackageRef      :: SelfOrImportedPackageId
     , version             :: LF.Version
-    , imports             :: !(Maybe (V.Vector PackageId))
+    , imports             :: !(Either NoPkgImportsReason (V.Vector PackageId))
     }
 
 makeLensesFor [ ("internedKinds", "internedKindsLens")
@@ -161,14 +161,21 @@ decodePackageId (LF2.SelfOrImportedPackageId pref) =
         LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
         LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
         LF2.SelfOrImportedPackageIdSumPackageImportId strId ->
-          ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Just)
+          ImportedPackageId . (V.! fromIntegral strId) <$> view (importsLens . _Right)
           
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
 ------------------------------------------------------------------------
-decodeImports :: LF2.PackageImports -> V.Vector PackageId
-decodeImports = V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages
+
+decodeImports :: LF2.PackageImportsSum -> Either NoPkgImportsReason (V.Vector PackageId)
+decodeImports = \case
+  LF2.PackageImportsSumNoImportedPackagesReason txt -> Left $ read $ TL.unpack txt
+  LF2.PackageImportsSumPackageImports imports -> Right $ decodePackageImports imports
+  where
+    decodePackageImports :: LF2.PackageImports -> V.Vector PackageId
+    decodePackageImports = V.map (PackageId . TL.toStrict) . LF2.packageImportsImportedPackages
+
 
 decodeInternedDottedName :: LF2.InternedDottedName -> Decode ([T.Text], Either String [UnmangledIdentifier])
 decodeInternedDottedName (LF2.InternedDottedName ids) = do
@@ -194,7 +201,8 @@ decodePackage version selfPackageRef (LF2.Package
       let internedExprs = V.empty
       let internedTypes = V.empty
       let internedKinds = V.empty
-      let imports = decodeImports <$> importedPackagesP
+      --assuming here that nothing means it is a stable package
+      let imports = maybe (Left StablePackage) decodeImports  importedPackagesP
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
       let env1 = env0{internedDottedNames}
@@ -208,7 +216,7 @@ decodePackage version selfPackageRef (LF2.Package
           runDecode env3{internedExprs = prefix} $ decodeExpr (internedExprsV V.! i)
       let env4 = env3{internedExprs}
       runDecode env4 $ do
-        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (S.fromList . V.toList <$> maybe (Left "DA.Daml.LF.Proto3.DecodeV2:decodePackage") Right imports)
+        Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata <*> pure (S.fromList . V.toList <$> imports)
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
 decodeUpgradedPackageId LF2.UpgradedPackageId {..} =

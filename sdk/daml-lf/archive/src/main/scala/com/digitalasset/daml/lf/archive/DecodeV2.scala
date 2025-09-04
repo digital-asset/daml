@@ -49,7 +49,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       decodePackageMetadata(lfPackage.getMetadata, internedStrings)
     }
 
-    val imports = decodePackageImports(lfPackage.getImportedPackages())
+    val imports = decodePackageImports(lfPackage)
 
     val env0 = Env(
       packageId = packageId,
@@ -57,7 +57,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       internedDottedNames = internedDottedNames,
       optDependencyTracker = Some(dependencyTracker),
       onlySerializableDataDefs = onlySerializableDataDefs,
-      imports = Some(imports),
+      imports = imports,
     )
 
     val internedKinds = decodeKindsTable(env0, lfPackage)
@@ -67,13 +67,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
     val internedExprs = lfPackage.getInternedExprsList().asScala.toVector
     val env = env2.copy(internedExprs = internedExprs)
 
+    val importsSet =
+      imports.map(xs => xs.map(s => eitherToParseError(PackageId.fromString(s))).toSet)
+
     val modules = lfPackage.getModulesList.asScala.map(env.decodeModule(_))
     Package.build(
       modules = modules,
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata,
-      imports = Some(imports.map(s => eitherToParseError(PackageId.fromString(s))).toSet),
+      imports = importsSet,
     )
 
   }
@@ -120,13 +123,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         s"expected exactly one module in proto package, found ${lfSingleModule.getModulesCount} modules"
       )
 
-    val imports = decodePackageImports(lfSingleModule.getImportedPackages())
+    val imports = decodePackageImports(lfSingleModule)
 
     val env0 = new Env(
       packageId = packageId,
       internedStrings = internedStrings,
       internedDottedNames = internedDottedNames,
-      imports = Some(imports),
+      imports = imports,
     )
     val internedKinds = decodeKindsTable(env0, lfSingleModule)
     val env1 = env0.copy(internedKinds = internedKinds)
@@ -192,9 +195,16 @@ private[archive] class DecodeV2(minor: LV.Minor) {
   }
 
   private[archive] def decodePackageImports(
-      imports: PLF.PackageImports
-  ): collection.IndexedSeq[String] = {
-    imports.getImportedPackagesList().asScala.toIndexedSeq
+      lfPackage: PLF.Package
+  ): Either[String, collection.IndexedSeq[String]] = {
+    lfPackage.getImportsSumCase match {
+      case PLF.Package.ImportsSumCase.PACKAGE_IMPORTS =>
+        Right(lfPackage.getPackageImports.getImportedPackagesList.asScala.toIndexedSeq)
+      case PLF.Package.ImportsSumCase.NO_IMPORTED_PACKAGES_REASON =>
+        Left(lfPackage.getNoImportedPackagesReason)
+      case PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET =>
+        Left("PLF.Package.ImportsSumCase.IMPORTSSUM_NOT_SET")
+    }
   }
 
   private[archive] class PackageDependencyTracker(self: PackageId) {
@@ -218,7 +228,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       optModuleName: Option[ModuleName] = None,
       onlySerializableDataDefs: Boolean = false,
       currentInternedExprId: Option[Int] = None,
-      imports: Option[collection.IndexedSeq[String]] = None,
+      imports: Either[String, collection.IndexedSeq[String]] = Left(
+        "com.digitalasset.daml.lf.DecodeV2 (default Env constructor)"
+      ),
   ) {
 
     // decode*ForTest -- test entry points

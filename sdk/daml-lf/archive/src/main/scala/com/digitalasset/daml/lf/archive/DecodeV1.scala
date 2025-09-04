@@ -76,7 +76,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       directDeps = dependencyTracker.getDependencies,
       languageVersion = languageVersion,
       metadata = metadata.getOrElse(NoPackageMetadata),
-      imports = None,
+      imports = Left("com.digitalasset.daml.lf.DecodeV1"),
     )
 
   }

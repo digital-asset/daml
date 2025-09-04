@@ -1812,7 +1812,13 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg =
-          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
+          Package.build(
+            List(mod),
+            List.empty,
+            defaultLanguageVersion,
+            packageMetadata,
+            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1840,7 +1846,13 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg =
-          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
+          Package.build(
+            List(mod),
+            List.empty,
+            defaultLanguageVersion,
+            packageMetadata,
+            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,
@@ -1868,7 +1880,13 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
       def checkModule(mod: Module) = {
         val pkg =
-          Package.build(List(mod), List.empty, defaultLanguageVersion, packageMetadata, None)
+          Package.build(
+            List(mod),
+            List.empty,
+            defaultLanguageVersion,
+            packageMetadata,
+            Left("com.digitalasset.daml.lf.validation.TypingSpecV2"),
+          )
         Typing.checkModule(
           pkgInterface = PackageInterface(Map(defaultPackageId -> pkg)),
           pkgId = defaultPackageId,

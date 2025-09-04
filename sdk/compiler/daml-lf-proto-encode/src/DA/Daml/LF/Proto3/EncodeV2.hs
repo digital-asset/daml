@@ -26,6 +26,7 @@ import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
 import qualified Data.Map            as M
 import           Data.Int
+import           Data.Either (isRight, fromRight)
 
 import           Text.Printf (printf)
 
@@ -68,7 +69,7 @@ makeLensesFor [ ("internedKindsMap", "internedKindsMapLens")
 type ImportMap = M.Map PackageId Int32
 data EncodeConfig = EncodeConfig
     { _version :: !Version
-    , _importMap :: Either String ImportMap
+    , _importMap :: Either NoPkgImportsReason ImportMap
     }
 makeLenses ''EncodeConfig
 
@@ -99,7 +100,7 @@ initEncodeState =
     }
 
 initTestEncodeConfig :: Version -> EncodeConfig
-initTestEncodeConfig = flip EncodeConfig $ Left "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
+initTestEncodeConfig = flip EncodeConfig $ Left $ Testing "DA.Daml.LF.Proto3.EncodeV2:initTestEncodeConfig"
 
 runEncode :: EncodeConfig           -- The read-only config.
           -> EncodeState            -- The initial state.
@@ -207,20 +208,29 @@ encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . go
     go = \case
       SelfPackageId ->
         pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
-      ImportedPackageId p@(PackageId pkgId) ->
-        ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
+      ImportedPackageId p@(PackageId pkgId) -> do
+        (eMap :: Either NoPkgImportsReason ImportMap) <- asks (view importMap)
+        ifVersion (\v -> p `notElem` stableIds && isRight eMap && v `supports` featureFlatArchive) version
           {-then-}
             (do
-              -- (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
-              (eMap :: Either String ImportMap) <- asks (view importMap)
-              case eMap of
-                  Left str ->
-                    error $ printf "Expected an ImportMap but did not find it, reason: %s" str
-                  Right mp -> do
-                    let (mID :: Maybe Int32) = M.lookup p mp
-                    return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
+                let (mID :: Maybe Int32) = M.lookup p $ fromRight (error "can't happen") eMap
+                return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
           {-else-}
             (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
+      -- ImportedPackageId p@(PackageId pkgId) ->
+      --   ifVersion (\v -> p `notElem` stableIds && v `supports` featureFlatArchive) version
+      --     {-then-}
+      --       (do
+      --         -- (mID :: Maybe Int32) <- asks (M.lookup p . fromJust . view importMap)
+      --         (eMap :: Either String ImportMap) <- asks (view importMap)
+      --         case eMap of
+      --             Left str ->
+      --               error $ printf "Expected an ImportMap but did not find it, reason: %s" str
+      --             Right mp -> do
+      --               let (mID :: Maybe Int32) = M.lookup p mp
+      --               return $ maybe (error $ printf "Did not find imported package id %s during encoding" $ show p) P.SelfOrImportedPackageIdSumPackageImportId mID)
+      --     {-else-}
+      --       (P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId)
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -1073,21 +1083,27 @@ packInternedTypes = V.map (P.Type . Just) . I.toVec
 packInternedExprs :: InternedExprsMap -> V.Vector P.Expr
 packInternedExprs = V.map (P.Expr Nothing . Just) . I.toVec
 
--- Whenever we fix the order of the set of package imports, we always sort. This
--- way, every list in the encode/decode chain (... -> set -> list -> set -> list
--- -> ...) will always be in the same order
-encodeImports :: [PackageId] -> P.PackageImports
-encodeImports = P.PackageImports . V.fromList . L.sort . map toTlText
+encodeImports :: [PackageId] -> P.PackageImportsSum
+encodeImports = P.PackageImportsSumPackageImports . P.PackageImports . V.fromList . map toTlText
   where
     toTlText :: PackageId -> TL.Text
     toTlText = TL.fromStrict . unPackageId
+
+encodeReasons :: NoPkgImportsReason -> Maybe P.PackageImportsSum
+encodeReasons = \case
+  StablePackage -> Nothing
+  rsns -> Just $ P.PackageImportsSumNoImportedPackagesReason $ TL.pack $ show rsns
 
 mkImportMap :: [PackageId] -> ImportMap
 mkImportMap = M.fromList . flip zip [0..]
 
 encodePackage :: Package -> P.Package
 encodePackage (Package version mods metadata imports) =
-    let importList = S.toList <$> imports
+-- Whenever we fix the order of the set of package imports, we always sort. This
+-- way, every list in the encode/decode chain (... -> set -> list -> set -> list
+-- -> ...) will always be in the same order
+    let importList :: Either NoPkgImportsReason [PackageId]
+        importList = L.sort . S.toList <$> imports
         st = initEncodeState
         conf = EncodeConfig version $ mkImportMap <$> importList
         ( (packageModules, packageMetadata),
@@ -1099,7 +1115,7 @@ encodePackage (Package version mods metadata imports) =
         packageInternedKinds = packInternedKinds internedKindsMap
         packageInternedTypes = packInternedTypes internedTypesMap
         packageInternedExprs = packInternedExprs internedExprsMap
-        packageImportedPackages = either (const Nothing) (Just . encodeImports) importList
+        packageImportsSum = either encodeReasons (Just . encodeImports) importList
     in
     P.Package{..}
 

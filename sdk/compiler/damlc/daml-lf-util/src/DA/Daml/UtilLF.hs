@@ -82,11 +82,11 @@ synthesizeVariantRecord :: VariantConName -> TypeConName -> TypeConName
 synthesizeVariantRecord (VariantConName dcon) (TypeConName tcon) = TypeConName (tcon ++ [dcon])
 
 -- | Fails if there are any duplicate module names
-buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> Either String PackageIds -> Package
+buildPackage :: HasCallStack => PackageMetadata -> Version -> [Module] -> ImportedPackages -> Package
 buildPackage meta version mods imports =
   case (version `supports` featurePackageImports, imports) of
-    (True, Left str) ->
-      error $ printf "version %s supports explicit package imports, but found Left with reason %str" (show version) str
+    (True, Left rsns) ->
+      error $ printf "version %s supports explicit package imports, but found Left with reasons %str" (show version) (show rsns)
     _ ->
       Package version (NM.fromList mods) meta imports
 

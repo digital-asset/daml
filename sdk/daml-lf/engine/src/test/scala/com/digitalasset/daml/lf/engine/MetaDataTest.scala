@@ -173,7 +173,7 @@ class MetaDataTestHelper(majorLanguageVersion: LanguageMajorVersion) {
         Ref.PackageVersion.assertFromString("0.0.0"),
         None,
       ),
-      None,
+      Left("com.digitalasset.daml.lf.engineMetaDataTest"),
     )
 
   // For the sake of simplicity we load the engine with empty packages where only the directDeps is set.

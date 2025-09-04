@@ -91,6 +91,9 @@ instance Pretty ExprVarName where
 instance Pretty ExprValName where
     pPrint = text . unExprValName
 
+instance Pretty NoPkgImportsReason where
+    pPrint = text . T.pack . show
+
 pPrintModuleRef :: PrettyLevel -> (SelfOrImportedPackageId, ModuleName) -> Doc ann
 pPrintModuleRef lvl (pkgRef, modName) = docPkgRef <> pPrint modName
   where

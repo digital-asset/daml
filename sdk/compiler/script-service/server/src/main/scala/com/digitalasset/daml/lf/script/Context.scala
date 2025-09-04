@@ -142,7 +142,13 @@ class Context(
       allSignatures = extSignatures.updated(
         packageId,
         AstUtil.toSignature(
-          Ast.Package(modules, extSignatures.keySet, languageVersion, packageMetadata, None)
+          Ast.Package(
+            modules,
+            extSignatures.keySet,
+            languageVersion,
+            packageMetadata,
+            Left("com.digitalasset.daml.lf.Context"),
+          )
         ),
       )
       val pkgInterface = new language.PackageInterface(allSignatures)
@@ -176,7 +182,7 @@ class Context(
               extSignatures.keySet,
               languageVersion,
               packageMetadata,
-              None,
+              Left("com.digitalasset.daml.lf.Context"),
             ),
           )
       }

@@ -1227,7 +1227,7 @@ object Ast {
       directDeps: Set[PackageId],
       languageVersion: LanguageVersion,
       metadata: PackageMetadata,
-      imports: Option[Set[PackageId]],
+      imports: Either[String, Set[PackageId]],
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
       private val isUtilityPackage: Boolean,
@@ -1266,7 +1266,7 @@ object Ast {
         directDeps: Iterable[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
-        imports: Option[Set[PackageId]],
+        imports: Either[String, Set[PackageId]],
         // Packages that do not define any serializable types are referred to as utility packages
         // in the context of upgrades. They will not be considered for upgrade checks.
     ): GenPackage[E] =
@@ -1285,7 +1285,7 @@ object Ast {
         directDeps: Set[PackageId],
         languageVersion: LanguageVersion,
         metadata: PackageMetadata,
-        imports: Option[Set[PackageId]],
+        imports: Either[String, Set[PackageId]],
     ): GenPackage[E] = {
       val isUtilityPackage =
         modules.values.forall(mod =>

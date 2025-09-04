@@ -1364,7 +1364,7 @@ message PackageMetadata {
 }
 
 message PackageImports {
-  repeated string imported_packages = 8;
+  repeated string imported_packages = 1;
 }
 
 message Package {
@@ -1379,6 +1379,8 @@ message Package {
   repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
   repeated Expr interned_exprs = 7; // *Available in versions >= 2.dev*
 
-  //indirection to PackageImports to get a Maybe wrapper
-  PackageImports imported_packages = 8;
+  oneof ImportsSum {
+    string no_imported_packages_reason = 8;
+    PackageImports package_imports = 9;
+  }
 }

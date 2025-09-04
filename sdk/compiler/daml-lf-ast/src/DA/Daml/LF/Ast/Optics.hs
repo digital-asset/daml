@@ -210,6 +210,7 @@ instance MonoTraversable ModuleRef InterfaceInstanceMethod
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
 instance MonoTraversable ModuleRef PackageMetadata where monoTraverse _ = pure
+instance MonoTraversable ModuleRef NoPkgImportsReason
 instance MonoTraversable ModuleRef Package
 instance MonoTraversable ModuleRef T.Text where monoTraverse _ = pure
 
