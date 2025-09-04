@@ -1519,7 +1519,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], vfun: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KOverApp.c)
+      machine.updateGasBudget(_.KOverApp.cost)
 
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
@@ -1638,7 +1638,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], v: SValue): Control.Expression = {
 
-      machine.updateGasBudget(_.KPushTo.c)
+      machine.updateGasBudget(_.KPushTo.cost)
 
       machine.restoreBase(savedBase);
       machine.restoreFrameAndActuals(frame, actuals)
@@ -1668,7 +1668,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldl.c)
+      machine.updateGasBudget(_.KFoldl.cost)
 
       list.pop match {
         case None =>
@@ -1699,7 +1699,7 @@ private[lf] object Speedy {
       with NoCopy {
     override def execute(machine: Machine[Q], acc: SValue): Control[Q] = {
 
-      machine.updateGasBudget(_.KFoldr.c)
+      machine.updateGasBudget(_.KFoldr.cost)
 
       if (lastIndex > 0) {
         machine.restoreFrameAndActuals(frame, actuals)
@@ -1738,7 +1738,7 @@ private[lf] object Speedy {
 
     override def execute(machine: Machine[Q], sv: SValue): Control.Value = {
 
-      machine.updateGasBudget(_.KCacheVal.c)
+      machine.updateGasBudget(_.KCacheVal.cost)
 
       v.setCached(sv)
       defn.setCached(sv)
@@ -1757,7 +1757,7 @@ private[lf] object Speedy {
         exerciseResult: SValue,
     ): Control[Question.Update] = {
 
-      machine.updateGasBudget(_.KCloseExercise.c)
+      machine.updateGasBudget(_.KCloseExercise.cost)
 
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         machine.ptx = machine.ptx.endExercises(exerciseResult.toNormalizedValue)
@@ -1786,7 +1786,7 @@ private[lf] object Speedy {
     }
 
     override def execute(machine: Machine[Question.Update], v: SValue): Control[Question.Update] = {
-      machine.updateGasBudget(_.KTryCatchHandler.c)
+      machine.updateGasBudget(_.KTryCatchHandler.cost)
 
       machine.asUpdateMachine(getClass.getSimpleName) { machine =>
         restore()
@@ -1822,7 +1822,7 @@ private[lf] object Speedy {
       )
 
     override def execute(machine: Machine[Question.Update], v: SValue): Control.Value = {
-      machine.updateGasBudget(_.KCheckChoiceGuard.c)
+      machine.updateGasBudget(_.KCheckChoiceGuard.cost)
 
       v match {
         case SValue.SBool(b) =>
@@ -1842,7 +1842,7 @@ private[lf] object Speedy {
     */
   private[speedy] final case class KLabelClosure[Q](label: Profile.Label) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
-      machine.updateGasBudget(_.KLabelClosure.c)
+      machine.updateGasBudget(_.KLabelClosure.cost)
       v match {
         case SValue.SPAP(SValue.PClosure(_, expr, closure), args, arity) =>
           val pap = SValue.SPAP(SValue.PClosure(label, expr, closure), args, arity)
@@ -1860,7 +1860,7 @@ private[lf] object Speedy {
       extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
 
-      machine.updateGasBudget(_.KLeaveClosure.c)
+      machine.updateGasBudget(_.KLeaveClosure.cost)
 
       machine.profile.addCloseEvent(label)
       Control.Value(v)
@@ -1869,7 +1869,7 @@ private[lf] object Speedy {
 
   private[speedy] final case class KPreventException[Q]() extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
-      machine.updateGasBudget(_.KPreventException.c)
+      machine.updateGasBudget(_.KPreventException.cost)
       Control.Value(v)
     }
   }
@@ -1880,7 +1880,7 @@ private[lf] object Speedy {
   // [Remy] cannot we use the continuation above ?
   private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
     override def execute(machine: Machine[Q], v: SValue): Control.Value = {
-      machine.updateGasBudget(_.KConvertingException.c)
+      machine.updateGasBudget(_.KConvertingException.cost)
       Control.Value(v)
     }
   }

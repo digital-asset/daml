@@ -460,7 +460,7 @@ private[lf] object SBuiltinFun {
         case v => crash(s"type mismatch implodeText: expected SText, got $v")
       }
 
-      machine.updateGasBudget(_.BImplodeText.c)
+      machine.updateGasBudget(_.BImplodeText.cost)
 
       SText(Utf8.implode(ts.toImmArray))
     }
@@ -1217,7 +1217,7 @@ private[lf] object SBuiltinFun {
         machine: Machine[_],
     ): SVariant = {
 
-      machine.updateGasBudget(_.EVariantCon.c)
+      machine.updateGasBudget(_.EVariantCon.cost)
 
       SVariant(id, variant, constructorRank, args(0))
     }

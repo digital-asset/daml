@@ -136,7 +136,7 @@ abstract class CostModel {
   val KFoldr: NotDefined = NotDefined
   val KCacheVal: NotDefined = NotDefined
   val KCloseExercise: NotDefined = NotDefined
-  val KCheckChoiceGuard: NotDefined = NotDefined // Dev ??
+  val KCheckChoiceGuard: NotDefined = NotDefined // use in 2.dev
   val KLabelClosure: NotDefined = NotDefined // only use when profiling is on
   val KLeaveClosure: NotDefined = NotDefined // only use when profiling is on
 
@@ -144,7 +144,9 @@ abstract class CostModel {
   val KPreventException: NotDefined = NotDefined // does nothing when executed
   val KConvertingException: NotDefined = NotDefined // does nothing when executed
 
+  // cost to add n cells to the continuation stack
   val KontStackIncrease: CostFunction1[Int] = CostFunction1.Null
+  // cost to add n cells to the env
   val EnvIncrease: CostFunction1[Int] = CostFunction1.Null
 
 }
@@ -175,7 +177,7 @@ object CostModel {
   val CostAware = CostConstant.Null
   type CostAware = CostAware.type
 
-  final case class CostConstant(c: Cost)
+  final case class CostConstant(cost: Cost)
 
   object CostConstant {
     val Null = CostConstant(0)
