@@ -50,6 +50,7 @@ da_haskell_binary(
         "text",
         "temporary",
         "transformers",
+        "unliftio",
         "unliftio-core",
         "unordered-containers",
         "yaml",
