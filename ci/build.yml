@@ -316,8 +316,8 @@ jobs:
   displayName: 'Collect Build Data Failed'
   condition: failed()
   dependsOn:
-    - Linux
-    - macOS
+#    - Linux
+#    - macOS
     - Windows
     - release
     - git_sha
