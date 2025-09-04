@@ -180,7 +180,7 @@ final class Enricher(
     addTypeInfo: Boolean,
     addFieldNames: Boolean,
     addTrailingNoneFields: Boolean,
-    requireContractIdSuffix: Boolean,
+    forbidLocalContractIds: Boolean,
 ) {
 
   def this(
@@ -188,7 +188,7 @@ final class Enricher(
       addTypeInfo: Boolean = true,
       addFieldNames: Boolean = true,
       addTrailingNoneFields: Boolean = true,
-      requireContractIdSuffix: Boolean = true,
+      forbidLocalContractIds: Boolean = true,
   ) =
     this(
       engine.compiledPackages(),
@@ -196,13 +196,13 @@ final class Enricher(
       addTypeInfo = addTypeInfo,
       addFieldNames = addFieldNames,
       addTrailingNoneFields = addTrailingNoneFields,
-      requireContractIdSuffix: Boolean,
+      forbidLocalContractIds,
     )
 
   val preprocessor = new preprocessing.Preprocessor(
     compiledPackages,
     loadPackage,
-    requireContractIdSuffix = requireContractIdSuffix,
+    forbidLocalContractIds = forbidLocalContractIds,
   )
 
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =

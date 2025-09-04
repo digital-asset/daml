@@ -77,7 +77,7 @@ object ScriptF {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireContractIdSuffix = false,
+      forbidLocalContractIds = false,
       // We need to translate pseudo-exceptions that aren't serializable
       shouldCheckDataSerializable = false,
     )

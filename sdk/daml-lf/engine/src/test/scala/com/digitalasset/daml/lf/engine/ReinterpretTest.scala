@@ -68,7 +68,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   private def freshEngine = new Engine(
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
-      requireSuffixedGlobalContractId = true,
+      forbidLocalContractIds = true,
     )
   )
 

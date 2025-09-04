@@ -1288,7 +1288,7 @@ private[lf] object Speedy {
     // This translates and type-checks an LF value (typically coming from the ledger)
     // to speedy value and set the control of with the result.
     private[speedy] final def importValue(typ: Type, value: V): Control[Nothing] =
-      new ValueTranslator(compiledPackages.pkgInterface, requireContractIdSuffix = true)
+      new ValueTranslator(compiledPackages.pkgInterface, forbidLocalContractIds = true)
         .translateValue(typ, value)
         .fold(
           error =>

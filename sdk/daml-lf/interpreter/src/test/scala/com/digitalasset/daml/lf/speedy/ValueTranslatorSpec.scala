@@ -101,7 +101,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     val valueTranslator = new ValueTranslator(
       compiledPackage.pkgInterface,
-      requireContractIdSuffix = false,
+      forbidLocalContractIds = false,
     )
     import valueTranslator.unsafeTranslateValue
 
@@ -528,7 +528,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = false,
+        forbidLocalContractIds = false,
       )
       val unsuffixedCidV1 = ContractId.V1
         .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty)
@@ -551,11 +551,11 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-    "reject non suffixed V1/V2 Contract IDs when requireContractIdSuffix is true" in {
+    "reject non suffixed V1/V2 Contract IDs when forbidLocalContractIds is true" in {
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = true,
+        forbidLocalContractIds = true,
       )
       val legalCidV1 =
         ContractId.V1.assertBuild(

@@ -551,7 +551,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       valueTranslator =
         new preprocessing.ValueTranslator(
           compiledPackages.pkgInterface,
-          requireContractIdSuffix = false,
+          forbidLocalContractIds = false,
         )
       sValue <- valueTranslator
         .translateValue(ty, lfValue)

@@ -89,7 +89,7 @@ final class LfValueTranslation(
   private val enricherO: Option[LfEnricher] = engineO.map(engine =>
     LfEnricher(
       engine = engine,
-      requireContractIdSuffix = engine.config.requireSuffixedGlobalContractId,
+      forbidLocalContractIds = engine.config.forbidLocalContractIds,
     )
   )
 

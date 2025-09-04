@@ -275,14 +275,14 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         EngineConfig(
           allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Off,
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
       val uckEngine = new Engine(
         EngineConfig(
           allowedLanguageVersions = LV.AllVersions(majorLanguageVersion),
           contractKeyUniqueness = ContractKeyUniquenessMode.Strict,
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
       val (multiKeysPkgId, multiKeysPkg, allMultiKeysPkgs) =
