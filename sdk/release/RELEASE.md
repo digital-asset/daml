@@ -33,7 +33,7 @@ The steps to create a release are:
    of the release branch), the version number you want to attribute to the
    build, and the words `SPLIT_RELEASE` (for historical reason dating to
    pre-2.0 days). For a snapshot release, one can generate a snapshot version
-  string using the `release.sh` script. For example, to create a PR for a
+   string using the `release.sh` script. For example, to create a PR for a
    2.0.0 snapshot release:
 
    ```
