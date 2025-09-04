@@ -406,8 +406,6 @@ generateSerializedDalfRule options =
             lfVersion <- getDamlLfVersion
             -- build dependencies
             files <- discardInternalModules (optUnitId options) . transitiveModuleDeps =<< use_ GetDependencies file
-            -- TODO[RB]: unomment
-            -- dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             dalfDeps <- map fst <$> uses_ ReadSerializedDalf files
             -- type checking
             pm <- use_ GetParsedModule file
@@ -429,7 +427,7 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            _imports <- use_ GeneratePackageImports file
+                            imports <- use_ GeneratePackageImports file
                             DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
@@ -458,9 +456,7 @@ generateSerializedDalfRule options =
                                             fmap (conversionWarnings ++ diags,) $ case checkResult of
                                                 Nothing -> pure Nothing
                                                 Just () -> do
-                                                    --TODO[RB]: uncomment
-                                                    -- writeDalfFile (dalfFileName file) (dalf, imports)
-                                                    writeDalfFile (dalfFileName file) (dalf, mempty)
+                                                    writeDalfFile (dalfFileName file) (dalf, imports)
                                                     pure (Just $ fingerprintToBS $ mi_mod_hash $ hm_iface $ tmrModInfo tm)
         }
 
@@ -796,8 +792,6 @@ generateSerializedPackage pkgName pkgVersion meta rootFiles = do
     files <- lift $ discardInternalModules (Just $ pkgNameVersion pkgName pkgVersion) allFiles
     (dalfs, imports) <- extractImports <$> usesE' ReadSerializedDalf files
     lfVersion <- lift getDamlLfVersion
-    --TODO: we are not inside action and have multiple files, so IDK how to
-    --obtain the deps here?
     pure $ buildPackage meta lfVersion dalfs imports
 
 -- | Artifact directory for incremental builds.
@@ -870,11 +864,13 @@ depsToIds pkgMap unitMap = Set.map (convertUnitId pkgMap) $ mconcat $ IntMap.ele
 
 generatePackageImports :: Rules ()
 generatePackageImports =
-    define $ \GeneratePackageImports _file -> do
-      return ([], Just $ Just mempty)
-      -- PackageMap pkgMap <- use_ GeneratePackageMap file
-      -- deps <- depPkgDeps <$> use_ GetDependencyInformation file
-      -- return ([]{-list of diagnostics-}, Just $ Just $ depsToIds pkgMap deps)
+    defineEarlyCutoff $ \GeneratePackageImports file -> do
+      PackageMap pkgMap <- use_ GeneratePackageMap file
+      deps <- depPkgDeps <$> use_ GetDependencyInformation file
+      let imports = depsToIds pkgMap deps
+      let hash :: BS.ByteString
+          hash = foldMap (BS.fromString . T.unpack . LF.unPackageId) (toList imports)
+      return (Just hash, ([], Just (Just imports)))
 
 
 -- Generates a Daml-LF archive without adding serializability information
