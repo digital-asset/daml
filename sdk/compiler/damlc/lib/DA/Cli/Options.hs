@@ -222,8 +222,8 @@ data ProjectOpts = ProjectOpts
     -- ^ Throw an error if this is not run in a project.
     }
 
-projectOpts :: String -> Parser ProjectOpts
-projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
+packageLocationOpts :: String -> Parser ProjectOpts
+packageLocationOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
     where
         projectRootOpt :: Parser (Maybe ProjectPath)
         projectRootOpt =
