@@ -16,7 +16,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
   TransactionShape,
   UpdateFormat,
 }
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -105,7 +104,7 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
     // creating two iou-s with alice, which will be divulged to bob
     val (immediateDivulged1P1, immediateDivulged1Contract) =
       participant1.immediateDivulgeIou(alice, divulgeIouByExerciseContract)
-    val (immediateDivulged2P1, _immediateDivulged2Contract) =
+    val (immediateDivulged2P1, immediateDivulged2Contract) =
       participant1.immediateDivulgeIou(alice, divulgeIouByExerciseContract)
     eventually() {
       //  ensuring that both participants see all events necessary after running the commands (these numbers are deduced from the assertions below)
@@ -358,8 +357,6 @@ final class DivulgenceIntegrationTest extends CommunityIntegrationTest with Shar
 }
 
 object DivulgenceIntegrationTest {
-  import org.scalatest.OptionValues.*
-
   final case class OffsetCid(offset: Long, contractId: String)
   sealed trait EventType extends Serializable with Product
   case object Created extends EventType
@@ -384,21 +381,11 @@ object DivulgenceIntegrationTest {
       updates(TRANSACTION_SHAPE_LEDGER_EFFECTS, Seq(partyId))
 
     def eventsWithAcsDelta(parties: Seq[PartyId]): Seq[Event] =
-      updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).collect {
-        case TransactionWrapper(tx) =>
-          tx.events.filter(_.event match {
-            case Event.Event.Created(created) => created.acsDelta
-            case Event.Event.Exercised(ex) => ex.acsDelta
-            case _ => false
-          })
-
-        case assigned: UpdateService.AssignedWrapper =>
-          assigned.events.flatMap(_.createdEvent).collect {
-            case createdEvent if createdEvent.acsDelta =>
-              Event(Event.Event.Created(createdEvent))
-          }
-
-      }.flatten
+      updatesEvents(TRANSACTION_SHAPE_LEDGER_EFFECTS, parties).filter(_.event match {
+        case Event.Event.Created(created) => created.acsDelta
+        case Event.Event.Exercised(ex) => ex.acsDelta
+        case _ => false
+      })
 
     def createIou(payer: PartyId, owner: PartyId): (OffsetCid, Iou.Contract) = {
       val (contract, transaction, _) = IouSyntax.createIouComplete(participant)(payer, owner)
@@ -443,7 +430,7 @@ object DivulgenceIntegrationTest {
     private def updatesEvents(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
-    ): Seq[UpdateService.UpdateWrapper] =
+    ): Seq[Event] =
       participant.ledger_api.updates
         .updates(
           updateFormat = UpdateFormat(
@@ -459,47 +446,30 @@ object DivulgenceIntegrationTest {
                 transactionShape = transactionShape,
               )
             ),
-            includeReassignments = Some(
-              EventFormat(
-                filtersByParty = parties.map(party => party.toLf -> Filters(Nil)).toMap,
-                filtersForAnyParty = if (parties.isEmpty) Some(Filters(Nil)) else None,
-                verbose = false,
-              )
-            ),
+            includeReassignments = None,
             includeTopologyEvents = None,
           ),
           completeAfter = PositiveInt.tryCreate(1000000),
           endOffsetInclusive = Some(participant.ledger_api.state.end()),
         )
+        .collect { case TransactionWrapper(tx) =>
+          tx.events
+        }
+        .flatten
 
     private def updates(
         transactionShape: TransactionShape,
         parties: Seq[PartyId],
     ): Seq[(OffsetCid, EventType)] =
-      updatesEvents(transactionShape = transactionShape, parties = parties).collect {
-        case TransactionWrapper(tx) =>
-          tx.events
-            .map(_.event)
-            .collect {
-              case Event.Event.Created(event) =>
-                OffsetCid(event.offset, event.contractId) -> Created
-              case Event.Event.Archived(event) =>
-                OffsetCid(event.offset, event.contractId) -> Consumed
-              case Event.Event.Exercised(event) if event.consuming =>
-                OffsetCid(event.offset, event.contractId) -> Consumed
-              case Event.Event.Exercised(event) if !event.consuming =>
-                OffsetCid(event.offset, event.contractId) -> NonConsumed
-            }
-
-        case assigned: UpdateService.AssignedWrapper =>
-          assigned.events.map { event =>
-            OffsetCid(assigned.reassignment.offset, event.createdEvent.value.contractId) -> Created
-          }
-
-        case unassigned: UpdateService.UnassignedWrapper =>
-          unassigned.events.map { event =>
-            OffsetCid(unassigned.reassignment.offset, event.contractId) -> Consumed
-          }
-      }.flatten
+      updatesEvents(transactionShape = transactionShape, parties = parties)
+        .map(_.event)
+        .collect {
+          case Event.Event.Created(event) => OffsetCid(event.offset, event.contractId) -> Created
+          case Event.Event.Archived(event) => OffsetCid(event.offset, event.contractId) -> Consumed
+          case Event.Event.Exercised(event) if event.consuming =>
+            OffsetCid(event.offset, event.contractId) -> Consumed
+          case Event.Event.Exercised(event) if !event.consuming =>
+            OffsetCid(event.offset, event.contractId) -> NonConsumed
+        }
   }
 }

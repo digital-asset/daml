@@ -110,6 +110,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
     val updates = participant2.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       synchronizerFilter = Some(daId),
@@ -157,6 +158,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
     val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       resultFilter = _.isUnassignment,

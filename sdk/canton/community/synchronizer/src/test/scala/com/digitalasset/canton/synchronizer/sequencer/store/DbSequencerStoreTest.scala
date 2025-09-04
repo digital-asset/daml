@@ -20,8 +20,6 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
   ): FutureUnlessShutdown[Unit] =
     DbSequencerStoreTest.cleanSequencerTables(storage)
 
-  // TODO(#27366): Add check the metrics for the events buffer hit/miss
-
   "DbSequencerStore" should {
     behave like sequencerStore(() =>
       new DbSequencerStore(

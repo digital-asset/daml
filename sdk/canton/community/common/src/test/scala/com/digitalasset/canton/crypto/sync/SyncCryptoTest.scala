@@ -68,6 +68,7 @@ trait SyncCryptoTest
       requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
       requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
       requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
+      enableTransparencyChecks = false,
       protocolVersion = testedProtocolVersion,
       serial = NonNegativeInt.zero,
     )

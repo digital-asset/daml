@@ -1022,71 +1022,41 @@ class BftOrderingMetrics private[metrics] (
       0,
     )
 
-    def update(newMembership: Membership)(implicit metricsContext: MetricsContext): Unit =
+    def update(newMembership: Membership)(implicit metricsContext: MetricsContext): Unit = {
+      val orderingTopology = newMembership.orderingTopology
+      val members = orderingTopology.nodes
+      val sortedMembersWithIndex = members.toSeq.sorted.zipWithIndex
+      val sortedLeadersWithIndex = newMembership.leaders.toSeq.sorted.zipWithIndex
+
+      maxToleratedFaultsGauge.updateValue(orderingTopology.maxToleratedFaults)
+      weakQuorumGauge.updateValue(orderingTopology.weakQuorum)
+      strongQuorumGauge.updateValue(orderingTopology.strongQuorum)
+
       blocking {
         synchronized {
-          val orderingTopology = newMembership.orderingTopology
-          maxToleratedFaultsGauge.updateValue(orderingTopology.maxToleratedFaults)
-          weakQuorumGauge.updateValue(orderingTopology.weakQuorum)
-          strongQuorumGauge.updateValue(orderingTopology.strongQuorum)
-          val members = orderingTopology.nodes
-          cleanupNodeGauges(topologyGauges, members)
-          cleanupNodeGauges(leadersGauges, members)
-          val sortedMembersWithIndex = members.toSeq.sorted.zipWithIndex
-          updateNodeMetrics(
+          cleanupGauges(topologyGauges, members)
+          cleanupGauges(leadersGauges, members)
+          updateMetrics(
             sortedMembersWithIndex,
             topologyGauges,
+            labels.sequencerId,
+            prefix,
             "topology-member",
             "Topology members",
             "Topology members sorted by node ID with their index",
           )
-          val sortedLeadersWithIndex = newMembership.leaders.toSeq.sorted.zipWithIndex
-          updateNodeMetrics(
+          updateMetrics(
             sortedLeadersWithIndex,
             leadersGauges,
+            labels.sequencerId,
+            prefix,
             "topology-leader",
             "Topology leaders",
             "Topology leaders sorted by node ID with their index",
           )
         }
       }
-
-    private def updateNodeMetrics(
-        sortedMembersWithIndex: Seq[(BftNodeId, Int)],
-        gauges: mutable.Map[BftNodeId, Gauge[Int]],
-        metricName: String,
-        metricSummary: String,
-        metricDescription: String,
-    )(implicit metricsContext: MetricsContext): Unit =
-      sortedMembersWithIndex.foreach { case (nodeId, index) =>
-        val mc1 = metricsContext.withExtraLabels(labels.sequencerId -> nodeId)
-        locally {
-          implicit val metricsContext: MetricsContext = mc1
-          gauges
-            .getOrElseUpdate(
-              nodeId,
-              openTelemetryMetricsFactory.gauge(
-                MetricInfo(
-                  prefix :+ metricName,
-                  metricSummary,
-                  MetricQualification.Traffic,
-                  metricDescription,
-                ),
-                index + 1,
-              ),
-            )
-            .updateValue(index + 1)
-        }
-      }
-
-    private def cleanupNodeGauges(
-        nodeGauges: mutable.Map[BftNodeId, Gauge[Int]],
-        keepOnlyNodes: Set[BftNodeId],
-    ): Unit =
-      nodeGauges.view.filterKeys(!keepOnlyNodes.contains(_)).foreach { case (id, gauge) =>
-        gauge.close()
-        nodeGauges.remove(id).discard
-      }
+    }
   }
   val topology = new TopologyMetrics
 
@@ -1146,123 +1116,94 @@ class BftOrderingMetrics private[metrics] (
     private val unauthenticatedGauges = mutable.Map[String, Gauge[Int]]()
     private val disconnectedGauges = mutable.Map[String, Gauge[Int]]()
 
-    def update(status: PeerNetworkStatus)(implicit metricsContext: MetricsContext): Unit =
+    def update(status: PeerNetworkStatus)(implicit metricsContext: MetricsContext): Unit = {
+      val statusView = status.endpointStatuses.view
+      val authenticated =
+        statusView
+          .flatMap {
+            case PeerConnectionStatus.PeerIncomingConnection(sequencerId) =>
+              Some(sequencerId.toProtoPrimitive)
+            case PeerConnectionStatus.PeerEndpointStatus(
+                  p2pEndpointId,
+                  isOutgoingConnection,
+                  PeerEndpointHealth(
+                    PeerEndpointHealthStatus.Authenticated(sequencerId),
+                    _description,
+                  ),
+                ) =>
+              Some(
+                s"${p2pEndpointId.url} (${sequencerId.toProtoPrimitive}, outgoing = $isOutgoingConnection)"
+              )
+            case _ => None
+          }
+      val unauthenticated =
+        statusView
+          .flatMap {
+            case PeerConnectionStatus.PeerEndpointStatus(
+                  p2pEndpointId,
+                  _isOutgoingConnection,
+                  PeerEndpointHealth(
+                    PeerEndpointHealthStatus.Unauthenticated,
+                    _description,
+                  ),
+                ) =>
+              Some(p2pEndpointId.url)
+            case _ => None
+          }
+      val disconnected =
+        statusView
+          .flatMap {
+            case PeerConnectionStatus.PeerEndpointStatus(
+                  p2pEndpointId,
+                  _isOutgoingConnection,
+                  PeerEndpointHealth(
+                    PeerEndpointHealthStatus.Disconnected,
+                    _description,
+                  ),
+                ) =>
+              Some(p2pEndpointId.url)
+            case _ => None
+          }
+      val authenticatedSortedWithIndex = authenticated.toSeq.sorted.zipWithIndex
+      val connectedSortedWithIndex = unauthenticated.toSeq.sorted.zipWithIndex
+      val disconnectedSortedWithIndex = disconnected.toSeq.sorted.zipWithIndex
+
       blocking {
         synchronized {
-          val statusView = status.endpointStatuses.view
-          val authenticated =
-            statusView
-              .flatMap {
-                case PeerConnectionStatus.PeerIncomingConnection(sequencerId) =>
-                  Some(sequencerId.toProtoPrimitive)
-                case PeerConnectionStatus.PeerEndpointStatus(
-                      p2pEndpointId,
-                      isOutgoingConnection,
-                      PeerEndpointHealth(
-                        PeerEndpointHealthStatus.Authenticated(sequencerId),
-                        _description,
-                      ),
-                    ) =>
-                  Some(
-                    s"${p2pEndpointId.url} (${sequencerId.toProtoPrimitive}, outgoing = $isOutgoingConnection)"
-                  )
-                case _ => None
-              }
-          val unauthenticated =
-            statusView
-              .flatMap {
-                case PeerConnectionStatus.PeerEndpointStatus(
-                      p2pEndpointId,
-                      _isOutgoingConnection,
-                      PeerEndpointHealth(
-                        PeerEndpointHealthStatus.Unauthenticated,
-                        _description,
-                      ),
-                    ) =>
-                  Some(p2pEndpointId.url)
-                case _ => None
-              }
-          val disconnected =
-            statusView
-              .flatMap {
-                case PeerConnectionStatus.PeerEndpointStatus(
-                      p2pEndpointId,
-                      _isOutgoingConnection,
-                      PeerEndpointHealth(
-                        PeerEndpointHealthStatus.Disconnected,
-                        _description,
-                      ),
-                    ) =>
-                  Some(p2pEndpointId.url)
-                case _ => None
-              }
-          cleanupEndpointGauges(authenticatedGauges, authenticated.toSet)
-          cleanupEndpointGauges(unauthenticatedGauges, unauthenticated.toSet)
-          cleanupEndpointGauges(disconnectedGauges, disconnected.toSet)
+          cleanupGauges(authenticatedGauges, authenticated.toSet)
+          cleanupGauges(unauthenticatedGauges, unauthenticated.toSet)
+          cleanupGauges(disconnectedGauges, disconnected.toSet)
 
-          val authenticatedSortedWithIndex = authenticated.toSeq.sorted.zipWithIndex
-          updateEndpointMetrics(
+          updateMetrics(
             authenticatedSortedWithIndex,
             authenticatedGauges,
+            labels.endpoint,
+            p2pPrefix,
             "authenticated-endpoint",
             "Authenticated P2P endpoints",
             "P2P endpoints that are authenticated.",
           )
-          val connectedSortedWithIndex = unauthenticated.toSeq.sorted.zipWithIndex
-          updateEndpointMetrics(
+          updateMetrics(
             connectedSortedWithIndex,
             unauthenticatedGauges,
+            labels.endpoint,
+            p2pPrefix,
             "unauthenticated-endpoint",
             "Connected but unauthenticated P2P endpoints",
             "P2P endpoints that are connected but not yet authenticated.",
           )
-          val disconnectedSortedWithIndex = disconnected.toSeq.sorted.zipWithIndex
-          updateEndpointMetrics(
+          updateMetrics(
             disconnectedSortedWithIndex,
             disconnectedGauges,
+            labels.endpoint,
+            p2pPrefix,
             "disconnected-endpoint",
             "Disconnected P2P endpoints",
             "P2P endpoints that are disconnected.",
           )
         }
       }
-
-    private def updateEndpointMetrics(
-        sortedEndpointsWithIndex: Seq[(String, Int)],
-        endpointGauges: mutable.Map[String, Gauge[Int]],
-        metricName: String,
-        metricSummary: String,
-        metricDescription: String,
-    )(implicit metricsContext: MetricsContext): Unit =
-      sortedEndpointsWithIndex.foreach { case (endpointId, index) =>
-        val mc1 = metricsContext.withExtraLabels(labels.endpoint -> endpointId)
-        locally {
-          implicit val metricsContext: MetricsContext = mc1
-          endpointGauges
-            .getOrElseUpdate(
-              endpointId,
-              openTelemetryMetricsFactory.gauge(
-                MetricInfo(
-                  p2pPrefix :+ metricName,
-                  metricSummary,
-                  MetricQualification.Traffic,
-                  metricDescription,
-                ),
-                index + 1,
-              ),
-            )
-            .updateValue(index + 1)
-        }
-      }
-
-    private def cleanupEndpointGauges(
-        endpointGauges: mutable.Map[String, Gauge[Int]],
-        keepOnlyEndpoints: Set[String],
-    ): Unit =
-      endpointGauges.view.filterKeys(!keepOnlyEndpoints.contains(_)).foreach { case (id, gauge) =>
-        gauge.close()
-        endpointGauges.remove(id).discard
-      }
+    }
 
     // Private constructor to avoid being instantiated multiple times by accident
     final class ConnectionsMetrics private[P2PMetrics] {
@@ -1392,6 +1333,45 @@ class BftOrderingMetrics private[metrics] (
     val receive = new ReceiveMetrics
   }
   val p2p = new P2PMetrics
+
+  private def cleanupGauges[T <: String](
+      nodeGauges: mutable.Map[T, Gauge[Int]],
+      keepOnlyNodes: Set[T],
+  ): Unit =
+    nodeGauges.view.filterKeys(!keepOnlyNodes.contains(_)).foreach { case (id, gauge) =>
+      gauge.close()
+      nodeGauges.remove(id).discard
+    }
+
+  private def updateMetrics[N <: String](
+      sortedMembersWithIndex: Seq[(N, Int)],
+      gauges: mutable.Map[N, Gauge[Int]],
+      label: String,
+      prefix: MetricName,
+      metricName: String,
+      metricSummary: String,
+      metricDescription: String,
+  )(implicit metricsContext: MetricsContext): Unit =
+    sortedMembersWithIndex.foreach { case (txt, index) =>
+      val mc1 = metricsContext.withExtraLabels(label -> txt)
+      locally {
+        implicit val metricsContext: MetricsContext = mc1
+        gauges
+          .getOrElseUpdate(
+            txt,
+            openTelemetryMetricsFactory.gauge(
+              MetricInfo(
+                prefix :+ metricName,
+                metricSummary,
+                MetricQualification.Traffic,
+                metricDescription,
+              ),
+              index + 1,
+            ),
+          )
+          .updateValue(index + 1)
+      }
+    }
 }
 
 object BftOrderingMetrics {

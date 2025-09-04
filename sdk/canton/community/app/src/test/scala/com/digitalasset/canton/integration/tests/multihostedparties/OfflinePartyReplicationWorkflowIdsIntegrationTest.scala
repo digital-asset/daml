@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.daml.ledger.api.v2.reassignment.ReassignmentEvent
 import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.HasTempDirectory
 import com.digitalasset.canton.config.DbConfig
@@ -100,38 +99,32 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
         ),
       )
 
-      // Check that the reassignment events generated for the migration are actually grouped as
-      // expected and that their workflow IDs can be used to correlate those events
-      val reassignments =
-        participant2.ledger_api.updates.reassignments(Set(alice), completeAfter = 4)
-
+      // Check that the transactions generated for the migration are actually grouped as
+      // expected and that their workflow IDs can be used to correlate those transactions
+      val txs = participant2.ledger_api.javaapi.updates.transactions(Set(alice), completeAfter = 4)
       withClue("Transactions should be grouped by ledger time") {
-        val createTimes = reassignments.flatMap(_.reassignment.events.collect {
-          case ReassignmentEvent(assigned: ReassignmentEvent.Event.Assigned) =>
-            assigned.assigned.value.createdEvent.value.createdAt.value
-        })
-
-        createTimes.distinct should have size 4
+        txs.map(_.getTransaction.get().getEffectiveAt.toEpochMilli).distinct should have size 4
       }
-      withClue("ACS import events should share the same workflow ID prefix") {
-        val workflowIdPrefixes = reassignments.map(_.reassignment.workflowId.dropRight(4))
+      withClue("Transaction should share the same workflow ID prefix") {
+        txs.map(_.getTransaction.get().getWorkflowId.dropRight(4)).distinct should have size 1
+      }
+      inside(txs) { case Seq(tx1, tx2, tx3, tx4) =>
+        import scala.jdk.CollectionConverters.ListHasAsScala
 
-        workflowIdPrefixes.distinct should have size 1
+        tx1.getTransaction.get().getEvents.asScala should have size 3
+        tx1.getTransaction.get().getWorkflowId should endWith("-1-4")
+
+        tx2.getTransaction.get().getEvents.asScala should have size 4
+        tx2.getTransaction.get().getWorkflowId should endWith("-2-4")
+
+        tx3.getTransaction.get().getEvents.asScala should have size 1
+        tx3.getTransaction.get().getWorkflowId should endWith("-3-4")
+
+        tx4.getTransaction.get().getEvents.asScala should have size 2
+        tx4.getTransaction.get().getWorkflowId should endWith("-4-4")
+
       }
 
-      inside(reassignments) { case Seq(r1, r2, r3, r4) =>
-        r1.reassignment.events should have size 3
-        r1.reassignment.workflowId should endWith("-1-4")
-
-        r2.reassignment.events should have size 4
-        r2.reassignment.workflowId should endWith("-2-4")
-
-        r3.reassignment.events should have size 1
-        r3.reassignment.workflowId should endWith("-3-4")
-
-        r4.reassignment.events should have size 2
-        r4.reassignment.workflowId should endWith("-4-4")
-      }
   }
 
   "The workflow ID prefix must be configurable" in { implicit env =>
@@ -184,11 +177,12 @@ sealed trait OfflinePartyReplicationWorkflowIdsIntegrationTest
     )
 
     // Check that the workflow ID prefix is set as specified
-    val txs = participant3.ledger_api.updates.reassignments(Set(bob), completeAfter = 2)
-    inside(txs) { case Seq(r1, r2) =>
-      r1.reassignment.workflowId shouldBe s"$workflowIdPrefix-1-2"
-      r2.reassignment.workflowId shouldBe s"$workflowIdPrefix-2-2"
+    val txs = participant3.ledger_api.javaapi.updates.transactions(Set(bob), completeAfter = 2)
+    inside(txs) { case Seq(tx1, tx2) =>
+      tx1.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-1-2"
+      tx2.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-2-2"
     }
+
   }
 
   private def replicate(

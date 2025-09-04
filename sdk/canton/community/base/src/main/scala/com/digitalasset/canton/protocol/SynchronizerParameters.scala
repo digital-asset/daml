@@ -68,6 +68,7 @@ final case class StaticSynchronizerParameters(
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
+    enableTransparencyChecks: Boolean,
     protocolVersion: ProtocolVersion,
     serial: NonNegativeInt,
 ) extends HasProtocolVersionedWrapper[StaticSynchronizerParameters]
@@ -88,6 +89,7 @@ final case class StaticSynchronizerParameters(
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
       requiredCryptoKeyFormats = requiredCryptoKeyFormats.toSeq.map(_.toProtoEnum),
       requiredSignatureFormats = requiredSignatureFormats.toSeq.map(_.toProtoEnum),
+      enableTransparencyChecks = enableTransparencyChecks,
       protocolVersion = protocolVersion.toProtoPrimitive,
       serial = serial.value,
     )
@@ -98,6 +100,7 @@ final case class StaticSynchronizerParameters(
     param("required symmetric key schemes", _.requiredSymmetricKeySchemes),
     param("required hash algorithms", _.requiredHashAlgorithms),
     param("required crypto key formats", _.requiredCryptoKeyFormats),
+    param("enable transparency checks", _.enableTransparencyChecks),
     param("protocol version", _.protocolVersion),
     param("serial", _.serial),
   )
@@ -139,6 +142,7 @@ object StaticSynchronizerParameters
       requiredSignatureFormatsP,
       protocolVersionP,
       serialP,
+      enableTransparencyChecks,
     ) = synchronizerParametersP
 
     for {
@@ -183,6 +187,7 @@ object StaticSynchronizerParameters
       requiredHashAlgorithms,
       requiredCryptoKeyFormats,
       requiredSignatureFormats,
+      enableTransparencyChecks,
       protocolVersion,
       serial,
     )
