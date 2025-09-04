@@ -155,7 +155,7 @@ main = do
                   when optsUploadToGoogleArtifactRegistry $ do
                     $logInfo "Uploading to Google Artifact Registry"
                     garConfig <- liftIO googleArtifactRegistryConfigFromEnv
-                    uploadToGoogleArtifactRegistry garConfig releaseDir mvnUploadArtifacts
+                    tryUploadToGoogleArtifactRegistry garConfig releaseDir mvnUploadArtifacts
                   $logInfo "Uploading to Maven Central"
                   mavenUploadConfig <- liftIO mavenConfigFromEnv
                   uploadToMavenCentral mavenUploadConfig releaseDir mvnUploadArtifacts

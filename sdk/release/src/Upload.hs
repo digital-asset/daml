@@ -7,6 +7,7 @@
 
 module Upload (
     uploadToMavenCentral,
+    tryUploadToGoogleArtifactRegistry,
     uploadToGoogleArtifactRegistry,
 ) where
 
@@ -42,8 +43,8 @@ import           Network.HTTP.Types.Status
 import           Path
 import           System.IO.Temp
 import Text.Printf
-
 import Types
+import qualified UnliftIO.Exception as Unlift
 import Util
 
 
@@ -108,6 +109,13 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
     _ <- recovering checkStatusRetryPolicy [ httpResponseHandler, checkRepoStatusHandler ] (\_ -> handleStatusRequest statusRequest manager)
 
     return ()
+
+tryUploadToGoogleArtifactRegistry :: (MonadCI m) => GoogleArtifactRegistryConfig -> Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+tryUploadToGoogleArtifactRegistry config releaseDir artifacts =
+    Unlift.catch
+      (uploadToGoogleArtifactRegistry config releaseDir artifacts)
+      (\(e :: HttpException) -> $logError $ "Failed uploading to Google Artifact Registry: " <> T.pack (show e))
+
 
 uploadToGoogleArtifactRegistry :: (MonadCI m) => GoogleArtifactRegistryConfig -> Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
 uploadToGoogleArtifactRegistry GoogleArtifactRegistryConfig{..} releaseDir artifacts = do
