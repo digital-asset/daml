@@ -39,6 +39,8 @@ def extract_failed_tests(report_filename: str):
             if "testResult" in entry and entry["testResult"]["status"] == "FAILED":
                 yield entry["id"]["testResult"]["label"]
 
+def print_failed_test(branck: str, test_name: str):
+    print(f"Flaky test detected: {test_name}")
 
 def report_failed_test(branch: str, test_name: str):
     """
@@ -162,7 +164,8 @@ if __name__ == "__main__":
     print(f"Reporting {len(failing_tests)} failing tests as github issues.")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
-        report_failed_test(branch, test_name)
+        #report_failed_test(branch, test_name)
+        print_failed_test(branch, test_name)
     if failing_tests:
         print('Increasing logs retention to 2 years')
         az_set_logs_ttl(access_token, 365 * 2)
