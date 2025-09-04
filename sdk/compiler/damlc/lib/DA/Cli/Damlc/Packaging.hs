@@ -91,9 +91,9 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 --   and then remap references to those dummy packages to the original Daml-LF
 --   package id.
 createProjectPackageDb :: SdkVersioned => NormalizedFilePath -> Options -> MS.Map UnitId GHC.ModuleName -> IO ()
-createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
+createProjectPackageDb packageRoot (disableScriptService -> opts) modulePrefixes
   = do
-    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization projectRoot depsDir modulePrefixes
+    (needsReinitalization, depsFingerprint) <- dbNeedsReinitialization packageRoot depsDir modulePrefixes
     loggerH <- getLogger opts "package-db"
     when needsReinitalization $ do
       Logger.logDebug loggerH "package db is not up2date, reinitializing"
@@ -104,7 +104,7 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
         fromMaybeM (fail "Failed to generate package info") $
           withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> runActionSync ide $ runMaybeT $
             (,) <$> useNoFileE GenerateStablePackages
-                <*> (fst <$> useE GeneratePackageMap projectRoot)
+                <*> (fst <$> useE GeneratePackageMap packageRoot)
 
       let builtinDependenciesIds =
               Set.fromList $ map LF.dalfPackageId $ MS.elems builtinDependencies
@@ -200,7 +200,7 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
 
               liftIO $ installDataDep InstallDataDepArgs
                 { opts
-                , projectRoot
+                , packageRoot
                 , dbPath
                 , pkgs
                 , stablePkgs
@@ -214,11 +214,11 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
               insert unitId dalfPackage
 
       writeMetadata
-          projectRoot
+          packageRoot
           (PackageDbMetadata mainUnitIds validatedModulePrefixes depsFingerprint)
   where
     dbPath = projectPackageDatabase </> lfVersionString (optDamlLfVersion opts)
-    depsDir = dependenciesDir opts projectRoot
+    depsDir = dependenciesDir opts packageRoot
     clearPackageDb = do
         -- Since we reinitialize the whole package db during `daml init` anyway,
         -- we clear the package db before to avoid
@@ -231,12 +231,12 @@ createProjectPackageDb projectRoot (disableScriptService -> opts) modulePrefixes
 -- the package db to decide whether to run reinitialization or not.
 dbNeedsReinitialization ::
        NormalizedFilePath -> FilePath -> MS.Map UnitId GHC.ModuleName -> IO (Bool, Fingerprint)
-dbNeedsReinitialization projectRoot depsDir modulePrefixes = do
+dbNeedsReinitialization packageRoot depsDir modulePrefixes = do
     allDeps <- listFilesRecursive depsDir
     fileFingerprints <- mapM getFileHash allDeps
     let depsFingerprint = fingerprintFingerprints fileFingerprints
     -- Read the metadata of an already existing package database and see if wee need to reinitialize.
-    errOrmetaData <- tryAny $ readMetadata projectRoot
+    errOrmetaData <- tryAny $ readMetadata packageRoot
     pure $
         case errOrmetaData of
             Left _err -> (True, depsFingerprint)
@@ -257,7 +257,7 @@ toGhcModuleName = GHC.mkModuleName . T.unpack . LF.moduleNameString
 
 data InstallDataDepArgs = InstallDataDepArgs
   { opts :: Options
-  , projectRoot :: NormalizedFilePath
+  , packageRoot :: NormalizedFilePath
   , dbPath :: FilePath
   , pkgs :: [DecodedDalf]
     -- ^ All the packages in the dependency graph of the package being built.
@@ -275,7 +275,7 @@ data InstallDataDepArgs = InstallDataDepArgs
 
 installDataDep :: SdkVersioned => InstallDataDepArgs -> IO ()
 installDataDep InstallDataDepArgs {..} = do
-  exposedModules <- getExposedModules opts projectRoot
+  exposedModules <- getExposedModules opts packageRoot
 
   let unitIdStr = unitIdString unitId
   let pkgIdStr = T.unpack $ LF.unPackageId pkgId
@@ -912,7 +912,7 @@ checkForUnitIdConflicts dalfs builtinDependencies
         ]
 
 getExposedModules :: SdkVersioned => Options -> NormalizedFilePath -> IO (MS.Map UnitId (UniqSet GHC.ModuleName))
-getExposedModules opts projectRoot = do
+getExposedModules opts packageRoot = do
     logger <- getLogger opts "list exposed modules"
     -- We need to avoid inference of package flags. Otherwise, we will
     -- try to load package flags for data-dependencies that we have not generated
@@ -926,7 +926,7 @@ getExposedModules opts projectRoot = do
     hscEnv <-
         (maybe (exitWithError "Failed to list exposed modules") (pure . hscEnv) =<<) $
         withDamlIdeState opts logger diagnosticsLogger $ \ide ->
-        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession projectRoot
+        runActionSync ide $ runMaybeT $ fst <$> useE GhcSession packageRoot
     pure $! exposedModulesFromDynFlags $ hsc_dflags hscEnv
   where
     exposedModulesFromDynFlags :: DynFlags -> MS.Map UnitId (UniqSet GHC.ModuleName)

@@ -107,12 +107,12 @@ tests damlc daml2js = testGroup "daml2js tests"
         mapM_ (assertTsFileExists groverTs) [ "index", "Grover" </> "index", "Grover" </> "module" ]
 
   , testCaseSteps "IndexTree test" $ \step -> withTempDir $ \here -> do
-      let projectRoot = here </> "project"
+      let packageRoot = here </> "project"
           daml2jsDir = here </> "daml2js"
           projectTs =  daml2jsDir </> "project-1.0"
-          projectDar = projectRoot </> ".daml" </> "dist" </> "project-1.0.dar"
-      createDirectoryIfMissing True projectRoot
-      withCurrentDirectory projectRoot $ do
+          projectDar = packageRoot </> ".daml" </> "dist" </> "project-1.0.dar"
+      createDirectoryIfMissing True packageRoot
+      withCurrentDirectory packageRoot $ do
         createDirectoryIfMissing True ("daml" </> "A" </> "B")
         writeFileUTF8 ("daml" </> "A.daml") "module A where data X = X"
         writeFileUTF8 ("daml" </> "A" </> "B" </> "C.daml") "module A.B.C where data Y = Y"

@@ -215,18 +215,18 @@ stringsSepBy sep = eitherReader sepBy'
           where
             items = map trim $ splitOn [sep] input
 
-data ProjectOpts = ProjectOpts
-    { projectRoot :: Maybe ProjectPath
-    -- ^ An explicit project path specified by the user.
-    , projectCheck :: ProjectCheck
-    -- ^ Throw an error if this is not run in a project.
+data PackageLocationOpts = PackageLocationOpts
+    { packageRoot :: Maybe ProjectPath
+    -- ^ An explicit package path specified by the user.
+    , packageLocationCheck :: ProjectCheck
+    -- ^ Throw an error if this is not run in a package.
     }
 
-packageLocationOpts :: String -> Parser ProjectOpts
-packageLocationOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
+packageLocationOpts :: String -> Parser PackageLocationOpts
+packageLocationOpts name = PackageLocationOpts <$> packageRootOpt <*> packageLocationCheckOpt name
     where
-        projectRootOpt :: Parser (Maybe ProjectPath)
-        projectRootOpt =
+        packageRootOpt :: Parser (Maybe ProjectPath)
+        packageRootOpt =
             optional $
             fmap ProjectPath $
             strOptionOnce $
@@ -237,7 +237,7 @@ packageLocationOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt na
                      , "You should prefer the DAML_PROJECT environment variable over this option."
                      , "See https://docs.daml.com/tools/assistant.html#running-commands-outside-of-the-project-directory for more details."
                      ])
-        projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
+        packageLocationCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in Daml project."
             <> long "project-check"
 

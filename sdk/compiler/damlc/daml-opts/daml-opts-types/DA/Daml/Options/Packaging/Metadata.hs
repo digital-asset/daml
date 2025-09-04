@@ -69,15 +69,15 @@ instance FromJSON PackageDbMetadata
 
 -- | Given the path to the project root, write out the package db metadata.
 writeMetadata :: NormalizedFilePath -> PackageDbMetadata -> IO ()
-writeMetadata projectRoot metadata = do
-    encodeFile (metadataFile projectRoot) metadata
+writeMetadata packageRoot metadata = do
+    encodeFile (metadataFile packageRoot) metadata
 
 -- | Given the path to the project root, read the package db metadata.
 -- Throws an exception if the file does not exist or
 -- the format cannot be parsed.
 readMetadata :: NormalizedFilePath -> IO PackageDbMetadata
-readMetadata projectRoot = do
-    errOrRes <- eitherDecodeFileStrict' (metadataFile projectRoot)
+readMetadata packageRoot = do
+    errOrRes <- eitherDecodeFileStrict' (metadataFile packageRoot)
     case errOrRes of
         Right metadata -> pure metadata
         Left err -> fail ("Could not decode package metadata: " <> err)
@@ -85,7 +85,7 @@ readMetadata projectRoot = do
 -- | Given the path to the project root return the path
 -- where the metadata is stored.
 metadataFile :: NormalizedFilePath -> FilePath
-metadataFile projectRoot =
-    fromNormalizedFilePath projectRoot </>
+metadataFile packageRoot =
+    fromNormalizedFilePath packageRoot </>
     projectPackageDatabase </>
     "metadata.json"

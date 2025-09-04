@@ -663,14 +663,14 @@ damlGhcSessionRule opts@Options{..} = do
     defineEarlyCutoff $ \(DamlGhcSession mbProjectRoot) _file -> assert (null $ fromNormalizedFilePath _file) $ do
         let base = mkBaseUnits (optUnitId opts)
         extraPkgFlags <- liftIO $ case mbProjectRoot of
-            Just projectRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
+            Just packageRoot | not (getIgnorePackageMetadata optIgnorePackageMetadata) ->
                 -- We catch doesNotExistError which could happen if the
                 -- package db has never been initialized. In that case, we
                 -- return no extra package flags.
                 handleJust
                     (guard . isDoesNotExistError)
                     (const $ pure []) $ do
-                    PackageDbMetadata{..} <- readMetadata projectRoot
+                    PackageDbMetadata{..} <- readMetadata packageRoot
                     let mainPkgs = map mkPackageFlag directDependencies
                     let renamings =
                             map (\(unitId, (prefix, modules)) -> renamingToFlag unitId prefix modules)
