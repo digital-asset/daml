@@ -33,7 +33,7 @@ The steps to create a release are:
    of the release branch), the version number you want to attribute to the
    build, and the words `SPLIT_RELEASE` (for historical reason dating to
    pre-2.0 days). For a snapshot release, one can generate a snapshot version
-   string using the `release.sh` script. For example, to create a PR for a
+  string using the `release.sh` script. For example, to create a PR for a
    2.0.0 snapshot release:
 
    ```
@@ -76,15 +76,22 @@ using the steps in the previous section.
 
 For the weekly snapshot of the main branch, before merging the
 assembly PR, verify that the SDK snapshot used in the release is not
-older than one week. If it is outdated, open a #team-daml thread
-tagging @martino, @Raf, @soren, and @Tom Tantillo, stating that the
-release will be skipped this week unless instructed otherwise. Then,
-close the two automatically generated PRs (one in the assembly repo
-and the rotate release duty PR in the SDK repo) and halt the testing
-process.
+older than one week. If it is outdated, post the following message in
+the #team-daml Slack thread created one by the assembly repo process:
 
-This testing procedure starts once the release is listed on the [releases
-page]. That is, _after_ the [assembly] step has finished.
+```
+At least one component of the automatically generated release is more
+than one week old. Unless instructed otherwise, we will skip the
+release this week. cc @martino, @Raf, @soren, @Tom Tantillo, @Rémy
+```
+
+Then, close the two automatically generated PRs (one in the assembly
+repo and the rotate release duty PR in the SDK repo) and halt the
+release testing process.
+
+The following of the testing procedure starts once the release is
+listed on the [releases page]. That is, _after_ the [assembly] step
+has finished.
 
 In the following notes, we assume that `$VERSION` contains the full version tag
 for the release you are testing - in other words, the full version as recorded
