@@ -74,6 +74,15 @@ using the steps in the previous section.
 
 ## Testing
 
+For the weekly snapshot of the main branch, before merging the
+assembly PR, verify that the SDK snapshot used in the release is not
+older than one week. If it is outdated, open a #team-daml thread
+tagging @martino, @Raf, @soren, and @Tom Tantillo, stating that the
+release will be skipped this week unless instructed otherwise. Then,
+close the two automatically generated PRs (one in the assembly repo
+and the rotate release duty PR in the SDK repo) and halt the testing
+process.
+
 This testing procedure starts once the release is listed on the [releases
 page]. That is, _after_ the [assembly] step has finished.
 
