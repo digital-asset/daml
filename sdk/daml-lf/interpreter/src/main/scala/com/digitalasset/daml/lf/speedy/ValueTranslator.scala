@@ -15,7 +15,7 @@ import scala.collection.immutable.ArraySeq
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireContractIdSuffix: Boolean,
+    forbidLocalContractIds: Boolean,
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
@@ -28,7 +28,7 @@ private[lf] final class ValueTranslator(
   }
 
   val validateCid: ContractId => Unit =
-    if (requireContractIdSuffix) {
+    if (forbidLocalContractIds) {
       case cid: ContractId.V1 =>
         if (cid.suffix.isEmpty)
           throw TranslationError.NonSuffixedV1ContractId(cid)

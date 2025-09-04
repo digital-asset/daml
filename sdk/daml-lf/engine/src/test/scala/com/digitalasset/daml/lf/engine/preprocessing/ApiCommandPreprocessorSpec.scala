@@ -123,7 +123,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     val defaultPreprocessor =
       new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = false,
+        forbidLocalContractIds = false,
       )
 
     "reject improperly typed ApiCommands" in {
@@ -274,7 +274,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = false,
+        forbidLocalContractIds = false,
       )
 
       val unsuffixedCidV1 = ContractId.V1
@@ -299,11 +299,11 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "reject non suffixed and relative Contract IDs when requireContractIdSuffix is true" in {
+    "reject non suffixed and relative Contract IDs when forbidLocalContractIds is true" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireContractIdSuffix = true,
+        forbidLocalContractIds = true,
       )
       val discriminator = crypto.Hash.hashPrivateKey("a discriminator")
       val aLegalCidV1 = ContractId.V1.assertBuild(discriminator, Bytes.assertFromString("00"))

@@ -32,10 +32,10 @@ import com.digitalasset.daml.lf.value.ContractIdVersion
   *     disabled if the option is empty.
   * @param snapshotDir The optional specifies the directory where Daml snapshots
   *      will be saved. Snapshots are disabled if the option is empty.
-  * @param requireSuffixedGlobalContractId Since August 2018 we expect new
+  * @param forbidLocalContractIds Since August 2018 we expect new
   *     ledgers to suffix CIDs before committing a transaction.
   *     This option should be disabled for backward compatibility in ledger
-  *     that do not (i.e. Sandboxes, KV, Corda).
+  *     that do not (i.e. Sandboxes).
   * @param checkAuthorization Whether to check authorization of transaction.
   *     A value of false is insecure and should be used for security testing only.
   * @param iterationsBetweenInterruptions bound the maximal number of interpreter
@@ -56,7 +56,7 @@ final case class EngineConfig(
     profileDir: Option[Path] = None,
     snapshotDir: Option[Path] = None,
     contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
-    requireSuffixedGlobalContractId: Boolean = false,
+    forbidLocalContractIds: Boolean = false,
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,

@@ -113,7 +113,7 @@ class Engine(val config: EngineConfig) {
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
-      requireContractIdSuffix = config.requireSuffixedGlobalContractId,
+      forbidLocalContractIds = config.forbidLocalContractIds,
     )
 
   def info = new EngineInfo(config)
@@ -347,7 +347,11 @@ class Engine(val config: EngineConfig) {
     * @param key - a representation of the key that may be un-normalized
     */
   def buildGlobalKey(templateId: Identifier, key: Value): Result[GlobalKey] = {
-    preprocessor.buildGlobalKey(templateId: Identifier, key: Value, allowRelativeContractIds = true)
+    preprocessor.buildGlobalKey(
+      templateId: Identifier,
+      key: Value,
+      extendLocalIdForbiddanceToRelativeV2 = false,
+    )
   }
 
   private[engine] def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] =
@@ -493,7 +497,7 @@ class Engine(val config: EngineConfig) {
     addTypeInfo = true,
     addFieldNames = true,
     addTrailingNoneFields = true,
-    requireContractIdSuffix = false,
+    forbidLocalContractIds = false,
   )
 
   private[engine] def interpretLoop(

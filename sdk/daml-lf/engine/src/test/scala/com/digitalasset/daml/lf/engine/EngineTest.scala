@@ -2589,7 +2589,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
 
@@ -2838,7 +2838,7 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
       new Engine(
         EngineConfig(
           allowedLanguageVersions = VersionRange(min, max),
-          requireSuffixedGlobalContractId = true,
+          forbidLocalContractIds = true,
         )
       )
 
@@ -3023,7 +3023,7 @@ class EngineTestHelpers(
     new Engine(
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
-        requireSuffixedGlobalContractId = requireCidSuffixes,
+        forbidLocalContractIds = requireCidSuffixes,
         createContractsWithContractIdVersion = contractIdVersion,
       )
     )

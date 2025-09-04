@@ -253,7 +253,7 @@ private[lf] object IdeLedgerRunner {
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,
-        requireContractIdSuffix = config.requireSuffixedGlobalContractId,
+        forbidLocalContractIds = config.forbidLocalContractIds,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
       valueTranslator.translateValue(typ, value) match {
@@ -269,7 +269,7 @@ private[lf] object IdeLedgerRunner {
       addTypeInfo = true,
       addFieldNames = true,
       addTrailingNoneFields = true,
-      requireContractIdSuffix = true,
+      forbidLocalContractIds = true,
     )
     val lenientEnricher = new LfEnricher(
       compiledPackages = compiledPackages,
@@ -277,7 +277,7 @@ private[lf] object IdeLedgerRunner {
       addTypeInfo = true,
       addFieldNames = true,
       addTrailingNoneFields = true,
-      requireContractIdSuffix = false,
+      forbidLocalContractIds = false,
     )
     def consume[V](res: Result[V]): V =
       res match {

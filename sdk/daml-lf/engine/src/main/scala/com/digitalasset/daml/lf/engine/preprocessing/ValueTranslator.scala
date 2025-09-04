@@ -17,7 +17,7 @@ import scala.collection.immutable.ArraySeq
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireContractIdSuffix: Boolean,
+    forbidLocalContractIds: Boolean,
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
@@ -47,7 +47,7 @@ private[lf] final class ValueTranslator(
   }
 
   private val validateCid: (ContractId, Boolean) => Unit =
-    if (requireContractIdSuffix) { (cid, allowRelative) =>
+    if (forbidLocalContractIds) { (cid, extendLocalIdForbiddanceToRelativeV2) =>
       cid match {
         case cid: ContractId.V1 =>
           if (cid.suffix.isEmpty)
@@ -58,7 +58,7 @@ private[lf] final class ValueTranslator(
           // Relative contract IDs are forbidden in API commands though.
           if (cid.suffix.isEmpty)
             throw Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(cid)
-          if (!allowRelative && cid.isRelative)
+          if (extendLocalIdForbiddanceToRelativeV2 && cid.isRelative)
             throw Error.Preprocessing.IllegalContractId.RelativeContractId(cid)
 
       }
@@ -67,9 +67,9 @@ private[lf] final class ValueTranslator(
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateCid(
       cid: ContractId,
-      allowRelative: Boolean,
+      extendLocalIdForbiddanceToRelativeV2: Boolean,
   ): SValue.SContractId = {
-    validateCid(cid, allowRelative)
+    validateCid(cid, extendLocalIdForbiddanceToRelativeV2)
     SValue.SContractId(cid)
   }
 
@@ -79,7 +79,7 @@ private[lf] final class ValueTranslator(
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
-      allowRelativeContractIds: Boolean,
+      extendLocalIdForbiddanceToRelativeV2: Boolean,
   ): SValue = {
     import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
@@ -132,7 +132,7 @@ private[lf] final class ValueTranslator(
               case Left(message) => typeError(message)
             }
           case (ContractIdF(_), ValueContractId(c)) =>
-            unsafeTranslateCid(c, allowRelativeContractIds)
+            unsafeTranslateCid(c, extendLocalIdForbiddanceToRelativeV2)
           case (OptionalF(a), ValueOptional(mbValue)) =>
             mbValue match {
               case Some(v) =>
@@ -288,7 +288,7 @@ private[lf] final class ValueTranslator(
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value, allowRelativeContractIds = true)
+      unsafeTranslateValue(ty, value, extendLocalIdForbiddanceToRelativeV2 = false)
     )
 
 }
