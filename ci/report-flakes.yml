@@ -7,7 +7,15 @@ parameters:
 steps:
   - bash: |
       set -euo pipefail
-      eval "$(cd sdk; dev-env/bin/dade-assist)"
+      set -euo pipefail
+      if [ -d sdk ]; then
+        cd sdk
+      fi
+      if [[ $(Agent.OS) = Windows* ]]; then
+        export PATH="$PATH:$(cygpath "$(powershell "./dev-env/windows/bin/dadew.ps1 enable >\$2; dadew where")/scoop/shims")"
+      else
+        eval "$(dev-env/bin/dade assist)"
+      cd ..
 
       report="sdk/test-events.json"
       if [ -f $report ]; then
