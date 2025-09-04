@@ -573,6 +573,7 @@ class SynchronizerSnapshotSyncCryptoApi(
   override def encryptFor[M <: HasToByteString, MemberType <: Member](
       message: M,
       members: Seq[MemberType],
+      deterministicEncryption: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
@@ -592,8 +593,8 @@ class SynchronizerSnapshotSyncCryptoApi(
         )
       )
       .flatMap(k =>
-        pureCrypto
-          .encryptWith(message, k)
+        (if (deterministicEncryption) pureCrypto.encryptDeterministicWith(message, k)
+         else pureCrypto.encryptWith(message, k))
           .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
       )
 

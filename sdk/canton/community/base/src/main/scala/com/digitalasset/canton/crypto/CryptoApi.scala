@@ -249,7 +249,6 @@ object SyncCryptoError {
   }
 }
 
-// architecture-handbook-entry-begin: SyncCryptoApi
 /** impure part of the crypto api with access to private key store and knowledge about the current
   * entity to key assoc
   */
@@ -322,12 +321,18 @@ trait SyncCryptoApi {
 
   /** Encrypts a message for the given members
     *
-    * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the
+    * Utility method to look up a key on an IPS snapshot and then encrypt the given message with the
     * most suitable key for the respective key owner.
+    *
+    * @param deterministicEncryption
+    *   when enabled, the same message with the same key always yields the same ciphertext. This
+    *   leaks equality of messages and enables frequency analysis, so it should only be used when
+    *   encrypting a one-time, short-lived session signing key.
     */
   def encryptFor[M <: HasToByteString, MemberType <: Member](
       message: M,
       members: Seq[MemberType],
+      deterministicEncryption: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, (MemberType, SyncCryptoError), Map[
@@ -335,7 +340,6 @@ trait SyncCryptoApi {
     AsymmetricEncrypted[M],
   ]]
 }
-// architecture-handbook-entry-end: SyncCryptoApi
 
 object Crypto {
 

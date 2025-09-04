@@ -121,7 +121,8 @@ class JsonDamlDefinitionsServiceTest
       }
     }
 
-    "validate the definitions in the golden DAR against the golden files" onlyRunWithOrGreaterThan ProtocolVersion.dev in httpTestFixture {
+    // TODO(#27652): re-enable after using DARs generated with SBT or non-dev dars
+    "validate the definitions in the golden DAR against the golden files" onlyRunWithOrGreaterThan ProtocolVersion.dev ignore httpTestFixture {
       fixture =>
         val darContent: ByteString =
           protobuf.ByteString.copyFrom(Files.readAllBytes(File(GoldenTestDar).path))

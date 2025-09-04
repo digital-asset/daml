@@ -540,6 +540,7 @@ object BaseTest {
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,
     requiredCryptoKeyFormats = SymbolicCryptoProvider.supportedCryptoKeyFormats,
     requiredSignatureFormats = SymbolicCryptoProvider.supportedSignatureFormats,
+    enableTransparencyChecks = false,
     protocolVersion = protocolVersion,
     serial = NonNegativeInt.zero,
   )

@@ -54,6 +54,7 @@ final case class StaticSynchronizerParameters(
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
     requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     requiredSignatureFormats: NonEmpty[Set[SignatureFormat]],
+    enableTransparencyChecks: Boolean,
     protocolVersion: ProtocolVersion,
     serial: NonNegativeInt,
 ) extends PrettyPrinting {
@@ -157,6 +158,7 @@ object StaticSynchronizerParameters {
       requiredSignatureFormatsP,
       protocolVersionP,
       serialP,
+      enableTransparencyChecks,
     ) = synchronizerParametersP
 
     for {
@@ -223,6 +225,7 @@ object StaticSynchronizerParameters {
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
         requiredSignatureFormats,
+        enableTransparencyChecks,
         protocolVersion,
         serial,
       )

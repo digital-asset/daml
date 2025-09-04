@@ -1,6 +1,6 @@
 # BFT Sequencers - Observability Example
 
-Observability example of a Canton BFT synchronizer configured with 4 BFT sequencers derived from the
+Observability example of a Canton BFT synchronizer configured with 4 BFT sequencers based on the
 [Daml Enterprise Observability Example](https://docs.daml.com/canton/usermanual/monitoring.html#hands-on-with-the-daml-enterprise-observability-example)
 in the official documentation.
 
@@ -226,7 +226,7 @@ Restart on changes: `docker compose restart grafana`
 #### Dashboards
 
 All dashboards (JSON files) are auto-loaded from directory
-[`grafana/dashboards/`](./grafana/dashboards)
+[`grafana/dashboards/`](grafana/dashboards)
 
 * Automatic: place your JSON files in the folder (loaded at startup, reloaded every 30 seconds)
 * Manual: create/edit via Grafana UI

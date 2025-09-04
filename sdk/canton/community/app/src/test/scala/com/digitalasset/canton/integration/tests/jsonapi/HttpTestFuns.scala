@@ -472,7 +472,7 @@ trait HttpTestFuns extends HttpJsonApiTestBase with HttpServiceUserFixture {
   private def cachedClientContext(config: TlsClientConfig): HttpsConnectionContext =
     this.clientConnectionContextMap.getOrElseUpdate(config, clientConnectionContext(config))
 
-  private def clientConnectionContext(config: TlsClientConfig): HttpsConnectionContext =
+  protected def clientConnectionContext(config: TlsClientConfig): HttpsConnectionContext =
     ConnectionContext.httpsClient(HttpService.buildSSLContext(config))
 
 }

@@ -22,6 +22,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{
   CryptoParseAndValidationError,
   DeserializationError,
+  DeterministicEncoding,
   ProtoConverter,
 }
 import com.digitalasset.canton.tracing.TraceContext
@@ -69,7 +70,7 @@ trait EncryptionOps {
   ): Either[EncryptionError, AsymmetricEncrypted[M]]
 
   /** Deterministically encrypts the given bytes using the given public key. This is unsafe for
-    * general use, and it's only used to encrypt the decryption key of each view
+    * general use, and it's only used to encrypt the decryption key of each view.
     */
   def encryptDeterministicWith[M <: HasToByteString](
       message: M,
@@ -205,6 +206,20 @@ final case class AsymmetricEncrypted[+M](
     encryptionAlgorithmSpec.toProtoEnum,
     fingerprint = encryptedFor.toProtoPrimitive,
   )
+
+  /** Computes a deterministic hash of this asymmetric-encrypted object, binding together:
+    *   - the ciphertext,
+    *   - the encryption algorithm used, and
+    *   - the fingerprint of the key used for encryption (`encryptedFor`).
+    */
+  private[canton] def computeHash(hashAlgorithm: HashAlgorithm): Hash =
+    HashBuilderFromMessageDigest
+      .apply(hashAlgorithm, HashPurpose.EncryptedSessionKey)
+      .add(ciphertext)
+      .add(DeterministicEncoding.encodeInt(encryptionAlgorithmSpec.toProtoEnum.value))
+      .add(DeterministicEncoding.encodeString(encryptedFor.toProtoPrimitive))
+      .finish()
+
 }
 
 object AsymmetricEncrypted extends HasVersionedMessageCompanion[AsymmetricEncrypted[?]] {

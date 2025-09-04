@@ -617,7 +617,9 @@ final class EnvWithFailingTokenRefresh(override val loggerFactory: SuppressingLo
     traceContext: TraceContext,
 ) extends Env(loggerFactory) {
   override lazy val authConfig =
-    AuthenticationTokenManagerConfig(pauseRetries = config.NonNegativeFiniteDuration.ofMillis(10))
+    AuthenticationTokenManagerConfig(minRetryInterval =
+      config.NonNegativeFiniteDuration.ofMillis(10)
+    )
 
   override lazy val authService = new SequencerAuthenticationService {
     override def challenge(
