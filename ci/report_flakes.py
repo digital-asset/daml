@@ -174,7 +174,7 @@ if __name__ == "__main__":
     print(f"^^^^ {test_name_map}")
     for test_name in failing_tests:
         print(f"Reporting {test_name}")
-        print(f"=== {test_name_map[test_name]} )
+        print(f"=== {test_name_map[test_name]}")
         #report_failed_test(branch, test_name)
         print_failed_test(branch, test_name)
     if failing_tests:
